@@ -1,15 +1,21 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Music2, LogOut, LayoutDashboard } from 'lucide-react';
-import { isAuthenticated, clearToken } from '@/lib/api';
+import { Music2, LogOut, LayoutDashboard, Shield } from 'lucide-react';
+import { isAuthenticated, clearToken, getCurrentUser } from '@/lib/api';
+import type { User } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) router.push('/login');
+    if (!isAuthenticated()) {
+      router.push('/login');
+      return;
+    }
+    getCurrentUser().then(setUser).catch(() => {});
   }, [router]);
 
   function handleLogout() {
@@ -28,28 +34,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <span className="text-base font-bold text-white">CueForge</span>
           </Link>
-
           <nav className="flex items-center gap-1">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-bg-elevated text-sm transition-all"
-            >
-              <LayoutDashboard size={15} /> Dashboard
+            <Link href="/dashboard" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-bg-elevated text-sm transition-all">
+              <LayoutDashboard size={15} />
+              Dashboard
             </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-bg-elevated text-sm transition-all"
-            >
-              <LogOut size={15} /> Déconnexion
+            {user?.is_admin && (
+              <Link href="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-purple-400 hover:text-purple-200 hover:bg-purple-900/30 text-sm transition-all">
+                <Shield size={15} />
+                Admin
+              </Link>
+            )}
+            <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-bg-elevated text-sm transition-all">
+              <LogOut size={15} />
+              Déconnexion
             </button>
           </nav>
         </div>
       </header>
-
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
         {children}
       </main>
     </div>
   );
 }
-
