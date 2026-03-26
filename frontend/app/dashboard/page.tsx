@@ -14,6 +14,7 @@ import {
   listTracks, deleteTrack, getTrack
 } from '@/lib/api';
 import type { Track, CuePoint } from '@/types';
+import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ const CONTEXT_ACTIONS: CtxAction[] = [
   { label: 'Clean Title (Maj/Min)', icon: <Type size={14} />, action: 'clean_title' },
   { label: 'Parser Remix', icon: <RefreshCw size={14} />, action: 'parse_remix' },
   { label: 'Fixer les tags ID3', icon: <Tag size={14} />, action: 'fix_tags', separator: true },
+  { label: 'Organiser (Cat\u00e9gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
   { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
   { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete' },
 ];
@@ -86,6 +88,7 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title'>('date');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
   const [metadataPanel, setMetadataPanel] = useState<Track | null>(null);
+  const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -297,6 +300,9 @@ export default function DashboardPage() {
       case 'detect_genre':
       case 'fix_tags':
         setMetadataPanel(track);
+        break;
+      case 'organize':
+        setOrganizerTrack(track);
         break;
       case 'clean_title':
         // TODO: call backend endpoint for title cleaning
@@ -656,6 +662,19 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── Track Organizer Panel (slide-in) ─────────────────────────── */}
+      {organizerTrack && (
+        <TrackOrganizer
+          track={organizerTrack}
+          onClose={() => setOrganizerTrack(null)}
+          onUpdate={(updated) => {
+            setOrganizerTrack(null);
+            setTracks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            if (selectedTrack?.id === updated.id) setSelectedTrack(updated);
+          }}
+        />
       )}
 
       {/* ── Metadata / Spotify Panel (slide-in) ──────────────────────── */}
