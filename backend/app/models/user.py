@@ -24,3 +24,4 @@ class User(Base):
     # Relationships
     tracks = relationship("Track", back_populates="user", cascade="all, delete-orphan")
     cue_rules = relationship("CueRule", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", uselist=False)
