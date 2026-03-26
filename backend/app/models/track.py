@@ -69,6 +69,15 @@ class Track(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # DJ organization (Rekordbox/Lexicon style)
+    category = Column(String(100), nullable=True)
+    tags = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=True)
+    color_code = Column(String(20), nullable=True)
+    comment = Column(Text, nullable=True)
+    energy_level = Column(Integer, nullable=True)
+    played_count = Column(Integer, default=0)
+
     # Relationships
     user = relationship("User", back_populates="tracks")
     analysis = relationship(
@@ -99,7 +108,9 @@ class TrackAnalysis(Base):
     phrase_positions = Column(JSON, default=list)
     beat_positions = Column(JSON, default=list)
     section_labels = Column(JSON, default=list)
-    analyzed_at = Column(DateTime, default=datetime.utcnow)
+    waveform_peaks = Column(JSON, nullable=True)
+    spectral_energy = Column(JSON, nullable=True)
+        analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 
 
@@ -114,7 +125,9 @@ class CuePoint(Base):
     name = Column(String(255), nullable=False)
     color = Column(String(50), default="red")
     number = Column(Integer, nullable=True)
-    track = relationship("Track", back_populates="cue_points")
+    cue_mode = Column(String(20), default="memory")
+    color_rgb = Column(String(30), nullable=True)
+        track = relationship("Track", back_populates="cue_points")
 
 
 class CueRule(Base):
