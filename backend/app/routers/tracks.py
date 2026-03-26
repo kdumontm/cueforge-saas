@@ -19,6 +19,8 @@ from app.services import audio_analysis as analysis_svc
 from app.services import cue_generator as cue_svc
 from app.services import storage as storage_svc
 from app.services import track_tools
+from app.routers.waveforms import extract_waveform_peaks
+from app.services.genre_detection import detect_genre_from_analysis
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -207,6 +209,35 @@ def _run_analysis(track_id: int):
                 db.add(cue)
         except Exception as e:
             logger.warning(f"Cue generation failed for track {track_id}: {e}")
+
+        # ── Step 2b: Waveform extraction ──────────────────────────────
+        try:
+            peaks, spectral = extract_waveform_peaks(file_path)
+            if peaks is not None and spectral is not None:
+                analysis.waveform_peaks = peaks
+                analysis.spectral_energy = spectral
+                db.flush()
+                logger.info(f"Waveform extracted for track {track_id}")
+        except Exception as e:
+            logger.warning(f"Waveform extraction failed for track {track_id}: {e}")
+
+        # ── Step 2c: Auto genre detection ─────────────────────────────
+        try:
+            spectral_data = None
+            if hasattr(analysis, 'spectral_energy') and analysis.spectral_energy:
+                spectral_data = analysis.spectral_energy
+            genre_result = detect_genre_from_analysis(
+                bpm=analysis_data.get("bpm"),
+                energy=analysis_data.get("energy"),
+                key=analysis_data.get("key"),
+                spectral_data=spectral_data,
+            )
+            if genre_result.get("best_guess") and genre_result["best_guess"] != "Unknown":
+                if not track.genre:
+                    track.genre = genre_result["best_guess"]
+                    logger.info(f"Auto-detected genre for track {track_id}: {track.genre}")
+        except Exception as e:
+            logger.warning(f"Genre detection failed for track {track_id}: {e}")
 
         # ── Step 3: Metadata lookup (non-critical) ──────────────────────
         try:
