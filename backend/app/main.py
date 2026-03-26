@@ -38,7 +38,7 @@ app.add_middleware(
 # Routers
 from app.routers import auth, tracks, cues, export, billing  # noqa: E402
 
-app.include_router(auth.router, pefix="/api/v1", tags=["auth"])
+app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
 app.include_router(cues.router, prefix="/api/v1/cues", tags=["cues"])
 app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
