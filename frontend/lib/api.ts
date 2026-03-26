@@ -1,155 +1,468 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('cueforge_token');
+// Types
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  subscription_plan: 'free' | 'pro' | 'unlimited';
+  is_admin: boolean;
+  tracks_today: number;
+  last_track_date: string | null;
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem('cueforge_token', token);
+export interface TrackResponse {
+  id: number;
+  user_id: number;
+  filename: string;
+  original_filename: string;
+  status: 'analyzing' | 'completed' | 'failed';
+  artist: string;
+  title: string;
+  album: string;
+  genre: string;
+  year: number | null;
+  artwork_url: string | null;
+  spotify_id: string | null;
+  spotify_url: string | null;
+  musicbrainz_id: string | null;
+  bpm: number | null;
+  energy: number | null;
+  key: string | null;
+  duration: number | null;
+  created_at: string;
+  updated_at?: string;
 }
 
-export function clearToken(): void {
-  localStorage.removeItem('cueforge_token');
+export interface TrackWithMetadata extends TrackResponse {
+  suggested_genre: string | null;
+  suggested_artist: string | null;
+  suggested_album: string | null;
+  suggested_year: number | null;
+  metadata_confidence: number;
+  cue_points?: CuePoint[];
 }
 
-export function isAuthenticated(): boolean {
-  return !!getToken();
+export interface CuePoint {
+  id: number;
+  track_id: number;
+  position_ms: number;
+  name: string;
+  type: number;
+  color_rgb: [number, number, number] | null;
+  comment: string | null;
+  created_at: string;
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> || {}),
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  if (!(options.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const err = await res.json();
-      message = err.detail || JSON.stringify(err);
-    } catch {}
-    throw new Error(message);
-  }
-
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) return res.json();
-  return res.blob() as unknown as T;
+export interface TrackListResponse {
+  total: number;
+  skip: number;
+  limit: number;
+  items: TrackResponse[];
 }
 
-// Auth
-export async function login(email: string, password: string) {
-  const data = await request<{ access_token: string; token_type: string; user: unknown }>(
-    '/api/v1/auth/login',
-    { method: 'POST', body: JSON.stringify({ email, password }) }
-  );
-  setToken(data.access_token);
-  return data;
+export interface MetadataUpdate {
+  artist?: string;
+  title?: string;
+  album?: string;
+  genre?: string;
+  year?: number;
 }
 
-export async function register(email: string, password: string) {
-  return request('/api/v1/auth/register', {
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+// Auth API
+export async function login(username: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Invalid username or password');
+  }
+
+  return response.json();
+}
+
+export async function register(
+  email: string,
+  password: string,
+  name: string   // Required username — used to log in
+): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Registration failed');
+  }
+
+  return response.json();
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
   });
 }
 
+export async function getCurrentUser(): Promise<User> {
+  const response = await fetch(`${API_URL}/auth/me`, {
+    credentials: 'include',
+  });
 
-export async function forgotPassword(email: string) {
-  return request('/api/v1/auth/forgot-password', {
+  if (!response.ok) {
+    throw new Error('Failed to fetch user');
+  }
+
+  return response.json();
+}
+
+export async function refreshToken(): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Token refresh failed');
+  }
+
+  return response.json();
+}
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
+
+  if (!response.ok) {
+    throw new Error('Password reset request failed');
+  }
+
+  return response.json();
 }
 
-export async function resetPassword(token: string, newPassword: string) {
-  return request('/api/v1/auth/reset-password', {
+export async function resetPassword(token: string, new_password: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_URL}/auth/reset-password`, {
     method: 'POST',
-    body: JSON.stringify({ token, new_password: newPassword }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password }),
   });
+
+  if (!response.ok) {
+    throw new Error('Password reset failed');
+  }
+
+  return response.json();
 }
 
-export async function getMe() {
-  return request('/api/v1/auth/me');
-}
-
-// Tracks
-export async function uploadTrack(file: File) {
-  const form = new FormData();
-  form.append('file', file);
-  return request<{ id: number; status: string; filename: string }>('/api/v1/tracks/upload', {
+// Tracks API - Multi-upload
+export async function uploadTracks(formData: FormData): Promise<TrackResponse[]> {
+  const response = await fetch(`${API_URL}/tracks/`, {
     method: 'POST',
-    body: form,
+    body: formData,
+    credentials: 'include',
   });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Upload failed');
+  }
+
+  return response.json();
 }
 
-export async function analyzeTrack(trackId: number) {
-  return request<{ status: string; message: string }>(`/api/v1/tracks/${trackId}/analyze`, {
-    method: 'POST',
-  });
-}
-
-export async function getTrack(trackId: number) {
-  return request<import('@/types').Track>(`/api/v1/tracks/${trackId}`);
-}
-
-export async function listTracks(page = 1, limit = 20) {
-  return request<{ tracks: import('@/types').Track[]; total: number; page: number; pages: number }>(
-    `/api/v1/tracks?page=${page}&limit=${limit}`
+// Tracks API - List
+export async function listTracks(
+  skip: number = 0,
+  limit: number = 20
+): Promise<TrackListResponse> {
+  const response = await fetch(
+    `${API_URL}/tracks/?skip=${skip}&limit=${limit}`,
+    {
+      credentials: 'include',
+    }
   );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch tracks');
+  }
+
+  return response.json();
 }
 
-export async function deleteTrack(trackId: number) {
-  return request(`/api/v1/tracks/${trackId}`, { method: 'DELETE' });
-}
-
-// Export
-export async function exportRekordbox(trackId: number): Promise<Blob> {
-  const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/export/${trackId}/rekordbox`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+// Tracks API - Get single track with metadata
+export async function getTrack(trackId: number): Promise<TrackWithMetadata> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+    credentials: 'include',
   });
-  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
-  return res.blob();
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch track');
+  }
+
+  return response.json();
 }
 
-// Polling helper
-export async function pollTrackUntilDone(
+// Tracks API - Update metadata (after user approval)
+export async function updateTrackMetadata(
   trackId: number,
-  onUpdate: (track: import('@/types').Track) => void,
-  intervalMs = 2000,
-  maxAttempts = 60
-): Promise<import('@/types').Track> {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(interval);
-        reject(new Error('Analysis timed out'));
-        return;
-      }
-      try {
-        const track = await getTrack(trackId);
-        onUpdate(track);
-        if (track.status === 'completed' || track.status === 'failed') {
-          clearInterval(interval);
-          resolve(track);
-        }
-      } catch (e) {
-        clearInterval(interval);
-        reject(e);
-      }
-    }, intervalMs);
+  metadata: MetadataUpdate
+): Promise<TrackResponse> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/metadata`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(metadata),
+    credentials: 'include',
   });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Metadata update failed');
+  }
+
+  return response.json();
 }
 
+// Tracks API - Update track info
+export async function updateTrack(
+  trackId: number,
+  updates: Partial<TrackResponse>
+): Promise<TrackResponse> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update track');
+  }
+
+  return response.json();
+}
+
+// Tracks API - Delete track
+export async function deleteTrack(trackId: number): Promise<void> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete track');
+  }
+}
+
+// Tracks API - Download track
+export async function downloadTrack(trackId: number): Promise<Blob> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/download`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to download track');
+  }
+
+  return response.blob();
+}
+
+// Export API - Rekordbox XML
+export async function exportRekordbox(trackId: number): Promise<Blob> {
+  const response = await fetch(`${API_URL}/export/${trackId}/rekordbox`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to export Rekordbox');
+  }
+
+  return response.blob();
+}
+
+// Export API - Serato tags
+export async function exportSerato(trackId: number): Promise<Blob> {
+  const response = await fetch(`${API_URL}/export/${trackId}/serato`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to export Serato');
+  }
+
+  return response.blob();
+}
+
+// Export API - JSON export
+export async function exportJSON(trackId: number): Promise<Blob> {
+  const response = await fetch(`${API_URL}/export/${trackId}/json`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to export JSON');
+  }
+
+  return response.blob();
+}
+
+// Export API - All formats as ZIP
+export async function exportAllFormats(trackId: number): Promise<Blob> {
+  const response = await fetch(`${API_URL}/export/${trackId}/all`, {
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to export all formats');
+  }
+
+  return response.blob();
+}
+
+// Helper function to download blob as file
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+// Cue Points API
+export async function createCuePoint(
+  trackId: number,
+  position_ms: number,
+  name?: string,
+  type?: number,
+  color_rgb?: [number, number, number],
+  comment?: string
+): Promise<CuePoint> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ position_ms, name, type, color_rgb, comment }),
+    credentials: 'include',
+  });
+  if (!response.ok) { throw new Error('Failed to create cue point'); }
+  return response.json();
+}
+
+export async function updateCuePoint(
+  trackId: number,
+  cuePointId: number,
+  updates: Partial<CuePoint>
+): Promise<CuePoint> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points/${cuePointId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+    credentials: 'include',
+  });
+  if (!response.ok) { throw new Error('Failed to update cue point'); }
+  return response.json();
+}
+
+export async function deleteCuePoint(trackId: number, cuePointId: number): Promise<void> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points/${cuePointId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) { throw new Error('Failed to delete cue point'); }
+}
+
+export async function parseErrorResponse(response: Response): Promise<string> {
+  try { const data = await response.json(); return data.detail || 'An error occurred'; }
+  catch { return 'An error occurred'; }
+}
+
+export function createUploadFormData(files: File[]): FormData {
+  const formData = new FormData();
+  files.forEach(file => { formData.append('files', file); });
+  return formData;
+}
+
+// ── Admin API ──────────────────────────────────────────────────────────────
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string | null;
+  subscription_plan: 'free' | 'pro' | 'unlimited';
+  is_admin: boolean;
+  tracks_today: number;
+  created_at: string;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  password: string;
+  name?: string;
+  subscription_plan?: 'free' | 'pro' | 'unlimited';
+  is_admin?: boolean;
+}
+
+export interface UpdateUserPayload {
+  email?: string;
+  name?: string;
+  password?: string;
+  subscription_plan?: 'free' | 'pro' | 'unlimited';
+  is_admin?: boolean;
+}
+
+export async function adminListUsers(skip = 0, limit = 100): Promise<AdminUser[]> {
+  const response = await fetch(`${API_URL}/admin/users?skip=${skip}&limit=${limit}`, { credentials: 'include' });
+  if (!response.ok) { throw new Error('Failed to list users'); }
+  return response.json();
+}
+
+export async function adminGetUser(userId: number): Promise<AdminUser> {
+  const response = await fetch(`${API_URL}/admin/users/${userId}`, { credentials: 'include' });
+  if (!response.ok) { throw new Error('Failed to get user'); }
+  return response.json();
+}
+
+export async function adminCreateUser(payload: CreateUserPayload): Promise<AdminUser> {
+  const response = await fetch(`${API_URL}/admin/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  });
+  if (!response.ok) { const e = await response.json(); throw new Error(e.detail || 'Failed to create user'); }
+  return response.json();
+}
+
+export async function adminUpdateUser(userId: number, payload: UpdateUserPayload): Promise<AdminUser> {
+  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  });
+  if (!response.ok) { const e = await response.json(); throw new Error(e.detail || 'Failed to update user'); }
+  return response.json();
+}
+
+export async function adminDeleteUser(userId: number): Promise<void> {
+  const response = await fetch(`${API_URL}/admin/users/${userId}`, { method: 'DELETE', credentials: 'include' });
+  if (!response.ok) { throw new Error('Failed to delete user'); }
+}
