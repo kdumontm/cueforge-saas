@@ -32,6 +32,24 @@ async def upload_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # ── Daily limit (free = 5 tracks/day) ───────────────────────────────────
+    from datetime import date, datetime as dt
+    FREE_DAILY_LIMIT = 5
+    if current_user.subscription_plan == "free":
+        today = date.today()
+        last = current_user.last_track_date
+        if last and last.date() == today:
+            if current_user.tracks_today >= FREE_DAILY_LIMIT:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Limite atteinte : {FREE_DAILY_LIMIT} morceaux/jour sur le plan gratuit."
+                )
+        else:
+            current_user.tracks_today = 0
+        current_user.tracks_today = (current_user.tracks_today or 0) + 1
+        current_user.last_track_date = dt.utcnow()
+        db.commit()
+
     # Validate extension
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
