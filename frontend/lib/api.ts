@@ -401,30 +401,12 @@ export interface MetadataUpdate {
   year?: number;
 }
 
-export interface TrackWithMetadata {
-  id: number;
-  filename: string;
-  original_filename: string;
-  status: string;
-  artist: string | null;
-  title: string | null;
-  album: string | null;
-  genre: string | null;
-  year: number | null;
-  artwork_url: string | null;
-  spotify_id: string | null;
-  spotify_url: string | null;
-  musicbrainz_id: string | null;
-  bpm: number | null;
-  energy: number | null;
-  key: string | null;
-  duration: number | null;
+export interface TrackWithMetadata extends TrackResponse {
   suggested_genre: string | null;
   suggested_artist: string | null;
   suggested_album: string | null;
   suggested_year: number | null;
   metadata_confidence: number;
-  created_at: string;
 }
 
 export async function updateTrackMetadata(
