@@ -2,7 +2,7 @@ from typing import Dict, List, Tuple
 from sqlalchemy.orm import Session
 
 from app.models import (
-    Track, TrackAnalysis, CuePoint, Rule, User, CUE_COLOR_RGB
+    Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
 )
 
 
@@ -227,10 +227,7 @@ def apply_rules_to_track(track_id: int, user_id: int, db: Session) -> None:
     max_cues = 64 if plan == "pro" else 8
 
     # Get active rules
-    rules = db.query(Rule).filter(
-        Rule.user_id == user_id,
-        Rule.enabled == True
-    ).all()
+    rules = db.query(CueRule).filter(CueRule.track_id == track_id, CueRule.is_active == True).all()
 
     # Generate cue points
     cue_points = []

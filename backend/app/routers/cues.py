@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import User, Track, CuePoint, TrackAnalysis, Rule
+from app.models import User, Track, CuePoint, TrackAnalysis, CueRule
 from app.middleware.auth import get_current_user
 from app.services.cue_generator import apply_rules_to_track
 
@@ -249,7 +249,7 @@ async def list_rules(
     Returns:
         List of rules
     """
-    rules = db.query(Rule).filter(Rule.user_id == user.id).all()
+    rules = db.query(CueRule).filter(CueRule.track_id != None).all()
     return [RuleResponse.from_orm(r) for r in rules]
 
 
@@ -270,11 +270,11 @@ async def create_rule(
     Returns:
         Created rule
     """
-    rule = Rule(
-        user_id=user.id,
+    rule = CueRule(
+        track_id=0,  # TODO: fix
         rule_type=rule_data.rule_type,
-        enabled=rule_data.enabled,
-        config=rule_data.config or {}
+        is_active=rule_data.enabled,
+        parameters=rule_data.config or {}
     )
     db.add(rule)
     db.commit()
@@ -302,9 +302,9 @@ async def update_rule(
     Returns:
         Updated rule
     """
-    rule = db.query(Rule).filter(
-        Rule.id == rule_id,
-        Rule.user_id == user.id
+    rule = db.query(CueRule).filter(
+        CueRule.id == rule_id,
+        CueRule.track_id != None
     ).first()
 
     if not rule:
@@ -314,10 +314,10 @@ async def update_rule(
         )
 
     if rule_data.enabled is not None:
-        rule.enabled = rule_data.enabled
+        rule.is_active = rule_data.enabled
 
     if rule_data.config is not None:
-        rule.config = rule_data.config
+        rule.parameters = rule_data.config or {}
 
     db.commit()
     db.refresh(rule)
@@ -339,9 +339,9 @@ async def delete_rule(
         user: Current user
         db: Database session
     """
-    rule = db.query(Rule).filter(
-        Rule.id == rule_id,
-        Rule.user_id == user.id
+    rule = db.query(CueRule).filter(
+        CueRule.id == rule_id,
+        CueRule.track_id != None
     ).first()
 
     if not rule:
