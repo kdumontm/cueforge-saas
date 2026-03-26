@@ -156,13 +156,13 @@ export default function MetadataApprovalModal({ track, isOpen, onClose, onSucces
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
             </div>
 
-            {(track.bpm || track.key || track.energy !== undefined) && (
+            {(track.bpm || track.key || track.energy != null) && (
               <div className="pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-medium text-gray-900 mb-3">Audio Characteristics</h3>
                 <div className="space-y-2">
                   {track.bpm && <div className="flex justify-between text-sm"><span className="text-gray-600">BPM</span><span className="font-medium">{Math.round(track.bpm)}</span></div>}
                   {track.key && <div className="flex justify-between text-sm"><span className="text-gray-600">Key (Camelot)</span><span className="font-medium">{track.key}</span></div>}
-                  {track.energy !== undefined && <div className="flex justify-between text-sm"><span className="text-gray-600">Energy</span><span className="font-medium">{Math.round(track.energy * 100)}%</span></div>}
+                  {track.energy != null && <div className="flex justify-between text-sm"><span className="text-gray-600">Energy</span><span className="font-medium">{Math.round(track.energy * 100)}%</span></div>}
                 </div>
               </div>
             )}
