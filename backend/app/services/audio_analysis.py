@@ -234,3 +234,75 @@ def analyze_track_background(track_id: int, db: Session) -> None:
             track.status = "error"
             db.commit()
         raise Exception(f"Background analysis failed: {str(e)}")
+
+
+
+def analyze_audio(file_path: str) -> Dict:
+    """
+    Full audio analysis pipeline.
+    Returns dict compatible with TrackAnalysis model fields.
+    """
+    y, sr_loaded = librosa.load(file_path, sr=SR)
+    duration_ms = int(len(y) / sr_loaded * 1000)
+
+    # BPM and beats
+    bpm_data = detect_bpm_and_beats(file_path)
+    bpm = bpm_data["bpm"]
+    beats = bpm_data["beats"]
+    beat_positions = [int(b * 1000) for b in beats]
+
+    # Key detection
+    try:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr_loaded)
+        key_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        key_idx = int(np.argmax(np.mean(chroma, axis=1)))
+        key = key_names[key_idx]
+    except Exception:
+        key = None
+
+    # Energy (mean RMS)
+    try:
+        rms = librosa.feature.rms(y=y)[0]
+        energy = round(float(np.mean(rms)), 4)
+    except Exception:
+        energy = None
+
+    # Drops
+    try:
+        drops = detect_drops(file_path, beats)
+        drop_positions = [int(d["time"] * 1000) for d in drops]
+    except Exception:
+        drop_positions = []
+
+    # Sections
+    try:
+        sections = detect_sections(file_path)
+        section_labels = [
+            {
+                "time_ms": int(s["time"] * 1000),
+                "label": s["label"],
+                "duration_ms": int(s["duration"] * 1000),
+            }
+            for s in sections
+        ]
+    except Exception:
+        section_labels = []
+
+    # Phrases
+    try:
+        phrases = detect_phrases(beats)
+        phrase_positions = [int(p["start_time"] * 1000) for p in phrases]
+    except Exception:
+        phrase_positions = []
+
+    return {
+        "bpm": bpm,
+        "bpm_confidence": None,
+        "key": key,
+        "energy": energy,
+        "duration_ms": duration_ms,
+        "drop_positions": drop_positions,
+        "phrase_positions": phrase_positions,
+        "beat_positions": beat_positions,
+        "section_labels": section_labels,
+    }
