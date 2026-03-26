@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Music2, LogOut, LayoutDashboard, Shield } from 'lucide-react';
+import { Music2, LogOut, LayoutDashboard, Shield, DollarSign, FileText, Settings } from 'lucide-react';
 import { isAuthenticated, clearToken, getCurrentUser } from '@/lib/api';
 import type { User } from '@/lib/api';
 
@@ -45,6 +45,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 Admin
               </Link>
             )}
+          <Link href="/pricing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <DollarSign size={15} />
+            Prix
+          </Link>
+          <Link href="/cgu" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <FileText size={15} />
+            CGU
+          </Link>
+          <Link href="/settings" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+            <Settings size={15} />
+            Paramètres
+          </Link>
             <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-bg-elevated text-sm transition-all">
               <LogOut size={15} />
               Déconnexion
