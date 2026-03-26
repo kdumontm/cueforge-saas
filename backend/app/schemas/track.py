@@ -61,6 +61,13 @@ class TrackResponse(BaseModel):
     genre: Optional[str] = None
     year: Optional[int] = None
     artwork_url: Optional[str] = None
+
+    # Remix / Featured artist
+    remix_artist: Optional[str] = None
+    remix_type: Optional[str] = None
+    feat_artist: Optional[str] = None
+
+    # External IDs
     spotify_id: Optional[str] = None
     spotify_url: Optional[str] = None
     musicbrainz_id: Optional[str] = None
@@ -87,4 +94,3 @@ class TrackUploadResponse(BaseModel):
 class AnalyzeResponse(BaseModel):
     status: str
     message: str
-
