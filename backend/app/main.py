@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, SessionLocal
 from app.models import user, track  # noqa: F401 — registers models with Base
+from app.models import site_settings  # noqa: F401 — registers PageConfig with Base
 from app.database import Base
 from app.config import get_settings
 from app.utils.migrations import run_migrations
@@ -31,6 +32,24 @@ def _ensure_admin_account():
         db.close()
 
 
+def _seed_default_pages():
+    """Seed default page configs if they don't exist yet."""
+    from app.models.site_settings import PageConfig, DEFAULT_PAGES
+
+    db = SessionLocal()
+    try:
+        for page_def in DEFAULT_PAGES:
+            existing = db.query(PageConfig).filter(
+                PageConfig.page_name == page_def["page_name"]
+            ).first()
+            if not existing:
+                page = PageConfig(**page_def)
+                db.add(page)
+        db.commit()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables for any new models
@@ -39,6 +58,8 @@ async def lifespan(app: FastAPI):
     run_migrations(engine)
     # Seed default admin account
     _ensure_admin_account()
+    # Seed default page configs
+    _seed_default_pages()
     yield
 
 
