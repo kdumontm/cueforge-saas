@@ -7,7 +7,7 @@ import { login } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
+      await login(username, password);
       router.push('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Connexion échouée');
@@ -32,7 +32,6 @@ export default function LoginPage() {
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-accent-purple opacity-10 blur-[100px] rounded-full" />
       </div>
-
       <div className="w-full max-w-md relative z-10 animate-slide-up">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -42,32 +41,31 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold text-white">CueForge</span>
           </Link>
-          <p className="text-slate-400 mt-3 text-sm">Bienvenue ! Connecte-toi pour continuer.</p>
+          <p className="text-slate-400 mt-3 text-sm">Bienvenue ! Connecte-toi pour continuer.</p>
         </div>
-
         {/* Card */}
         <div className="bg-bg-secondary border border-slate-800/60 rounded-2xl p-8">
           <h1 className="text-xl font-bold text-white mb-6">Connexion</h1>
-
           {error && (
             <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
               {error}
             </div>
           )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Nom d&apos;utilisateur
+              </label>
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="ton@email.com"
+                type="text"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="ton pseudo"
                 required
+                autoComplete="username"
                 className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Mot de passe</label>
               <div className="relative">
@@ -88,7 +86,6 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-
             <button
               type="submit"
               disabled={loading}
@@ -100,9 +97,8 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-
         <p className="text-center text-slate-500 text-sm mt-6">
-          Pas encore de compte ?{' '}
+          Pas encore de compte?{' '}
           <Link href="/register" className="text-accent-purple-light hover:text-accent-purple font-medium transition-colors">
             S&apos;inscrire gratuitement
           </Link>
@@ -111,4 +107,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
