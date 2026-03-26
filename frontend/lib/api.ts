@@ -48,10 +48,9 @@ async function request<T>(
 
 // Auth
 export async function login(email: string, password: string) {
-  const body = new URLSearchParams({ username: email, password });
-  const data = await request<{ access_token: string; token_type: string }>(
+  const data = await request<{ access_token: string; token_type: string; user: unknown }>(
     '/api/v1/auth/login',
-    { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    { method: 'POST', body: JSON.stringify({ email, password }) }
   );
   setToken(data.access_token);
   return data;
@@ -61,6 +60,21 @@ export async function register(email: string, password: string) {
   return request('/api/v1/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  });
+}
+
+
+export async function forgotPassword(email: string) {
+  return request('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  return request('/api/v1/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, new_password: newPassword }),
   });
 }
 

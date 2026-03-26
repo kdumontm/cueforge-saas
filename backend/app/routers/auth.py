@@ -121,3 +121,21 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
 async def delete_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
+
+@router.post("/setup-admin")
+async def setup_admin(
+    email: str,
+    secret: str,
+    db: Session = Depends(get_db)
+):
+    """Promote a user to admin. Protected by ADMIN_SETUP_KEY env var."""
+    import os
+    key = os.getenv("ADMIN_SETUP_KEY", "")
+    if not key or secret != key:
+        raise HTTPException(status_code=403, detail="Invalid setup key")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_admin = True
+    db.commit()
+    return {"message": f"{email} is now admin"}
