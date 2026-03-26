@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { uploadTracks } from '@/lib/api';
-import type { TrackResponse } from '@/lib/api';
+import type { TrackUploadResponse } from '@/lib/api';
 
 interface FileProgress {
   file: File;
@@ -12,7 +12,7 @@ interface FileProgress {
 }
 
 interface MultiUploadProps {
-  onSuccess?: (tracks: TrackResponse[]) => void;
+  onSuccess?: (tracks: TrackUploadResponse[]) => void;
   onError?: (error: string) => void;
 }
 
