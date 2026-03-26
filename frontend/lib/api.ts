@@ -1,5 +1,31 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
+// ── Token management ────────────────────────────────────────────────────────
+
+const TOKEN_KEY = 'cueforge_token';
+
+export function setToken(token: string): void {
+  if (typeof window !== 'undefined') localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getToken(): string | null {
+  if (typeof window !== 'undefined') return localStorage.getItem(TOKEN_KEY);
+  return null;
+}
+
+export function clearToken(): void {
+  if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
+}
+
+export function isAuthenticated(): boolean {
+  return !!getToken();
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // Types
 export interface User {
   id: number;
@@ -81,26 +107,26 @@ export async function login(username: string, password: string): Promise<AuthRes
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
-    credentials: 'include',
   });
 
   if (!response.ok) {
     throw new Error('Invalid username or password');
   }
 
-  return response.json();
+  const data: AuthResponse = await response.json();
+  setToken(data.access_token);
+  return data;
 }
 
 export async function register(
   email: string,
   password: string,
-  name: string   // Required username — used to log in
+  name: string
 ): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, name }),
-    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -108,19 +134,18 @@ export async function register(
     throw new Error(error.detail || 'Registration failed');
   }
 
-  return response.json();
+  const data: AuthResponse = await response.json();
+  setToken(data.access_token);
+  return data;
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_URL}/auth/logout`, {
-    method: 'POST',
-    credentials: 'include',
-  });
+  clearToken();
 }
 
 export async function getCurrentUser(): Promise<User> {
   const response = await fetch(`${API_URL}/auth/me`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -133,7 +158,7 @@ export async function getCurrentUser(): Promise<User> {
 export async function refreshToken(): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -175,8 +200,8 @@ export async function resetPassword(token: string, new_password: string): Promis
 export async function uploadTracks(formData: FormData): Promise<TrackResponse[]> {
   const response = await fetch(`${API_URL}/tracks/`, {
     method: 'POST',
+    headers: { ...authHeaders() },
     body: formData,
-    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -195,7 +220,7 @@ export async function listTracks(
   const response = await fetch(
     `${API_URL}/tracks/?skip=${skip}&limit=${limit}`,
     {
-      credentials: 'include',
+      headers: { ...authHeaders() },
     }
   );
 
@@ -209,7 +234,7 @@ export async function listTracks(
 // Tracks API - Get single track with metadata
 export async function getTrack(trackId: number): Promise<TrackWithMetadata> {
   const response = await fetch(`${API_URL}/tracks/${trackId}`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -219,16 +244,15 @@ export async function getTrack(trackId: number): Promise<TrackWithMetadata> {
   return response.json();
 }
 
-// Tracks API - Update metadata (after user approval)
+// Tracks API - Update metadata
 export async function updateTrackMetadata(
   trackId: number,
   metadata: MetadataUpdate
 ): Promise<TrackResponse> {
   const response = await fetch(`${API_URL}/tracks/${trackId}/metadata`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(metadata),
-    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -246,9 +270,8 @@ export async function updateTrack(
 ): Promise<TrackResponse> {
   const response = await fetch(`${API_URL}/tracks/${trackId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(updates),
-    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -262,7 +285,7 @@ export async function updateTrack(
 export async function deleteTrack(trackId: number): Promise<void> {
   const response = await fetch(`${API_URL}/tracks/${trackId}`, {
     method: 'DELETE',
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -273,7 +296,7 @@ export async function deleteTrack(trackId: number): Promise<void> {
 // Tracks API - Download track
 export async function downloadTrack(trackId: number): Promise<Blob> {
   const response = await fetch(`${API_URL}/tracks/${trackId}/download`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -286,7 +309,7 @@ export async function downloadTrack(trackId: number): Promise<Blob> {
 // Export API - Rekordbox XML
 export async function exportRekordbox(trackId: number): Promise<Blob> {
   const response = await fetch(`${API_URL}/export/${trackId}/rekordbox`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -299,7 +322,7 @@ export async function exportRekordbox(trackId: number): Promise<Blob> {
 // Export API - Serato tags
 export async function exportSerato(trackId: number): Promise<Blob> {
   const response = await fetch(`${API_URL}/export/${trackId}/serato`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -312,7 +335,7 @@ export async function exportSerato(trackId: number): Promise<Blob> {
 // Export API - JSON export
 export async function exportJSON(trackId: number): Promise<Blob> {
   const response = await fetch(`${API_URL}/export/${trackId}/json`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -325,7 +348,7 @@ export async function exportJSON(trackId: number): Promise<Blob> {
 // Export API - All formats as ZIP
 export async function exportAllFormats(trackId: number): Promise<Blob> {
   const response = await fetch(`${API_URL}/export/${trackId}/all`, {
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
 
   if (!response.ok) {
@@ -358,11 +381,14 @@ export async function createCuePoint(
 ): Promise<CuePoint> {
   const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ position_ms, name, type, color_rgb, comment }),
-    credentials: 'include',
   });
-  if (!response.ok) { throw new Error('Failed to create cue point'); }
+
+  if (!response.ok) {
+    throw new Error('Failed to create cue point');
+  }
+
   return response.json();
 }
 
@@ -373,30 +399,44 @@ export async function updateCuePoint(
 ): Promise<CuePoint> {
   const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points/${cuePointId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(updates),
-    credentials: 'include',
   });
-  if (!response.ok) { throw new Error('Failed to update cue point'); }
+
+  if (!response.ok) {
+    throw new Error('Failed to update cue point');
+  }
+
   return response.json();
 }
 
 export async function deleteCuePoint(trackId: number, cuePointId: number): Promise<void> {
   const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points/${cuePointId}`, {
     method: 'DELETE',
-    credentials: 'include',
+    headers: { ...authHeaders() },
   });
-  if (!response.ok) { throw new Error('Failed to delete cue point'); }
+
+  if (!response.ok) {
+    throw new Error('Failed to delete cue point');
+  }
 }
 
+// Utility: Parse error response
 export async function parseErrorResponse(response: Response): Promise<string> {
-  try { const data = await response.json(); return data.detail || 'An error occurred'; }
-  catch { return 'An error occurred'; }
+  try {
+    const data = await response.json();
+    return data.detail || 'An error occurred';
+  } catch {
+    return 'An error occurred';
+  }
 }
 
+// Utility: Create form data from file
 export function createUploadFormData(files: File[]): FormData {
   const formData = new FormData();
-  files.forEach(file => { formData.append('files', file); });
+  files.forEach(file => {
+    formData.append('files', file);
+  });
   return formData;
 }
 
@@ -429,40 +469,51 @@ export interface UpdateUserPayload {
 }
 
 export async function adminListUsers(skip = 0, limit = 100): Promise<AdminUser[]> {
-  const response = await fetch(`${API_URL}/admin/users?skip=${skip}&limit=${limit}`, { credentials: 'include' });
-  if (!response.ok) { throw new Error('Failed to list users'); }
+  const response = await fetch(`${API_URL}/admin/users?skip=${skip}&limit=${limit}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to list users');
   return response.json();
 }
 
 export async function adminGetUser(userId: number): Promise<AdminUser> {
-  const response = await fetch(`${API_URL}/admin/users/${userId}`, { credentials: 'include' });
-  if (!response.ok) { throw new Error('Failed to get user'); }
+  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to get user');
   return response.json();
 }
 
 export async function adminCreateUser(payload: CreateUserPayload): Promise<AdminUser> {
   const response = await fetch(`${API_URL}/admin/users`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
-    credentials: 'include',
   });
-  if (!response.ok) { const e = await response.json(); throw new Error(e.detail || 'Failed to create user'); }
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create user');
+  }
   return response.json();
 }
 
 export async function adminUpdateUser(userId: number, payload: UpdateUserPayload): Promise<AdminUser> {
   const response = await fetch(`${API_URL}/admin/users/${userId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
-    credentials: 'include',
   });
-  if (!response.ok) { const e = await response.json(); throw new Error(e.detail || 'Failed to update user'); }
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update user');
+  }
   return response.json();
 }
 
 export async function adminDeleteUser(userId: number): Promise<void> {
-  const response = await fetch(`${API_URL}/admin/users/${userId}`, { method: 'DELETE', credentials: 'include' });
-  if (!response.ok) { throw new Error('Failed to delete user'); }
+  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete user');
 }
