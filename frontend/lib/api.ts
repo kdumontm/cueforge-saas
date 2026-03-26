@@ -424,3 +424,90 @@ export async function updateTrackMetadata(
   }
   return response.json();
 }
+// ── DJ Tools API ────────────────────────────────────────────────────────────
+
+export function getAudioUrl(trackId: number): string {
+  return `${API_URL}/tracks/${trackId}/audio`;
+}
+
+export async function cleanTitle(trackId: number): Promise<{ status: string; title: string; artist?: string }> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/clean-title`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to clean title");
+  return response.json();
+}
+
+export async function parseRemix(trackId: number): Promise<{
+  status: string; clean_title: string; remix_artist?: string;
+  remix_type?: string; feat_artist?: string;
+}> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/parse-remix`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to parse remix");
+  return response.json();
+}
+
+export async function detectGenre(trackId: number): Promise<{
+  status: string; best_guess: string;
+  genres: Array<{ genre: string; confidence: number }>;
+}> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/detect-genre`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to detect genre");
+  return response.json();
+}
+
+export async function spotifyLookup(
+  trackId: number,
+  query?: string,
+  artist?: string
+): Promise<{ status: string; results: any[]; total: number }> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/spotify-lookup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ query, artist }),
+  });
+  if (!response.ok) throw new Error("Spotify lookup failed");
+  return response.json();
+}
+
+export interface SpotifyApplyData {
+  spotify_id: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+  year?: number;
+  artwork_url?: string;
+  spotify_url?: string;
+}
+
+export async function spotifyApply(
+  trackId: number,
+  data: SpotifyApplyData
+): Promise<{ status: string; track: Track }> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/spotify-apply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to apply Spotify data");
+  return response.json();
+}
+
+export async function fixTags(trackId: number): Promise<{
+  status: string; written?: Record<string, any>;
+}> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/fix-tags`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to fix tags");
+  return response.json();
+}
