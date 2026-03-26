@@ -366,3 +366,79 @@ export async function adminDeleteUser(userId: number): Promise<void> {
   });
   if (!response.ok) throw new Error('Failed to delete user');
 }
+
+
+// ── Types for existing components ───────────────────────────────────────────
+
+export interface TrackResponse {
+  id: number;
+  user_id: number;
+  filename: string;
+  original_filename: string;
+  status: string;
+  artist: string;
+  title: string;
+  album: string;
+  genre: string;
+  year: number | null;
+  artwork_url: string | null;
+  spotify_id: string | null;
+  spotify_url: string | null;
+  musicbrainz_id: string | null;
+  bpm: number | null;
+  energy: number | null;
+  key: string | null;
+  duration: number | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface MetadataUpdate {
+  artist?: string;
+  title?: string;
+  album?: string;
+  genre?: string;
+  year?: number;
+}
+
+export interface TrackWithMetadata {
+  id: number;
+  filename: string;
+  original_filename: string;
+  status: string;
+  artist: string | null;
+  title: string | null;
+  album: string | null;
+  genre: string | null;
+  year: number | null;
+  artwork_url: string | null;
+  spotify_id: string | null;
+  spotify_url: string | null;
+  musicbrainz_id: string | null;
+  bpm: number | null;
+  energy: number | null;
+  key: string | null;
+  duration: number | null;
+  suggested_genre: string | null;
+  suggested_artist: string | null;
+  suggested_album: string | null;
+  suggested_year: number | null;
+  metadata_confidence: number;
+  created_at: string;
+}
+
+export async function updateTrackMetadata(
+  trackId: number,
+  metadata: MetadataUpdate
+): Promise<TrackResponse> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/metadata`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(metadata),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Metadata update failed');
+  }
+  return response.json();
+}
