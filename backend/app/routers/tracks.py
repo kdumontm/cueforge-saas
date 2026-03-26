@@ -1,9 +1,12 @@
 import os
 import uuid
 import logging
+import mimetypes
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.track import Track, TrackStatus, TrackAnalysis, CuePoint
@@ -15,16 +18,27 @@ from app.middleware.auth import get_current_user
 from app.services import audio_analysis as analysis_svc
 from app.services import cue_generator as cue_svc
 from app.services import storage as storage_svc
+from app.services import track_tools
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".ogg", ".opus"}
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "200"))
 
+MIME_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".aiff": "audio/aiff",
+    ".aif": "audio/aiff",
+    ".m4a": "audio/mp4",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/opus",
+}
 
-# ── Upload ─────────────────────────────────────────────────────────────────────
+
+# ── Upload ───────────────────────────────────────────────────────────────────
 
 @router.post("/upload", response_model=TrackUploadResponse)
 async def upload_track(
@@ -32,17 +46,22 @@ async def upload_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # ── Daily limit (free = 5 tracks/day) ───────────────────────────────────
+    # ── Daily limit (free = 5 tracks/day) ───────────────────────────────
     from datetime import date, datetime as dt
     FREE_DAILY_LIMIT = 5
-    if current_user.subscription_plan == "free":
+    PRO_DAILY_LIMIT = 20
+
+    plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
+    daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
+
+    if plan != 'app':  # app = unlimited
         today = date.today()
         last = current_user.last_track_date
         if last and last.date() == today:
-            if current_user.tracks_today >= FREE_DAILY_LIMIT:
+            if (current_user.tracks_today or 0) >= daily_limit:
                 raise HTTPException(
                     status_code=429,
-                    detail=f"Limite atteinte : {FREE_DAILY_LIMIT} morceaux/jour sur le plan gratuit."
+                    detail=f"Limite atteinte : {daily_limit} morceaux/jour sur le plan {plan}."
                 )
         else:
             current_user.tracks_today = 0
@@ -89,7 +108,40 @@ async def upload_track(
     )
 
 
-# ── Analyze ────────────────────────────────────────────────────────────────────
+# ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
+
+@router.get("/{track_id}/audio")
+async def stream_audio(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stream audio file for waveform visualization."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found on disk")
+
+    ext = os.path.splitext(track.file_path)[1].lower()
+    content_type = MIME_TYPES.get(ext, "application/octet-stream")
+
+    return FileResponse(
+        path=track.file_path,
+        media_type=content_type,
+        filename=track.original_filename,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+        }
+    )
+
+
+# ── Analyze ──────────────────────────────────────────────────────────────────
 
 def _run_analysis(track_id: int):
     """Background task: run audio analysis + metadata lookup."""
@@ -107,7 +159,7 @@ def _run_analysis(track_id: int):
             db.commit()
             return
 
-        # ── Step 1: Audio analysis ────────────────────────────────────────────
+        # ── Step 1: Audio analysis ──────────────────────────────────────
         track.status = TrackStatus.analyzing
         db.commit()
 
@@ -136,7 +188,7 @@ def _run_analysis(track_id: int):
         db.add(analysis)
         db.flush()
 
-        # ── Step 2: Cue point generation ─────────────────────────────────────
+        # ── Step 2: Cue point generation ────────────────────────────────
         track.status = TrackStatus.generating_cues
         db.commit()
 
@@ -156,7 +208,7 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Cue generation failed for track {track_id}: {e}")
 
-        # ── Step 3: Metadata lookup (non-critical) ────────────────────────────
+        # ── Step 3: Metadata lookup (non-critical) ──────────────────────
         try:
             from app.services.metadata_service import get_track_metadata
             metadata = get_track_metadata(file_path)
@@ -164,14 +216,10 @@ def _run_analysis(track_id: int):
                 for key, value in metadata.items():
                     if hasattr(track, key) and value is not None:
                         setattr(track, key, value)
-                logger.info(
-                    f"Metadata for track {track_id}: "
-                    f"artist={metadata.get('artist')}, genre={metadata.get('genre')}"
-                )
         except Exception as e:
             logger.warning(f"Metadata lookup failed for track {track_id} (non-critical): {e}")
 
-        # ── Done ──────────────────────────────────────────────────────────────
+        # ── Done ────────────────────────────────────────────────────────
         track.status = TrackStatus.completed
         db.commit()
         logger.info(f"Track {track_id} analysis complete")
@@ -203,6 +251,7 @@ async def analyze_track(
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
+
     if track.status == TrackStatus.analyzing:
         raise HTTPException(status_code=409, detail="Analysis already in progress")
 
@@ -210,7 +259,7 @@ async def analyze_track(
     return AnalyzeResponse(status="started", message="Analysis started in background")
 
 
-# ── CRUD ───────────────────────────────────────────────────────────────────────
+# ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=TrackListResponse)
 def list_tracks(
@@ -276,3 +325,218 @@ def delete_track(
     db.commit()
     return {"status": "deleted", "track_id": track_id}
 
+
+# ── DJ Tools ─────────────────────────────────────────────────────────────────
+
+@router.post("/{track_id}/clean-title")
+def clean_title(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Clean and normalize track title."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    raw = track.title or track.original_filename or track.filename
+    result = track_tools.clean_title(raw)
+
+    track.title = result['title']
+    if result.get('artist') and not track.artist:
+        track.artist = result['artist']
+    db.commit()
+    db.refresh(track)
+
+    return {"status": "ok", "title": track.title, "artist": track.artist}
+
+
+@router.post("/{track_id}/parse-remix")
+def parse_remix(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Parse remix artist and featured artist from title."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    raw = track.title or track.original_filename or track.filename
+    result = track_tools.parse_remix(raw)
+
+    if result.get('clean_title'):
+        track.title = result['clean_title']
+    if result.get('remix_artist'):
+        track.remix_artist = result['remix_artist']
+    if result.get('remix_type'):
+        track.remix_type = result['remix_type']
+    if result.get('feat_artist'):
+        track.feat_artist = result['feat_artist']
+    db.commit()
+    db.refresh(track)
+
+    return {"status": "ok", **result}
+
+
+@router.post("/{track_id}/detect-genre")
+def detect_genre(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Detect genre from BPM/energy analysis."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis or not analysis.bpm:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    result = track_tools.detect_genre_from_analysis(
+        bpm=analysis.bpm,
+        energy=analysis.energy,
+        key=analysis.key,
+    )
+
+    # Auto-apply best guess
+    if result.get('best_guess') and result['best_guess'] != 'Unknown':
+        track.genre = result['best_guess']
+        db.commit()
+
+    return {"status": "ok", **result}
+
+
+class SpotifySearchBody(BaseModel):
+    query: Optional[str] = None
+    artist: Optional[str] = None
+
+
+@router.post("/{track_id}/spotify-lookup")
+def spotify_lookup(
+    track_id: int,
+    body: SpotifySearchBody = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Search Spotify for track metadata."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Build search query from track info or body override
+    search_query = (body and body.query) or track.title or track.original_filename
+    search_artist = (body and body.artist) or track.artist
+
+    result = track_tools.spotify_search(search_query, search_artist)
+
+    if not result:
+        return {"status": "not_found", "results": [], "total": 0}
+
+    if result.get('error'):
+        raise HTTPException(status_code=500, detail=result['error'])
+
+    return {"status": "ok", **result}
+
+
+class SpotifyApplyBody(BaseModel):
+    spotify_id: str
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    genre: Optional[str] = None
+    year: Optional[int] = None
+    artwork_url: Optional[str] = None
+    spotify_url: Optional[str] = None
+
+
+@router.post("/{track_id}/spotify-apply")
+def spotify_apply(
+    track_id: int,
+    body: SpotifyApplyBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Apply Spotify metadata to track (approve flow)."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if body.title:
+        track.title = body.title
+    if body.artist:
+        track.artist = body.artist
+    if body.album:
+        track.album = body.album
+    if body.genre:
+        track.genre = body.genre
+    if body.year:
+        track.year = body.year
+    if body.artwork_url:
+        track.artwork_url = body.artwork_url
+    if body.spotify_url:
+        track.spotify_url = body.spotify_url
+    track.spotify_id = body.spotify_id
+
+    db.commit()
+    db.refresh(track)
+
+    return {"status": "ok", "track": TrackResponse.model_validate(track)}
+
+
+@router.post("/{track_id}/fix-tags")
+def fix_tags(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Write current metadata back to the audio file ID3 tags."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    # Get analysis data for BPM/Key
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+
+    metadata = {}
+    if track.title:
+        metadata['title'] = track.title
+    if track.artist:
+        metadata['artist'] = track.artist
+    if track.album:
+        metadata['album'] = track.album
+    if track.genre:
+        metadata['genre'] = track.genre
+    if track.year:
+        metadata['year'] = track.year
+    if analysis:
+        if analysis.bpm:
+            metadata['bpm'] = str(int(analysis.bpm))
+        if analysis.key:
+            metadata['key'] = analysis.key
+
+    if not metadata:
+        return {"status": "skip", "message": "No metadata to write"}
+
+    result = track_tools.fix_id3_tags(track.file_path, metadata)
+
+    if result.get('error'):
+        raise HTTPException(status_code=500, detail=result['error'])
+
+    return {"status": "ok", "written": result.get('written', {})}
