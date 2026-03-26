@@ -1,12 +1,14 @@
 import enum
 from datetime import datetime
 from typing import Optional
+
 from sqlalchemy import (
-    Column, Integer, String, Float, Boolean,
-    DateTime, ForeignKey, Text, JSON
+    Column, Integer, String, Float, Boolean, DateTime,
+    ForeignKey, Text, JSON
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 
@@ -37,20 +39,29 @@ class Track(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_path = Column(String(512), nullable=True)
     file_size = Column(Integer, nullable=True)
+
     status = Column(SAEnum(TrackStatus), default=TrackStatus.pending, nullable=False)
     error_message = Column(Text, nullable=True)
 
-    # Music metadata (populated after analysis via AcoustID/MusicBrainz/Spotify/Last.fm)
+    # Music metadata
     artist = Column(String(255), nullable=True)
     title = Column(String(255), nullable=True)
     album = Column(String(255), nullable=True)
     genre = Column(String(255), nullable=True)
     year = Column(Integer, nullable=True)
     artwork_url = Column(Text, nullable=True)
+
+    # Remix / Featured artist (DJ-specific)
+    remix_artist = Column(String(255), nullable=True)
+    remix_type = Column(String(100), nullable=True)
+    feat_artist = Column(String(255), nullable=True)
+
+    # External IDs
     spotify_id = Column(String(255), nullable=True)
     spotify_url = Column(Text, nullable=True)
     musicbrainz_id = Column(String(255), nullable=True)
@@ -61,20 +72,15 @@ class Track(Base):
     # Relationships
     user = relationship("User", back_populates="tracks")
     analysis = relationship(
-        "TrackAnalysis",
-        back_populates="track",
-        uselist=False,
-        cascade="all, delete-orphan",
+        "TrackAnalysis", back_populates="track",
+        uselist=False, cascade="all, delete-orphan",
     )
     cue_points = relationship(
-        "CuePoint",
-        back_populates="track",
-        cascade="all, delete-orphan",
-        order_by="CuePoint.position_ms",
+        "CuePoint", back_populates="track",
+        cascade="all, delete-orphan", order_by="CuePoint.position_ms",
     )
     cue_rules = relationship(
-        "CueRule",
-        back_populates="track",
+        "CueRule", back_populates="track",
         cascade="all, delete-orphan",
     )
 
@@ -84,20 +90,16 @@ class TrackAnalysis(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
-
     bpm = Column(Float, nullable=True)
     bpm_confidence = Column(Float, nullable=True)
     key = Column(String(10), nullable=True)
     energy = Column(Float, nullable=True)
     duration_ms = Column(Integer, nullable=True)
-
     drop_positions = Column(JSON, default=list)
     phrase_positions = Column(JSON, default=list)
     beat_positions = Column(JSON, default=list)
     section_labels = Column(JSON, default=list)
-
     analyzed_at = Column(DateTime, default=datetime.utcnow)
-
     track = relationship("Track", back_populates="analysis")
 
 
@@ -106,14 +108,12 @@ class CuePoint(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
-
     position_ms = Column(Integer, nullable=False)
     end_position_ms = Column(Integer, nullable=True)
     cue_type = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
     color = Column(String(50), default="red")
     number = Column(Integer, nullable=True)
-
     track = relationship("Track", back_populates="cue_points")
 
 
@@ -125,6 +125,4 @@ class CueRule(Base):
     rule_type = Column(String(100), nullable=False)
     parameters = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
-
     track = relationship("Track", back_populates="cue_rules")
-
