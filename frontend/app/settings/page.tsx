@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("cueforge_token");
     if (!token) {
       router.push("/login");
       return;
@@ -58,9 +58,9 @@ export default function SettingsPage() {
 
       const updated = await updateMyProfile(updateData);
       setProfile(updated);
-      setMessage({ type: "success", text: "Profil mis à jour !" });
+      setMessage({ type: "success", text: "Profil mis Ã  jour !" });
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erreur lors de la mise à jour" });
+      setMessage({ type: "error", text: err.message || "Erreur lors de la mise Ã  jour" });
     } finally {
       setSaving(false);
     }
@@ -78,7 +78,7 @@ export default function SettingsPage() {
     }
 
     if (newPassword.length < 6) {
-      setMessage({ type: "error", text: "Le mot de passe doit contenir au moins 6 caractères" });
+      setMessage({ type: "error", text: "Le mot de passe doit contenir au moins 6 caractÃ¨res" });
       setSaving(false);
       return;
     }
@@ -91,7 +91,7 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setMessage({ type: "success", text: "Mot de passe modifié !" });
+      setMessage({ type: "success", text: "Mot de passe modifiÃ© !" });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Erreur lors du changement de mot de passe" });
     } finally {
@@ -100,9 +100,9 @@ export default function SettingsPage() {
   }
 
   const planLabels: Record<string, string> = {
-    free: "Free — 5 morceaux/jour",
-    pro: "Pro — 20 morceaux/jour",
-    unlimited: "App Desktop — Illimité",
+    free: "Free â 5 morceaux/jour",
+    pro: "Pro â 20 morceaux/jour",
+    unlimited: "App Desktop â IllimitÃ©",
   };
 
   if (loading) {
@@ -119,9 +119,9 @@ export default function SettingsPage() {
       <div className="border-b border-gray-800 bg-gray-900/50">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-white">
-            ← Dashboard
+            â Dashboard
           </button>
-          <h1 className="text-xl font-bold">Paramètres</h1>
+          <h1 className="text-xl font-bold">ParamÃ¨tres</h1>
         </div>
       </div>
 
