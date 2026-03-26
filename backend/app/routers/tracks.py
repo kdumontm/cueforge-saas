@@ -66,7 +66,7 @@ async def upload_track(
 
     # Save file
     filename = f"{uuid.uuid4()}{ext}"
-    file_path = storage_svc.save_file(content, filename)
+    file_path = storage_svc.save_upload(content, filename)
 
     # Create track record
     track = Track(
