@@ -44,7 +44,7 @@ export default function AdminPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("cueforge_token");
     if (!token) {
       router.push("/login");
       return;
@@ -134,7 +134,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-white">
-              ← Dashboard
+              â Dashboard
             </button>
             <h1 className="text-xl font-bold">Administration</h1>
           </div>
@@ -169,7 +169,7 @@ export default function AdminPage() {
         {error && (
           <div className="mt-4 bg-red-500/20 border border-red-500/50 text-red-300 px-4 py-2 rounded-lg">
             {error}
-            <button onClick={() => setError("")} className="ml-2 underline">×</button>
+            <button onClick={() => setError("")} className="ml-2 underline">Ã</button>
           </div>
         )}
       </div>
@@ -180,7 +180,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Gestion des pages</h2>
-              <p className="text-sm text-gray-400">Activez ou désactivez les pages du site</p>
+              <p className="text-sm text-gray-400">Activez ou dÃ©sactivez les pages du site</p>
             </div>
             <div className="grid gap-3">
               {pages.map((page) => (
@@ -279,7 +279,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">
-                    Créer
+                    CrÃ©er
                   </button>
                   <button type="button" onClick={() => setShowCreateUser(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
                     Annuler
@@ -305,7 +305,7 @@ export default function AdminPage() {
                   {users.map((user) => (
                     <tr key={user.id} className="border-b border-gray-800/50 hover:bg-gray-900/50">
                       <td className="py-3 pr-4 text-sm text-gray-400">{user.id}</td>
-                      <td className="py-3 pr-4 text-sm">{user.name || "—"}</td>
+                      <td className="py-3 pr-4 text-sm">{user.name || "â"}</td>
                       <td className="py-3 pr-4 text-sm text-gray-300">{user.email}</td>
                       <td className="py-3 pr-4">
                         <select
