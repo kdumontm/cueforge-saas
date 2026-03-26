@@ -253,3 +253,56 @@ def apply_rules_to_track(track_id: int, user_id: int, db: Session) -> None:
         db.add(cue)
 
     db.commit()
+
+
+
+def generate_cue_points(analysis_data: Dict) -> List[Dict]:
+    """
+    Generate cue points from analysis data dict.
+    Returns list of dicts compatible with CuePoint model.
+    Called from tracks router _run_analysis.
+    """
+    cue_points = []
+    number = 0
+
+    # Drop cue points (red)
+    for i, pos_ms in enumerate(analysis_data.get("drop_positions", [])):
+        if number >= 8:
+            break
+        cue_points.append({
+            "position_ms": pos_ms,
+            "end_position_ms": None,
+            "cue_type": "drop",
+            "name": f"DROP {i + 1}",
+            "color": "red",
+            "number": number,
+        })
+        number += 1
+
+    # Section cue points
+    color_map = {
+        "INTRO": "blue",
+        "BUILD": "green",
+        "DROP": "red",
+        "BREAKDOWN": "yellow",
+        "OUTRO": "purple",
+    }
+    for section in analysis_data.get("section_labels", []):
+        if number >= 8:
+            break
+        label = section.get("label", "SECTION")
+        cue_points.append({
+            "position_ms": section.get("time_ms", 0),
+            "end_position_ms": (
+                section.get("time_ms", 0) + section.get("duration_ms", 0)
+                if section.get("duration_ms")
+                else None
+            ),
+            "cue_type": "section",
+            "name": label,
+            "color": color_map.get(label, "white"),
+            "number": number,
+        })
+        number += 1
+
+    return cue_points
