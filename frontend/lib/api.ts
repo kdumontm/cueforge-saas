@@ -511,3 +511,74 @@ export async function fixTags(trackId: number): Promise<{
   if (!response.ok) throw new Error("Failed to fix tags");
   return response.json();
 }
+
+// ── Page Settings API ───────────────────────────────────────────────────────
+
+export interface PageConfig {
+  id: number;
+  page_name: string;
+  is_enabled: boolean;
+  label: string | null;
+}
+
+export async function getPublicPageSettings(): Promise<PageConfig[]> {
+  const response = await fetch(`${API_URL}/admin/settings/pages`);
+  if (!response.ok) throw new Error("Failed to fetch page settings");
+  return response.json();
+}
+
+export async function getAdminPages(): Promise<PageConfig[]> {
+  const response = await fetch(`${API_URL}/admin/pages`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to fetch admin pages");
+  return response.json();
+}
+
+export async function togglePage(pageName: string, isEnabled: boolean): Promise<PageConfig> {
+  const response = await fetch(`${API_URL}/admin/pages/${pageName}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ is_enabled: isEnabled }),
+  });
+  if (!response.ok) throw new Error("Failed to toggle page");
+  return response.json();
+}
+
+// ── User Settings API ───────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: number;
+  email: string;
+  name: string | null;
+  subscription_plan: string;
+  is_admin: boolean;
+}
+
+export async function getMyProfile(): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/admin/me`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error("Failed to fetch profile");
+  return response.json();
+}
+
+export interface UpdateProfileData {
+  name?: string;
+  email?: string;
+  current_password?: string;
+  new_password?: string;
+}
+
+export async function updateMyProfile(data: UpdateProfileData): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/admin/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Failed to update profile" }));
+    throw new Error(err.detail || "Failed to update profile");
+  }
+  return response.json();
+}
