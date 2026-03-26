@@ -36,6 +36,16 @@ export interface Track {
   original_filename: string;
   status: string;
   created_at: string;
+  // Metadata (populated after analysis)
+  artist?: string | null;
+  title?: string | null;
+  album?: string | null;
+  genre?: string | null;
+  year?: number | null;
+  artwork_url?: string | null;
+  spotify_id?: string | null;
+  spotify_url?: string | null;
+  musicbrainz_id?: string | null;
   analysis: TrackAnalysis | null;
   cue_points: CuePoint[];
 }
