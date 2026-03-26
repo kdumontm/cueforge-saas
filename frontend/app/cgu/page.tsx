@@ -1,9 +1,43 @@
 'use client';
 
-import { ArrowLeft, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { getPublicPageSettings } from '@/lib/api';
+
 
 export default function CGUPage() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getPublicPageSettings()
+      .then((pages) => {
+        const cgu = pages.find((p) => p.page_name === 'cgu');
+        setEnabled(cgu ? cgu.is_enabled : true);
+      })
+      .catch(() => setEnabled(true));
+  }, []);
+
+  if (enabled === null) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <p className="text-gray-400">Chargement...</p>
+      </div>
+    );
+  }
+
+  if (!enabled) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl font-bold">Page non disponible</h1>
+        <p className="text-gray-400">Cette page est temporairement désactivée.</p>
+        <Link href="/dashboard" className="text-purple-400 hover:text-purple-300 underline">
+          Retour au dashboard
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
@@ -142,4 +176,3 @@ export default function CGUPage() {
     </div>
   );
 }
-
