@@ -588,3 +588,120 @@ export const getAdminUsers = adminListUsers;
 export const createAdminUser = adminCreateUser;
 export const updateAdminUser = adminUpdateUser;
 export const deleteAdminUser = adminDeleteUser;
+
+
+// ── Organization API (Categories, Tags, Cue Modes) ──────────────────────────
+
+export async function updateTrackOrganization(
+  trackId: number,
+  data: {
+    category?: string | null;
+    tags?: string | null;
+    rating?: number | null;
+    color_code?: string | null;
+    comment?: string | null;
+    energy_level?: number | null;
+  }
+): Promise<any> {
+  const params = new URLSearchParams();
+  if (data.category !== undefined) params.set('category', data.category || '');
+  if (data.tags !== undefined) params.set('tags', data.tags || '');
+  if (data.rating !== undefined) params.set('rating', String(data.rating || ''));
+  if (data.color_code !== undefined) params.set('color_code', data.color_code || '');
+  if (data.comment !== undefined) params.set('comment', data.comment || '');
+  if (data.energy_level !== undefined) params.set('energy_level', String(data.energy_level || ''));
+  
+  const response = await fetch(`${API_URL}/tracks/${trackId}/metadata?${params.toString()}`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to update track organization');
+  return response.json();
+}
+
+export async function listCategories(): Promise<Record<string, number>> {
+  const response = await fetch(`${API_URL}/tracks/categories`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch categories');
+  return response.json();
+}
+
+export async function listTagCounts(): Promise<Record<string, number>> {
+  const response = await fetch(`${API_URL}/tracks/tags`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch tags');
+  return response.json();
+}
+
+export async function setCueMode(
+  cueId: number,
+  mode: 'memory' | 'hot'
+): Promise<{ cue_id: number; mode: string; position_ms: number; name: string }> {
+  const response = await fetch(`${API_URL}/cue-points/${cueId}/mode?mode=${mode}`, {
+    method: 'PUT',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to set cue mode');
+  return response.json();
+}
+
+export async function setCueColor(
+  cueId: number,
+  color: string
+): Promise<{ cue_id: number; color: string; color_rgb: string; position_ms: number; name: string }> {
+  const response = await fetch(`${API_URL}/cue-points/${cueId}/color?color=${encodeURIComponent(color)}`, {
+    method: 'PUT',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to set cue color');
+  return response.json();
+}
+
+export async function getTrackCuePoints(
+  trackId: number
+): Promise<Array<{
+  id: number;
+  track_id: number;
+  position_ms: number;
+  end_position_ms: number | null;
+  cue_type: string;
+  name: string;
+  color: string;
+  color_rgb: string | null;
+  cue_mode: string;
+  number: number | null;
+}>> {
+  const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch cue points');
+  return response.json();
+}
+
+export async function getWaveformData(
+  trackId: number
+): Promise<{
+  track_id: number;
+  waveform_peaks: number[];
+  spectral_energy: { low_energy: number; mid_energy: number; high_energy: number };
+  generated_at: string | null;
+}> {
+  const response = await fetch(`${API_URL}/waveforms/${trackId}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Waveform data not available');
+  return response.json();
+}
+
+export async function generateWaveform(
+  trackId: number
+): Promise<{ status: string; message: string; track_id: number }> {
+  const response = await fetch(`${API_URL}/waveforms/${trackId}/generate`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to generate waveform');
+  return response.json();
+}
