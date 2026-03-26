@@ -582,3 +582,9 @@ export async function updateMyProfile(data: UpdateProfileData): Promise<UserProf
   }
   return response.json();
 }
+
+// Aliases for admin page compatibility
+export const getAdminUsers = adminListUsers;
+export const createAdminUser = adminCreateUser;
+export const updateAdminUser = adminUpdateUser;
+export const deleteAdminUser = adminDeleteUser;
