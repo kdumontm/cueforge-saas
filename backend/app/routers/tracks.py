@@ -48,15 +48,19 @@ async def upload_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # ── Daily limit (free = 5 tracks/day) ───────────────────────────────
+    # ── Daily limit (free=5/day, pro=20/day, unlimited/app/admin=no limit) ──
     from datetime import date, datetime as dt
     FREE_DAILY_LIMIT = 5
     PRO_DAILY_LIMIT = 20
 
     plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
-    daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
+    is_admin = getattr(current_user, 'is_admin', False)
 
-    if plan != 'app':  # app = unlimited
+    # Determine if user has unlimited access
+    is_unlimited = is_admin or plan in ('app', 'unlimited')
+
+    if not is_unlimited:
+        daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
         today = date.today()
         last = current_user.last_track_date
         if last and last.date() == today:
