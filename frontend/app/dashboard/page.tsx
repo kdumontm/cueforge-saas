@@ -2,14 +2,111 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  Upload, Music2, Loader2, CheckCircle2, XCircle, Download,
-  Trash2, Clock, Activity, Hash, Disc3, ChevronDown, ChevronUp,
-  ExternalLink, User, Tag, Calendar, AlbumIcon, Play, Pause,
-  SkipBack, SkipForward, Volume2, VolumeX, Search, MoreVertical,
-  Zap, Wand2, Type, Disc, RefreshCw, Star, Filter, Grid3X3,
-  List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
+  Upload, Music2, Loader2, CheckCircle2, XCircle, Download, Trash2, Clock,
+  Activity, Hash, Disc3, ChevronDown, ChevronUp, ExternalLink, User, Tag,
+  Calendar, AlbumIcon, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
+  Search, MoreVertical, Zap, Wand2, Type, Disc, RefreshCw, Star, Filter,
+  Grid3X3, List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
   ZoomIn, ZoomOut
-} from 'lucide-react';    const WaveSurfer = (await import('wavesurfer.js')).default;
+} from 'lucide-react';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack } from '@/lib/api';
+import type { Track, CuePoint } from '@/types';
+import TrackOrganizer from '@/components/TrackOrganizer';
+import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
+
+// ââ Constants âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const CAMELOT_WHEEL: Record<string, string> = {
+  'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
+  'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
+  'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A',
+  'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A',
+  'C#': '3B', 'D#m': '2A', 'G#': '4B', 'A#': '6B', 'D#': '5B',
+};
+
+function toCamelot(key: string | null | undefined): string {
+  if (!key) return 'â';
+  return CAMELOT_WHEEL[key] || key;
+}
+
+function msToTime(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function energyToRating(energy: number | null | undefined): string {
+  if (energy == null) return 'â';
+  return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
+}
+
+const CUE_TYPE_COLORS: Record<string, string> = {
+  hot_cue: '#e11d48', loop: '#0891b2', fade_in: '#16a34a', fade_out: '#ea580c',
+  load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
+};
+
+// ââ Context Menu Actions ââââââââââââââââââââââââââââââââââââââââââââââââââ
+interface CtxAction { label: string; icon: React.ReactNode; action: string; separator?: boolean; }
+
+const CONTEXT_ACTIONS: CtxAction[] = [
+  { label: 'Analyser le morceau', icon: <Zap size={14} />, action: 'analyze' },
+  { label: 'GÃ©nÃ©rer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points' },
+  { label: 'DÃ©tecter le genre', icon: <Search size={14} />, action: 'detect_genre' },
+  { label: 'Recherche Spotify / Metadata', icon: <Music size={14} />, action: 'spotify_lookup', separator: true },
+  { label: 'Clean Title (Maj/Min)', icon: <Type size={14} />, action: 'clean_title' },
+  { label: 'Parser Remix', icon: <RefreshCw size={14} />, action: 'parse_remix' },
+  { label: 'Fixer les tags ID3', icon: <Tag size={14} />, action: 'fix_tags', separator: true },
+  { label: 'Organiser (CatÃ©gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
+  { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
+  { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete' },
+];
+
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// MAIN DASHBOARD
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+export default function DashboardPage() {
+  // ââ State âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.8);
+  const [muted, setMuted] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [error, setError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title'>('date');
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
+  const [metadataPanel, setMetadataPanel] = useState<Track | null>(null);
+  const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  const waveformRef = useRef<HTMLDivElement>(null);
+  const wavesurferRef = useRef<any>(null);
+  const regionsRef = useRef<any>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // ââ Load tracks on mount ââââââââââââââââââââââââââââââââââââââââââââââ
+  useEffect(() => { loadTracks(); }, []);
+
+  async function loadTracks() {
+    try {
+      const data = await listTracks(1, 100);
+      setTracks(data.tracks);
+    } catch {}
+  }
+
+  // ââ Wavesurfer init âââââââââââââââââââââââââââââââââââââââââââââââââââ
+  useEffect(() => {
+    if (typeof window === 'undefined' || !waveformRef.current) return;
+    let ws: any = null;
+
+    async function initWavesurfer() {
+      const WaveSurfer = (await import('wavesurfer.js')).default;
       const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.esm.js')).default;
 
       const regions = RegionsPlugin.create();
@@ -39,6 +136,7 @@ import {
       ws.on('pause', () => setIsPlaying(false));
       ws.on('timeupdate', (t: number) => setCurrentTime(t));
       ws.on('ready', () => setDuration(ws.getDuration()));
+
       wavesurferRef.current = ws;
     }
 
@@ -58,7 +156,6 @@ import {
     }
     setZoomLevel(newZoom);
     ws.zoom(newZoom);
-    // Enable scrolling when zoomed in, hide when full overview
     if (newZoom > 1) {
       ws.options.autoScroll = true;
       ws.options.autoCenter = true;
@@ -78,18 +175,15 @@ import {
     setZoomLevel(1);
     ws.zoom(1);
 
-    // Build audio URL from backend
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
     const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?token=${authToken}`;
 
     ws.load(audioUrl);
-
     ws.once('decode', () => {
       if (!regions) return;
       regions.clearRegions();
 
-      // Add cue points as markers
       selectedTrack.cue_points?.forEach((cue: CuePoint, i: number) => {
         const color = CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb';
         if (cue.end_position_ms) {
@@ -110,7 +204,6 @@ import {
         }
       });
 
-      // Add drop markers
       selectedTrack.analysis?.drop_positions?.forEach((ms: number, i: number) => {
         regions.addRegion({
           start: ms / 1000,
@@ -122,16 +215,23 @@ import {
   }, [selectedTrack]);
 
   // ââ Player controls âââââââââââââââââââââââââââââââââââââââââââââââââââ
-  function togglePlay() { if (!wavesurferRef.current) return; wavesurferRef.current.playPause(); }
-  function skipBack() { if (!wavesurferRef.current) return; wavesurferRef.current.skip(-5); }
-  function skipForward() { if (!wavesurferRef.current) return; wavesurferRef.current.skip(5); }
-
+  function togglePlay() {
+    if (!wavesurferRef.current) return;
+    wavesurferRef.current.playPause();
+  }
+  function skipBack() {
+    if (!wavesurferRef.current) return;
+    wavesurferRef.current.skip(-5);
+  }
+  function skipForward() {
+    if (!wavesurferRef.current) return;
+    wavesurferRef.current.skip(5);
+  }
   function handleVolume(v: number) {
     setVolume(v);
     setMuted(v === 0);
     if (wavesurferRef.current) wavesurferRef.current.setVolume(v);
   }
-
   function toggleMute() {
     const next = !muted;
     setMuted(next);
@@ -149,7 +249,6 @@ import {
       setError('');
       setUploading(true);
       setProgress(`Upload: ${file.name}...`);
-
       try {
         const uploaded = await uploadTrack(file);
         setProgress(`Analyse: ${file.name}...`);
@@ -197,7 +296,6 @@ import {
         setAnalyzing(false);
         setProgress('');
         break;
-
       case 'cue_points':
         setAnalyzing(true);
         setProgress('GÃ©nÃ©ration des cue points...');
@@ -210,24 +308,18 @@ import {
         setAnalyzing(false);
         setProgress('');
         break;
-
       case 'spotify_lookup':
       case 'detect_genre':
       case 'fix_tags':
         setMetadataPanel(track);
         break;
-
       case 'organize':
         setOrganizerTrack(track);
         break;
-
       case 'clean_title':
-        // TODO: call backend endpoint for title cleaning
         break;
       case 'parse_remix':
-        // TODO: call backend endpoint for remix parsing
         break;
-
       case 'export_rekordbox':
         try {
           const blob = await exportRekordbox(track.id);
@@ -239,7 +331,6 @@ import {
           URL.revokeObjectURL(url);
         } catch {}
         break;
-
       case 'delete':
         if (!confirm('Supprimer ce morceau ?')) return;
         try {
@@ -275,7 +366,7 @@ import {
   const isLoading = uploading || analyzing;
 
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  //  RENDER
+  // RENDER
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
@@ -362,16 +453,13 @@ import {
                 <button onClick={skipBack} className="p-1.5 text-slate-400 hover:text-white transition-colors">
                   <SkipBack size={16} />
                 </button>
-                <button onClick={togglePlay}
-                  className="w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white transition-all"
-                >
+                <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white transition-all">
                   {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
                 </button>
                 <button onClick={skipForward} className="p-1.5 text-slate-400 hover:text-white transition-colors">
                   <SkipForward size={16} />
                 </button>
               </div>
-
               {/* Cue point badges */}
               <div className="flex items-center gap-1 overflow-x-auto max-w-[50%]">
                 {selectedTrack.cue_points?.map((cue, i) => (
@@ -388,7 +476,7 @@ import {
                       color: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb',
                       border: `1px solid ${(CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb')}40`,
                     }}
-                    title={`${cue.name} â ${msToTime(cue.position_ms)}`}
+                    title={`${cue.name} â ${msToTime(cue.position_ms)}`}
                   >
                     <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black"
                       style={{ backgroundColor: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb', color: '#fff' }}>
@@ -398,18 +486,13 @@ import {
                   </button>
                 ))}
               </div>
-
               {/* Volume */}
               <div className="flex items-center gap-2">
                 <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
                   {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </button>
-                <input
-                  type="range" min={0} max={1} step={0.01}
-                  value={muted ? 0 : volume}
-                  onChange={e => handleVolume(parseFloat(e.target.value))}
-                  className="w-20 accent-blue-500"
-                />
+                <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
+                  onChange={e => handleVolume(parseFloat(e.target.value))} className="w-20 accent-blue-500" />
               </div>
             </div>
           </>
@@ -420,7 +503,7 @@ import {
         )}
       </div>
 
-      {/* ââ MIDDLE: Drop zone + Search bar âââââââââââââââââââââââ */}
+      {/* ââ MIDDLE: Drop zone + Search bar âââââââââââââââââââââ */}
       <div
         className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -439,16 +522,13 @@ import {
           onChange={e => e.target.files && handleFiles(e.target.files)} />
         {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">DÃ©pose tes fichiers ici...</span>}
         <div className="flex-1" />
-
         {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input type="text" placeholder="Rechercher..."
-            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-48"
-          />
+          <input type="text" placeholder="Rechercher..." value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-8 pr-3 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-48" />
         </div>
-
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
           className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-300 focus:outline-none">
@@ -491,7 +571,6 @@ import {
             const isActive = selectedTrack?.id === track.id;
             const statusDot = track.status === 'completed' ? 'bg-green-400'
               : track.status === 'failed' ? 'bg-red-400' : 'bg-yellow-400';
-
             return (
               <div
                 key={track.id}
@@ -514,36 +593,30 @@ import {
                       {track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
-                      {track.artist || 'â'}
+                      {track.artist || 'â'}
                     </p>
                   </div>
                 </div>
-
                 {/* Genre */}
                 <span className="text-xs text-slate-400 truncate">
-                  {track.genre?.split(',')[0]?.trim() || 'â'}
+                  {track.genre?.split(',')[0]?.trim() || 'â'}
                 </span>
-
                 {/* BPM */}
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
-                  {a?.bpm ? a.bpm.toFixed(1) : 'â'}
+                  {a?.bpm ? a.bpm.toFixed(1) : 'â'}
                 </span>
-
                 {/* Key (Camelot) */}
                 <span className="text-xs text-cyan-400 font-mono text-center font-bold">
                   {toCamelot(a?.key)}
                 </span>
-
                 {/* Energy */}
                 <span className="text-xs text-yellow-400 font-mono text-center font-bold">
                   {energyToRating(a?.energy)}
                 </span>
-
                 {/* Duration */}
                 <span className="text-xs text-slate-500 font-mono text-center">
-                  {a?.duration_ms ? msToTime(a.duration_ms) : 'â'}
+                  {a?.duration_ms ? msToTime(a.duration_ms) : 'â'}
                 </span>
-
                 {/* Actions */}
                 <button
                   onClick={e => { e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
@@ -557,7 +630,7 @@ import {
         )}
       </div>
 
-      {/* ââ Context Menu (right-click) âââââââââââââââââââââââââââ */}
+      {/* ââ Context Menu (right-click) âââââââââââââââââââââââââ */}
       {ctxMenu && (
         <div
           className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[220px] animate-fade-in"
@@ -585,7 +658,7 @@ import {
         </div>
       )}
 
-      {/* ââ Track Organizer Panel (slide-in) âââââââââââââââââââââ */}
+      {/* ââ Track Organizer Panel (slide-in) âââââââââââââââââââ */}
       {organizerTrack && (
         <TrackOrganizer
           track={organizerTrack}
@@ -598,7 +671,7 @@ import {
         />
       )}
 
-      {/* ââ Metadata / Spotify Panel (slide-in) ââââââââââââââââââ */}
+      {/* ââ Metadata / Spotify Panel (slide-in) ââââââââââââââââ */}
       {metadataPanel && (
         <div className="fixed inset-y-0 right-0 w-96 bg-bg-secondary border-l border-slate-800/60 z-40 shadow-2xl animate-slide-in overflow-y-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/40">
@@ -611,20 +684,17 @@ import {
             </button>
           </div>
           <div className="p-4 space-y-4">
-            {/* Current info */}
             <div>
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Infos actuelles</p>
               <div className="space-y-2 text-xs">
                 <InfoRow label="Fichier" value={metadataPanel.original_filename} />
-                <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} />
-                <InfoRow label="Titre" value={metadataPanel.title || 'â'} />
-                <InfoRow label="Album" value={metadataPanel.album || 'â'} />
-                <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
-                <InfoRow label="AnnÃ©e" value={metadataPanel.year?.toString() || 'â'} />
+                <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} />
+                <InfoRow label="Titre" value={metadataPanel.title || 'â'} />
+                <InfoRow label="Album" value={metadataPanel.album || 'â'} />
+                <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
+                <InfoRow label="AnnÃ©e" value={metadataPanel.year?.toString() || 'â'} />
               </div>
             </div>
-
-            {/* Spotify results */}
             <div>
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">RÃ©sultats Spotify</p>
               {metadataPanel.spotify_url ? (
@@ -632,10 +702,10 @@ import {
                   {metadataPanel.artwork_url && (
                     <img src={metadataPanel.artwork_url} alt="" className="w-full h-40 object-cover rounded-lg" />
                   )}
-                  <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} highlight />
-                  <InfoRow label="Titre" value={metadataPanel.title || 'â'} highlight />
-                  <InfoRow label="Album" value={metadataPanel.album || 'â'} />
-                  <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
+                  <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} highlight />
+                  <InfoRow label="Titre" value={metadataPanel.title || 'â'} highlight />
+                  <InfoRow label="Album" value={metadataPanel.album || 'â'} />
+                  <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
                   {metadataPanel.spotify_url && (
                     <a href={metadataPanel.spotify_url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs mt-2">
@@ -655,7 +725,8 @@ import {
                 <div className="text-center py-6">
                   <p className="text-slate-500 text-xs mb-3">Aucune donnÃ©e Spotify trouvÃ©e</p>
                   <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-all">
-                    <Search size={12} className="inline mr-1.5" /> Lancer la recherche
+                    <Search size={12} className="inline mr-1.5" />
+                    Lancer la recherche
                   </button>
                 </div>
               )}
