@@ -636,6 +636,18 @@ export default function DashboardPage() {
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   // Computed: filtered + sorted tracks
+  const resetEq = () => { setEqLow(50); setEqMid(50); setEqHigh(50); };
+  const createPlaylist = () => {
+    if (!newPlaylistName.trim()) return;
+    var name = newPlaylistName.trim();
+    var next = Object.assign({}, playlists);
+    next[name] = [];
+    setPlaylists(next);
+    setCurrentPlaylist(name);
+    setNewPlaylistName('');
+  };
+  const fxList = ['Reverb', 'Delay', 'Echo', 'Flanger', 'Phaser', 'Filter'];
+
   const filteredTracks = filtered.filter(t => {
     const bpm = t.analysis?.bpm || 0;
     if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
@@ -1395,6 +1407,33 @@ export default function DashboardPage() {
 
               {/* Search button if no suggestions yet */}
               {!metadataSuggestions && !metadataLoading && (
+                    {/* EQ 3-Band Controls */}
+                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
+                        </h3>
+                        <button onClick={resetEq} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">Reset</button>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-red-400 w-10">LOW</span>
+                          <input type="range" min={0} max={100} value={eqLow} onChange={(e) => setEqLow(Number(e.target.value))} className="flex-1 accent-red-500" />
+                          <span className="text-xs text-gray-300 w-8">{eqLow}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-yellow-400 w-10">MID</span>
+                          <input type="range" min={0} max={100} value={eqMid} onChange={(e) => setEqMid(Number(e.target.value))} className="flex-1 accent-yellow-500" />
+                          <span className="text-xs text-gray-300 w-8">{eqMid}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-blue-400 w-10">HIGH</span>
+                          <input type="range" min={0} max={100} value={eqHigh} onChange={(e) => setEqHigh(Number(e.target.value))} className="flex-1 accent-blue-500" />
+                          <span className="text-xs text-gray-300 w-8">{eqHigh}%</span>
+                        </div>
+                      </div>
+                    </div>
+
                 <div className="text-center py-4">
                   <button
                     onClick={() => launchSpotifySearch(metadataPanel)}
