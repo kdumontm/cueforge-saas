@@ -115,13 +115,32 @@ async def upload_track(
 @router.get("/{track_id}/audio")
 async def stream_audio(
     track_id: int,
+    token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Stream audio file for waveform visualization."""
+    """Stream audio file for waveform visualization.
+    Accepts auth via ?token= query param (used by WaveSurfer.js).
+    """
+    from app.services.auth_service import decode_access_token
+    from jose import JWTError
+
+    user = None
+    if token:
+        try:
+            payload = decode_access_token(token)
+            if payload:
+                user_id = payload.get("sub")
+                if user_id:
+                    user = db.query(User).filter(User.id == user_id).first()
+        except (JWTError, Exception):
+            pass
+
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid or missing token")
+
     track = db.query(Track).filter(
         Track.id == track_id,
-        Track.user_id == current_user.id,
+        Track.user_id == user.id,
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
