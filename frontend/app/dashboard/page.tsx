@@ -205,6 +205,21 @@ export default function DashboardPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+  const [eqLow, setEqLow] = useState<number>(50);
+  const [eqMid, setEqMid] = useState<number>(50);
+  const [eqHigh, setEqHigh] = useState<number>(50);
+  const [activeFx, setActiveFx] = useState<string>('');
+  const [fxWet, setFxWet] = useState<number>(30);
+  const [crossfader, setCrossfader] = useState<number>(50);
+  const [playlists, setPlaylists] = useState<Record<string, number[]>>({});
+  const [currentPlaylist, setCurrentPlaylist] = useState<string>('');
+  const [newPlaylistName, setNewPlaylistName] = useState<string>('');
+  const [showPlaylistPanel, setShowPlaylistPanel] = useState(false);
+  const [djHistory, setDjHistory] = useState<Array<{id: number; title: string; time: string; bpm: number; key: string}>>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [masterGain, setMasterGain] = useState<number>(80);
+  const [pitchShift, setPitchShift] = useState<number>(0);
+
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -622,7 +637,54 @@ export default function DashboardPage() {
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   // Computed: filtered + sorted tracks
-  const filteredTracks = filtered.filter(t => {
+  
+  // DJ History - log when a track starts playing
+  const logToHistory = (track: any) => {
+    if (!track) return;
+    const entry = {
+      id: track.id,
+      title: track.title || track.original_filename,
+      time: new Date().toLocaleTimeString(),
+      bpm: track.bpm || 0,
+      key: track.key || ''
+    };
+    setDjHistory(prev => [entry, ...prev].slice(0, 50));
+  };
+
+  // Playlist helpers
+  const createPlaylist = () => {
+    if (!newPlaylistName.trim()) return;
+    setPlaylists(prev => ({ ...prev, [newPlaylistName.trim()]: [] }));
+    setCurrentPlaylist(newPlaylistName.trim());
+    setNewPlaylistName('');
+  };
+  const addToPlaylist = (trackId: number, plName: string) => {
+    setPlaylists(prev => ({
+      ...prev,
+      [plName]: [...(prev[plName] || []), trackId]
+    }));
+  };
+  const removeFromPlaylist = (trackId: number, plName: string) => {
+    setPlaylists(prev => ({
+      ...prev,
+      [plName]: (prev[plName] || []).filter(id => id !== trackId)
+    }));
+  };
+
+  // EQ reset
+  const resetEq = () => { setEqLow(50); setEqMid(50); setEqHigh(50); };
+
+  // FX presets
+  const fxPresets = [
+    { name: 'Reverb', icon: 'R', color: 'from-blue-500 to-cyan-500' },
+    { name: 'Delay', icon: 'D', color: 'from-purple-500 to-pink-500' },
+    { name: 'Echo', icon: 'E', color: 'from-green-500 to-emerald-500' },
+    { name: 'Flanger', icon: 'F', color: 'from-orange-500 to-yellow-500' },
+    { name: 'Phaser', icon: 'P', color: 'from-red-500 to-rose-500' },
+    { name: 'Filter', icon: 'Fi', color: 'from-indigo-500 to-violet-500' },
+  ];
+
+const filteredTracks = filtered.filter(t => {
     const bpm = t.analysis?.bpm || 0;
     if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
     if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
@@ -1381,6 +1443,148 @@ export default function DashboardPage() {
 
               {/* Search button if no suggestions yet */}
               {!metadataSuggestions && !metadataLoading && (
+
+            {/* EQ 3-Band Controls */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
+                </h3>
+                <button onClick={resetEq} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700 hover:bg-gray-600">Reset</button>
+              </div>
+              <div className="flex gap-4 items-end">
+                {[
+                  { label: 'LOW', value: eqLow, set: setEqLow, color: 'from-red-500 to-orange-500' },
+                  { label: 'MID', value: eqMid, set: setEqMid, color: 'from-yellow-500 to-green-500' },
+                  { label: 'HIGH', value: eqHigh, set: setEqHigh, color: 'from-blue-500 to-purple-500' },
+                ].map(eq => (
+                  <div key={eq.label} className="flex-1 flex flex-col items-center gap-2">
+                    <span className="text-xs font-bold text-gray-300">{eq.value}%</span>
+                    <div className="w-full h-24 bg-gray-700 rounded-lg relative overflow-hidden">
+                      <div className={`absolute bottom-0 w-full bg-gradient-to-t ${eq.color} rounded-lg transition-all`} style={{height: `${eq.value}%`}} />
+                    </div>
+                    <input type="range" min="0" max="100" value={eq.value} onChange={e => eq.set(Number(e.target.value))} className="w-full accent-cyan-500" />
+                    <span className="text-xs font-medium text-gray-400">{eq.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+
+            {/* FX Rack */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-purple-400" /> FX Rack
+              </h3>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {fxPresets.map(fx => (
+                  <button key={fx.name} onClick={() => setActiveFx(activeFx === fx.name ? '' : fx.name)}
+                    className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${activeFx === fx.name ? `bg-gradient-to-r ${fx.color} text-white shadow-lg scale-105` : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}>
+                    {fx.name}
+                  </button>
+                ))}
+              </div>
+              {activeFx && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">Wet</span>
+                  <input type="range" min="0" max="100" value={fxWet} onChange={e => setFxWet(Number(e.target.value))} className="flex-1 accent-purple-500" />
+                  <span className="text-xs font-bold text-purple-400">{fxWet}%</span>
+                </div>
+              )}
+            </div>
+
+            {/* Crossfader & Master */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+                <Volume2 className="w-4 h-4 text-green-400" /> Mix Controls
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Deck A</span><span>Crossfader</span><span>Deck B</span>
+                  </div>
+                  <input type="range" min="0" max="100" value={crossfader} onChange={e => setCrossfader(Number(e.target.value))} className="w-full accent-orange-500" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Master Volume</span><span className="font-bold text-green-400">{masterGain}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" value={masterGain} onChange={e => setMasterGain(Number(e.target.value))} className="w-full accent-green-500" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Pitch Shift</span><span className="font-bold text-yellow-400">{pitchShift > 0 ? '+' : ''}{pitchShift}%</span>
+                  </div>
+                  <input type="range" min="-12" max="12" value={pitchShift} onChange={e => setPitchShift(Number(e.target.value))} className="w-full accent-yellow-500" />
+                </div>
+              </div>
+            </div>
+
+
+            {/* Playlist Manager */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Folder className="w-4 h-4 text-yellow-400" /> Playlists
+                </h3>
+                <button onClick={() => setShowPlaylistPanel(!showPlaylistPanel)} className="text-xs text-gray-400 hover:text-white">
+                  {showPlaylistPanel ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {showPlaylistPanel && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input value={newPlaylistName} onChange={e => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-gray-700 rounded px-2 py-1 text-xs text-white border border-gray-600 focus:border-yellow-500 outline-none" />
+                    <button onClick={createPlaylist} className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs px-3 py-1 rounded font-bold">+</button>
+                  </div>
+                  {Object.keys(playlists).length > 0 ? (
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {Object.entries(playlists).map(([name, ids]) => (
+                        <div key={name} onClick={() => setCurrentPlaylist(name)}
+                          className={`flex justify-between items-center px-2 py-1.5 rounded text-xs cursor-pointer ${currentPlaylist === name ? 'bg-yellow-900/50 border border-yellow-600 text-yellow-300' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+                          <span className="font-medium">{name}</span>
+                          <span className="text-gray-500">{ids.length} tracks</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* DJ History */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" /> DJ History
+                </h3>
+                <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-gray-400 hover:text-white">
+                  {showHistory ? 'Hide' : 'Show'} ({djHistory.length})
+                </button>
+              </div>
+              {showHistory && djHistory.length > 0 && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {djHistory.map((entry, i) => (
+                    <div key={i} className="flex items-center justify-between px-2 py-1.5 bg-gray-700/50 rounded text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-12">{entry.time}</span>
+                        <span className="text-white font-medium truncate max-w-[120px]">{entry.title}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {entry.bpm > 0 && <span className="text-cyan-400">{Math.round(entry.bpm)}</span>}
+                        {entry.key && <span className="text-purple-400">{entry.key}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showHistory && djHistory.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
+              )}
+            </div>
+
                 <div className="text-center py-4">
                   <button
                     onClick={() => launchSpotifySearch(metadataPanel)}
