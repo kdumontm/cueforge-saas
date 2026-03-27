@@ -199,6 +199,13 @@ export default function DashboardPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [compatTrack, setCompatTrack] = useState<any>(null);
   const loopRegionRef = useRef<any>(null);
+  const [waveformZoom, setWaveformZoom] = useState<number>(1);
+  const [showBeatGrid, setShowBeatGrid] = useState(false);
+  const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
+  const [showNotes, setShowNotes] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -669,7 +676,57 @@ export default function DashboardPage() {
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
         <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 120, overflow: 'hidden' }}>
+                {/* WAVEFORM TOOLBAR */}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setWaveformZoom(Math.max(1, waveformZoom - 1))} className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" title="Zoom Out">
+                      <ZoomOut size={14} />
+                    </button>
+                    <span className="text-[10px] text-gray-500 min-w-[30px] text-center">{waveformZoom}x</span>
+                    <button onClick={() => setWaveformZoom(Math.min(10, waveformZoom + 1))} className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" title="Zoom In">
+                      <ZoomIn size={14} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setShowBeatGrid(!showBeatGrid)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showBeatGrid ? 'bg-purple-500/30 text-purple-300 border border-purple-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                      <Grid3X3 size={10} /> Beat Grid
+                    </button>
+                    <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                      Notes
+                    </button>
+                  </div>
+                </div>
+
           <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
+                {/* TRACK NOTES */}
+                {showNotes && selectedTrack && (
+                  <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">DJ Notes</span>
+                      <span className="text-[10px] text-gray-600">{(trackNotes[selectedTrack.id] || '').length}/500</span>
+                    </div>
+                    <textarea
+                      value={trackNotes[selectedTrack.id] || ''}
+                      onChange={e => setTrackNotes(prev => ({...prev, [selectedTrack.id]: e.target.value.slice(0, 500)}))}
+                      placeholder="Mix notes: transition ideas, EQ settings, energy flow..."
+                      className="w-full bg-gray-900/50 border border-gray-700 rounded p-2 text-xs text-gray-300 placeholder-gray-600 resize-none focus:border-purple-500/50 focus:outline-none"
+                      rows={2}
+                    />
+                  </div>
+                )}
+                {/* BEAT GRID OVERLAY */}
+                {showBeatGrid && selectedTrack?.analysis?.bpm && (
+                  <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-500">
+                    <Grid3X3 size={10} className="text-purple-400" />
+                    <span>Beat Grid: {selectedTrack.analysis.bpm} BPM</span>
+                    <span className="text-gray-700">|</span>
+                    <span>Beat: {(60 / selectedTrack.analysis.bpm * 1000).toFixed(0)}ms</span>
+                    <span className="text-gray-700">|</span>
+                    <span>Bar: {(60 / selectedTrack.analysis.bpm * 4).toFixed(2)}s</span>
+                    <span className="text-gray-700">|</span>
+                    <span>Phrase (8bar): {(60 / selectedTrack.analysis.bpm * 32).toFixed(1)}s</span>
+                  </div>
+                )}
           {!selectedTrack && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <p className="text-slate-500 text-sm">S\u00e9lectionne un morceau pour voir la waveform</p>
@@ -963,6 +1020,27 @@ export default function DashboardPage() {
         </div>
       )}
 
+                {/* TRACK STATS */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-300">{filteredTracks.length} track{filteredTracks.length !== 1 ? 's' : ''}</span>
+                    {filteredTracks.length !== tracks.length && (
+                      <span className="text-[10px] text-gray-600">/ {tracks.length} total</span>
+                    )}
+                  </div>
+                  {selectedTrack && filteredTracks.length > 1 && (() => {
+                    const best = filteredTracks
+                      .filter(t => t.id !== selectedTrack.id && t.analysis?.key)
+                      .map(t => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
+                      .sort((a, b) => b.score.total - a.score.total)[0];
+                    return best ? (
+                      <button onClick={() => setSelectedTrack(best.track)} className="flex items-center gap-1 text-[10px] text-green-400 hover:text-green-300 transition-colors" title="Best harmonic match">
+                        <Sparkles size={10} /> Next: {best.track.title?.slice(0, 15)}... ({best.score.total}%)
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+
       {/* ââ TRACK LIST âââââââââââââââââââââââââââââââââââââââââ */}
 
                 {/* FILTER BAR */}
@@ -989,7 +1067,22 @@ export default function DashboardPage() {
                           {Object.entries(CAMELOT_MAP).map(([k, v]) => <option key={k} value={k}>{v} - {k}</option>)}
                         </select>
                       </div>
-                      {(filterBpmMin > 0 || filterBpmMax < 999 || filterKey) && (
+                      
+                      <div>
+                        <label className="text-[10px] text-gray-500 uppercase">Sort by</label>
+                        <div className="flex gap-1">
+                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="flex-1 bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
+                            <option value="date">Date Added</option>
+                            <option value="bpm">BPM</option>
+                            <option value="key">Key</option>
+                            <option value="title">Title</option>
+                          </select>
+                          <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-gray-900/50 border border-gray-700 rounded text-xs text-gray-400 hover:text-white">
+                            {sortDir === 'asc' ? '\u2191' : '\u2193'}
+                          </button>
+                        </div>
+                      </div>
+{(filterBpmMin > 0 || filterBpmMax < 999 || filterKey) && (
                         <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); }} className="text-[10px] text-red-400 hover:text-red-300">Clear filters</button>
                       )}
                     </div>
@@ -1284,7 +1377,24 @@ export default function DashboardPage() {
 // ââ Small helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function MetaRow({ label, value }: { label: string; value: string }) {
   // ── Keyboard Shortcuts ──────────────────────────────────────────────────
+  
+  // Waveform zoom effect
   useEffect(() => {
+    if (wavesurferRef.current) {
+      try { wavesurferRef.current.zoom(waveformZoom * 50); } catch(e) {}
+    }
+  }, [waveformZoom]);
+
+  // Sort tracks
+  const sortedFilteredTracks = [...(typeof filteredTracks !== 'undefined' ? filteredTracks : [])].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortBy === 'bpm') return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
+    if (sortBy === 'key') return dir * ((a.analysis?.key || '').localeCompare(b.analysis?.key || ''));
+    if (sortBy === 'title') return dir * ((a.title || '').localeCompare(b.title || ''));
+    return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  });
+
+useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       const ws = wavesurferRef.current;
