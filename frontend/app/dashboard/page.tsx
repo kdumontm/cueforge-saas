@@ -159,7 +159,8 @@ export default function DashboardPage() {
 
     // Build audio URL from backend
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-    const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio`;
+    const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
+    const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?token=${authToken}`;
     ws.load(audioUrl);
 
     ws.once('decode', () => {
