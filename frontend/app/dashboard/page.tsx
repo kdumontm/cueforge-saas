@@ -620,6 +620,32 @@ export default function DashboardPage() {
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // RENDER
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+  // Computed: filtered + sorted tracks
+  const filteredTracks = filtered.filter(t => {
+    const bpm = t.analysis?.bpm || 0;
+    if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
+    if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
+    if (filterKey && t.analysis?.key !== filterKey) return false;
+    return true;
+  });
+
+  const getTrackCompat = (t: any) => {
+    if (!selectedTrack?.analysis?.bpm || !t?.analysis?.bpm) return null;
+    return mixScore(
+      selectedTrack.analysis.key || '', selectedTrack.analysis.bpm,
+      t.analysis.key || '', t.analysis.bpm
+    );
+  };
+
+  const sortedFilteredTracks = [...(typeof filteredTracks !== 'undefined' ? filteredTracks : [])].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortBy === 'bpm') return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
+    if (sortBy === 'key') return dir * ((a.analysis?.key || '').localeCompare(b.analysis?.key || ''));
+    if (sortBy === 'title') return dir * ((a.title || '').localeCompare(b.title || ''));
+    return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  });
+
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
 
@@ -1385,13 +1411,6 @@ function MetaRow({ label, value }: { label: string; value: string }) {
   }, [waveformZoom]);
 
   // Sort tracks
-  const sortedFilteredTracks = [...(typeof filteredTracks !== 'undefined' ? filteredTracks : [])].sort((a, b) => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    if (sortBy === 'bpm') return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
-    if (sortBy === 'key') return dir * ((a.analysis?.key || '').localeCompare(b.analysis?.key || ''));
-    if (sortBy === 'title') return dir * ((a.title || '').localeCompare(b.title || ''));
-    return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-  });
 
 useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1458,21 +1477,7 @@ useEffect(() => {
     return () => { ws.un('timeupdate', onTimeUpdate); };
   }, [loopActive, loopIn, loopOut]);
 
-  const filteredTracks = filtered.filter(t => {
-    const bpm = t.analysis?.bpm || 0;
-    if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
-    if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
-    if (filterKey && t.analysis?.key !== filterKey) return false;
-    return true;
-  });
 
-  const getTrackCompat = (t: any) => {
-    if (!selectedTrack?.analysis?.bpm || !t?.analysis?.bpm) return null;
-    return mixScore(
-      selectedTrack.analysis.key || '', selectedTrack.analysis.bpm,
-      t.analysis.key || '', t.analysis.bpm
-    );
-  };
 
 
   return (
