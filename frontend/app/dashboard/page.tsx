@@ -7,14 +7,14 @@ import {
   Calendar, AlbumIcon, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Search, MoreVertical, Zap, Wand2, Type, Disc, RefreshCw, Star, Filter,
   Grid3X3, List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
-  ZoomIn, ZoomOut
+  ZoomIn, ZoomOut, CheckSquare, Square, AlertTriangle, Sparkles, Image
 } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack } from '@/lib/api';
 import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
-// ── Constants ─────────────────────────────────────────────────────────────
+// ââ Constants âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const CAMELOT_WHEEL: Record<string, string> = {
   'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
   'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
@@ -24,7 +24,7 @@ const CAMELOT_WHEEL: Record<string, string> = {
 };
 
 function toCamelot(key: string | null | undefined): string {
-  if (!key) return '—';
+  if (!key) return '\u2014';
   return CAMELOT_WHEEL[key] || key;
 }
 
@@ -36,7 +36,7 @@ function msToTime(ms: number): string {
 }
 
 function energyToRating(energy: number | null | undefined): string {
-  if (energy == null) return '—';
+  if (energy == null) return '\u2014';
   return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
 }
 
@@ -45,29 +45,14 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
-// ── Context Menu Actions ──────────────────────────────────────────────────
-interface CtxAction { label: string; icon: React.ReactNode; action: string; separator?: boolean; }
-
-const CONTEXT_ACTIONS: CtxAction[] = [
-  { label: 'Analyser le morceau', icon: <Zap size={14} />, action: 'analyze' },
-  { label: 'Générer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points' },
-  { label: 'Détecter le genre', icon: <Search size={14} />, action: 'detect_genre' },
-  { label: 'Recherche Spotify / Metadata', icon: <Music size={14} />, action: 'spotify_lookup', separator: true },
-  { label: 'Clean Title (Maj/Min)', icon: <Type size={14} />, action: 'clean_title' },
-  { label: 'Parser Remix', icon: <RefreshCw size={14} />, action: 'parse_remix' },
-  { label: 'Fixer les tags ID3', icon: <Tag size={14} />, action: 'fix_tags', separator: true },
-  { label: 'Organiser (Catégorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
-  { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
-  { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete' },
-];
-
-// ─────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // MAIN DASHBOARD
-// ─────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function DashboardPage() {
-  // ── State ─────────────────────────────────────────────────────────────
+  // ââ State âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -75,22 +60,25 @@ export default function DashboardPage() {
   const [muted, setMuted] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [progress, setProgress] = useState('');
+  const [batchProgress, setBatchProgress] = useState('');
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title'>('date');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
   const [metadataPanel, setMetadataPanel] = useState<Track | null>(null);
+  const [metadataSuggestions, setMetadataSuggestions] = useState<Record<string, string> | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
   const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [waveformReady, setWaveformReady] = useState(false);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
   const regionsRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── Load tracks on mount ──────────────────────────────────────────────
+  // ââ Load tracks on mount ââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => { loadTracks(); }, []);
 
   async function loadTracks() {
@@ -100,7 +88,7 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  // ── Wavesurfer init ───────────────────────────────────────────────────
+  // ââ Wavesurfer init (ALWAYS render the div, never unmount it) ââââââââ
   useEffect(() => {
     if (typeof window === 'undefined' || !waveformRef.current) return;
     let ws: any = null;
@@ -135,7 +123,10 @@ export default function DashboardPage() {
       ws.on('play', () => setIsPlaying(true));
       ws.on('pause', () => setIsPlaying(false));
       ws.on('timeupdate', (t: number) => setCurrentTime(t));
-      ws.on('ready', () => setDuration(ws.getDuration()));
+      ws.on('ready', () => {
+        setDuration(ws.getDuration());
+        setWaveformReady(true);
+      });
 
       wavesurferRef.current = ws;
     }
@@ -144,7 +135,7 @@ export default function DashboardPage() {
     return () => { if (ws) ws.destroy(); };
   }, []);
 
-  // ── Zoom handler ──────────────────────────────────────────────────────
+  // ââ Zoom handler ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   function handleZoom(direction: 'in' | 'out') {
     if (!wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -165,14 +156,14 @@ export default function DashboardPage() {
     }
   }
 
-  // ── Load track into waveform ──────────────────────────────────────────
+  // ââ Load track into waveform ââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     if (!selectedTrack || !wavesurferRef.current) return;
     const ws = wavesurferRef.current;
     const regions = regionsRef.current;
 
-    // Reset zoom to overview when loading new track
     setZoomLevel(1);
+    setWaveformReady(false);
     try { ws.zoom(1); } catch {}
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -214,7 +205,25 @@ export default function DashboardPage() {
     });
   }, [selectedTrack]);
 
-  // ── Player controls ───────────────────────────────────────────────────
+  // ââ Keyboard shortcuts (Ctrl+A) âââââââââââââââââââââââââââââââââââââ
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        if (selectedIds.size === filtered.length) {
+          setSelectedIds(new Set());
+        } else {
+          setSelectedIds(new Set(filtered.map(t => t.id)));
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  // ââ Player controls âââââââââââââââââââââââââââââââââââââââââââââââââââ
   function togglePlay() {
     if (!wavesurferRef.current) return;
     wavesurferRef.current.playPause();
@@ -238,36 +247,41 @@ export default function DashboardPage() {
     if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume);
   }
 
-  // ── File handling ─────────────────────────────────────────────────────
+  // ââ Multi-select toggle ââââââââââââââââââââââââââââââââââââââââââââââââ
+  function toggleSelect(trackId: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = new Set(selectedIds);
+    if (e.ctrlKey || e.metaKey) {
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+    } else {
+      if (next.has(trackId) && next.size === 1) next.clear();
+      else { next.clear(); next.add(trackId); }
+    }
+    setSelectedIds(next);
+  }
+
+  // ââ File handling âââââââââââââââââââââââââââââââââââââââââââââââââââââ
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (!file.name.match(/\.(mp3|wav|flac|aiff|aif|m4a|ogg)$/i)) {
-        setError(`Format non supporté: ${file.name}`);
+        setError(`Format non support\u00e9: ${file.name}`);
         continue;
       }
       setError('');
       setUploading(true);
-      setProgress(`Upload: ${file.name}...`);
+      setBatchProgress(`Upload: ${file.name}...`);
       try {
         const uploaded = await uploadTrack(file);
-        setProgress(`Analyse: ${file.name}...`);
+        setBatchProgress('');
         setUploading(false);
-        setAnalyzing(true);
-        await analyzeTrack(uploaded.id);
-        const done = await pollTrackUntilDone(uploaded.id, (t) => {
-          if (t.status === 'analyzing') setProgress(`Analyse IA: ${file.name}...`);
-          if (t.status === 'generating_cues') setProgress(`Cue points: ${file.name}...`);
-        });
-        setProgress('');
-        setAnalyzing(false);
         loadTracks();
-        if (!selectedTrack) setSelectedTrack(done);
+        if (!selectedTrack) setSelectedTrack(uploaded);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inattendue');
         setUploading(false);
-        setAnalyzing(false);
-        setProgress('');
+        setBatchProgress('');
       }
     }
   }
@@ -278,27 +292,70 @@ export default function DashboardPage() {
     if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   }, []);
 
-  // ── Context menu handler ──────────────────────────────────────────────
+  // ââ Batch Analyze Audio (BPM, Key, Cues) ââââââââââââââââââââââââââââ
+  async function batchAnalyzeAudio(trackIds: number[]) {
+    if (trackIds.length === 0) return;
+    setAnalyzing(true);
+    let done = 0;
+    for (const id of trackIds) {
+      setBatchProgress(`Analyse audio ${done + 1}/${trackIds.length}...`);
+      try {
+        await analyzeTrack(id);
+        await pollTrackUntilDone(id);
+      } catch {}
+      done++;
+    }
+    setBatchProgress('');
+    setAnalyzing(false);
+    loadTracks();
+    // Refresh selected track if it was analyzed
+    if (selectedTrack && trackIds.includes(selectedTrack.id)) {
+      try {
+        const fresh = await getTrack(selectedTrack.id);
+        setSelectedTrack(fresh);
+      } catch {}
+    }
+  }
+
+  // ââ Batch Analyze Metadata (Spotify, Genre, Cover) âââââââââââââââââââ
+  async function batchAnalyzeMetadata(trackIds: number[]) {
+    if (trackIds.length === 0) return;
+    setAnalyzing(true);
+    let done = 0;
+    for (const id of trackIds) {
+      setBatchProgress(`Recherche metadata ${done + 1}/${trackIds.length}...`);
+      try {
+        await analyzeTrack(id);
+        await pollTrackUntilDone(id);
+      } catch {}
+      done++;
+    }
+    setBatchProgress('');
+    setAnalyzing(false);
+    loadTracks();
+    if (selectedTrack && trackIds.includes(selectedTrack.id)) {
+      try {
+        const fresh = await getTrack(selectedTrack.id);
+        setSelectedTrack(fresh);
+      } catch {}
+    }
+  }
+
+  // ââ Context menu handler ââââââââââââââââââââââââââââââââââââââââââââââ
   async function handleCtxAction(action: string, track: Track) {
     setCtxMenu(null);
     switch (action) {
       case 'analyze':
-        setAnalyzing(true);
-        setProgress(`Analyse: ${track.original_filename}...`);
-        try {
-          await analyzeTrack(track.id);
-          const done = await pollTrackUntilDone(track.id);
-          setSelectedTrack(done);
-          loadTracks();
-        } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : 'Analyse échouée');
-        }
-        setAnalyzing(false);
-        setProgress('');
+        batchAnalyzeAudio([track.id]);
+        break;
+      case 'analyze_metadata':
+        setMetadataPanel(track);
+        setMetadataSuggestions(null);
+        launchSpotifySearch(track);
         break;
       case 'cue_points':
         setAnalyzing(true);
-        setProgress('Génération des cue points...');
+        setBatchProgress('G\u00e9n\u00e9ration des cue points...');
         try {
           await analyzeTrack(track.id);
           const done = await pollTrackUntilDone(track.id);
@@ -306,19 +363,10 @@ export default function DashboardPage() {
           loadTracks();
         } catch {}
         setAnalyzing(false);
-        setProgress('');
-        break;
-      case 'spotify_lookup':
-      case 'detect_genre':
-      case 'fix_tags':
-        setMetadataPanel(track);
+        setBatchProgress('');
         break;
       case 'organize':
         setOrganizerTrack(track);
-        break;
-      case 'clean_title':
-        break;
-      case 'parse_remix':
         break;
       case 'export_rekordbox':
         try {
@@ -336,13 +384,40 @@ export default function DashboardPage() {
         try {
           await deleteTrack(track.id);
           if (selectedTrack?.id === track.id) setSelectedTrack(null);
+          selectedIds.delete(track.id);
+          setSelectedIds(new Set(selectedIds));
           loadTracks();
         } catch {}
         break;
     }
   }
 
-  // ── Filtered + sorted tracks ──────────────────────────────────────────
+  // ââ Spotify search for metadata panel âââââââââââââââââââââââââââââââââ
+  async function launchSpotifySearch(track: Track) {
+    setMetadataLoading(true);
+    setMetadataSuggestions(null);
+    try {
+      await analyzeTrack(track.id);
+      const result = await pollTrackUntilDone(track.id);
+      const suggestions: Record<string, string> = {};
+      if (result.artist && result.artist !== track.artist) suggestions['artist'] = result.artist;
+      if (result.title && result.title !== track.title) suggestions['title'] = result.title;
+      if (result.album && result.album !== track.album) suggestions['album'] = result.album;
+      if (result.genre && result.genre !== track.genre) suggestions['genre'] = result.genre;
+      if (result.artwork_url) suggestions['artwork_url'] = result.artwork_url;
+      if (result.spotify_url) suggestions['spotify_url'] = result.spotify_url;
+      if (result.year && result.year !== track.year) suggestions['year'] = String(result.year);
+      setMetadataSuggestions(suggestions);
+      // Update the panel track with fresh data
+      setMetadataPanel(result);
+      loadTracks();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Recherche metadata \u00e9chou\u00e9e');
+    }
+    setMetadataLoading(false);
+  }
+
+  // ââ Filtered + sorted tracks ââââââââââââââââââââââââââââââââââââââââââ
   const filtered = tracks
     .filter(t => {
       if (!searchQuery) return true;
@@ -364,105 +439,126 @@ export default function DashboardPage() {
     });
 
   const isLoading = uploading || analyzing;
+  const selectedCount = selectedIds.size;
 
-  // ─────────────────────────────────────────────────────────────────────
+  // ââ Context Menu Actions ââââââââââââââââââââââââââââââââââââââââââââ
+  const CONTEXT_ACTIONS = [
+    { label: 'Analyser Audio (BPM/Key/Cues)', icon: <Zap size={14} />, action: 'analyze' },
+    { label: 'Rechercher Metadata (Spotify)', icon: <Sparkles size={14} />, action: 'analyze_metadata' },
+    { label: 'G\u00e9n\u00e9rer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points', separator: true },
+    { label: 'Organiser (Cat\u00e9gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
+    { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
+    { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete', separator: true },
+  ];
+
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // RENDER
-  // ─────────────────────────────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
 
-      {/* ── TOP: Waveform Player ─────────────────────────────── */}
+      {/* ââ TOP: Waveform Player (ALWAYS mounted) âââââââââââ */}
       <div className="bg-bg-secondary border-b border-slate-800/60 px-4 py-3 flex-shrink-0">
-        {selectedTrack ? (
-          <>
-            {/* Track info bar */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3 min-w-0">
-                {selectedTrack.artwork_url && (
-                  <img src={selectedTrack.artwork_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">
-                    {selectedTrack.title || selectedTrack.original_filename}
-                  </p>
-                  <p className="text-xs text-slate-400 truncate">
-                    {selectedTrack.artist || 'Artiste inconnu'}
-                    {selectedTrack.analysis?.bpm ? ` · ${selectedTrack.analysis.bpm.toFixed(1)} BPM` : ''}
-                    {selectedTrack.analysis?.key ? ` · ${toCamelot(selectedTrack.analysis.key)}` : ''}
-                    {selectedTrack.genre ? ` · ${selectedTrack.genre.split(',')[0].trim()}` : ''}
-                  </p>
+        {selectedTrack && (
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Cover art */}
+              {selectedTrack.artwork_url ? (
+                <img src={selectedTrack.artwork_url} alt="" className="w-12 h-12 rounded-lg object-cover shadow-lg" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
+                  <Music2 size={18} className="text-slate-500" />
                 </div>
-              </div>
-              <div className="flex items-center gap-4 text-xs font-mono text-slate-400 flex-shrink-0">
-                {selectedTrack.analysis?.bpm && (
-                  <div className="flex items-center gap-1">
-                    <Activity size={12} className="text-blue-400" />
-                    <span className="text-blue-400 font-bold">{selectedTrack.analysis.bpm.toFixed(1)}</span>
-                    <span>BPM</span>
-                  </div>
-                )}
-                {selectedTrack.analysis?.key && (
-                  <div className="flex items-center gap-1">
-                    <Music2 size={12} className="text-cyan-400" />
-                    <span className="text-cyan-400 font-bold">{toCamelot(selectedTrack.analysis.key)}</span>
-                  </div>
-                )}
-                {selectedTrack.analysis?.energy != null && (
-                  <div className="flex items-center gap-1">
-                    <Zap size={12} className="text-yellow-400" />
-                    <span className="text-yellow-400 font-bold">{energyToRating(selectedTrack.analysis.energy)}</span>
-                    <span>/10</span>
-                  </div>
-                )}
-                <span className="text-slate-500">
-                  {msToTime(currentTime * 1000)} / {msToTime(duration * 1000)}
-                </span>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">
+                  {selectedTrack.title || selectedTrack.original_filename}
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {selectedTrack.artist || 'Artiste inconnu'}
+                </p>
               </div>
             </div>
-
-            {/* Waveform container - constrained with overflow hidden */}
-            <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 120, overflow: 'hidden' }}>
-              <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
-              {/* Zoom controls overlay */}
-              <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-                <button
-                  onClick={() => handleZoom('out')}
-                  disabled={zoomLevel <= 1}
-                  className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
-                  title="Zoom out"
-                >
-                  <ZoomOut size={14} />
-                </button>
-                <span className="text-[10px] font-mono text-slate-400 min-w-[32px] text-center">
-                  {zoomLevel <= 1 ? 'Full' : `${zoomLevel}x`}
-                </span>
-                <button
-                  onClick={() => handleZoom('in')}
-                  disabled={zoomLevel >= 200}
-                  className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
-                  title="Zoom in"
-                >
-                  <ZoomIn size={14} />
-                </button>
-              </div>
+            <div className="flex items-center gap-4 text-xs font-mono text-slate-400 flex-shrink-0">
+              {selectedTrack.analysis?.bpm && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
+                  <Activity size={12} className="text-blue-400" />
+                  <span className="text-blue-400 font-bold">{selectedTrack.analysis.bpm.toFixed(1)}</span>
+                  <span className="text-blue-400/60">BPM</span>
+                </div>
+              )}
+              {selectedTrack.analysis?.key && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/20">
+                  <Music2 size={12} className="text-cyan-400" />
+                  <span className="text-cyan-400 font-bold">{toCamelot(selectedTrack.analysis.key)}</span>
+                </div>
+              )}
+              {selectedTrack.analysis?.energy != null && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+                  <Zap size={12} className="text-yellow-400" />
+                  <span className="text-yellow-400 font-bold">{energyToRating(selectedTrack.analysis.energy)}</span>
+                  <span className="text-yellow-400/60">/10</span>
+                </div>
+              )}
+              <span className="text-slate-500 tabular-nums">
+                {msToTime(currentTime * 1000)} / {msToTime(duration * 1000)}
+              </span>
             </div>
+          </div>
+        )}
 
-            {/* Player controls */}
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center gap-2">
-                <button onClick={skipBack} className="p-1.5 text-slate-400 hover:text-white transition-colors">
-                  <SkipBack size={16} />
-                </button>
-                <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white transition-all">
-                  {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
-                </button>
-                <button onClick={skipForward} className="p-1.5 text-slate-400 hover:text-white transition-colors">
-                  <SkipForward size={16} />
-                </button>
-              </div>
-              {/* Cue point badges */}
-              <div className="flex items-center gap-1 overflow-x-auto max-w-[50%]">
-                {selectedTrack.cue_points?.map((cue, i) => (
+        {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
+        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 120, overflow: 'hidden' }}>
+          <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
+          {!selectedTrack && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <p className="text-slate-500 text-sm">S\u00e9lectionne un morceau pour voir la waveform</p>
+            </div>
+          )}
+          {selectedTrack && (
+            <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+              <button
+                onClick={() => handleZoom('out')}
+                disabled={zoomLevel <= 1}
+                className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
+                title="Zoom out"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <span className="text-[10px] font-mono text-slate-400 min-w-[32px] text-center">
+                {zoomLevel <= 1 ? 'Full' : `${zoomLevel}x`}
+              </span>
+              <button
+                onClick={() => handleZoom('in')}
+                disabled={zoomLevel >= 200}
+                className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
+                title="Zoom in"
+              >
+                <ZoomIn size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Player controls + Cue badges */}
+        {selectedTrack && (
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              <button onClick={skipBack} className="p-1.5 text-slate-400 hover:text-white transition-colors">
+                <SkipBack size={16} />
+              </button>
+              <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white transition-all shadow-lg shadow-blue-600/20">
+                {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+              </button>
+              <button onClick={skipForward} className="p-1.5 text-slate-400 hover:text-white transition-colors">
+                <SkipForward size={16} />
+              </button>
+            </div>
+            {/* Cue point badges */}
+            <div className="flex items-center gap-1 overflow-x-auto max-w-[50%] scrollbar-hide">
+              {selectedTrack.cue_points?.map((cue, i) => {
+                const color = CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb';
+                return (
                   <button
                     key={cue.id}
                     onClick={() => {
@@ -472,62 +568,103 @@ export default function DashboardPage() {
                     }}
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap hover:brightness-125 transition-all"
                     style={{
-                      backgroundColor: (CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb') + '25',
-                      color: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb',
-                      border: `1px solid ${(CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb')}40`,
+                      backgroundColor: color + '20',
+                      color: color,
+                      border: `1px solid ${color}40`,
                     }}
-                    title={`${cue.name} — ${msToTime(cue.position_ms)}`}
+                    title={`${cue.name} \u2014 ${msToTime(cue.position_ms)}`}
                   >
                     <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black"
-                      style={{ backgroundColor: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb', color: '#fff' }}>
+                      style={{ backgroundColor: color, color: '#fff' }}>
                       {i + 1}
                     </span>
                     {cue.name}
                   </button>
-                ))}
-              </div>
-              {/* Volume */}
-              <div className="flex items-center gap-2">
-                <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
-                  {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                </button>
-                <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
-                  onChange={e => handleVolume(parseFloat(e.target.value))} className="w-20 accent-blue-500" />
-              </div>
+                );
+              })}
             </div>
-          </>
-        ) : (
-          <div ref={waveformRef} className="w-full h-[120px] flex items-center justify-center rounded-lg bg-bg-primary border border-slate-800/40 border-dashed">
-            <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
+            {/* Volume */}
+            <div className="flex items-center gap-2">
+              <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
+                {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+              <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
+                onChange={e => handleVolume(parseFloat(e.target.value))} className="w-20 accent-blue-500" />
+            </div>
           </div>
         )}
       </div>
 
-      {/* ── MIDDLE: Drop zone + Search bar ───────────────────── */}
+      {/* ââ TOOLBAR: Upload, Search, Batch Actions ââââââââââ */}
       <div
-        className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
+        className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
       >
+        {/* Upload button */}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all"
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all"
         >
-          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-          {isLoading ? progress : 'Ajouter des morceaux'}
+          <Upload size={13} />
+          Ajouter
         </button>
         <input ref={fileRef} type="file" multiple accept=".mp3,.wav,.flac,.aiff,.aif,.m4a,.ogg,audio/*" className="hidden"
           onChange={e => e.target.files && handleFiles(e.target.files)} />
-        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">Dépose tes fichiers ici...</span>}
+
+        {/* Batch action buttons */}
+        {selectedCount > 0 && (
+          <>
+            <div className="w-px h-5 bg-slate-700/60" />
+            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} s\u00e9lectionn\u00e9{selectedCount > 1 ? 's' : ''}</span>
+            <button
+              onClick={() => batchAnalyzeAudio(Array.from(selectedIds))}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 disabled:opacity-50 text-white text-[11px] font-semibold rounded-lg transition-all"
+            >
+              <Zap size={12} />
+              Analyser Audio
+            </button>
+            <button
+              onClick={() => batchAnalyzeMetadata(Array.from(selectedIds))}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/80 hover:bg-green-500 disabled:opacity-50 text-white text-[11px] font-semibold rounded-lg transition-all"
+            >
+              <Sparkles size={12} />
+              Rechercher Infos
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-white text-[11px] transition-colors"
+            >
+              <X size={12} />
+              D\u00e9s\u00e9lectionner
+            </button>
+          </>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && batchProgress && (
+          <div className="flex items-center gap-2 text-xs text-blue-400">
+            <Loader2 size={13} className="animate-spin" />
+            {batchProgress}
+          </div>
+        )}
+
+        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">D\u00e9pose tes fichiers ici...</span>}
         <div className="flex-1" />
+
+        {/* Select all shortcut hint */}
+        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout s\u00e9lectionner</span>
+
         {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input type="text" placeholder="Rechercher..." value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-48" />
+            className="pl-8 pr-3 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
         </div>
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
@@ -546,16 +683,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── BOTTOM: Track List ────────────────────────────────── */}
+      {/* ââ TRACK LIST âââââââââââââââââââââââââââââââââââââââââ */}
       <div className="flex-1 overflow-y-auto">
         {/* Table header */}
-        <div className="grid grid-cols-[2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+        <div className="grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+          <span />
           <span>Titre</span>
           <span>Genre</span>
           <span className="text-center">BPM</span>
           <span className="text-center">Key</span>
           <span className="text-center">Energy</span>
-          <span className="text-center">Durée</span>
+          <span className="text-center">Dur\u00e9e</span>
           <span />
         </div>
 
@@ -569,22 +707,41 @@ export default function DashboardPage() {
           filtered.map(track => {
             const a = track.analysis;
             const isActive = selectedTrack?.id === track.id;
+            const isSelected = selectedIds.has(track.id);
             const statusDot = track.status === 'completed' ? 'bg-green-400'
               : track.status === 'failed' ? 'bg-red-400' : 'bg-yellow-400';
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : 'border-l-2 border-l-transparent'}`}
-                onClick={() => setSelectedTrack(track)}
+                className={`grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) {
+                    toggleSelect(track.id, e);
+                  } else {
+                    setSelectedTrack(track);
+                  }
+                }}
                 onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
               >
-                {/* Title + Artist */}
+                {/* Checkbox */}
+                <div
+                  onClick={(e) => toggleSelect(track.id, e)}
+                  className="flex items-center justify-center cursor-pointer"
+                >
+                  {isSelected ? (
+                    <CheckSquare size={15} className="text-purple-400" />
+                  ) : (
+                    <Square size={15} className="text-slate-700 group-hover:text-slate-500 transition-colors" />
+                  )}
+                </div>
+
+                {/* Title + Artist + Cover */}
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot}`} />
                   {track.artwork_url ? (
-                    <img src={track.artwork_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                    <img src={track.artwork_url} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0 shadow" />
                   ) : (
-                    <div className="w-8 h-8 rounded bg-bg-elevated flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded bg-gradient-to-br from-slate-700/80 to-slate-800/80 flex items-center justify-center flex-shrink-0">
                       <Music2 size={14} className="text-slate-600" />
                     </div>
                   )}
@@ -593,17 +750,17 @@ export default function DashboardPage() {
                       {track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
-                      {track.artist || '—'}
+                      {track.artist || '\u2014'}
                     </p>
                   </div>
                 </div>
                 {/* Genre */}
                 <span className="text-xs text-slate-400 truncate">
-                  {track.genre?.split(',')[0]?.trim() || '—'}
+                  {track.genre?.split(',')[0]?.trim() || '\u2014'}
                 </span>
                 {/* BPM */}
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
-                  {a?.bpm ? a.bpm.toFixed(1) : '—'}
+                  {a?.bpm ? a.bpm.toFixed(1) : '\u2014'}
                 </span>
                 {/* Key (Camelot) */}
                 <span className="text-xs text-cyan-400 font-mono text-center font-bold">
@@ -615,7 +772,7 @@ export default function DashboardPage() {
                 </span>
                 {/* Duration */}
                 <span className="text-xs text-slate-500 font-mono text-center">
-                  {a?.duration_ms ? msToTime(a.duration_ms) : '—'}
+                  {a?.duration_ms ? msToTime(a.duration_ms) : '\u2014'}
                 </span>
                 {/* Actions */}
                 <button
@@ -630,11 +787,11 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Context Menu (right-click) ───────────────────────── */}
+      {/* ââ Context Menu âââââââââââââââââââââââââââââââââââââââ */}
       {ctxMenu && (
         <div
-          className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[220px] animate-fade-in"
-          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
+          style={{ left: Math.min(ctxMenu.x, window.innerWidth - 280), top: Math.min(ctxMenu.y, window.innerHeight - 350) }}
           onClick={e => e.stopPropagation()}
         >
           <div className="px-3 py-2 border-b border-slate-800/40">
@@ -643,7 +800,7 @@ export default function DashboardPage() {
             </p>
             <p className="text-[10px] text-slate-500">{ctxMenu.track.artist || ''}</p>
           </div>
-          {CONTEXT_ACTIONS.map((a, i) => (
+          {CONTEXT_ACTIONS.map((a) => (
             <div key={a.action}>
               {a.separator && <div className="my-1 border-t border-slate-800/40" />}
               <button
@@ -658,7 +815,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Track Organizer Panel (slide-in) ─────────────────── */}
+      {/* ââ Track Organizer Panel ââââââââââââââââââââââââââââââ */}
       {organizerTrack && (
         <TrackOrganizer
           track={organizerTrack}
@@ -671,79 +828,143 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── Metadata / Spotify Panel (slide-in) ──────────────── */}
+      {/* ââ Metadata / Spotify Panel (slide-in, closable) ââââ */}
       {metadataPanel && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-bg-secondary border-l border-slate-800/60 z-40 shadow-2xl animate-slide-in overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/40">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Music size={16} className="text-green-400" />
-              Metadata & Spotify
-            </h3>
-            <button onClick={() => setMetadataPanel(null)} className="text-slate-500 hover:text-white">
-              <X size={16} />
-            </button>
-          </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Infos actuelles</p>
-              <div className="space-y-2 text-xs">
-                <InfoRow label="Fichier" value={metadataPanel.original_filename} />
-                <InfoRow label="Artiste" value={metadataPanel.artist || '—'} />
-                <InfoRow label="Titre" value={metadataPanel.title || '—'} />
-                <InfoRow label="Album" value={metadataPanel.album || '—'} />
-                <InfoRow label="Genre" value={metadataPanel.genre || '—'} />
-                <InfoRow label="Année" value={metadataPanel.year?.toString() || '—'} />
-              </div>
+        <>
+          {/* Backdrop overlay */}
+          <div className="fixed inset-0 bg-black/30 z-30" onClick={() => setMetadataPanel(null)} />
+          <div className="fixed inset-y-0 right-0 w-[420px] max-w-full bg-bg-secondary border-l border-slate-800/60 z-40 shadow-2xl overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/40 sticky top-0 bg-bg-secondary z-10">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Sparkles size={16} className="text-green-400" />
+                Metadata & Spotify
+              </h3>
+              <button onClick={() => setMetadataPanel(null)} className="p-1 text-slate-500 hover:text-white rounded-lg hover:bg-slate-700/50 transition-all">
+                <X size={18} />
+              </button>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Résultats Spotify</p>
-              {metadataPanel.spotify_url ? (
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
-                  {metadataPanel.artwork_url && (
-                    <img src={metadataPanel.artwork_url} alt="" className="w-full h-40 object-cover rounded-lg" />
-                  )}
-                  <InfoRow label="Artiste" value={metadataPanel.artist || '—'} highlight />
-                  <InfoRow label="Titre" value={metadataPanel.title || '—'} highlight />
-                  <InfoRow label="Album" value={metadataPanel.album || '—'} />
-                  <InfoRow label="Genre" value={metadataPanel.genre || '—'} />
-                  {metadataPanel.spotify_url && (
-                    <a href={metadataPanel.spotify_url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs mt-2">
-                      <ExternalLink size={12} /> Ouvrir sur Spotify
-                    </a>
-                  )}
-                  <div className="flex gap-2 mt-3">
-                    <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-all">
-                      <Check size={14} /> Approuver tout
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-bg-elevated hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all">
-                      <X size={14} /> Rejeter
-                    </button>
+
+            <div className="p-5 space-y-5">
+              {/* Current cover + info */}
+              <div className="flex items-start gap-4">
+                {metadataPanel.artwork_url ? (
+                  <img src={metadataPanel.artwork_url} alt="" className="w-24 h-24 rounded-xl object-cover shadow-xl" />
+                ) : (
+                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-xl">
+                    <Image size={28} className="text-slate-600" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-white font-bold truncate">{metadataPanel.title || metadataPanel.original_filename}</p>
+                  <p className="text-sm text-slate-400 truncate">{metadataPanel.artist || 'Artiste inconnu'}</p>
+                  <p className="text-xs text-slate-500 truncate">{metadataPanel.album || 'Album inconnu'}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    {metadataPanel.genre && (
+                      <span className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
+                        {metadataPanel.genre.split(',')[0].trim()}
+                      </span>
+                    )}
+                    {metadataPanel.year && (
+                      <span className="text-[10px] px-2 py-0.5 bg-slate-700/50 text-slate-400 rounded-full">
+                        {metadataPanel.year}
+                      </span>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-slate-500 text-xs mb-3">Aucune donnée Spotify trouvée</p>
-                  <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-all">
-                    <Search size={12} className="inline mr-1.5" />
-                    Lancer la recherche
+              </div>
+
+              {/* Spotify link if available */}
+              {metadataPanel.spotify_url && (
+                <a href={metadataPanel.spotify_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-green-600/10 hover:bg-green-600/20 border border-green-500/30 rounded-xl text-green-400 text-xs font-semibold transition-all">
+                  <ExternalLink size={14} />
+                  Ouvrir sur Spotify
+                </a>
+              )}
+
+              {/* Current metadata */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Informations actuelles</p>
+                <div className="space-y-2 text-xs">
+                  <MetaRow label="Fichier" value={metadataPanel.original_filename} />
+                  <MetaRow label="Artiste" value={metadataPanel.artist || '\u2014'} />
+                  <MetaRow label="Titre" value={metadataPanel.title || '\u2014'} />
+                  <MetaRow label="Album" value={metadataPanel.album || '\u2014'} />
+                  <MetaRow label="Genre" value={metadataPanel.genre || '\u2014'} />
+                  <MetaRow label="Ann\u00e9e" value={metadataPanel.year?.toString() || '\u2014'} />
+                </div>
+              </div>
+
+              {/* Suggestions from analysis */}
+              {metadataLoading && (
+                <div className="flex items-center justify-center gap-3 py-8">
+                  <Loader2 size={20} className="animate-spin text-green-400" />
+                  <span className="text-sm text-slate-400">Recherche en cours...</span>
+                </div>
+              )}
+
+              {metadataSuggestions && !metadataLoading && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouv\u00e9es' : 'Aucune suggestion'}
+                  </p>
+                  {Object.keys(metadataSuggestions).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(metadataSuggestions)
+                        .filter(([k]) => k !== 'artwork_url' && k !== 'spotify_url')
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between p-2.5 bg-green-500/5 border border-green-500/20 rounded-lg">
+                            <div className="min-w-0">
+                              <span className="text-[10px] text-slate-500 uppercase">{key}</span>
+                              <p className="text-xs text-green-400 font-medium truncate">{value}</p>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                              <span className="text-[10px] text-yellow-400/70 flex items-center gap-0.5">
+                                <AlertTriangle size={10} />
+                                Suggestion
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      <p className="text-[10px] text-slate-500 mt-2 italic">
+                        Les suggestions ont \u00e9t\u00e9 appliqu\u00e9es automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center py-4">
+                      Aucune nouvelle information trouv\u00e9e pour ce morceau.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Search button if no suggestions yet */}
+              {!metadataSuggestions && !metadataLoading && (
+                <div className="text-center py-4">
+                  <button
+                    onClick={() => launchSpotifySearch(metadataPanel)}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-green-600/20"
+                  >
+                    <Search size={13} className="inline mr-2" />
+                    Lancer la recherche Spotify
                   </button>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 }
 
-// ── Small helpers ────────────────────────────────────────────────────────
-function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+// ââ Small helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-500">{label}</span>
-      <span className={`font-medium ${highlight ? 'text-green-400' : 'text-white'}`}>{value}</span>
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
+      <span className="text-slate-500 text-xs">{label}</span>
+      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
     </div>
   );
 }
