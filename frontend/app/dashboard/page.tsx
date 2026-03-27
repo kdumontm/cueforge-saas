@@ -14,7 +14,7 @@ import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
-// ââ Constants âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Constants ─────────────────────────────────────────────────────────────
 const CAMELOT_WHEEL: Record<string, string> = {
   'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
   'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
@@ -24,7 +24,7 @@ const CAMELOT_WHEEL: Record<string, string> = {
 };
 
 function toCamelot(key: string | null | undefined): string {
-  if (!key) return 'â';
+  if (!key) return '—';
   return CAMELOT_WHEEL[key] || key;
 }
 
@@ -36,7 +36,7 @@ function msToTime(ms: number): string {
 }
 
 function energyToRating(energy: number | null | undefined): string {
-  if (energy == null) return 'â';
+  if (energy == null) return '—';
   return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
 }
 
@@ -45,27 +45,27 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
-// ââ Context Menu Actions ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Context Menu Actions ──────────────────────────────────────────────────
 interface CtxAction { label: string; icon: React.ReactNode; action: string; separator?: boolean; }
 
 const CONTEXT_ACTIONS: CtxAction[] = [
   { label: 'Analyser le morceau', icon: <Zap size={14} />, action: 'analyze' },
-  { label: 'GÃ©nÃ©rer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points' },
-  { label: 'DÃ©tecter le genre', icon: <Search size={14} />, action: 'detect_genre' },
+  { label: 'Générer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points' },
+  { label: 'Détecter le genre', icon: <Search size={14} />, action: 'detect_genre' },
   { label: 'Recherche Spotify / Metadata', icon: <Music size={14} />, action: 'spotify_lookup', separator: true },
   { label: 'Clean Title (Maj/Min)', icon: <Type size={14} />, action: 'clean_title' },
   { label: 'Parser Remix', icon: <RefreshCw size={14} />, action: 'parse_remix' },
   { label: 'Fixer les tags ID3', icon: <Tag size={14} />, action: 'fix_tags', separator: true },
-  { label: 'Organiser (CatÃ©gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
+  { label: 'Organiser (Catégorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
   { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
   { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete' },
 ];
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────
 // MAIN DASHBOARD
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  // ââ State âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── State ─────────────────────────────────────────────────────────────
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const regionsRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ââ Load tracks on mount ââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Load tracks on mount ──────────────────────────────────────────────
   useEffect(() => { loadTracks(); }, []);
 
   async function loadTracks() {
@@ -100,7 +100,7 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  // ââ Wavesurfer init âââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Wavesurfer init ───────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined' || !waveformRef.current) return;
     let ws: any = null;
@@ -144,7 +144,7 @@ export default function DashboardPage() {
     return () => { if (ws) ws.destroy(); };
   }, []);
 
-  // ââ Zoom handler ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Zoom handler ──────────────────────────────────────────────────────
   function handleZoom(direction: 'in' | 'out') {
     if (!wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -165,7 +165,7 @@ export default function DashboardPage() {
     }
   }
 
-  // ââ Load track into waveform ââââââââââââââââââââââââââââââââââââââââââ
+  // ── Load track into waveform ──────────────────────────────────────────
   useEffect(() => {
     if (!selectedTrack || !wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -214,7 +214,7 @@ export default function DashboardPage() {
     });
   }, [selectedTrack]);
 
-  // ââ Player controls âââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Player controls ───────────────────────────────────────────────────
   function togglePlay() {
     if (!wavesurferRef.current) return;
     wavesurferRef.current.playPause();
@@ -238,12 +238,12 @@ export default function DashboardPage() {
     if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume);
   }
 
-  // ââ File handling âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── File handling ─────────────────────────────────────────────────────
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (!file.name.match(/\.(mp3|wav|flac|aiff|aif|m4a|ogg)$/i)) {
-        setError(`Format non supportÃ©: ${file.name}`);
+        setError(`Format non supporté: ${file.name}`);
         continue;
       }
       setError('');
@@ -278,7 +278,7 @@ export default function DashboardPage() {
     if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   }, []);
 
-  // ââ Context menu handler ââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Context menu handler ──────────────────────────────────────────────
   async function handleCtxAction(action: string, track: Track) {
     setCtxMenu(null);
     switch (action) {
@@ -291,14 +291,14 @@ export default function DashboardPage() {
           setSelectedTrack(done);
           loadTracks();
         } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : 'Analyse Ã©chouÃ©e');
+          setError(e instanceof Error ? e.message : 'Analyse échouée');
         }
         setAnalyzing(false);
         setProgress('');
         break;
       case 'cue_points':
         setAnalyzing(true);
-        setProgress('GÃ©nÃ©ration des cue points...');
+        setProgress('Génération des cue points...');
         try {
           await analyzeTrack(track.id);
           const done = await pollTrackUntilDone(track.id);
@@ -342,7 +342,7 @@ export default function DashboardPage() {
     }
   }
 
-  // ââ Filtered + sorted tracks ââââââââââââââââââââââââââââââââââââââââââ
+  // ── Filtered + sorted tracks ──────────────────────────────────────────
   const filtered = tracks
     .filter(t => {
       if (!searchQuery) return true;
@@ -365,13 +365,13 @@ export default function DashboardPage() {
 
   const isLoading = uploading || analyzing;
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ─────────────────────────────────────────────────────────────────────
   // RENDER
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ─────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
 
-      {/* ââ TOP: Waveform Player âââââââââââââââââââââââââââââââ */}
+      {/* ── TOP: Waveform Player ─────────────────────────────── */}
       <div className="bg-bg-secondary border-b border-slate-800/60 px-4 py-3 flex-shrink-0">
         {selectedTrack ? (
           <>
@@ -387,9 +387,9 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-xs text-slate-400 truncate">
                     {selectedTrack.artist || 'Artiste inconnu'}
-                    {selectedTrack.analysis?.bpm ? ` Â· ${selectedTrack.analysis.bpm.toFixed(1)} BPM` : ''}
-                    {selectedTrack.analysis?.key ? ` Â· ${toCamelot(selectedTrack.analysis.key)}` : ''}
-                    {selectedTrack.genre ? ` Â· ${selectedTrack.genre.split(',')[0].trim()}` : ''}
+                    {selectedTrack.analysis?.bpm ? ` · ${selectedTrack.analysis.bpm.toFixed(1)} BPM` : ''}
+                    {selectedTrack.analysis?.key ? ` · ${toCamelot(selectedTrack.analysis.key)}` : ''}
+                    {selectedTrack.genre ? ` · ${selectedTrack.genre.split(',')[0].trim()}` : ''}
                   </p>
                 </div>
               </div>
@@ -476,7 +476,7 @@ export default function DashboardPage() {
                       color: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb',
                       border: `1px solid ${(CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb')}40`,
                     }}
-                    title={`${cue.name} â ${msToTime(cue.position_ms)}`}
+                    title={`${cue.name} — ${msToTime(cue.position_ms)}`}
                   >
                     <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black"
                       style={{ backgroundColor: CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb', color: '#fff' }}>
@@ -498,12 +498,12 @@ export default function DashboardPage() {
           </>
         ) : (
           <div ref={waveformRef} className="w-full h-[120px] flex items-center justify-center rounded-lg bg-bg-primary border border-slate-800/40 border-dashed">
-            <p className="text-slate-500 text-sm">SÃ©lectionne un morceau pour voir la waveform</p>
+            <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
           </div>
         )}
       </div>
 
-      {/* ââ MIDDLE: Drop zone + Search bar âââââââââââââââââââââ */}
+      {/* ── MIDDLE: Drop zone + Search bar ───────────────────── */}
       <div
         className={`flex items-center gap-3 px-4 py-2.5 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -520,7 +520,7 @@ export default function DashboardPage() {
         </button>
         <input ref={fileRef} type="file" multiple accept=".mp3,.wav,.flac,.aiff,.aif,.m4a,.ogg,audio/*" className="hidden"
           onChange={e => e.target.files && handleFiles(e.target.files)} />
-        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">DÃ©pose tes fichiers ici...</span>}
+        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">Dépose tes fichiers ici...</span>}
         <div className="flex-1" />
         {/* Search */}
         <div className="relative">
@@ -546,7 +546,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ââ BOTTOM: Track List ââââââââââââââââââââââââââââââââââ */}
+      {/* ── BOTTOM: Track List ────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         {/* Table header */}
         <div className="grid grid-cols-[2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
@@ -555,7 +555,7 @@ export default function DashboardPage() {
           <span className="text-center">BPM</span>
           <span className="text-center">Key</span>
           <span className="text-center">Energy</span>
-          <span className="text-center">DurÃ©e</span>
+          <span className="text-center">Durée</span>
           <span />
         </div>
 
@@ -593,17 +593,17 @@ export default function DashboardPage() {
                       {track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
-                      {track.artist || 'â'}
+                      {track.artist || '—'}
                     </p>
                   </div>
                 </div>
                 {/* Genre */}
                 <span className="text-xs text-slate-400 truncate">
-                  {track.genre?.split(',')[0]?.trim() || 'â'}
+                  {track.genre?.split(',')[0]?.trim() || '—'}
                 </span>
                 {/* BPM */}
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
-                  {a?.bpm ? a.bpm.toFixed(1) : 'â'}
+                  {a?.bpm ? a.bpm.toFixed(1) : '—'}
                 </span>
                 {/* Key (Camelot) */}
                 <span className="text-xs text-cyan-400 font-mono text-center font-bold">
@@ -615,7 +615,7 @@ export default function DashboardPage() {
                 </span>
                 {/* Duration */}
                 <span className="text-xs text-slate-500 font-mono text-center">
-                  {a?.duration_ms ? msToTime(a.duration_ms) : 'â'}
+                  {a?.duration_ms ? msToTime(a.duration_ms) : '—'}
                 </span>
                 {/* Actions */}
                 <button
@@ -630,7 +630,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ââ Context Menu (right-click) âââââââââââââââââââââââââ */}
+      {/* ── Context Menu (right-click) ───────────────────────── */}
       {ctxMenu && (
         <div
           className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[220px] animate-fade-in"
@@ -658,7 +658,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ââ Track Organizer Panel (slide-in) âââââââââââââââââââ */}
+      {/* ── Track Organizer Panel (slide-in) ─────────────────── */}
       {organizerTrack && (
         <TrackOrganizer
           track={organizerTrack}
@@ -671,7 +671,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ââ Metadata / Spotify Panel (slide-in) ââââââââââââââââ */}
+      {/* ── Metadata / Spotify Panel (slide-in) ──────────────── */}
       {metadataPanel && (
         <div className="fixed inset-y-0 right-0 w-96 bg-bg-secondary border-l border-slate-800/60 z-40 shadow-2xl animate-slide-in overflow-y-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/40">
@@ -688,24 +688,24 @@ export default function DashboardPage() {
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Infos actuelles</p>
               <div className="space-y-2 text-xs">
                 <InfoRow label="Fichier" value={metadataPanel.original_filename} />
-                <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} />
-                <InfoRow label="Titre" value={metadataPanel.title || 'â'} />
-                <InfoRow label="Album" value={metadataPanel.album || 'â'} />
-                <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
-                <InfoRow label="AnnÃ©e" value={metadataPanel.year?.toString() || 'â'} />
+                <InfoRow label="Artiste" value={metadataPanel.artist || '—'} />
+                <InfoRow label="Titre" value={metadataPanel.title || '—'} />
+                <InfoRow label="Album" value={metadataPanel.album || '—'} />
+                <InfoRow label="Genre" value={metadataPanel.genre || '—'} />
+                <InfoRow label="Année" value={metadataPanel.year?.toString() || '—'} />
               </div>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">RÃ©sultats Spotify</p>
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Résultats Spotify</p>
               {metadataPanel.spotify_url ? (
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 space-y-2">
                   {metadataPanel.artwork_url && (
                     <img src={metadataPanel.artwork_url} alt="" className="w-full h-40 object-cover rounded-lg" />
                   )}
-                  <InfoRow label="Artiste" value={metadataPanel.artist || 'â'} highlight />
-                  <InfoRow label="Titre" value={metadataPanel.title || 'â'} highlight />
-                  <InfoRow label="Album" value={metadataPanel.album || 'â'} />
-                  <InfoRow label="Genre" value={metadataPanel.genre || 'â'} />
+                  <InfoRow label="Artiste" value={metadataPanel.artist || '—'} highlight />
+                  <InfoRow label="Titre" value={metadataPanel.title || '—'} highlight />
+                  <InfoRow label="Album" value={metadataPanel.album || '—'} />
+                  <InfoRow label="Genre" value={metadataPanel.genre || '—'} />
                   {metadataPanel.spotify_url && (
                     <a href={metadataPanel.spotify_url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs mt-2">
@@ -723,7 +723,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-slate-500 text-xs mb-3">Aucune donnÃ©e Spotify trouvÃ©e</p>
+                  <p className="text-slate-500 text-xs mb-3">Aucune donnée Spotify trouvée</p>
                   <button className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-all">
                     <Search size={12} className="inline mr-1.5" />
                     Lancer la recherche
@@ -738,7 +738,7 @@ export default function DashboardPage() {
   );
 }
 
-// ââ Small helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Small helpers ────────────────────────────────────────────────────────
 function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between">
