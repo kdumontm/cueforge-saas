@@ -1394,127 +1394,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-                {/* EQ 3-Band Controls */}
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
-                    </h3>
-                    <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">Reset</button>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-red-400 w-10">LOW</span>
-                      <input type="range" min={0} max={100} value={eqLow} onChange={(e) => setEqLow(Number(e.target.value))} className="flex-1 accent-red-500" />
-                      <span className="text-xs text-gray-300 w-8">{eqLow}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-yellow-400 w-10">MID</span>
-                      <input type="range" min={0} max={100} value={eqMid} onChange={(e) => setEqMid(Number(e.target.value))} className="flex-1 accent-yellow-500" />
-                      <span className="text-xs text-gray-300 w-8">{eqMid}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-blue-400 w-10">HIGH</span>
-                      <input type="range" min={0} max={100} value={eqHigh} onChange={(e) => setEqHigh(Number(e.target.value))} className="flex-1 accent-blue-500" />
-                      <span className="text-xs text-gray-300 w-8">{eqHigh}%</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* FX Rack */}
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-                    <Wand2 className="w-4 h-4 text-purple-400" /> FX Rack
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
-                      return (
-                        <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
-                          className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white" : "px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"}
-                        >{fxName}</button>
-                      );
-                    })}
-                  </div>
-                  {activeFx ? (
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-purple-300 w-8">Wet</span>
-                      <input type="range" min={0} max={100} value={fxWet} onChange={(e) => setFxWet(Number(e.target.value))} className="flex-1 accent-purple-500" />
-                      <span className="text-xs text-gray-300 w-8">{fxWet}%</span>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 text-center">Select an effect</p>
-                  )}
-                </div>
-
-                {/* Mix Controls */}
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-                    <Volume2 className="w-4 h-4 text-green-400" /> Mix Controls
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-green-400 w-14">Master</span>
-                      <input type="range" min={0} max={100} value={masterGain} onChange={(e) => setMasterGain(Number(e.target.value))} className="flex-1 accent-green-500" />
-                      <span className="text-xs text-gray-300 w-8">{masterGain}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-orange-400 w-14">X-Fade</span>
-                      <input type="range" min={0} max={100} value={crossfader} onChange={(e) => setCrossfader(Number(e.target.value))} className="flex-1 accent-orange-500" />
-                      <span className="text-xs text-gray-300 w-8">{crossfader}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-sky-400 w-14">Pitch</span>
-                      <input type="range" min={-12} max={12} value={pitchShift} onChange={(e) => setPitchShift(Number(e.target.value))} className="flex-1 accent-sky-500" />
-                      <span className="text-xs text-gray-300 w-8">{pitchShift > 0 ? "+" : ""}{pitchShift}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Playlist Manager */}
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
-                    <Folder className="w-4 h-4 text-amber-400" /> Playlists
-                  </h3>
-                  <div className="flex gap-2 mb-3">
-                    <input type="text" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-gray-700 rounded px-2 py-1 text-xs text-white border border-gray-600 focus:border-amber-500 outline-none" />
-                    <button onClick={() => { if (newPlaylistName.trim()) { var n = newPlaylistName.trim(); var next = Object.assign({}, playlists); next[n] = []; setPlaylists(next); setCurrentPlaylist(n); setNewPlaylistName(""); } }} className="px-2 py-1 rounded text-xs bg-amber-600 text-white hover:bg-amber-500">+</button>
-                  </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {Object.keys(playlists).length === 0 ? (
-                      <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
-                    ) : Object.keys(playlists).map(function(name) {
-                      return (
-                        <button key={name} onClick={() => setCurrentPlaylist(name)}
-                          className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-white" : "w-full text-left px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"}
-                        >{name} ({playlists[name].length})</button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* DJ History */}
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-pink-400" /> DJ History
-                    </h3>
-                    <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-gray-400 hover:text-white">{showHistory ? "Hide" : "Show"}</button>
-                  </div>
-                  {showHistory ? (
-                    <div className="space-y-1 max-h-40 overflow-y-auto">
-                      {djHistory.length === 0 ? (
-                        <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
-                      ) : djHistory.map(function(item, idx) {
-                        return (
-                          <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
-                            <span className="text-pink-400">{idx + 1}.</span>
-                            <span className="text-white truncate flex-1">{String(item)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </div>
 
 
               {/* Search button if no suggestions yet */}
@@ -1533,6 +1413,131 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+      <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-t border-gray-700 p-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* EQ 3-Band Controls */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
+          </h3>
+          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">Reset</button>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-red-400 w-10">LOW</span>
+            <input type="range" min={0} max={100} value={eqLow} onChange={(e) => setEqLow(Number(e.target.value))} className="flex-1 accent-red-500" />
+            <span className="text-xs text-gray-300 w-8">{eqLow}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-yellow-400 w-10">MID</span>
+            <input type="range" min={0} max={100} value={eqMid} onChange={(e) => setEqMid(Number(e.target.value))} className="flex-1 accent-yellow-500" />
+            <span className="text-xs text-gray-300 w-8">{eqMid}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-blue-400 w-10">HIGH</span>
+            <input type="range" min={0} max={100} value={eqHigh} onChange={(e) => setEqHigh(Number(e.target.value))} className="flex-1 accent-blue-500" />
+            <span className="text-xs text-gray-300 w-8">{eqHigh}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* FX Rack */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+          <Wand2 className="w-4 h-4 text-purple-400" /> FX Rack
+        </h3>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
+            return (
+              <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
+                className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white" : "px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"}
+              >{fxName}</button>
+            );
+          })}
+        </div>
+        {activeFx ? (
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-purple-300 w-8">Wet</span>
+            <input type="range" min={0} max={100} value={fxWet} onChange={(e) => setFxWet(Number(e.target.value))} className="flex-1 accent-purple-500" />
+            <span className="text-xs text-gray-300 w-8">{fxWet}%</span>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 text-center">Select an effect</p>
+        )}
+      </div>
+
+      {/* Mix Controls */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+          <Volume2 className="w-4 h-4 text-green-400" /> Mix Controls
+        </h3>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-green-400 w-14">Master</span>
+            <input type="range" min={0} max={100} value={masterGain} onChange={(e) => setMasterGain(Number(e.target.value))} className="flex-1 accent-green-500" />
+            <span className="text-xs text-gray-300 w-8">{masterGain}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-orange-400 w-14">X-Fade</span>
+            <input type="range" min={0} max={100} value={crossfader} onChange={(e) => setCrossfader(Number(e.target.value))} className="flex-1 accent-orange-500" />
+            <span className="text-xs text-gray-300 w-8">{crossfader}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-sky-400 w-14">Pitch</span>
+            <input type="range" min={-12} max={12} value={pitchShift} onChange={(e) => setPitchShift(Number(e.target.value))} className="flex-1 accent-sky-500" />
+            <span className="text-xs text-gray-300 w-8">{pitchShift > 0 ? "+" : ""}{pitchShift}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Playlist Manager */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+          <Folder className="w-4 h-4 text-amber-400" /> Playlists
+        </h3>
+        <div className="flex gap-2 mb-3">
+          <input type="text" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-gray-700 rounded px-2 py-1 text-xs text-white border border-gray-600 focus:border-amber-500 outline-none" />
+          <button onClick={() => { if (newPlaylistName.trim()) { var n = newPlaylistName.trim(); var next = Object.assign({}, playlists); next[n] = []; setPlaylists(next); setCurrentPlaylist(n); setNewPlaylistName(""); } }} className="px-2 py-1 rounded text-xs bg-amber-600 text-white hover:bg-amber-500">+</button>
+        </div>
+        <div className="space-y-1 max-h-32 overflow-y-auto">
+          {Object.keys(playlists).length === 0 ? (
+            <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
+          ) : Object.keys(playlists).map(function(name) {
+            return (
+              <button key={name} onClick={() => setCurrentPlaylist(name)}
+                className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-white" : "w-full text-left px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"}
+              >{name} ({playlists[name].length})</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* DJ History */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Clock className="w-4 h-4 text-pink-400" /> DJ History
+          </h3>
+          <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-gray-400 hover:text-white">{showHistory ? "Hide" : "Show"}</button>
+        </div>
+        {showHistory ? (
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {djHistory.length === 0 ? (
+              <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
+            ) : djHistory.map(function(item, idx) {
+              return (
+                <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
+                  <span className="text-pink-400">{idx + 1}.</span>
+                  <span className="text-white truncate flex-1">{String(item)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+        </div>
+      </div>
     </div>
   );
 }
