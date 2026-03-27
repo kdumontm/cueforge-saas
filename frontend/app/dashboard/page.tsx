@@ -46,6 +46,73 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
+// ── Camelot Wheel System (Harmonic Mixing) ────────────────────────────────
+const CAMELOT_MAP: Record<string, string> = {
+  'C': '8B', 'Cm': '5A', 'C#': '3B', 'C#m': '12A',
+  'D': '10B', 'Dm': '7A', 'D#': '5B', 'D#m': '2A',
+  'E': '12B', 'Em': '9A', 'F': '7B', 'Fm': '4A',
+  'F#': '2B', 'F#m': '11A', 'G': '9B', 'Gm': '6A',
+  'G#': '4B', 'G#m': '1A', 'A': '11B', 'Am': '8A',
+  'A#': '6B', 'A#m': '3A', 'B': '1B', 'Bm': '10A',
+  'Db': '3B', 'Dbm': '12A', 'Eb': '5B', 'Ebm': '2A',
+  'Gb': '2B', 'Gbm': '11A', 'Ab': '4B', 'Abm': '1A',
+  'Bb': '6B', 'Bbm': '3A',
+};
+
+function keyCamelot(key: string): string {
+  return CAMELOT_MAP[key] || '';
+}
+
+function getCompatibleKeys(key: string): string[] {
+  const cam = CAMELOT_MAP[key];
+  if (!cam) return [];
+  const num = parseInt(cam);
+  const letter = cam.slice(-1);
+  const compat = [
+    cam,
+    `${(num % 12) + 1}${letter}`,
+    `${((num - 2 + 12) % 12) || 12}${letter}`,
+    `${num}${letter === 'A' ? 'B' : 'A'}`,
+  ];
+  const rev: Record<string, string> = {};
+  Object.entries(CAMELOT_MAP).forEach(([k, v]) => { if (!rev[v]) rev[v] = k; });
+  return compat.map(c => rev[c]).filter(Boolean);
+}
+
+function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
+  const bpmDiff = Math.abs(bpm1 - bpm2);
+  let bpmS = bpmDiff <= 0.5 ? 50 : bpmDiff <= 2 ? 45 : bpmDiff <= 5 ? 35 : Math.max(0, 25 - bpmDiff);
+  const c1 = CAMELOT_MAP[key1] || '', c2 = CAMELOT_MAP[key2] || '';
+  let keyS = 25;
+  if (c1 && c2) {
+    if (c1 === c2) keyS = 50;
+    else {
+      const n1 = parseInt(c1), l1 = c1.slice(-1), n2 = parseInt(c2), l2 = c2.slice(-1);
+      if (l1 === l2) { const d = Math.min(Math.abs(n1 - n2), 12 - Math.abs(n1 - n2)); keyS = d === 1 ? 45 : d === 2 ? 30 : 15; }
+      else if (n1 === n2) keyS = 40;
+      else keyS = 15;
+    }
+  }
+  const total = bpmS + keyS;
+  return { total, verdict: total >= 90 ? 'Perfect' : total >= 75 ? 'Great' : total >= 60 ? 'Good' : total >= 40 ? 'OK' : 'Risky' };
+}
+
+// ── BPM Tap Tempo utility ─────────────────────────────────────────────────
+const tapTimesRef = { current: [] as number[] };
+function handleTap(): number {
+  const now = Date.now();
+  tapTimesRef.current.push(now);
+  if (tapTimesRef.current.length > 8) tapTimesRef.current.shift();
+  if (tapTimesRef.current.length < 2) return 0;
+  const intervals = [];
+  for (let i = 1; i < tapTimesRef.current.length; i++) {
+    intervals.push(tapTimesRef.current[i] - tapTimesRef.current[i - 1]);
+  }
+  const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+  return Math.round(60000 / avg * 10) / 10;
+}
+
+
 // ── RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ──
 async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
@@ -120,6 +187,18 @@ export default function DashboardPage() {
   const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [waveformReady, setWaveformReady] = useState(false);
+  // ── New feature states ──
+  const [tapBpm, setTapBpm] = useState<number>(0);
+  const [loopIn, setLoopIn] = useState<number | null>(null);
+  const [loopOut, setLoopOut] = useState<number | null>(null);
+  const [loopActive, setLoopActive] = useState(false);
+  const [showHotCues, setShowHotCues] = useState(true);
+  const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
+  const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
+  const [filterKey, setFilterKey] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [compatTrack, setCompatTrack] = useState<any>(null);
+  const loopRegionRef = useRef<any>(null);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -664,6 +743,126 @@ export default function DashboardPage() {
                 );
               })}
             </div>
+
+              {/* ── HOT CUE PADS ── */}
+              {selectedTrack?.cue_points && selectedTrack.cue_points.length > 0 && (
+                <div className="mt-4 p-3 bg-[#0d0b1a] rounded-xl border border-purple-900/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Hot Cue Pads</span>
+                    <span className="text-[10px] text-gray-500">1-8 keys to trigger</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Array.from({ length: 8 }).map((_, i) => {
+                      const cue = selectedTrack.cue_points?.[i];
+                      const colors: Record<string, string> = {
+                        red: 'from-red-600 to-red-800', blue: 'from-blue-600 to-blue-800',
+                        green: 'from-green-600 to-green-800', yellow: 'from-yellow-500 to-yellow-700',
+                        purple: 'from-purple-600 to-purple-800', orange: 'from-orange-500 to-orange-700',
+                        cyan: 'from-cyan-500 to-cyan-700', pink: 'from-pink-500 to-pink-700',
+                        white: 'from-gray-400 to-gray-600',
+                      };
+                      const grad = cue ? (colors[cue.color] || colors.purple) : 'from-gray-800 to-gray-900';
+                      return (
+                        <button key={i} onClick={() => {
+                          if (cue && wavesurferRef.current) {
+                            const pos = cue.position_ms / 1000;
+                            wavesurferRef.current.seekTo(pos / wavesurferRef.current.getDuration());
+                          }
+                        }}
+                          className={`relative h-14 rounded-lg bg-gradient-to-b ${grad} border border-white/10 flex flex-col items-center justify-center transition-all ${cue ? 'hover:scale-105 hover:brightness-125 cursor-pointer shadow-lg' : 'opacity-30 cursor-default'}`}>
+                          <span className="text-[10px] font-bold text-white/90">{i + 1}</span>
+                          {cue && <span className="text-[8px] text-white/70 truncate max-w-full px-1">{cue.name}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── LOOP CONTROLS + TAP TEMPO + CAMELOT ── */}
+              {selectedTrack && (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {/* Loop Controls */}
+                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
+                    <span className="text-[10px] font-bold text-pink-400 uppercase tracking-wider block mb-1">Loop</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => { const ws = wavesurferRef.current; if (ws) setLoopIn(ws.getCurrentTime()); }}
+                        className={`flex-1 text-[10px] py-1 rounded ${loopIn !== null ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400'} hover:bg-pink-500 transition-colors`}>
+                        IN {loopIn !== null ? loopIn.toFixed(1) + 's' : '[ '}
+                      </button>
+                      <button onClick={() => { const ws = wavesurferRef.current; if (ws) { setLoopOut(ws.getCurrentTime()); if (loopIn !== null) setLoopActive(true); } }}
+                        className={`flex-1 text-[10px] py-1 rounded ${loopOut !== null ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400'} hover:bg-pink-500 transition-colors`}>
+                        OUT {loopOut !== null ? loopOut.toFixed(1) + 's' : ' ]'}
+                      </button>
+                      <button onClick={() => { setLoopActive(a => !a); }}
+                        className={`w-8 text-[10px] py-1 rounded font-bold ${loopActive ? 'bg-pink-500 text-white animate-pulse' : 'bg-gray-800 text-gray-500'}`}>
+                        {loopActive ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+                    <span className="text-[9px] text-gray-600 mt-1 block">[ ] keys or L to toggle</span>
+                  </div>
+
+                  {/* Tap Tempo */}
+                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">Tap Tempo</span>
+                    <button onClick={() => setTapBpm(handleTap())}
+                      className="w-full h-9 rounded bg-gradient-to-b from-cyan-700 to-cyan-900 hover:from-cyan-600 hover:to-cyan-800 text-white font-bold text-sm transition-all active:scale-95 border border-cyan-500/30">
+                      TAP
+                    </button>
+                    <div className="text-center mt-1">
+                      <span className="text-cyan-300 font-mono text-sm font-bold">{tapBpm > 0 ? tapBpm.toFixed(1) : '---'}</span>
+                      <span className="text-[9px] text-gray-500 ml-1">BPM</span>
+                    </div>
+                  </div>
+
+                  {/* Camelot / Harmonic Info */}
+                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
+                    <span className="text-[10px] font-bold text-green-400 uppercase tracking-wider block mb-1">Harmonic</span>
+                    {selectedTrack.analysis?.key ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-white">{keyCamelot(selectedTrack.analysis.key)}</span>
+                          <span className="text-xs text-gray-400">{selectedTrack.analysis.key}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-500 mt-1">
+                          Mix with: {getCompatibleKeys(selectedTrack.analysis.key).map(k =>
+                            <span key={k} className="inline-block bg-green-900/40 text-green-300 rounded px-1 mr-0.5 mb-0.5">{keyCamelot(k)} {k}</span>
+                          )}
+                        </div>
+                      </>
+                    ) : <span className="text-xs text-gray-500">Analyze first</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* ── ENERGY METER ── */}
+              {selectedTrack?.analysis?.energy && (
+                <div className="mt-2 p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">Energy</span>
+                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: (selectedTrack.analysis.energy * 100) + '%',
+                          background: selectedTrack.analysis.energy > 0.7 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' :
+                            selectedTrack.analysis.energy > 0.4 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' :
+                            'linear-gradient(90deg, #3b82f6, #22c55e)',
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-yellow-300">{(selectedTrack.analysis.energy * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── KEYBOARD SHORTCUTS LEGEND ── */}
+              <div className="mt-2 flex flex-wrap gap-1">
+                {[['Space','Play/Pause'],['1-8','Hot Cues'],['[','Loop In'],[']','Loop Out'],['L','Loop Toggle'],['Esc','Clear Loop']].map(([k,v]) =>
+                  <span key={k} className="text-[9px] bg-gray-800/50 text-gray-500 rounded px-1.5 py-0.5 border border-gray-700/30">
+                    <kbd className="text-purple-400 font-mono">{k}</kbd> {v}
+                  </span>
+                )}
+              </div>
             {/* Volume */}
             <div className="flex items-center gap-2">
               <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
@@ -1042,6 +1241,89 @@ export default function DashboardPage() {
 
 // ââ Small helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function MetaRow({ label, value }: { label: string; value: string }) {
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const ws = wavesurferRef.current;
+      if (!ws) return;
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          ws.playPause();
+          break;
+        case 'KeyL':
+          if (loopIn !== null && loopOut !== null) {
+            setLoopActive(prev => !prev);
+          } else if (loopIn === null) {
+            setLoopIn(ws.getCurrentTime());
+          } else {
+            setLoopOut(ws.getCurrentTime());
+            setLoopActive(true);
+          }
+          break;
+        case 'Escape':
+          setLoopIn(null); setLoopOut(null); setLoopActive(false);
+          if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
+          break;
+        case 'BracketLeft':
+          setLoopIn(ws.getCurrentTime());
+          break;
+        case 'BracketRight':
+          setLoopOut(ws.getCurrentTime());
+          if (loopIn !== null) setLoopActive(true);
+          break;
+        default:
+          if (e.code.startsWith('Digit')) {
+            const num = parseInt(e.code.replace('Digit', '')) - 1;
+            if (selectedTrack?.cue_points?.[num]) {
+              const pos = selectedTrack.cue_points[num].position_ms / 1000;
+              ws.seekTo(pos / ws.getDuration());
+            }
+          }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrack, loopIn, loopOut]);
+
+  // ── Loop playback logic ─────────────────────────────────────────────────
+  useEffect(() => {
+    const ws = wavesurferRef.current;
+    if (!ws || !loopActive || loopIn === null || loopOut === null) return;
+    const regions = regionsRef.current;
+    if (regions) {
+      if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} }
+      loopRegionRef.current = regions.addRegion({
+        start: loopIn, end: loopOut,
+        color: 'rgba(236,72,153,0.15)',
+        drag: false, resize: true,
+      });
+    }
+    const onTimeUpdate = () => {
+      if (ws.getCurrentTime() >= loopOut) ws.seekTo(loopIn / ws.getDuration());
+    };
+    ws.on('timeupdate', onTimeUpdate);
+    return () => { ws.un('timeupdate', onTimeUpdate); };
+  }, [loopActive, loopIn, loopOut]);
+
+  const filteredTracks = tracks.filter(t => {
+    const bpm = t.analysis?.bpm || 0;
+    if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
+    if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
+    if (filterKey && t.analysis?.key !== filterKey) return false;
+    return true;
+  });
+
+  const getTrackCompat = (t: any) => {
+    if (!selectedTrack?.analysis?.bpm || !t?.analysis?.bpm) return null;
+    return mixScore(
+      selectedTrack.analysis.key || '', selectedTrack.analysis.bpm,
+      t.analysis.key || '', t.analysis.bpm
+    );
+  };
+
+
   return (
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
       <span className="text-slate-500 text-xs">{label}</span>
