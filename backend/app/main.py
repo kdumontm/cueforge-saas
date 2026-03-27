@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -70,6 +71,7 @@ app = FastAPI(
     description="Audio analysis and cue point generation for DJs",
     version="0.2.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.add_middleware(
