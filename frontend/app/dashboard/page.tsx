@@ -46,6 +46,53 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
+// ── RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ──
+async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
+  const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  if (freq2) {
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = freq; hp.Q.value = 0.7;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = freq2; lp.Q.value = 0.7;
+    src.connect(hp).connect(lp).connect(ctx.destination);
+  } else {
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = 0.7;
+    src.connect(f).connect(ctx.destination);
+  }
+  src.start(0);
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:number,g:number,b:number}[]> {
+  const [lowBand, midBand, highBand] = await Promise.all([
+    filterBand(buf, 'lowpass', 200),
+    filterBand(buf, 'bandpass', 200, 4000),
+    filterBand(buf, 'highpass', 4000),
+  ]);
+  const segLen = Math.floor(buf.length / numBars);
+  const rawColors: {lo:number,mi:number,hi:number}[] = [];
+  let maxLo = 0, maxMi = 0, maxHi = 0;
+  for (let i = 0; i < numBars; i++) {
+    const s = i * segLen, e = Math.min(s + segLen, buf.length);
+    let le = 0, me = 0, he = 0;
+    for (let j = s; j < e; j++) { le += lowBand[j]*lowBand[j]; me += midBand[j]*midBand[j]; he += highBand[j]*highBand[j]; }
+    const n = e - s || 1;
+    le = Math.sqrt(le/n); me = Math.sqrt(me/n); he = Math.sqrt(he/n);
+    maxLo = Math.max(maxLo, le); maxMi = Math.max(maxMi, me); maxHi = Math.max(maxHi, he);
+    rawColors.push({ lo: le, mi: me, hi: he });
+  }
+  return rawColors.map(c => {
+    const lo = c.lo / (maxLo || 1);
+    const mi = c.mi / (maxMi || 1);
+    const hi = c.hi / (maxHi || 1);
+    const r = Math.min(255, Math.floor(lo * 220 + mi * 60));
+    const g = Math.min(255, Math.floor(mi * 200 + hi * 50 + lo * 25));
+    const b = Math.min(255, Math.floor(hi * 240 + mi * 30));
+    return { r: Math.max(25, r), g: Math.max(15, g), b: Math.max(35, b) };
+  });
+}
+
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // MAIN DASHBOARD
 // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -78,6 +125,7 @@ export default function DashboardPage() {
   const wavesurferRef = useRef<any>(null);
   const regionsRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
 
   // ââ Load tracks on mount ââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => { loadTracks(); }, []);
@@ -103,13 +151,8 @@ export default function DashboardPage() {
 
       ws = WaveSurfer.create({
         container: waveformRef.current!,
-        waveColor: '#4F4A85',
-        progressColor: '#7C3AED',
         cursorColor: '#fff',
         cursorWidth: 2,
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 2,
         height: 120,
         normalize: true,
         fillParent: true,
@@ -119,6 +162,32 @@ export default function DashboardPage() {
         dragToSeek: true,
         hideScrollbar: true,
         plugins: [regions],
+        waveColor: '#1a1730',
+        progressColor: 'rgba(124,58,237,0.15)',
+        renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
+          const colors = spectralColorsRef.current;
+          const { width, height } = ctx.canvas;
+          const ch = peaks[0] as Float32Array;
+          const bw = 3, gap = 1, step = bw + gap;
+          const numBars = Math.floor(width / step);
+          const mid = height / 2;
+          ctx.clearRect(0, 0, width, height);
+          for (let i = 0; i < numBars; i++) {
+            const idx = Math.min(Math.floor((i / numBars) * (ch.length / 2)) * 2, ch.length - 2);
+            const amp = Math.max(Math.abs(ch[idx] || 0), Math.abs(ch[idx + 1] || 0));
+            const barH = Math.max(1, amp * height * 0.92);
+            const ci = colors ? Math.min(Math.floor((i / numBars) * colors.length), colors.length - 1) : -1;
+            const c = ci >= 0 && colors ? colors[ci] : { r: 79, g: 74, b: 133 };
+            ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.5)`;
+            ctx.shadowBlur = 6;
+            ctx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+            const x = i * step;
+            ctx.beginPath();
+            ctx.roundRect(x, mid - barH / 2, bw, barH, 1);
+            ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+        },
       });
 
       ws.on('play', () => setIsPlaying(true));
@@ -127,6 +196,17 @@ export default function DashboardPage() {
       ws.on('ready', () => {
         setDuration(ws.getDuration());
         setWaveformReady(true);
+      });
+
+      // RGB spectral analysis: compute frequency colors on decode
+      ws.on('decode', () => {
+        const audioData = ws.getDecodedData();
+        if (audioData) {
+          computeRGBWaveform(audioData).then(colors => {
+            spectralColorsRef.current = colors;
+            try { ws.drawBuffer(); } catch {}
+          }).catch(() => {});
+        }
       });
 
       wavesurferRef.current = ws;
