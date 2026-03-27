@@ -127,7 +127,7 @@ class CuePoint(Base):
     number = Column(Integer, nullable=True)
     cue_mode = Column(String(20), default="memory")
     color_rgb = Column(String(30), nullable=True)
-        track = relationship("Track", back_populates="cue_points")
+    track = relationship("Track", back_populates="cue_points")
 
 
 class CueRule(Base):
