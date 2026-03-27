@@ -110,7 +110,7 @@ class TrackAnalysis(Base):
     section_labels = Column(JSON, default=list)
     waveform_peaks = Column(JSON, nullable=True)
     spectral_energy = Column(JSON, nullable=True)
-        analyzed_at = Column(DateTime, default=datetime.utcnow)
+    analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 
 
