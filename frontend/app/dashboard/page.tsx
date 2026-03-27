@@ -203,7 +203,6 @@ export default function DashboardPage() {
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
-  const [sortBy, setSortBy] = useState<string>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
 
