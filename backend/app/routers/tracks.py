@@ -184,6 +184,13 @@ def _run_analysis(track_id: int):
             db.commit()
             return
 
+        # ── Clean up previous analysis data (for retries) ─────────────
+        old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+        if old_analysis:
+            db.delete(old_analysis)
+        db.query(CuePoint).filter(CuePoint.track_id == track.id).delete()
+        db.flush()
+
         # ── Step 1: Audio analysis ──────────────────────────────────────
         track.status = TrackStatus.analyzing
         db.commit()
@@ -306,8 +313,9 @@ async def analyze_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    # Allow re-analysis: if already analyzing, warn but allow retry (handles stuck tracks)
     if track.status == TrackStatus.analyzing:
-        raise HTTPException(status_code=409, detail="Analysis already in progress")
+        logger.warning(f"Track {track_id} was in analyzing state, allowing retry")
 
     background_tasks.add_task(_run_analysis, track_id)
     return AnalyzeResponse(status="started", message="Analysis started in background")
