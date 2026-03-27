@@ -219,6 +219,26 @@ export default function DashboardPage() {
   const [currentPlaylist, setCurrentPlaylist] = useState('');
   const [newPlaylistName, setNewPlaylistName] = useState('');
 
+  // Smart Playlist & Advanced Features State
+  const [showSmartPlaylist, setShowSmartPlaylist] = useState(false);
+  const [smartRules, setSmartRules] = useState([]);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState([]);
+  const [showStats, setShowStats] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exportFormat, setExportFormat] = useState('rekordbox');
+  const [editingTrackId, setEditingTrackId] = useState(null);
+  const [editField, setEditField] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [batchSelected, setBatchSelected] = useState([]);
+  const [showBatchEdit, setShowBatchEdit] = useState(false);
+  const [batchField, setBatchField] = useState('genre');
+  const [batchValue, setBatchValue] = useState('');
+  const [viewMode, setViewMode] = useState('table');
+  const [showCamelotWheel, setShowCamelotWheel] = useState(false);
+  const [energyFilter, setEnergyFilter] = useState([0, 100]);
+  const [bpmFilter, setBpmFilter] = useState([0, 300]);
+  const [keyFilter, setKeyFilter] = useState('');
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -446,7 +466,7 @@ export default function DashboardPage() {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (!file.name.match(/\.(mp3|wav|flac|aiff|aif|m4a|ogg)$/i)) {
-        setError(`Format non support\u00e9: ${file.name}`);
+        setError(`Format non supporté: ${file.name}`);
         continue;
       }
       setError('');
@@ -535,7 +555,7 @@ export default function DashboardPage() {
         break;
       case 'cue_points':
         setAnalyzing(true);
-        setBatchProgress('G\u00e9n\u00e9ration des cue points...');
+        setBatchProgress('Génération des cue points...');
         try {
           await analyzeTrack(track.id);
           const done = await pollTrackUntilDone(track.id);
@@ -592,7 +612,7 @@ export default function DashboardPage() {
       setMetadataPanel(result);
       loadTracks();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Recherche metadata \u00e9chou\u00e9e');
+      setError(e instanceof Error ? e.message : 'Recherche metadata échouée');
     }
     setMetadataLoading(false);
   }
@@ -625,8 +645,8 @@ export default function DashboardPage() {
   const CONTEXT_ACTIONS = [
     { label: 'Analyser Audio (BPM/Key/Cues)', icon: <Zap size={14} />, action: 'analyze' },
     { label: 'Rechercher Metadata (Spotify)', icon: <Sparkles size={14} />, action: 'analyze_metadata' },
-    { label: 'G\u00e9n\u00e9rer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points', separator: true },
-    { label: 'Organiser (Cat\u00e9gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
+    { label: 'Générer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points', separator: true },
+    { label: 'Organiser (Catégorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
     { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
     { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete', separator: true },
   ];
@@ -769,7 +789,7 @@ export default function DashboardPage() {
                 )}
           {!selectedTrack && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <p className="text-slate-500 text-sm">S\u00e9lectionne un morceau pour voir la waveform</p>
+              <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
             </div>
           )}
           {selectedTrack && (
@@ -995,7 +1015,7 @@ export default function DashboardPage() {
         {selectedCount > 0 && (
           <>
             <div className="w-px h-5 bg-slate-700/60" />
-            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} s\u00e9lectionn\u00e9{selectedCount > 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}</span>
             <button
               onClick={() => batchAnalyzeAudio(Array.from(selectedIds))}
               disabled={isLoading}
@@ -1017,7 +1037,7 @@ export default function DashboardPage() {
               className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-white text-[11px] transition-colors"
             >
               <X size={12} />
-              D\u00e9s\u00e9lectionner
+              Désélectionner
             </button>
           </>
         )}
@@ -1030,11 +1050,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">D\u00e9pose tes fichiers ici...</span>}
+        {dragOver && <span className="text-blue-400 text-xs font-medium animate-pulse">Dépose tes fichiers ici...</span>}
         <div className="flex-1" />
 
         {/* Select all shortcut hint */}
-        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout s\u00e9lectionner</span>
+        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout sélectionner</span>
 
         {/* Search */}
         <div className="relative">
@@ -1137,7 +1157,7 @@ export default function DashboardPage() {
           <span className="text-center">BPM</span>
           <span className="text-center">Key</span>
           <span className="text-center">Energy</span>
-          <span className="text-center">Dur\u00e9e</span>
+          <span className="text-center">Durée</span>
           <span />
         </div>
 
@@ -1347,7 +1367,7 @@ export default function DashboardPage() {
                   <MetaRow label="Titre" value={metadataPanel.title || '\u2014'} />
                   <MetaRow label="Album" value={metadataPanel.album || '\u2014'} />
                   <MetaRow label="Genre" value={metadataPanel.genre || '\u2014'} />
-                  <MetaRow label="Ann\u00e9e" value={metadataPanel.year?.toString() || '\u2014'} />
+                  <MetaRow label="Année" value={metadataPanel.year?.toString() || '\u2014'} />
                 </div>
               </div>
 
@@ -1362,7 +1382,7 @@ export default function DashboardPage() {
               {metadataSuggestions && !metadataLoading && (
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouv\u00e9es' : 'Aucune suggestion'}
+                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouvées' : 'Aucune suggestion'}
                   </p>
                   {Object.keys(metadataSuggestions).length > 0 ? (
                     <div className="space-y-2">
@@ -1383,12 +1403,12 @@ export default function DashboardPage() {
                           </div>
                         ))}
                       <p className="text-[10px] text-slate-500 mt-2 italic">
-                        Les suggestions ont \u00e9t\u00e9 appliqu\u00e9es automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
+                        Les suggestions ont été appliquées automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
                       </p>
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 text-center py-4">
-                      Aucune nouvelle information trouv\u00e9e pour ce morceau.
+                      Aucune nouvelle information trouvée pour ce morceau.
                     </p>
                   )}
                 </div>
@@ -1536,6 +1556,272 @@ export default function DashboardPage() {
           </div>
         ) : null}
       </div>
+        </div>
+      </div>
+
+      {/* ── Smart Playlist Builder ── */}
+      {showSmartPlaylist && (
+        <div className="bg-gradient-to-r from-purple-900/40 via-gray-900 to-purple-900/40 border-t border-purple-500/30 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-purple-300 flex items-center gap-2"><Sparkles size={18}/> Smart Playlist Builder</h3>
+              <button onClick={() => setShowSmartPlaylist(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              {smartRules.map((rule, i) => (
+                <div key={i} className="bg-gray-800/80 rounded-lg p-3 border border-purple-500/20 flex items-center gap-2">
+                  <select value={rule.field} onChange={(e) => {const r = [...smartRules]; r[i].field = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+                    <option value="genre">Genre</option>
+                    <option value="bpm">BPM</option>
+                    <option value="key">Key</option>
+                    <option value="energy">Energy</option>
+                    <option value="artist">Artist</option>
+                    <option value="year">Year</option>
+                  </select>
+                  <select value={rule.op} onChange={(e) => {const r = [...smartRules]; r[i].op = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+                    <option value="equals">equals</option>
+                    <option value="contains">contains</option>
+                    <option value="gt">greater than</option>
+                    <option value="lt">less than</option>
+                    <option value="between">between</option>
+                  </select>
+                  <input value={rule.value} onChange={(e) => {const r = [...smartRules]; r[i].value = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm flex-1" placeholder="Value..."/>
+                  <button onClick={() => setSmartRules(smartRules.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300"><X size={14}/></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setSmartRules([...smartRules, {field: 'genre', op: 'equals', value: ''}])} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Sparkles size={14}/> Add Rule</button>
+              <button onClick={() => {
+                const filtered = tracks.filter((t) => smartRules.every((rule) => {
+                  const val = (t[rule.field] || '').toString().toLowerCase();
+                  const target = rule.value.toLowerCase();
+                  if (rule.op === 'equals') return val === target;
+                  if (rule.op === 'contains') return val.includes(target);
+                  if (rule.op === 'gt') return parseFloat(val) > parseFloat(target);
+                  if (rule.op === 'lt') return parseFloat(val) < parseFloat(target);
+                  return true;
+                }));
+                const name = 'Smart ' + new Date().toLocaleTimeString();
+                setPlaylists({...playlists, [name]: filtered.map(t => t.id)});
+                setCurrentPlaylist(name);
+              }} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Generate Playlist</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Duplicate Detection Panel ── */}
+      {showDuplicates && (
+        <div className="bg-gradient-to-r from-orange-900/30 via-gray-900 to-orange-900/30 border-t border-orange-500/30 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-orange-300 flex items-center gap-2"><AlertTriangle size={18}/> Duplicate Detection</h3>
+              <button onClick={() => setShowDuplicates(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+            </div>
+            <button onClick={() => {
+              const groups = [];
+              const seen = {};
+              tracks.forEach((t) => {
+                const key = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
+                if (seen[key]) { seen[key].push(t); } else { seen[key] = [t]; }
+              });
+              Object.values(seen).forEach((g) => { if (g.length > 1) groups.push(g); });
+              setDuplicateGroups(groups);
+            }} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm mb-4 flex items-center gap-1"><Search size={14}/> Scan for Duplicates</button>
+            {duplicateGroups.length === 0 && <p className="text-gray-400 text-sm">No duplicates found. Click scan to analyze your library.</p>}
+            {duplicateGroups.map((group, gi) => (
+              <div key={gi} className="bg-gray-800/60 rounded-lg p-3 mb-2 border border-orange-500/20">
+                <p className="text-orange-300 text-sm font-semibold mb-2">Group {gi + 1} - {group.length} copies</p>
+                {group.map((t, ti) => (
+                  <div key={ti} className="flex items-center justify-between py-1 text-sm">
+                    <span className="text-white">{t.title} - {t.artist}</span>
+                    <span className="text-gray-400">{t.genre} | {t.bpm} BPM</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Export Panel (Rekordbox / Serato / Traktor) ── */}
+      {showExport && (
+        <div className="bg-gradient-to-r from-cyan-900/30 via-gray-900 to-cyan-900/30 border-t border-cyan-500/30 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-cyan-300 flex items-center gap-2"><Download size={18}/> DJ App Export</h3>
+              <button onClick={() => setShowExport(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              {['rekordbox', 'serato', 'traktor', 'virtualdj'].map((fmt) => (
+                <button key={fmt} onClick={() => setExportFormat(fmt)} className={`rounded-xl p-4 border text-center transition-all ${exportFormat === fmt ? 'bg-cyan-600/30 border-cyan-400 text-cyan-200' : 'bg-gray-800/60 border-gray-700 text-gray-300 hover:border-cyan-600'}`}>
+                  <Disc size={24} className="mx-auto mb-2"/>
+                  <p className="font-bold capitalize">{fmt}</p>
+                  <p className="text-xs text-gray-400 mt-1">{fmt === 'rekordbox' ? 'XML Collection' : fmt === 'serato' ? 'Crates V2' : fmt === 'traktor' ? 'NML Collection' : 'VDJ Database'}</p>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => {
+                const xmlTracks = tracks.map((t) => `  <TRACK Title="${t.title || ''}" Artist="${t.artist || ''}" Genre="${t.genre || ''}" BPM="${t.bpm || ''}" Key="${t.key || ''}" Energy="${t.energy || ''}"/>`).join('\n');
+                const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0">\n<COLLECTION Entries="${tracks.length}">\n${xmlTracks}\n</COLLECTION>\n</DJ_PLAYLISTS>`;
+                const blob = new Blob([xml], {type: 'application/xml'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `cueforge-${exportFormat}-export.xml`; a.click();
+                URL.revokeObjectURL(url);
+              }} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Download size={14}/> Export {tracks.length} Tracks</button>
+              <button onClick={() => {
+                if (!currentPlaylist || !playlists[currentPlaylist]) return;
+                const ids = playlists[currentPlaylist];
+                const playlistTracks = tracks.filter((t) => ids.includes(t.id));
+                const xmlTracks = playlistTracks.map((t) => `  <TRACK Title="${t.title || ''}" Artist="${t.artist || ''}" Genre="${t.genre || ''}" BPM="${t.bpm || ''}"/>`).join('\n');
+                const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0">\n<COLLECTION Entries="${playlistTracks.length}">\n${xmlTracks}\n</COLLECTION>\n</DJ_PLAYLISTS>`;
+                const blob = new Blob([xml], {type: 'application/xml'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `cueforge-playlist-${currentPlaylist}.xml`; a.click();
+                URL.revokeObjectURL(url);
+              }} className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Folder size={14}/> Export Playlist Only</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Stats Dashboard ── */}
+      {showStats && (
+        <div className="bg-gradient-to-r from-green-900/30 via-gray-900 to-green-900/30 border-t border-green-500/30 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-green-300 flex items-center gap-2"><Activity size={18}/> Library Stats</h3>
+              <button onClick={() => setShowStats(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-green-500/20">
+                <p className="text-3xl font-bold text-green-400">{tracks.length}</p>
+                <p className="text-xs text-gray-400 mt-1">Total Tracks</p>
+              </div>
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-blue-500/20">
+                <p className="text-3xl font-bold text-blue-400">{new Set(tracks.map(t => t.genre).filter(Boolean)).size}</p>
+                <p className="text-xs text-gray-400 mt-1">Genres</p>
+              </div>
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-purple-500/20">
+                <p className="text-3xl font-bold text-purple-400">{new Set(tracks.map(t => t.artist).filter(Boolean)).size}</p>
+                <p className="text-xs text-gray-400 mt-1">Artists</p>
+              </div>
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-yellow-500/20">
+                <p className="text-3xl font-bold text-yellow-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.bpm) || 0), 0) / tracks.filter(t => t.bpm).length) : 0}</p>
+                <p className="text-xs text-gray-400 mt-1">Avg BPM</p>
+              </div>
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-pink-500/20">
+                <p className="text-3xl font-bold text-pink-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.energy) || 0), 0) / tracks.filter(t => t.energy).length) || 0 : 0}</p>
+                <p className="text-xs text-gray-400 mt-1">Avg Energy</p>
+              </div>
+              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-cyan-500/20">
+                <p className="text-3xl font-bold text-cyan-400">{Object.keys(playlists).length}</p>
+                <p className="text-xs text-gray-400 mt-1">Playlists</p>
+              </div>
+            </div>
+            {/* Genre Distribution */}
+            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">Genre Distribution</h4>
+              <div className="space-y-2">
+                {Object.entries(tracks.reduce((acc, t) => { const g = t.genre || 'Unknown'; acc[g] = (acc[g] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([genre, count]) => (
+                  <div key={genre} className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400 w-24 truncate">{genre}</span>
+                    <div className="flex-1 bg-gray-700 rounded-full h-3">
+                      <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full transition-all" style={{width: `${(count / tracks.length) * 100}%`}}/>
+                    </div>
+                    <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* BPM Histogram */}
+            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">BPM Distribution</h4>
+              <div className="flex items-end gap-1 h-32">
+                {Array.from({length: 20}, (_, i) => {
+                  const min = 60 + i * 10;
+                  const max = min + 10;
+                  const count = tracks.filter(t => {const b = parseFloat(t.bpm); return b >= min && b < max;}).length;
+                  const maxCount = Math.max(...Array.from({length: 20}, (_, j) => tracks.filter(t => {const b = parseFloat(t.bpm); return b >= 60 + j * 10 && b < 70 + j * 10;}).length), 1);
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all" style={{height: `${(count / maxCount) * 100}%`}} title={`${min}-${max} BPM: ${count} tracks`}/>
+                      {i % 4 === 0 && <span className="text-[9px] text-gray-500">{min}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Key Distribution (Camelot Wheel) */}
+            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">Key Distribution (Camelot)</h4>
+              <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+                {Object.entries(CAMELOT_WHEEL).map(([key, camelot]) => {
+                  const count = tracks.filter(t => t.key === key || t.key === camelot).length;
+                  return (
+                    <div key={key} className={`rounded-lg p-2 text-center border transition-all ${count > 0 ? 'bg-purple-600/30 border-purple-400/50' : 'bg-gray-800/30 border-gray-700/30'}`}>
+                      <p className="text-xs font-bold text-white">{camelot}</p>
+                      <p className="text-[10px] text-gray-400">{key}</p>
+                      <p className={`text-xs font-bold ${count > 0 ? 'text-purple-300' : 'text-gray-600'}`}>{count}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Batch Edit Panel ── */}
+      {showBatchEdit && batchSelected.length > 0 && (
+        <div className="bg-gradient-to-r from-yellow-900/30 via-gray-900 to-yellow-900/30 border-t border-yellow-500/30 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-yellow-300 flex items-center gap-2"><Tag size={18}/> Batch Edit - {batchSelected.length} tracks selected</h3>
+              <button onClick={() => {setShowBatchEdit(false); setBatchSelected([]);}} className="text-gray-400 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="flex gap-3 items-end">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Field</label>
+                <select value={batchField} onChange={(e) => setBatchField(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm">
+                  <option value="genre">Genre</option>
+                  <option value="artist">Artist</option>
+                  <option value="energy">Energy</option>
+                  <option value="key">Key</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400 block mb-1">New Value</label>
+                <input value={batchValue} onChange={(e) => setBatchValue(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm w-full" placeholder="Enter new value..."/>
+              </div>
+              <button onClick={() => {
+                batchSelected.forEach((id) => {
+                  const idx = tracks.findIndex(t => t.id === id);
+                  if (idx > -1) { tracks[idx][batchField] = batchValue; }
+                });
+                setTracks([...tracks]);
+                setBatchSelected([]);
+                setShowBatchEdit(false);
+              }} className="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Apply to All</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Feature Quick Access Toolbar ── */}
+      <div className="bg-gray-900 border-t border-gray-800 px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 flex-wrap">
+          <button onClick={() => setShowSmartPlaylist(!showSmartPlaylist)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showSmartPlaylist ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Sparkles size={12}/> Smart Playlist</button>
+          <button onClick={() => setShowDuplicates(!showDuplicates)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showDuplicates ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><AlertTriangle size={12}/> Duplicates</button>
+          <button onClick={() => setShowExport(!showExport)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showExport ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Download size={12}/> Export</button>
+          <button onClick={() => setShowStats(!showStats)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showStats ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Activity size={12}/> Stats</button>
+          <button onClick={() => {setBatchSelected(tracks.map(t => t.id)); setShowBatchEdit(true);}} className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all"><Tag size={12}/> Batch Edit All</button>
+          <span className="text-gray-600 text-xs">|</span>
+          <span className="text-gray-500 text-xs">{tracks.length} tracks · {new Set(tracks.map(t => t.genre).filter(Boolean)).size} genres · {new Set(tracks.map(t => t.artist).filter(Boolean)).size} artists</span>
         </div>
       </div>
     </div>
