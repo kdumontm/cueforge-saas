@@ -155,7 +155,7 @@ export default function DashboardPage() {
       newZoom = Math.max(zoomLevel / 2, 1);
     }
     setZoomLevel(newZoom);
-    ws.zoom(newZoom);
+    try { ws.zoom(newZoom); } catch {}
     if (newZoom > 1) {
       ws.options.autoScroll = true;
       ws.options.autoCenter = true;
@@ -173,7 +173,7 @@ export default function DashboardPage() {
 
     // Reset zoom to overview when loading new track
     setZoomLevel(1);
-    ws.zoom(1);
+    try { ws.zoom(1); } catch {}
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
