@@ -9,7 +9,7 @@ import {
   Search, MoreVertical, Zap, Wand2, Type, Disc, RefreshCw, Star, Filter,
   Grid3X3, List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
   ZoomIn, ZoomOut, CheckSquare, Square, AlertTriangle, Sparkles, Image
-, SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid} from 'lucide-react';
+, SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid, ChevronLeft, ChevronRight, Palette, Eye, Layers, GitBranch, RotateCcw, Settings} from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints } from '@/lib/api';
 import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
@@ -222,6 +222,32 @@ export default function DashboardPage() {
   const [selectedForMix, setSelectedForMix] = useState(null);
   const [gridView, setGridView] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState('cues');
+  const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
+  const [cueColors, setCueColors] = useState<Record<number, string>>({});
+  const [colorPickerCue, setColorPickerCue] = useState<number | null>(null);
+  const [colorPickerPos, setColorPickerPos] = useState<{x: number, y: number}>({x: 0, y: 0});
+
+  // Rekordbox-style cue colors
+  const REKORDBOX_COLORS = [
+    { name: "Red", hex: "#E13535" },
+    { name: "Orange", hex: "#FF8C00" },
+    { name: "Yellow", hex: "#E2D420" },
+    { name: "Green", hex: "#1DB954" },
+    { name: "Aqua", hex: "#21C8DE" },
+    { name: "Blue", hex: "#2B7FFF" },
+    { name: "Purple", hex: "#A855F7" },
+    { name: "Pink", hex: "#FF69B4" },
+  ];
+
+  // Default cue colors by index (Rekordbox convention)
+  const getDefaultCueColor = (index: number) => {
+    const defaults = ["#E13535", "#FF8C00", "#E2D420", "#1DB954", "#21C8DE", "#2B7FFF", "#A855F7", "#FF69B4"];
+    return defaults[index % defaults.length];
+  };
+
+  const getCueColor = (cueId: number, index: number) => {
+    return cueColors[cueId] || getDefaultCueColor(index);
+  };
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<string>('eq');
 
@@ -260,7 +286,7 @@ export default function DashboardPage() {
         container: waveformRef.current!,
         cursorColor: '#fff',
         cursorWidth: 2,
-        height: 120,
+        height: 80,
         normalize: true,
         fillParent: true,
         minPxPerSec: 1,
@@ -741,7 +767,7 @@ export default function DashboardPage() {
           )}
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
-        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 160, overflow: 'visible' }}>
+        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 110, overflow: 'visible' }} onWheel={(e) => { e.preventDefault(); if (e.deltaY < 0) setWaveformZoom((z) => Math.min(20, z + 1)); else setWaveformZoom((z) => Math.max(1, z - 1)); }}>
                 {/* WAVEFORM TOOLBAR */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
@@ -837,7 +863,7 @@ export default function DashboardPage() {
                   <button key={i} onClick={() => { if (wavesurferRef.current && wavesurferRef.current.getDuration() > 0) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } }}
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border bg-black/40"
                     style={{ backgroundColor: (CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1' }}>
-                    <span>{i + 1}</span><span className="uppercase opacity-70">{cue.cue_type || cue.type || 'CUE'}</span>
+                    <span>{i + 1}</span><span className="uppercase opacity-70 ml-0.5 truncate max-w-[50px]">{cue.name || cue.label || cue.cue_type || 'CUE'}</span>
                   </button>
                 ))}
               </div>
@@ -1054,7 +1080,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
         {/* Table header */}
         <div className="grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
@@ -1342,8 +1368,35 @@ export default function DashboardPage() {
         </>
       )}
       </div>{/* end center */}
+      {/* COLOR PICKER POPUP */}
+      {colorPickerCue !== null && (
+        <div className="fixed inset-0 z-50" onClick={() => setColorPickerCue(null)}>
+          <div
+            className="absolute bg-gray-900 border border-gray-700 rounded-lg p-2 shadow-2xl"
+            style={{ left: colorPickerPos.x, top: colorPickerPos.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[10px] text-gray-400 mb-1.5 px-1">Cue Color</div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {REKORDBOX_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  className="w-7 h-7 rounded-md border-2 hover:scale-110 transition-transform"
+                  style={{ backgroundColor: c.hex, borderColor: cueColors[colorPickerCue] === c.hex ? '#fff' : 'transparent' }}
+                  title={c.name}
+                  onClick={() => {
+                    setCueColors((prev) => ({ ...prev, [colorPickerCue]: c.hex }));
+                    setColorPickerCue(null);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RIGHT PANEL - EQ/FX/MIX */}
-      <div className="w-80 flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90">
+      <div className={`${rightPanelExpanded ? "w-[480px]" : "w-72"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
         {/* Tab Bar */}
@@ -1363,6 +1416,13 @@ export default function DashboardPage() {
                   : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent hover:bg-white/[0.02]'
               }`}>{tab.label}</button>
           ))}
+          <button
+            onClick={() => setRightPanelExpanded((p) => !p)}
+            className="ml-auto px-2 py-2 text-gray-500 hover:text-cyan-400 transition-colors"
+            title={rightPanelExpanded ? 'Collapse panel' : 'Expand panel'}
+          >
+            {rightPanelExpanded ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -1379,7 +1439,7 @@ export default function DashboardPage() {
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack.cue_points.map((cue, idx) => (
                     <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-800/40 hover:bg-gray-800/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }}>
-                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{backgroundColor: CUE_COLOR_MAP[cue.type] || '#6366f1'}} />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }} />
                       <div className="flex-1 min-w-0">
                         <div className="text-[11px] text-white font-medium truncate">{cue.label || cue.name || ('Cue ' + (idx + 1))}</div>
                         <div className="text-[9px] text-gray-400">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' · ' + cue.type) : ''}</div>
