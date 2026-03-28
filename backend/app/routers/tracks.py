@@ -388,6 +388,50 @@ def delete_track(
     return {"status": "deleted", "track_id": track_id}
 
 
+# ── Metadata Editing ─────────────────────────────────────────────────────
+
+class TrackMetadataUpdate(BaseModel):
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    album: Optional[str] = None
+    genre: Optional[str] = None
+    year: Optional[int] = None
+    remix_artist: Optional[str] = None
+    remix_type: Optional[str] = None
+    feat_artist: Optional[str] = None
+    comment: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    rating: Optional[int] = None
+    color_code: Optional[str] = None
+    energy_level: Optional[int] = None
+
+
+@router.patch("/{track_id}", response_model=TrackResponse)
+def update_track_metadata(
+    track_id: int,
+    body: TrackMetadataUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update track metadata (title, artist, album, genre, etc.)."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Only update fields that were explicitly provided
+    update_data = body.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(track, field, value)
+
+    db.commit()
+    db.refresh(track)
+    return TrackResponse.model_validate(track)
+
+
 # ── DJ Tools ─────────────────────────────────────────────────────────────────
 
 @router.post("/{track_id}/clean-title")
