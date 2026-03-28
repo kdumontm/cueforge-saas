@@ -1002,10 +1002,8 @@ def analyze_audio(file_path: str) -> Dict:
     del y
     gc.collect()
 
-    # -- Genre detection --
-        genre_info = detect_genre(y, sr, bpm)
 
-        return {
+    return {
         "bpm": bpm,
         "bpm_confidence": key_confidence,
         "key": key,
@@ -1017,8 +1015,4 @@ def analyze_audio(file_path: str) -> Dict:
         "section_labels": section_labels,
         "waveform_peaks": waveform_data.get("waveform_peaks"),
         "spectral_energy": waveform_data.get("spectral_energy"),
-        "genre": genre_info.get("genre", "Unknown"),
-        "subgenre": genre_info.get("subgenre", ""),
-        "genre_confidence": genre_info.get("confidence", 0),
-        "genre_scores": genre_info.get("genre_scores", {}),
     }
