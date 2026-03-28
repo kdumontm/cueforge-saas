@@ -24,7 +24,7 @@ from app.database import SessionLocal
 # Audio analysis constants
 SR = 22050       # Sample rate
 HOP_LENGTH = 512
-MAX_DURATION = 90  # Max seconds to load (saves memory on Railway)
+MAX_DURATION = 600  # Max seconds to load (10 min covers all DJ tracks)
 N_FFT = 2048
 
 # ── Krumhansl-Schmuckler key profiles ─────────────────────────────────────
@@ -160,9 +160,9 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         min_distance_frames = int(8.0 * sr / hop)
         peaks, properties = find_peaks(
             drop_score,
-            height=0.40,
+            height=0.28,
             distance=min_distance_frames,
-            prominence=0.12,
+            prominence=0.08,
         )
 
         # Convert to beat-snapped positions
@@ -178,7 +178,7 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
                 if not downbeat_indices:
                     downbeat_indices = list(range(len(beats)))
                 nearest_db_idx = min(downbeat_indices, key=lambda i: abs(beats_arr[i] - pt))
-                if abs(beats_arr[nearest_db_idx] - pt) < 2.0:
+                if abs(beats_arr[nearest_db_idx] - pt) < 3.0:
                     frame_idx = peaks[pi] if pi < len(peaks) else 0
                     score = float(drop_score[frame_idx]) if frame_idx < min_len else 0.0
                     drops.append({
@@ -196,9 +196,9 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
                 seen.add(drop["beat_index"])
 
         # Keep top 6 by score (more drops for pro use)
-        if len(unique_drops) > 6:
+        if len(unique_drops) > 8:
             unique_drops.sort(key=lambda d: d.get("score", 0), reverse=True)
-            unique_drops = unique_drops[:6]
+            unique_drops = unique_drops[:8]
             unique_drops.sort(key=lambda d: d["time"])
 
         del onset_env, rms, rms_norm, spectral_flux, bass_ratio
@@ -283,21 +283,36 @@ def detect_sections_energy_based(y: np.ndarray, sr: int, beats: List[float],
             # Position in track (0.0 = start, 1.0 = end)
             position = start_time / duration if duration > 0 else 0
 
-            # Assign label based on heuristics
-            if position < 0.08 or (position < 0.15 and section_energy < 0.3):
+            # Compute energy percentiles for adaptive thresholds
+            all_energies = [float(np.mean(energy_smooth[
+                max(0, librosa.time_to_frames(boundary_times[j], sr=sr, hop_length=hop)):
+                max(1, librosa.time_to_frames(boundary_times[j+1], sr=sr, hop_length=hop))
+            ])) for j in range(len(boundary_times)-1) if boundary_times[j+1] - boundary_times[j] >= 1.0]
+            e_median = float(np.median(all_energies)) if all_energies else 0.5
+            e_p25 = float(np.percentile(all_energies, 25)) if all_energies else 0.25
+            e_p75 = float(np.percentile(all_energies, 75)) if all_energies else 0.75
+
+            # Assign label: energy-relative + position + drops + trend
+            if position < 0.05 and section_energy < e_median:
                 label = "INTRO"
-            elif position > 0.88 or (position > 0.80 and section_energy < 0.3):
+            elif position < 0.12 and section_energy < e_p25 * 1.3:
+                label = "INTRO"
+            elif position > 0.90 and section_energy < e_median:
                 label = "OUTRO"
-            elif has_drop and section_energy > 0.5:
+            elif position > 0.82 and section_energy < e_p25 * 1.3:
+                label = "OUTRO"
+            elif has_drop and section_energy > e_p75 * 0.85:
                 label = "DROP"
-            elif energy_trend > 0.08 and section_energy > 0.3:
+            elif section_energy > e_p75 and not has_drop:
+                label = "DROP"
+            elif energy_trend > 0.05 and section_energy > e_p25:
                 label = "BUILD"
-            elif section_energy < 0.35:
+            elif section_energy < e_p25 * 1.2:
                 label = "BREAKDOWN"
-            elif section_energy > 0.6:
-                label = "DROP"
+            elif energy_trend > 0:
+                label = "BUILD"
             else:
-                label = "BUILD" if energy_trend > 0 else "BREAKDOWN"
+                label = "BREAKDOWN"
 
             sections.append({
                 "time": start_time,
