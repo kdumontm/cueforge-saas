@@ -692,10 +692,10 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-y-auto" onClick={() => setCtxMenu(null)}>
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
 
       {/* Ã¢ÂÂÃ¢ÂÂ TOP: Waveform Player (ALWAYS mounted) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
-      <div className="bg-bg-secondary border-b border-slate-800/60 px-4 py-3 flex-shrink-0">
+      <div className="bg-bg-secondary border-b border-slate-800/60 px-1 py-2 flex-shrink-0">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3 min-w-0">
@@ -827,74 +827,64 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* DECK CONTROLS */}
-        {selectedTrack && (
-          <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-4 py-3">
-            <div className="flex items-center gap-4 mb-3">
-              <div className="flex items-center gap-1">
-                <button onClick={skipBack} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={18} /></button>
-                <button onClick={togglePlay} className="w-14 h-14 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-lg shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={24} className="text-white" /> : <Play size={24} className="text-white ml-0.5" />}</button>
-                <button onClick={skipForward} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={18} /></button>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
-                  <button key={i} onClick={() => { if (wavesurferRef.current) { wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() * 1000)); } setTime(cue.time / 1000); }}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border transition-all hover:scale-105"
-                    style={{ backgroundColor: (CUE_COLOR_MAP[cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.type] || '#6366f1' }}>
-                    <span>{i + 1}</span><span className="uppercase opacity-70">{cue.type || 'CUE'}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-500" />
-              </div>
-            </div>
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-5 bg-black/40 rounded-lg border border-gray-800/40 p-3">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">HOT CUES</div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {Array.from({length: 8}).map((_, i) => { const cue = selectedTrack.cue_points?.[i]; const color = cue ? (CUE_COLOR_MAP[cue.type] || '#6366f1') : null; return (<button key={i} onClick={() => { if (cue && wavesurferRef.current) { wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() * 1000)); setTime(cue.time / 1000); } }} className="h-10 rounded font-bold text-xs transition-all duration-150 border" style={color ? { background: color + '33', borderColor: color + '66', color: color, boxShadow: '0 0 12px ' + color + '22' } : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.15)' }}>{i + 1}</button>); })}
+          {/* DECK CONTROLS */}
+          {selectedTrack && (
+            <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-3 py-2 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <button onClick={skipBack} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                  <button onClick={togglePlay} className="w-11 h-11 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full text-black hover:from-cyan-300 hover:to-cyan-500 shadow-lg shadow-cyan-500/30">{isPlaying ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>}</button>
+                  <button onClick={skipForward} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
+                    <button key={i} onClick={() => { if (wavesurferRef.current) { wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() || 1)); }}} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold border hover:scale-105 transition-all" style={{ backgroundColor: (CUE_COLOR_MAP[cue.type] || '#6366f1') + '18', borderColor: CUE_COLOR_MAP[cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.type] || '#6366f1' }}>
+                      <span>{i + 1}</span><span className="opacity-70">{cue.type || "CUE"}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>}</button>
+                  <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
                 </div>
               </div>
-              <div className="col-span-4 flex flex-col gap-2">
-                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
-                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">LOOP</div>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => setLoopIn(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-8 rounded bg-gray-800/80 border border-gray-700/50 text-[10px] font-bold text-gray-300 hover:bg-gray-700/80 hover:text-cyan-400 transition-all">IN</button>
-                    <button onClick={() => setLoopOut(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-8 rounded bg-gray-800/80 border border-gray-700/50 text-[10px] font-bold text-gray-300 hover:bg-gray-700/80 hover:text-cyan-400 transition-all">OUT</button>
-                    <button onClick={() => setLoopActive(!loopActive)} className={`flex-1 h-8 rounded text-[10px] font-bold transition-all ${loopActive ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/30 border border-cyan-400' : 'bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:bg-gray-700/80'}`}>{loopActive ? 'ON' : 'LOOP'}</button>
+              <div className="flex items-stretch gap-2 mt-2">
+                <div className="bg-black/30 rounded-lg border border-gray-800/40 p-2 flex-1">
+                  <div className="text-[8px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
+                  <div className="flex gap-1">
+                    {Array.from({length: 8}).map((_, i) => { const cue = selectedTrack.cue_points?.[i]; const colors = ['#E13B3B','#E88B39','#DED73A','#3BD85F','#3CC7DC','#4B7BE8','#C152E0','#E84B93']; return (
+                      <button key={i} onClick={() => { if (cue && wavesurferRef.current) wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() || 1)); }} className="flex-1 h-7 rounded text-[10px] font-bold border transition-all hover:scale-105" style={cue ? { backgroundColor: colors[i] + '22', borderColor: colors[i], color: colors[i] } : { backgroundColor: 'transparent', borderColor: '#374151', color: '#4B5563' }}>{i + 1}</button>
+                    ); })}
                   </div>
                 </div>
-                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
-                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">KEY</div>
+                <div className="bg-black/30 rounded-lg border border-gray-800/40 p-2 w-32">
+                  <div className="text-[8px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
+                  <div className="flex gap-1">
+                    <button onClick={() => setLoopIn(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-7 rounded text-[9px] font-bold bg-gray-800/60 border border-gray-700/50 text-gray-300 hover:bg-cyan-900/40 hover:border-cyan-600/50 hover:text-cyan-300 transition-all">IN</button>
+                    <button onClick={() => setLoopOut(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-7 rounded text-[9px] font-bold bg-gray-800/60 border border-gray-700/50 text-gray-300 hover:bg-cyan-900/40 hover:border-cyan-600/50 hover:text-cyan-300 transition-all">OUT</button>
+                    <button onClick={() => setLoopActive(!loopActive)} className={`flex-1 h-7 rounded text-[9px] font-bold border transition-all ${loopActive ? "bg-cyan-500/30 border-cyan-400 text-cyan-300" : "bg-gray-800/60 border-gray-700/50 text-gray-300 hover:bg-cyan-900/40"}`}>LOOP</button>
+                  </div>
+                </div>
+                <div className="bg-black/30 rounded-lg border border-gray-800/40 p-2 w-44">
+                  <div className="text-[8px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">KEY / HARMONIC MIX</div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-white tracking-tight">{selectedTrack.analysis?.key ? CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key : '--'}</span>
-                    <span className="text-sm text-gray-400">{selectedTrack.analysis?.key || ''}</span>
+                    <span className="text-lg font-black text-white tracking-tight">{selectedTrack.analysis?.key ? CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key : '--'}</span>
+                    <span className="text-xs text-gray-400">{selectedTrack.analysis?.key || ''}</span>
                   </div>
+                  {selectedTrack.analysis?.key && (() => { const k = selectedTrack.analysis.key; const cam = CAMELOT_WHEEL[k] || ''; const num = parseInt(cam); const letter = cam.replace(/[0-9]/g, ''); if (!num || !letter) return null; const compat = []; compat.push(num + letter); compat.push(((num % 12) + 1) + letter); compat.push((((num - 2 + 12) % 12) + 1) + letter); compat.push(num + (letter === 'A' ? 'B' : 'A')); const unique = [...new Set(compat)].filter(c => c !== cam).slice(0, 3); return <div className="flex gap-1 mt-1">{unique.map(c => <span key={c} className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">{c}</span>)}</div>; })()}
                 </div>
-              </div>
-              <div className="col-span-3 flex flex-col gap-2">
-                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
-                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">TEMPO</div>
-                  <button onClick={() => { const now = Date.now(); if (window.__lastTap && now - window.__lastTap < 2000) { const bpm = Math.round(60000 / (now - window.__lastTap)); setTapBpm(bpm); } window.__lastTap = now; }} className="w-full h-10 rounded bg-gradient-to-b from-violet-600/80 to-violet-800/80 border border-violet-500/30 text-white font-black text-sm hover:from-violet-500/80 hover:to-violet-700/80 transition-all shadow-md shadow-violet-500/10">TAP</button>
-                  {tapBpm > 0 && <div className="text-center mt-1.5 text-lg font-black text-white">{tapBpm} <span className="text-[10px] text-gray-500 font-normal">BPM</span></div>}
-                </div>
-                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
-                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">ENERGY</div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{width: `${(selectedTrack.analysis?.energy || 0) * 100}%`}} />
-                    </div>
-                    <span className="text-xs font-bold text-gray-300 w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
+                <div className="bg-black/30 rounded-lg border border-gray-800/40 p-2 w-20">
+                  <div className="text-[8px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">ENERGY</div>
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{ width: `${(selectedTrack.analysis?.energy || 0) * 10}%` }} /></div>
+                    <span className="text-xs font-bold text-gray-300">{((selectedTrack.analysis?.energy || 0)).toFixed(0)}</span>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
+      <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Ã¢ÂÂÃ¢ÂÂ TOOLBAR: Upload, Search, Batch Actions Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       <div
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
@@ -2063,6 +2053,7 @@ useEffect(() => {
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
       <span className="text-slate-500 text-xs">{label}</span>
       <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
+      </div>
     </div>
   );
 }
