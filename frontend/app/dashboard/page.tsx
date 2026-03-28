@@ -164,6 +164,11 @@ export default function DashboardPage() {
   const [loopIn, setLoopIn] = useState<number | null>(null);
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
+
+  // Sync loop refs for timeupdate callback
+  useEffect(() => { loopActiveRef.current = loopActive; }, [loopActive]);
+  useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);
+  useEffect(() => { loopOutRef.current = loopOut; }, [loopOut]);
   const [showAddCue, setShowAddCue] = useState(false);
   const [newCueName, setNewCueName] = useState('');
   const [newCuePos, setNewCuePos] = useState('');
@@ -213,12 +218,18 @@ export default function DashboardPage() {
   const [inlineEditField, setInlineEditField] = useState('');
   const [inlineEditValue, setInlineEditValue] = useState('');
   const [showMixSuggestions, setShowMixSuggestions] = useState(false);
+  const [showAnalyzed, setShowAnalyzed] = useState(false);
   const [selectedForMix, setSelectedForMix] = useState(null);
   const [gridView, setGridView] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState('eq');
+  const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [rightPanel, setRightPanel] = useState<string>('eq');
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
+  const loopActiveRef = useRef(false);
+  const loopInRef = useRef<number | null>(null);
+  const loopOutRef = useRef<number | null>(null);
   const regionsRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
@@ -288,7 +299,7 @@ export default function DashboardPage() {
 
       ws.on('play', () => setIsPlaying(true));
       ws.on('pause', () => setIsPlaying(false));
-      ws.on('timeupdate', (t: number) => setCurrentTime(t));
+      ws.on('timeupdate', (t: number) => { setCurrentTime(t); if (loopActiveRef.current && loopInRef.current !== null && loopOutRef.current !== null && t >= loopOutRef.current) { const dur = ws.getDuration(); if (dur > 0) ws.seekTo(loopInRef.current / dur); } });
       ws.on('ready', () => {
         setDuration(ws.getDuration());
         setWaveformReady(true);
@@ -654,18 +665,43 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-y-auto" onClick={() => setCtxMenu(null)}>
+    <div className="flex h-[calc(100vh-3.5rem)]" onClick={() => setCtxMenu(null)}>
+      {/* LEFT SIDEBAR - Module Buttons */}
+      <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
+        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">Add</span></button>
+        <div className="w-8 border-t border-gray-700/50 mb-1"></div>
+        {[
+          { key: 'smart', icon: <Sparkles size={16} />, label: 'Smart' },
+          { key: 'duplicates', icon: <Copy size={16} />, label: 'Dupes' },
+          { key: 'export', icon: <Download size={16} />, label: 'Export' },
+          { key: 'stats', icon: <BarChart3 size={16} />, label: 'Stats' },
+          { key: 'batch', icon: <ListIcon size={16} />, label: 'Batch' },
+          { key: 'camelot', icon: <Disc3 size={16} />, label: 'Wheel' },
+          { key: 'watch', icon: <Folder size={16} />, label: 'Watch' },
+          { key: 'ai', icon: <Wand2 size={16} />, label: 'AI Mix' },
+          { key: 'grid', icon: <Grid3X3 size={16} />, label: 'Grid' },
+          { key: 'mixable', icon: <Music2 size={16} />, label: 'Mix' },
+          { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
+        ].map((mod) => (
+          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
+            {mod.icon}
+            <span>{mod.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* CENTER CONTENT */}
+      <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
 
       {/* Ã¢ÂÂÃ¢ÂÂ TOP: Waveform Player (ALWAYS mounted) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
-      <div className="bg-bg-secondary border-b border-slate-800/60 px-1 py-2 flex-shrink-0 sticky top-0 z-10">
+      <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-1 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3 min-w-0">
               {/* Cover art */}
               {selectedTrack.artwork_url ? (
-                <img src={selectedTrack.artwork_url} alt="" className="w-12 h-12 rounded-lg object-cover shadow-lg" />
+                <img src={selectedTrack.artwork_url} alt="" className="w-8 h-8 rounded object-cover shadow-lg" />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
+                <div className="w-8 h-8 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
                   <Music2 size={18} className="text-slate-500" />
                 </div>
               )}
@@ -771,7 +807,7 @@ export default function DashboardPage() {
         )}
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
-        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 120, overflow: 'hidden' }}>
+        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 160, overflow: 'visible' }}>
                 {/* WAVEFORM TOOLBAR */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
@@ -1371,7 +1407,10 @@ export default function DashboardPage() {
           </div>
         </>
       )}
-      <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-t border-gray-700 p-3">
+      </div>{/* end center */}
+      {/* RIGHT PANEL - EQ/FX/MIX */}
+      <div className="w-72 flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90">
+      <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
         {/* Tab Bar */}
         <div className="flex items-center border-b border-gray-800/50 px-1">
@@ -1540,6 +1579,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      </div>{/* end right panel */}
 
       {/* ââ Smart Playlist Builder ââ */}
       {showSmartPlaylist && (
@@ -2025,36 +2065,31 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Feature Toolbar ── */}
-      <div className="flex items-center justify-center gap-1 py-2 px-3 bg-gray-900/90 backdrop-blur-sm border-t border-gray-800/50">
-        {[
-          { icon: 'Sparkles', label: 'Smart Playlist', active: showSmartPlaylist, toggle: () => setShowSmartPlaylist(!showSmartPlaylist) },
-          { icon: 'Copy', label: 'Duplicates', active: showDuplicates, toggle: () => setShowDuplicates(!showDuplicates) },
-          { icon: 'Download', label: 'Export', active: showExport, toggle: () => setShowExport(!showExport) },
-          { icon: 'BarChart3', label: 'Stats', active: showStats, toggle: () => setShowStats(!showStats) },
-          { icon: 'PenSquare', label: 'Batch Edit', active: batchSelected.length > 0, toggle: () => { setBatchSelected(tracks.map(t => t.id)); setShowBatchEdit(!showBatchEdit); } },
-          { icon: 'Compass', label: 'Camelot', active: showCamelotWheel, toggle: () => setShowCamelotWheel(!showCamelotWheel) },
-          { icon: 'FolderSearch', label: 'Watch', active: showWatchFolder, toggle: () => setShowWatchFolder(!showWatchFolder) },
-          { icon: 'Lightbulb', label: 'AI Mix', active: showMixSuggestions, toggle: () => setShowMixSuggestions(!showMixSuggestions) },
-          { icon: 'LayoutGrid', label: gridView ? 'List' : 'Grid', active: gridView, toggle: () => setGridView(!gridView) },
-          { icon: 'ListMusic', label: 'Mixable', active: showMixPanel, toggle: () => setShowMixPanel(!showMixPanel) },
-        ].map((btn, i) => {
-          const IconMap = { Sparkles, Copy, Download, BarChart3, PenSquare, Compass, FolderSearch, Lightbulb, LayoutGrid, ListMusic };
-          const Icon = IconMap[btn.icon];
-          return (
-            <button key={i} onClick={btn.toggle} title={btn.label}
-              className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium tracking-wide transition-all duration-200 ${
-                btn.active
-                  ? 'bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
-              }`}>
-              <Icon size={14} />
-              <span className="hidden sm:inline">{btn.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      </div>
+      {/* ── Analyzed Tracks Panel ── */}
+      {showAnalyzed && (
+        <div className="bg-gray-900/95 border border-gray-700/50 rounded-xl p-4 mb-3 mx-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2"><CheckSquare size={14} className="text-green-400" /> Analyzed Tracks</h3>
+            <button onClick={() => { setShowAnalyzed(false); setActiveModule(null); }} className="text-gray-400 hover:text-white"><X size={14} /></button>
+          </div>
+          <div className="space-y-1 max-h-64 overflow-y-auto">
+            {tracks.filter((t) => t.bpm && t.key).length === 0 ? (
+              <p className="text-gray-500 text-xs text-center py-4">No analyzed tracks yet</p>
+            ) : (
+              tracks.filter((t) => t.bpm && t.key).map((t) => (
+                <div key={t.id} onClick={() => setSelectedTrack(t)} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs ${selectedTrack?.id === t.id ? 'bg-blue-600/30 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
+                  <CheckSquare size={10} className="text-green-400 flex-shrink-0" />
+                  <span className="truncate flex-1">{t.title || t.filename}</span>
+                  <span className="text-gray-500 flex-shrink-0">{t.bpm} BPM</span>
+                  <span className="text-gray-500 flex-shrink-0">{t.key}</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-500">{tracks.filter((t) => t.bpm && t.key).length} / {tracks.length} tracks analyzed</div>
+        </div>
+      )}
+</div>
     </div>
   );
 }
