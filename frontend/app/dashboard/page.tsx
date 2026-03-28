@@ -692,10 +692,10 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-y-auto" onClick={() => setCtxMenu(null)}>
 
       {/* Ã¢ÂÂÃ¢ÂÂ TOP: Waveform Player (ALWAYS mounted) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
-      <div className="bg-bg-secondary border-b border-slate-800/60 px-1 py-2 flex-shrink-0">
+      <div className="bg-bg-secondary border-b border-slate-800/60 px-1 py-2 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3 min-w-0">
@@ -902,7 +902,6 @@ export default function DashboardPage() {
         )}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
 {/* Ã¢ÂÂÃ¢ÂÂ TOOLBAR: Upload, Search, Batch Actions Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       <div
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
@@ -1344,7 +1343,6 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-        </div>
         </>
       )}
       <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-t border-gray-700 p-3">
