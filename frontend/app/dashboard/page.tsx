@@ -937,7 +937,7 @@ export default function DashboardPage() {
                   onClick={() => {
                     const pts = newCuePos.split(':');
                     const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
-                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor }).then(() => getTrack(selectedTrack.id); }).then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); }).catch(() => {});
+                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor }).then(() => getTrack(selectedTrack.id)).then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); }).catch(() => {});
                   }}
                   className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
                 >Create</button>
@@ -952,7 +952,7 @@ export default function DashboardPage() {
                     <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
                     <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
                     <button
-                      onClick={() => { deleteCuePoint(cp.id).then(() => getTrack(selectedTrack.id); }).then((fresh: any) => { setSelectedTrack(fresh); }).catch(() => {}); }}
+                      onClick={() => { deleteCuePoint(cp.id).then(() => getTrack(selectedTrack.id)).then((fresh: any) => { setSelectedTrack(fresh); }).catch(() => {}); }}
                       className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
                     >x</button>
                   </div>
