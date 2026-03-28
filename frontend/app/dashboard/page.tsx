@@ -63,21 +63,6 @@ function keyCamelot(key: string): string {
   return CAMELOT_MAP[key] || '';
 }
 
-function getCompatibleKeys(key: string): string[] {
-  const cam = CAMELOT_MAP[key];
-  if (!cam) return [];
-  const num = parseInt(cam);
-  const letter = cam.slice(-1);
-  const compat = [
-    cam,
-    `${(num % 12) + 1}${letter}`,
-    `${((num - 2 + 12) % 12) || 12}${letter}`,
-    `${num}${letter === 'A' ? 'B' : 'A'}`,
-  ];
-  const rev: Record<string, string> = {};
-  Object.entries(CAMELOT_MAP).forEach(([k, v]) => { if (!rev[v]) rev[v] = k; });
-  return compat.map(c => rev[c]).filter(Boolean);
-}
 
 function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
   const bpmDiff = Math.abs(bpm1 - bpm2);
@@ -99,18 +84,6 @@ function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
 
 // ââ BPM Tap Tempo utility âââââââââââââââââââââââââââââââââââââââââââââââââ
 const tapTimesRef = { current: [] as number[] };
-function handleTap(): number {
-  const now = Date.now();
-  tapTimesRef.current.push(now);
-  if (tapTimesRef.current.length > 8) tapTimesRef.current.shift();
-  if (tapTimesRef.current.length < 2) return 0;
-  const intervals = [];
-  for (let i = 1; i < tapTimesRef.current.length; i++) {
-    intervals.push(tapTimesRef.current[i] - tapTimesRef.current[i - 1]);
-  }
-  const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-  return Math.round(60000 / avg * 10) / 10;
-}
 
 
 // ââ RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ââ
@@ -188,12 +161,9 @@ export default function DashboardPage() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [waveformReady, setWaveformReady] = useState(false);
   // ââ New feature states ââ
-  const [tapBpm, setTapBpm] = useState<number>(0);
   const [loopIn, setLoopIn] = useState<number | null>(null);
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
-  const [showHotCues, setShowHotCues] = useState(true);
-  const [cueEditId, setCueEditId] = useState<number | null>(null);
   const [showAddCue, setShowAddCue] = useState(false);
   const [newCueName, setNewCueName] = useState('');
   const [newCuePos, setNewCuePos] = useState('');
@@ -204,7 +174,6 @@ export default function DashboardPage() {
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
   const [filterKey, setFilterKey] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
-  const [compatTrack, setCompatTrack] = useState<any>(null);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
@@ -221,7 +190,6 @@ export default function DashboardPage() {
   const [pitchShift, setPitchShift] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
   const [djHistory, setDjHistory] = useState([]);
-  const [showPlaylistPanel, setShowPlaylistPanel] = useState(false);
   const [playlists, setPlaylists] = useState({});
   const [currentPlaylist, setCurrentPlaylist] = useState('');
   const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -234,20 +202,13 @@ export default function DashboardPage() {
   const [showStats, setShowStats] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exportFormat, setExportFormat] = useState('rekordbox');
-  const [editingTrackId, setEditingTrackId] = useState(null);
-  const [editField, setEditField] = useState('');
-  const [editValue, setEditValue] = useState('');
   const [batchSelected, setBatchSelected] = useState([]);
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [batchField, setBatchField] = useState('genre');
   const [batchValue, setBatchValue] = useState('');
-  const [viewMode, setViewMode] = useState('table');
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
-  const [energyFilter, setEnergyFilter] = useState([0, 100]);
-  const [bpmFilter, setBpmFilter] = useState([0, 300]);
   const [showWatchFolder, setShowWatchFolder] = useState(false);
   const [watchFolderPath, setWatchFolderPath] = useState('');
-  const [waveformMode, setWaveformMode] = useState('standard');
   const [inlineEditId, setInlineEditId] = useState(null);
   const [inlineEditField, setInlineEditField] = useState('');
   const [inlineEditValue, setInlineEditValue] = useState('');
@@ -255,7 +216,6 @@ export default function DashboardPage() {
   const [selectedForMix, setSelectedForMix] = useState(null);
   const [gridView, setGridView] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState('eq');
-  const [keyFilter, setKeyFilter] = useState('');
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<any>(null);
@@ -452,11 +412,6 @@ export default function DashboardPage() {
   function skipForward() {
     if (!wavesurferRef.current) return;
     wavesurferRef.current.skip(5);
-  }
-  function handleVolume(v: number) {
-    setVolume(v);
-    setMuted(v === 0);
-    if (wavesurferRef.current) wavesurferRef.current.setVolume(v);
   }
   function toggleMute() {
     const next = !muted;
