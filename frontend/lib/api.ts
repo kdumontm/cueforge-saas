@@ -598,6 +598,35 @@ export async function updateMyProfile(data: UpdateProfileData): Promise<UserProf
   return response.json();
 }
 
+
+
+// ── Cue Points CRUD ───────────────────────────────────────────────────────
+export async function createCuePoint(
+  trackId: number,
+  data: { position_ms: number; name: string; cue_type?: string; color?: string; number?: number | null }
+): Promise<any> {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/points`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      time: data.position_ms / 1000,
+      label: data.name,
+      hot_cue_slot: data.number ?? null,
+      color: data.color ?? null,
+    }),
+  });
+  if (!response.ok) throw new Error('Failed to create cue point');
+  return response.json();
+}
+
+export async function deleteCuePoint(cueId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/cues/points/${cueId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete cue point');
+}
+
 // Aliases for admin page compatibility
 export const getAdminUsers = adminListUsers;
 export const createAdminUser = adminCreateUser;
