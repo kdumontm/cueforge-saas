@@ -748,6 +748,70 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
+          {/* CUE POINT MANAGEMENT */}
+          <div className="mt-2 px-3 pb-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-cyan-400/60 tracking-[0.2em]">CUE POINTS</span>
+              <button
+                onClick={() => { setShowAddCue(!showAddCue); }}
+                className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
+              >{showAddCue ? 'Cancel' : '+ Add Cue'}</button>
+            </div>
+            {showAddCue && (
+              <div className="flex gap-1 mb-2 items-end flex-wrap">
+                <input value={newCueName} onChange={(e) => { setNewCueName(e.target.value); }} placeholder="Name" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-20 border border-slate-700" />
+                <input value={newCuePos} onChange={(e) => { setNewCuePos(e.target.value); }} placeholder="mm:ss" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-14 border border-slate-700" />
+                <select value={newCueType} onChange={(e) => { setNewCueType(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
+                  <option value="hot_cue">Hot Cue</option>
+                  <option value="memory">Memory</option>
+                  <option value="cue_point">Cue Point</option>
+                </select>
+                <select value={newCueColor} onChange={(e) => { setNewCueColor(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
+                  <option value="blue">Blue</option>
+                  <option value="red">Red</option>
+                  <option value="green">Green</option>
+                  <option value="yellow">Yellow</option>
+                  <option value="orange">Orange</option>
+                  <option value="purple">Purple</option>
+                  <option value="pink">Pink</option>
+                </select>
+                <button
+                  onClick={() => {
+                    const pts = newCuePos.split(':');
+                    const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
+                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor })
+                      .then(() => getTrack(selectedTrack.id))
+                      .then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); })
+                      .catch(() => {});
+                  }}
+                  className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
+                >Create</button>
+              </div>
+            )}
+            <div className="space-y-0.5 max-h-32 overflow-y-auto">
+              {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 ? (
+                selectedTrack.cue_points.map((cp: any) => (
+                  <div key={cp.id} className="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded hover:bg-slate-800/50 group">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: cp.color || '#3b82f6'}}></span>
+                    <span className="text-slate-400 w-10 flex-shrink-0">{Math.floor((cp.time || cp.position_ms/1000) / 60)}:{String(Math.floor((cp.time || cp.position_ms/1000) % 60)).padStart(2,'0')}</span>
+                    <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
+                    <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
+                    <button
+                      onClick={() => {
+                        deleteCuePoint(cp.id)
+                          .then(() => getTrack(selectedTrack.id))
+                          .then((fresh: any) => { setSelectedTrack(fresh); })
+                          .catch(() => {});
+                      }}
+                      className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
+                    >x</button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-slate-500 text-[10px] italic py-1">No cue points</div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
@@ -903,63 +967,6 @@ export default function DashboardPage() {
                   <span className="text-xs font-bold text-gray-300 w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* CUE POINT MANAGEMENT */}
-          <div className="mt-2 px-3 pb-2">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold text-cyan-400/60 tracking-[0.2em]">CUE POINTS</span>
-              <button
-                onClick={() => { setShowAddCue(!showAddCue); }}
-                className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
-              >{showAddCue ? 'Cancel' : '+ Add Cue'}</button>
-            </div>
-            {showAddCue && (
-              <div className="flex gap-1 mb-2 items-end flex-wrap">
-                <input value={newCueName} onChange={(e) => { setNewCueName(e.target.value); }} placeholder="Name" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-20 border border-slate-700" />
-                <input value={newCuePos} onChange={(e) => { setNewCuePos(e.target.value); }} placeholder="mm:ss" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-14 border border-slate-700" />
-                <select value={newCueType} onChange={(e) => { setNewCueType(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
-                  <option value="hot_cue">Hot Cue</option>
-                  <option value="memory">Memory</option>
-                  <option value="cue_point">Cue Point</option>
-                </select>
-                <select value={newCueColor} onChange={(e) => { setNewCueColor(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
-                  <option value="blue">Blue</option>
-                  <option value="red">Red</option>
-                  <option value="green">Green</option>
-                  <option value="yellow">Yellow</option>
-                  <option value="orange">Orange</option>
-                  <option value="purple">Purple</option>
-                  <option value="pink">Pink</option>
-                </select>
-                <button
-                  onClick={() => {
-                    const pts = newCuePos.split(':');
-                    const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
-                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor }).then(() => getTrack(selectedTrack.id)).then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); }).catch(() => {});
-                  }}
-                  className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
-                >Create</button>
-              </div>
-            )}
-            <div className="space-y-0.5 max-h-32 overflow-y-auto">
-              {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 ? (
-                selectedTrack.cue_points.map((cp: any) => (
-                  <div key={cp.id} className="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded hover:bg-slate-800/50 group">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: cp.color || '#3b82f6'}}></span>
-                    <span className="text-slate-400 w-10 flex-shrink-0">{Math.floor((cp.time || cp.position_ms/1000) / 60)}:{String(Math.floor((cp.time || cp.position_ms/1000) % 60)).padStart(2,'0')}</span>
-                    <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
-                    <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
-                    <button
-                      onClick={() => { deleteCuePoint(cp.id).then(() => getTrack(selectedTrack.id)).then((fresh: any) => { setSelectedTrack(fresh); }).catch(() => {}); }}
-                      className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
-                    >x</button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-slate-500 text-[10px] italic py-1">No cue points</div>
-              )}
             </div>
           </div>
         )}
@@ -1470,7 +1477,7 @@ export default function DashboardPage() {
           <Wand2 className="w-4 h-4 text-cyan-500/70" /> FX Rack
         </h3>
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map((fxName: any) => {
+          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
             return (
               <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
                 className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white" : "px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"}
@@ -1535,7 +1542,7 @@ export default function DashboardPage() {
         <div className="space-y-1 max-h-32 overflow-y-auto">
           {Object.keys(playlists).length === 0 ? (
             <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
-          ) : Object.keys(playlists).map((name: string) => {
+          ) : Object.keys(playlists).map(function(name) {
             return (
               <button key={name} onClick={() => setCurrentPlaylist(name)}
                 className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-white" : "w-full text-left px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"}
@@ -1562,7 +1569,7 @@ export default function DashboardPage() {
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {djHistory.length === 0 ? (
               <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
-            ) : djHistory.map((item: any, idx: number) => {
+            ) : djHistory.map(function(item, idx) {
               return (
                 <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
                   <span className="text-pink-400">{idx + 1}.</span>
