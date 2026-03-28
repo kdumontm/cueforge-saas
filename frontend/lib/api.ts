@@ -605,7 +605,7 @@ export async function createCuePoint(
   trackId: number,
   data: { position_ms: number; name: string; cue_type?: string; color?: string; number?: number | null }
 ): Promise<any> {
-  const response = await authFetch(`${API_URL}/cues/${trackId}/points`, {
+  const response = await authFetch(`${API_URL}/cues/cues/${trackId}/points`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
@@ -620,7 +620,7 @@ export async function createCuePoint(
 }
 
 export async function deleteCuePoint(cueId: number): Promise<void> {
-  const response = await authFetch(`${API_URL}/cues/points/${cueId}`, {
+  const response = await authFetch(`${API_URL}/cues/cues/points/${cueId}`, {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
