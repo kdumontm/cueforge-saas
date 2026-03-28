@@ -737,7 +737,8 @@ export default function DashboardPage() {
               )}
               <span className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded">{msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
             </div>
-          
+          )}
+
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
         <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 160, overflow: 'visible' }}>
                 {/* WAVEFORM TOOLBAR */}
