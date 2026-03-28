@@ -10,7 +10,7 @@ import {
   Grid3X3, List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
   ZoomIn, ZoomOut, CheckSquare, Square, AlertTriangle, Sparkles, Image
 , SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid} from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints } from '@/lib/api';
 import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
@@ -193,6 +193,12 @@ export default function DashboardPage() {
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
   const [showHotCues, setShowHotCues] = useState(true);
+  const [cueEditId, setCueEditId] = useState<number | null>(null);
+  const [showAddCue, setShowAddCue] = useState(false);
+  const [newCueName, setNewCueName] = useState('');
+  const [newCuePos, setNewCuePos] = useState('');
+  const [newCueType, setNewCueType] = useState('hot_cue');
+  const [newCueColor, setNewCueColor] = useState('blue');
   const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
   const [filterKey, setFilterKey] = useState<string>('');
@@ -741,6 +747,70 @@ export default function DashboardPage() {
                 {msToTime(currentTime * 1000)} / {msToTime(duration * 1000)}
               </span>
             </div>
+          {/* CUE POINT MANAGEMENT */}
+          <div className="mt-2 px-3 pb-2">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-cyan-400/60 tracking-[0.2em]">CUE POINTS</span>
+              <button
+                onClick={() => { setShowAddCue(!showAddCue); }}
+                className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
+              >{showAddCue ? 'Cancel' : '+ Add Cue'}</button>
+            </div>
+            {showAddCue && (
+              <div className="flex gap-1 mb-2 items-end flex-wrap">
+                <input value={newCueName} onChange={(e) => { setNewCueName(e.target.value); }} placeholder="Name" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-20 border border-slate-700" />
+                <input value={newCuePos} onChange={(e) => { setNewCuePos(e.target.value); }} placeholder="mm:ss" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-14 border border-slate-700" />
+                <select value={newCueType} onChange={(e) => { setNewCueType(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
+                  <option value="hot_cue">Hot Cue</option>
+                  <option value="memory">Memory</option>
+                  <option value="cue_point">Cue Point</option>
+                </select>
+                <select value={newCueColor} onChange={(e) => { setNewCueColor(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
+                  <option value="blue">Blue</option>
+                  <option value="red">Red</option>
+                  <option value="green">Green</option>
+                  <option value="yellow">Yellow</option>
+                  <option value="orange">Orange</option>
+                  <option value="purple">Purple</option>
+                  <option value="pink">Pink</option>
+                </select>
+                <button
+                  onClick={() => {
+                    const pts = newCuePos.split(':');
+                    const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
+                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor })
+                      .then(() => getTrack(selectedTrack.id))
+                      .then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); })
+                      .catch(() => {});
+                  }}
+                  className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
+                >Create</button>
+              </div>
+            )}
+            <div className="space-y-0.5 max-h-32 overflow-y-auto">
+              {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 ? (
+                selectedTrack.cue_points.map((cp: any) => (
+                  <div key={cp.id} className="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded hover:bg-slate-800/50 group">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: cp.color || '#3b82f6'}}></span>
+                    <span className="text-slate-400 w-10 flex-shrink-0">{Math.floor((cp.time || cp.position_ms/1000) / 60)}:{String(Math.floor((cp.time || cp.position_ms/1000) % 60)).padStart(2,'0')}</span>
+                    <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
+                    <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
+                    <button
+                      onClick={() => {
+                        deleteCuePoint(cp.id)
+                          .then(() => getTrack(selectedTrack.id))
+                          .then((fresh: any) => { setSelectedTrack(fresh); })
+                          .catch(() => {});
+                      }}
+                      className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
+                    >x</button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-slate-500 text-[10px] italic py-1">No cue points</div>
+              )}
+            </div>
+          </div>
           </div>
         )}
 
