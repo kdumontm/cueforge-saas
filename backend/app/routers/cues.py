@@ -29,10 +29,11 @@ class CuePointResponse(BaseModel):
     """Cue point response"""
     id: int
     track_id: int
-    time: float
-    label: str
-    hot_cue_slot: Optional[int]
-    color: Optional[str]
+    position_ms: int
+    name: str
+    number: Optional[int] = None
+    color: Optional[str] = None
+    cue_type: str = "hot_cue"
 
     class Config:
         from_attributes = True
@@ -44,6 +45,7 @@ class CuePointCreate(BaseModel):
     label: str
     hot_cue_slot: Optional[int] = None
     color: Optional[str] = None
+    cue_type: Optional[str] = "hot_cue"
 
 
 class RuleResponse(BaseModel):
@@ -184,10 +186,11 @@ async def create_cue_point(
     # Create cue point
     cue = CuePoint(
         track_id=track_id,
-        time=cue_data.time,
-        label=cue_data.label,
-        hot_cue_slot=cue_data.hot_cue_slot,
-        color=cue_data.color
+        position_ms=int(cue_data.time * 1000),
+        name=cue_data.label,
+        number=cue_data.hot_cue_slot,
+        color=cue_data.color or "blue",
+        cue_type=cue_data.cue_type or "hot_cue"
     )
     db.add(cue)
     db.commit()
