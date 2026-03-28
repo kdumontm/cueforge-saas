@@ -1470,7 +1470,7 @@ export default function DashboardPage() {
           <Wand2 className="w-4 h-4 text-cyan-500/70" /> FX Rack
         </h3>
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
+          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map((fxName: any) => {
             return (
               <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
                 className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white" : "px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"}
@@ -1535,7 +1535,7 @@ export default function DashboardPage() {
         <div className="space-y-1 max-h-32 overflow-y-auto">
           {Object.keys(playlists).length === 0 ? (
             <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
-          ) : Object.keys(playlists).map(function(name) {
+          ) : Object.keys(playlists).map((name: string) => {
             return (
               <button key={name} onClick={() => setCurrentPlaylist(name)}
                 className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-white" : "w-full text-left px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"}
@@ -1562,7 +1562,7 @@ export default function DashboardPage() {
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {djHistory.length === 0 ? (
               <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
-            ) : djHistory.map(function(item, idx) {
+            ) : djHistory.map((item: any, idx: number) => {
               return (
                 <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
                   <span className="text-pink-400">{idx + 1}.</span>
