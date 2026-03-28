@@ -968,7 +968,16 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">Energy</span>
                     <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                          <span className="text-xs font-mono text-yellow-300">{(selectedTrack.analysis.energy * 100).toFixed(0)}%</span>
+                      <div className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: (selectedTrack.analysis.energy * 100) + '%',
+                          background: selectedTrack.analysis.energy > 0.7 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' :
+                            selectedTrack.analysis.energy > 0.4 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' :
+                            'linear-gradient(90deg, #3b82f6, #22c55e)',
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-yellow-300">{(selectedTrack.analysis.energy * 100).toFixed(0)}%</span>
                   </div>
                 </div>
               )}
