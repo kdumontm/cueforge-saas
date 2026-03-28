@@ -739,7 +739,6 @@ export default function DashboardPage() {
             </div>
           </div>
           )}
-        </div>
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
         <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 160, overflow: 'visible' }}>
