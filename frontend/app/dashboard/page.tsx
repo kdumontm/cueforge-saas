@@ -864,7 +864,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
-                  <button key={i} onClick={() => { if (wavesurferRef.current && wavesurferRef.current.getDuration() > 0) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } setTime((cue.position_ms || cue.time) / 1000); }}
+                  <button key={i} onClick={() => { if (wavesurferRef.current && wavesurferRef.current.getDuration() > 0) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } }}
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border bg-black/40"
                     style={{ backgroundColor: (CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1' }}>
                     <span>{i + 1}</span><span className="uppercase opacity-70">{cue.cue_type || cue.type || 'CUE'}</span>
