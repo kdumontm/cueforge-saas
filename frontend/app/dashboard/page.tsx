@@ -221,7 +221,7 @@ export default function DashboardPage() {
   const [showAnalyzed, setShowAnalyzed] = useState(false);
   const [selectedForMix, setSelectedForMix] = useState(null);
   const [gridView, setGridView] = useState(false);
-  const [activeBottomTab, setActiveBottomTab] = useState('eq');
+  const [activeBottomTab, setActiveBottomTab] = useState('cues');
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<string>('eq');
 
@@ -693,16 +693,16 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
 
       {/* Ã¢ÂÂÃ¢ÂÂ TOP: Waveform Player (ALWAYS mounted) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
-      <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-1 flex-shrink-0 sticky top-0 z-10">
+      <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-0.5">
             <div className="flex items-center gap-3 min-w-0">
               {/* Cover art */}
               {selectedTrack.artwork_url ? (
-                <img src={selectedTrack.artwork_url} alt="" className="w-8 h-8 rounded object-cover shadow-lg" />
+                <img src={selectedTrack.artwork_url} alt="" className="w-6 h-6 rounded object-cover" />
               ) : (
-                <div className="w-8 h-8 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-lg">
-                  <Music2 size={18} className="text-slate-500" />
+                <div className="w-6 h-6 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+                  <Music2 size={12} className="text-slate-500" />
                 </div>
               )}
               <div className="min-w-0">
@@ -737,73 +737,7 @@ export default function DashboardPage() {
               )}
               <span className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded">{msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
             </div>
-          {/* CUE POINT MANAGEMENT */}
-          <div className="mt-2 px-3 pb-2">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold text-cyan-400/60 tracking-[0.2em]">CUE POINTS</span>
-              <button
-                onClick={() => { setShowAddCue(!showAddCue); }}
-                className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
-              >{showAddCue ? 'Cancel' : '+ Add Cue'}</button>
-            </div>
-            {showAddCue && (
-              <div className="flex gap-1 mb-2 items-end flex-wrap">
-                <input value={newCueName} onChange={(e) => { setNewCueName(e.target.value); }} placeholder="Name" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-20 border border-slate-700" />
-                <input value={newCuePos} onChange={(e) => { setNewCuePos(e.target.value); }} placeholder="mm:ss" className="bg-slate-800 text-white text-[10px] px-1.5 py-1 rounded w-14 border border-slate-700" />
-                <select value={newCueType} onChange={(e) => { setNewCueType(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
-                  <option value="hot_cue">Hot Cue</option>
-                  <option value="memory">Memory</option>
-                  <option value="cue_point">Cue Point</option>
-                </select>
-                <select value={newCueColor} onChange={(e) => { setNewCueColor(e.target.value); }} className="bg-slate-800 text-white text-[10px] px-1 py-1 rounded border border-slate-700">
-                  <option value="blue">Blue</option>
-                  <option value="red">Red</option>
-                  <option value="green">Green</option>
-                  <option value="yellow">Yellow</option>
-                  <option value="orange">Orange</option>
-                  <option value="purple">Purple</option>
-                  <option value="pink">Pink</option>
-                </select>
-                <button
-                  onClick={() => {
-                    const pts = newCuePos.split(':');
-                    const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
-                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor })
-                      .then(() => getTrack(selectedTrack.id))
-                      .then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); })
-                      .catch(() => {});
-                  }}
-                  className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
-                >Create</button>
-              </div>
-            )}
-            <div className="space-y-0.5 max-h-32 overflow-y-auto">
-              {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 ? (
-                selectedTrack.cue_points.map((cp: any) => (
-                  <div key={cp.id} className="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded hover:bg-slate-800/50 group">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: cp.color || '#3b82f6'}}></span>
-                    <span className="text-slate-400 w-10 flex-shrink-0">{Math.floor((cp.time || cp.position_ms/1000) / 60)}:{String(Math.floor((cp.time || cp.position_ms/1000) % 60)).padStart(2,'0')}</span>
-                    <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
-                    <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
-                    <button
-                      onClick={() => {
-                        deleteCuePoint(cp.id)
-                          .then(() => getTrack(selectedTrack.id))
-                          .then((fresh: any) => { setSelectedTrack(fresh); })
-                          .catch(() => {});
-                      }}
-                      className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
-                    >x</button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-slate-500 text-[10px] italic py-1">No cue points</div>
-              )}
-            </div>
-          </div>
-          </div>
-        )}
-
+          
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
         <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 160, overflow: 'visible' }}>
                 {/* WAVEFORM TOOLBAR */}
@@ -1413,6 +1347,7 @@ export default function DashboardPage() {
         {/* Tab Bar */}
         <div className="flex items-center border-b border-gray-800/50 px-1">
           {[
+            { id: 'cues', label: 'CUES' },
             { id: 'eq', label: 'EQ' },
             { id: 'fx', label: 'FX' },
             { id: 'mix', label: 'MIX' },
