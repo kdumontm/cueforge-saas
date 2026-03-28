@@ -238,6 +238,15 @@ export default function DashboardPage() {
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
   const [energyFilter, setEnergyFilter] = useState([0, 100]);
   const [bpmFilter, setBpmFilter] = useState([0, 300]);
+  const [showWatchFolder, setShowWatchFolder] = useState(false);
+  const [watchFolderPath, setWatchFolderPath] = useState('');
+  const [waveformMode, setWaveformMode] = useState('standard');
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineEditField, setInlineEditField] = useState('');
+  const [inlineEditValue, setInlineEditValue] = useState('');
+  const [showMixSuggestions, setShowMixSuggestions] = useState(false);
+  const [selectedForMix, setSelectedForMix] = useState(null);
+  const [gridView, setGridView] = useState(false);
   const [keyFilter, setKeyFilter] = useState('');
 
   const waveformRef = useRef<HTMLDivElement>(null);
@@ -682,7 +691,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden" onClick={() => setCtxMenu(null)}>
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-y-auto" onClick={() => setCtxMenu(null)}>
 
       {/* ââ TOP: Waveform Player (ALWAYS mounted) âââââââââââ */}
       <div className="bg-bg-secondary border-b border-slate-800/60 px-4 py-3 flex-shrink-0">
@@ -1219,8 +1228,10 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 {/* Genre */}
-                <span className="text-xs text-slate-400 truncate">
-                  {track.genre?.split(',')[0]?.trim() || '\u2014'}
+                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title="Double-click to edit" onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
+                  {inlineEditId === track.id && inlineEditField === 'genre' ? (
+                    <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
+                  ) : (track.genre?.split(',')[0]?.trim() || '—')}
                 </span>
                 {/* BPM */}
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
@@ -1812,6 +1823,190 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ── Interactive Camelot Wheel ── */}
+      {showCamelotWheel && (
+        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-purple-400 flex items-center gap-2">🎵 Camelot Wheel - Harmonic Mixing Guide</h3>
+            <button onClick={() => setShowCamelotWheel(false)} className="text-gray-400 hover:text-white text-xl">×</button>
+          </div>
+          <div className="flex gap-8">
+            <div className="relative w-80 h-80 mx-auto">
+              <svg viewBox="0 0 400 400" className="w-full h-full">
+                {Object.entries(CAMELOT_WHEEL).map(([key, val], i) => {
+                  const isMinor = key.includes('A');
+                  const num = parseInt(key);
+                  const angle = ((num - 1) * 30 - 90) * Math.PI / 180;
+                  const r = isMinor ? 120 : 170;
+                  const x = 200 + r * Math.cos(angle);
+                  const y = 200 + r * Math.sin(angle);
+                  const isSelected = selectedForMix && tracks.find(t => t.id === selectedForMix)?.camelotKey === key;
+                  const compatible = selectedForMix ? (() => {
+                    const selTrack = tracks.find(t => t.id === selectedForMix);
+                    if (!selTrack) return false;
+                    const selNum = parseInt(selTrack.camelotKey);
+                    const selIsMinor = selTrack.camelotKey?.includes('A');
+                    const curNum = parseInt(key);
+                    const curIsMinor = key.includes('A');
+                    return (curNum === selNum && curIsMinor !== selIsMinor) || (curIsMinor === selIsMinor && (curNum === selNum || curNum === (selNum % 12) + 1 || curNum === ((selNum + 10) % 12) + 1));
+                  })() : false;
+                  const trackCount = tracks.filter(t => t.camelotKey === key).length;
+                  const colors = ['#ff6b6b','#ff9f43','#feca57','#48dbfb','#0abde3','#10ac84','#1dd1a1','#54a0ff','#5f27cd','#c44569','#f78fb3','#3dc1d3'];
+                  const color = colors[(num - 1) % 12];
+                  return (
+                    <g key={key}>
+                      <circle cx={x} cy={y} r={isSelected ? 28 : compatible ? 25 : 22} fill={isSelected ? color : compatible ? color + '99' : '#1a1a2e'} stroke={color} strokeWidth={isSelected ? 3 : compatible ? 2 : 1} opacity={selectedForMix ? (isSelected || compatible ? 1 : 0.3) : 1} className="cursor-pointer transition-all duration-200" />
+                      <text x={x} y={y - 4} textAnchor="middle" fill="white" fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"}>{key}</text>
+                      <text x={x} y={y + 10} textAnchor="middle" fill="#aaa" fontSize="8">{trackCount > 0 ? trackCount + ' tracks' : ''}</text>
+                    </g>
+                  );
+                })}
+                <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">Inner: Minor</text>
+                <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">Outer: Major</text>
+              </svg>
+            </div>
+            <div className="flex-1 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-300">Harmonic Mixing Rules</h4>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
+                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
+                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> A↔B = Mode change (minor/major)</div>
+              </div>
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-gray-300 mb-2">Select a track to see compatible keys:</h4>
+                <select className="bg-gray-800 text-white rounded px-3 py-2 w-full text-sm border border-gray-700" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
+                  <option value="">-- Choose a track --</option>
+                  {tracks.filter(t => t.camelotKey).map(t => (
+                    <option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.camelotKey})</option>
+                  ))}
+                </select>
+              </div>
+              {selectedForMix && (() => {
+                const sel = tracks.find(t => t.id === selectedForMix);
+                if (!sel || !sel.camelotKey) return null;
+                const selNum = parseInt(sel.camelotKey);
+                const selIsMinor = sel.camelotKey.includes('A');
+                const compatibleTracks = tracks.filter(t => {
+                  if (!t.camelotKey || t.id === selectedForMix) return false;
+                  const tNum = parseInt(t.camelotKey);
+                  const tIsMinor = t.camelotKey.includes('A');
+                  return (tNum === selNum && tIsMinor !== selIsMinor) || (tIsMinor === selIsMinor && (tNum === selNum || tNum === (selNum % 12) + 1 || tNum === ((selNum + 10) % 12) + 1));
+                });
+                return (
+                  <div className="mt-3 max-h-40 overflow-y-auto">
+                    <h4 className="text-sm font-semibold text-green-400 mb-1">{compatibleTracks.length} compatible tracks:</h4>
+                    {compatibleTracks.map(t => (
+                      <div key={t.id} className="text-xs text-gray-300 py-1 px-2 bg-gray-800/40 rounded mb-1 flex justify-between">
+                        <span>{t.title} - {t.artist}</span>
+                        <span className="text-purple-400 font-mono">{t.camelotKey} | {t.bpm} BPM</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Watch Folder Panel ── */}
+      {showWatchFolder && (
+        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">📁 Watch Folder - Auto Import</h3>
+            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">×</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Folder Path</label>
+                <div className="flex gap-2">
+                  <input type="text" value={watchFolderPath} onChange={(e) => setWatchFolderPath(e.target.value)} placeholder="/Users/music/incoming" className="flex-1 bg-gray-800 text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-yellow-500 outline-none" />
+                  <button className="bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded text-sm font-semibold">Browse</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-yellow-400">0</div>
+                  <div className="text-xs text-gray-400">Files Watching</div>
+                </div>
+                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-green-400">0</div>
+                  <div className="text-xs text-gray-400">Auto Imported</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">▶ Start Watching</button>
+                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">⏸ Stop</button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-gray-300">Settings</h4>
+              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-analyze new files (BPM, Key, Energy)</label>
+              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-detect duplicates</label>
+              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" className="accent-yellow-500" /> Auto-add to playlist</label>
+              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Watch subfolders</label>
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Supported formats</label>
+                <div className="flex flex-wrap gap-1">{['MP3','WAV','FLAC','AIFF','AAC','OGG','M4A','WMA'].map(f => (<span key={f} className="bg-gray-800 text-yellow-400 text-xs px-2 py-1 rounded font-mono">{f}</span>))}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Mix Suggestions ── */}
+      {showMixSuggestions && (
+        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">🤖 AI Mix Suggestions</h3>
+            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">×</button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex gap-3 items-center">
+              <select className="bg-gray-800 text-white rounded px-3 py-2 text-sm border border-gray-700 flex-1" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
+                <option value="">-- Select starting track --</option>
+                {tracks.map(t => (<option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.bpm} BPM, {t.camelotKey || 'N/A'})</option>))}
+              </select>
+              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">✨ Generate Mix</button>
+            </div>
+            {selectedForMix && (() => {
+              const start = tracks.find(t => t.id === selectedForMix);
+              if (!start) return null;
+              const suggestions = tracks.filter(t => {
+                if (t.id === selectedForMix) return false;
+                let score = 0;
+                if (t.bpm && start.bpm) { const diff = Math.abs(t.bpm - start.bpm); if (diff <= 3) score += 3; else if (diff <= 8) score += 2; else if (diff <= 15) score += 1; }
+                if (t.camelotKey && start.camelotKey) { const sNum = parseInt(start.camelotKey); const tNum = parseInt(t.camelotKey); const sMin = start.camelotKey.includes('A'); const tMin = t.camelotKey.includes('A'); if (tNum === sNum && tMin === sMin) score += 3; else if (tNum === sNum && tMin !== sMin) score += 2; else if (tMin === sMin && (tNum === (sNum % 12) + 1 || tNum === ((sNum + 10) % 12) + 1)) score += 2; }
+                if (t.energy && start.energy) { const diff = Math.abs(t.energy - start.energy); if (diff <= 10) score += 2; else if (diff <= 20) score += 1; }
+                t._mixScore = score;
+                return score >= 3;
+              }).sort((a, b) => (b._mixScore || 0) - (a._mixScore || 0)).slice(0, 10);
+              return (
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-400">Starting from: <span className="text-white font-semibold">{start.title}</span> ({start.bpm} BPM, {start.camelotKey}, Energy: {start.energy})</div>
+                  {suggestions.length === 0 ? (<div className="text-gray-500 text-sm py-4 text-center">Add more tracks with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
+                    <div key={t.id} className="flex items-center gap-3 bg-gray-800/50 rounded-lg p-3 hover:bg-gray-800 transition-colors">
+                      <span className="text-pink-400 font-bold text-lg w-6">{i + 1}</span>
+                      <div className="flex-1">
+                        <div className="text-white text-sm font-medium">{t.title}</div>
+                        <div className="text-gray-400 text-xs">{t.artist}</div>
+                      </div>
+                      <div className="flex gap-4 text-xs">
+                        <span className="text-blue-400">{t.bpm} BPM</span>
+                        <span className="text-purple-400 font-mono">{t.camelotKey || '?'}</span>
+                        <span className="text-green-400">E:{t.energy || '?'}</span>
+                      </div>
+                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>★</span>))}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* ── Feature Quick Access Toolbar ── */}
       <div className="bg-gray-900 border-t border-gray-800 px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 flex-wrap">
@@ -1820,6 +2015,18 @@ export default function DashboardPage() {
           <button onClick={() => setShowExport(!showExport)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showExport ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Download size={12}/> Export</button>
           <button onClick={() => setShowStats(!showStats)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showStats ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Activity size={12}/> Stats</button>
           <button onClick={() => {setBatchSelected(tracks.map(t => t.id)); setShowBatchEdit(true);}} className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-all"><Tag size={12}/> Batch Edit All</button>
+            <button onClick={() => setShowCamelotWheel(!showCamelotWheel)} className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (showCamelotWheel ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700")}>
+              🎵 Camelot Wheel
+            </button>
+            <button onClick={() => setShowWatchFolder(!showWatchFolder)} className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (showWatchFolder ? "bg-yellow-600 text-black" : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700")}>
+              📁 Watch Folder
+            </button>
+            <button onClick={() => setShowMixSuggestions(!showMixSuggestions)} className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (showMixSuggestions ? "bg-pink-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700")}>
+              🤖 AI Mix
+            </button>
+            <button onClick={() => setGridView(!gridView)} className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-all " + (gridView ? "bg-cyan-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700")}>
+              {gridView ? '📋 Table View' : '🖼 Grid View'}
+            </button>
           <span className="text-gray-600 text-xs">|</span>
           <span className="text-gray-500 text-xs">{tracks.length} tracks · {new Set(tracks.map(t => t.genre).filter(Boolean)).size} genres · {new Set(tracks.map(t => t.artist).filter(Boolean)).size} artists</span>
         </div>
