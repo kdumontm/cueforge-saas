@@ -1089,7 +1089,7 @@ export default function DashboardPage() {
           <span className="text-center">BPM</span>
           <span className="text-center">Key</span>
           <span className="text-center">Energy</span>
-          <span className="text-center">DurÃ©e</span>
+          <span className="text-center">Durée</span>
           <span />
         </div>
 
@@ -1160,22 +1160,18 @@ export default function DashboardPage() {
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
                   {a?.bpm ? a.bpm.toFixed(1) : '\u2014'}
                 </span>
-                  {/* CAMELOT + COMPATIBILITY */}
-                  {track.analysis?.key && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-cyan-400/80 font-mono">
-                      {keyCamelot(track.analysis.key) || track.analysis.key}
-                    </span>
-                  )}
+                {/* Key (Camelot) + Compatibility */}
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-xs text-cyan-400 font-mono text-center font-bold">
+                    {toCamelot(a?.key)}
+                  </span>
                   {selectedTrack && selectedTrack.id !== track.id && track.analysis?.key && selectedTrack.analysis?.key && (() => {
                     const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm || 0, track.analysis.key, track.analysis.bpm || 0);
                     const color = score.total >= 80 ? 'text-green-400 bg-green-500/20' : score.total >= 50 ? 'text-yellow-400 bg-yellow-500/20' : 'text-red-400 bg-red-500/20';
-                    return <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${color}`}>{score.total}%</span>;
+                    return <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${color}`}>{score.total}%</span>;
                   })()}
-                {/* Key (Camelot) */}
-                <span className="text-xs text-cyan-400 font-mono text-center font-bold">
-                  {toCamelot(a?.key)}
-                </span>
-                {/* Energy */}
+                </div>
+{/* Energy */}
                 <span className="text-xs text-yellow-400 font-mono text-center font-bold">
                   {energyToRating(a?.energy)}
                 </span>
