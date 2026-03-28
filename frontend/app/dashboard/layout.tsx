@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-bg-primary flex flex-col">
       {/* Top nav */}
       <header className="border-b border-slate-800/60 bg-bg-secondary/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="w-full px-4 h-14 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="w-7 h-7 bg-accent-purple rounded-lg flex items-center justify-center">
               <Music2 size={15} className="text-white" />
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+      <main className="flex-1 w-full">
         {children}
       </main>
     </div>
