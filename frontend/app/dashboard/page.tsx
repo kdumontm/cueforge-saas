@@ -864,7 +864,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
-                  <button key={i} onClick={() => { if (wavesurferRef.current) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } setTime((cue.position_ms || cue.time) / 1000); }}
+                  <button key={i} onClick={() => { if (wavesurferRef.current && wavesurferRef.current.getDuration() > 0) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } setTime((cue.position_ms || cue.time) / 1000); }}
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border bg-black/40"
                     style={{ backgroundColor: (CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1' }}>
                     <span>{i + 1}</span><span className="uppercase opacity-70">{cue.cue_type || cue.type || 'CUE'}</span>
@@ -881,7 +881,7 @@ export default function DashboardPage() {
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
                 <div className="grid grid-cols-8 gap-1">
                   {Array.from({length: 8}).map((_, i) => (
-                    <button key={i} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (wavesurferRef.current.getDuration() * 1000)); } }}
+                    <button key={i} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
                       className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-white shadow-lg' : 'bg-gray-800/60 text-gray-600')}
                       style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1', boxShadow: '0 0 8px ' + (CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1') + '40'} : {}}>
                       {i + 1}
