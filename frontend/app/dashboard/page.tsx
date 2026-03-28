@@ -199,6 +199,7 @@ export default function DashboardPage() {
   const [newCuePos, setNewCuePos] = useState('');
   const [newCueType, setNewCueType] = useState('hot_cue');
   const [newCueColor, setNewCueColor] = useState('blue');
+  const [showMixPanel, setShowMixPanel] = useState(false);
   const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
   const [filterKey, setFilterKey] = useState<string>('');
@@ -2022,6 +2023,53 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ── Mixable Tracks Panel ── */}
+      {showMixPanel && selectedTrack && (
+        <div className="fixed right-0 top-14 bottom-12 w-80 bg-gray-950/98 backdrop-blur-md border-l border-cyan-500/20 z-50 flex flex-col shadow-2xl shadow-black/60">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/60 bg-gray-900/80">
+            <span className="text-[10px] font-bold text-cyan-400/80 tracking-[0.2em]">MIXABLE TRACKS</span>
+            <button onClick={() => setShowMixPanel(false)} className="text-slate-500 hover:text-white transition-colors"><X size={14}/></button>
+          </div>
+          <div className="px-3 py-2 border-b border-slate-800/40 bg-gray-900/40">
+            <div className="text-[10px] text-slate-400">Playing: <span className="text-white font-medium">{selectedTrack.title?.substring(0, 30)}</span></div>
+            <div className="flex gap-2 mt-0.5">
+              <span className="text-[10px] text-cyan-400 font-medium">{selectedTrack.analysis?.key || '?'}</span>
+              <span className="text-[10px] text-purple-400">{selectedTrack.analysis?.bpm ? (Math.round(selectedTrack.analysis.bpm * 10) / 10) + ' BPM' : '?'}</span>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {filteredTracks
+              .filter((t) => t.id !== selectedTrack.id && t.analysis?.key)
+              .map((t) => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
+              .sort((a, b) => b.score.total - a.score.total)
+              .map(({track: t, score}) => (
+                <div key={t.id}
+                  onClick={() => setSelectedTrack(t)}
+                  className={"flex items-center gap-2 px-3 py-2 border-b border-slate-800/20 cursor-pointer hover:bg-slate-800/50 transition-colors" + (selectedTrack.id === t.id ? " bg-cyan-500/10" : "")}>
+                  <div className={"w-8 h-8 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0 " + (score.total >= 80 ? "bg-green-500/20 text-green-400" : score.total >= 60 ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400")}>
+                    {score.total}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] text-white truncate">{t.title}</div>
+                    <div className="text-[9px] text-slate-500 truncate">{t.artist || 'Unknown'}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-[10px] text-cyan-400">{t.analysis?.key || '?'}</div>
+                    <div className="text-[9px] text-slate-500">{t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : '?'}</div>
+                  </div>
+                  <div className={"text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 " + (score.verdict === 'Perfect' ? "bg-green-500/20 text-green-400" : score.verdict === 'Great' ? "bg-emerald-500/20 text-emerald-400" : score.verdict === 'Good' ? "bg-yellow-500/20 text-yellow-400" : score.verdict === 'OK' ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400")}>
+                    {score.verdict}
+                  </div>
+                </div>
+              ))
+            }
+            {filteredTracks.filter((t) => t.id !== selectedTrack.id && t.analysis?.key).length === 0 && (
+              <div className="text-center py-8 text-slate-500 text-xs">No analyzed tracks to compare</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Feature Toolbar ── */}
       <div className="flex items-center justify-center gap-1 py-2 px-3 bg-gray-900/90 backdrop-blur-sm border-t border-gray-800/50">
         {[
@@ -2034,8 +2082,9 @@ export default function DashboardPage() {
           { icon: 'FolderSearch', label: 'Watch', active: showWatchFolder, toggle: () => setShowWatchFolder(!showWatchFolder) },
           { icon: 'Lightbulb', label: 'AI Mix', active: showMixSuggestions, toggle: () => setShowMixSuggestions(!showMixSuggestions) },
           { icon: 'LayoutGrid', label: gridView ? 'List' : 'Grid', active: gridView, toggle: () => setGridView(!gridView) },
+          { icon: 'ListMusic', label: 'Mixable', active: showMixPanel, toggle: () => setShowMixPanel(!showMixPanel) },
         ].map((btn, i) => {
-          const IconMap = { Sparkles, Copy, Download, BarChart3, PenSquare, Compass, FolderSearch, Lightbulb, LayoutGrid };
+          const IconMap = { Sparkles, Copy, Download, BarChart3, PenSquare, Compass, FolderSearch, Lightbulb, LayoutGrid, ListMusic };
           const Icon = IconMap[btn.icon];
           return (
             <button key={i} onClick={btn.toggle} title={btn.label}
