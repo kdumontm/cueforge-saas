@@ -329,7 +329,122 @@ export default function DashboardPage() {
         URL.revokeObjectURL(url);
       }
     } catch(e) { console.error(e); }
+  }
+
+  // ── Lexicon-inspired: Batch operations ──────────────────────────
+  const [showBatchBar, setShowBatchBar] = useState(false);
+  const [showSmartFilter, setShowSmartFilter] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [smartFilter, setSmartFilter] = useState({
+    bpmMin: '', bpmMax: '', keyMatch: '', genreMatch: '', energyMin: '', energyMax: ''
+  });
+
+  const toggleTrackSelection = (trackId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
   };
+
+  const selectAllTracks = () => {
+    if (selectedIds.size === filteredTracks.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredTracks.map(t => t.id)));
+    }
+  };
+
+  const batchDeleteTracks = async () => {
+    if (!selectedIds.size) return;
+    if (!confirm(`Delete ${selectedIds.size} tracks?`)) return;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`${API}/tracks/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch(e) { console.error(e); }
+    }
+    setSelectedIds(new Set());
+    fetchTracks();
+  };
+
+  const batchExportRekordbox = async () => {
+    if (!selectedIds.size) return;
+    try {
+      const res = await fetch(`${API}/export/rekordbox/batch`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_ids: Array.from(selectedIds) })
+      });
+      const data = await res.json();
+      const blob = new Blob([data.xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `cueforge_batch_${selectedIds.size}tracks.xml`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch(e) { alert('Export failed'); }
+  };
+
+  const batchAnalyze = async () => {
+    if (!selectedIds.size) return;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`${API}/tracks/${id}/analyze`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch(e) { console.error(e); }
+    }
+    setTimeout(fetchTracks, 2000);
+    alert(`Re-analyzing ${selectedIds.size} tracks...`);
+  };
+
+  // ── Smart Playlist Filter ───────────────────────────────────────
+  const applySmartFilter = () => {
+    // Smart filter is applied via filteredTracks memo below
+    setShowSmartFilter(false);
+  };
+
+  const smartFilteredTracks = filteredTracks.filter(t => {
+    const a = t.analysis;
+    const bpm = a?.bpm || 0;
+    const energy = a?.energy || 0;
+    const genre = a?.genre || '';
+    const key = a?.key || '';
+    if (smartFilter.bpmMin && bpm < Number(smartFilter.bpmMin)) return false;
+    if (smartFilter.bpmMax && bpm > Number(smartFilter.bpmMax)) return false;
+    if (smartFilter.energyMin && energy < Number(smartFilter.energyMin) / 100) return false;
+    if (smartFilter.energyMax && energy > Number(smartFilter.energyMax) / 100) return false;
+    if (smartFilter.keyMatch && key !== smartFilter.keyMatch) return false;
+    if (smartFilter.genreMatch && !genre.toLowerCase().includes(smartFilter.genreMatch.toLowerCase())) return false;
+    return true;
+  });
+
+  // ── Duplicate Detection ─────────────────────────────────────────
+  const findDuplicates = () => {
+    const dupes = [];
+    const tracksList = tracks || [];
+    for (let i = 0; i < tracksList.length; i++) {
+      for (let j = i + 1; j < tracksList.length; j++) {
+        const t1 = tracksList[i]; const t2 = tracksList[j];
+        const nameSim = t1.original_filename && t2.original_filename &&
+          t1.original_filename.replace(/\.[^.]+$/, '').toLowerCase() ===
+          t2.original_filename.replace(/\.[^.]+$/, '').toLowerCase();
+        const bpm1 = t1.analysis?.bpm || 0; const bpm2 = t2.analysis?.bpm || 0;
+        const bpmSim = bpm1 && bpm2 && Math.abs(bpm1 - bpm2) < 1;
+        const key1 = t1.analysis?.key || ''; const key2 = t2.analysis?.key || '';
+        const keySim = key1 && key2 && key1 === key2;
+        if (nameSim || (bpmSim && keySim)) {
+          dupes.push({ track1: t1, track2: t2, reason: nameSim ? 'Same filename' : 'Same BPM + Key' });
+        }
+      }
+    }
+    return dupes;
+  };
+;
 
 
   const wavesurferRef = useRef<any>(null);
@@ -1161,7 +1276,85 @@ export default function DashboardPage() {
                   )}
                 </div>
       <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
-        {/* Table header */}
+        
+                {/* ── Lexicon Batch Toolbar ── */}
+                <div className="flex items-center gap-2 px-2 py-1 bg-[#1a1a2e]/80 border-b border-white/5">
+                  <input type="checkbox" checked={selectedIds.size === smartFilteredTracks.length && smartFilteredTracks.length > 0}
+                    onChange={selectAllTracks} className="accent-purple-500 w-3 h-3" title="Select all" />
+                  <span className="text-[10px] text-gray-400">{selectedIds.size > 0 ? `${selectedIds.size} selected` : `${smartFilteredTracks.length} tracks`}</span>
+                  {selectedIds.size > 0 && (
+                    <>
+                      <button onClick={batchExportRekordbox} className="text-[10px] px-2 py-0.5 bg-orange-600/30 text-orange-300 rounded hover:bg-orange-600/50 transition">Export XML</button>
+                      <button onClick={batchAnalyze} className="text-[10px] px-2 py-0.5 bg-blue-600/30 text-blue-300 rounded hover:bg-blue-600/50 transition">Re-Analyze</button>
+                      <button onClick={batchDeleteTracks} className="text-[10px] px-2 py-0.5 bg-red-600/30 text-red-300 rounded hover:bg-red-600/50 transition">Delete</button>
+                    </>
+                  )}
+                  <div className="ml-auto flex gap-1">
+                    <button onClick={() => setShowSmartFilter(!showSmartFilter)}
+                      className={`text-[10px] px-2 py-0.5 rounded transition ${showSmartFilter ? 'bg-purple-600/50 text-purple-200' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                      Smart Filter
+                    </button>
+                    <button onClick={() => setShowDuplicates(!showDuplicates)}
+                      className={`text-[10px] px-2 py-0.5 rounded transition ${showDuplicates ? 'bg-yellow-600/50 text-yellow-200' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                      Duplicates
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Smart Filter Panel ── */}
+                {showSmartFilter && (
+                  <div className="px-3 py-2 bg-purple-900/20 border-b border-purple-500/20 grid grid-cols-6 gap-2">
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">BPM Min</label>
+                      <input type="number" value={smartFilter.bpmMin} onChange={e => setSmartFilter({...smartFilter, bpmMin: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="120" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">BPM Max</label>
+                      <input type="number" value={smartFilter.bpmMax} onChange={e => setSmartFilter({...smartFilter, bpmMax: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="140" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">Key</label>
+                      <input type="text" value={smartFilter.keyMatch} onChange={e => setSmartFilter({...smartFilter, keyMatch: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="Am" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">Genre</label>
+                      <input type="text" value={smartFilter.genreMatch} onChange={e => setSmartFilter({...smartFilter, genreMatch: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="House" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">Energy Min %</label>
+                      <input type="number" value={smartFilter.energyMin} onChange={e => setSmartFilter({...smartFilter, energyMin: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="30" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-purple-300 block">Energy Max %</label>
+                      <input type="number" value={smartFilter.energyMax} onChange={e => setSmartFilter({...smartFilter, energyMax: e.target.value})}
+                        className="w-full bg-black/30 text-[10px] text-white px-1 py-0.5 rounded border border-purple-500/30" placeholder="80" />
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Duplicates Panel ── */}
+                {showDuplicates && (
+                  <div className="px-3 py-2 bg-yellow-900/20 border-b border-yellow-500/20 max-h-[120px] overflow-y-auto">
+                    <div className="text-[10px] text-yellow-300 font-medium mb-1">Potential Duplicates</div>
+                    {findDuplicates().length === 0 ? (
+                      <div className="text-[10px] text-gray-500">No duplicates found</div>
+                    ) : findDuplicates().map((d, i) => (
+                      <div key={i} className="flex items-center gap-2 py-0.5 text-[10px] text-gray-300">
+                        <span className="text-yellow-400">{d.reason}:</span>
+                        <span className="truncate max-w-[200px]">{d.track1.original_filename}</span>
+                        <span className="text-gray-600">↔</span>
+                        <span className="truncate max-w-[200px]">{d.track2.original_filename}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Table header */}
         <div className="grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
           <span>Titre</span>
@@ -1180,7 +1373,7 @@ export default function DashboardPage() {
             <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
           </div>
         ) : (
-          filteredTracks.map(track => {
+          smartFilteredTracks.map(track => {
             const a = track.analysis;
             const isActive = selectedTrack?.id === track.id;
             const isSelected = selectedIds.has(track.id);
