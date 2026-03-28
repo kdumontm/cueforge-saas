@@ -252,6 +252,86 @@ export default function DashboardPage() {
   const [rightPanel, setRightPanel] = useState<string>('eq');
 
   const waveformRef = useRef<HTMLDivElement>(null);
+  const [showEditMeta, setShowEditMeta] = useState(false);
+  const [editForm, setEditForm] = useState({title:'',artist:'',album:'',genre:'',year:0,comment:''});
+  const [savingMeta, setSavingMeta] = useState(false);
+
+  const openEditMeta = () => {
+    if (!selectedTrack) return;
+    setEditForm({
+      title: selectedTrack.title || selectedTrack.original_filename || '',
+      artist: selectedTrack.artist || '',
+      album: selectedTrack.album || '',
+      genre: selectedTrack.genre || '',
+      year: selectedTrack.year || 0,
+      comment: selectedTrack.comment || '',
+    });
+    setShowEditMeta(true);
+  };
+
+  const saveMetadata = async () => {
+    if (!selectedTrack || !token) return;
+    setSavingMeta(true);
+    try {
+      const body = {};
+      if (editForm.title) body.title = editForm.title;
+      if (editForm.artist) body.artist = editForm.artist;
+      if (editForm.album) body.album = editForm.album;
+      if (editForm.genre) body.genre = editForm.genre;
+      if (editForm.year) body.year = editForm.year;
+      if (editForm.comment) body.comment = editForm.comment;
+      const res = await fetch(API + '/tracks/' + selectedTrack.id, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setTracks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+        setSelectedTrack(updated);
+        setShowEditMeta(false);
+      }
+    } catch(e) { console.error(e); }
+    setSavingMeta(false);
+  };
+
+  const exportRekordbox = async (trackId) => {
+    if (!token) return;
+    try {
+      const res = await fetch(API + '/export/' + trackId + '/rekordbox', {
+        headers: {'Authorization':'Bearer '+token},
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (selectedTrack?.title || 'track') + '_rekordbox.xml';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch(e) { console.error(e); }
+  };
+
+  const exportAllRekordbox = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(API + '/export/rekordbox/all', {
+        headers: {'Authorization':'Bearer '+token},
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'CueForge_Library_rekordbox.xml';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch(e) { console.error(e); }
+  };
+
+
   const wavesurferRef = useRef<any>(null);
   const loopActiveRef = useRef(false);
   const loopInRef = useRef<number | null>(null);
@@ -1594,6 +1674,31 @@ export default function DashboardPage() {
       </div>
             </div>
           )}
+
+              {/* ── Action Buttons ── */}
+              <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
+                <div className="flex gap-2">
+                  <button
+                    onClick={openEditMeta}
+                    className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white transition-colors"
+                  >
+                    ✏️ Edit Metadata
+                  </button>
+                  <button
+                    onClick={() => selectedTrack && exportRekordbox(selectedTrack.id)}
+                    className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-white transition-colors"
+                  >
+                    🎵 Export XML
+                  </button>
+                </div>
+                <button
+                  onClick={exportAllRekordbox}
+                  className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-white transition-colors"
+                >
+                  📦 Export All to Rekordbox
+                </button>
+              </div>
+
         </div>
       </div>
       </div>{/* end right panel */}
@@ -2196,6 +2301,57 @@ useEffect(() => {
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
       <span className="text-slate-500 text-xs">{label}</span>
       <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
-    </div>
+    
+
+      {/* ── Metadata Edit Modal ── */}
+      {showEditMeta && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-600 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-white mb-4">✏️ Edit Track Metadata</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Title</label>
+                <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Artist</label>
+                <input type="text" value={editForm.artist} onChange={(e) => setEditForm({...editForm, artist: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Album</label>
+                <input type="text" value={editForm.album} onChange={(e) => setEditForm({...editForm, album: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400 block mb-1">Genre</label>
+                  <input type="text" value={editForm.genre} onChange={(e) => setEditForm({...editForm, genre: e.target.value})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                </div>
+                <div className="w-20">
+                  <label className="text-xs text-gray-400 block mb-1">Year</label>
+                  <input type="number" value={editForm.year || ''} onChange={(e) => setEditForm({...editForm, year: parseInt(e.target.value) || 0})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Comment</label>
+                <textarea value={editForm.comment} onChange={(e) => setEditForm({...editForm, comment: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">Cancel</button>
+              <button onClick={saveMetadata} disabled={savingMeta}
+                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
+                {savingMeta ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }
