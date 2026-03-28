@@ -2008,7 +2008,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Feature Quick Access Toolbar ── */}
-      <div className="bg-gray-900 border-t border-gray-800 px-4 py-2">
+      <div className="bg-gray-900 border-t border-gray-800 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 flex-wrap">
           <button onClick={() => setShowSmartPlaylist(!showSmartPlaylist)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showSmartPlaylist ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><Sparkles size={12}/> Smart Playlist</button>
           <button onClick={() => setShowDuplicates(!showDuplicates)} className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${showDuplicates ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}><AlertTriangle size={12}/> Duplicates</button>
