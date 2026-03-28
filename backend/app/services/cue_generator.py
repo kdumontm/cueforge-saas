@@ -126,7 +126,27 @@ def _find_section_by_label(sections: List[Dict], label: str) -> List[Dict]:
     return [s for s in sections if s.get("label") == label]
 
 
+def _snap_to_downbeat(pos_ms: int, beats: List[int]) -> int:
+    """Snap a position to the nearest downbeat (every 4 beats) for DJ-ready cue points."""
+    if not beats:
+        return pos_ms
+    downbeats = [beats[i] for i in range(0, len(beats), 4)]
+    if not downbeats:
+        return pos_ms
+    nearest = min(downbeats, key=lambda b: abs(b - pos_ms))
+    if abs(nearest - pos_ms) < 3000:
+        return nearest
+    nearest_beat = min(beats, key=lambda b: abs(b - pos_ms))
+    if abs(nearest_beat - pos_ms) < 1500:
+        return nearest_beat
+    return pos_ms
+
+
 def generate_cue_points(analysis_data: Dict) -> List[Dict]:
+    """
+    Generate up to 8 DJ-ready cue points with downbeat snapping.
+    Priority: INTRO > DROPs > BUILD > BREAKDOWN > OUTRO > PHRASE
+    """
     cue_points = []
     used_positions = set()
     sections = analysis_data.get("section_labels", [])
@@ -137,28 +157,28 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
     def _pos_used(pos_ms: int) -> bool:
         for p in used_positions:
-            if abs(p - pos_ms) < 2000:
+            if abs(p - pos_ms) < 4000:
                 return True
         return False
 
-    def _add_cue(pos_ms: int, cue_type: str, name: str, color: str, number: int,
-                 end_ms: int = None) -> bool:
-        if _pos_used(pos_ms):
+    def _add_cue(pos_ms: int, cue_type: str, name: str, color: str, number: int, end_ms: int = None) -> bool:
+        snapped = _snap_to_downbeat(pos_ms, beats)
+        if _pos_used(snapped):
             return False
         cue_points.append({
-            "position_ms": pos_ms,
+            "position_ms": snapped,
             "end_position_ms": end_ms,
             "cue_type": cue_type,
             "name": name,
             "color": color,
             "number": number,
         })
-        used_positions.add(pos_ms)
+        used_positions.add(snapped)
         return True
 
     number = 0
 
-    # Slot 0: INTRO
+    # INTRO
     intro_sections = _find_section_by_label(sections, "INTRO")
     if intro_sections:
         intro_pos = intro_sections[0].get("time_ms", 0)
@@ -170,25 +190,30 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         _add_cue(0, "section", "INTRO", "blue", number)
     number += 1
 
-    # Slots 1-3: DROPs
+    # DROPs (max 3)
     drop_count = 0
     for drop_ms in drops:
         if number >= 4 or drop_count >= 3:
             break
-        name = f"DROP {drop_count + 1}" if len(drops) > 1 else "DROP"
+        name = "DROP " + str(drop_count + 1) if len(drops) > 1 else "DROP"
         if _add_cue(drop_ms, "drop", name, "red", number):
             drop_count += 1
             number += 1
 
-    # Slot 4: BUILD
+    # BUILD (best one before first drop)
     build_sections = _find_section_by_label(sections, "BUILD")
     first_drop_ms = drops[0] if drops else duration_ms
     best_build = None
+    best_score = -1
     for b in build_sections:
         b_time = b.get("time_ms", 0)
+        b_energy = b.get("energy", 0.5)
         if b_time < first_drop_ms:
-            best_build = b
-            break
+            proximity = 1.0 - (first_drop_ms - b_time) / max(first_drop_ms, 1)
+            score = proximity * 0.6 + b_energy * 0.4
+            if score > best_score:
+                best_score = score
+                best_build = b
     if not best_build and build_sections:
         best_build = build_sections[0]
     if best_build and number < 8:
@@ -197,47 +222,49 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         if _add_cue(build_pos, "section", "BUILD", "orange", number, build_end):
             number += 1
 
-    # Slot 5: BREAKDOWN
+    # BREAKDOWN (lowest energy after first drop)
     breakdown_sections = _find_section_by_label(sections, "BREAKDOWN")
     if breakdown_sections and number < 8:
         best_bd = None
+        lowest_e = 999
         for bd in breakdown_sections:
-            if bd.get("time_ms", 0) > first_drop_ms:
+            if bd.get("time_ms", 0) > first_drop_ms and bd.get("energy", 1.0) < lowest_e:
+                lowest_e = bd.get("energy", 1.0)
                 best_bd = bd
-                break
         if not best_bd:
-            best_bd = breakdown_sections[0]
+            best_bd = min(breakdown_sections, key=lambda x: x.get("energy", 1.0))
         bd_pos = best_bd.get("time_ms", 0)
         bd_end = bd_pos + best_bd.get("duration_ms", 0)
         if _add_cue(bd_pos, "section", "BREAKDOWN", "yellow", number, bd_end):
             number += 1
 
-    # Slot 6: OUTRO
+    # OUTRO
     outro_sections = _find_section_by_label(sections, "OUTRO")
     if outro_sections and number < 8:
-        outro_pos = outro_sections[-1].get("time_ms", 0)
+        outro_pos = outro_sections[0].get("time_ms", 0)
         if _add_cue(outro_pos, "section", "OUTRO", "purple", number):
             number += 1
     elif duration_ms > 30000 and number < 8:
-        outro_pos = int(duration_ms * 0.9)
-        if beats:
-            closest = min(beats, key=lambda b: abs(b - outro_pos))
-            outro_pos = closest
-        _add_cue(outro_pos, "section", "OUTRO", "purple", number)
-        number += 1
+        outro_pos = _snap_to_downbeat(int(duration_ms * 0.87), beats)
+        if not _pos_used(outro_pos):
+            _add_cue(outro_pos, "section", "OUTRO", "purple", number)
+            number += 1
 
-    # Slot 7: Phrase
+    # PHRASE markers (prefer mid-track)
     if phrases and number < 8:
-        for ph_ms in phrases:
+        mid = duration_ms / 2
+        sorted_ph = sorted(phrases, key=lambda p: abs(p - mid))
+        for ph_ms in sorted_ph:
+            if number >= 8:
+                break
             if _add_cue(ph_ms, "phrase", "PHRASE", "green", number):
                 number += 1
-                break
 
     # Fill remaining
     for drop_ms in drops[3:]:
         if number >= 8:
             break
-        _add_cue(drop_ms, "drop", f"DROP {drop_count + 1}", "red", number)
+        _add_cue(drop_ms, "drop", "DROP " + str(drop_count + 1), "red", number)
         drop_count += 1
         number += 1
     for ph_ms in phrases:
@@ -246,8 +273,12 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         _add_cue(ph_ms, "phrase", "PHRASE", "green", number)
         number += 1
 
-    return cue_points
+    # Sort by position and reassign slot numbers
+    cue_points.sort(key=lambda c: c["position_ms"])
+    for i, cue in enumerate(cue_points):
+        cue["number"] = i
 
+    return cue_points
 
 def _apply_drop_cue(track, analysis, cue_points, slot):
     if not analysis.drops:
