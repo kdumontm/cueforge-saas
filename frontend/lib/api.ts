@@ -613,6 +613,7 @@ export async function createCuePoint(
       label: data.name,
       hot_cue_slot: data.number ?? null,
       color: data.color ?? null,
+      cue_type: data.cue_type ?? 'hot_cue',
     }),
   });
   if (!response.ok) throw new Error('Failed to create cue point');
