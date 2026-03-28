@@ -827,176 +827,69 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Player controls + Cue badges */}
+        {/* DECK CONTROLS */}
         {selectedTrack && (
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-2">
-              <button onClick={skipBack} className="p-2 text-gray-400 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-all duration-150 transition-colors">
-                <SkipBack size={16} />
-              </button>
-              <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-full text-white transition-all shadow-lg shadow-blue-600/20">
-                {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
-              </button>
-              <button onClick={skipForward} className="p-2 text-gray-400 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-all duration-150 transition-colors">
-                <SkipForward size={16} />
-              </button>
-            </div>
-            {/* Cue point badges */}
-            <div className="flex items-center gap-1 overflow-x-auto max-w-[50%] scrollbar-hide">
-              {selectedTrack.cue_points?.map((cue, i) => {
-                const color = CUE_COLOR_MAP[cue.color as keyof typeof CUE_COLOR_MAP] || '#2563eb';
-                return (
-                  <button
-                    key={cue.id}
-                    onClick={() => {
-                      if (wavesurferRef.current) {
-                        wavesurferRef.current.setTime(cue.position_ms / 1000);
-                      }
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap hover:brightness-125 transition-all"
-                    style={{
-                      backgroundColor: color + '20',
-                      color: color,
-                      border: `1px solid ${color}40`,
-                    }}
-                    title={`${cue.name} \u2014 ${msToTime(cue.position_ms)}`}
-                  >
-                    <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black"
-                      style={{ backgroundColor: color, color: '#fff' }}>
-                      {i + 1}
-                    </span>
-                    {cue.name}
-                  </button>
-                );
-              })}
-            </div>
-
-              {/* ââ HOT CUE PADS ââ */}
-              {selectedTrack?.cue_points && selectedTrack.cue_points.length > 0 && (
-                <div className="mt-4 p-3 bg-[#0d0b1a] rounded-xl border border-purple-900/30">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-cyan-400/80 uppercase tracking-wider">Hot Cue Pads</span>
-                    <span className="text-[10px] text-gray-500">1-8 keys to trigger</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {Array.from({ length: 8 }).map((_, i) => {
-                      const cue = selectedTrack.cue_points?.[i];
-                      const colors: Record<string, string> = {
-                        red: 'from-red-600 to-red-800', blue: 'from-blue-600 to-blue-800',
-                        green: 'from-green-600 to-green-800', yellow: 'from-yellow-500 to-yellow-700',
-                        purple: 'from-purple-600 to-purple-800', orange: 'from-orange-500 to-orange-700',
-                        cyan: 'from-cyan-500 to-cyan-700', pink: 'from-pink-500 to-pink-700',
-                        white: 'from-gray-400 to-gray-600',
-                      };
-                      const grad = cue ? (colors[cue.color] || colors.purple) : 'from-gray-800 to-gray-900';
-                      return (
-                        <button key={i} onClick={() => {
-                          if (cue && wavesurferRef.current) {
-                            const pos = cue.position_ms / 1000;
-                            wavesurferRef.current.seekTo(pos / wavesurferRef.current.getDuration());
-                          }
-                        }}
-                          className={`relative h-12 rounded-md bg-gradient-to-b ${grad} border border-white/10 flex flex-col items-center justify-center transition-all ${cue ? 'hover:scale-105 hover:brightness-125 cursor-pointer shadow-lg' : 'opacity-30 cursor-default'}`}>
-                          <span className="text-[10px] font-bold text-white/90">{i + 1}</span>
-                          {cue && <span className="text-[8px] text-white/70 truncate max-w-full px-1">{cue.name}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ââ LOOP CONTROLS + TAP TEMPO + CAMELOT ââ */}
-              {selectedTrack && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {/* Loop Controls */}
-                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
-                    <span className="text-[10px] font-bold text-pink-400 uppercase tracking-wider block mb-1">Loop</span>
-                    <div className="flex gap-1">
-                      <button onClick={() => { const ws = wavesurferRef.current; if (ws) setLoopIn(ws.getCurrentTime()); }}
-                        className={`flex-1 text-[10px] py-1 rounded ${loopIn !== null ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400'} hover:bg-pink-500 transition-colors`}>
-                        IN {loopIn !== null ? loopIn.toFixed(1) + 's' : '[ '}
-                      </button>
-                      <button onClick={() => { const ws = wavesurferRef.current; if (ws) { setLoopOut(ws.getCurrentTime()); if (loopIn !== null) setLoopActive(true); } }}
-                        className={`flex-1 text-[10px] py-1 rounded ${loopOut !== null ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400'} hover:bg-pink-500 transition-colors`}>
-                        OUT {loopOut !== null ? loopOut.toFixed(1) + 's' : ' ]'}
-                      </button>
-                      <button onClick={() => { setLoopActive(a => !a); }}
-                        className={`w-8 text-[10px] py-1 rounded font-bold ${loopActive ? 'bg-pink-500 text-white' : 'bg-gray-800 text-gray-500'}`}>
-                        {loopActive ? 'ON' : 'OFF'}
-                      </button>
-                    </div>
-                    <span className="text-[9px] text-gray-600 mt-1 block">[ ] keys or L to toggle</span>
-                  </div>
-
-                  {/* Tap Tempo */}
-                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
-                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">Tap Tempo</span>
-                    <button onClick={() => setTapBpm(handleTap())}
-                      className="w-full h-9 rounded bg-gradient-to-b from-cyan-700 to-cyan-900 hover:from-cyan-600 hover:to-cyan-800 text-white font-bold text-sm transition-all active:scale-95 border border-cyan-500/30">
-                      TAP
-                    </button>
-                    <div className="text-center mt-1">
-                      <span className="text-cyan-300 font-mono text-sm font-bold">{tapBpm > 0 ? tapBpm.toFixed(1) : '---'}</span>
-                      <span className="text-[9px] text-gray-500 ml-1">BPM</span>
-                    </div>
-                  </div>
-
-                  {/* Camelot / Harmonic Info */}
-                  <div className="p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
-                    <span className="text-[10px] font-bold text-green-400 uppercase tracking-wider block mb-1">Harmonic</span>
-                    {selectedTrack.analysis?.key ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-white">{keyCamelot(selectedTrack.analysis.key)}</span>
-                          <span className="text-xs text-gray-400">{selectedTrack.analysis.key}</span>
-                        </div>
-                        <div className="text-[9px] text-gray-500 mt-1">
-                          Mix with: {getCompatibleKeys(selectedTrack.analysis.key).map(k =>
-                            <span key={k} className="inline-block bg-green-900/40 text-green-300 rounded px-1 mr-0.5 mb-0.5">{keyCamelot(k)} {k}</span>
-                          )}
-                        </div>
-                      </>
-                    ) : <span className="text-xs text-gray-500">Analyze first</span>}
-                  </div>
-                </div>
-              )}
-
-              {/* ââ ENERGY METER ââ */}
-              {selectedTrack?.analysis?.energy && (
-                <div className="mt-2 p-2 bg-[#0d0b1a] rounded-lg border border-purple-900/30">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">Energy</span>
-                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: (selectedTrack.analysis.energy * 100) + '%',
-                          background: selectedTrack.analysis.energy > 0.7 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' :
-                            selectedTrack.analysis.energy > 0.4 ? 'linear-gradient(90deg, #22c55e, #f59e0b)' :
-                            'linear-gradient(90deg, #3b82f6, #22c55e)',
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs font-mono text-yellow-300">{(selectedTrack.analysis.energy * 100).toFixed(0)}%</span>
-                  </div>
-                </div>
-              )}
-
-              {/* ââ KEYBOARD SHORTCUTS LEGEND ââ */}
-              <div className="mt-2 flex flex-wrap gap-1">
-                {[['Space','Play/Pause'],['1-8','Hot Cues'],['[','Loop In'],[']','Loop Out'],['L','Loop Toggle'],['Esc','Clear Loop']].map(([k,v]) =>
-                  <span key={k} className="text-[9px] bg-gray-800/50 text-gray-500 rounded px-1.5 py-0.5 border border-gray-700/30">
-                    <kbd className="text-cyan-500/70 font-mono">{k}</kbd> {v}
-                  </span>
-                )}
+          <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-4 py-3">
+            <div className="flex items-center gap-4 mb-3">
+              <div className="flex items-center gap-1">
+                <button onClick={skipBack} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={18} /></button>
+                <button onClick={togglePlay} className="w-14 h-14 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-lg shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={24} className="text-white" /> : <Play size={24} className="text-white ml-0.5" />}</button>
+                <button onClick={skipForward} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={18} /></button>
               </div>
-            {/* Volume */}
-            <div className="flex items-center gap-2">
-              <button onClick={toggleMute} className="text-slate-400 hover:text-white transition-colors">
-                {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
-              <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
-                onChange={e => handleVolume(parseFloat(e.target.value))} className="w-20 accent-blue-500" />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
+                  <button key={i} onClick={() => { if (wavesurferRef.current) { wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() * 1000)); } setTime(cue.time / 1000); }}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border transition-all hover:scale-105"
+                    style={{ backgroundColor: (CUE_COLOR_MAP[cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.type] || '#6366f1' }}>
+                    <span>{i + 1}</span><span className="uppercase opacity-70">{cue.type || 'CUE'}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
+                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-5 bg-black/40 rounded-lg border border-gray-800/40 p-3">
+                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">HOT CUES</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {Array.from({length: 8}).map((_, i) => { const cue = selectedTrack.cue_points?.[i]; const color = cue ? (CUE_COLOR_MAP[cue.type] || '#6366f1') : null; return (<button key={i} onClick={() => { if (cue && wavesurferRef.current) { wavesurferRef.current.seekTo(cue.time / (wavesurferRef.current.getDuration() * 1000)); setTime(cue.time / 1000); } }} className="h-10 rounded font-bold text-xs transition-all duration-150 border" style={color ? { background: color + '33', borderColor: color + '66', color: color, boxShadow: '0 0 12px ' + color + '22' } : { background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.15)' }}>{i + 1}</button>); })}
+                </div>
+              </div>
+              <div className="col-span-4 flex flex-col gap-2">
+                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
+                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">LOOP</div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setLoopIn(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-8 rounded bg-gray-800/80 border border-gray-700/50 text-[10px] font-bold text-gray-300 hover:bg-gray-700/80 hover:text-cyan-400 transition-all">IN</button>
+                    <button onClick={() => setLoopOut(wavesurferRef.current?.getCurrentTime() || 0)} className="flex-1 h-8 rounded bg-gray-800/80 border border-gray-700/50 text-[10px] font-bold text-gray-300 hover:bg-gray-700/80 hover:text-cyan-400 transition-all">OUT</button>
+                    <button onClick={() => setLoopActive(!loopActive)} className={`flex-1 h-8 rounded text-[10px] font-bold transition-all ${loopActive ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/30 border border-cyan-400' : 'bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:bg-gray-700/80'}`}>{loopActive ? 'ON' : 'LOOP'}</button>
+                  </div>
+                </div>
+                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
+                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">KEY</div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-white tracking-tight">{selectedTrack.analysis?.key ? CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key : '--'}</span>
+                    <span className="text-sm text-gray-400">{selectedTrack.analysis?.key || ''}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="col-span-3 flex flex-col gap-2">
+                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
+                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">TEMPO</div>
+                  <button onClick={() => { const now = Date.now(); if (window.__lastTap && now - window.__lastTap < 2000) { const bpm = Math.round(60000 / (now - window.__lastTap)); setTapBpm(bpm); } window.__lastTap = now; }} className="w-full h-10 rounded bg-gradient-to-b from-violet-600/80 to-violet-800/80 border border-violet-500/30 text-white font-black text-sm hover:from-violet-500/80 hover:to-violet-700/80 transition-all shadow-md shadow-violet-500/10">TAP</button>
+                  {tapBpm > 0 && <div className="text-center mt-1.5 text-lg font-black text-white">{tapBpm} <span className="text-[10px] text-gray-500 font-normal">BPM</span></div>}
+                </div>
+                <div className="bg-black/40 rounded-lg border border-gray-800/40 p-3 flex-1">
+                  <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-2">ENERGY</div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{width: `${(selectedTrack.analysis?.energy || 0) * 100}%`}} />
+                    </div>
+                    <span className="text-xs font-bold text-gray-300 w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
