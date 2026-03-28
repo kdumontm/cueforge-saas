@@ -20,7 +20,7 @@ export function clearToken(): void {
 // ── Authenticated fetch with auto-logout on 401 ───────────────────────────────
 
 async function authFetch(url: string, options?: RequestInit): Promise<Response> {
-  const response = await authFetch(url, options);
+  const response = await fetch(url, options);
   if (response.status === 401) {
     clearToken();
     if (typeof window !== 'undefined') {
