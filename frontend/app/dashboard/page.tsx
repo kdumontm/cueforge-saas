@@ -902,7 +902,6 @@ export default function DashboardPage() {
         )}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
 {/* Ã¢ÂÂÃ¢ÂÂ TOOLBAR: Upload, Search, Batch Actions Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       <div
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
@@ -2071,7 +2070,6 @@ useEffect(() => {
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
       <span className="text-slate-500 text-xs">{label}</span>
       <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
-            </div>
-</div>
+    </div>
   );
 }
