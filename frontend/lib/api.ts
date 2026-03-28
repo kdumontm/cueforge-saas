@@ -17,6 +17,21 @@ export function clearToken(): void {
   if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
 }
 
+// ── Authenticated fetch with auto-logout on 401 ───────────────────────────────
+
+async function authFetch(url: string, options?: RequestInit): Promise<Response> {
+  const response = await authFetch(url, options);
+  if (response.status === 401) {
+    clearToken();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    throw new Error('Session expired. Please log in again.');
+  }
+  return response;
+}
+
+
 export function isAuthenticated(): boolean {
   return !!getToken();
 }
@@ -103,7 +118,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function getCurrentUser(): Promise<User> {
-  const response = await fetch(`${API_URL}/auth/me`, {
+  const response = await authFetch(`${API_URL}/auth/me`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch user');
@@ -111,7 +126,7 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function refreshToken(): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/auth/refresh`, {
+  const response = await authFetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
     headers: { ...authHeaders() },
   });
@@ -120,7 +135,7 @@ export async function refreshToken(): Promise<AuthResponse> {
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_URL}/auth/forgot-password`, {
+  const response = await authFetch(`${API_URL}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -130,7 +145,7 @@ export async function forgotPassword(email: string): Promise<{ message: string }
 }
 
 export async function resetPassword(token: string, new_password: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_URL}/auth/reset-password`, {
+  const response = await authFetch(`${API_URL}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),
@@ -144,7 +159,7 @@ export async function resetPassword(token: string, new_password: string): Promis
 export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch(`${API_URL}/tracks/upload`, {
+  const response = await authFetch(`${API_URL}/tracks/upload`, {
     method: 'POST',
     headers: { ...authHeaders() },
     body: formData,
@@ -157,7 +172,7 @@ export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
 }
 
 export async function uploadTracks(formData: FormData): Promise<TrackUploadResponse[]> {
-  const response = await fetch(`${API_URL}/tracks/`, {
+  const response = await authFetch(`${API_URL}/tracks/`, {
     method: 'POST',
     headers: { ...authHeaders() },
     body: formData,
@@ -170,7 +185,7 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
 }
 
 export async function analyzeTrack(trackId: number): Promise<AnalyzeResponse> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/analyze`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze`, {
     method: 'POST',
     headers: { ...authHeaders() },
   });
@@ -185,7 +200,7 @@ export async function pollTrackUntilDone(
   maxAttempts = 120
 ): Promise<Track> {
   for (let i = 0; i < maxAttempts; i++) {
-    const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+    const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
       headers: { ...authHeaders() },
     });
     if (!response.ok) throw new Error('Failed to fetch track status');
@@ -201,7 +216,7 @@ export async function listTracks(
   page: number = 1,
   limit: number = 20
 ): Promise<TrackListResponse> {
-  const response = await fetch(
+  const response = await authFetch(
     `${API_URL}/tracks?page=${page}&limit=${limit}`,
     { headers: { ...authHeaders() } }
   );
@@ -210,7 +225,7 @@ export async function listTracks(
 }
 
 export async function getTrack(trackId: number): Promise<Track> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch track');
@@ -218,7 +233,7 @@ export async function getTrack(trackId: number): Promise<Track> {
 }
 
 export async function deleteTrack(trackId: number): Promise<void> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
@@ -228,7 +243,7 @@ export async function deleteTrack(trackId: number): Promise<void> {
 // ── Export API ───────────────────────────────────────────────────────────────
 
 export async function exportRekordbox(trackId: number): Promise<Blob> {
-  const response = await fetch(`${API_URL}/export/${trackId}/rekordbox`, {
+  const response = await authFetch(`${API_URL}/export/${trackId}/rekordbox`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export Rekordbox');
@@ -236,7 +251,7 @@ export async function exportRekordbox(trackId: number): Promise<Blob> {
 }
 
 export async function exportSerato(trackId: number): Promise<Blob> {
-  const response = await fetch(`${API_URL}/export/${trackId}/serato`, {
+  const response = await authFetch(`${API_URL}/export/${trackId}/serato`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export Serato');
@@ -244,7 +259,7 @@ export async function exportSerato(trackId: number): Promise<Blob> {
 }
 
 export async function exportJSON(trackId: number): Promise<Blob> {
-  const response = await fetch(`${API_URL}/export/${trackId}/json`, {
+  const response = await authFetch(`${API_URL}/export/${trackId}/json`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export JSON');
@@ -252,7 +267,7 @@ export async function exportJSON(trackId: number): Promise<Blob> {
 }
 
 export async function exportAllFormats(trackId: number): Promise<Blob> {
-  const response = await fetch(`${API_URL}/export/${trackId}/all`, {
+  const response = await authFetch(`${API_URL}/export/${trackId}/all`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export all formats');
@@ -318,7 +333,7 @@ export interface UpdateUserPayload {
 }
 
 export async function adminListUsers(skip = 0, limit = 100): Promise<AdminUser[]> {
-  const response = await fetch(`${API_URL}/admin/users?skip=${skip}&limit=${limit}`, {
+  const response = await authFetch(`${API_URL}/admin/users?skip=${skip}&limit=${limit}`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to list users');
@@ -326,7 +341,7 @@ export async function adminListUsers(skip = 0, limit = 100): Promise<AdminUser[]
 }
 
 export async function adminGetUser(userId: number): Promise<AdminUser> {
-  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+  const response = await authFetch(`${API_URL}/admin/users/${userId}`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to get user');
@@ -334,7 +349,7 @@ export async function adminGetUser(userId: number): Promise<AdminUser> {
 }
 
 export async function adminCreateUser(payload: CreateUserPayload): Promise<AdminUser> {
-  const response = await fetch(`${API_URL}/admin/users`, {
+  const response = await authFetch(`${API_URL}/admin/users`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
@@ -347,7 +362,7 @@ export async function adminCreateUser(payload: CreateUserPayload): Promise<Admin
 }
 
 export async function adminUpdateUser(userId: number, payload: UpdateUserPayload): Promise<AdminUser> {
-  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+  const response = await authFetch(`${API_URL}/admin/users/${userId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
@@ -360,7 +375,7 @@ export async function adminUpdateUser(userId: number, payload: UpdateUserPayload
 }
 
 export async function adminDeleteUser(userId: number): Promise<void> {
-  const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+  const response = await authFetch(`${API_URL}/admin/users/${userId}`, {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
@@ -413,7 +428,7 @@ export async function updateTrackMetadata(
   trackId: number,
   metadata: MetadataUpdate
 ): Promise<TrackResponse> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/metadata`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/metadata`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(metadata),
@@ -431,7 +446,7 @@ export function getAudioUrl(trackId: number): string {
 }
 
 export async function cleanTitle(trackId: number): Promise<{ status: string; title: string; artist?: string }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/clean-title`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/clean-title`, {
     method: "POST",
     headers: { ...authHeaders() },
   });
@@ -443,7 +458,7 @@ export async function parseRemix(trackId: number): Promise<{
   status: string; clean_title: string; remix_artist?: string;
   remix_type?: string; feat_artist?: string;
 }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/parse-remix`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/parse-remix`, {
     method: "POST",
     headers: { ...authHeaders() },
   });
@@ -455,7 +470,7 @@ export async function detectGenre(trackId: number): Promise<{
   status: string; best_guess: string;
   genres: Array<{ genre: string; confidence: number }>;
 }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/detect-genre`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/detect-genre`, {
     method: "POST",
     headers: { ...authHeaders() },
   });
@@ -468,7 +483,7 @@ export async function spotifyLookup(
   query?: string,
   artist?: string
 ): Promise<{ status: string; results: any[]; total: number }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/spotify-lookup`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/spotify-lookup`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ query, artist }),
@@ -492,7 +507,7 @@ export async function spotifyApply(
   trackId: number,
   data: SpotifyApplyData
 ): Promise<{ status: string; track: Track }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/spotify-apply`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/spotify-apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
@@ -504,7 +519,7 @@ export async function spotifyApply(
 export async function fixTags(trackId: number): Promise<{
   status: string; written?: Record<string, any>;
 }> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/fix-tags`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/fix-tags`, {
     method: "POST",
     headers: { ...authHeaders() },
   });
@@ -522,13 +537,13 @@ export interface PageConfig {
 }
 
 export async function getPublicPageSettings(): Promise<PageConfig[]> {
-  const response = await fetch(`${API_URL}/admin/settings/pages`);
+  const response = await authFetch(`${API_URL}/admin/settings/pages`);
   if (!response.ok) throw new Error("Failed to fetch page settings");
   return response.json();
 }
 
 export async function getAdminPages(): Promise<PageConfig[]> {
-  const response = await fetch(`${API_URL}/admin/pages`, {
+  const response = await authFetch(`${API_URL}/admin/pages`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error("Failed to fetch admin pages");
@@ -536,7 +551,7 @@ export async function getAdminPages(): Promise<PageConfig[]> {
 }
 
 export async function togglePage(pageName: string, isEnabled: boolean): Promise<PageConfig> {
-  const response = await fetch(`${API_URL}/admin/pages/${pageName}`, {
+  const response = await authFetch(`${API_URL}/admin/pages/${pageName}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ is_enabled: isEnabled }),
@@ -556,7 +571,7 @@ export interface UserProfile {
 }
 
 export async function getMyProfile(): Promise<UserProfile> {
-  const response = await fetch(`${API_URL}/admin/me`, {
+  const response = await authFetch(`${API_URL}/admin/me`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error("Failed to fetch profile");
@@ -571,7 +586,7 @@ export interface UpdateProfileData {
 }
 
 export async function updateMyProfile(data: UpdateProfileData): Promise<UserProfile> {
-  const response = await fetch(`${API_URL}/admin/me`, {
+  const response = await authFetch(`${API_URL}/admin/me`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
@@ -611,7 +626,7 @@ export async function updateTrackOrganization(
   if (data.comment !== undefined) params.set('comment', data.comment || '');
   if (data.energy_level !== undefined) params.set('energy_level', String(data.energy_level || ''));
   
-  const response = await fetch(`${API_URL}/tracks/${trackId}/metadata?${params.toString()}`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/metadata?${params.toString()}`, {
     method: 'PATCH',
     headers: { ...authHeaders() },
   });
@@ -620,7 +635,7 @@ export async function updateTrackOrganization(
 }
 
 export async function listCategories(): Promise<Record<string, number>> {
-  const response = await fetch(`${API_URL}/tracks/categories`, {
+  const response = await authFetch(`${API_URL}/tracks/categories`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch categories');
@@ -628,7 +643,7 @@ export async function listCategories(): Promise<Record<string, number>> {
 }
 
 export async function listTagCounts(): Promise<Record<string, number>> {
-  const response = await fetch(`${API_URL}/tracks/tags`, {
+  const response = await authFetch(`${API_URL}/tracks/tags`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch tags');
@@ -639,7 +654,7 @@ export async function setCueMode(
   cueId: number,
   mode: 'memory' | 'hot'
 ): Promise<{ cue_id: number; mode: string; position_ms: number; name: string }> {
-  const response = await fetch(`${API_URL}/cue-points/${cueId}/mode?mode=${mode}`, {
+  const response = await authFetch(`${API_URL}/cue-points/${cueId}/mode?mode=${mode}`, {
     method: 'PUT',
     headers: { ...authHeaders() },
   });
@@ -651,7 +666,7 @@ export async function setCueColor(
   cueId: number,
   color: string
 ): Promise<{ cue_id: number; color: string; color_rgb: string; position_ms: number; name: string }> {
-  const response = await fetch(`${API_URL}/cue-points/${cueId}/color?color=${encodeURIComponent(color)}`, {
+  const response = await authFetch(`${API_URL}/cue-points/${cueId}/color?color=${encodeURIComponent(color)}`, {
     method: 'PUT',
     headers: { ...authHeaders() },
   });
@@ -673,7 +688,7 @@ export async function getTrackCuePoints(
   cue_mode: string;
   number: number | null;
 }>> {
-  const response = await fetch(`${API_URL}/tracks/${trackId}/cue-points`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/cue-points`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch cue points');
@@ -688,7 +703,7 @@ export async function getWaveformData(
   spectral_energy: { low_energy: number; mid_energy: number; high_energy: number };
   generated_at: string | null;
 }> {
-  const response = await fetch(`${API_URL}/waveforms/${trackId}`, {
+  const response = await authFetch(`${API_URL}/waveforms/${trackId}`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Waveform data not available');
@@ -698,7 +713,7 @@ export async function getWaveformData(
 export async function generateWaveform(
   trackId: number
 ): Promise<{ status: string; message: string; track_id: number }> {
-  const response = await fetch(`${API_URL}/waveforms/${trackId}/generate`, {
+  const response = await authFetch(`${API_URL}/waveforms/${trackId}/generate`, {
     method: 'POST',
     headers: { ...authHeaders() },
   });
