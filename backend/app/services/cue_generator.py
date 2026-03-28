@@ -209,13 +209,13 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
     Priority order:
     1. INTRO (blue)     — first meaningful downbeat
-    2. DROP 1 (red)     — highest energy contrast point
-    3. DROP 2 (red)     — second drop if exists
-    4. DROP 3 (red)     — third drop if exists
-    5. BUILD (orange)   — steepest energy rise before main drop
-    6. BREAKDOWN (yellow) — lowest energy section after first drop
-    7. OUTRO (purple)   — start of final energy decline
-    8. PHRASE (green)    — significant structural boundary
+    2. DROP (red)       — highest energy contrast point (main drop only)
+    3. BUILD (orange)   — steepest energy rise before main drop
+    4. BREAKDOWN (yellow) — lowest energy section after first drop
+    5. OUTRO (purple)   — start of final energy decline
+    6. DROP 2 (red)     — second drop if exists
+    7. PHRASE (green)    — significant structural boundary
+    8. VERSE/CHORUS     — additional section markers if slots remain
     """
     cue_points = []
     used_positions = set()
@@ -275,18 +275,15 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     else:
         _add_cue(0, "section", "INTRO", "blue")
 
-    # ── 2-4. DROPs (max 3, highest scored first) ─────────────────────
+    # ── 2. DROP (main drop only — highest energy contrast) ───────────
     drop_count = 0
-    for drop_ms in drops:
-        if drop_count >= 3 or len(cue_points) >= 4:
-            break
-        name = "DROP " + str(drop_count + 1) if len(drops) > 1 else "DROP"
-        if _add_cue(drop_ms, "drop", name, "red", snap_4bar=True):
-            drop_count += 1
-
-    # ── 5. BUILD (best one before the main drop) ─────────────────────
-    build_sections = _find_section_by_label(sections, "BUILD")
     first_drop_ms = drops[0] if drops else duration_ms
+    if drops:
+        if _add_cue(drops[0], "drop", "DROP", "red", snap_4bar=True):
+            drop_count = 1
+
+    # ── 3. BUILD (best one before the main drop) ─────────────────────
+    build_sections = _find_section_by_label(sections, "BUILD")
 
     # Score builds: proximity to drop × energy level
     best_build = None
@@ -295,14 +292,12 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         b_time = b.get("time_ms", 0)
         b_energy = b.get("energy", 0.5)
         if b_time < first_drop_ms:
-            # Proximity score: closer to drop = better
             proximity = 1.0 - (first_drop_ms - b_time) / max(first_drop_ms, 1)
             score = proximity * 0.5 + b_energy * 0.5
             if score > best_build_score:
                 best_build_score = score
                 best_build = b
 
-    # If no build before drop, try any build
     if not best_build and build_sections:
         best_build = max(build_sections, key=lambda b: b.get("energy", 0))
 
@@ -311,15 +306,13 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         build_end = build_pos + best_build.get("duration_ms", 0)
         _add_cue(build_pos, "section", "BUILD", "orange", end_ms=build_end)
 
-    # ── 6. BREAKDOWN (lowest energy after first drop) ────────────────
+    # ── 4. BREAKDOWN (lowest energy after first drop) ────────────────
     breakdown_sections = _find_section_by_label(sections, "BREAKDOWN")
     if breakdown_sections and len(cue_points) < 8:
-        # Prefer breakdowns after the first drop with lowest energy
         post_drop = [
             bd for bd in breakdown_sections
             if bd.get("time_ms", 0) > first_drop_ms
         ]
-
         if post_drop:
             best_bd = min(post_drop, key=lambda x: x.get("energy", 1.0))
         else:
@@ -329,45 +322,48 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         bd_end = bd_pos + best_bd.get("duration_ms", 0)
         _add_cue(bd_pos, "section", "BREAKDOWN", "yellow", end_ms=bd_end)
 
-    # ── 7. OUTRO ─────────────────────────────────────────────────────
+    # ── 5. OUTRO ─────────────────────────────────────────────────────
     outro_sections = _find_section_by_label(sections, "OUTRO")
     if outro_sections and len(cue_points) < 8:
-        # Use first OUTRO section (where DJ should start mixing out)
         outro_pos = outro_sections[0].get("time_ms", 0)
         _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
     elif duration_ms > 30000 and len(cue_points) < 8:
-        # Estimate: 87% of track is typical mix-out point
         outro_pos = int(duration_ms * 0.87)
         _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
 
-    # ── 8. PHRASE markers (remaining slots) ──────────────────────────
+    # ── 6. DROP 2 (second drop if it exists and we have room) ───────
+    if len(drops) > 1 and len(cue_points) < 8:
+        _add_cue(drops[1], "drop", "DROP 2", "red", snap_4bar=True)
+        drop_count = 2
+
+    # ── 7. PHRASE markers (remaining slots) ────────────────────
     if phrases and len(cue_points) < 8:
-        # Prefer 16-bar phrase boundaries in the middle of the track
         mid_track = duration_ms / 2
-        # Sort by distance from mid-track (most useful for DJs)
         sorted_phrases = sorted(phrases, key=lambda p: abs(p - mid_track))
         for ph_ms in sorted_phrases:
             if len(cue_points) >= 8:
                 break
             _add_cue(ph_ms, "phrase", "PHRASE", "green")
 
-    # ── Fill remaining slots with extra drops then phrases ───────────
-    for drop_ms in drops[3:]:
+    # ── 8. Fill remaining with extra section markers ─────────────
+    # Add VERSE/CHORUS sections if we still have room
+    verse_sections = _find_section_by_label(sections, "VERSE")
+    chorus_sections = _find_section_by_label(sections, "CHORUS")
+    for vs in verse_sections:
         if len(cue_points) >= 8:
             break
-        dc = drop_count + 1
-        _add_cue(drop_ms, "drop", "DROP " + str(dc), "red", snap_4bar=True)
-        drop_count += 1
-
-    for ph_ms in phrases:
+        vs_pos = vs.get("time_ms", 0)
+        _add_cue(vs_pos, "section", "VERSE", "cyan")
+    for ch in chorus_sections:
         if len(cue_points) >= 8:
             break
-        _add_cue(ph_ms, "phrase", "PHRASE", "green")
+        ch_pos = ch.get("time_ms", 0)
+        _add_cue(ch_pos, "section", "CHORUS", "pink")
 
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])
-    for i, cue in enumerate(cue_points):
-        cue["number"] = i
+    for i, cp in enumerate(cue_points):
+        cp["number"] = i
 
     return cue_points
 
