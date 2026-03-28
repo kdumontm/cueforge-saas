@@ -665,7 +665,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)]" onClick={() => setCtxMenu(null)}>
+    <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() => setCtxMenu(null)}>
       {/* LEFT SIDEBAR - Module Buttons */}
       <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
         <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">Add</span></button>
@@ -735,9 +735,7 @@ export default function DashboardPage() {
                   <span className="text-yellow-400/60">/10</span>
                 </div>
               )}
-              <span className="text-slate-500 tabular-nums">
-                {msToTime(currentTime * 1000)} / {msToTime(duration * 1000)}
-              </span>
+              <span className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded">{msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
             </div>
           {/* CUE POINT MANAGEMENT */}
           <div className="mt-2 px-3 pb-2">
@@ -1409,7 +1407,7 @@ export default function DashboardPage() {
       )}
       </div>{/* end center */}
       {/* RIGHT PANEL - EQ/FX/MIX */}
-      <div className="w-72 flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90">
+      <div className="w-80 flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90">
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
         {/* Tab Bar */}
