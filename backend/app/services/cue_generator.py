@@ -1,14 +1,20 @@
 """
-CueForge Pro Cue Generator v2.0
-Generates intelligent, DJ-ready cue points from audio analysis data.
+CueForge Pro Cue Generator v3.0
+State-of-the-art DJ cue point placement based on:
+- Mixed In Key / Rekordbox cue strategies
+- 4-bar grid quantization (all cues on downbeats)
+- Energy-scored section selection
+- Professional DJ workflow: INTRO → BUILD → DROP → BREAKDOWN → DROP2 → OUTRO
 
-Cue Strategy:
-  1. INTRO marker (always first)
-  2. DROPs (from multi-factor analysis, max 3)
-  3. BUILDs (energy rising sections before drops)
-  4. BREAKDOWN (lowest energy after first drop)
-  5. OUTRO marker (last section)
-  6. VOCAL/PHRASE markers (remaining slots)
+Cue Strategy (priority order):
+  1. INTRO — first downbeat (always slot 0)
+  2. DROP 1 — highest-scoring drop (most important cue)
+  3. BUILD — steepest energy rise before main drop
+  4. DROP 2/3 — secondary drops
+  5. BREAKDOWN — lowest energy after first drop
+  6. OUTRO — where energy permanently declines
+  7. PHRASE — significant structural boundaries
+  8. Fill remaining with drops/phrases
 
 Color scheme (Rekordbox-compatible):
   red    = DROP      | orange = BUILD
@@ -71,6 +77,7 @@ def get_compatible_keys(key: str) -> List[str]:
 def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) -> Dict:
     bpm_diff = abs(bpm1 - bpm2)
     bpm_ratio = min(bpm1, bpm2) / max(bpm1, bpm2) if max(bpm1, bpm2) > 0 else 0
+
     if bpm_diff <= 0.5:
         bpm_score = 50
     elif bpm_diff <= 2:
@@ -83,6 +90,7 @@ def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) ->
         bpm_score = 35
     else:
         bpm_score = max(0, 25 - bpm_diff)
+
     camelot1 = CAMELOT_MAP.get(key1, "")
     camelot2 = CAMELOT_MAP.get(key2, "")
     if not camelot1 or not camelot2:
@@ -104,6 +112,7 @@ def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) ->
             key_score = 40
         else:
             key_score = 15
+
     total = bpm_score + key_score
     return {
         "total": total,
@@ -122,163 +131,250 @@ def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) ->
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#   4-BAR GRID QUANTIZATION
+# ══════════════════════════════════════════════════════════════════════════
+
+def _snap_to_downbeat(pos_ms: int, beats: List[int]) -> int:
+    """
+    Snap a position to the nearest downbeat (every 4 beats = 1 bar).
+    Professional DJ cue points ALWAYS land on a downbeat.
+    Falls back to nearest beat if no downbeat within range.
+    """
+    if not beats:
+        return pos_ms
+
+    # Build downbeat list (every 4th beat = bar boundary)
+    downbeats = [beats[i] for i in range(0, len(beats), 4)]
+    if not downbeats:
+        return pos_ms
+
+    nearest_db = min(downbeats, key=lambda b: abs(b - pos_ms))
+
+    # Snap to downbeat if within 3 seconds
+    if abs(nearest_db - pos_ms) < 3000:
+        return nearest_db
+
+    # Fallback: snap to nearest beat
+    nearest_beat = min(beats, key=lambda b: abs(b - pos_ms))
+    if abs(nearest_beat - pos_ms) < 1500:
+        return nearest_beat
+
+    return pos_ms
+
+
+def _snap_to_4bar_boundary(pos_ms: int, beats: List[int]) -> int:
+    """
+    Snap to nearest 4-bar boundary (every 16 beats in 4/4).
+    Used for major section cues (INTRO, OUTRO, DROP).
+    """
+    if not beats:
+        return pos_ms
+
+    # 4-bar boundaries = every 16 beats
+    boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
+    if not boundaries_16:
+        return _snap_to_downbeat(pos_ms, beats)
+
+    nearest = min(boundaries_16, key=lambda b: abs(b - pos_ms))
+    if abs(nearest - pos_ms) < 5000:  # 5 second tolerance for 4-bar snap
+        return nearest
+
+    # Fallback to regular downbeat
+    return _snap_to_downbeat(pos_ms, beats)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SECTION HELPERS
+# ══════════════════════════════════════════════════════════════════════════
+
 def _find_section_by_label(sections: List[Dict], label: str) -> List[Dict]:
     return [s for s in sections if s.get("label") == label]
 
 
-def _snap_to_downbeat(pos_ms: int, beats: List[int]) -> int:
-    """Snap a position to the nearest downbeat (every 4 beats) for DJ-ready cue points."""
-    if not beats:
-        return pos_ms
-    downbeats = [beats[i] for i in range(0, len(beats), 4)]
-    if not downbeats:
-        return pos_ms
-    nearest = min(downbeats, key=lambda b: abs(b - pos_ms))
-    if abs(nearest - pos_ms) < 3000:
-        return nearest
-    nearest_beat = min(beats, key=lambda b: abs(b - pos_ms))
-    if abs(nearest_beat - pos_ms) < 1500:
-        return nearest_beat
-    return pos_ms
-
+# ══════════════════════════════════════════════════════════════════════════
+#   MAIN CUE POINT GENERATOR — v3.0
+# ══════════════════════════════════════════════════════════════════════════
 
 def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     """
-    Generate up to 8 DJ-ready cue points with downbeat snapping.
-    Priority: INTRO > DROPs > BUILD > BREAKDOWN > OUTRO > PHRASE
+    Generate up to 8 DJ-ready cue points using professional strategies.
+
+    Based on research into Rekordbox, Mixed In Key, Serato, and MIREX:
+    - All positions snapped to downbeats (4-beat grid minimum)
+    - Major cues (INTRO/DROP/OUTRO) snapped to 4-bar boundaries when possible
+    - Energy-scored section selection for BUILD and BREAKDOWN
+    - Minimum 4-second gap between any two cue points
+    - Final output sorted chronologically with clean slot numbering
+
+    Priority order:
+    1. INTRO (blue)     — first meaningful downbeat
+    2. DROP 1 (red)     — highest energy contrast point
+    3. DROP 2 (red)     — second drop if exists
+    4. DROP 3 (red)     — third drop if exists
+    5. BUILD (orange)   — steepest energy rise before main drop
+    6. BREAKDOWN (yellow) — lowest energy section after first drop
+    7. OUTRO (purple)   — start of final energy decline
+    8. PHRASE (green)    — significant structural boundary
     """
     cue_points = []
     used_positions = set()
+
     sections = analysis_data.get("section_labels", [])
     drops = analysis_data.get("drop_positions", [])
     phrases = analysis_data.get("phrase_positions", [])
     beats = analysis_data.get("beat_positions", [])
     duration_ms = analysis_data.get("duration_ms", 0)
 
+    # ── Helper functions ──────────────────────────────────────────────
+
     def _pos_used(pos_ms: int) -> bool:
+        """Check if position is too close to an existing cue (4s minimum)."""
         for p in used_positions:
             if abs(p - pos_ms) < 4000:
                 return True
         return False
 
-    def _add_cue(pos_ms: int, cue_type: str, name: str, color: str, number: int, end_ms: int = None) -> bool:
-        snapped = _snap_to_downbeat(pos_ms, beats)
+    def _add_cue(
+        pos_ms: int,
+        cue_type: str,
+        name: str,
+        color: str,
+        snap_4bar: bool = False,
+        end_ms: int = None,
+    ) -> bool:
+        """Add a cue point with downbeat snapping and collision check."""
+        if snap_4bar:
+            snapped = _snap_to_4bar_boundary(pos_ms, beats)
+        else:
+            snapped = _snap_to_downbeat(pos_ms, beats)
+
         if _pos_used(snapped):
             return False
+
+        slot = len(cue_points)
         cue_points.append({
             "position_ms": snapped,
             "end_position_ms": end_ms,
             "cue_type": cue_type,
             "name": name,
             "color": color,
-            "number": number,
+            "number": slot,
         })
         used_positions.add(snapped)
         return True
 
-    number = 0
-
-    # INTRO
+    # ── 1. INTRO ──────────────────────────────────────────────────────
     intro_sections = _find_section_by_label(sections, "INTRO")
     if intro_sections:
         intro_pos = intro_sections[0].get("time_ms", 0)
         intro_end = intro_pos + intro_sections[0].get("duration_ms", 0)
-        _add_cue(intro_pos, "section", "INTRO", "blue", number, intro_end)
+        _add_cue(intro_pos, "section", "INTRO", "blue", snap_4bar=True, end_ms=intro_end)
     elif beats and len(beats) > 0:
-        _add_cue(beats[0], "section", "INTRO", "blue", number)
+        _add_cue(beats[0], "section", "INTRO", "blue", snap_4bar=True)
     else:
-        _add_cue(0, "section", "INTRO", "blue", number)
-    number += 1
+        _add_cue(0, "section", "INTRO", "blue")
 
-    # DROPs (max 3)
+    # ── 2-4. DROPs (max 3, highest scored first) ─────────────────────
     drop_count = 0
     for drop_ms in drops:
-        if number >= 4 or drop_count >= 3:
+        if drop_count >= 3 or len(cue_points) >= 4:
             break
         name = "DROP " + str(drop_count + 1) if len(drops) > 1 else "DROP"
-        if _add_cue(drop_ms, "drop", name, "red", number):
+        if _add_cue(drop_ms, "drop", name, "red", snap_4bar=True):
             drop_count += 1
-            number += 1
 
-    # BUILD (best one before first drop)
+    # ── 5. BUILD (best one before the main drop) ─────────────────────
     build_sections = _find_section_by_label(sections, "BUILD")
     first_drop_ms = drops[0] if drops else duration_ms
+
+    # Score builds: proximity to drop × energy level
     best_build = None
-    best_score = -1
+    best_build_score = -1
     for b in build_sections:
         b_time = b.get("time_ms", 0)
         b_energy = b.get("energy", 0.5)
         if b_time < first_drop_ms:
+            # Proximity score: closer to drop = better
             proximity = 1.0 - (first_drop_ms - b_time) / max(first_drop_ms, 1)
-            score = proximity * 0.6 + b_energy * 0.4
-            if score > best_score:
-                best_score = score
+            score = proximity * 0.5 + b_energy * 0.5
+            if score > best_build_score:
+                best_build_score = score
                 best_build = b
+
+    # If no build before drop, try any build
     if not best_build and build_sections:
-        best_build = build_sections[0]
-    if best_build and number < 8:
+        best_build = max(build_sections, key=lambda b: b.get("energy", 0))
+
+    if best_build and len(cue_points) < 8:
         build_pos = best_build.get("time_ms", 0)
         build_end = build_pos + best_build.get("duration_ms", 0)
-        if _add_cue(build_pos, "section", "BUILD", "orange", number, build_end):
-            number += 1
+        _add_cue(build_pos, "section", "BUILD", "orange", end_ms=build_end)
 
-    # BREAKDOWN (lowest energy after first drop)
+    # ── 6. BREAKDOWN (lowest energy after first drop) ────────────────
     breakdown_sections = _find_section_by_label(sections, "BREAKDOWN")
-    if breakdown_sections and number < 8:
-        best_bd = None
-        lowest_e = 999
-        for bd in breakdown_sections:
-            if bd.get("time_ms", 0) > first_drop_ms and bd.get("energy", 1.0) < lowest_e:
-                lowest_e = bd.get("energy", 1.0)
-                best_bd = bd
-        if not best_bd:
+    if breakdown_sections and len(cue_points) < 8:
+        # Prefer breakdowns after the first drop with lowest energy
+        post_drop = [
+            bd for bd in breakdown_sections
+            if bd.get("time_ms", 0) > first_drop_ms
+        ]
+
+        if post_drop:
+            best_bd = min(post_drop, key=lambda x: x.get("energy", 1.0))
+        else:
             best_bd = min(breakdown_sections, key=lambda x: x.get("energy", 1.0))
+
         bd_pos = best_bd.get("time_ms", 0)
         bd_end = bd_pos + best_bd.get("duration_ms", 0)
-        if _add_cue(bd_pos, "section", "BREAKDOWN", "yellow", number, bd_end):
-            number += 1
+        _add_cue(bd_pos, "section", "BREAKDOWN", "yellow", end_ms=bd_end)
 
-    # OUTRO
+    # ── 7. OUTRO ─────────────────────────────────────────────────────
     outro_sections = _find_section_by_label(sections, "OUTRO")
-    if outro_sections and number < 8:
+    if outro_sections and len(cue_points) < 8:
+        # Use first OUTRO section (where DJ should start mixing out)
         outro_pos = outro_sections[0].get("time_ms", 0)
-        if _add_cue(outro_pos, "section", "OUTRO", "purple", number):
-            number += 1
-    elif duration_ms > 30000 and number < 8:
-        outro_pos = _snap_to_downbeat(int(duration_ms * 0.87), beats)
-        if not _pos_used(outro_pos):
-            _add_cue(outro_pos, "section", "OUTRO", "purple", number)
-            number += 1
+        _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
+    elif duration_ms > 30000 and len(cue_points) < 8:
+        # Estimate: 87% of track is typical mix-out point
+        outro_pos = int(duration_ms * 0.87)
+        _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
 
-    # PHRASE markers (prefer mid-track)
-    if phrases and number < 8:
-        mid = duration_ms / 2
-        sorted_ph = sorted(phrases, key=lambda p: abs(p - mid))
-        for ph_ms in sorted_ph:
-            if number >= 8:
+    # ── 8. PHRASE markers (remaining slots) ──────────────────────────
+    if phrases and len(cue_points) < 8:
+        # Prefer 16-bar phrase boundaries in the middle of the track
+        mid_track = duration_ms / 2
+        # Sort by distance from mid-track (most useful for DJs)
+        sorted_phrases = sorted(phrases, key=lambda p: abs(p - mid_track))
+        for ph_ms in sorted_phrases:
+            if len(cue_points) >= 8:
                 break
-            if _add_cue(ph_ms, "phrase", "PHRASE", "green", number):
-                number += 1
+            _add_cue(ph_ms, "phrase", "PHRASE", "green")
 
-    # Fill remaining
+    # ── Fill remaining slots with extra drops then phrases ───────────
     for drop_ms in drops[3:]:
-        if number >= 8:
+        if len(cue_points) >= 8:
             break
-        _add_cue(drop_ms, "drop", "DROP " + str(drop_count + 1), "red", number)
+        dc = drop_count + 1
+        _add_cue(drop_ms, "drop", "DROP " + str(dc), "red", snap_4bar=True)
         drop_count += 1
-        number += 1
-    for ph_ms in phrases:
-        if number >= 8:
-            break
-        _add_cue(ph_ms, "phrase", "PHRASE", "green", number)
-        number += 1
 
-    # Sort by position and reassign slot numbers
+    for ph_ms in phrases:
+        if len(cue_points) >= 8:
+            break
+        _add_cue(ph_ms, "phrase", "PHRASE", "green")
+
+    # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])
     for i, cue in enumerate(cue_points):
         cue["number"] = i
 
     return cue_points
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   RULE-BASED SYSTEM (for user custom rules)
+# ══════════════════════════════════════════════════════════════════════════
 
 def _apply_drop_cue(track, analysis, cue_points, slot):
     if not analysis.drops:
@@ -376,11 +472,17 @@ def apply_rules_to_track(track_id: int, user_id: int, db: Session) -> None:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return
+
     plan = user.subscription_plan
     max_cues = 64 if plan == "pro" else 8
-    rules = db.query(CueRule).filter(CueRule.track_id == track_id, CueRule.is_active == True).all()
+
+    rules = db.query(CueRule).filter(
+        CueRule.track_id == track_id, CueRule.is_active == True
+    ).all()
+
     cue_points = []
     slot = 0
+
     for rule in rules:
         if len(cue_points) >= max_cues:
             break
@@ -394,6 +496,7 @@ def apply_rules_to_track(track_id: int, user_id: int, db: Session) -> None:
             cue_points, slot = _apply_beat_cue(track, analysis, cue_points, slot)
         elif rule.rule_type == "manual":
             cue_points, slot = _apply_manual_cue(track, cue_points, slot)
+
     for cue in cue_points:
         db.add(cue)
     db.commit()
