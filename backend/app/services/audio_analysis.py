@@ -676,6 +676,248 @@ def analyze_track_background(track_id: int, db: Session) -> None:
 #   MAIN ANALYSIS PIPELINE — v3.0
 # ══════════════════════════════════════════════════════════════════════════
 
+def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
+    """
+    Professional DJ genre detection using audio features.
+    Combines tempo, spectral, rhythm pattern and energy analysis.
+    Returns: {genre, subgenre, confidence, genre_scores}
+    """
+    import warnings
+    warnings.filterwarnings('ignore')
+
+    # -- Spectral features --
+    spec_cent = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+    spec_bw = np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr))
+    spec_flat = np.mean(librosa.feature.spectral_flatness(y=y))
+    spec_rolloff = np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr))
+
+    # -- Rhythm / beat pattern --
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    beat_frames = librosa.beat.beat_track(y=y, sr=sr, bpm=bpm)[1]
+    if len(beat_frames) > 4:
+        beat_strengths = onset_env[beat_frames[beat_frames < len(onset_env)]]
+        beat_regularity = 1.0 - min(1.0, np.std(beat_strengths) / (np.mean(beat_strengths) + 1e-6))
+    else:
+        beat_regularity = 0.5
+
+    # -- Bass energy analysis --
+    S = np.abs(librosa.stft(y))
+    freqs = librosa.fft_frequencies(sr=sr)
+    sub_bass_mask = freqs < 80
+    bass_mask = (freqs >= 80) & (freqs < 250)
+    mid_mask = (freqs >= 250) & (freqs < 2000)
+    hi_mask = freqs >= 2000
+    total_energy = np.sum(S ** 2) + 1e-10
+    sub_bass_ratio = np.sum(S[sub_bass_mask] ** 2) / total_energy
+    bass_ratio = np.sum(S[bass_mask] ** 2) / total_energy
+    mid_ratio = np.sum(S[mid_mask] ** 2) / total_energy
+    hi_ratio = np.sum(S[hi_mask] ** 2) / total_energy
+
+    # -- Percussion vs tonal --
+    harmonic, percussive = librosa.effects.hpss(y)
+    perc_energy = np.sum(percussive ** 2)
+    harm_energy = np.sum(harmonic ** 2)
+    perc_ratio = perc_energy / (perc_energy + harm_energy + 1e-10)
+
+    # -- Dynamic range --
+    rms = librosa.feature.rms(y=y)[0]
+    dynamic_range = np.max(rms) / (np.mean(rms) + 1e-10)
+    energy_variance = np.std(rms) / (np.mean(rms) + 1e-10)
+
+    # -- Genre scoring --
+    scores = {}
+
+    # HOUSE (120-130 BPM, 4otf, moderate bass, warm mids)
+    s = 0.0
+    if 118 <= bpm <= 132: s += 35
+    elif 115 <= bpm <= 135: s += 20
+    s += beat_regularity * 25
+    if bass_ratio > 0.15: s += 15
+    if mid_ratio > 0.25: s += 10
+    if spec_cent < 3000: s += 10
+    if 0.3 < perc_ratio < 0.6: s += 5
+    scores["House"] = min(100, s)
+
+    # TECH HOUSE (124-130, percussive, groovy)
+    s = 0.0
+    if 122 <= bpm <= 132: s += 30
+    elif 120 <= bpm <= 135: s += 18
+    s += beat_regularity * 20
+    if perc_ratio > 0.45: s += 20
+    if bass_ratio > 0.12: s += 10
+    if spec_flat > 0.02: s += 10
+    if dynamic_range < 3.0: s += 10
+    scores["Tech House"] = min(100, s)
+
+    # TECHNO (128-150, dark, industrial, perc heavy)
+    s = 0.0
+    if 126 <= bpm <= 150: s += 30
+    elif 124 <= bpm <= 155: s += 18
+    s += beat_regularity * 15
+    if perc_ratio > 0.5: s += 20
+    if spec_cent < 2500: s += 15
+    if sub_bass_ratio > 0.08: s += 10
+    if spec_flat > 0.03: s += 10
+    scores["Techno"] = min(100, s)
+
+    # MELODIC TECHNO (122-135, harmonic, pads)
+    s = 0.0
+    if 122 <= bpm <= 136: s += 30
+    elif 120 <= bpm <= 140: s += 18
+    s += beat_regularity * 15
+    if perc_ratio < 0.45: s += 15
+    if harm_energy > perc_energy: s += 15
+    if 1800 < spec_cent < 3500: s += 10
+    if mid_ratio > 0.3: s += 10
+    scores["Melodic Techno"] = min(100, s)
+
+    # TRANCE (130-150, bright, big builds)
+    s = 0.0
+    if 128 <= bpm <= 150: s += 30
+    elif 125 <= bpm <= 155: s += 18
+    s += beat_regularity * 15
+    if spec_cent > 3000: s += 15
+    if hi_ratio > 0.15: s += 10
+    if energy_variance > 0.4: s += 15
+    if harm_energy > perc_energy * 1.2: s += 10
+    scores["Trance"] = min(100, s)
+
+    # DRUM & BASS (160-180, breakbeat, heavy bass)
+    s = 0.0
+    if 160 <= bpm <= 180: s += 40
+    elif 155 <= bpm <= 185: s += 25
+    elif 80 <= bpm <= 92: s += 30
+    if beat_regularity < 0.6: s += 15
+    if sub_bass_ratio > 0.1: s += 15
+    if bass_ratio > 0.15: s += 10
+    if perc_ratio > 0.4: s += 10
+    scores["Drum & Bass"] = min(100, s)
+
+    # DUBSTEP (140, massive sub bass)
+    s = 0.0
+    if 138 <= bpm <= 142: s += 35
+    elif 135 <= bpm <= 145: s += 22
+    elif 68 <= bpm <= 72: s += 30
+    if sub_bass_ratio > 0.12: s += 20
+    if energy_variance > 0.5: s += 15
+    if spec_cent < 2000: s += 10
+    scores["Dubstep"] = min(100, s)
+
+    # HIP-HOP (70-100)
+    s = 0.0
+    if 70 <= bpm <= 100: s += 35
+    elif 65 <= bpm <= 110: s += 20
+    elif 130 <= bpm <= 160: s += 15
+    if beat_regularity < 0.65: s += 10
+    if bass_ratio > 0.15: s += 15
+    if spec_cent < 2800: s += 10
+    scores["Hip-Hop"] = min(100, s)
+
+    # TRAP (130-170, 808 sub, hihat rolls)
+    s = 0.0
+    if 130 <= bpm <= 170: s += 25
+    elif 65 <= bpm <= 85: s += 25
+    if sub_bass_ratio > 0.1: s += 20
+    if hi_ratio > 0.12: s += 15
+    if beat_regularity < 0.55: s += 15
+    scores["Trap"] = min(100, s)
+
+    # DEEP HOUSE (118-125, warm, soulful)
+    s = 0.0
+    if 118 <= bpm <= 126: s += 35
+    elif 115 <= bpm <= 128: s += 20
+    s += beat_regularity * 20
+    if bass_ratio > 0.18: s += 15
+    if spec_cent < 2200: s += 10
+    if dynamic_range < 2.5: s += 10
+    scores["Deep House"] = min(100, s)
+
+    # AFRO HOUSE (118-128, percussive, organic)
+    s = 0.0
+    if 118 <= bpm <= 128: s += 30
+    elif 115 <= bpm <= 132: s += 18
+    if perc_ratio > 0.5: s += 20
+    if mid_ratio > 0.3: s += 15
+    if 2000 < spec_cent < 4000: s += 10
+    scores["Afro House"] = min(100, s)
+
+    # DISCO / FUNK (110-130, groovy, live instruments)
+    s = 0.0
+    if 110 <= bpm <= 130: s += 25
+    if harm_energy > perc_energy * 1.5: s += 20
+    if mid_ratio > 0.35: s += 15
+    if spec_flat < 0.015: s += 10
+    scores["Disco / Funk"] = min(100, s)
+
+    # MINIMAL (120-132, sparse, steady)
+    s = 0.0
+    if 120 <= bpm <= 132: s += 25
+    s += beat_regularity * 15
+    if dynamic_range < 2.2: s += 15
+    if energy_variance < 0.25: s += 15
+    if perc_ratio > 0.45: s += 10
+    scores["Minimal"] = min(100, s)
+
+    # PROGRESSIVE HOUSE (122-130, builds, melodic)
+    s = 0.0
+    if 122 <= bpm <= 130: s += 30
+    s += beat_regularity * 15
+    if energy_variance > 0.3: s += 15
+    if harm_energy > perc_energy: s += 10
+    if mid_ratio > 0.28: s += 10
+    scores["Progressive House"] = min(100, s)
+
+    # HARDSTYLE (150-160, distorted kick)
+    s = 0.0
+    if 148 <= bpm <= 162: s += 40
+    elif 145 <= bpm <= 165: s += 25
+    if sub_bass_ratio > 0.1: s += 15
+    if dynamic_range > 3.5: s += 10
+    scores["Hardstyle"] = min(100, s)
+
+    # REGGAETON (85-105, dembow)
+    s = 0.0
+    if 85 <= bpm <= 105: s += 30
+    if beat_regularity < 0.6: s += 15
+    if bass_ratio > 0.15: s += 10
+    if perc_ratio > 0.4: s += 10
+    scores["Reggaeton"] = min(100, s)
+
+    # -- Select top genre --
+    sorted_genres = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top_genre = sorted_genres[0][0]
+    top_score = sorted_genres[0][1]
+    second_score = sorted_genres[1][1] if len(sorted_genres) > 1 else 0
+
+    # Confidence based on margin
+    margin = top_score - second_score
+    confidence = min(1.0, max(0.3, margin / 30.0))
+
+    # Subgenre refinement
+    subgenre = top_genre
+    if top_genre == "House":
+        if spec_cent > 2800: subgenre = 'Funky House'
+        elif bass_ratio > 0.2: subgenre = 'Bass House'
+        elif perc_ratio < 0.4: subgenre = 'Vocal House'
+    elif top_genre == "Techno":
+        if bpm > 140: subgenre = 'Hard Techno'
+        elif perc_ratio > 0.55: subgenre = 'Industrial Techno'
+        elif energy_variance < 0.25: subgenre = 'Hypnotic Techno'
+    elif top_genre == "Drum & Bass":
+        if spec_cent > 3000: subgenre = 'Liquid D&B'
+        elif perc_ratio > 0.55: subgenre = 'Neurofunk'
+    elif top_genre == "Hip-Hop":
+        if bpm > 130: subgenre = 'Trap'
+        elif spec_cent < 2000: subgenre = 'Boom Bap'
+        elif harm_energy > perc_energy: subgenre = 'R&B'
+
+    return {
+        "genre": top_genre,
+        "subgenre": subgenre,
+        "confidence": round(confidence, 2),
+        "genre_scores": {k: round(v, 1) for k, v in sorted_genres[:5]},
+    }
+
 def analyze_audio(file_path: str) -> Dict:
     """
     Full audio analysis pipeline v3.0
@@ -760,7 +1002,10 @@ def analyze_audio(file_path: str) -> Dict:
     del y
     gc.collect()
 
-    return {
+    # -- Genre detection --
+        genre_info = detect_genre(y, sr, bpm)
+
+        return {
         "bpm": bpm,
         "bpm_confidence": key_confidence,
         "key": key,
@@ -772,4 +1017,8 @@ def analyze_audio(file_path: str) -> Dict:
         "section_labels": section_labels,
         "waveform_peaks": waveform_data.get("waveform_peaks"),
         "spectral_energy": waveform_data.get("spectral_energy"),
+        "genre": genre_info.get("genre", "Unknown"),
+        "subgenre": genre_info.get("subgenre", ""),
+        "genre_confidence": genre_info.get("confidence", 0),
+        "genre_scores": genre_info.get("genre_scores", {}),
     }
