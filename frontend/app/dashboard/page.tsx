@@ -935,9 +935,9 @@ export default function DashboardPage() {
                 </select>
                 <button
                   onClick={() => {
-                    var pts = newCuePos.split(':');
-                    var ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
-                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor }).then(function() { return getTrack(selectedTrack.id); }).then(function(fresh) { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); }).catch(function() {});
+                    const pts = newCuePos.split(':');
+                    const ms = ((parseInt(pts[0]||'0',10)*60) + parseInt(pts[1]||'0',10)) * 1000;
+                    createCuePoint(selectedTrack.id, { position_ms: ms, name: newCueName || 'Cue', cue_type: newCueType, color: newCueColor }).then(() => getTrack(selectedTrack.id); }).then((fresh: any) => { setSelectedTrack(fresh); setShowAddCue(false); setNewCueName(''); setNewCuePos(''); }).catch(() => {});
                   }}
                   className="text-[9px] px-2 py-1 rounded bg-green-500/30 text-green-300 hover:bg-green-500/50 font-bold"
                 >Create</button>
@@ -945,18 +945,18 @@ export default function DashboardPage() {
             )}
             <div className="space-y-0.5 max-h-32 overflow-y-auto">
               {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 ? (
-                selectedTrack.cue_points.map(function(cp) { return (
+                selectedTrack.cue_points.map((cp: any) => (
                   <div key={cp.id} className="flex items-center gap-1.5 text-[10px] py-0.5 px-1 rounded hover:bg-slate-800/50 group">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: cp.color || '#3b82f6'}}></span>
                     <span className="text-slate-400 w-10 flex-shrink-0">{Math.floor((cp.time || cp.position_ms/1000) / 60)}:{String(Math.floor((cp.time || cp.position_ms/1000) % 60)).padStart(2,'0')}</span>
                     <span className="text-white truncate flex-1">{cp.label || cp.name || 'Cue'}</span>
                     <span className="text-slate-500 text-[8px] uppercase">{cp.cue_type || cp.cue_mode || 'hot'}</span>
                     <button
-                      onClick={() => { deleteCuePoint(cp.id).then(function() { return getTrack(selectedTrack.id); }).then(function(fresh) { setSelectedTrack(fresh); }).catch(function() {}); }}
+                      onClick={() => { deleteCuePoint(cp.id).then(() => getTrack(selectedTrack.id); }).then((fresh: any) => { setSelectedTrack(fresh); }).catch(() => {}); }}
                       className="text-red-400/0 group-hover:text-red-400/80 hover:text-red-300 ml-1 text-[10px]"
                     >x</button>
                   </div>
-                ); })
+                ))
               ) : (
                 <div className="text-slate-500 text-[10px] italic py-1">No cue points</div>
               )}
