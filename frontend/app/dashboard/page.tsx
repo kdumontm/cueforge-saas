@@ -1,4 +1,4 @@
-// @ts-nocheck 
+// @ts-nocheck
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -772,8 +772,137 @@ export default function DashboardPage() {
     return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   });
 
+  // Ã¢ÂÂÃ¢ÂÂ Keyboard Shortcuts Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+  
+  // Waveform zoom effect
+  useEffect(() => {
+    if (wavesurferRef.current) {
+      try { wavesurferRef.current.zoom(waveformZoom * 50); } catch(e) {}
+    }
+  }, [waveformZoom]);
+
+  // Sort tracks
+
+useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+      const ws = wavesurferRef.current;
+      if (!ws) return;
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          ws.playPause();
+          break;
+        case 'KeyL':
+          if (loopIn !== null && loopOut !== null) {
+            setLoopActive(prev => !prev);
+          } else if (loopIn === null) {
+            setLoopIn(ws.getCurrentTime());
+          } else {
+            setLoopOut(ws.getCurrentTime());
+            setLoopActive(true);
+          }
+          break;
+        case 'Escape':
+          setLoopIn(null); setLoopOut(null); setLoopActive(false);
+          if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
+          break;
+        case 'BracketLeft':
+          setLoopIn(ws.getCurrentTime());
+          break;
+        case 'BracketRight':
+          setLoopOut(ws.getCurrentTime());
+          if (loopIn !== null) setLoopActive(true);
+          break;
+        default:
+          if (e.code.startsWith('Digit')) {
+            const num = parseInt(e.code.replace('Digit', '')) - 1;
+            if (selectedTrack?.cue_points?.[num]) {
+              const pos = selectedTrack.cue_points[num].position_ms / 1000;
+              ws.seekTo(pos / ws.getDuration());
+            }
+          }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrack, loopIn, loopOut]);
+
+  // Ã¢ÂÂÃ¢ÂÂ Loop playback logic Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+  useEffect(() => {
+    const ws = wavesurferRef.current;
+    if (!ws || !loopActive || loopIn === null || loopOut === null) return;
+    const regions = regionsRef.current;
+    if (regions) {
+      if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} }
+      loopRegionRef.current = regions.addRegion({
+        start: loopIn, end: loopOut,
+        color: 'rgba(236,72,153,0.15)',
+        drag: false, resize: true,
+      });
+    }
+    const onTimeUpdate = () => {
+      if (ws.getCurrentTime() >= loopOut) ws.seekTo(loopIn / ws.getDuration());
+    };
+    ws.on('timeupdate', onTimeUpdate);
+    return () => { ws.un('timeupdate', onTimeUpdate); };
+  }, [loopActive, loopIn, loopOut]);
+
+
+
+
   return (
     <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() => setCtxMenu(null)}>
+      {/* Metadata Edit Modal */}
+      {showEditMeta && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-600 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-white mb-4">âï¸ Edit Track Metadata</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Title</label>
+                <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Artist</label>
+                <input type="text" value={editForm.artist} onChange={(e) => setEditForm({...editForm, artist: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Album</label>
+                <input type="text" value={editForm.album} onChange={(e) => setEditForm({...editForm, album: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400 block mb-1">Genre</label>
+                  <input type="text" value={editForm.genre} onChange={(e) => setEditForm({...editForm, genre: e.target.value})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                </div>
+                <div className="w-20">
+                  <label className="text-xs text-gray-400 block mb-1">Year</label>
+                  <input type="number" value={editForm.year || ''} onChange={(e) => setEditForm({...editForm, year: parseInt(e.target.value) || 0})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Comment</label>
+                <textarea value={editForm.comment} onChange={(e) => setEditForm({...editForm, comment: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">Cancel</button>
+              <button onClick={saveMetadata} disabled={savingMeta}
+                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
+                {savingMeta ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LEFT SIDEBAR - Module Buttons */}
       <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
         <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">Add</span></button>
@@ -2216,140 +2345,12 @@ export default function DashboardPage() {
       )}
 </div>
     
-      {/* Metadata Edit Modal */}
-      {showEditMeta && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-600 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-white mb-4">âï¸ Edit Track Metadata</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">Title</label>
-                <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">Artist</label>
-                <input type="text" value={editForm.artist} onChange={(e) => setEditForm({...editForm, artist: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">Album</label>
-                <input type="text" value={editForm.album} onChange={(e) => setEditForm({...editForm, album: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400 block mb-1">Genre</label>
-                  <input type="text" value={editForm.genre} onChange={(e) => setEditForm({...editForm, genre: e.target.value})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
-                </div>
-                <div className="w-20">
-                  <label className="text-xs text-gray-400 block mb-1">Year</label>
-                  <input type="number" value={editForm.year || ''} onChange={(e) => setEditForm({...editForm, year: parseInt(e.target.value) || 0})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">Comment</label>
-                <textarea value={editForm.comment} onChange={(e) => setEditForm({...editForm, comment: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">Cancel</button>
-              <button onClick={saveMetadata} disabled={savingMeta}
-                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
-                {savingMeta ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Small helpers Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
 function MetaRow({ label, value }: { label: string; value: string }) {
-  // Ã¢ÂÂÃ¢ÂÂ Keyboard Shortcuts Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
-  
-  // Waveform zoom effect
-  useEffect(() => {
-    if (wavesurferRef.current) {
-      try { wavesurferRef.current.zoom(waveformZoom * 50); } catch(e) {}
-    }
-  }, [waveformZoom]);
-
-  // Sort tracks
-
-useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
-      const ws = wavesurferRef.current;
-      if (!ws) return;
-      switch (e.code) {
-        case 'Space':
-          e.preventDefault();
-          ws.playPause();
-          break;
-        case 'KeyL':
-          if (loopIn !== null && loopOut !== null) {
-            setLoopActive(prev => !prev);
-          } else if (loopIn === null) {
-            setLoopIn(ws.getCurrentTime());
-          } else {
-            setLoopOut(ws.getCurrentTime());
-            setLoopActive(true);
-          }
-          break;
-        case 'Escape':
-          setLoopIn(null); setLoopOut(null); setLoopActive(false);
-          if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
-          break;
-        case 'BracketLeft':
-          setLoopIn(ws.getCurrentTime());
-          break;
-        case 'BracketRight':
-          setLoopOut(ws.getCurrentTime());
-          if (loopIn !== null) setLoopActive(true);
-          break;
-        default:
-          if (e.code.startsWith('Digit')) {
-            const num = parseInt(e.code.replace('Digit', '')) - 1;
-            if (selectedTrack?.cue_points?.[num]) {
-              const pos = selectedTrack.cue_points[num].position_ms / 1000;
-              ws.seekTo(pos / ws.getDuration());
-            }
-          }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrack, loopIn, loopOut]);
-
-  // Ã¢ÂÂÃ¢ÂÂ Loop playback logic Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
-  useEffect(() => {
-    const ws = wavesurferRef.current;
-    if (!ws || !loopActive || loopIn === null || loopOut === null) return;
-    const regions = regionsRef.current;
-    if (regions) {
-      if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} }
-      loopRegionRef.current = regions.addRegion({
-        start: loopIn, end: loopOut,
-        color: 'rgba(236,72,153,0.15)',
-        drag: false, resize: true,
-      });
-    }
-    const onTimeUpdate = () => {
-      if (ws.getCurrentTime() >= loopOut) ws.seekTo(loopIn / ws.getDuration());
-    };
-    ws.on('timeupdate', onTimeUpdate);
-    return () => { ws.un('timeupdate', onTimeUpdate); };
-  }, [loopActive, loopIn, loopOut]);
-
-
-
-
   return (
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
       <span className="text-slate-500 text-xs">{label}</span>
