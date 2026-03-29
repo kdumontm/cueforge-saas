@@ -386,6 +386,10 @@ export default function DashboardPage() {
   const [setLists, setSetLists] = useState<{name: string; trackIds: number[]}[]>([]);
   const [activeSetList, setActiveSetList] = useState<number>(-1);
   const [newSetListName, setNewSetListName] = useState('');
+  const [tapTimes, setTapTimes] = useState<number[]>([]);
+  const [tapBpm, setTapBpm] = useState<number>(0);
+  const [filterColor, setFilterColor] = useState<string | null>(null);
+  const [filterRating, setFilterRating] = useState<number>(0);
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
@@ -1002,6 +1006,8 @@ export default function DashboardPage() {
           const energy = Math.round((t.analysis?.energy || 0) * 100);
       if (filterEnergyMin > 0 && energy < filterEnergyMin) return false;
       if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
+            if (filterColor && trackColors[t.id] !== filterColor) return false;
+      if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
       return true;
   });
 
@@ -1775,6 +1781,26 @@ useEffect(() => {
         )}
         {/* Column visibility toggle */}
         <div className="relative inline-block">
+          {/* Quick Filters */}
+          <div className="flex items-center gap-1 flex-wrap mb-1">
+            <span className="text-[9px] text-gray-500 mr-1">Quick:</span>
+            {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
+              <button key={c} onClick={() => setFilterColor(filterColor === c ? null : c)}
+                className={`w-4 h-4 rounded-full border transition-all ${filterColor === c ? 'border-white scale-125 ring-1 ring-white/30' : 'border-gray-600 opacity-50 hover:opacity-100'}`}
+                style={{backgroundColor: c}} />
+            ))}
+            <span className="text-gray-600 mx-1">|</span>
+            {[1,2,3,4,5].map(r => (
+              <button key={r} onClick={() => setFilterRating(filterRating === r ? 0 : r)}
+                className={`text-[10px] transition-colors ${filterRating >= r ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`}>
+                <Star className={`w-3 h-3 ${filterRating >= r ? 'fill-yellow-400' : ''}`} />
+              </button>
+            ))}
+            {(filterColor || filterRating > 0) && (
+              <button onClick={() => {setFilterColor(null); setFilterRating(0);}}
+                className="text-[9px] text-red-400 hover:text-red-300 ml-1">Clear</button>
+            )}
+          </div>
           <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
             <SlidersHorizontal size={12} /> Colonnes
           </button>
@@ -2798,6 +2824,33 @@ useEffect(() => {
                     🎵 Export XML
                   </button>
                 </div>
+              {/* Tap Tempo */}
+              <div className="mt-3 p-2 bg-gray-800/50 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-gray-400 flex items-center gap-1"><Activity className="w-3 h-3" /> Tap Tempo</span>
+                  {tapBpm > 0 && <span className="text-sm font-bold text-cyan-400">{tapBpm.toFixed(1)} BPM</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const now = Date.now();
+                      const newTaps = [...tapTimes, now].filter(t => now - t < 5000);
+                      setTapTimes(newTaps);
+                      if (newTaps.length >= 2) {
+                        const intervals = [];
+                        for (let i = 1; i < newTaps.length; i++) intervals.push(newTaps[i] - newTaps[i-1]);
+                        const avgMs = intervals.reduce((a,b) => a+b, 0) / intervals.length;
+                        setTapBpm(60000 / avgMs);
+                      }
+                    }}
+                    className="flex-1 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-lg transition-all active:scale-95"
+                  >TAP</button>
+                  <button
+                    onClick={() => { setTapTimes([]); setTapBpm(0); }}
+                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors"
+                  >Reset</button>
+                </div>
+              </div>
                 <button
                   onClick={exportAllRekordbox}
                   className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-white transition-colors"
