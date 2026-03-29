@@ -1920,7 +1920,7 @@ useEffect(() => {
       {tab.id === 'eq' && <SlidersHorizontal size={12} />}
       {tab.id === 'fx' && <Wand2 size={12} />}
       {tab.id === 'mix' && <Disc size={12} />}
-      {tab.id === 'playlists' && <List size={12} />}
+      {tab.id === 'playlists' && <ListIcon size={12} />}
       {tab.id === 'history' && <Clock size={12} />}
       {tab.id === 'stats' && <BarChart3 size={12} />}
       {tab.label}
