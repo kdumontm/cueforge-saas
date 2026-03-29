@@ -925,7 +925,7 @@ useEffect(() => {
   return (
         <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() =>
        setCtxMenu(null)}>
-      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; }" }} ></style>
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; } ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }" }} ></style>
       {/* Metadata Edit Modal */}
       {showEditMeta && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
@@ -1464,7 +1464,7 @@ useEffect(() => {
       <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
         
                 {/* Table header */}
-        <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+        <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
           <span onClick={() => setSortBy(sortBy === 'title' ? 'date' : 'title')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && '▲'}</span>
           <span onClick={() => setSortBy(sortBy === 'genre' ? 'date' : 'genre')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && '▲'}</span>
@@ -1482,7 +1482,7 @@ useEffect(() => {
             <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
           </div>
         ) : (
-          filteredTracks.map(track => {
+          filteredTracks.map((track, trackIdx) => {
             const a = track.analysis;
             const isActive = selectedTrack?.id === track.id;
             const isSelected = selectedIds.has(track.id);
@@ -1491,7 +1491,7 @@ useEffect(() => {
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
+                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
