@@ -159,6 +159,8 @@ export default function DashboardPage() {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [tracksLoading, setTracksLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [toasts, setToasts] = useState<{id: number; msg: string; type: 'success' | 'error' | 'info'}[]>([]);
+  const toastIdRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -208,6 +210,13 @@ export default function DashboardPage() {
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
+
+  // ── Toast notification system ──
+  const showToast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
@@ -622,9 +631,11 @@ export default function DashboardPage() {
         setBatchProgress('');
         setUploading(false);
         loadTracks();
+        showToast('Track uploadé avec succès', 'success');
         if (!selectedTrack) setSelectedTrack(uploaded);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inattendue');
+        showToast('Erreur lors de l\'upload', 'error');
         setUploading(false);
         setBatchProgress('');
       }
@@ -705,6 +716,7 @@ export default function DashboardPage() {
           await analyzeTrack(track.id);
           const done = await pollTrackUntilDone(track.id);
           setSelectedTrack(done);
+          showToast('Analyse terminée', 'success');
           loadTracks();
         } catch {}
         setAnalyzing(false);
@@ -721,6 +733,7 @@ export default function DashboardPage() {
           a.href = url;
           a.download = `cueforge_${track.id}.xml`;
           a.click();
+            showToast('Export Rekordbox XML téléchargé', 'success');
           URL.revokeObjectURL(url);
         } catch {}
         break;
@@ -731,6 +744,7 @@ export default function DashboardPage() {
           if (selectedTrack?.id === track.id) setSelectedTrack(null);
           selectedIds.delete(track.id);
           setSelectedIds(new Set(selectedIds));
+          showToast('Track supprimé', 'success');
           loadTracks();
         } catch {}
         break;
@@ -1500,8 +1514,8 @@ useEffect(() => {
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-3 px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
             <span className="text-xs font-medium text-purple-300">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
-            <button onClick={() => { const ids = Array.from(selectedIds); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
-            <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
+            <button onClick={() => { const ids = Array.from(selectedIds); showToast(`Analyse de ${ids.length} track(s) lanc\u00e9e`, 'info'); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
+            <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); showToast(`${ids.length} track(s) supprim\u00e9(s)`, 'success'); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
             <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
           </div>
         )}
@@ -2622,6 +2636,27 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         </div>
       )}
+
+
+      {/* ── Toast Notifications ── */}
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
+        {toasts.map(t => (
+          <div key={t.id} className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-sm border text-sm font-medium animate-[slideIn_0.3s_ease-out] ${
+            t.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/50 text-white' :
+            t.type === 'error' ? 'bg-red-500/90 border-red-400/50 text-white' :
+            'bg-slate-700/90 border-slate-500/50 text-slate-100'
+          }`}>
+            {t.type === 'success' && <CheckCircle2 size={16} />}
+            {t.type === 'error' && <XCircle size={16} />}
+            {t.type === 'info' && <Activity size={16} />}
+            <span>{t.msg}</span>
+            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} className="ml-1 opacity-60 hover:opacity-100">
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 </div>
   );
 }
