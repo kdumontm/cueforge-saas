@@ -314,6 +314,7 @@ export default function DashboardPage() {
   const [playHistory, setPlayHistory] = useState<{trackId: number; timestamp: number}[]>([]);
   const [mixLog, setMixLog] = useState<{fromId: number; toId: number; score: number; timestamp: number}[]>([]);
   const [filterGenre, setFilterGenre] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
@@ -331,6 +332,34 @@ export default function DashboardPage() {
     if (sortBy === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
     else { setSortBy(col); setSortDir('asc'); }
   }, [sortBy]);
+
+  // Export filtered tracklist as CSV
+  var handleExportTracklist = function(format) {
+    if (!filteredTracks || filteredTracks.length === 0) return;
+    var lines = [];
+    if (format === 'csv') {
+      lines.push('Title,Artist,BPM,Key,Genre,Energy');
+      filteredTracks.forEach(function(t) {
+        var bpm = t.analysis ? (t.analysis.bpm || '') : '';
+        var key = t.analysis ? (t.analysis.key || '') : '';
+        var energy = t.analysis ? Math.round((t.analysis.energy || 0) * 100) : '';
+        lines.push('"' + (t.title || '').replace(/"/g, '""') + '","' + (t.artist || '').replace(/"/g, '""') + '",' + bpm + ',' + key + ',"' + (t.genre || '') + '",' + energy);
+      });
+    } else {
+      filteredTracks.forEach(function(t, i) {
+        var bpm = t.analysis ? (t.analysis.bpm ? ' [' + Math.round(t.analysis.bpm) + ' BPM]' : '') : '';
+        var key = t.analysis ? (t.analysis.key ? ' (' + t.analysis.key + ')' : '') : '';
+        lines.push((i + 1) + '. ' + (t.artist || 'Unknown') + ' - ' + (t.title || t.filename) + bpm + key);
+      });
+    }
+    var blob = new Blob([lines.join('\n')], { type: format === 'csv' ? 'text/csv' : 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'tracklist_' + new Date().toISOString().slice(0, 10) + (format === 'csv' ? '.csv' : '.txt');
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ── Drag & Drop Upload ──
   const dragCountRef = useRef(0);
@@ -1340,6 +1369,7 @@ return () => document.removeEventListener('click', handler);
     if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
     if (filterKey && t.analysis?.key !== filterKey) return false;
     if (filterGenre && t.genre !== filterGenre) return false;
+     if (searchQuery) { var q = searchQuery.toLowerCase(); if (!(t.title || '').toLowerCase().includes(q) && !(t.artist || '').toLowerCase().includes(q) && !(t.filename || '').toLowerCase().includes(q)) return false; }
           const energy = Math.round((t.analysis?.energy || 0) * 100);
       if (filterEnergyMin > 0 && energy < filterEnergyMin) return false;
       if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
@@ -2143,6 +2173,19 @@ useEffect(() => {
                 </div>
 
       {/* âÂÂâÂÂ TRACK LIST âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+
+                {/* SEARCH BAR */}
+                <div style={{marginBottom: '8px'}}>
+                  <div style={{position: 'relative'}}>
+                    <Search size={14} style={{position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af'}} />
+                    <input type="text" value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder="Rechercher par titre, artiste..." style={{width: '100%', padding: '8px 10px 8px 32px', fontSize: '13px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: 'white', outline: 'none'}} />
+                    {searchQuery && <button onClick={function() { setSearchQuery(''); }} style={{position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px'}}>X</button>}
+                  </div>
+                </div>                {/* EXPORT BUTTONS */}
+                <div style={{display: 'flex', gap: '6px', marginBottom: '6px'}}>
+                  <button onClick={function() { handleExportTracklist('txt'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Copy size={10} /> Copy TXT</button>
+                  <button onClick={function() { handleExportTracklist('csv'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Download size={10} /> Export CSV</button>
+                </div>
 
                 {/* FILTER BAR */}
                 <div className="mb-2 space-y-2">
