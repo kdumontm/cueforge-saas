@@ -267,13 +267,20 @@ export default function DashboardPage() {
     return () => document.removeEventListener('click', handler);
   }, [showColSettings]);
 
-  // Inject CSS for grid column overflow (style tags stripped by Next.js build)
+    // Dynamic CSS for hidden columns - only min-width:0 on cells in 0px tracks
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = '.grid > * { min-width: 0; overflow: hidden; }';
+    const rules: string[] = [];
+    const positions: Record<string, number> = { genre: 3, bpm: 4, key: 5, energy: 6, duration: 7 };
+    Object.entries(positions).forEach(([col, pos]) => {
+      if (!visibleCols[col as keyof typeof visibleCols]) {
+        rules.push(`.track-grid > :nth-child(${pos}) { min-width: 0 !important; overflow: hidden !important; padding: 0 !important; }`);
+      }
+    });
+    style.textContent = rules.join('\n');
     document.head.appendChild(style);
     return () => style.remove();
-  }, []);
+  }, [visibleCols]);
 
   const bulkUpdateGenre = async () => {
     if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
@@ -1778,7 +1785,7 @@ useEffect(() => {
           )}
         </div>
         {/* Table header */}
-        <div className="grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
+        <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
           <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
@@ -1825,7 +1832,7 @@ useEffect(() => {
               <div
                 key={track.id}
                 data-track-id={track.id}
-                className={`grid gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
+                className={`grid track-grid gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
                 style={{gridTemplateColumns: gridTemplate}}
                 onClick={(e) => {
                   if (e.shiftKey && lastClickedIdxRef.current >= 0) {
