@@ -381,6 +381,7 @@ export default function DashboardPage() {
   }, [showToast, loadTracks]);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
+  const [trackRatings, setTrackRatings] = useState<Record<number, number>>({});
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
@@ -2521,6 +2522,39 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* Energy Flow - Playlist Visualization */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+          <Zap className="w-4 h-4 text-yellow-400" /> Energy Flow
+        </h3>
+        {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (
+          <div className="flex items-end gap-[2px] h-[80px]">
+            {tracks
+              .filter(t => t.status === 'analyzed' && t.analysis?.energy !== undefined)
+              .sort((a, b) => (a.analysis?.bpm || 0) - (b.analysis?.bpm || 0))
+              .map((t, i) => {
+                const energy = t.analysis?.energy || 0;
+                const heightPct = Math.max(5, energy);
+                const hue = energy < 30 ? 200 : energy < 60 ? 150 : energy < 80 ? 50 : 0;
+                return (
+                  <div key={t.id} className="flex-1 min-w-[4px] max-w-[20px] group relative cursor-pointer" onClick={() => setSelectedTrack(t)}>
+                    <div className="w-full rounded-t transition-all hover:opacity-80" style={{ height: `${heightPct}%`, background: `hsl(${hue}, 80%, 55%)` }} />
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-[9px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
+                      {t.title?.substring(0, 20)} - {t.analysis?.bpm?.toFixed(0)} BPM - E:{energy}%
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500 text-xs">Analyze tracks to see energy flow</div>
+        )}
+        <div className="flex justify-between mt-1">
+          <span className="text-[9px] text-gray-500">Low BPM</span>
+          <span className="text-[9px] text-gray-500">High BPM</span>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-5 gap-2 mt-3">
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
@@ -2601,6 +2635,18 @@ useEffect(() => {
               >?</button>
 
               {/* ── Action Buttons ── */}
+              {/* Star Rating */}
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-[10px] text-gray-400">Rating:</span>
+                <div className="flex gap-0.5">
+                  {[1,2,3,4,5].map(star => (
+                    <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack.id]: trackRatings[selectedTrack.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
+                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`} />
+                    </button>
+                  ))}
+                </div>
+                {trackRatings[selectedTrack.id] > 0 && <span className="text-[10px] text-yellow-400 font-bold">{trackRatings[selectedTrack.id]}/5</span>}
+              </div>
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
                 <div className="flex gap-2">
                   <button
