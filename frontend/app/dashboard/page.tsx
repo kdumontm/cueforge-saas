@@ -235,6 +235,36 @@ export default function DashboardPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [showBulkGenre, setShowBulkGenre] = useState(false);
+  const [bulkGenreValue, setBulkGenreValue] = useState('');
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  const bulkUpdateGenre = async () => {
+    if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
+    setBulkUpdating(true);
+    const token = localStorage.getItem('cueforge_token');
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    let updated = 0;
+    for (const id of selectedIds) {
+      try {
+        const res = await fetch(apiBase + '/tracks/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ genre: bulkGenreValue.trim() }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTracks(prev => prev.map(t => t.id === data.id ? data : t));
+          updated++;
+        }
+      } catch {}
+    }
+    setBulkUpdating(false);
+    setShowBulkGenre(false);
+    setBulkGenreValue('');
+    showToast(updated + ' morceau' + (updated > 1 ? 'x' : '') + ' mis à jour', 'success');
+  };
+
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -2351,6 +2381,47 @@ useEffect(() => {
                 >
                   <Download size={14} /> Export CSV {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
                 </button>
+                  {selectedIds.size > 0 && (
+                    <div className="w-full space-y-2">
+                      <div className="border-t border-slate-700/50 pt-2" />
+                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Actions groupées ({selectedIds.size})</p>
+                      {!showBulkGenre ? (
+                        <button
+                          onClick={() => setShowBulkGenre(true)}
+                          className="w-full px-3 py-2 bg-purple-600/80 hover:bg-purple-500 rounded text-xs font-bold text-white transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Tag size={14} /> Modifier le genre
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={bulkGenreValue}
+                            onChange={e => setBulkGenreValue(e.target.value)}
+                            placeholder="Ex: Tech House, Melodic Techno..."
+                            className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-xs text-white placeholder:text-slate-500 focus:border-purple-500 focus:outline-none"
+                            autoFocus
+                            onKeyDown={e => { if (e.key === 'Enter') bulkUpdateGenre(); if (e.key === 'Escape') setShowBulkGenre(false); }}
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={bulkUpdateGenre}
+                              disabled={bulkUpdating || !bulkGenreValue.trim()}
+                              className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 rounded text-[10px] font-bold text-white transition-colors"
+                            >
+                              {bulkUpdating ? 'Mise à jour...' : 'Appliquer'}
+                            </button>
+                            <button
+                              onClick={() => { setShowBulkGenre(false); setBulkGenreValue(''); }}
+                              className="px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] text-slate-400 transition-colors"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
               </div>
 
         </div>
