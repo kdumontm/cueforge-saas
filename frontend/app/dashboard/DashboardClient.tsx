@@ -4468,59 +4468,6 @@ useEffect(() => {
         </div>
       )}
 
-            {false && (<>
-      {/* ── Admin: Plan Feature Gating ── */}
-      {currentUser?.is_admin && (
-        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-purple-400 flex items-center gap-2"><Shield className="w-5 h-5" /> Plan Feature Gating</h3>
-            <div className="flex gap-2">
-              <button onClick={resetPlanFeatures} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-xs rounded text-gray-300">Reset Defaults</button>
-              <button onClick={() => setShowPlanAdmin(!showPlanAdmin)} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-xs rounded text-white">{showPlanAdmin ? 'Hide' : 'Show'} Matrix</button>
-            </div>
-          </div>
-          {showPlanAdmin && Object.keys(featureLabels).length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-700">
-                    <th className="text-left py-2 px-3 text-gray-400">Feature</th>
-                    {['free', 'pro', 'unlimited'].map(plan => (
-                      <th key={plan} className="text-center py-2 px-3">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${plan === 'free' ? 'bg-gray-700 text-gray-300' : plan === 'pro' ? 'bg-yellow-600 text-black' : 'bg-purple-600 text-white'}`}>
-                          {plan.toUpperCase()}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(featureLabels).map(([feature, label]) => (
-                    <tr key={feature} className="border-b border-gray-800 hover:bg-gray-800/50">
-                      <td className="py-2 px-3 text-gray-300">{label}</td>
-                      {['free', 'pro', 'unlimited'].map(plan => (
-                        <td key={plan} className="text-center py-2 px-3">
-                          <button
-                            onClick={() => togglePlanFeature(plan, feature, !planFeatures[plan]?.[feature])}
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${planFeatures[plan]?.[feature] ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-500'}`}
-                          >
-                            {planFeatures[plan]?.[feature] ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                          </button>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1"><Unlock className="w-3 h-3 text-green-400" /> Enabled</span>
-                <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-gray-500" /> Disabled</span>
-                <span className="ml-auto">Changes apply immediately to all users on that plan</span>
-              </div>
-            </div>
-          )}
-        </div>
-            </>)}
       )}
 
       {/* ── AI Mix Suggestions ── */}
