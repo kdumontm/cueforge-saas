@@ -1353,6 +1353,18 @@ useEffect(() => {
                     {filteredTracks.length !== tracks.length && (
                       <span className="text-[10px] text-gray-600">/ {tracks.length} total</span>
                     )}
+                    {filteredTracks.length > 0 && (() => {
+                      const totalMs = filteredTracks.reduce((sum, t) => sum + (t.analysis?.duration_ms || t.duration_ms || 0), 0);
+                      const bpmTracks = filteredTracks.filter(t => t.analysis?.bpm);
+                      const avgBpm = bpmTracks.length > 0 ? bpmTracks.reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / bpmTracks.length : 0;
+                      return (
+                        <>
+                          <span className="text-[10px] text-gray-600">\u00b7</span>
+                          <span className="text-[10px] text-gray-500">{Math.floor(totalMs / 60000)}min</span>
+                          {avgBpm > 0 && <><span className="text-[10px] text-gray-600">\u00b7</span><span className="text-[10px] text-gray-500">~{avgBpm.toFixed(0)} BPM</span></>}
+                        </>
+                      );
+                    })()}
                   </div>
                   {selectedTrack && filteredTracks.length > 1 && (() => {
                     const best = filteredTracks
@@ -1514,9 +1526,12 @@ useEffect(() => {
                   })()}
                 </div>
 {/* Energy */}
-                <span className="text-xs text-yellow-400 font-mono text-center font-bold">
-                  {energyToRating(a?.energy)}
-                </span>
+                <div className="flex items-center justify-center gap-1">
+                  <div className="w-10 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: ((a?.energy || 0) * 100) + '%', background: (a?.energy || 0) > 0.7 ? '#f59e0b' : (a?.energy || 0) > 0.4 ? '#22d3ee' : '#64748b' }} />
+                  </div>
+                  <span className="text-[10px] text-yellow-400 font-mono font-bold min-w-[12px]">{energyToRating(a?.energy)}</span>
+                </div>
                 {/* Duration */}
                 <span className="text-xs text-slate-500 font-mono text-center">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
