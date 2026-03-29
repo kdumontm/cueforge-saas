@@ -286,6 +286,14 @@ const TR: Record<string, Record<string, string>> = {
     recherche_cours: 'Recherche en cours...', infos_actuelles: 'Informations actuelles',
     batch_edit: 'Modification en lot', scanner_doublons: 'Scanner les doublons',
     importer_dossier: 'Importer un dossier',
+    double_click_edit: 'Double-cliquez pour modifier',
+    not_analyzed: 'Non analysé',
+    filter_sort: 'Filtrer & Trier',
+    quick_label: 'Rapide :',
+    expand_panel: 'Agrandir le panneau',
+    no_cue_points: 'Pas encore de cue points. Analysez le morceau ou ajoutez manuellement.',
+    copy_txt: 'Copier TXT',
+    analyzing: 'Analyse en cours...',
   },
   en: {
     titre: 'Title', artiste: 'Artist', album: 'Album', genre: 'Genre', annee: 'Year', commentaire: 'Comment',
@@ -346,6 +354,14 @@ const TR: Record<string, Record<string, string>> = {
     batch_edit: 'Batch Edit', scanner_doublons: 'Scan Duplicates',
     importer_dossier: 'Import Folder',
   }
+    double_click_edit: 'Double-click to edit',
+    not_analyzed: 'Not analyzed',
+    filter_sort: 'Filter & Sort',
+    quick_label: 'Quick:',
+    expand_panel: 'Expand panel',
+    no_cue_points: 'No cue points yet. Analyze the track,
+    copy_txt: 'Copy TXT',
+    analyzing: 'Analyzing...',
 };
 
 export default function DashboardPage() {
@@ -2447,14 +2463,14 @@ export default function DashboardPage() {
                   </div>
                 </div>                {/* EXPORT BUTTONS */}
                 <div style={{display: 'flex', gap: '6px', marginBottom: '6px'}}>
-                  <button onClick={function() { handleExportTracklist('txt'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Copy size={10} /> Copy TXT</button>
+                  <button onClick={function() { handleExportTracklist('txt'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Copy size={10} /> {t('copy_txt')}</button>
                   <button onClick={function() { handleExportTracklist('csv'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Download size={10} /> Export CSV</button>
                 </div>
 
                 {/* FILTER BAR */}
                 <div className="mb-2 space-y-2">
                   <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
-                    <Filter size={12} /> {showFilters ? 'Hide Filters' : 'Filter & Sort'}{(() => { const n = (filterBpmMin > 0 ? 1 : 0) + (filterBpmMax < 999 ? 1 : 0) + (filterKey ? 1 : 0) + (filterGenre ? 1 : 0) + (filterEnergyMin > 0 ? 1 : 0) + (filterEnergyMax < 100 ? 1 : 0); return n > 0 ? ` (${n})` : ''; })()}
+                    <Filter size={12} /> {showFilters ? 'Hide Filters' : t('filter_sort')}{(() => { const n = (filterBpmMin > 0 ? 1 : 0) + (filterBpmMax < 999 ? 1 : 0) + (filterKey ? 1 : 0) + (filterGenre ? 1 : 0) + (filterEnergyMin > 0 ? 1 : 0) + (filterEnergyMax < 100 ? 1 : 0); return n > 0 ? ` (${n})` : ''; })()}
                   </button>
                   {showFilters && (
                     <div className="bg-gray-800/50 rounded-lg p-2 space-y-2 border border-gray-700/50">
@@ -2555,7 +2571,7 @@ export default function DashboardPage() {
         <div className="relative inline-block">
           {/* Quick Filters */}
           <div className="flex items-center gap-1 flex-wrap mb-1">
-            <span className="text-[9px] text-gray-500 mr-1">Quick:</span>
+            <span className="text-[9px] text-gray-500 mr-1">{t('quick_label')}</span>
             {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
               <button key={c} onClick={() => setFilterColor(filterColor === c ? null : c)}
                 className={`w-4 h-4 rounded-full border transition-all ${filterColor === c ? 'border-white scale-125 ring-1 ring-white/30' : 'border-gray-600 opacity-50 hover:opacity-100'}`}
@@ -2861,7 +2877,7 @@ export default function DashboardPage() {
               {/* Album */}
               <span className="text-xs text-slate-400 truncate">{track.album || '—'}</span>
               {/* Genre */}
-                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title="Double-click to edit" onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
+                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title=t('double_click_edit') onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
                     <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
                   ) : (track.genre?.split(',')[0]?.trim() || '—')}
@@ -2885,7 +2901,7 @@ export default function DashboardPage() {
                   })()}
                 </div>
           {/* Energy */}
-          <div title={a?.energy != null ? 'Energy: ' + Math.round((a.energy || 0) * 100) + '% - ' + energyToLabel(a?.energy) : 'Not analyzed'} className="text-center select-none">
+          <div title={a?.energy != null ? 'Energy: ' + Math.round((a.energy || 0) * 100) + '% - ' + energyToLabel(a?.energy) : t('not_analyzed')} className="text-center select-none">
             <div className="flex items-center justify-center gap-1">
               <div className="flex gap-px">
                 {[0, 1, 2, 3, 4].map(seg => (
@@ -2907,7 +2923,7 @@ export default function DashboardPage() {
                 </span>
                 {/* Status & Actions */}
                 {track.status === 'analyzing' && (
-                  <span className="text-sm text-cyan-400 animate-pulse" title="Analyse en cours...">⏳</span>
+                  <span className="text-sm text-cyan-400 animate-pulse" title={t('analyzing')}>⏳</span>
                 )}
                 {track.status === 'failed' && (
                   <button onClick={(e) => { e.stopPropagation(); reanalyzeTrack(track.id); }} className="text-sm text-orange-400 hover:text-orange-300 transition-colors cursor-pointer" title="Réanalyser">🔄</button>
@@ -3449,7 +3465,7 @@ export default function DashboardPage() {
           <button
             onClick={() => setRightPanelExpanded((p) => !p)}
             className="ml-auto px-2.5 py-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded transition-all"
-            title={rightPanelExpanded ? 'Collapse panel' : 'Expand panel'}
+            title={rightPanelExpanded ? 'Collapse panel' : t('expand_panel')}
           >
             {rightPanelExpanded ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </button>
@@ -3476,7 +3492,7 @@ export default function DashboardPage() {
                 )}
               </div>
               {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
-                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")} or add manually.</p>
+                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")</p>
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack?.cue_points.map((cue, idx) => (
