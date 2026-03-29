@@ -169,7 +169,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title' | 'energy' | 'genre' | 'duration'>('date');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
   const [metadataPanel, setMetadataPanel] = useState<Track | null>(null);
   const [metadataSuggestions, setMetadataSuggestions] = useState<Record<string, string> | null>(null);
@@ -767,6 +767,9 @@ export default function DashboardPage() {
         case 'bpm': return (a.analysis?.bpm || 0) - (b.analysis?.bpm || 0);
         case 'key': return (toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || '');
         case 'title': return (a.title || a.original_filename).localeCompare(b.title || b.original_filename);
+          case 'energy': return (b.analysis?.energy || 0) - (a.analysis?.energy || 0);
+          case 'genre': return (a.genre || '').localeCompare(b.genre || '');
+          case 'duration': return ((a.analysis?.duration_ms || a.duration_ms || 0)) - ((b.analysis?.duration_ms || b.duration_ms || 0));
         default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
@@ -1092,6 +1095,24 @@ useEffect(() => {
                     })()}
                   </div>
                 )}
+                {/* Cue Point Markers Overlay */}
+                {selectedTrack?.cue_points && duration > 0 && (
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }}>
+                    {selectedTrack.cue_points.map((cue, i) => {
+                      const timeMs = cue.position_ms || cue.time;
+                      if (!timeMs) return null;
+                      const pct = (timeMs / (duration * 1000)) * 100;
+                      if (pct < 0 || pct > 100) return null;
+                      const color = getCueColor(cue.id, i);
+                      return (
+                        <div key={cue.id || i} className="absolute top-0" style={{ left: pct + '%', transform: 'translateX(-50%)' }}>
+                          <div style={{ width: 2, height: '100%', backgroundColor: color, opacity: 0.6 }} />
+                          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold text-white px-0.5 rounded-sm" style={{ backgroundColor: color }}>{i + 1}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
                 {/* Mini Progress Bar */}
               {duration > 0 && (
@@ -1312,6 +1333,9 @@ useEffect(() => {
           <option value="bpm">BPM</option>
           <option value="key">Key</option>
           <option value="title">Titre</option>
+          <option value="energy">Energy</option>
+          <option value="genre">Genre</option>
+          <option value="duration">Durée</option>
         </select>
       </div>
 
@@ -1402,12 +1426,12 @@ useEffect(() => {
                 {/* Table header */}
         <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
-          <span>Titre</span>
-          <span>Genre</span>
-          <span className="text-center">BPM</span>
-          <span className="text-center">Key</span>
-          <span className="text-center">Energy</span>
-          <span className="text-center">Durée</span>
+          <span onClick={() => setSortBy(sortBy === 'title' ? 'date' : 'title')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && '▲'}</span>
+          <span onClick={() => setSortBy(sortBy === 'genre' ? 'date' : 'genre')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && '▲'}</span>
+          <span onClick={() => setSortBy(sortBy === 'bpm' ? 'date' : 'bpm')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && '▲'}</span>
+          <span onClick={() => setSortBy(sortBy === 'key' ? 'date' : 'key')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && '▲'}</span>
+          <span onClick={() => setSortBy(sortBy === 'energy' ? 'date' : 'energy')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && '▲'}</span>
+          <span onClick={() => setSortBy(sortBy === 'duration' ? 'date' : 'duration')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && '▲'}</span>
           <span />
         </div>
 
