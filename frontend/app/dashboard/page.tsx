@@ -1387,9 +1387,9 @@ useEffect(() => {
                       const avgBpm = bpmTracks.length > 0 ? bpmTracks.reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / bpmTracks.length : 0;
                       return (
                         <>
-                          <span className="text-[10px] text-gray-600">\u00b7</span>
+                          <span className="text-[10px] text-gray-600">·</span>
                           <span className="text-[10px] text-gray-500">{Math.floor(totalMs / 60000)}min</span>
-                          {avgBpm > 0 && <><span className="text-[10px] text-gray-600">\u00b7</span><span className="text-[10px] text-gray-500">~{avgBpm.toFixed(0)} BPM</span></>}
+                          {avgBpm > 0 && <><span className="text-[10px] text-gray-600">·</span><span className="text-[10px] text-gray-500">~{avgBpm.toFixed(0)} BPM</span></>}
                         </>
                       );
                     })()}
@@ -1491,7 +1491,7 @@ useEffect(() => {
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
+                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
@@ -1519,8 +1519,9 @@ useEffect(() => {
                   {track.artwork_url ? (
                     <img src={track.artwork_url} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0 shadow" />
                   ) : (
-                    <div className="w-9 h-9 rounded bg-gradient-to-br from-slate-700/80 to-slate-800/80 flex items-center justify-center flex-shrink-0">
-                      <Music2 size={14} className="text-slate-600" />
+                    <div className="w-9 h-9 rounded bg-gradient-to-br from-slate-700/80 to-slate-800/80 flex items-center justify-center flex-shrink-0 relative">
+                      <Music2 size={14} className="text-slate-600 group-hover:opacity-0 transition-opacity" />
+                      <Play size={14} className="text-white absolute opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
                     </div>
                   )}
                   <div className="min-w-0">
