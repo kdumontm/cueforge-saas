@@ -4468,6 +4468,7 @@ useEffect(() => {
         </div>
       )}
 
+            {false && (<>
       {/* ── Admin: Plan Feature Gating ── */}
       {currentUser?.is_admin && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
@@ -4519,6 +4520,7 @@ useEffect(() => {
             </div>
           )}
         </div>
+            </>)}
       )}
 
       {/* ── AI Mix Suggestions ── */}
