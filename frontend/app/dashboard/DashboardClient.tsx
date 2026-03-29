@@ -4349,6 +4349,86 @@ useEffect(() => {
               </div>
             </div>
           </div>
+
+          {/* Collection Statistics */}
+          <div style={{marginTop: '16px', padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px'}}>
+            <h3 style={{color: '#22d3ee', fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}>
+              <BarChart3 size={16}/> Collection Statistics
+            </h3>
+            {/* Summary Cards */}
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px'}}>
+              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
+                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.length}</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>Total Tracks</div>
+              </div>
+              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
+                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis).length}</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>Analyzed</div>
+              </div>
+              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
+                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.bpm).length > 0 ? Math.round(tracks.filter(t => t.analysis?.bpm).reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / tracks.filter(t => t.analysis?.bpm).length) : '-'}</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>Avg BPM</div>
+              </div>
+              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
+                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.energy != null).length > 0 ? Math.round(tracks.filter(t => t.analysis?.energy != null).reduce((s, t) => s + ((t.analysis?.energy || 0) * 100), 0) / tracks.filter(t => t.analysis?.energy != null).length) : '-'}</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>Avg Energy</div>
+              </div>
+            </div>
+
+            {/* BPM Distribution */}
+            <div style={{marginBottom: '16px'}}>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>BPM Distribution</div>
+              {(() => {
+                const ranges = [{label: '80-110', min: 80, max: 110}, {label: '110-125', min: 110, max: 125}, {label: '125-132', min: 125, max: 132}, {label: '132-150', min: 132, max: 150}, {label: '150+', min: 150, max: 999}];
+                const analyzed = tracks.filter(t => t.analysis?.bpm);
+                const maxCount = Math.max(1, ...ranges.map(r => analyzed.filter(t => (t.analysis?.bpm || 0) >= r.min && (t.analysis?.bpm || 0) < r.max).length));
+                return ranges.map(r => {
+                  const count = analyzed.filter(t => (t.analysis?.bpm || 0) >= r.min && (t.analysis?.bpm || 0) < r.max).length;
+                  return (<div key={r.label} style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
+                    <span style={{color: '#94a3b8', fontSize: '11px', width: '50px', textAlign: 'right'}}>{r.label}</span>
+                    <div style={{flex: 1, height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden'}}>
+                      <div style={{height: '100%', width: (count / maxCount * 100) + '%', background: 'linear-gradient(90deg, #06b6d4, #22d3ee)', borderRadius: '3px', transition: 'width 0.3s'}}/>
+                    </div>
+                    <span style={{color: '#22d3ee', fontSize: '11px', width: '20px'}}>{count}</span>
+                  </div>);
+                });
+              })()}
+            </div>
+
+            {/* Genre Breakdown */}
+            <div style={{marginBottom: '16px'}}>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>Genre Breakdown</div>
+              {(() => {
+                const genres = {};
+                tracks.forEach(t => { if (t.genre) genres[t.genre] = (genres[t.genre] || 0) + 1; });
+                const sorted = Object.entries(genres).sort((a, b) => b[1] - a[1]);
+                const maxG = Math.max(1, ...sorted.map(e => e[1]));
+                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>No genre data</div>;
+                return sorted.map(([genre, count]) => (
+                  <div key={genre} style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
+                    <span style={{color: '#94a3b8', fontSize: '11px', width: '70px', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{genre}</span>
+                    <div style={{flex: 1, height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden'}}>
+                      <div style={{height: '100%', width: (count / maxG * 100) + '%', background: 'linear-gradient(90deg, #a855f7, #c084fc)', borderRadius: '3px'}}/>
+                    </div>
+                    <span style={{color: '#c084fc', fontSize: '11px', width: '20px'}}>{count}</span>
+                  </div>
+                ));
+              })()}
+            </div>
+            {/* Key Distribution */}
+            <div>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>Key Distribution</div>
+              {(() => {
+                const keys = {};
+                tracks.forEach(t => { if (t.analysis?.key) keys[t.analysis.key] = (keys[t.analysis.key] || 0) + 1; });
+                const sorted = Object.entries(keys).sort((a, b) => b[1] - a[1]);
+                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>No key data</div>;
+                return <div style={{display: 'flex', flexWrap: 'wrap', gap: '4px'}}>{sorted.map(([key, count]) => (
+                  <span key={key} style={{background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', color: '#22d3ee'}}>{key} ({count})</span>
+                ))}</div>;
+              })()}
+            </div>
+          </div>
         </div>
       )}
 
