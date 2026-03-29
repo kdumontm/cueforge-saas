@@ -1772,11 +1772,11 @@ useEffect(() => {
                   ) : (track.genre?.split(',')[0]?.trim() || 'â')}
                 </span>
                 {/* BPM */}
-                <span className="text-xs text-blue-400 font-mono text-center font-bold">
+                <span title={a?.bpm ? `BPM: ${a.bpm.toFixed(2)} | ${a.bpm < 100 ? "Slow" : a.bpm < 130 ? "Medium" : a.bpm < 150 ? "Fast" : "Very Fast"}` : ""} className="text-xs text-blue-400 font-mono text-center font-bold cursor-help">
                   {a?.bpm ? a.bpm.toFixed(1) : '\u2014'}
                 </span>
                 {/* Key (Camelot) + Compatibility */}
-                <div className="flex items-center justify-center gap-1">
+                <div title={a?.key ? `Tonalité: ${a.key} | Camelot: ${toCamelot(a.key)}` : ""} className="flex items-center justify-center gap-1 cursor-help">
                   <span className={"text-xs font-mono text-center font-bold " + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? "text-green-400" : "text-cyan-400")} title={a?.key ? toCamelot(a.key) + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? ' ✓ Compatible' : '') : ''}>
                     {toCamelot(a?.key)}
                   </span>
@@ -1787,14 +1787,14 @@ useEffect(() => {
                   })()}
                 </div>
 {/* Energy */}
-                <div className="flex items-center justify-center gap-1">
+                <div title={a?.energy != null ? `Énergie: ${Math.round(a.energy * 100)}% | ${a.energy < 0.3 ? "Calme" : a.energy < 0.6 ? "Modéré" : a.energy < 0.8 ? "Énergique" : "Très énergique"}` : ""} className="flex items-center justify-center gap-1 cursor-help">
                   <div className="w-10 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: ((a?.energy || 0) * 100) + '%', background: (a?.energy || 0) > 0.7 ? '#f59e0b' : (a?.energy || 0) > 0.4 ? '#22d3ee' : '#64748b' }} />
                   </div>
                   <span className="text-[10px] text-yellow-400 font-mono font-bold min-w-[12px]">{energyToRating(a?.energy)}</span>
                 </div>
                 {/* Duration */}
-                <span className="text-xs text-slate-500 font-mono text-center">
+                <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-slate-500 font-mono text-center cursor-help">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
                 </span>
                 {/* Status & Actions */}
