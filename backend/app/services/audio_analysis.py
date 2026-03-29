@@ -1,5 +1,5 @@
 """
-CueForge Pro Audio Analysis â v3.0
+CueForge Pro Audio Analysis — v3.0
 State-of-the-art DJ-oriented audio analysis based on:
 - MIREX/ISMIR music structure segmentation research
 - Rekordbox/Mixed In Key/Serato analysis approaches
@@ -30,22 +30,22 @@ from app.models import Track, TrackAnalysis
 from app.database import SessionLocal
 
 
-# ââ Constants ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Constants ──────────────────────────────────────────────────────────────
 SR = 22050
 HOP_LENGTH = 512
 N_FFT = 2048
-MAX_DURATION = 600  # 10 min â covers all DJ tracks
+MAX_DURATION = 600  # 10 min — covers all DJ tracks
 
-# ââ Krumhansl-Schmuckler key profiles ââââââââââââââââââââââââââââââââââââââ
+# ── Krumhansl-Schmuckler key profiles ──────────────────────────────────────
 KS_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 KS_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 KEY_NAMES_MAJOR = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 KEY_NAMES_MINOR = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "A#m", "Bm"]
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   KEY DETECTION
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_key_ks(y: np.ndarray, sr: int) -> Tuple[str, float]:
     """Krumhansl-Schmuckler key detection with CQT chroma for accuracy."""
@@ -70,9 +70,9 @@ def detect_key_ks(y: np.ndarray, sr: int) -> Tuple[str, float]:
         return "C", 0.0
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   BPM / BEAT DETECTION
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
     """Detect BPM and beat positions using Ellis dynamic programming."""
@@ -85,9 +85,9 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
         raise Exception(f"Error detecting BPM and beats: {str(e)}")
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   BEAT-SYNCHRONOUS FEATURE EXTRACTION
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def extract_beat_sync_features(y: np.ndarray, sr: int, beat_frames: np.ndarray) -> Dict:
     """
@@ -97,19 +97,19 @@ def extract_beat_sync_features(y: np.ndarray, sr: int, beat_frames: np.ndarray) 
     """
     hop = HOP_LENGTH
 
-    # MFCC â captures timbre/texture changes
+    # MFCC — captures timbre/texture changes
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, hop_length=hop)
     mfcc_sync = librosa.util.sync(mfcc, beat_frames, aggregate=np.mean)
 
-    # Chroma CQT â captures harmonic content
+    # Chroma CQT — captures harmonic content
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=hop)
     chroma_sync = librosa.util.sync(chroma, beat_frames, aggregate=np.median)
 
-    # Spectral contrast â captures spectral shape (peaks vs valleys)
+    # Spectral contrast — captures spectral shape (peaks vs valleys)
     contrast = librosa.feature.spectral_contrast(y=y, sr=sr, hop_length=hop, n_bands=6)
     contrast_sync = librosa.util.sync(contrast, beat_frames, aggregate=np.mean)
 
-    # RMS energy â beat-synchronous
+    # RMS energy — beat-synchronous
     rms = librosa.feature.rms(y=y, hop_length=hop)[0]
     rms_sync = librosa.util.sync(rms.reshape(1, -1), beat_frames, aggregate=np.mean)[0]
 
@@ -125,16 +125,16 @@ def extract_beat_sync_features(y: np.ndarray, sr: int, beat_frames: np.ndarray) 
     gc.collect()
 
     return {
-        "features": features,      # (n_features, n_beats) â for SSM
-        "rms_sync": rms_sync,       # (n_beats,) â beat-level energy
+        "features": features,      # (n_features, n_beats) — for SSM
+        "rms_sync": rms_sync,       # (n_beats,) — beat-level energy
         "mfcc_sync": mfcc_sync,
         "chroma_sync": chroma_sync,
     }
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   NOVELTY-BASED STRUCTURAL SEGMENTATION (Foote 2000 + checkerboard)
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def compute_ssm_novelty(features: np.ndarray, kernel_size: int = 16) -> np.ndarray:
     """
@@ -229,7 +229,7 @@ def detect_sections_ssm(
         novelty = compute_ssm_novelty(features, kernel_size=kernel_size)
 
         # Pick novelty peaks = section boundaries
-        # Minimum distance: 8 beats (2 bars) â DJ music rarely has sections < 2 bars
+        # Minimum distance: 8 beats (2 bars) — DJ music rarely has sections < 2 bars
         min_dist_beats = max(8, kernel_size)
 
         # Adaptive threshold: use percentile of novelty values
@@ -289,7 +289,7 @@ def detect_sections_ssm(
             # Does a drop fall in this section?
             has_drop = any(start_time <= dt < end_time for dt in drop_times)
 
-            # ââ Intelligent labeling ââ
+            # ── Intelligent labeling ──
             # INTRO: low energy at start of track
             if position < 0.06 and section_energy < e_median:
                 label = "INTRO"
@@ -364,19 +364,19 @@ def detect_sections_ssm(
         return [{"time": 0.0, "label": "UNKNOWN", "duration": len(y) / sr, "energy": 0.5}]
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-#   DROP DETECTION â 6-factor multi-signal analysis
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
+#   DROP DETECTION — 6-factor multi-signal analysis
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict]:
     """
     Detect DJ-style drop points using 6-factor analysis:
-    1. Energy contrast (before/after comparison) â 30% weight
-    2. Onset strength envelope â 20% weight
-    3. Spectral flux â 15% weight
-    4. Low-frequency energy ratio (bass drops) â 15% weight
-    5. Spectral centroid drop (frequency drops = bass) â 10% weight
-    6. RMS energy level â 10% weight
+    1. Energy contrast (before/after comparison) — 30% weight
+    2. Onset strength envelope — 20% weight
+    3. Spectral flux — 15% weight
+    4. Low-frequency energy ratio (bass drops) — 15% weight
+    5. Spectral centroid drop (frequency drops = bass) — 10% weight
+    6. RMS energy level — 10% weight
 
     All peaks are snapped to nearest downbeat (every 4 beats).
     Adaptive thresholding based on track characteristics.
@@ -415,7 +415,7 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         del S, spectral_diff
         gc.collect()
 
-        # 6. Energy contrast (before vs after â key indicator of drops)
+        # 6. Energy contrast (before vs after — key indicator of drops)
         n_frames = len(rms_norm)
         window_sec = 4.0
         window_frames = int(window_sec * sr / hop)
@@ -515,9 +515,9 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         raise Exception(f"Error detecting drops: {str(e)}")
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-#   PHRASE DETECTION â 8-bar and 16-bar grid
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
+#   PHRASE DETECTION — 8-bar and 16-bar grid
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_phrases(beats: List[float]) -> List[Dict]:
     """
@@ -546,9 +546,9 @@ def detect_phrases(beats: List[float]) -> List[Dict]:
     return phrases
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   ENERGY CURVE
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def compute_energy_curve(y: np.ndarray, sr: int, hop: int = HOP_LENGTH) -> np.ndarray:
     """Compute smoothed RMS energy envelope."""
@@ -559,9 +559,9 @@ def compute_energy_curve(y: np.ndarray, sr: int, hop: int = HOP_LENGTH) -> np.nd
     return rms_norm
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   WAVEFORM DATA FOR FRONTEND
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def compute_waveform_data(y: np.ndarray, sr: int, num_peaks: int = 800) -> Dict:
     """Compute waveform peaks + 3-band spectral energy for RGB rendering."""
@@ -611,9 +611,9 @@ def compute_waveform_data(y: np.ndarray, sr: int, num_peaks: int = 800) -> Dict:
         return {"waveform_peaks": [], "spectral_energy": None}
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 #   BACKWARD-COMPATIBLE WRAPPERS
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_bpm_and_beats(file_path: str) -> Dict:
     y, sr = librosa.load(file_path, sr=SR, duration=MAX_DURATION)
@@ -672,9 +672,9 @@ def analyze_track_background(track_id: int, db: Session) -> None:
         raise Exception(f"Background analysis failed: {str(e)}")
 
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-#   MAIN ANALYSIS PIPELINE â v3.0
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ══════════════════════════════════════════════════════════════════════════
+#   MAIN ANALYSIS PIPELINE — v3.0
+# ══════════════════════════════════════════════════════════════════════════
 
 def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
     """
