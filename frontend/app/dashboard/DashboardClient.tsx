@@ -4030,6 +4030,80 @@ useEffect(() => {
                 >
                   📦 Export All to Rekordbox
                 </button>
+              <button
+                onClick={() => {
+                  const toCamelot = (key) => {
+                    const map = {'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A', 'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A', 'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A', 'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A'};
+                    return map[key] || key || '';
+                  };
+                  const rows = tracks.map(t => {
+                    const a = t.analysis;
+                    const dur = a?.duration_ms ? Math.round(a.duration_ms / 1000) : 0;
+                    const mins = Math.floor(dur / 60);
+                    const secs = String(dur % 60).padStart(2, '0');
+                    return [
+                      t.title || t.original_filename || '',
+                      t.artist || '',
+                      t.album || '',
+                      t.genre || '',
+                      a?.bpm ? a.bpm.toFixed(1) : '',
+                      a?.key ? toCamelot(a.key) : '',
+                      a?.key || '',
+                      a?.energy ? (a.energy * 100).toFixed(0) : '',
+                      mins + ':' + secs,
+                      t.year || '',
+                      t.remix_artist || '',
+                      t.feat_artist || '',
+                      t.original_filename || ''
+                    ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
+                  });
+                  const header = '"Name","Artist","Album","Genre","BPM","Key (Camelot)","Key (Musical)","Energy","Duration","Year","Remixer","Feat. Artist","Filename"';
+                  const csv = header + '\n' + rows.join('\n');
+                  const blob = new Blob([csv], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = 'cueforge-serato-export.csv';
+                  link.click();
+                  URL.revokeObjectURL(url);
+                  showToast('Serato CSV exported');
+                }}
+                className="w-full py-3 rounded-xl font-semibold text-white bg-orange-600 hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={18} /> Export All to Serato CSV
+              </button>
+              <button
+                onClick={() => {
+                  const nmlTracks = tracks.map((t, i) => {
+                    const a = t.analysis;
+                    const bpm = a?.bpm ? a.bpm.toFixed(6) : '0';
+                    const key = a?.key || '';
+                    const dur = a?.duration_ms ? (a.duration_ms / 1000).toFixed(3) : '0';
+                    const title = (t.title || t.original_filename || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const artist = (t.artist || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const album = (t.album || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const genre = (t.genre || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    return '  <ENTRY TITLE="' + title + '" ARTIST="' + artist + '">\n' +
+                      '    <ALBUM TITLE="' + album + '"/>\n' +
+                      '    <INFO GENRE="' + genre + '" KEY="' + key + '" PLAYTIME="' + dur + '"/>\n' +
+                      '    <TEMPO BPM="' + bpm + '" BPM_QUALITY="100"/>\n' +
+                      '    <LOCATION FILE="' + (t.original_filename || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"/>\n' +
+                      '  </ENTRY>';
+                  }).join('\n');
+                  const nml = '<?xml version="1.0" encoding="UTF-8"?>\n<NML VERSION="19">\n<HEAD COMPANY="CueForge" PROGRAM="CueForge DJ"/>\n<COLLECTION ENTRIES="' + tracks.length + '">\n' + nmlTracks + '\n</COLLECTION>\n</NML>';
+                  const blob = new Blob([nml], { type: 'application/xml' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = 'cueforge-traktor-export.nml';
+                  link.click();
+                  URL.revokeObjectURL(url);
+                  showToast('Traktor NML exported');
+                }}
+                className="w-full py-3 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={18} /> Export All to Traktor NML
+              </button>
                 <button
                   onClick={() => {
                     const tracksToExport = selectedIds.size > 0 ? filteredTracks.filter(t => selectedIds.has(t.id)) : filteredTracks;
