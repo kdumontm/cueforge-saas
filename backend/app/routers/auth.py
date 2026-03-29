@@ -44,6 +44,19 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ─── Pydantic schemas ────────────────────────────────────────────
 
 
+def _validate_password_strength(v: str) -> str:
+    """Shared password validation logic."""
+    if len(v) < 8:
+        raise ValueError("Le mot de passe doit contenir au moins 8 caracteres")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Le mot de passe doit contenir au moins une majuscule")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Le mot de passe doit contenir au moins un chiffre")
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:',.<>?/" for c in v):
+        raise ValueError("Le mot de passe doit contenir au moins un caractere special")
+    return v
+
+
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
@@ -52,15 +65,7 @@ class UserRegister(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
-        if not any(c.isupper() for c in v):
-            raise ValueError("Le mot de passe doit contenir au moins une majuscule")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("Le mot de passe doit contenir au moins un chiffre")
-        if not any(c in "!@#$%^&*()_+-=[]{}|;:',.<>?/`~" for c in v):
-            raise ValueError("Le mot de passe doit contenir au moins un caractère spécial")
-        return v
+        return _validate_password_strength(v)
 
 
 class UserLogin(BaseModel):
@@ -115,6 +120,11 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)
 
 
 _ALLOWED_REDIRECT_PREFIXES = (
@@ -380,6 +390,15 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
 
 @router.delete("/me", status_code=204)
 async def delete_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.organization_id and user.org_role == "owner":
+        raise HTTPException(
+            status_code=400,
+            detail="Vous etes proprietaire d'une organisation. "
+                   "Transferez la propriete ou supprimez l'organisation d'abord.",
+        )
+    if user.organization_id:
+        user.organization_id = None
+        user.org_role = "member"
     db.delete(user)
     db.commit()
 
