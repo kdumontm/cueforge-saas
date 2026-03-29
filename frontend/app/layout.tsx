@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ClientProviders from '@/components/ClientProviders';
 
 export const metadata: Metadata = {
   title: 'CueForge — Analyse audio pour DJs',
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className="dark">
+    <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,10 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="bg-bg-primary text-slate-100 min-h-screen antialiased">
-        {children}
+      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] min-h-screen antialiased transition-colors duration-300">
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );
 }
-

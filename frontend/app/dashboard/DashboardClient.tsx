@@ -1983,7 +1983,7 @@ useEffect(() => {
                     <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
                       Notes
                     </button>
-                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts' (?)">
+                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
                       <span className="font-bold">?</span>
                     </button>
               {/* Waveform Theme */}
@@ -4163,7 +4163,7 @@ useEffect(() => {
               <button
                 onClick={() => setShowShortcutsModal(p => !p)}
                 className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-slate-700/50 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 transition-colors text-[10px] font-bold"
-                title="lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts' (?)"
+                title="Raccourcis clavier (?)"
               >?</button>
 
               {/* ── Action Buttons ── */}
@@ -5152,7 +5152,7 @@ useEffect(() => {
                 [']', lang === 'fr' ? 'D\u00e9finir Loop OUT' : 'Set Loop OUT'],
                 ['Escape', lang === 'fr' ? 'D\u00e9sactiver le loop' : 'Disable loop'],
                 ['1-8', lang === 'fr' ? 'Aller au Cue Point' : 'Jump to Cue Point'],
-                ['?', lang === 'fr' ? 'Afficher / Masquer cette aide' : 'Show / Hide shortcuts',
+                ['?', lang === 'fr' ? 'Afficher / Masquer cette aide' : 'Show / Hide shortcuts'],
                 ['+ / -', lang === 'fr' ? 'Vitesse de lecture +/- 5%' : 'Playback speed +/- 5%'],
                 ['0', lang === 'fr' ? 'Reset vitesse (1.00x)' : 'Reset speed (1.00x)'],
                 ['← / →', 'Seek -5s / +5s']],
@@ -5220,7 +5220,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts'</h3>
+              <h3 className="text-lg font-bold text-white">Raccourcis clavier</h3>
               <button onClick={() => setShowShortcutsModal(false)} className="text-slate-400 hover:text-white"><XCircle size={20} /></button>
             </div>
             <div className="space-y-2">

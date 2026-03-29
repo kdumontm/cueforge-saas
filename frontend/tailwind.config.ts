@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,10 +11,11 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          primary: '#0f0f1a',
-          secondary: '#1a1a2e',
-          card: '#16213e',
-          elevated: '#1e1e3a',
+          primary: 'var(--bg-primary)',
+          secondary: 'var(--bg-secondary)',
+          card: 'var(--bg-card)',
+          elevated: 'var(--bg-elevated)',
+          hover: 'var(--bg-hover)',
         },
         accent: {
           purple: '#2563eb',
@@ -21,6 +23,13 @@ const config: Config = {
           'purple-dark': '#1d4ed8',
           pink: '#ec4899',
           cyan: '#06b6d4',
+        },
+        surface: {
+          text: 'var(--text-primary)',
+          'text-secondary': 'var(--text-secondary)',
+          'text-muted': 'var(--text-muted)',
+          border: 'var(--border-subtle)',
+          'border-default': 'var(--border-default)',
         },
         cue: {
           hot: '#e11d48',
@@ -37,7 +46,7 @@ const config: Config = {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'hero-glow': 'radial-gradient(ellipse at 50% 0%, rgba(124, 58, 237, 0.15) 0%, transparent 70%)',
+        'hero-glow': 'radial-gradient(ellipse at 50% 0%, rgba(37, 99, 235, 0.15) 0%, transparent 70%)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -60,4 +69,3 @@ const config: Config = {
   plugins: [],
 }
 export default config
-

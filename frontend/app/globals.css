@@ -4,10 +4,42 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-:root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
+/* ═══════════════════════════════════════════════ */
+/* THEME: Dark (default)                          */
+/* ═══════════════════════════════════════════════ */
+:root, .dark {
+  --bg-primary: #08080f;
+  --bg-secondary: #0f0f1a;
+  --bg-card: #151525;
+  --bg-elevated: #1c1c32;
+  --bg-hover: #22223a;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-subtle: #1e293b;
+  --border-default: #334155;
   --accent: #2563eb;
+  --scrollbar-track: #0f0f1a;
+  --scrollbar-thumb: #2563eb;
+}
+
+/* ═══════════════════════════════════════════════ */
+/* THEME: Light                                   */
+/* ═══════════════════════════════════════════════ */
+.light {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #f1f5f9;
+  --bg-elevated: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border-subtle: #e2e8f0;
+  --border-default: #cbd5e1;
+  --accent: #2563eb;
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #2563eb;
 }
 
 * {
@@ -16,15 +48,16 @@
 
 body {
   background-color: var(--bg-primary);
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1a1a2e; }
-::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 3px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 /* Waveform bars */
@@ -43,29 +76,32 @@ body {
 }
 
 /* Glow effects */
+.glow-blue {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+}
 .glow-purple {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
 }
 .glow-text {
-  text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);
+  text-shadow: 0 0 20px rgba(37, 99, 235, 0.6);
 }
 
 /* Input focus */
 input:focus, textarea:focus {
   outline: none;
   border-color: #2563eb !important;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 /* Upload zone */
 .upload-zone {
-  border: 2px dashed #3730a3;
+  border: 2px dashed var(--border-default);
   transition: all 0.2s ease;
 }
 .upload-zone:hover, .upload-zone.drag-over {
   border-color: #2563eb;
-  background: rgba(124, 58, 237, 0.05);
-  box-shadow: 0 0 30px rgba(124, 58, 237, 0.15);
+  background: rgba(37, 99, 235, 0.05);
+  box-shadow: 0 0 30px rgba(37, 99, 235, 0.15);
 }
 
 /* Cue point badge */
@@ -92,3 +128,8 @@ input:focus, textarea:focus {
   100% { background-position: -200% 0; }
 }
 
+/* Smooth theme transitions */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.25s ease, color 0.2s ease, border-color 0.25s ease;
+}
