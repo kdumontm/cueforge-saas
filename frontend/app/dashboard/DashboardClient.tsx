@@ -328,6 +328,10 @@ export default function DashboardPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
   const [showStats, setShowStats] = useState(false);
+  const [trackRatings, setTrackRatings] = useState<Record<number, number>>({});
+  const setRating = (trackId: number, rating: number) => {
+    setTrackRatings(prev => ({ ...prev, [trackId]: prev[trackId] === rating ? 0 : rating }));
+  };
 
   // Column filters
   const [showColumnFilters, setShowColumnFilters] = useState(false);
@@ -2501,6 +2505,12 @@ useEffect(() => {
               <span className="text-[10px] font-mono font-bold min-w-[12px]" style={{ color: energyToColor(a?.energy) }}>{a?.energy != null ? Math.round(a.energy * 100) : '-'}</span>
             </div>
           </div>
+                  {/* Rating */}
+                  <div className="flex items-center justify-center gap-px" onClick={(e) => e.stopPropagation()}>
+                    {[1,2,3,4,5].map(star => (
+                      <Star key={star} className={"w-3 h-3 cursor-pointer transition-colors " + ((trackRatings[track.id] || 0) >= star ? "text-yellow-400 fill-yellow-400" : "text-slate-600 hover:text-yellow-400/50")} onClick={(e) => { e.stopPropagation(); setRating(track.id, star); }} />
+                    ))}
+                  </div>
                 {/* Duration */}
                 <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-slate-500 font-mono text-center cursor-help">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
