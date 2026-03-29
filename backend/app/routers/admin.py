@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr
 
 from app.database import get_db
 from app.models import User
-from app.models.site_settings import PageConfig
+from app.models.site_settings import PageConfig, PlanFeature, DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_CONFIGS
 from app.services.auth_service import hash_password, verify_password
 from app.middleware.auth import get_current_user
 
@@ -264,3 +264,110 @@ def update_my_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+
+# ── Schemas: Plan Features ────────────────────────────────────────────────────
+
+class PlanFeatureResponse(BaseModel):
+    plan_name: str
+    feature_name: str
+    is_enabled: bool
+    label: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class PlanFeatureToggleRequest(BaseModel):
+    is_enabled: bool
+
+
+class PlanFeaturesMatrix(BaseModel):
+    """Full matrix: {plan_name: {feature_name: bool}}"""
+    features: dict  # {"free": {"analysis": true, ...}, "pro": {...}, ...}
+    feature_labels: dict  # {"analysis": "Audio Analysis (BPM, Key, Energy)", ...}
+
+
+# ── Admin: Plan Feature Gating ────────────────────────────────────────────────
+
+@router.get("/plan-features", response_model=PlanFeaturesMatrix)
+def get_plan_features(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the full plan-feature matrix. Any authenticated user can read."""
+    all_features = db.query(PlanFeature).all()
+
+    # If no features in DB yet, initialize from defaults
+    if not all_features:
+        for plan_name, enabled_features in DEFAULT_PLAN_CONFIGS.items():
+            for feat in DEFAULT_PLAN_FEATURES:
+                pf = PlanFeature(
+                    plan_name=plan_name,
+                    feature_name=feat["feature_name"],
+                    is_enabled=feat["feature_name"] in enabled_features,
+                    label=feat["label"],
+                )
+                db.add(pf)
+        db.commit()
+        all_features = db.query(PlanFeature).all()
+
+    # Build matrix
+    features = {}
+    feature_labels = {}
+    for pf in all_features:
+        if pf.plan_name not in features:
+            features[pf.plan_name] = {}
+        features[pf.plan_name][pf.feature_name] = pf.is_enabled
+        if pf.label:
+            feature_labels[pf.feature_name] = pf.label
+
+    return PlanFeaturesMatrix(features=features, feature_labels=feature_labels)
+
+
+@router.patch("/plan-features/{plan_name}/{feature_name}")
+def toggle_plan_feature(
+    plan_name: str,
+    feature_name: str,
+    body: PlanFeatureToggleRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+):
+    """Toggle a feature for a specific plan. Admin only."""
+    valid_plans = {"free", "pro", "unlimited"}
+    if plan_name not in valid_plans:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan_name}")
+
+    pf = db.query(PlanFeature).filter(
+        PlanFeature.plan_name == plan_name,
+        PlanFeature.feature_name == feature_name,
+    ).first()
+
+    if not pf:
+        raise HTTPException(status_code=404, detail=f"Feature '{feature_name}' not found for plan '{plan_name}'")
+
+    pf.is_enabled = body.is_enabled
+    db.commit()
+    db.refresh(pf)
+    return {"plan_name": plan_name, "feature_name": feature_name, "is_enabled": pf.is_enabled}
+
+
+@router.post("/plan-features/reset")
+def reset_plan_features(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+):
+    """Reset all plan features to defaults. Admin only."""
+    db.query(PlanFeature).delete()
+    for plan_name, enabled_features in DEFAULT_PLAN_CONFIGS.items():
+        for feat in DEFAULT_PLAN_FEATURES:
+            pf = PlanFeature(
+                plan_name=plan_name,
+                feature_name=feat["feature_name"],
+                is_enabled=feat["feature_name"] in enabled_features,
+                label=feat["label"],
+            )
+            db.add(pf)
+    db.commit()
+    return {"status": "reset", "message": "Plan features reset to defaults"}
