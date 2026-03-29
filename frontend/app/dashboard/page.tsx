@@ -924,7 +924,7 @@ useEffect(() => {
 
   return (
         <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() =>
-      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; }" }} /> setCtxMenu(null)}>
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; }" }} ></style> setCtxMenu(null)}>
       {/* Metadata Edit Modal */}
       {showEditMeta && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
