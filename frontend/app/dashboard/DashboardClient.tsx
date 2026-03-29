@@ -3694,7 +3694,7 @@ useEffect(() => {
                     { name: "Peak Time", icon: "flame", min: 40, max: 75 },
                     { name: "Closing", icon: "moon", min: 75, max: 101 },
                   ].map(smart => {
-                    const matched = tracks.filter(t => (t.energy || 0) >= smart.min && (t.energy || 0) < smart.max);
+                    const matched = tracks.filter(t => (((t.analysis?.energy ?? 0) * 100) || 0) >= smart.min && (((t.analysis?.energy ?? 0) * 100) || 0) < smart.max);
                     if (matched.length === 0) return null;
                     return (
                       <div key={smart.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all" onClick={() => { setSelectedGenre(null); }}>
@@ -3714,7 +3714,7 @@ useEffect(() => {
                     { name: "House (125-132)", min: 125, max: 132 },
                     { name: "Fast (132-150)", min: 132, max: 150 },
                   ].map(bpm => {
-                    const matched = tracks.filter(t => (t.bpm || 0) >= bpm.min && (t.bpm || 0) < bpm.max);
+                    const matched = tracks.filter(t => ((t.analysis?.bpm ?? 0) || 0) >= bpm.min && ((t.analysis?.bpm ?? 0) || 0) < bpm.max);
                     if (matched.length === 0) return null;
                     return (
                       <div key={bpm.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all">
