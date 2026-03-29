@@ -136,14 +136,23 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-800/50 px-6 py-6 text-center text-slate-500 text-sm">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <div className="w-5 h-5 bg-accent-purple/80 rounded-md flex items-center justify-center">
-            <Music2 size={12} className="text-white" />
+      <footer className="relative z-10 border-t border-white/10 mt-10">
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Disc3 size={20} className="text-accent-purple" />
+              <span className="text-sm font-bold text-white">CueForge</span>
+            </div>
+            <div className="flex flex-wrap gap-6 text-sm text-slate-400">
+              <Link href="/pricing" className="hover:text-white transition">Tarifs</Link>
+              <Link href="/cgu" className="hover:text-white transition">CGU</Link>
+              <a href="mailto:contact@cueforge.app" className="hover:text-white transition">Contact</a>
+            </div>
           </div>
-          <span className="text-slate-400 font-medium">CueForge</span>
+          <div className="mt-6 pt-6 border-t border-white/10 text-center text-slate-500 text-xs">
+            © 2026 CueForge. Tous droits réservés.
+          </div>
         </div>
-        <p>© 2026 CueForge. Tous droits réservés.</p>
       </footer>
     </div>
   );
