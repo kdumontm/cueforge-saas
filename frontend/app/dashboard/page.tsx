@@ -157,6 +157,7 @@ export default function DashboardPage() {
   // âÂÂâÂÂ State âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [tracksLoading, setTracksLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -397,11 +398,39 @@ export default function DashboardPage() {
   // âÂÂâÂÂ Load tracks on mount âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => { loadTracks(); }, []);
 
+  // Keyboard navigation for track list
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!filteredTracks.length) return;
+      
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const currentIdx = selectedTrack ? filteredTracks.findIndex(t => t.id === selectedTrack.id) : -1;
+        let newIdx: number;
+        if (e.key === 'ArrowDown') {
+          newIdx = currentIdx < filteredTracks.length - 1 ? currentIdx + 1 : 0;
+        } else {
+          newIdx = currentIdx > 0 ? currentIdx - 1 : filteredTracks.length - 1;
+        }
+        setSelectedTrack(filteredTracks[newIdx]);
+        // Auto-scroll to selected row
+        setTimeout(() => {
+          const row = document.querySelector(`[data-track-id="${filteredTracks[newIdx].id}"]`);
+          row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }, 0);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrack, filteredTracks]);
+
   async function loadTracks() {
     try {
+      setTracksLoading(true);
       const data = await listTracks(1, 100);
       setTracks(data.tracks);
-    } catch {}
+    } catch {} finally { setTracksLoading(false); }
   }
 
   // âÂÂâÂÂ Wavesurfer init (ALWAYS render the div, never unmount it) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
@@ -1483,6 +1512,12 @@ useEffect(() => {
             <p className="text-sm font-medium">Aucun morceau</p>
             <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
           </div>
+        ) : tracksLoading ? (
+          <div className="space-y-1 p-2">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-10 rounded bg-white/[0.03] animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+            ))}
+          </div>
         ) : (
           filteredTracks.map((track, trackIdx) => {
             const a = track.analysis;
@@ -1493,7 +1528,8 @@ useEffect(() => {
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
+                data-track-id={track.id}
+                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
