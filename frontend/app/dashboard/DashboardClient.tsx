@@ -353,7 +353,6 @@ const TR: Record<string, Record<string, string>> = {
     recherche_cours: 'Searching...', infos_actuelles: 'Current information',
     batch_edit: 'Batch Edit', scanner_doublons: 'Scan Duplicates',
     importer_dossier: 'Import Folder',
-  }
     double_click_edit: 'Double-click to edit',
     not_analyzed: 'Not analyzed',
     filter_sort: 'Filter & Sort',
@@ -362,6 +361,7 @@ const TR: Record<string, Record<string, string>> = {
     no_cue_points: 'No cue points yet. Analyze the track',
     copy_txt: 'Copy TXT',
     analyzing: 'Analyzing...',
+  },
 };
 
 export default function DashboardPage() {
@@ -2877,7 +2877,7 @@ export default function DashboardPage() {
               {/* Album */}
               <span className="text-xs text-slate-400 truncate">{track.album || '—'}</span>
               {/* Genre */}
-                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title=t('double_click_edit') onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
+                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title={t('double_click_edit')} onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
                     <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
                   ) : (track.genre?.split(',')[0]?.trim() || '—')}
@@ -3492,7 +3492,7 @@ export default function DashboardPage() {
                 )}
               </div>
               {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
-                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")</p>
+                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")}</p>
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack?.cue_points.map((cue, idx) => (
