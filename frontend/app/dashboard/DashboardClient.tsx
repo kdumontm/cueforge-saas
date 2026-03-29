@@ -571,7 +571,6 @@ return () => document.removeEventListener('click', handler);
   const [showSetTimer, setShowSetTimer] = useState(false);
   // Tap Tempo state
   const [showTapTempo, setShowTapTempo] = useState(false);
-  const [tapTimes, setTapTimes] = useState<number[]>([]);
   // Session Notes state
   const [showSessionNotes, setShowSessionNotes] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
