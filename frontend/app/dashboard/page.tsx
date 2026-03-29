@@ -1054,7 +1054,35 @@ useEffect(() => {
                   </div>
                 </div>
 
-          <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
+          <div className="relative w-full h-full">
+                <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
+                {/* Beat Grid Lines Overlay */}
+                {showBeatGrid && selectedTrack?.analysis?.bpm && duration > 0 && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 2 }}>
+                    {(() => {
+                      const bpm = selectedTrack.analysis.bpm;
+                      const beatDuration = 60 / bpm;
+                      const barDuration = beatDuration * 4;
+                      const totalBars = Math.ceil(duration / barDuration);
+                      const lines = [];
+                      for (let i = 0; i <= totalBars; i++) {
+                        const pct = (i * barDuration / duration) * 100;
+                        if (pct > 100) break;
+                        const isPhrase = i % 8 === 0;
+                        const is4Bar = i % 4 === 0;
+                        lines.push(
+                          <div key={i} className="absolute top-0 bottom-0" style={{
+                            left: pct + '%',
+                            width: isPhrase ? '2px' : is4Bar ? '1.5px' : '1px',
+                            background: isPhrase ? 'rgba(6,182,212,0.5)' : is4Bar ? 'rgba(6,182,212,0.25)' : 'rgba(148,163,184,0.12)',
+                          }} />
+                        );
+                      }
+                      return lines;
+                    })()}
+                  </div>
+                )}
+              </div>
                 {/* TRACK NOTES */}
                 {showNotes && selectedTrack && (
                   <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
