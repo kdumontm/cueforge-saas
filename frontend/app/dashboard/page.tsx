@@ -2472,6 +2472,34 @@ useEffect(() => {
               }
               {tracks.filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm).filter(t => mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm).total >= 60).length === 0 && (
                 <div className="text-center py-4 text-gray-500 text-xs">No compatible tracks found. Analyze more tracks.</div>
+              {/* Track Comparison */}
+              {selectedTrack && tracks.length >= 2 && (
+                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-3 mt-3 border border-gray-700/50">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
+                    <Compass className="w-4 h-4 text-orange-400" /> Quick Compare
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {tracks.filter(tr => tr.id !== selectedTrack?.id).slice(0, 4).map(tr => {
+                      const score = typeof mixScore === 'function' ? mixScore(selectedTrack, tr) : {total: 0, verdict: '?'};
+                      const bpmDiff = Math.abs((selectedTrack?.bpm || 0) - (tr.bpm || 0));
+                      return (
+                        <div key={tr.id} onClick={() => setSelectedTrack(tr)}
+                          className="p-2 bg-gray-900/60 rounded border border-gray-700/30 cursor-pointer hover:border-orange-500/50 transition-colors">
+                          <div className="text-[9px] text-white truncate font-medium">{tr.title}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[8px] text-cyan-400">{tr.bpm?.toFixed(0) || '?'}</span>
+                            <span className="text-[8px] text-purple-400">{CAMELOT_WHEEL[tr.key] || tr.key || '?'}</span>
+                            <span className={"text-[8px] font-bold " + (score.verdict === 'Perfect' ? 'text-green-400' : score.verdict === 'Great' ? 'text-blue-400' : score.verdict === 'Good' ? 'text-yellow-400' : 'text-red-400')}>
+                              {score.verdict}
+                            </span>
+                          </div>
+                          <div className="text-[8px] text-gray-500 mt-0.5">BPM diff: {bpmDiff.toFixed(1)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               )}
             </div>
           </div>
@@ -2623,6 +2651,26 @@ useEffect(() => {
                         })}
                         {setLists[activeSetList].trackIds.length === 0 && (
                           <div className="text-center py-4 text-gray-500 text-xs">Select a track and click "+ Add Selected" to build your set</div>
+                        )}
+                        {/* Smart Sort */}
+                        {setLists[activeSetList].trackIds.length > 1 && (
+                          <button onClick={() => {
+                            const sl = setLists[activeSetList];
+                            const sorted = [...sl.trackIds].sort((a, b) => {
+                              const ta = tracks.find(t => t.id === a);
+                              const tb = tracks.find(t => t.id === b);
+                              if (!ta || !tb) return 0;
+                              const ca = CAMELOT_WHEEL[ta.key] || '';
+                              const cb = CAMELOT_WHEEL[tb.key] || '';
+                              const na = parseInt(ca) || 0;
+                              const nb = parseInt(cb) || 0;
+                              if (na !== nb) return na - nb;
+                              return (ta.bpm || 0) - (tb.bpm || 0);
+                            });
+                            setSetLists(prev => prev.map((s, i) => i === activeSetList ? {...s, trackIds: sorted} : s));
+                          }} className="w-full text-[9px] bg-purple-600/30 text-purple-300 py-1.5 rounded hover:bg-purple-600/50 transition-colors flex items-center justify-center gap-1 mb-1">
+                            <Sparkles className="w-3 h-3" /> Auto-Sort by Key & BPM
+                          </button>
                         )}
                         {/* Export Set List */}
                         {setLists[activeSetList].trackIds.length > 0 && (
