@@ -382,6 +382,10 @@ export default function DashboardPage() {
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [trackRatings, setTrackRatings] = useState<Record<number, number>>({});
+  const [trackColors, setTrackColors] = useState<Record<number, string>>({});
+  const [setLists, setSetLists] = useState<{name: string; trackIds: number[]}[]>([]);
+  const [activeSetList, setActiveSetList] = useState<number>(-1);
+  const [newSetListName, setNewSetListName] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
@@ -1914,7 +1918,7 @@ useEffect(() => {
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }} className="inline-flex mr-1 hover:scale-125 transition-transform" title={favoriteIds.has(track.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>
                         <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600 hover:text-yellow-400'} />
                       </button>
-                      {track.title || track.original_filename}
+                      {trackColors[track.id] && <span className="w-2 h-2 rounded-full inline-block mr-1 flex-shrink-0" style={{backgroundColor: trackColors[track.id]}} />}{track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
                       {track.artist || '\u2014'}
@@ -2399,7 +2403,122 @@ useEffect(() => {
       </div>
 
       
+            
+            {/* Set List Builder */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+                <ListMusic className="w-4 h-4 text-cyan-400" /> Set List Builder
+              </h3>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={newSetListName}
+                  onChange={(e) => setNewSetListName(e.target.value)}
+                  placeholder="New set list name..."
+                  className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-cyan-500 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newSetListName.trim()) {
+                      setSetLists(prev => [...prev, {name: newSetListName.trim(), trackIds: []}]);
+                      setNewSetListName('');
+                      setActiveSetList(setLists.length);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (newSetListName.trim()) {
+                      setSetLists(prev => [...prev, {name: newSetListName.trim(), trackIds: []}]);
+                      setNewSetListName('');
+                      setActiveSetList(setLists.length);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-colors"
+                >+ Create</button>
+              </div>
+              {setLists.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex gap-1 flex-wrap mb-2">
+                    {setLists.map((sl, i) => (
+                      <button key={i} onClick={() => setActiveSetList(i)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${activeSetList === i ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+                        {sl.name} ({sl.trackIds.length})
+                      </button>
+                    ))}
+                  </div>
+                  {activeSetList >= 0 && activeSetList < setLists.length && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-400">{setLists[activeSetList].trackIds.length} tracks</span>
+                        <div className="flex gap-1">
+                          <button onClick={() => {
+                            if (selectedTrack && !setLists[activeSetList].trackIds.includes(selectedTrack.id)) {
+                              setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: [...sl.trackIds, selectedTrack.id]} : sl));
+                            }
+                          }} className="px-2 py-0.5 bg-green-600/20 text-green-400 text-[10px] rounded hover:bg-green-600/30 transition-colors">
+                            + Add Selected
+                          </button>
+                          <button onClick={() => {
+                            setSetLists(prev => prev.filter((_, i) => i !== activeSetList));
+                            setActiveSetList(-1);
+                          }} className="px-2 py-0.5 bg-red-600/20 text-red-400 text-[10px] rounded hover:bg-red-600/30 transition-colors">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-[150px] overflow-y-auto space-y-1 scrollbar-thin">
+                        {setLists[activeSetList].trackIds.map((tid, tIdx) => {
+                          const t = tracks.find(tr => tr.id === tid);
+                          if (!t) return null;
+                          return (
+                            <div key={tid} className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 group">
+                              <span className="text-[10px] text-gray-500 w-4">{tIdx + 1}</span>
+                              {trackColors[tid] && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: trackColors[tid]}} />}
+                              <span className="text-xs text-white truncate flex-1 cursor-pointer hover:text-cyan-300" onClick={() => setSelectedTrack(t)}>{t.title || t.original_filename}</span>
+                              <span className="text-[10px] text-gray-500">{t.analysis?.bpm?.toFixed(0) || '-'}</span>
+                              <span className="text-[10px] text-gray-500">{t.analysis?.key ? (CAMELOT_WHEEL[t.analysis.key] || t.analysis.key) : '-'}</span>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => {
+                                  if (tIdx > 0) {
+                                    setSetLists(prev => prev.map((sl, i) => {
+                                      if (i !== activeSetList) return sl;
+                                      const ids = [...sl.trackIds];
+                                      [ids[tIdx], ids[tIdx-1]] = [ids[tIdx-1], ids[tIdx]];
+                                      return {...sl, trackIds: ids};
+                                    }));
+                                  }
+                                }} className="text-gray-500 hover:text-white"><ChevronUp className="w-3 h-3" /></button>
+                                <button onClick={() => {
+                                  if (tIdx < setLists[activeSetList].trackIds.length - 1) {
+                                    setSetLists(prev => prev.map((sl, i) => {
+                                      if (i !== activeSetList) return sl;
+                                      const ids = [...sl.trackIds];
+                                      [ids[tIdx], ids[tIdx+1]] = [ids[tIdx+1], ids[tIdx]];
+                                      return {...sl, trackIds: ids};
+                                    }));
+                                  }
+                                }} className="text-gray-500 hover:text-white"><ChevronDown className="w-3 h-3" /></button>
+                                <button onClick={() => {
+                                  setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: sl.trackIds.filter(id => id !== tid)} : sl));
+                                }} className="text-gray-500 hover:text-red-400"><X className="w-3 h-3" /></button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {setLists[activeSetList].trackIds.length === 0 && (
+                          <div className="text-center py-4 text-gray-500 text-xs">Select a track and click "+ Add Selected" to build your set</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500 text-xs">
+                  <ListMusic className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  Create a set list to organize your DJ sets
+                </div>
+              )}
             </div>
+</div>
           )}
           {activeBottomTab === 'history' && (
             <div>
@@ -2646,6 +2765,23 @@ useEffect(() => {
                   ))}
                 </div>
                 {trackRatings[selectedTrack?.id] > 0 && <span className="text-[10px] text-yellow-400 font-bold">{trackRatings[selectedTrack?.id]}/5</span>}
+              </div>
+              {/* Color Tags */}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] text-gray-400">Tag:</span>
+                <div className="flex gap-1">
+                  {['', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'].map(color => (
+                    <button
+                      key={color || 'none'}
+                      onClick={() => setTrackColors(prev => ({...prev, [selectedTrack?.id || 0]: color}))}
+                      className={`w-5 h-5 rounded-full border-2 transition-all ${trackColors[selectedTrack?.id || 0] === color ? 'border-white scale-110' : 'border-gray-600 hover:border-gray-400'}`}
+                      style={color ? {backgroundColor: color} : {background: 'linear-gradient(135deg, #374151, #1f2937)'}}
+                      title={color ? color : 'No tag'}
+                    >
+                      {!color && trackColors[selectedTrack?.id || 0] === '' && <X className="w-3 h-3 text-gray-400 mx-auto" />}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
                 <div className="flex gap-2">
