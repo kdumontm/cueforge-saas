@@ -3107,10 +3107,10 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         </div>
       )}
-<style>{
+<style>{`
         /* Column visibility - hide overflow in 0px grid cells */
         .grid > * { min-width: 0; overflow: hidden; }
-`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 </div>
   );
 }
