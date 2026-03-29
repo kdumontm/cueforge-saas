@@ -211,6 +211,7 @@ export default function DashboardPage() {
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ── Toast notification system ──
   const showToast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -1460,9 +1461,14 @@ useEffect(() => {
         {/* Search */}
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input type="text" placeholder="Rechercher..." value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
+          <input ref={searchInputRef} type="text" placeholder="Rechercher..." value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)} autoFocus
+            className="pl-8 pr-7 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+              <X size={12} />
+            </button>
+          )}
         </div>
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
@@ -1597,9 +1603,20 @@ useEffect(() => {
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <Headphones size={48} className="mb-4 opacity-30" />
-            <p className="text-sm font-medium">Aucun morceau</p>
-            <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
+            {tracks.length > 0 ? (
+              <>
+                <Search size={48} className="mb-4 opacity-30" />
+                <p className="text-sm font-medium">Aucun résultat</p>
+                <p className="text-xs mt-1">Aucun morceau ne correspond à ta recherche</p>
+                {searchQuery && <button onClick={() => setSearchQuery('')} className="mt-3 px-3 py-1 text-xs bg-cyan-600/20 text-cyan-400 rounded-lg hover:bg-cyan-600/30 transition-colors">Effacer la recherche</button>}
+              </>
+            ) : (
+              <>
+                <Headphones size={48} className="mb-4 opacity-30" />
+                <p className="text-sm font-medium">Aucun morceau</p>
+                <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
+              </>
+            )}
           </div>
         ) : tracksLoading ? (
           <div className="space-y-1 p-2">
