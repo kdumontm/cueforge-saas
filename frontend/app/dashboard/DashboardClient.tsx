@@ -327,8 +327,6 @@ export default function DashboardPage() {
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
-  const [showStats, setShowStats] = useState(false);
-  const [trackRatings, setTrackRatings] = useState<Record<number, number>>({});
   const setRating = (trackId: number, rating: number) => {
     setTrackRatings(prev => ({ ...prev, [trackId]: prev[trackId] === rating ? 0 : rating }));
   };
