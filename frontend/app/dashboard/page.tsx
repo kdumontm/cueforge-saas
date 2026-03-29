@@ -232,6 +232,35 @@ export default function DashboardPage() {
   const lastClickedIdxRef = useRef<number>(-1);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [previewingTrackId, setPreviewingTrackId] = useState<number | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cueforge_favorites');
+      if (saved) setFavoriteIds(new Set(JSON.parse(saved)));
+    } catch {}
+  }, []);
+
+  // Save favorites to localStorage
+  useEffect(() => {
+    if (favoriteIds.size > 0) {
+      localStorage.setItem('cueforge_favorites', JSON.stringify([...favoriteIds]));
+    } else {
+      localStorage.removeItem('cueforge_favorites');
+    }
+  }, [favoriteIds]);
+
+  const toggleFavorite = (id: number) => {
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   
   // Cleanup audio preview on unmount
   useEffect(() => {
@@ -847,6 +876,7 @@ export default function DashboardPage() {
         t.genre?.toLowerCase().includes(q)
       );
     })
+    .filter(t => !showFavoritesOnly || favoriteIds.has(t.id))
     .sort((a, b) => {
         const dir = sortDir === 'asc' ? 1 : -1;
         switch (sortBy) {
@@ -1758,6 +1788,9 @@ useEffect(() => {
                   )}
                   <div className="min-w-0">
                     <p className="text-sm text-white font-medium truncate">
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }} className="inline-flex mr-1 hover:scale-125 transition-transform" title={favoriteIds.has(track.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>
+                        <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600 hover:text-yellow-400'} />
+                      </button>
                       {track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
@@ -2229,6 +2262,15 @@ useEffect(() => {
         <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Esc</kbd> Effacer</span>
               <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
               </div>
+              {/* ── Favorites Toggle ── */}
+              <button
+                onClick={() => setShowFavoritesOnly(p => !p)}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-slate-500 hover:text-yellow-400'}`}
+                title={showFavoritesOnly ? 'Afficher tous les morceaux' : 'Afficher uniquement les favoris'}
+              >
+                <Star size={10} className={showFavoritesOnly ? 'fill-yellow-400 text-yellow-400' : ''} />
+                Favoris{favoriteIds.size > 0 ? ` (${favoriteIds.size})` : ''}
+              </button>
               {/* ── Status Bar ── */}
               <div className="flex items-center gap-3 px-1">
                 <span className="text-[10px] text-slate-600">
