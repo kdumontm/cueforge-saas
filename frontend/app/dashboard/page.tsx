@@ -212,6 +212,7 @@ export default function DashboardPage() {
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
+  const [waveformTheme, setWaveformTheme] = useState<'purple' | 'cyan' | 'green' | 'orange' | 'fire'>('purple');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [eqLow, setEqLow] = useState(50);
   const [eqMid, setEqMid] = useState(50);
@@ -256,6 +257,14 @@ export default function DashboardPage() {
   const [colorPickerPos, setColorPickerPos] = useState<{x: number, y: number}>({x: 0, y: 0});
 
   // Rekordbox-style cue colors
+  const WAVEFORM_THEMES: Record<string, { wave: string; progress: string; label: string; cursor: string }> = {
+    purple: { wave: '#1a1730', progress: 'rgba(124,58,237,0.15)', cursor: '#fff', label: 'Violet' },
+    cyan: { wave: '#0a1929', progress: 'rgba(6,182,212,0.18)', cursor: '#22d3ee', label: 'Cyan' },
+    green: { wave: '#0a1f0a', progress: 'rgba(34,197,94,0.18)', cursor: '#22c55e', label: 'Vert' },
+    orange: { wave: '#1f1005', progress: 'rgba(249,115,22,0.18)', cursor: '#f97316', label: 'Orange' },
+    fire: { wave: '#1f0505', progress: 'rgba(239,68,68,0.18)', cursor: '#ef4444', label: 'Rouge' },
+  };
+
   const REKORDBOX_COLORS = [
     { name: "Red", hex: "#E13535" },
     { name: "Orange", hex: "#FF8C00" },
@@ -408,7 +417,7 @@ export default function DashboardPage() {
 
       ws = WaveSurfer.create({
         container: waveformRef.current!,
-        cursorColor: '#fff',
+        cursorColor: WAVEFORM_THEMES[waveformTheme].cursor,
         cursorWidth: 2,
         height: 80,
         normalize: true,
@@ -419,8 +428,8 @@ export default function DashboardPage() {
         dragToSeek: true,
         hideScrollbar: true,
         plugins: [regions],
-        waveColor: '#1a1730',
-        progressColor: 'rgba(124,58,237,0.15)',
+        waveColor: WAVEFORM_THEMES[waveformTheme].wave,
+        progressColor: WAVEFORM_THEMES[waveformTheme].progress,
         renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
           const colors = spectralColorsRef.current;
           const { width, height } = ctx.canvas;
@@ -541,7 +550,7 @@ export default function DashboardPage() {
         });
       });
     });
-  }, [selectedTrack]);
+  }, [selectedTrack, waveformTheme]);
 
   // âÂÂâÂÂ Keyboard shortcuts (Ctrl+A) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => {
@@ -1064,6 +1073,13 @@ useEffect(() => {
                     <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
                       <span className="font-bold">?</span>
                     </button>
+              {/* Waveform Theme */}
+              <div className="flex items-center gap-1 ml-1">
+                <Palette size={10} className="text-gray-600" />
+                {Object.entries(WAVEFORM_THEMES).map(([key, t]) => (
+                  <button key={key} onClick={() => setWaveformTheme(key as any)} className={"w-3 h-3 rounded-full border transition-all " + (waveformTheme === key ? "border-white scale-125 ring-1 ring-white/30" : "border-gray-600 hover:border-gray-400")} style={{ backgroundColor: t.cursor === '#fff' ? '#7c3aed' : t.cursor }} title={t.label} />
+                ))}
+              </div>
                   </div>
                 </div>
 
