@@ -119,7 +119,7 @@ export default function SettingsPage() {
       <div className="border-b border-gray-800 bg-gray-900/50">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-white">
-            â Dashboard
+            ← Dashboard
           </button>
           <h1 className="text-xl font-bold">Paramètres</h1>
         </div>
