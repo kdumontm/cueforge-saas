@@ -98,11 +98,11 @@ def extract_beat_sync_features(y: np.ndarray, sr: int, beat_frames: np.ndarray) 
     hop = HOP_LENGTH
 
     # MFCC — captures timbre/texture changes
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, hop_length=hop)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=8, hop_length=hop)
     mfcc_sync = librosa.util.sync(mfcc, beat_frames, aggregate=np.mean)
 
     # Chroma CQT — captures harmonic content
-    chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=hop)
+    chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop, n_fft=N_FFT)
     chroma_sync = librosa.util.sync(chroma, beat_frames, aggregate=np.median)
 
     # Spectral contrast — captures spectral shape (peaks vs valleys)
@@ -149,8 +149,17 @@ def compute_ssm_novelty(features: np.ndarray, kernel_size: int = 16) -> np.ndarr
     if n_beats < kernel_size * 2:
         return np.zeros(n_beats)
 
+    # Downsample features for long tracks to keep SSM computation fast
+    # SSM is O(N^2), so limit to ~300 beats max
+    MAX_SSM_BEATS = 300
+    downsample_factor = 1
+    feat_for_ssm = features
+    if n_beats > MAX_SSM_BEATS:
+        downsample_factor = max(2, n_beats // MAX_SSM_BEATS)
+        feat_for_ssm = features[:, ::downsample_factor]
+
     # Compute SSM using cosine similarity (more robust than euclidean for music)
-    S = 1.0 - cdist(features.T, features.T, metric='cosine')
+    S = 1.0 - cdist(feat_for_ssm.T, feat_for_ssm.T, metric='cosine')
     S = np.nan_to_num(S, nan=0.0)
 
     # Build checkerboard kernel
@@ -160,15 +169,25 @@ def compute_ssm_novelty(features: np.ndarray, kernel_size: int = 16) -> np.ndarr
     kernel[half:, half:] = -1   # bottom-right quadrant
     # Top-right and bottom-left stay +1
 
-    # Apply kernel along the main diagonal
-    novelty = np.zeros(n_beats)
-    for i in range(half, n_beats - half):
-        patch = S[i - half:i + half, i - half:i + half]
-        if patch.shape == (kernel_size, kernel_size):
-            novelty[i] = np.sum(patch * kernel)
+    # Apply kernel along the main diagonal — vectorized for speed
+    n_ssm = S.shape[0]
+    novelty_ds = np.zeros(n_ssm)
+    # Vectorized: extract all diagonal patches at once
+    for i in range(half, n_ssm - half):
+        novelty_ds[i] = np.sum(S[i - half:i + half, i - half:i + half] * kernel)
 
     # Half-wave rectify (only positive = boundaries)
-    novelty = np.maximum(novelty, 0)
+    novelty_ds = np.maximum(novelty_ds, 0)
+
+    # Upsample novelty back to original beat count if downsampled
+    if downsample_factor > 1:
+        novelty = np.interp(
+            np.arange(n_beats),
+            np.arange(n_ssm) * downsample_factor,
+            novelty_ds
+        )
+    else:
+        novelty = novelty_ds
 
     # Normalize
     max_val = np.max(novelty)
@@ -583,56 +602,50 @@ def compute_energy_curve(y: np.ndarray, sr: int, hop: int = HOP_LENGTH) -> np.nd
 # ══════════════════════════════════════════════════════════════════════════
 
 def compute_waveform_data(y: np.ndarray, sr: int, num_peaks: int = 800) -> Dict:
-    """Compute waveform peaks + 3-band spectral energy for RGB rendering."""
+    """Compute waveform peaks + 3-band spectral energy for RGB rendering — vectorized."""
     try:
-        seg_len = max(1, len(y) // num_peaks)
-        peaks = []
-        spectral_low = []
-        spectral_mid = []
-        spectral_high = []
+        n = len(y)
+        seg_len = max(1, n // num_peaks)
+        actual_peaks = min(num_peaks, n // seg_len)
 
-        for i in range(num_peaks):
-            start = i * seg_len
-            end = min(start + seg_len, len(y))
-            if start >= len(y):
-                break
-            segment = y[start:end]
-            peaks.append(float(np.max(np.abs(segment))))
+        # Vectorized peak computation — reshape and take max per segment
+        trimmed = y[:actual_peaks * seg_len].reshape(actual_peaks, seg_len)
+        peaks = np.max(np.abs(trimmed), axis=1).tolist()
 
-            if len(segment) >= 256:
-                fft = np.fft.rfft(segment * np.hanning(len(segment)))
-                power = np.abs(fft) ** 2
-                freqs = np.fft.rfftfreq(len(segment), d=1.0 / sr)
-                low = float(np.sum(power[freqs < 250]))
-                mid = float(np.sum(power[(freqs >= 250) & (freqs < 4000)]))
-                high = float(np.sum(power[freqs >= 4000]))
-                total = low + mid + high + 1e-10
-                spectral_low.append(low / total)
-                spectral_mid.append(mid / total)
-                spectral_high.append(high / total)
-            else:
-                spectral_low.append(0.33)
-                spectral_mid.append(0.33)
-                spectral_high.append(0.33)
+        # Spectral energy: compute STFT once, then slice by frequency
+        stft = np.abs(librosa.stft(y, hop_length=seg_len, n_fft=min(2048, seg_len * 2))) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=min(2048, seg_len * 2))
 
-        max_peak = max(peaks) if peaks else 1.0
-        peaks = [p / max_peak for p in peaks]
+        low_mask = freqs < 250
+        mid_mask = (freqs >= 250) & (freqs < 4000)
+        high_mask = freqs >= 4000
+
+        # Sum energy per band, subsample to match peaks count
+        low_energy = np.sum(stft[low_mask, :], axis=0)
+        mid_energy = np.sum(stft[mid_mask, :], axis=0)
+        high_energy = np.sum(stft[high_mask, :], axis=0)
+
+        # Normalize each band
+        def norm(arr):
+            mx = np.max(arr)
+            return (arr / mx).tolist() if mx > 0 else arr.tolist()
+
+        # Subsample to match actual_peaks
+        indices = np.linspace(0, len(low_energy) - 1, actual_peaks).astype(int)
+        spectral_low = norm(low_energy[indices])
+        spectral_mid = norm(mid_energy[indices])
+        spectral_high = norm(high_energy[indices])
 
         return {
             "waveform_peaks": peaks,
             "spectral_energy": {
-                "low_energy": round(float(np.mean(spectral_low)), 4),
-                "mid_energy": round(float(np.mean(spectral_mid)), 4),
-                "high_energy": round(float(np.mean(spectral_high)), 4),
+                "low": spectral_low,
+                "mid": spectral_mid,
+                "high": spectral_high,
             },
         }
     except Exception:
         return {"waveform_peaks": [], "spectral_energy": None}
-
-
-# ══════════════════════════════════════════════════════════════════════════
-#   BACKWARD-COMPATIBLE WRAPPERS
-# ══════════════════════════════════════════════════════════════════════════
 
 def detect_bpm_and_beats(file_path: str) -> Dict:
     y, sr = librosa.load(file_path, sr=SR, duration=MAX_DURATION)
