@@ -903,6 +903,17 @@ export default function DashboardPage() {
         e.preventDefault();
         deleteTrack(selectedTrack.id).then(() => { loadTracks(); setSelectedTrack(null); showToast('Track supprimé', 'success'); });
       }
+      // Ctrl+F = focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+      // Escape = clear search / blur
+      if (e.key === 'Escape') {
+        if (searchQuery) { setSearchQuery(''); }
+        (document.activeElement as HTMLElement)?.blur();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -2139,6 +2150,8 @@ useEffect(() => {
                 <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Espace</kbd> Play/Pause</span>
                 <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Clic droit</kbd> Menu</span>
                 <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Suppr</kbd> Supprimer</span>
+        <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Ctrl+F</kbd> Rechercher</span>
+        <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Esc</kbd> Effacer</span>
               </div>
 
               {/* ── Action Buttons ── */}
