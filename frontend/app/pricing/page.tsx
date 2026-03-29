@@ -174,7 +174,7 @@ export default function PricingPage() {
                 ))}
                 {plan.limitations.map((limitation) => (
                   <li key={limitation} className="flex items-start gap-2">
-                    <span className="text-gray-600 mt-0.5 shrink-0">\u2715</span>
+                    <span className="text-gray-600 mt-0.5 shrink-0">{"\u2715"}</span>
                     <span className="text-sm text-gray-500">{limitation}</span>
                   </li>
                 ))}
