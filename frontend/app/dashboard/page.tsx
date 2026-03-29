@@ -9,8 +9,8 @@ import {
   Search, MoreVertical, Zap, Wand2, Type, Disc, RefreshCw, Star, Filter,
   Grid3X3, List as ListIcon, Check, X, Music, Headphones, ArrowUpDown, Folder,
   ZoomIn, ZoomOut, CheckSquare, Square, AlertTriangle, Sparkles, Image
-, SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid, ChevronLeft, ChevronRight, Palette, Eye, Layers, GitBranch, RotateCcw, Settings} from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints } from '@/lib/api';
+, SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid, ChevronLeft, ChevronRight, Palette, Eye, Layers, GitBranch, RotateCcw, Settings, Shield, Lock, Unlock, Crown} from 'lucide-react';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints, getCurrentUser } from '@/lib/api';
 import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
@@ -188,6 +188,64 @@ export default function DashboardPage() {
   const [loopActive, setLoopActive] = useState(false);
 
   // Sync loop refs for timeupdate callback
+  // ── Fetch current user & plan features on mount ──
+  useEffect(() => {
+    const fetchUserAndFeatures = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+        // Fetch plan features matrix
+        const token = localStorage.getItem('cueforge_token');
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+        const res = await fetch(apiBase + '/admin/plan-features', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) {
+          const data = await res.json();
+          setPlanFeatures(data.features || {});
+          setFeatureLabels(data.feature_labels || {});
+        }
+      } catch (e) { console.error('Failed to fetch user/features:', e); }
+    };
+    fetchUserAndFeatures();
+  }, []);
+
+  // ── Helper: check if feature is enabled for current user's plan ──
+  const isFeatureEnabled = useCallback((featureName: string) => {
+    if (!currentUser) return true; // default allow while loading
+    const plan = currentUser.subscription_plan || 'free';
+    return planFeatures[plan]?.[featureName] ?? true;
+  }, [currentUser, planFeatures]);
+
+  // ── Toggle plan feature (admin only) ──
+  const togglePlanFeature = useCallback(async (planName: string, featureName: string, enabled: boolean) => {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const res = await fetch(apiBase + '/admin/plan-features/' + planName + '/' + featureName, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ is_enabled: enabled })
+      });
+      if (res.ok) {
+        setPlanFeatures(prev => ({ ...prev, [planName]: { ...prev[planName], [featureName]: enabled } }));
+      }
+    } catch (e) { console.error('Failed to toggle feature:', e); }
+  }, []);
+
+  // ── Reset plan features to defaults (admin only) ──
+  const resetPlanFeatures = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const res = await fetch(apiBase + '/admin/plan-features/reset', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlanFeatures(data.features || {});
+        setFeatureLabels(data.feature_labels || {});
+      }
+    } catch (e) { console.error('Failed to reset features:', e); }
+  }, []);
+
   useEffect(() => { loopActiveRef.current = loopActive; }, [loopActive]);
   useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);
   useEffect(() => { loopOutRef.current = loopOut; }, [loopOut]);
@@ -446,6 +504,10 @@ return () => document.removeEventListener('click', handler);
   const [batchValue, setBatchValue] = useState('');
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
   const [selectedWheelKey, setSelectedWheelKey] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{id:number;email:string;name?:string;subscription_plan:string;is_admin:boolean;tracks_today:number}|null>(null);
+  const [planFeatures, setPlanFeatures] = useState<Record<string, Record<string, boolean>>>({});
+  const [featureLabels, setFeatureLabels] = useState<Record<string, string>>({});
+  const [showPlanAdmin, setShowPlanAdmin] = useState(false);
   const [showWatchFolder, setShowWatchFolder] = useState(false);
   const [watchFolderPath, setWatchFolderPath] = useState('');
   const [inlineEditId, setInlineEditId] = useState(null);
@@ -1349,7 +1411,10 @@ useEffect(() => {
           { key: 'grid', icon: <Grid3X3 size={16} />, label: 'Grid' },
           { key: 'mixable', icon: <Music2 size={16} />, label: 'Mix' },
           { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
-        ].map((mod) => (
+        ].filter((mod) => {
+          const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis' };
+          return isFeatureEnabled(featureMap[mod.key] || mod.key);
+        }).map((mod) => (
           <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
             {mod.icon}
             <span>{mod.label}</span>
@@ -3954,6 +4019,59 @@ useEffect(() => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Admin: Plan Feature Gating ── */}
+      {currentUser?.is_admin && (
+        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-purple-400 flex items-center gap-2"><Shield className="w-5 h-5" /> Plan Feature Gating</h3>
+            <div className="flex gap-2">
+              <button onClick={resetPlanFeatures} className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-xs rounded text-gray-300">Reset Defaults</button>
+              <button onClick={() => setShowPlanAdmin(!showPlanAdmin)} className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-xs rounded text-white">{showPlanAdmin ? 'Hide' : 'Show'} Matrix</button>
+            </div>
+          </div>
+          {showPlanAdmin && Object.keys(featureLabels).length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="text-left py-2 px-3 text-gray-400">Feature</th>
+                    {['free', 'pro', 'unlimited'].map(plan => (
+                      <th key={plan} className="text-center py-2 px-3">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${plan === 'free' ? 'bg-gray-700 text-gray-300' : plan === 'pro' ? 'bg-yellow-600 text-black' : 'bg-purple-600 text-white'}`}>
+                          {plan.toUpperCase()}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(featureLabels).map(([feature, label]) => (
+                    <tr key={feature} className="border-b border-gray-800 hover:bg-gray-800/50">
+                      <td className="py-2 px-3 text-gray-300">{label}</td>
+                      {['free', 'pro', 'unlimited'].map(plan => (
+                        <td key={plan} className="text-center py-2 px-3">
+                          <button
+                            onClick={() => togglePlanFeature(plan, feature, !planFeatures[plan]?.[feature])}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${planFeatures[plan]?.[feature] ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-500'}`}
+                          >
+                            {planFeatures[plan]?.[feature] ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1"><Unlock className="w-3 h-3 text-green-400" /> Enabled</span>
+                <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-gray-500" /> Disabled</span>
+                <span className="ml-auto">Changes apply immediately to all users on that plan</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
