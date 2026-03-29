@@ -339,7 +339,84 @@ async def update_site_settings(
 
 
 # ═══════════════════════════════════════════════
-# PAGES
+# PAGE CONFIGS (toggle pages on/off)
+# ═══════════════════════════════════════════════
+
+@router.get("/settings/pages")
+async def list_page_configs(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Liste les page configs (pricing, cgu, etc.) avec leur statut on/off."""
+    from app.models.site_settings import DEFAULT_PAGES
+    configs = db.query(PageConfig).order_by(PageConfig.id).all()
+    if not configs:
+        for p in DEFAULT_PAGES:
+            pc = PageConfig(**p)
+            db.add(pc)
+        db.commit()
+        configs = db.query(PageConfig).order_by(PageConfig.id).all()
+    return [{"id": c.id, "page_name": c.page_name, "label": c.label, "is_enabled": c.is_enabled} for c in configs]
+
+
+@router.post("/settings/pages", status_code=201)
+async def create_page_config(
+    data: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Crée une nouvelle page config."""
+    existing = db.query(PageConfig).filter(PageConfig.page_name == data.get("page_name")).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Page config existe déjà")
+    pc = PageConfig(
+        page_name=data["page_name"],
+        label=data.get("label", data["page_name"]),
+        is_enabled=data.get("is_enabled", True),
+    )
+    db.add(pc)
+    db.commit()
+    db.refresh(pc)
+    return {"id": pc.id, "page_name": pc.page_name, "label": pc.label, "is_enabled": pc.is_enabled}
+
+
+@router.patch("/settings/pages/{page_name}")
+async def toggle_page_config(
+    page_name: str,
+    data: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Toggle une page on/off."""
+    pc = db.query(PageConfig).filter(PageConfig.page_name == page_name).first()
+    if not pc:
+        raise HTTPException(status_code=404, detail="Page config non trouvée")
+    if "is_enabled" in data:
+        pc.is_enabled = data["is_enabled"]
+    if "label" in data:
+        pc.label = data["label"]
+    db.commit()
+    db.refresh(pc)
+    return {"id": pc.id, "page_name": pc.page_name, "label": pc.label, "is_enabled": pc.is_enabled}
+
+
+@router.delete("/settings/pages/{page_name}")
+async def delete_page_config(
+    page_name: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime une page config."""
+    pc = db.query(PageConfig).filter(PageConfig.page_name == page_name).first()
+    if not pc:
+        raise HTTPException(status_code=404, detail="Page config non trouvée")
+    db.delete(pc)
+    db.commit()
+    return {"message": f"Page config '{page_name}' supprimée"}
+
+
+# ═══════════════════════════════════════════════
+# PAGES (CMS)
 # ═══════════════════════════════════════════════
 
 @router.get("/pages")
