@@ -831,25 +831,6 @@ return () => document.removeEventListener('click', handler);
       ws.options.autoCenter = newZoom > 1;
     }
 
-    // Scroll-wheel zoom on waveform
-    const handleWaveformWheel = useCallback((e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      handleZoom(e.deltaY < 0 ? 'in' : 'out');
-    }, [zoomLevel]) else {
-      newZoom = Math.max(zoomLevel / 2, 1);
-    }
-    setZoomLevel(newZoom);
-    try { ws.zoom(newZoom); } catch {}
-    if (newZoom > 1) {
-      ws.options.autoScroll = true;
-      ws.options.autoCenter = true;
-    } else {
-      ws.options.autoScroll = false;
-      ws.options.autoCenter = false;
-    }
-  }
-
   // Wheel zoom listener on waveform
     useEffect(() => {
       const container = waveformRef.current;
