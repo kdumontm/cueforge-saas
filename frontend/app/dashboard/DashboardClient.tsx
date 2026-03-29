@@ -348,35 +348,6 @@ export default function DashboardPage() {
     setTrackRatings(prev => ({ ...prev, [trackId]: prev[trackId] === rating ? 0 : rating }));
   };
 
-  const generateSmartPlaylist = useCallback(() => {
-    if (!selectedTrack || !selectedTrack.analysis) {
-      showToast('S\u00e9lectionnez une track analys\u00e9e', 'info');
-      return;
-    }
-    var compatible = tracks.filter(function(t) {
-      return t.id !== selectedTrack.id && isMixCompatible(selectedTrack, t);
-    });
-    if (compatible.length === 0) {
-      showToast('Aucune track compatible trouv\u00e9e', 'info');
-      return;
-    }
-    var srcBpm = selectedTrack.analysis.bpm || 0;
-    var srcKey = toCamelot(selectedTrack.analysis.key);
-    var srcCompatKeys = getCompatibleKeys(srcKey);
-    compatible.sort(function(a, b) {
-      var bpmDiffA = Math.abs((a.analysis.bpm || 0) - srcBpm);
-      var bpmDiffB = Math.abs((b.analysis.bpm || 0) - srcBpm);
-      var keyA = toCamelot(a.analysis.key);
-      var keyB = toCamelot(b.analysis.key);
-      var keyScoreA = keyA === srcKey ? 0 : srcCompatKeys.indexOf(keyA) >= 0 ? 1 : 2;
-      var keyScoreB = keyB === srcKey ? 0 : srcCompatKeys.indexOf(keyB) >= 0 ? 1 : 2;
-      if (keyScoreA !== keyScoreB) return keyScoreA - keyScoreB;
-      return bpmDiffA - bpmDiffB;
-    });
-    setSmartPlaylist(compatible.slice(0, 20));
-    setShowSmartPlaylist(true);
-    showToast('Playlist: ' + Math.min(compatible.length, 20) + ' tracks compatibles', 'info');
-  }, [selectedTrack, tracks]);
 
   // Column filters
   const [showColumnFilters, setShowColumnFilters] = useState(false);
@@ -542,8 +513,6 @@ return () => document.removeEventListener('click', handler);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [trackRatings, setTrackRatings] = useState<Record<number, number>>({});
-  const [smartPlaylist, setSmartPlaylist] = useState([]);
-  const [showSmartPlaylist, setShowSmartPlaylist] = useState(false);
   const [trackColors, setTrackColors] = useState<Record<number, string>>({});
   const [setLists, setSetLists] = useState<{name: string; trackIds: number[]}[]>([]);
   const [activeSetList, setActiveSetList] = useState<number>(-1);
@@ -1586,38 +1555,10 @@ useEffect(() => {
         <button onClick={() => { const unanalyzed = tracks.filter(t => !t.analysis || !t.analysis.bpm); if (unanalyzed.length === 0) { showToast("Toutes les tracks sont d\u00e9j\u00e0 analys\u00e9es", "info"); return; } showToast("Analyse de " + unanalyzed.length + " tracks en cours...", "info"); batchAnalyzeAudio(unanalyzed.map(t => t.id)); }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-orange-500/30 text-orange-300 border border-orange-500/50 hover:bg-orange-500/50">
           <RefreshCw className="w-3 h-3" /> Analyze All
         </button>
-              <button onClick={generateSmartPlaylist} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/50">
-                <Sparkles className="w-3 h-3" /> Smart Playlist
-              </button>
               <button onClick={saveMetadata} disabled={savingMeta}
                 className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
                 {savingMeta ? 'Saving...' : 'Save'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Smart Playlist Panel */}
-      {showSmartPlaylist && smartPlaylist.length > 0 && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowSmartPlaylist(false)}>
-          <div className="bg-slate-800 border border-purple-500/50 rounded-xl p-4 max-w-lg w-full mx-4 max-h-[70vh] overflow-y-auto" onClick={function(e) { e.stopPropagation(); }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-purple-300 font-bold flex items-center gap-2"><Sparkles className="w-4 h-4" /> Smart Playlist</h3>
-              <button onClick={() => setShowSmartPlaylist(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
-            </div>
-            <p className="text-[11px] text-slate-400 mb-3">Tracks compatibles avec {selectedTrack ? (selectedTrack.title || selectedTrack.original_filename) : ''} - tri par proximit\u00e9 BPM et cl\u00e9</p>
-            <div className="space-y-1">
-              {smartPlaylist.map(function(t, idx) {
-                return (
-                  <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded bg-slate-700/50 hover:bg-slate-700 cursor-pointer transition-colors" onClick={() => { setSelectedTrack(t); setShowSmartPlaylist(false); }}>
-                    <span className="text-purple-400 text-[10px] font-mono w-5">{idx + 1}.</span>
-                    <span className="text-white text-xs flex-1 truncate">{t.title || t.original_filename}</span>
-                    <span className="text-cyan-400 text-[10px] font-mono">{t.analysis ? Math.round(t.analysis.bpm) : '--'}</span>
-                    <span className="text-emerald-400 text-[10px] font-mono w-8 text-center">{t.analysis ? toCamelot(t.analysis.key) : '--'}</span>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
