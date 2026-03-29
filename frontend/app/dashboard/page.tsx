@@ -1496,9 +1496,18 @@ useEffect(() => {
                 </div>
       <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
         
-                {/* Table header */}
+                {/* Selection action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
+            <span className="text-xs font-medium text-purple-300">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+            <button onClick={() => { const ids = Array.from(selectedIds); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
+            <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
+            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
+          </div>
+        )}
+        {/* Table header */}
         <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
-          <span />
+          <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => setSortBy(sortBy === 'title' ? 'date' : 'title')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && '▲'}</span>
           <span onClick={() => setSortBy(sortBy === 'genre' ? 'date' : 'genre')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && '▲'}</span>
           <span onClick={() => setSortBy(sortBy === 'bpm' ? 'date' : 'bpm')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && '▲'}</span>
