@@ -1898,14 +1898,13 @@ useEffect(() => {
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
           className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-300 focus:outline-none">
-          <option value="date">Date</option>
-          <option value="bpm">BPM</option>
-          <option value="key">Key</option>
-          <option value="title">Titre</option> <option value="artist">Artiste</option> <option value="album">Album</option>
-          <option value="energy">Energy</option>
-          <option value="genre">Genre</option>
-          <option value="duration">Durée</option>
-        </select>
+          <option value="date">Date Added</option>
+                            <option value="title">Title</option>
+                            <option value="bpm">BPM</option>
+                            <option value="key">Key</option>
+                            <option value="energy">Energy</option>
+                            <option value="genre">Genre</option>
+                            <option value="duration">Duration</option></select>
         <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-400 hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
       </div>
 
@@ -2011,7 +2010,7 @@ useEffect(() => {
                 {/* FILTER BAR */}
                 <div className="mb-2 space-y-2">
                   <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
-                    <Filter size={12} /> {showFilters ? 'Hide Filters' : 'Filter & Sort'}
+                    <Filter size={12} /> {showFilters ? 'Hide Filters' : 'Filter & Sort'}{(() => { const n = (filterBpmMin > 0 ? 1 : 0) + (filterBpmMax < 999 ? 1 : 0) + (filterKey ? 1 : 0) + (filterGenre ? 1 : 0) + (filterEnergyMin > 0 ? 1 : 0) + (filterEnergyMax < 100 ? 1 : 0); return n > 0 ? ` (${n})` : ''; })()}
                   </button>
                   {showFilters && (
                     <div className="bg-gray-800/50 rounded-lg p-2 space-y-2 border border-gray-700/50">
@@ -2077,8 +2076,8 @@ useEffect(() => {
                           </button>
                         </div>
                       </div>
-{(filterBpmMin > 0 || filterBpmMax < 999 || filterKey) && (
-                        <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); }} className="text-[10px] text-red-400 hover:text-red-300">Clear filters</button>
+{(filterBpmMin > 0 || filterBpmMax < 999 || filterKey || filterGenre || filterEnergyMin > 0 || filterEnergyMax < 100) && (
+                        <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); setFilterGenre(''); setFilterEnergyMin(0); setFilterEnergyMax(100); }} className="text-[10px] text-red-400 hover:text-red-300">Clear filters</button>
                       )}
                     </div>
                   )}
