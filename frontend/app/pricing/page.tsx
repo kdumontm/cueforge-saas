@@ -18,7 +18,7 @@ const plans = [
       'Points cue automatiques',
       'Export Rekordbox XML',
       'Nettoyage de titres',
-      'Detection de genre',
+      'Détection de genre',
     ],
     limitations: [
       'Pas de recherche Spotify',
@@ -42,7 +42,7 @@ const plans = [
       'Nettoyage de titres avance',
       'Parse remix / feat.',
       'Fix ID3 tags',
-      'Detection de genre avancee',
+      'Detection de genre avancée',
       'Support prioritaire',
     ],
     limitations: [],
@@ -54,7 +54,7 @@ const plans = [
     name: 'App Desktop',
     price: '19.99',
     period: '/mois',
-    description: 'Analyse illimitee avec l\'application desktop',
+    description: 'Analyse illimitée avec l\'application desktop',
     features: [
       'Morceaux illimites',
       'Toutes les fonctionnalites Pro',
@@ -127,7 +127,7 @@ export default function PricingPage() {
           Choisissez votre plan
         </h2>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          Des outils professionnels pour preparer vos sets. Analyse audio precise,
+          Des outils professionnels pour préparer vos sets. Analyse audio précise,
           points cue intelligents, et metadata automatique.
         </p>
       </div>
