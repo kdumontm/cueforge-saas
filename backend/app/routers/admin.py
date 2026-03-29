@@ -1,373 +1,1083 @@
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+"""
+Admin Router — Back-office API pour CueForge.
+
+Endpoints regroupés :
+  /admin/settings      → Config globale du site
+  /admin/pages         → CRUD pages
+  /admin/sections      → CRUD sections (dans une page)
+  /admin/components    → CRUD composants (dans une section)
+  /admin/media         → Upload / gestion des médias
+  /admin/features      → Feature flags par plan
+  /admin/users         → Gestion des utilisateurs
+
+Tous les endpoints nécessitent is_admin == True.
+"""
+import json
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
 
 from app.database import get_db
-from app.models import User
-from app.models.site_settings import PageConfig, PlanFeature, DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_CONFIGS
-from app.services.auth_service import hash_password, verify_password
-from app.middleware.auth import get_current_user
+from app.models.user import User
+from app.models.cms import (
+    SiteSettings, Page, Section, Component, MediaAsset,
+)
+from app.models.site_settings import PageConfig, PlanFeature
+from app.middleware.admin import require_admin
+from app.services.media_service import upload_media_file, delete_media_file
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-# ── Schemas ──────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# Pydantic Schemas
+# ═══════════════════════════════════════════════
 
-class AdminUserResponse(BaseModel):
-    id: int
-    email: str
-    name: Optional[str]
-    subscription_plan: str
-    is_admin: bool
-    tracks_today: int
-    created_at: str
+# ── Site Settings ──
 
-    class Config:
-        from_attributes = True
+class SiteSettingsUpdate(BaseModel):
+    site_name: Optional[str] = None
+    tagline: Optional[str] = None
+    logo_url: Optional[str] = None
+    favicon_url: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    background_color: Optional[str] = None
+    text_color: Optional[str] = None
+    font_family: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    og_image_url: Optional[str] = None
+    footer_text: Optional[str] = None
+    twitter_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    discord_url: Optional[str] = None
+    youtube_url: Optional[str] = None
+    maintenance_mode: Optional[bool] = None
+    maintenance_message: Optional[str] = None
+    google_analytics_id: Optional[str] = None
 
-    @classmethod
-    def from_orm_custom(cls, user: User):
-        return cls(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            subscription_plan=user.subscription_plan,
-            is_admin=user.is_admin,
-            tracks_today=user.tracks_today,
-            created_at=str(user.created_at) if user.created_at else "",
-        )
 
+# ── Pages ──
 
-class CreateUserRequest(BaseModel):
-    email: EmailStr
+class PageCreate(BaseModel):
     name: str
-    password: str
-    subscription_plan: str = "free"
-    is_admin: bool = False
+    slug: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    layout: str = "default"
+    show_in_nav: bool = True
+    nav_label: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    sort_order: int = 0
 
 
-class UpdateUserRequest(BaseModel):
-    email: Optional[EmailStr] = None
+class PageUpdate(BaseModel):
     name: Optional[str] = None
-    password: Optional[str] = None
+    slug: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_published: Optional[bool] = None
+    layout: Optional[str] = None
+    show_in_nav: Optional[bool] = None
+    nav_label: Optional[str] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+    og_image_url: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+# ── Sections ──
+
+class SectionCreate(BaseModel):
+    page_id: int
+    name: str
+    section_type: str  # hero / features / pricing / cta / …
+    sort_order: int = 0
+    is_visible: bool = True
+    background_color: Optional[str] = None
+    background_image_url: Optional[str] = None
+    padding_top: Optional[str] = "py-16"
+    padding_bottom: Optional[str] = "pb-16"
+    max_width: Optional[str] = "max-w-7xl"
+    custom_css_class: Optional[str] = None
+    settings: Optional[dict] = None
+
+
+class SectionUpdate(BaseModel):
+    name: Optional[str] = None
+    section_type: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_visible: Optional[bool] = None
+    background_color: Optional[str] = None
+    background_image_url: Optional[str] = None
+    padding_top: Optional[str] = None
+    padding_bottom: Optional[str] = None
+    max_width: Optional[str] = None
+    custom_css_class: Optional[str] = None
+    settings: Optional[dict] = None
+
+
+# ── Components ──
+
+class ComponentCreate(BaseModel):
+    section_id: int
+    component_type: str  # heading / text / image / button / card / …
+    sort_order: int = 0
+    is_visible: bool = True
+    content: Optional[dict] = None
+    custom_css_class: Optional[str] = None
+    grid_column: Optional[str] = None
+
+
+class ComponentUpdate(BaseModel):
+    component_type: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_visible: Optional[bool] = None
+    content: Optional[dict] = None
+    custom_css_class: Optional[str] = None
+    grid_column: Optional[str] = None
+
+
+# ── Plan Features (uses existing PlanFeature model from site_settings.py) ──
+
+class PlanFeatureCreate(BaseModel):
+    plan_name: str       # free / pro / unlimited
+    feature_name: str    # module identifier
+    is_enabled: bool = True
+    label: Optional[str] = None
+
+
+class PlanFeatureUpdate(BaseModel):
+    plan_name: Optional[str] = None
+    feature_name: Optional[str] = None
+    is_enabled: Optional[bool] = None
+    label: Optional[str] = None
+
+
+# ── Users ──
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
     subscription_plan: Optional[str] = None
     is_admin: Optional[bool] = None
 
 
-class PageConfigResponse(BaseModel):
-    id: int
-    page_name: str
-    is_enabled: bool
-    label: Optional[str]
+# ═══════════════════════════════════════════════
+# Helpers
+# ═══════════════════════════════════════════════
 
-    class Config:
-        from_attributes = True
-
-
-class PageToggleRequest(BaseModel):
-    is_enabled: bool
-
-
-class UserSettingsUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    current_password: Optional[str] = None
-    new_password: Optional[str] = None
-
-
-class UserProfileResponse(BaseModel):
-    id: int
-    email: str
-    name: Optional[str]
-    subscription_plan: str
-    is_admin: bool
-
-    class Config:
-        from_attributes = True
-
-
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+def _serialize_page(page: Page, include_sections: bool = False) -> dict:
+    """Sérialise une Page en dict."""
+    data = {
+        "id": page.id,
+        "name": page.name,
+        "slug": page.slug,
+        "title": page.title,
+        "description": page.description,
+        "is_published": page.is_published,
+        "is_system": page.is_system,
+        "layout": page.layout,
+        "show_in_nav": page.show_in_nav,
+        "nav_label": page.nav_label,
+        "sort_order": page.sort_order,
+        "meta_title": page.meta_title,
+        "meta_description": page.meta_description,
+        "og_image_url": page.og_image_url,
+        "created_at": page.created_at.isoformat() if page.created_at else None,
+        "updated_at": page.updated_at.isoformat() if page.updated_at else None,
+        "published_at": page.published_at.isoformat() if page.published_at else None,
+    }
+    if include_sections:
+        data["sections"] = [
+            _serialize_section(s, include_components=True)
+            for s in (page.sections or [])
+        ]
+    return data
 
 
-# ── Admin: User Management ──────────────────────────────────────────────────
+def _serialize_section(section: Section, include_components: bool = False) -> dict:
+    """Sérialise une Section en dict."""
+    data = {
+        "id": section.id,
+        "page_id": section.page_id,
+        "name": section.name,
+        "section_type": section.section_type,
+        "sort_order": section.sort_order,
+        "is_visible": section.is_visible,
+        "background_color": section.background_color,
+        "background_image_url": section.background_image_url,
+        "padding_top": section.padding_top,
+        "padding_bottom": section.padding_bottom,
+        "max_width": section.max_width,
+        "custom_css_class": section.custom_css_class,
+        "settings": section.settings,
+        "created_at": section.created_at.isoformat() if section.created_at else None,
+        "updated_at": section.updated_at.isoformat() if section.updated_at else None,
+    }
+    if include_components:
+        data["components"] = [
+            _serialize_component(c) for c in (section.components or [])
+        ]
+    return data
 
-@router.get("/users", response_model=List[AdminUserResponse])
-def list_users(
+
+def _serialize_component(comp: Component) -> dict:
+    """Sérialise un Component en dict."""
+    return {
+        "id": comp.id,
+        "section_id": comp.section_id,
+        "component_type": comp.component_type,
+        "sort_order": comp.sort_order,
+        "is_visible": comp.is_visible,
+        "content": comp.content,
+        "custom_css_class": comp.custom_css_class,
+        "grid_column": comp.grid_column,
+        "created_at": comp.created_at.isoformat() if comp.created_at else None,
+        "updated_at": comp.updated_at.isoformat() if comp.updated_at else None,
+    }
+
+
+def _serialize_media(media: MediaAsset) -> dict:
+    return {
+        "id": media.id,
+        "filename": media.filename,
+        "file_url": media.file_url,
+        "file_size": media.file_size,
+        "mime_type": media.mime_type,
+        "width": media.width,
+        "height": media.height,
+        "alt_text": media.alt_text,
+        "category": media.category,
+        "tags": media.tags,
+        "created_at": media.created_at.isoformat() if media.created_at else None,
+    }
+
+
+def _serialize_feature(f: PlanFeature) -> dict:
+    return {
+        "id": f.id,
+        "plan_name": f.plan_name,
+        "feature_name": f.feature_name,
+        "is_enabled": f.is_enabled,
+        "label": f.label,
+    }
+
+
+# ═══════════════════════════════════════════════
+# SITE SETTINGS
+# ═══════════════════════════════════════════════
+
+@router.get("/settings")
+async def get_site_settings(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
-    """List all users. Admin only."""
-    users = db.query(User).order_by(User.id).all()
-    return [AdminUserResponse.from_orm_custom(u) for u in users]
+    """Récupère la configuration globale du site."""
+    settings = db.query(SiteSettings).first()
+    if not settings:
+        # Créer les settings par défaut
+        settings = SiteSettings(id=1)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+
+    return {
+        "id": settings.id,
+        "site_name": settings.site_name,
+        "tagline": settings.tagline,
+        "logo_url": settings.logo_url,
+        "favicon_url": settings.favicon_url,
+        "primary_color": settings.primary_color,
+        "secondary_color": settings.secondary_color,
+        "accent_color": settings.accent_color,
+        "background_color": settings.background_color,
+        "text_color": settings.text_color,
+        "font_family": settings.font_family,
+        "meta_title": settings.meta_title,
+        "meta_description": settings.meta_description,
+        "og_image_url": settings.og_image_url,
+        "footer_text": settings.footer_text,
+        "twitter_url": settings.twitter_url,
+        "instagram_url": settings.instagram_url,
+        "discord_url": settings.discord_url,
+        "youtube_url": settings.youtube_url,
+        "maintenance_mode": settings.maintenance_mode,
+        "maintenance_message": settings.maintenance_message,
+        "google_analytics_id": settings.google_analytics_id,
+        "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
+    }
 
 
-@router.post("/users", response_model=AdminUserResponse, status_code=201)
-def create_user(
-    body: CreateUserRequest,
+@router.put("/settings")
+async def update_site_settings(
+    data: SiteSettingsUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
-    """Create a new user (admin or regular, any plan). Admin only."""
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    """Met à jour la configuration globale du site."""
+    settings = db.query(SiteSettings).first()
+    if not settings:
+        settings = SiteSettings(id=1)
+        db.add(settings)
 
-    valid_plans = {"free", "pro", "unlimited"}
-    if body.subscription_plan not in valid_plans:
-        raise HTTPException(status_code=400, detail=f"Invalid plan. Choose from: {valid_plans}")
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(settings, key, value)
 
-    new_user = User(
-        email=body.email,
-        name=body.name,
-        password_hash=hash_password(body.password),
-        subscription_plan=body.subscription_plan,
-        is_admin=body.is_admin,
-    )
-    db.add(new_user)
+    settings.updated_by = admin.id
     db.commit()
-    db.refresh(new_user)
-    return AdminUserResponse.from_orm_custom(new_user)
+    db.refresh(settings)
+
+    return {"message": "Settings mises à jour", "settings": await get_site_settings(db, admin)}
 
 
-@router.patch("/users/{user_id}", response_model=AdminUserResponse)
-def update_user(
-    user_id: int,
-    body: UpdateUserRequest,
+# ═══════════════════════════════════════════════
+# PAGES
+# ═══════════════════════════════════════════════
+
+@router.get("/pages")
+async def list_pages(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
-    """Update a user's details. Admin only."""
+    """Liste toutes les pages (triées par sort_order)."""
+    pages = db.query(Page).order_by(Page.sort_order, Page.id).all()
+    return [_serialize_page(p) for p in pages]
+
+
+@router.get("/pages/{page_id}")
+async def get_page(
+    page_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Récupère une page avec toutes ses sections et composants."""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+    return _serialize_page(page, include_sections=True)
+
+
+@router.post("/pages", status_code=201)
+async def create_page(
+    data: PageCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Crée une nouvelle page."""
+    # Vérifier unicité du slug
+    existing = db.query(Page).filter(Page.slug == data.slug).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Le slug '{data.slug}' existe déjà")
+
+    page = Page(
+        **data.model_dump(),
+        created_by=admin.id,
+    )
+    db.add(page)
+    db.commit()
+    db.refresh(page)
+
+    return _serialize_page(page)
+
+
+@router.put("/pages/{page_id}")
+async def update_page(
+    page_id: int,
+    data: PageUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour une page."""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Vérifier unicité du slug si modifié
+    if "slug" in update_data and update_data["slug"] != page.slug:
+        existing = db.query(Page).filter(Page.slug == update_data["slug"]).first()
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Le slug '{update_data['slug']}' existe déjà")
+
+    # Gérer publication
+    if "is_published" in update_data and update_data["is_published"] and not page.is_published:
+        page.published_at = datetime.utcnow()
+
+    for key, value in update_data.items():
+        setattr(page, key, value)
+
+    db.commit()
+    db.refresh(page)
+
+    return _serialize_page(page)
+
+
+@router.delete("/pages/{page_id}")
+async def delete_page(
+    page_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime une page (sauf les pages système)."""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+    if page.is_system:
+        raise HTTPException(status_code=403, detail="Impossible de supprimer une page système")
+
+    db.delete(page)
+    db.commit()
+    return {"message": f"Page '{page.name}' supprimée"}
+
+
+@router.put("/pages/{page_id}/publish")
+async def publish_page(
+    page_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Publie ou dépublie une page."""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+
+    page.is_published = not page.is_published
+    if page.is_published:
+        page.published_at = datetime.utcnow()
+    db.commit()
+    db.refresh(page)
+
+    status = "publiée" if page.is_published else "dépubliée"
+    return {"message": f"Page '{page.name}' {status}", "is_published": page.is_published}
+
+
+# ═══════════════════════════════════════════════
+# SECTIONS
+# ═══════════════════════════════════════════════
+
+@router.get("/pages/{page_id}/sections")
+async def list_sections(
+    page_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Liste les sections d'une page (triées par sort_order)."""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+
+    sections = (
+        db.query(Section)
+        .filter(Section.page_id == page_id)
+        .order_by(Section.sort_order)
+        .all()
+    )
+    return [_serialize_section(s, include_components=True) for s in sections]
+
+
+@router.post("/sections", status_code=201)
+async def create_section(
+    data: SectionCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Crée une nouvelle section dans une page."""
+    page = db.query(Page).filter(Page.id == data.page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+
+    section_data = data.model_dump(exclude={"settings"})
+    section = Section(**section_data)
+
+    if data.settings:
+        section.settings = data.settings
+
+    db.add(section)
+    db.commit()
+    db.refresh(section)
+
+    return _serialize_section(section)
+
+
+@router.put("/sections/{section_id}")
+async def update_section(
+    section_id: int,
+    data: SectionUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour une section."""
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section non trouvée")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # Gérer settings séparément (c'est un dict → JSON)
+    if "settings" in update_data:
+        section.settings = update_data.pop("settings")
+
+    for key, value in update_data.items():
+        setattr(section, key, value)
+
+    db.commit()
+    db.refresh(section)
+
+    return _serialize_section(section)
+
+
+@router.delete("/sections/{section_id}")
+async def delete_section(
+    section_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime une section et tous ses composants."""
+    section = db.query(Section).filter(Section.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section non trouvée")
+
+    db.delete(section)
+    db.commit()
+    return {"message": f"Section '{section.name}' supprimée"}
+
+
+@router.put("/sections/reorder")
+async def reorder_sections(
+    orders: list[dict],
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Réordonne les sections. Attend une liste de {id, sort_order}.
+    Ex: [{"id": 1, "sort_order": 0}, {"id": 2, "sort_order": 1}]
+    """
+    for item in orders:
+        section = db.query(Section).filter(Section.id == item["id"]).first()
+        if section:
+            section.sort_order = item["sort_order"]
+
+    db.commit()
+    return {"message": f"{len(orders)} sections réordonnées"}
+
+
+# ═══════════════════════════════════════════════
+# COMPONENTS
+# ═══════════════════════════════════════════════
+
+@router.post("/components", status_code=201)
+async def create_component(
+    data: ComponentCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Crée un composant dans une section."""
+    section = db.query(Section).filter(Section.id == data.section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section non trouvée")
+
+    comp_data = data.model_dump(exclude={"content"})
+    comp = Component(**comp_data)
+
+    if data.content:
+        comp.content = data.content
+
+    db.add(comp)
+    db.commit()
+    db.refresh(comp)
+
+    return _serialize_component(comp)
+
+
+@router.put("/components/{component_id}")
+async def update_component(
+    component_id: int,
+    data: ComponentUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour un composant."""
+    comp = db.query(Component).filter(Component.id == component_id).first()
+    if not comp:
+        raise HTTPException(status_code=404, detail="Composant non trouvé")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "content" in update_data:
+        comp.content = update_data.pop("content")
+
+    for key, value in update_data.items():
+        setattr(comp, key, value)
+
+    db.commit()
+    db.refresh(comp)
+
+    return _serialize_component(comp)
+
+
+@router.delete("/components/{component_id}")
+async def delete_component(
+    component_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime un composant."""
+    comp = db.query(Component).filter(Component.id == component_id).first()
+    if not comp:
+        raise HTTPException(status_code=404, detail="Composant non trouvé")
+
+    db.delete(comp)
+    db.commit()
+    return {"message": "Composant supprimé"}
+
+
+@router.put("/components/reorder")
+async def reorder_components(
+    orders: list[dict],
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Réordonne les composants. Attend une liste de {id, sort_order}.
+    Supporte aussi le déplacement entre sections via {id, sort_order, section_id}.
+    """
+    for item in orders:
+        comp = db.query(Component).filter(Component.id == item["id"]).first()
+        if comp:
+            comp.sort_order = item["sort_order"]
+            if "section_id" in item:
+                comp.section_id = item["section_id"]
+
+    db.commit()
+    return {"message": f"{len(orders)} composants réordonnés"}
+
+
+# ═══════════════════════════════════════════════
+# MEDIA
+# ═══════════════════════════════════════════════
+
+@router.get("/media")
+async def list_media(
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Liste tous les fichiers médias, optionnellement filtrés par catégorie."""
+    query = db.query(MediaAsset).order_by(MediaAsset.created_at.desc())
+    if category:
+        query = query.filter(MediaAsset.category == category)
+    return [_serialize_media(m) for m in query.all()]
+
+
+@router.post("/media", status_code=201)
+async def upload_media(
+    file: UploadFile = File(...),
+    category: str = Query(default="general"),
+    alt_text: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Upload un fichier média."""
+    result = await upload_media_file(file, category=category)
+
+    media = MediaAsset(
+        filename=result["filename"],
+        stored_filename=result["stored_filename"],
+        file_url=result["file_url"],
+        file_size=result["file_size"],
+        mime_type=result["mime_type"],
+        alt_text=alt_text,
+        category=category,
+        uploaded_by=admin.id,
+    )
+    db.add(media)
+    db.commit()
+    db.refresh(media)
+
+    return _serialize_media(media)
+
+
+@router.put("/media/{media_id}")
+async def update_media(
+    media_id: int,
+    alt_text: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour les métadonnées d'un média."""
+    media = db.query(MediaAsset).filter(MediaAsset.id == media_id).first()
+    if not media:
+        raise HTTPException(status_code=404, detail="Média non trouvé")
+
+    if alt_text is not None:
+        media.alt_text = alt_text
+    if category is not None:
+        media.category = category
+    if tags is not None:
+        media.tags = tags
+
+    db.commit()
+    db.refresh(media)
+
+    return _serialize_media(media)
+
+
+@router.delete("/media/{media_id}")
+async def delete_media(
+    media_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime un fichier média (DB + fichier)."""
+    media = db.query(MediaAsset).filter(MediaAsset.id == media_id).first()
+    if not media:
+        raise HTTPException(status_code=404, detail="Média non trouvé")
+
+    # Supprimer le fichier physique
+    delete_media_file(media.stored_filename)
+
+    db.delete(media)
+    db.commit()
+    return {"message": f"Média '{media.filename}' supprimé"}
+
+
+# ═══════════════════════════════════════════════
+# PLAN FEATURES
+# ═══════════════════════════════════════════════
+
+@router.get("/features")
+async def list_features(
+    plan: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Liste toutes les features flags, optionnellement filtrées par plan."""
+    query = db.query(PlanFeature).order_by(PlanFeature.plan_name, PlanFeature.id)
+    if plan:
+        query = query.filter(PlanFeature.plan_name == plan)
+    return [_serialize_feature(f) for f in query.all()]
+
+
+@router.post("/features", status_code=201)
+async def create_feature(
+    data: PlanFeatureCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Crée un feature flag."""
+    existing = db.query(PlanFeature).filter(
+        PlanFeature.plan_name == data.plan_name,
+        PlanFeature.feature_name == data.feature_name,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Feature '{data.feature_name}' pour plan '{data.plan_name}' existe déjà")
+
+    feature = PlanFeature(**data.model_dump())
+    db.add(feature)
+    db.commit()
+    db.refresh(feature)
+
+    return _serialize_feature(feature)
+
+
+@router.put("/features/{feature_id}")
+async def update_feature(
+    feature_id: int,
+    data: PlanFeatureUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour un feature flag."""
+    feature = db.query(PlanFeature).filter(PlanFeature.id == feature_id).first()
+    if not feature:
+        raise HTTPException(status_code=404, detail="Feature non trouvée")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(feature, key, value)
+
+    db.commit()
+    db.refresh(feature)
+
+    return _serialize_feature(feature)
+
+
+@router.delete("/features/{feature_id}")
+async def delete_feature(
+    feature_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Supprime un feature flag."""
+    feature = db.query(PlanFeature).filter(PlanFeature.id == feature_id).first()
+    if not feature:
+        raise HTTPException(status_code=404, detail="Feature non trouvée")
+
+    db.delete(feature)
+    db.commit()
+    return {"message": f"Feature '{feature.feature_key}' supprimée"}
+
+
+# ═══════════════════════════════════════════════
+# USERS (Admin management)
+# ═══════════════════════════════════════════════
+
+@router.get("/users")
+async def list_users(
+    search: Optional[str] = None,
+    plan: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Liste les utilisateurs avec filtres et pagination."""
+    query = db.query(User).order_by(User.created_at.desc())
+
+    if search:
+        query = query.filter(
+            (User.email.ilike(f"%{search}%")) | (User.name.ilike(f"%{search}%"))
+        )
+    if plan:
+        query = query.filter(User.subscription_plan == plan)
+
+    total = query.count()
+    users = query.offset(skip).limit(limit).all()
+
+    return {
+        "total": total,
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "name": u.name,
+                "subscription_plan": u.subscription_plan,
+                "is_admin": u.is_admin,
+                "email_verified": u.email_verified,
+                "oauth_provider": u.oauth_provider,
+                "organization_id": u.organization_id,
+                "org_role": u.org_role,
+                "tracks_today": u.tracks_today,
+                "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in users
+        ],
+    }
+
+
+@router.get("/users/{user_id}")
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Récupère les détails d'un utilisateur."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    if body.email is not None:
-        existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already in use")
-        user.email = body.email
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "subscription_plan": user.subscription_plan,
+        "is_admin": user.is_admin,
+        "email_verified": user.email_verified,
+        "oauth_provider": user.oauth_provider,
+        "organization_id": user.organization_id,
+        "org_role": user.org_role,
+        "avatar_url": user.avatar_url,
+        "tracks_today": user.tracks_today,
+        "last_track_date": user.last_track_date.isoformat() if user.last_track_date else None,
+        "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
 
-    if body.name is not None:
-        user.name = body.name
 
-    if body.password is not None:
-        user.password_hash = hash_password(body.password)
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    data: UserUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour un utilisateur (plan, rôle admin, etc.)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    if body.subscription_plan is not None:
-        valid_plans = {"free", "pro", "unlimited"}
-        if body.subscription_plan not in valid_plans:
-            raise HTTPException(status_code=400, detail=f"Invalid plan. Choose from: {valid_plans}")
-        user.subscription_plan = body.subscription_plan
+    update_data = data.model_dump(exclude_unset=True)
 
-    if body.is_admin is not None:
-        if user.id == current_admin.id and not body.is_admin:
-            raise HTTPException(status_code=400, detail="Cannot remove your own admin status")
-        user.is_admin = body.is_admin
+    # Protection : un admin ne peut pas se retirer ses propres droits admin
+    if "is_admin" in update_data and user.id == admin.id and not update_data["is_admin"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Impossible de retirer vos propres droits admin",
+        )
+
+    for key, value in update_data.items():
+        setattr(user, key, value)
 
     db.commit()
     db.refresh(user)
-    return AdminUserResponse.from_orm_custom(user)
+
+    return {"message": f"Utilisateur {user.email} mis à jour"}
 
 
-@router.delete("/users/{user_id}", status_code=204)
-def delete_user(
+@router.delete("/users/{user_id}")
+async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
-    """Delete a user (admin only). Cannot delete yourself."""
-    if user_id == current_admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    """Supprime un utilisateur."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    # Protection : un admin ne peut pas se supprimer
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Impossible de supprimer votre propre compte")
+
     db.delete(user)
     db.commit()
+    return {"message": f"Utilisateur {user.email} supprimé"}
 
 
-# ── Admin: Page Management ──────────────────────────────────────────────────
+# ═══════════════════════════════════════════════
+# DASHBOARD / STATS (bonus)
+# ═══════════════════════════════════════════════
 
-@router.get("/pages", response_model=List[PageConfigResponse])
-def list_pages(
+@router.get("/dashboard")
+async def admin_dashboard(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
-    """List all page configs. Admin only."""
-    pages = db.query(PageConfig).order_by(PageConfig.id).all()
-    return pages
+    """Stats rapides pour le dashboard admin."""
+    from app.models.organization import Organization
+
+    total_users = db.query(User).count()
+    verified_users = db.query(User).filter(User.email_verified == True).count()
+    admin_users = db.query(User).filter(User.is_admin == True).count()
+    total_orgs = db.query(Organization).count()
+    total_pages = db.query(Page).count()
+    published_pages = db.query(Page).filter(Page.is_published == True).count()
+    total_media = db.query(MediaAsset).count()
+
+    # Répartition par plan
+    plans = {}
+    for plan_name in ("free", "pro", "unlimited", "enterprise"):
+        plans[plan_name] = db.query(User).filter(User.subscription_plan == plan_name).count()
+
+    return {
+        "users": {
+            "total": total_users,
+            "verified": verified_users,
+            "admins": admin_users,
+            "by_plan": plans,
+        },
+        "organizations": total_orgs,
+        "pages": {
+            "total": total_pages,
+            "published": published_pages,
+        },
+        "media": total_media,
+    }
 
 
-@router.patch("/pages/{page_name}", response_model=PageConfigResponse)
-def toggle_page(
-    page_name: str,
-    body: PageToggleRequest,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
-):
-    """Enable or disable a page. Admin only."""
-    page = db.query(PageConfig).filter(PageConfig.page_name == page_name).first()
+# ═══════════════════════════════════════════════
+# PUBLIC ENDPOINTS (no admin required)
+# Pour que le frontend puisse lire le contenu
+# ═══════════════════════════════════════════════
+
+public_router = APIRouter(prefix="/site", tags=["site"])
+
+
+@public_router.get("/settings")
+async def get_public_settings(db: Session = Depends(get_db)):
+    """Config publique du site (thème, couleurs, branding)."""
+    settings = db.query(SiteSettings).first()
+    if not settings:
+        return {
+            "site_name": "CueForge",
+            "tagline": "AI-Powered Cue Points for DJs",
+            "primary_color": "#6366f1",
+            "secondary_color": "#8b5cf6",
+            "accent_color": "#06b6d4",
+            "background_color": "#0f172a",
+            "text_color": "#f8fafc",
+            "font_family": "Inter",
+            "maintenance_mode": False,
+        }
+
+    return {
+        "site_name": settings.site_name,
+        "tagline": settings.tagline,
+        "logo_url": settings.logo_url,
+        "favicon_url": settings.favicon_url,
+        "primary_color": settings.primary_color,
+        "secondary_color": settings.secondary_color,
+        "accent_color": settings.accent_color,
+        "background_color": settings.background_color,
+        "text_color": settings.text_color,
+        "font_family": settings.font_family,
+        "meta_title": settings.meta_title,
+        "meta_description": settings.meta_description,
+        "og_image_url": settings.og_image_url,
+        "footer_text": settings.footer_text,
+        "twitter_url": settings.twitter_url,
+        "instagram_url": settings.instagram_url,
+        "discord_url": settings.discord_url,
+        "youtube_url": settings.youtube_url,
+        "maintenance_mode": settings.maintenance_mode,
+        "maintenance_message": settings.maintenance_message,
+    }
+
+
+@public_router.get("/pages")
+async def get_public_pages(db: Session = Depends(get_db)):
+    """Liste des pages publiées (pour le menu de navigation)."""
+    pages = (
+        db.query(Page)
+        .filter(Page.is_published == True, Page.show_in_nav == True)
+        .order_by(Page.sort_order)
+        .all()
+    )
+    return [
+        {
+            "slug": p.slug,
+            "name": p.name,
+            "nav_label": p.nav_label or p.name,
+            "title": p.title,
+        }
+        for p in pages
+    ]
+
+
+@public_router.get("/pages/{slug}")
+async def get_public_page(slug: str, db: Session = Depends(get_db)):
+    """Récupère le contenu complet d'une page publiée."""
+    page = db.query(Page).filter(Page.slug == slug, Page.is_published == True).first()
     if not page:
-        raise HTTPException(status_code=404, detail=f"Page '{page_name}' not found")
-    page.is_enabled = body.is_enabled
-    db.commit()
-    db.refresh(page)
-    return page
+        raise HTTPException(status_code=404, detail="Page non trouvée")
+
+    return _serialize_page(page, include_sections=True)
 
 
-# ── Public: Page Settings (no auth required) ────────────────────────────────
-
-@router.get("/settings/pages", response_model=List[PageConfigResponse])
-def get_public_page_settings(db: Session = Depends(get_db)):
-    """Public endpoint: returns which pages are enabled/disabled."""
-    pages = db.query(PageConfig).order_by(PageConfig.id).all()
-    return pages
-
-
-# ── User: Self-service Settings ─────────────────────────────────────────────
-
-@router.get("/me", response_model=UserProfileResponse)
-def get_my_profile(
-    current_user: User = Depends(get_current_user),
-):
-    """Get current user's profile."""
-    return current_user
-
-
-@router.patch("/me", response_model=UserProfileResponse)
-def update_my_profile(
-    body: UserSettingsUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update current user's profile (name, email, password)."""
-    if body.name is not None:
-        current_user.name = body.name
-
-    if body.email is not None:
-        existing = db.query(User).filter(User.email == body.email, User.id != current_user.id).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already in use")
-        current_user.email = body.email
-
-    if body.new_password is not None:
-        if not body.current_password:
-            raise HTTPException(status_code=400, detail="Current password required to set a new password")
-        if not verify_password(body.current_password, current_user.password_hash):
-            raise HTTPException(status_code=400, detail="Current password is incorrect")
-        current_user.password_hash = hash_password(body.new_password)
-
-    db.commit()
-    db.refresh(current_user)
-    return current_user
-
-
-
-# ── Schemas: Plan Features ────────────────────────────────────────────────────
-
-class PlanFeatureResponse(BaseModel):
-    plan_name: str
-    feature_name: str
-    is_enabled: bool
-    label: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-class PlanFeatureToggleRequest(BaseModel):
-    is_enabled: bool
-
-
-class PlanFeaturesMatrix(BaseModel):
-    """Full matrix: {plan_name: {feature_name: bool}}"""
-    features: dict  # {"free": {"analysis": true, ...}, "pro": {...}, ...}
-    feature_labels: dict  # {"analysis": "Audio Analysis (BPM, Key, Energy)", ...}
-
-
-# ── Admin: Plan Feature Gating ────────────────────────────────────────────────
-
-@router.get("/plan-features", response_model=PlanFeaturesMatrix)
-def get_plan_features(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get the full plan-feature matrix. Any authenticated user can read."""
-    all_features = db.query(PlanFeature).all()
-
-    # If no features in DB yet, initialize from defaults
-    if not all_features:
-        for plan_name, enabled_features in DEFAULT_PLAN_CONFIGS.items():
-            for feat in DEFAULT_PLAN_FEATURES:
-                pf = PlanFeature(
-                    plan_name=plan_name,
-                    feature_name=feat["feature_name"],
-                    is_enabled=feat["feature_name"] in enabled_features,
-                    label=feat["label"],
-                )
-                db.add(pf)
-        db.commit()
-        all_features = db.query(PlanFeature).all()
-
-    # Build matrix
-    features = {}
-    feature_labels = {}
-    for pf in all_features:
-        if pf.plan_name not in features:
-            features[pf.plan_name] = {}
-        features[pf.plan_name][pf.feature_name] = pf.is_enabled
-        if pf.label:
-            feature_labels[pf.feature_name] = pf.label
-
-    return PlanFeaturesMatrix(features=features, feature_labels=feature_labels)
-
-
-@router.patch("/plan-features/{plan_name}/{feature_name}")
-def toggle_plan_feature(
-    plan_name: str,
-    feature_name: str,
-    body: PlanFeatureToggleRequest,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
-):
-    """Toggle a feature for a specific plan. Admin only."""
-    valid_plans = {"free", "pro", "unlimited"}
-    if plan_name not in valid_plans:
-        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan_name}")
-
-    pf = db.query(PlanFeature).filter(
-        PlanFeature.plan_name == plan_name,
-        PlanFeature.feature_name == feature_name,
-    ).first()
-
-    if not pf:
-        raise HTTPException(status_code=404, detail=f"Feature '{feature_name}' not found for plan '{plan_name}'")
-
-    pf.is_enabled = body.is_enabled
-    db.commit()
-    db.refresh(pf)
-    return {"plan_name": plan_name, "feature_name": feature_name, "is_enabled": pf.is_enabled}
-
-
-@router.post("/plan-features/reset")
-def reset_plan_features(
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(require_admin),
-):
-    """Reset all plan features to defaults. Admin only."""
-    db.query(PlanFeature).delete()
-    for plan_name, enabled_features in DEFAULT_PLAN_CONFIGS.items():
-        for feat in DEFAULT_PLAN_FEATURES:
-            pf = PlanFeature(
-                plan_name=plan_name,
-                feature_name=feat["feature_name"],
-                is_enabled=feat["feature_name"] in enabled_features,
-                label=feat["label"],
-            )
-            db.add(pf)
-    db.commit()
-    return {"status": "reset", "message": "Plan features reset to defaults"}
+@public_router.get("/features")
+async def get_public_features(db: Session = Depends(get_db)):
+    """Liste des features par plan pour la page pricing."""
+    features = db.query(PlanFeature).filter(PlanFeature.is_enabled == True).all()
+    return [_serialize_feature(f) for f in features]
