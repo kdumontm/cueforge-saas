@@ -276,7 +276,7 @@ const TR: Record<string, Record<string, string>> = {
     haute_energie: 'Haute énergie', couleur_cue: 'Couleur du Cue',
     rechercher: 'Rechercher par titre, artiste...',
     selectionne: 'sélectionné', deselect: 'Désélect.',
-    analyser_audio: 'Analyser Audio', raccourcis_clavier: 'lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts'',
+    analyser_audio: 'Analyser Audio', raccourcis_clavier: 'Raccourcis clavier',
     historique: 'HISTORIQUE', statistiques: 'Statistiques de la collection',
     morceaux_label: 'Morceaux', genres_label: 'Genres',
     aucun_historique: 'Aucun historique encore.',
