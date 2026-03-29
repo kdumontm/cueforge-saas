@@ -42,7 +42,7 @@ class Organization(Base):
     # Relationships
     owner = relationship("User", foreign_keys=[owner_id], backref="owned_organizations")
     members = relationship("User", back_populates="organization", foreign_keys="User.organization_id")
-    tracks = relationship("Track", back_populates="organization")
+
     invites = relationship("OrgInvite", back_populates="organization", cascade="all, delete-orphan")
 
 
