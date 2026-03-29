@@ -852,6 +852,17 @@ export default function DashboardPage() {
           row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 0);
       }
+      // Space = play/pause
+      if (e.key === ' ' && selectedTrack) {
+        e.preventDefault();
+        const audio = document.querySelector('audio');
+        if (audio) { audio.paused ? audio.play() : audio.pause(); setIsPlaying(!audio.paused); }
+      }
+      // Delete = remove track
+      if (e.key === 'Delete' && selectedTrack) {
+        e.preventDefault();
+        deleteTrack(selectedTrack.id).then(() => { loadTracks(); setSelectedTrack(null); showToast('Track supprimé', 'success'); });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1548,8 +1559,10 @@ useEffect(() => {
             const a = track.analysis;
             const isActive = selectedTrack?.id === track.id;
             const isSelected = selectedIds.has(track.id);
-            const statusDot = track.status === 'completed' ? 'bg-green-400'
-              : track.status === 'failed' ? 'bg-red-400' : 'bg-yellow-400';
+            const isAnalyzing = track.status === 'analyzing' || track.status === 'pending';
+                  const statusDot = track.status === 'completed' ? 'bg-green-400'
+                    : track.status === 'failed' ? 'bg-red-400'
+                    : isAnalyzing ? 'bg-yellow-400 animate-pulse' : 'bg-slate-500';
             return (
               <div
                 key={track.id}
@@ -2049,6 +2062,14 @@ useEffect(() => {
       </div>
             </div>
           )}
+
+              {/* ── Keyboard Shortcuts Hint ── */}
+              <div className="flex items-center gap-4 px-3 py-1.5 border-t border-white/[0.04] bg-slate-900/30">
+                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">↑↓</kbd> Naviguer</span>
+                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Espace</kbd> Play/Pause</span>
+                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Clic droit</kbd> Menu</span>
+                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Suppr</kbd> Supprimer</span>
+              </div>
 
               {/* ── Action Buttons ── */}
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
