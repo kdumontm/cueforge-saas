@@ -75,6 +75,21 @@ async def upload_track(
         current_user.last_track_date = dt.utcnow()
         db.commit()
 
+        # Notify user when approaching daily limit (80%+)
+        usage_pct = current_user.tracks_today / daily_limit
+        if usage_pct >= 0.8 and current_user.tracks_today < daily_limit:
+            try:
+                from app.services.email_service import _send_email, _wrap_template
+                html = _wrap_template(f"""
+                    <p>Hey {current_user.name},</p>
+                    <p>Tu as utilise <strong>{current_user.tracks_today}/{daily_limit}</strong>
+                    morceaux aujourd'hui sur ton plan <strong>{plan}</strong>.</p>
+                    <p>Passe au plan superieur pour analyser plus de tracks !</p>
+                """)
+                _send_email(current_user.email, "CueForge - Limite d'usage bientot atteinte", html)
+            except Exception:
+                pass  # email is best-effort
+
     # Validate extension
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
