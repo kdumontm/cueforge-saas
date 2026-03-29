@@ -3676,6 +3676,73 @@ useEffect(() => {
                 </div>
               )}
             </div>
+            {/* Smart Playlists - Auto-generated */}
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800/50 mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={18} className="text-yellow-400" />
+                <h3 className="text-sm font-bold text-white">Smart Playlists</h3>
+                <span className="text-[10px] text-gray-500 ml-auto">Auto-generated</span>
+              </div>
+              {tracks.length === 0 ? (
+                <p className="text-gray-500 text-xs text-center py-4">Add tracks to generate smart playlists</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {/* By Energy Level */}
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-1">By Energy</p>
+                  {[
+                    { name: "Warm-Up", icon: "sun", min: 0, max: 40 },
+                    { name: "Peak Time", icon: "flame", min: 40, max: 75 },
+                    { name: "Closing", icon: "moon", min: 75, max: 101 },
+                  ].map(smart => {
+                    const matched = tracks.filter(t => (t.energy || 0) >= smart.min && (t.energy || 0) < smart.max);
+                    if (matched.length === 0) return null;
+                    return (
+                      <div key={smart.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all" onClick={() => { setSelectedGenre(null); }}>
+                        <span className="text-sm">{smart.icon === "sun" ? "\u2600\uFE0F" : smart.icon === "flame" ? "\uD83D\uDD25" : "\uD83C\uDF19"}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{smart.name}</p>
+                        </div>
+                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
+                      </div>
+                    );
+                  })}
+                  {/* By BPM Range */}
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">By BPM</p>
+                  {[
+                    { name: "Slow (80-110)", min: 80, max: 110 },
+                    { name: "Mid (110-125)", min: 110, max: 125 },
+                    { name: "House (125-132)", min: 125, max: 132 },
+                    { name: "Fast (132-150)", min: 132, max: 150 },
+                  ].map(bpm => {
+                    const matched = tracks.filter(t => (t.bpm || 0) >= bpm.min && (t.bpm || 0) < bpm.max);
+                    if (matched.length === 0) return null;
+                    return (
+                      <div key={bpm.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all">
+                        <Activity size={14} className="text-green-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{bpm.name}</p>
+                        </div>
+                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
+                      </div>
+                    );
+                  })}
+                  {/* By Genre */}
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">By Genre</p>
+                  {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).map(genre => {
+                    const matched = tracks.filter(t => t.genre === genre);
+                    return (
+                      <div key={String(genre)} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all">
+                        <ListMusic size={14} className="text-purple-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{String(genre)}</p>
+                        </div>
+                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 </div>
           )}
           {activeBottomTab === 'history' && (
