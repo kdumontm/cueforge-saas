@@ -29,19 +29,6 @@ function toCamelot(key: string | null | undefined): string {
   return CAMELOT_WHEEL[key] || key;
 }
 
-// Camelot-based mix compatibility check
-function getCompatibleKeys(camelotKey) {
-  if (!camelotKey || camelotKey.length < 2) return [];
-  const num = parseInt(camelotKey);
-  const letter = camelotKey.slice(-1);
-  if (isNaN(num)) return [];
-  const compatible = [];
-  compatible.push(camelotKey); // same key
-  compatible.push(num + (letter === 'A' ? 'B' : 'A')); // inner/outer switch
-  compatible.push(((num % 12) + 1) + letter); // +1
-  compatible.push((((num - 2 + 12) % 12) + 1) + letter); // -1
-  return compatible;
-}
 
 function isMixCompatible(trackA, trackB) {
   if (!trackA || !trackB || !trackA.analysis || !trackB.analysis) return false;
