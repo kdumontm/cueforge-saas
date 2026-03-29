@@ -226,6 +226,128 @@ async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:
 // ─────────────────────────────────────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────
+// --- i18n Translations ---
+const TR: Record<string, Record<string, string>> = {
+  fr: {
+    titre: 'Titre', artiste: 'Artiste', album: 'Album', genre: 'Genre', annee: 'Année', commentaire: 'Commentaire',
+    annuler: 'Annuler', ajouter: 'Ajouter', enregistrer: 'Enregistrer', supprimer: 'Supprimer',
+    notes_dj: 'Notes DJ', date_ajout: "Date d'ajout", duree: 'Durée', note: 'Note',
+    toutes_cles: 'Toutes les clés', tous_genres: 'Tous les genres', trier_par: 'Trier par',
+    reinit_filtres: 'Réinitialiser les filtres', effacer: 'Effacer', reinitialiser: 'Réinitialiser',
+    appliquer_track: 'Appliquer au morceau', connecter_audio: 'Connecter Audio',
+    taux: 'Taux', profondeur: 'Profondeur',
+    fx_bientot: 'Traitement FX temps réel bientôt disponible',
+    select_effet_params: "Sélectionner un effet pour ajuster les paramètres",
+    assistant_mix: 'Assistant de Mix', playlists: 'Playlists',
+    pas_cue_points: 'Pas encore de cue points. Analysez le morceau ou ajoutez manuellement.',
+    select_effet: "Sélectionner un effet",
+    cles_compatibles: 'Clés compatibles (Camelot)',
+    morceaux_compatibles: 'Morceaux compatibles',
+    aucun_compatible: 'Aucun morceau compatible trouvé dans votre bibliothèque.',
+    ajoutez_analyses: "Ajoutez plus de morceaux analysés pour voir les suggestions d'harmonic mixing.",
+    pas_playlists: 'Pas encore de playlists',
+    flux_energie: "Énergie Flow", debut: 'Début', fin: 'Fin',
+    playlists_intelligentes: 'Playlists intelligentes', auto_generees: 'Auto-générées',
+    ajoutez_playlists: 'Ajoutez des morceaux pour générer des playlists intelligentes',
+    par_energie: 'Par énergie', par_bpm: 'Par BPM', par_genre: 'Par genre',
+    aucun_joue: 'Aucun morceau joué', aucune_donnee_genre: 'Aucune donnée de genre disponible',
+    analysez_flux: "Analysez les morceaux pour voir le flux d'énergie",
+    bpm_bas: 'BPM bas', bpm_eleve: 'BPM élevé',
+    total_morceaux: 'Total morceaux', analyses: 'Analysés', bpm_moyen: 'BPM moyen',
+    cle_principale: 'Clé principale', energie_moyenne: 'Énergie moyenne',
+    aucun_doublon: 'Aucun doublon trouvé. Cliquez sur scanner pour vérifier.',
+    artistes: 'Artistes', distribution_genres: 'Distribution des genres',
+    distribution_bpm: 'Distribution des BPM', distribution_cles: 'Distribution des clés (Camelot)',
+    repartition_genres: 'Répartition des genres', aucune_donnee_genre2: 'Aucune donnée de genre',
+    distribution_cles2: 'Distribution des clés', aucune_donnee_cle: 'Aucune donnée de clé',
+    champ: 'Champ', nouvelle_valeur: 'Nouvelle valeur',
+    regles_harmonic: 'Règles de mix harmonique',
+    aucun_match_cles: 'Aucun morceau ne correspond à ces clés dans votre bibliothèque.',
+    chemin_dossier: 'Chemin du dossier', parcourir: 'Parcourir',
+    fichiers_surveilles: 'Fichiers surveillés', auto_importes: 'Auto importés',
+    parametres: 'Paramètres', formats_supportes: 'Formats supportés',
+    ajouter_morceaux: 'Ajouter plus de morceaux',
+    modifier_metadata: 'Modifier les métadonnées', exporter_xml: 'Exporter XML',
+    exporter_rekordbox: 'Exporter tout vers Rekordbox', exporter_serato: 'Exporter tout vers Serato',
+    exporter_traktor: 'Exporter tout vers Traktor', exporter_virtualdj: 'Exporter tout vers VirtualDJ',
+    exporter_csv: 'Exporter tout en CSV',
+    ajouter_cue: '+ Ajouter Cue', en_lecture: 'En lecture',
+    energie: 'ÉNERGIE', morceaux_tab: 'MORCEAUX',
+    haute_energie: 'Haute énergie', couleur_cue: 'Couleur du Cue',
+    rechercher: 'Rechercher par titre, artiste...',
+    selectionne: 'sélectionné', deselect: 'Désélect.',
+    analyser_audio: 'Analyser Audio', raccourcis_clavier: 'lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts'',
+    historique: 'HISTORIQUE', statistiques: 'Statistiques de la collection',
+    morceaux_label: 'Morceaux', genres_label: 'Genres',
+    aucun_historique: 'Aucun historique encore.',
+    clique_track: 'Cliquez sur un morceau dans la liste pour commencer',
+    mix_tab: 'MIX', cues_tab: 'CUES', eq_tab: 'EQ', fx_tab: 'FX',
+    playlists_tab: 'PLAYLISTS', historique_tab: 'HISTORIQUE',
+    recherche_cours: 'Recherche en cours...', infos_actuelles: 'Informations actuelles',
+    batch_edit: 'Modification en lot', scanner_doublons: 'Scanner les doublons',
+    importer_dossier: 'Importer un dossier',
+  },
+  en: {
+    titre: 'Title', artiste: 'Artist', album: 'Album', genre: 'Genre', annee: 'Year', commentaire: 'Comment',
+    annuler: 'Cancel', ajouter: 'Add', enregistrer: 'Save', supprimer: 'Delete',
+    notes_dj: 'DJ Notes', date_ajout: 'Date Added', duree: 'Duration', note: 'Rating',
+    toutes_cles: 'All Keys', tous_genres: 'All Genres', trier_par: 'Sort by',
+    reinit_filtres: 'Clear filters', effacer: 'Clear', reinitialiser: 'Reset',
+    appliquer_track: 'Apply to Track', connecter_audio: 'Connect Audio',
+    taux: 'Rate', profondeur: 'Depth',
+    fx_bientot: '{t("fx_bientot")}',
+    select_effet_params: '{t("select_effet_params")}',
+    assistant_mix: 'Mix Assistant', playlists: 'Playlists',
+    pas_cue_points: '{t("pas_cue_points")} or add manually.',
+    select_effet: '{t("select_effet")}',
+    cles_compatibles: 'Compatible Keys (Camelot)',
+    morceaux_compatibles: 'Matching Tracks',
+    aucun_compatible: '{t("aucun_compatible")} library.',
+    ajoutez_analyses: '{t("ajoutez_analyses")}monic mixing suggestions.',
+    pas_playlists: '{t("pas_playlists")}',
+    flux_energie: 'Energy Flow', debut: 'Start', fin: 'End',
+    playlists_intelligentes: 'Smart Playlists', auto_generees: 'Auto-generated',
+    ajoutez_playlists: '{t("ajoutez_playlists")}sts',
+    par_energie: 'By Energy', par_bpm: 'By BPM', par_genre: 'By Genre',
+    aucun_joue: '{t("aucun_joue")}', aucune_donnee_genre: '{t("aucune_donnee_genre")}',
+    analysez_flux: '{t("analysez_flux")}',
+    bpm_bas: 'Low BPM', bpm_eleve: 'High BPM',
+    total_morceaux: 'Total Tracks', analyses: 'Analyzed', bpm_moyen: 'Avg BPM',
+    cle_principale: 'Top Key', energie_moyenne: 'Avg Energy',
+    aucun_doublon: '{t("aucun_doublon")} check.',
+    artistes: 'Artists', distribution_genres: 'Genre Distribution',
+    distribution_bpm: 'BPM Distribution', distribution_cles: '{t("distribution_cles")}',
+    repartition_genres: 'Genre Breakdown', aucune_donnee_genre2: 'No genre data',
+    distribution_cles2: 'Key Distribution', aucune_donnee_cle: 'No key data',
+    champ: 'Field', nouvelle_valeur: 'New Value',
+    regles_harmonic: 'Harmonic Mixing Rules',
+    aucun_match_cles: '{t("aucun_match_cles")}ys.',
+    chemin_dossier: 'Folder Path', parcourir: 'Browse',
+    fichiers_surveilles: 'Files Watching', auto_importes: 'Auto Imported',
+    parametres: 'Settings', formats_supportes: 'Supported formats',
+    ajouter_morceaux: 'Add more tracks',
+    modifier_metadata: '{t("modifier_metadata")}', exporter_xml: '{t("exporter_xml")}',
+    exporter_rekordbox: '{t("exporter_rekordbox")}', exporter_serato: '{t("exporter_serato")}',
+    exporter_traktor: '{t("exporter_traktor")}', exporter_virtualdj: '{t("exporter_virtualdj")}',
+    exporter_csv: '{t("exporter_csv")}',
+    ajouter_cue: '{t("ajouter_cue")}', en_lecture: 'Now Playing',
+    energie: 'ENERGY', morceaux_tab: 'TRACKS',
+    haute_energie: 'High Energy', couleur_cue: 'Cue Color',
+    rechercher: 'Search by title, artist...',
+    selectionne: 'selected', deselect: 'Deselect',
+    analyser_audio: 'Analyze Audio', raccourcis_clavier: 'Keyboard Shortcuts',
+    historique: 'HISTORY', statistiques: 'Collection Statistics',
+    morceaux_label: 'Tracks', genres_label: 'Genres',
+    aucun_historique: 'No history yet.',
+    clique_track: 'Click a track in the list to start',
+    mix_tab: 'MIX', cues_tab: 'CUES', eq_tab: 'EQ', fx_tab: 'FX',
+    playlists_tab: 'PLAYLISTS', historique_tab: 'HISTORY',
+    recherche_cours: 'Searching...', infos_actuelles: 'Current information',
+    batch_edit: 'Batch Edit', scanner_doublons: 'Scan Duplicates',
+    importer_dossier: 'Import Folder',
+  }
+};
+
 export default function DashboardPage() {
   // ── State ─────────────────────────────────────────────────────────────
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -372,7 +494,7 @@ export default function DashboardPage() {
     else { setSortBy(col); setSortDir('asc'); }
   }, [sortBy]);
 
-  // Export filtered tracklist as CSV
+  // Exporter la tracklist filtrée en CSV
   var handleExportTracklist = function(format) {
     if (!filteredTracks || filteredTracks.length === 0) return;
     var lines = [];
@@ -408,6 +530,8 @@ export default function DashboardPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [lang, setLang] = useState<string>('fr');
+  const t = (k: string) => TR[lang]?.[k] || k;
   const [showBulkGenre, setShowBulkGenre] = useState(false);
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
@@ -1683,40 +1807,40 @@ useEffect(() => {
             <h2 className="text-lg font-bold text-white mb-4">✏️ Edit Track Metadata</h2>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Title</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("titre")}</label>
                 <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Artist</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("artiste")}</label>
                 <input type="text" value={editForm.artist} onChange={(e) => setEditForm({...editForm, artist: e.target.value})}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Album</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("album")}</label>
                 <input type="text" value={editForm.album} onChange={(e) => setEditForm({...editForm, album: e.target.value})}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-400 block mb-1">Genre</label>
+                  <label className="text-xs text-gray-400 block mb-1">{t("genre")}</label>
                   <input type="text" value={editForm.genre} onChange={(e) => setEditForm({...editForm, genre: e.target.value})}
                     className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
                 </div>
                 <div className="w-20">
-                  <label className="text-xs text-gray-400 block mb-1">Year</label>
+                  <label className="text-xs text-gray-400 block mb-1">{t("annee")}</label>
                   <input type="number" value={editForm.year || ''} onChange={(e) => setEditForm({...editForm, year: parseInt(e.target.value) || 0})}
                     className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Comment</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("commentaire")}</label>
                 <textarea value={editForm.comment} onChange={(e) => setEditForm({...editForm, comment: e.target.value})}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">Cancel</button>
+              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">{t("annuler")}</button>
         <button onClick={() => { const unanalyzed = tracks.filter(t => !t.analysis || !t.analysis.bpm); if (unanalyzed.length === 0) { showToast("Toutes les tracks sont d\u00e9j\u00e0 analys\u00e9es", "info"); return; } showToast("Analyse de " + unanalyzed.length + " tracks en cours...", "info"); batchAnalyzeAudio(unanalyzed.map(t => t.id)); }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-orange-500/30 text-orange-300 border border-orange-500/50 hover:bg-orange-500/50">
           <RefreshCw className="w-3 h-3" /> Analyze All
         </button>
@@ -1731,7 +1855,7 @@ useEffect(() => {
 
       {/* LEFT SIDEBAR - Module Buttons */}
       <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
-        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">Add</span></button>
+        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">{t('ajouter')}</span></button>
           <div className="w-8 border-t border-gray-700/50 mb-1"></div>
           {(() => {
             const sidebarGroups = [
@@ -1859,7 +1983,7 @@ useEffect(() => {
                     <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
                       Notes
                     </button>
-                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
+                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts' (?)">
                       <span className="font-bold">?</span>
                     </button>
               {/* Waveform Theme */}
@@ -1956,7 +2080,7 @@ useEffect(() => {
                 {showNotes && selectedTrack && (
                   <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">DJ Notes</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t("notes_dj")}</span>
                       <span className="text-[10px] text-gray-600">{(trackNotes[selectedTrack.id] || '').length}/500</span>
                     </div>
                     <textarea
@@ -2111,7 +2235,7 @@ useEffect(() => {
                 )}
               </div>
               <div className="col-span-2 bg-black/40 rounded-lg border border-gray-800/40 p-2">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">ENERGY</div>
+                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">{t("energie")}</div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{width: String((selectedTrack.analysis?.energy || 0) * 100) + '%'}} />
@@ -2203,14 +2327,14 @@ useEffect(() => {
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
           className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-300 focus:outline-none">
-          <option value="date">Date Added</option>
-                            <option value="title">Title</option>
+          <option value="date">{t("date_ajout")}</option>
+                            <option value="title">{t("titre")}</option>
                             <option value="bpm">BPM</option>
-                            <option value="key">Key</option>
-                            <option value="energy">Energy</option>
-                            <option value="genre">Genre</option>
-                            <option value="duration">Duration</option>
-              <option value="rating">Rating</option></select>
+                            <option value="key">{t("annee").slice(0,0)}Key</option>
+                            <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
+                            <option value="genre">{t("genre")}</option>
+                            <option value="duration">{t("duree")}</option>
+              <option value="rating">{t("note")}</option></select>
         <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-400 hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
       </div>
 
@@ -2315,7 +2439,7 @@ useEffect(() => {
                 <div style={{marginBottom: '8px'}}>
                   <div style={{position: 'relative'}}>
                     <Search size={14} style={{position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af'}} />
-                    <input type="text" value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder="Rechercher par titre, artiste..." style={{width: '100%', padding: '8px 10px 8px 32px', fontSize: '13px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: 'white', outline: 'none'}} />
+                    <input type="text" value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder={t("rechercher")} style={{width: '100%', padding: '8px 10px 8px 32px', fontSize: '13px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: 'white', outline: 'none'}} />
                     {searchQuery && <button onClick={function() { setSearchQuery(''); }} style={{position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px'}}>X</button>}
                   </div>
                 </div>                {/* EXPORT BUTTONS */}
@@ -2344,14 +2468,14 @@ useEffect(() => {
                       <div>
                         <label className="text-[10px] text-gray-500 uppercase">Key</label>
                         <select value={filterKey} onChange={e => setFilterKey(e.target.value)} className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
-                          <option value="">All Keys</option>
+                          <option value="">{t("toutes_cles")}</option>
                           {Object.entries(CAMELOT_MAP).map(([k, v]) => <option key={k} value={k}>{v} - {k}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase">Genre</label>
+                        <label className="text-[10px] text-gray-500 uppercase">{t("genre")}</label>
                         <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
-                          <option value="">All Genres</option>
+                          <option value="">{t("tous_genres")}</option>
                           {[...new Set(tracks.map(t => t.genre).filter(Boolean))].sort().map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                       </div>
@@ -2380,14 +2504,14 @@ useEffect(() => {
                     </div>
                       
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase">Sort by</label>
+                        <label className="text-[10px] text-gray-500 uppercase">{t("trier_par")}</label>
                         <div className="flex gap-1">
                           <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="flex-1 bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
-                            <option value="date">Date Added</option>
+                            <option value="date">{t("date_ajout")}</option>
                             <option value="bpm">BPM</option>
-                            <option value="key">Key</option>
-                            <option value="title">Title</option>
-              <option value="rating">Rating</option>
+                            <option value="key">{t("annee").slice(0,0)}Key</option>
+                            <option value="title">{t("titre")}</option>
+              <option value="rating">{t("note")}</option>
                           </select>
                           <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-gray-900/50 border border-gray-700 rounded text-xs text-gray-400 hover:text-white">
                             {sortDir === 'asc' ? '\u2191' : '\u2193'}
@@ -2395,7 +2519,7 @@ useEffect(() => {
                         </div>
                       </div>
 {(filterBpmMin > 0 || filterBpmMax < 999 || filterKey || filterGenre || filterEnergyMin > 0 || filterEnergyMax < 100) && (
-                        <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); setFilterGenre(''); setFilterEnergyMin(0); setFilterEnergyMax(100); }} className="text-[10px] text-red-400 hover:text-red-300">Clear filters</button>
+                        <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); setFilterGenre(''); setFilterEnergyMin(0); setFilterEnergyMax(100); }} className="text-[10px] text-red-400 hover:text-red-300">{t("reinit_filtres")}</button>
                       )}
                     </div>
                   )}
@@ -2443,7 +2567,7 @@ useEffect(() => {
             ))}
             {(filterColor || filterRating > 0) && (
               <button onClick={() => {setFilterColor(null); setFilterRating(0);}}
-                className="text-[9px] text-red-400 hover:text-red-300 ml-1">Clear</button>
+                className="text-[9px] text-red-400 hover:text-red-300 ml-1">{t("effacer")}</button>
             )}
           </div>
           {/* BPM Range Filter */}
@@ -2460,7 +2584,7 @@ useEffect(() => {
             <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMax}</span>
             {(bpmMin > 0 || bpmMax < 300) && (
               <button onClick={() => {setBpmMin(0); setBpmMax(300);}}
-                className="text-[9px] text-red-400 hover:text-red-300">Reset</button>
+                className="text-[9px] text-red-400 hover:text-red-300">{t("reinitialiser")}</button>
             )}
           </div>
           {/* Genre BPM Presets */}
@@ -2523,7 +2647,7 @@ useEffect(() => {
                 Delete
               </button>
               <button onClick={() => setSelectedIds(new Set())}
-                className="text-[9px] text-gray-400 hover:text-white ml-auto">Clear</button>
+                className="text-[9px] text-gray-400 hover:text-white ml-auto">{t("effacer")}</button>
             </div>
           )}
           {/* Table header */}
@@ -2545,7 +2669,7 @@ useEffect(() => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center">
                     <div className="text-lg font-bold text-white">{tracks.length}</div>
-                    <div className="text-[10px] text-slate-400">Total Tracks</div>
+                    <div className="text-[10px] text-slate-400">{t("total_morceaux")}</div>
                     <div className="text-[10px] text-green-400">{tracks.filter(t => t.analysis?.bpm).length} analyzed</div>
                   </div>
                   <div className="text-center">
@@ -2561,7 +2685,7 @@ useEffect(() => {
                     <div className="text-lg font-bold text-purple-400">
                       {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
                     </div>
-                    <div className="text-[10px] text-slate-400">Top Key</div>
+                    <div className="text-[10px] text-slate-400">{t("cle_principale")}</div>
                     <div className="text-[10px] text-purple-400/70">
                       {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
                     </div>
@@ -2585,7 +2709,7 @@ useEffect(() => {
             {visibleCols.artist && <input type="text" placeholder="Filter artist..." value={colFilterArtist} onChange={e => setColFilterArtist(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]" />}
             {visibleCols.album && <span />}
             <select value={colFilterGenre} onChange={e => setColFilterGenre(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
-              <option value="">All Genres</option>
+              <option value="">{t("tous_genres")}</option>
               {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).sort().map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             <div className="flex gap-1">
@@ -2593,14 +2717,14 @@ useEffect(() => {
               <input type="number" placeholder="Max" value={colFilterBpmMax} onChange={e => setColFilterBpmMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
             </div>
             <select value={colFilterKey} onChange={e => setColFilterKey(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
-              <option value="">All Keys</option>
+              <option value="">{t("toutes_cles")}</option>
               {Array.from(new Set(tracks.map(t => t.analysis?.key).filter(Boolean))).sort().map(k => <option key={k} value={k}>{k}</option>)}
             </select>
             <div className="flex gap-1">
               <input type="number" placeholder="Min" min="0" max="100" value={colFilterEnergyMin} onChange={e => setColFilterEnergyMin(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
               <input type="number" placeholder="Max" min="0" max="100" value={colFilterEnergyMax} onChange={e => setColFilterEnergyMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
             </div>
-            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-slate-400 hover:text-white text-[8px]">Clear</button>
+            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-slate-400 hover:text-white text-[8px]">{t("effacer")}</button>
           </div>
           )}
         </div>
@@ -2852,13 +2976,13 @@ useEffect(() => {
             TAP
           </button>
           <div className="flex gap-2 mt-2">
-            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-gray-700/50 text-gray-400 rounded text-[10px] hover:bg-gray-600/50 transition-colors">Reset</button>
+            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-gray-700/50 text-gray-400 rounded text-[10px] hover:bg-gray-600/50 transition-colors">{t("reinitialiser")}</button>
             {bpmTapResult && selectedTrack && (
               <button onClick={() => {
                 setTracks(prev => prev.map(t => t.id === selectedTrack.id ? {...t, analysis: {...(t.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : t));
                 setSelectedTrack(prev => prev ? {...prev, analysis: {...(prev.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : prev);
                 setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null);
-              }} className="flex-1 py-1.5 bg-green-600/30 text-green-300 rounded text-[10px] hover:bg-green-600/50 transition-colors">Apply to Track</button>
+              }} className="flex-1 py-1.5 bg-green-600/30 text-green-300 rounded text-[10px] hover:bg-green-600/50 transition-colors">{t("appliquer_track")}</button>
             )}
           </div>
         </div>
@@ -2868,7 +2992,7 @@ useEffect(() => {
         <div className="fixed top-20 right-4 z-40 bg-gray-900/95 border border-gray-700/50 rounded-xl p-3 shadow-xl backdrop-blur-xl w-56 max-h-64 overflow-y-auto">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Mix Log</h4>
-            <button onClick={() => setMixLog([])} className="text-gray-500 hover:text-gray-300 text-[9px]">Clear</button>
+            <button onClick={() => setMixLog([])} className="text-gray-500 hover:text-gray-300 text-[9px]">{t("effacer")}</button>
           </div>
           {mixLog.slice(0, 8).map((entry, i) => {
             const fromTrack = tracks.find(t => t.id === entry.fromId);
@@ -3091,9 +3215,9 @@ useEffect(() => {
                     <SlidersHorizontal size={16} /> EQ Controls
                   </h3>
                   <div className="flex items-center gap-2">
-                    {!eqConnected && <button onClick={connectEQ} className="px-3 py-1 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-md border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors">Connect Audio</button>}
+                    {!eqConnected && <button onClick={connectEQ} className="px-3 py-1 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-md border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors">{t("connecter_audio")}</button>}
                     {eqConnected && <span className="text-[10px] text-green-400 flex items-center gap-1"><Check size={10} /> Connected</span>}
-                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-gray-800 text-gray-400 rounded-md hover:bg-gray-700 transition-colors">Reset</button>
+                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-gray-800 text-gray-400 rounded-md hover:bg-gray-700 transition-colors">{t("reinitialiser")}</button>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -3134,22 +3258,22 @@ useEffect(() => {
                   <div className="p-4 bg-gray-900/60 rounded-xl border border-purple-500/20">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-purple-300 uppercase">{activeFx} Parameters</span>
-                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-gray-500 hover:text-white">Reset</button>
+                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-gray-500 hover:text-white">{t("reinitialiser")}</button>
                     </div>
                     <div className="space-y-3">
                       <div><label className="text-[10px] text-gray-400 block mb-1">Dry/Wet</label><input type="range" min={0} max={100} value={fxParams[activeFx] || 0} onChange={(e) => setFxParams(prev => ({...prev, [activeFx]: parseInt(e.target.value)}))} className="w-full accent-purple-500" /><div className="flex justify-between text-[9px] text-gray-600"><span>Dry</span><span>{fxParams[activeFx] || 0}%</span><span>Wet</span></div></div>
-                      <div><label className="text-[10px] text-gray-400 block mb-1">Rate</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
-                      <div><label className="text-[10px] text-gray-400 block mb-1">Depth</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
+                      <div><label className="text-[10px] text-gray-400 block mb-1">{t("taux")}</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
+                      <div><label className="text-[10px] text-gray-400 block mb-1">{t("profondeur")}</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
                     </div>
-                    <p className="text-[9px] text-amber-500/60 mt-2 italic">Real-time FX processing coming soon</p>
+                    <p className="text-[9px] text-amber-500/60 mt-2 italic">{t("fx_bientot")}</p>
                   </div>
                 )}
-                {!activeFx && <p className="text-[10px] text-gray-600 italic text-center py-4">Select an effect to adjust parameters</p>}
+                {!activeFx && <p className="text-[10px] text-gray-600 italic text-center py-4">{t("select_effet_params")}</p>}
               </div>
             )}
             {activeBottomTab === 'mix' && (
     <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Mix Assistant</h3>
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{t("assistant_mix")}</h3>
       {selectedTrack ? (
         <div className="space-y-3">
           <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
@@ -3189,7 +3313,7 @@ useEffect(() => {
   )}
   {activeBottomTab === 'playlists' && (
     <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Playlists</h3>
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{t("playlists")}</h3>
       {setList.length > 0 ? (
         <div className="space-y-1">
           {setList.map((t: any, i: number) => (
@@ -3245,7 +3369,7 @@ useEffect(() => {
         </div>
         <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
           <p className="text-2xl font-bold text-green-400">{tracks.filter((t: any) => t.analysis?.energy && t.analysis.energy >= 70).length}</p>
-          <p className="text-[10px] text-gray-500">High Energy</p>
+          <p className="text-[10px] text-gray-500">{t("haute_energie")}</p>
         </div>
       </div>
       {tracks.length > 0 && (() => {
@@ -3279,7 +3403,7 @@ useEffect(() => {
             style={{ left: colorPickerPos.x, top: colorPickerPos.y }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-[10px] text-gray-400 mb-1.5 px-1">Cue Color</div>
+            <div className="text-[10px] text-gray-400 mb-1.5 px-1">{t("couleur_cue")}</div>
             <div className="grid grid-cols-4 gap-1.5">
               {REKORDBOX_COLORS.map((c) => (
                 <button
@@ -3334,7 +3458,7 @@ useEffect(() => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-cyan-400 tracking-widest">CUE POINTS</span>
-                <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack?.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack?.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack?.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">+ Add Cue</button>
+                <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack?.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack?.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack?.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">{t("ajouter_cue")}</button>
                 {selectedTrack?.analysis && (
                   <button onClick={() => {
                     const autoCues = generateCuePointsFromAnalysis(selectedTrack?.analysis);
@@ -3349,7 +3473,7 @@ useEffect(() => {
                 )}
               </div>
               {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
-                <p className="text-gray-500 text-xs text-center py-4">No cue points yet. Analyze the track or add manually.</p>
+                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")} or add manually.</p>
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack?.cue_points.map((cue, idx) => (
@@ -3376,7 +3500,7 @@ useEffect(() => {
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
           </h3>
-          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">Reset</button>
+          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">{t("reinitialiser")}</button>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
@@ -3423,7 +3547,7 @@ useEffect(() => {
             <span className="text-xs text-gray-300 w-8">{fxWet}%</span>
           </div>
         ) : (
-          <p className="text-xs text-gray-500 text-center">Select an effect</p>
+          <p className="text-xs text-gray-500 text-center">{t("select_effet")}</p>
         )}
       </div>
 
@@ -3474,7 +3598,7 @@ useEffect(() => {
               </div>
             </div>
             <div style={{marginBottom:"12px"}}>
-              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Compatible Keys (Camelot)</div>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>{t("cles_compatibles")}</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
                 {getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).map(function(ck){return(
                   <span key={ck} style={{padding:"4px 10px",borderRadius:"6px",fontSize:"11px",fontWeight:"500",background:"rgba(6,182,212,0.15)",color:"#06b6d4",border:"1px solid rgba(6,182,212,0.3)"}}>{ck}</span>
@@ -3482,7 +3606,7 @@ useEffect(() => {
               </div>
             </div>
             <div style={{marginBottom:"8px"}}>
-              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Matching Tracks</div>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>{t("morceaux_compatibles")}</div>
               {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).length > 0 ? (
                 <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
                   {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).map(function(t){return(
@@ -3497,8 +3621,8 @@ useEffect(() => {
                 </div>
               ) : (
                 <div style={{textAlign:"center",padding:"20px 12px",color:"#64748b",fontSize:"12px"}}>
-                  <p style={{marginBottom:"4px"}}>No compatible tracks found in your library.</p>
-                  <p style={{fontSize:"11px"}}>Add more analyzed tracks to see harmonic mix suggestions.</p>
+                  <p style={{marginBottom:"4px"}}>{t("aucun_compatible")} library.</p>
+                  <p style={{fontSize:"11px"}}>{t("ajoutez_analyses")}monic mix suggestions.</p>
                 </div>
               )}
             </div>
@@ -3527,7 +3651,7 @@ useEffect(() => {
         </div>
         <div className="space-y-1 max-h-32 overflow-y-auto">
           {Object.keys(playlists).length === 0 ? (
-            <p className="text-xs text-gray-500 text-center py-2">No playlists yet</p>
+            <p className="text-xs text-gray-500 text-center py-2">{t("pas_playlists")}</p>
           ) : Object.keys(playlists).map(function(name) {
             return (
               <button key={name} onClick={() => setCurrentPlaylist(name)}
@@ -3679,7 +3803,7 @@ useEffect(() => {
                   const maxE = Math.max(...energies, 1);
                   return (
                     <div className="mt-2 mb-1 p-2 bg-gray-800/30 rounded-lg border border-gray-700/30">
-                      <div className="text-[9px] text-gray-500 mb-1 font-medium uppercase tracking-wider">Energy Flow</div>
+                      <div className="text-[9px] text-gray-500 mb-1 font-medium uppercase tracking-wider">{t("flux_energie")}</div>
                       <div className="flex items-end gap-px h-8">
                         {energies.map((e, i) => {
                           const h = Math.max((e / maxE) * 100, 5);
@@ -3688,8 +3812,8 @@ useEffect(() => {
                         })}
                       </div>
                       <div className="flex justify-between mt-0.5">
-                        <span className="text-[7px] text-gray-600">Start</span>
-                        <span className="text-[7px] text-gray-600">End</span>
+                        <span className="text-[7px] text-gray-600">{t("debut")}</span>
+                        <span className="text-[7px] text-gray-600">{t("fin")}</span>
                       </div>
                     </div>
                   );
@@ -3744,15 +3868,15 @@ useEffect(() => {
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800/50 mt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={18} className="text-yellow-400" />
-                <h3 className="text-sm font-bold text-white">Smart Playlists</h3>
-                <span className="text-[10px] text-gray-500 ml-auto">Auto-generated</span>
+                <h3 className="text-sm font-bold text-white">{t("playlists_intelligentes")}</h3>
+                <span className="text-[10px] text-gray-500 ml-auto">{t("auto_generees")}</span>
               </div>
               {tracks.length === 0 ? (
-                <p className="text-gray-500 text-xs text-center py-4">Add tracks to generate smart playlists</p>
+                <p className="text-gray-500 text-xs text-center py-4">{t("ajoutez_playlists")}sts</p>
               ) : (
                 <div className="space-y-1.5">
                   {/* By Energy Level */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-1">By Energy</p>
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-1">{t("par_energie")}</p>
                   {[
                     { name: "Warm-Up", icon: "sun", min: 0, max: 40 },
                     { name: "Peak Time", icon: "flame", min: 40, max: 75 },
@@ -3771,7 +3895,7 @@ useEffect(() => {
                     );
                   })}
                   {/* By BPM Range */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">By BPM</p>
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">{t("par_bpm")}</p>
                   {[
                     { name: "Slow (80-110)", min: 80, max: 110 },
                     { name: "Mid (110-125)", min: 110, max: 125 },
@@ -3791,7 +3915,7 @@ useEffect(() => {
                     );
                   })}
                   {/* By Genre */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">By Genre</p>
+                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">{t("par_genre")}</p>
                   {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).map(genre => {
                     const matched = tracks.filter(t => t.genre === genre);
                     return (
@@ -3822,7 +3946,7 @@ useEffect(() => {
         {showHistory ? (
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {djHistory.length === 0 ? (
-              <p className="text-xs text-gray-500 text-center py-2">No tracks played yet</p>
+              <p className="text-xs text-gray-500 text-center py-2">{t("aucun_joue")}</p>
             ) : djHistory.map(function(item, idx) {
               return (
                 <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
@@ -3923,7 +4047,7 @@ useEffect(() => {
                   <span className="text-[10px] text-gray-400 w-5 text-right">{count}</span>
                 </div>
               )) : (
-                <div className="text-center py-4 text-gray-500 text-xs">No genre data available</div>
+                <div className="text-center py-4 text-gray-500 text-xs">{t("aucune_donnee_genre")}</div>
               );
             })()}
           </div>
@@ -3955,11 +4079,11 @@ useEffect(() => {
               })}
           </div>
         ) : (
-          <div className="text-center py-4 text-gray-500 text-xs">Analyze tracks to see energy flow</div>
+          <div className="text-center py-4 text-gray-500 text-xs">{t("analysez_flux")}</div>
         )}
         <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-gray-500">Low BPM</span>
-          <span className="text-[9px] text-gray-500">High BPM</span>
+          <span className="text-[9px] text-gray-500">{t("bpm_bas")}</span>
+          <span className="text-[9px] text-gray-500">{t("bpm_eleve")}</span>
         </div>
       </div>
 
@@ -3967,17 +4091,17 @@ useEffect(() => {
       <div className="grid grid-cols-5 gap-2 mt-3">
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
           <div className="text-lg font-bold text-white">{tracks.length}</div>
-          <div className="text-[10px] text-gray-400">Total Tracks</div>
+          <div className="text-[10px] text-gray-400">{t("total_morceaux")}</div>
         </div>
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
           <div className="text-lg font-bold text-green-400">{tracks.filter(t => t.status === 'analyzed').length}</div>
-          <div className="text-[10px] text-gray-400">Analyzed</div>
+          <div className="text-[10px] text-gray-400">{t("analyses")}</div>
         </div>
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
           <div className="text-lg font-bold text-blue-400">
             {tracks.filter(t => t.analysis?.bpm).length > 0 ? (tracks.filter(t => t.analysis?.bpm).reduce((sum, t) => sum + t.analysis.bpm, 0) / tracks.filter(t => t.analysis?.bpm).length).toFixed(0) : '-'}
           </div>
-          <div className="text-[10px] text-gray-400">Avg BPM</div>
+          <div className="text-[10px] text-gray-400">{t("bpm_moyen")}</div>
         </div>
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
           <div className="text-lg font-bold text-purple-400">
@@ -3991,13 +4115,13 @@ useEffect(() => {
               return sorted[0]?.[0] || '-';
             })()}
           </div>
-          <div className="text-[10px] text-gray-400">Top Key</div>
+          <div className="text-[10px] text-gray-400">{t("cle_principale")}</div>
         </div>
         <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
           <div className="text-lg font-bold text-orange-400">
             {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (tracks.filter(t => t.analysis?.energy !== undefined).reduce((sum, t) => sum + (t.analysis.energy || 0), 0) / tracks.filter(t => t.analysis?.energy !== undefined).length).toFixed(0) : '-'}
           </div>
-          <div className="text-[10px] text-gray-400">Avg Energy</div>
+          <div className="text-[10px] text-gray-400">{t("energie_moyenne")}</div>
         </div>
       </div>
             </div>
@@ -4039,13 +4163,13 @@ useEffect(() => {
               <button
                 onClick={() => setShowShortcutsModal(p => !p)}
                 className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-slate-700/50 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 transition-colors text-[10px] font-bold"
-                title="Raccourcis clavier (?)"
+                title="lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts' (?)"
               >?</button>
 
               {/* ── Action Buttons ── */}
               {/* Star Rating */}
               <div className="flex items-center gap-2 mt-3">
-                <span className="text-[10px] text-gray-400">Rating:</span>
+                <span className="text-[10px] text-gray-400">{t("note")}:</span>
                 <div className="flex gap-0.5">
                   {[1,2,3,4,5].map(star => (
                     <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack?.id]: trackRatings[selectedTrack?.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
@@ -4078,13 +4202,13 @@ useEffect(() => {
                     onClick={openEditMeta}
                     className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white transition-colors"
                   >
-                    ✏️ Edit Metadata
+                    ✏️ {t("modifier_metadata")}
                   </button>
                   <button
                     onClick={() => selectedTrack && exportRekordbox(selectedTrack.id)}
                     className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-white transition-colors"
                   >
-                    🎵 Export XML
+                    🎵 {t("exporter_xml")}
                   </button>
                 </div>
               {/* Tap Tempo */}
@@ -4111,14 +4235,14 @@ useEffect(() => {
                   <button
                     onClick={() => { setTapTimes([]); setTapBpm(0); }}
                     className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors"
-                  >Reset</button>
+                  >{t("reinitialiser")}</button>
                 </div>
               </div>
                 <button
                   onClick={exportAllRekordbox}
                   className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-white transition-colors"
                 >
-                  📦 Export All to Rekordbox
+                  📦 {t("exporter_rekordbox")}
                 </button>
               <button
                 onClick={() => {
@@ -4160,7 +4284,7 @@ useEffect(() => {
                 }}
                 className="w-full py-3 rounded-xl font-semibold text-white bg-orange-600 hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
               >
-                <Download size={18} /> Export All to Serato CSV
+                <Download size={18} /> {t("exporter_serato")} CSV
               </button>
               <button
                 onClick={() => {
@@ -4192,7 +4316,7 @@ useEffect(() => {
                 }}
                 className="w-full py-3 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
               >
-                <Download size={18} /> Export All to Traktor NML
+                <Download size={18} /> {t("exporter_traktor")} NML
               </button>
               <button
                 onClick={() => {
@@ -4219,7 +4343,7 @@ useEffect(() => {
                 }}
                 className="w-full py-3 rounded-lg font-medium text-white flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
               >
-                <Download size={18} /> Export All to VirtualDJ
+                <Download size={18} /> {t("exporter_virtualdj")}
               </button>
                 <button
                   onClick={() => {
@@ -4312,12 +4436,12 @@ useEffect(() => {
               {smartRules.map((rule, i) => (
                 <div key={i} className="bg-gray-800/80 rounded-lg p-3 border border-purple-500/20 flex items-center gap-2">
                   <select value={rule.field} onChange={(e) => {const r = [...smartRules]; r[i].field = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
-                    <option value="genre">Genre</option>
+                    <option value="genre">{t("genre")}</option>
                     <option value="bpm">BPM</option>
-                    <option value="key">Key</option>
-                    <option value="energy">Energy</option>
-                    <option value="artist">Artist</option>
-                    <option value="year">Year</option>
+                    <option value="key">{t("annee").slice(0,0)}Key</option>
+                    <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
+                    <option value="artist">{t("artiste")}</option>
+                    <option value="year">{t("annee")}</option>
                   </select>
                   <select value={rule.op} onChange={(e) => {const r = [...smartRules]; r[i].op = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
                     <option value="equals">equals</option>
@@ -4370,7 +4494,7 @@ useEffect(() => {
               Object.values(seen).forEach((g) => { if (g.length > 1) groups.push(g); });
               setDuplicateGroups(groups);
             }} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm mb-4 flex items-center gap-1"><Search size={14}/> Scan for Duplicates</button>
-            {duplicateGroups.length === 0 && <p className="text-gray-400 text-sm">No duplicates found. Click scan to analyze your library.</p>}
+            {duplicateGroups.length === 0 && <p className="text-gray-400 text-sm">{t("aucun_doublon")} analyze your library.</p>}
             {duplicateGroups.map((group, gi) => (
               <div key={gi} className="bg-gray-800/60 rounded-lg p-3 mb-2 border border-orange-500/20">
                 <p className="text-orange-300 text-sm font-semibold mb-2">Group {gi + 1} - {group.length} copies</p>
@@ -4441,7 +4565,7 @@ useEffect(() => {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-green-500/20">
                 <p className="text-3xl font-bold text-green-400">{tracks.length}</p>
-                <p className="text-xs text-gray-400 mt-1">Total Tracks</p>
+                <p className="text-xs text-gray-400 mt-1">{t("total_morceaux")}</p>
               </div>
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-blue-500/20">
                 <p className="text-3xl font-bold text-blue-400">{new Set(tracks.map(t => t.genre).filter(Boolean)).size}</p>
@@ -4449,24 +4573,24 @@ useEffect(() => {
               </div>
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-purple-500/20">
                 <p className="text-3xl font-bold text-cyan-500/70">{new Set(tracks.map(t => t.artist).filter(Boolean)).size}</p>
-                <p className="text-xs text-gray-400 mt-1">Artists</p>
+                <p className="text-xs text-gray-400 mt-1">{t("artistes")}</p>
               </div>
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-yellow-500/20">
                 <p className="text-3xl font-bold text-yellow-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.bpm) || 0), 0) / tracks.filter(t => t.bpm).length) : 0}</p>
-                <p className="text-xs text-gray-400 mt-1">Avg BPM</p>
+                <p className="text-xs text-gray-400 mt-1">{t("bpm_moyen")}</p>
               </div>
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-pink-500/20">
                 <p className="text-3xl font-bold text-pink-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.energy) || 0), 0) / tracks.filter(t => t.energy).length) || 0 : 0}</p>
-                <p className="text-xs text-gray-400 mt-1">Avg Energy</p>
+                <p className="text-xs text-gray-400 mt-1">{t("energie_moyenne")}</p>
               </div>
               <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-cyan-500/20">
                 <p className="text-3xl font-bold text-cyan-400">{Object.keys(playlists).length}</p>
-                <p className="text-xs text-gray-400 mt-1">Playlists</p>
+                <p className="text-xs text-gray-400 mt-1">{t("playlists")}</p>
               </div>
             </div>
             {/* Genre Distribution */}
             <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">Genre Distribution</h4>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_genres")}</h4>
               <div className="space-y-2">
                 {Object.entries(tracks.reduce((acc, t) => { const g = t.genre || 'Unknown'; acc[g] = (acc[g] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([genre, count]) => (
                   <div key={genre} className="flex items-center gap-3">
@@ -4481,7 +4605,7 @@ useEffect(() => {
             </div>
             {/* BPM Histogram */}
             <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">BPM Distribution</h4>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_bpm")}</h4>
               <div className="flex items-end gap-1 h-32">
                 {Array.from({length: 20}, (_, i) => {
                   const min = 60 + i * 10;
@@ -4499,7 +4623,7 @@ useEffect(() => {
             </div>
             {/* Key Distribution (Camelot Wheel) */}
             <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">Key Distribution (Camelot)</h4>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_cles")}</h4>
               <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
                 {Object.entries(CAMELOT_WHEEL).map(([key, camelot]) => {
                   const count = tracks.filter(t => t.key === key || t.key === camelot).length;
@@ -4524,25 +4648,25 @@ useEffect(() => {
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px'}}>
               <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
                 <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.length}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>Total Tracks</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("total_morceaux")}</div>
               </div>
               <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
                 <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis).length}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>Analyzed</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("analyses")}</div>
               </div>
               <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
                 <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.bpm).length > 0 ? Math.round(tracks.filter(t => t.analysis?.bpm).reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / tracks.filter(t => t.analysis?.bpm).length) : '-'}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>Avg BPM</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("bpm_moyen")}</div>
               </div>
               <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
                 <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.energy != null).length > 0 ? Math.round(tracks.filter(t => t.analysis?.energy != null).reduce((s, t) => s + ((t.analysis?.energy || 0) * 100), 0) / tracks.filter(t => t.analysis?.energy != null).length) : '-'}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>Avg Energy</div>
+                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("energie_moyenne")}</div>
               </div>
             </div>
 
             {/* BPM Distribution */}
             <div style={{marginBottom: '16px'}}>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>BPM Distribution</div>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("distribution_bpm")}</div>
               {(() => {
                 const ranges = [{label: '80-110', min: 80, max: 110}, {label: '110-125', min: 110, max: 125}, {label: '125-132', min: 125, max: 132}, {label: '132-150', min: 132, max: 150}, {label: '150+', min: 150, max: 999}];
                 const analyzed = tracks.filter(t => t.analysis?.bpm);
@@ -4562,13 +4686,13 @@ useEffect(() => {
 
             {/* Genre Breakdown */}
             <div style={{marginBottom: '16px'}}>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>Genre Breakdown</div>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("repartition_genres")}</div>
               {(() => {
                 const genres = {};
                 tracks.forEach(t => { if (t.genre) genres[t.genre] = (genres[t.genre] || 0) + 1; });
                 const sorted = Object.entries(genres).sort((a, b) => b[1] - a[1]);
                 const maxG = Math.max(1, ...sorted.map(e => e[1]));
-                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>No genre data</div>;
+                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>{t("aucune_donnee_genre2")}</div>;
                 return sorted.map(([genre, count]) => (
                   <div key={genre} style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
                     <span style={{color: '#94a3b8', fontSize: '11px', width: '70px', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{genre}</span>
@@ -4582,12 +4706,12 @@ useEffect(() => {
             </div>
             {/* Key Distribution */}
             <div>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>Key Distribution</div>
+              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("distribution_cles2")}</div>
               {(() => {
                 const keys = {};
                 tracks.forEach(t => { if (t.analysis?.key) keys[t.analysis.key] = (keys[t.analysis.key] || 0) + 1; });
                 const sorted = Object.entries(keys).sort((a, b) => b[1] - a[1]);
-                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>No key data</div>;
+                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>{t("aucune_donnee_cle")}</div>;
                 return <div style={{display: 'flex', flexWrap: 'wrap', gap: '4px'}}>{sorted.map(([key, count]) => (
                   <span key={key} style={{background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', color: '#22d3ee'}}>{key} ({count})</span>
                 ))}</div>;
@@ -4607,16 +4731,16 @@ useEffect(() => {
             </div>
             <div className="flex gap-3 items-end">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Field</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("champ")}</label>
                 <select value={batchField} onChange={(e) => setBatchField(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm">
-                  <option value="genre">Genre</option>
-                  <option value="artist">Artist</option>
-                  <option value="energy">Energy</option>
-                  <option value="key">Key</option>
+                  <option value="genre">{t("genre")}</option>
+                  <option value="artist">{t("artiste")}</option>
+                  <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
+                  <option value="key">{t("annee").slice(0,0)}Key</option>
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-400 block mb-1">New Value</label>
+                <label className="text-xs text-gray-400 block mb-1">{t("nouvelle_valeur")}</label>
                 <input value={batchValue} onChange={(e) => setBatchValue(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm w-full" placeholder="Enter new value..."/>
               </div>
               <button onClick={() => {
@@ -4702,12 +4826,12 @@ useEffect(() => {
                         </g>
                       );
                     })}
-                    <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">Inner: Minor</text>
-                    <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">Outer: Major</text>
+                    <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">{lang === "fr" ? "Intérieur: Mineur" : "Inner: Minor"}</text>
+                    <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">{lang === "fr" ? "Extérieur: Majeur" : "Outer: Major"}</text>
                   </svg>
                 </div>
                 <div className="flex-1 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-300">Harmonic Mixing Rules</h4>
+                  <h4 className="text-sm font-semibold text-gray-300">{t("regles_harmonic")}</h4>
                   <div className="grid grid-cols-1 gap-2 text-sm">
                     <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
                     <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
@@ -4730,7 +4854,7 @@ useEffect(() => {
                         </div>
                         <div className="max-h-40 overflow-y-auto space-y-1">
                           <h4 className="text-sm font-semibold text-green-400">{matchingTracks.length} matching tracks:</h4>
-                          {matchingTracks.length === 0 && <p className="text-xs text-gray-500">No tracks in library match these keys</p>}
+                          {matchingTracks.length === 0 && <p className="text-xs text-gray-500">{t("aucun_match_cles")}ys</p>}
                           {matchingTracks.map(t => (
                             <div key={t.id} onClick={() => { if (currentTrack?.id !== t.id) { setCurrentTrack(t); } }} className="text-xs text-gray-300 py-1.5 px-2 bg-gray-800/40 rounded flex justify-between items-center cursor-pointer hover:bg-gray-700/60 transition-colors">
                               <span className="truncate mr-2">{t.title} - {t.artist}</span>
@@ -4768,20 +4892,20 @@ useEffect(() => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400 block mb-1">Folder Path</label>
+                <label className="text-sm text-gray-400 block mb-1">{t("chemin_dossier")}</label>
                 <div className="flex gap-2">
                   <input type="text" value={watchFolderPath} onChange={(e) => setWatchFolderPath(e.target.value)} placeholder="/Users/music/incoming" className="flex-1 bg-gray-800 text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-yellow-500 outline-none" />
-                  <button className="bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded text-sm font-semibold">Browse</button>
+                  <button className="bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded text-sm font-semibold">{t("parcourir")}</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-800/50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-yellow-400">0</div>
-                  <div className="text-xs text-gray-400">Files Watching</div>
+                  <div className="text-xs text-gray-400">{t("fichiers_surveilles")}</div>
                 </div>
                 <div className="bg-gray-800/50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-green-400">0</div>
-                  <div className="text-xs text-gray-400">Auto Imported</div>
+                  <div className="text-xs text-gray-400">{t("auto_importes")}</div>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -4790,13 +4914,13 @@ useEffect(() => {
               </div>
             </div>
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300">Settings</h4>
+              <h4 className="text-sm font-semibold text-gray-300">{t("parametres")}</h4>
               <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-analyze new files (BPM, Key, Energy)</label>
               <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-detect duplicates</label>
               <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" className="accent-yellow-500" /> Auto-add to playlist</label>
               <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Watch subfolders</label>
               <div>
-                <label className="text-sm text-gray-400 block mb-1">Supported formats</label>
+                <label className="text-sm text-gray-400 block mb-1">{t("formats_supportes")}</label>
                 <div className="flex flex-wrap gap-1">{['MP3','WAV','FLAC','AIFF','AAC','OGG','M4A','WMA'].map(f => (<span key={f} className="bg-gray-800 text-yellow-400 text-xs px-2 py-1 rounded font-mono">{f}</span>))}</div>
               </div>
             </div>
@@ -4834,7 +4958,7 @@ useEffect(() => {
               return (
                 <div className="space-y-2">
                   <div className="text-sm text-gray-400">Starting from: <span className="text-white font-semibold">{start.title}</span> ({start.bpm} BPM, {start.camelotKey}, Energy: {start.energy})</div>
-                  {suggestions.length === 0 ? (<div className="text-gray-500 text-sm py-4 text-center">Add more tracks with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
+                  {suggestions.length === 0 ? (<div className="text-gray-500 text-sm py-4 text-center">{t("ajouter_morceaux")} with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
                     <div key={t.id} className="flex items-center gap-3 bg-gray-800/50 rounded-lg p-3 hover:bg-gray-800 transition-colors">
                       <span className="text-pink-400 font-bold text-lg w-6">{i + 1}</span>
                       <div className="flex-1">
@@ -4956,7 +5080,7 @@ useEffect(() => {
                 <p className="text-gray-400 text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
                 <div className="flex gap-2">
                   <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
-                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">Reset</button>
+                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">{t("reinitialiser")}</button>
                 </div>
               <p className="text-gray-600 text-xs mt-2">Press Space or T to tap | R to reset | Esc to close</p>
               </div>
@@ -4983,7 +5107,7 @@ useEffect(() => {
               >TAP</button>
               <div className="flex gap-2 justify-center">
                 <span className="text-gray-500 text-xs">{tapTimes.length} taps</span>
-                <button onClick={() => setTapTimes([])} className="text-xs text-red-400 hover:text-red-300">Reset</button>
+                <button onClick={() => setTapTimes([])} className="text-xs text-red-400 hover:text-red-300">{t("reinitialiser")}</button>
               </div>
             </div>
           </div>
@@ -5022,15 +5146,15 @@ useEffect(() => {
               {[
                 ['Space', 'Play / Pause'],
                     ['\u2190 / \u2192', 'Reculer / Avancer de 5s'],
-                    ['M', 'Mute / Unmute'],
-                ['L', 'Loop intelligent (IN → OUT → Toggle)'],
-                ['[', 'Définir Loop IN'],
-                [']', 'Définir Loop OUT'],
-                ['Escape', 'Désactiver le loop'],
-                ['1-8', 'Aller au Cue Point'],
-                ['?', 'Afficher / Masquer cette aide',
-                ['+ / -', 'Vitesse de lecture +/- 5%'],
-                ['0', 'Reset vitesse (1.00x)'],
+                    ['M', lang === 'fr' ? 'Mute / Unmute' : 'Mute / Unmute'],
+                ['L', lang === 'fr' ? 'Loop intelligent (IN \u2192 OUT \u2192 Toggle)' : 'Smart Loop (IN \u2192 OUT \u2192 Toggle)' → OUT → Toggle)'],
+                ['[', lang === 'fr' ? 'D\u00e9finir Loop IN' : 'Set Loop IN'],
+                [']', lang === 'fr' ? 'D\u00e9finir Loop OUT' : 'Set Loop OUT'],
+                ['Escape', lang === 'fr' ? 'D\u00e9sactiver le loop' : 'Disable loop'],
+                ['1-8', lang === 'fr' ? 'Aller au Cue Point' : 'Jump to Cue Point'],
+                ['?', lang === 'fr' ? 'Afficher / Masquer cette aide' : 'Show / Hide shortcuts',
+                ['+ / -', lang === 'fr' ? 'Vitesse de lecture +/- 5%' : 'Playback speed +/- 5%'],
+                ['0', lang === 'fr' ? 'Reset vitesse (1.00x)' : 'Reset speed (1.00x)'],
                 ['← / →', 'Seek -5s / +5s']],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
@@ -5082,11 +5206,21 @@ function MetaRow({ label, value }: { label: string; value: string }) {
         ))}
       </div>
             {/* ── Keyboard Shortcuts Modal ── */}
+      {/* Language Toggle */}
+      <button
+        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+        title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
+        style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)', transition: 'all 0.2s' }}
+        className="bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
+      >
+        {lang === 'fr' ? 'EN' : 'FR'}
+      </button>
+
       {showShortcutsModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Raccourcis clavier</h3>
+              <h3 className="text-lg font-bold text-white">lang === 'fr' ? 'Raccourcis clavier' : 'Keyboard Shortcuts'</h3>
               <button onClick={() => setShowShortcutsModal(false)} className="text-slate-400 hover:text-white"><XCircle size={20} /></button>
             </div>
             <div className="space-y-2">
