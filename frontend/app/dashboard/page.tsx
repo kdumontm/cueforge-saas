@@ -2229,6 +2229,20 @@ useEffect(() => {
         <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Esc</kbd> Effacer</span>
               <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
               </div>
+              {/* ── Status Bar ── */}
+              <div className="flex items-center gap-3 px-1">
+                <span className="text-[10px] text-slate-600">
+                  {tracks.length} morceau{tracks.length !== 1 ? 'x' : ''}
+                  {searchQuery && ` | ${filteredTracks.length} résultat${filteredTracks.length !== 1 ? 's' : ''}`}
+                </span>
+                {selectedIds.size > 0 && (
+                  <span className="text-[10px] text-cyan-400 flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[9px]">{selectedIds.size}</span>
+                    sélectionné{selectedIds.size !== 1 ? 's' : ''}
+                    <button onClick={() => setSelectedIds(new Set())} className="ml-1 text-[9px] text-slate-500 hover:text-red-400 transition-colors underline">Désélect.</button>
+                  </span>
+                )}
+              </div>
 
               {/* ── Action Buttons ── */}
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
