@@ -3372,69 +3372,43 @@ useEffect(() => {
           <Music className="w-4 h-4 text-purple-400" /> Harmonic Mix Suggestions
         </h3>
         {selectedTrack?.analysis?.key ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-gray-400">Current:</span>
-              <span className="text-xs font-bold text-purple-300 truncate max-w-[120px]">{selectedTrack.title}</span>
-              <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-bold">
-                {CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key} • {selectedTrack.analysis.bpm?.toFixed(0)} BPM
-              </span>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"16px",padding:"12px",background:"rgba(6,182,212,0.1)",borderRadius:"8px",border:"1px solid rgba(6,182,212,0.3)"}}>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:"24px",fontWeight:"bold",color:"#06b6d4"}}>{toCamelot(selectedTrack.analysis.key)}</div>
+                <div style={{fontSize:"10px",color:"#94a3b8"}}>{selectedTrack.analysis.key}</div>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:"13px",fontWeight:"600",color:"#e2e8f0"}}>{selectedTrack.title || selectedTrack.original_filename || selectedTrack.filename}</div>
+                <div style={{fontSize:"11px",color:"#94a3b8"}}>{Math.round(selectedTrack.analysis.bpm)} BPM</div>
+              </div>
             </div>
-            <div className="max-h-[180px] overflow-y-auto space-y-1 scrollbar-thin">
-              {tracks
-                .filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm)
-                .map(t => ({ ...t, score: mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm) }))
-                .filter(t => t.score.total >= 60)
-                .sort((a, b) => b.score.total - a.score.total)
-                .slice(0, 10)
-                .map(t => (
-                  <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer transition-colors group">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${t.score.verdict === 'Perfect' ? 'bg-green-500/20 text-green-400' : t.score.verdict === 'Great' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                      {t.score.total}
+            <div style={{marginBottom:"12px"}}>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Compatible Keys (Camelot)</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                {getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).map(function(ck){return(
+                  <span key={ck} style={{padding:"4px 10px",borderRadius:"6px",fontSize:"11px",fontWeight:"500",background:"rgba(6,182,212,0.15)",color:"#06b6d4",border:"1px solid rgba(6,182,212,0.3)"}}>{ck}</span>
+                )})}
+              </div>
+            </div>
+            <div style={{marginBottom:"8px"}}>
+              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Matching Tracks</div>
+              {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).length > 0 ? (
+                <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
+                  {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).map(function(t){return(
+                    <div key={t.id} onClick={function(){setSelectedTrack(t)}} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",borderRadius:"6px",background:"rgba(30,41,59,0.8)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer"}}>
+                      <span style={{fontSize:"13px",fontWeight:"bold",color:"#22d3ee",minWidth:"28px"}}>{toCamelot(t.analysis.key)}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:"12px",color:"#e2e8f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title || t.original_filename || t.filename}</div>
+                        <div style={{fontSize:"10px",color:"#64748b"}}>{Math.round(t.analysis.bpm)} BPM &middot; {t.analysis.key}</div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-white truncate group-hover:text-purple-300 transition-colors">{t.title}</div>
-                      <div className="text-[10px] text-gray-500">{t.artist || 'Unknown'}</div>
-                    </div>
-                    <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 text-[10px] font-mono">
-                      {CAMELOT_WHEEL[t.analysis.key] || t.analysis.key}
-                    </span>
-                    <span className="text-[10px] text-gray-400 w-12 text-right">{t.analysis.bpm?.toFixed(0)}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${t.score.verdict === 'Perfect' ? 'bg-green-500/20 text-green-400' : t.score.verdict === 'Great' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                      {t.score.verdict}
-                    </span>
-                  </div>
-                ))
-              }
-              {tracks.filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm).filter(t => mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm).total >= 60).length === 0 && (
-                <div className="text-center py-4 text-gray-500 text-xs">No compatible tracks found. Analyze more tracks.</div>
-              )}
-              {/* Track Comparison */}
-              {selectedTrack && tracks.length >= 2 && (
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-3 mt-3 border border-gray-700/50">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-2">
-                    <Compass className="w-4 h-4 text-orange-400" /> Quick Compare
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {tracks.filter(tr => tr.id !== selectedTrack?.id).slice(0, 4).map(tr => {
-                      const score = typeof mixScore === 'function' ? mixScore(selectedTrack, tr) : {total: 0, verdict: '?'};
-                      const bpmDiff = Math.abs((selectedTrack?.bpm || 0) - (tr.bpm || 0));
-                      return (
-                        <div key={tr.id} onClick={() => setSelectedTrack(tr)}
-                          className="p-2 bg-gray-900/60 rounded border border-gray-700/30 cursor-pointer hover:border-orange-500/50 transition-colors">
-                          <div className="text-[9px] text-white truncate font-medium">{tr.title}</div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[8px] text-cyan-400">{tr.bpm?.toFixed(0) || '?'}</span>
-                            <span className="text-[8px] text-purple-400">{CAMELOT_WHEEL[tr.key] || tr.key || '?'}</span>
-                            <span className={"text-[8px] font-bold " + (score.verdict === 'Perfect' ? 'text-green-400' : score.verdict === 'Great' ? 'text-blue-400' : score.verdict === 'Good' ? 'text-yellow-400' : 'text-red-400')}>
-                              {score.verdict}
-                            </span>
-                          </div>
-                          <div className="text-[8px] text-gray-500 mt-0.5">BPM diff: {bpmDiff.toFixed(1)}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  )})}
+                </div>
+              ) : (
+                <div style={{textAlign:"center",padding:"20px 12px",color:"#64748b",fontSize:"12px"}}>
+                  <p style={{marginBottom:"4px"}}>No compatible tracks found in your library.</p>
+                  <p style={{fontSize:"11px"}}>Add more analyzed tracks to see harmonic mix suggestions.</p>
                 </div>
               )}
             </div>
