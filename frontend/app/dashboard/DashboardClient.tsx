@@ -359,7 +359,7 @@ const TR: Record<string, Record<string, string>> = {
     filter_sort: 'Filter & Sort',
     quick_label: 'Quick:',
     expand_panel: 'Expand panel',
-    no_cue_points: 'No cue points yet. Analyze the track,
+    no_cue_points: 'No cue points yet. Analyze the track',
     copy_txt: 'Copy TXT',
     analyzing: 'Analyzing...',
 };
