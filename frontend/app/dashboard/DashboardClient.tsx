@@ -5030,7 +5030,8 @@ useEffect(() => {
                 ['1-8', 'Aller au Cue Point'],
                 ['?', 'Afficher / Masquer cette aide',
                 ['+ / -', 'Vitesse de lecture +/- 5%'],
-                ['0', 'Reset vitesse (1.00x)']],
+                ['0', 'Reset vitesse (1.00x)'],
+                ['← / →', 'Seek -5s / +5s']],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
                   <kbd className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
