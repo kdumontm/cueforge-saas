@@ -213,6 +213,7 @@ export default function DashboardPage() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
   const [waveformTheme, setWaveformTheme] = useState<'purple' | 'cyan' | 'green' | 'orange' | 'fire'>('purple');
+  const [playbackRate, setPlaybackRate] = useState(1.0);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [eqLow, setEqLow] = useState(50);
   const [eqMid, setEqMid] = useState(50);
@@ -847,7 +848,10 @@ useEffect(() => {
       switch (e.code) {
         case 'ArrowLeft': if (wavesurferRef.current) wavesurferRef.current.skip(-5); e.preventDefault(); break;
           case 'ArrowRight': if (wavesurferRef.current) wavesurferRef.current.skip(5); e.preventDefault(); break;
-          case 'KeyM': { const next = !muted; setMuted(next); if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume); break; }
+          case 'KeyM': { const next = !muted; setMuted(next); if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume); break;
+          case 'Equal': case 'NumpadAdd': { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); e.preventDefault(); break; }
+          case 'Minus': case 'NumpadSubtract': { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); e.preventDefault(); break; }
+          case 'Digit0': case 'Numpad0': { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); e.preventDefault(); break; } }
           case 'Space':
           e.preventDefault();
           ws.playPause();
@@ -885,7 +889,7 @@ useEffect(() => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrack, loopIn, loopOut, showShortcuts, muted, volume]);
+  }, [selectedTrack, loopIn, loopOut, showShortcuts, muted, volume, playbackRate]);
 
   // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
@@ -919,6 +923,13 @@ useEffect(() => {
 
 
   return (
+    <style>{`
+      @keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } }
+      .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; }
+      .eq-bar:nth-child(1) { animation-delay: 0s; }
+      .eq-bar:nth-child(2) { animation-delay: 0.15s; }
+      .eq-bar:nth-child(3) { animation-delay: 0.3s; }
+    `}</style>
     <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() => setCtxMenu(null)}>
       {/* Metadata Edit Modal */}
       {showEditMeta && (
@@ -1217,6 +1228,12 @@ useEffect(() => {
                 <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
                 <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); setVolume(v); setMuted(false); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
                     <span className="text-[9px] text-gray-500 min-w-[28px] text-right tabular-nums">{Math.round(volume * 100)}%</span>
+              </div>
+              {/* Playback Speed */}
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-800">
+                <button onClick={() => { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-gray-500 hover:text-white text-[10px] px-1 rounded hover:bg-white/10">-</button>
+                <button onClick={() => { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); }} className={"text-[10px] font-mono min-w-[32px] text-center px-1 rounded cursor-pointer " + (playbackRate === 1.0 ? "text-gray-400" : "text-cyan-400 font-bold")} title="Cliquer pour reset">{playbackRate.toFixed(2)}x</button>
+                <button onClick={() => { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-gray-500 hover:text-white text-[10px] px-1 rounded hover:bg-white/10">+</button>
               </div>
             </div>
             <div className="grid grid-cols-12 gap-3">
@@ -2546,7 +2563,9 @@ function MetaRow({ label, value }: { label: string; value: string }) {
                 [']', 'Définir Loop OUT'],
                 ['Escape', 'Désactiver le loop'],
                 ['1-8', 'Aller au Cue Point'],
-                ['?', 'Afficher / Masquer cette aide'],
+                ['?', 'Afficher / Masquer cette aide',
+                ['+ / -', 'Vitesse de lecture +/- 5%'],
+                ['0', 'Reset vitesse (1.00x)']],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
                   <kbd className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
