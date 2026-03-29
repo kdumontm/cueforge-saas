@@ -3964,20 +3964,20 @@ useEffect(() => {
                       });
                     })()}
                     {Object.entries(CAMELOT_WHEEL).map(([key, val], i) => {
-                      const isMinor = key.includes('A');
-                      const num = parseInt(key);
+                      const isMinor = val.endsWith('A');
+                      const num = parseInt(val);
                       const angle = ((num - 1) * 30 - 90) * Math.PI / 180;
                       const r = isMinor ? 120 : 170;
                       const x = 200 + r * Math.cos(angle);
                       const y = 200 + r * Math.sin(angle);
-                      const isSelected = selectedWheelKey === key;
+                      const isSelected = selectedWheelKey === val;
                       const compatKeys = selectedWheelKey ? getCompatibleKeys(selectedWheelKey) : [];
-                      const isCompat = compatKeys.includes(key);
-                      const trackCount = tracks.filter(t => t.camelotKey === key).length;
+                      const isCompat = compatKeys.includes(val);
+                      const trackCount = tracks.filter(t => t.camelotKey === val).length;
                       const colors = ['#ff6b6b','#ff9f43','#feca57','#48dbfb','#0abde3','#10ac84','#1dd1a1','#54a0ff','#5f27cd','#c44569','#f78fb3','#3dc1d3'];
                       const color = colors[(num - 1) % 12];
                       return (
-                        <g key={key} onClick={() => setSelectedWheelKey(prev => prev === key ? null : key)} style={{cursor: 'pointer'}}>
+                        <g key={key} onClick={() => setSelectedWheelKey(prev => prev === val ? null : val)} style={{cursor: 'pointer'}}>
                           {/* Glow effect for selected */}
                           {isSelected && <circle cx={x} cy={y} r={32} fill={color} opacity="0.2" />}
                           <circle
@@ -3989,7 +3989,7 @@ useEffect(() => {
                             opacity={selectedWheelKey ? (isSelected || isCompat ? 1 : 0.25) : 1}
                             className="transition-all duration-200 hover:opacity-100"
                           />
-                          <text x={x} y={y - 4} textAnchor="middle" fill={isSelected ? '#fff' : isCompat ? '#fff' : '#ccc'} fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"} style={{pointerEvents: 'none'}}>{key}</text>
+                          <text x={x} y={y - 4} textAnchor="middle" fill={isSelected ? '#fff' : isCompat ? '#fff' : '#ccc'} fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"} style={{pointerEvents: 'none'}}>{val}</text>
                           <text x={x} y={y + 10} textAnchor="middle" fill={isSelected ? '#fff' : '#888'} fontSize="8" style={{pointerEvents: 'none'}}>{trackCount > 0 ? trackCount + ' trk' : ''}</text>
                         </g>
                       );
