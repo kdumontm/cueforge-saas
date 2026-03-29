@@ -1172,8 +1172,10 @@ useEffect(() => {
                   </div>
                 )}
           {!selectedTrack && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-3">
+              <Disc3 size={32} className="text-slate-600 animate-spin" style={{ animationDuration: '3s' }} />
               <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
+              <p className="text-slate-600 text-[10px]">Clique sur un track dans la liste ci-dessous</p>
             </div>
           )}
           {selectedTrack && (
