@@ -168,6 +168,7 @@ export default function DashboardPage() {
   const [muted, setMuted] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{current: number; total: number} | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState('');
   const [error, setError] = useState('');
@@ -250,7 +251,12 @@ export default function DashboardPage() {
     setUploading(true);
     showToast(`Upload de ${files.length} fichier(s)...`, 'info');
     try {
-      for (const file of files) { await uploadTrack(file); }
+      setUploadProgress({current: 0, total: files.length});
+      for (let i = 0; i < files.length; i++) { 
+        setUploadProgress({current: i + 1, total: files.length});
+        await uploadTrack(files[i]); 
+      }
+      setUploadProgress(null);
       showToast(`${files.length} fichier(s) upload\u00e9(s)`, 'success');
       loadTracks();
     } catch (err) { showToast('Erreur lors de l\'upload', 'error'); }
@@ -1598,6 +1604,19 @@ useEffect(() => {
             <button onClick={() => { const ids = Array.from(selectedIds); showToast(`Analyse de ${ids.length} track(s) lanc\u00e9e`, 'info'); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
             <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); showToast(`${ids.length} track(s) supprim\u00e9(s)`, 'success'); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
             <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
+          </div>
+        )}
+        {/* ── Upload Progress Bar ── */}
+        {uploadProgress && (
+          <div className="mx-4 mb-2">
+            <div className="flex items-center gap-2 text-xs text-cyan-400 mb-1">
+              <Upload size={12} className="animate-bounce" />
+              <span>Upload {uploadProgress.current}/{uploadProgress.total}</span>
+              <span className="text-slate-500">({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
+            </div>
+            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300 ease-out" style={{width: `${(uploadProgress.current / uploadProgress.total) * 100}%`}} />
+            </div>
           </div>
         )}
         {/* Table header */}
