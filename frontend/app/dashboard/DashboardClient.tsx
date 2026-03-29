@@ -1386,7 +1386,7 @@ export default function DashboardPage() {
     }
   }
 
-  const onDrop = useCallback((e: React.DragEvent) => {
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
@@ -2257,7 +2257,7 @@ export default function DashboardPage() {
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
+        onDrop={handleFileDrop}
       >
         {/* Upload button */}
         <button
