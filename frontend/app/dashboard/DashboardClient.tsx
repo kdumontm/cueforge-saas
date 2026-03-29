@@ -58,6 +58,22 @@ function energyToRating(energy: number | null | undefined): string {
   return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
 }
 
+function energyToLabel(energy: number | null | undefined): string {
+  if (energy == null) return 'N/A';
+  if (energy < 0.25) return 'Calm';
+  if (energy < 0.5) return 'Moderate';
+  if (energy < 0.75) return 'Energetic';
+  return 'Intense';
+}
+
+function energyToColor(energy: number | null | undefined): string {
+  if (energy == null) return 'rgb(107,114,128)';
+  if (energy < 0.25) return 'rgb(34,197,94)';
+  if (energy < 0.5) return 'rgb(234,179,8)';
+  if (energy < 0.75) return 'rgb(249,115,22)';
+  return 'rgb(239,68,68)';
+}
+
 const CUE_TYPE_COLORS: Record<string, string> = {
   hot_cue: '#e11d48', loop: '#0891b2', fade_in: '#16a34a', fade_out: '#ea580c',
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
@@ -1561,13 +1577,14 @@ useEffect(() => {
                   <span className="text-cyan-400 font-bold">{toCamelot(selectedTrack.analysis.key)}</span>
                 </div>
               )}
-              {selectedTrack.analysis?.energy != null && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-yellow-500/10 border border-yellow-500/20">
-                  <Zap size={12} className="text-yellow-400" />
-                  <span className="text-yellow-400 font-bold">{energyToRating(selectedTrack.analysis.energy)}</span>
-                  <span className="text-yellow-400/60">/10</span>
-                </div>
-              )}
+            {selectedTrack.analysis?.energy != null && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border" style={{ background: energyToColor(selectedTrack.analysis.energy) + '15', borderColor: energyToColor(selectedTrack.analysis.energy) + '50' }}>
+                <Zap size={12} style={{ color: energyToColor(selectedTrack.analysis.energy) }} />
+                <span className="font-bold" style={{ color: energyToColor(selectedTrack.analysis.energy) }}>{energyToRating(selectedTrack.analysis.energy)}</span>
+                <span style={{ color: energyToColor(selectedTrack.analysis.energy), opacity: 0.6 }}>/10</span>
+                <span className="text-[9px] ml-1" style={{ color: energyToColor(selectedTrack.analysis.energy), opacity: 0.8 }}>{energyToLabel(selectedTrack.analysis.energy)}</span>
+              </div>
+            )}
               {selectedTrack.genre && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/10 border border-purple-500/20">
                   <Disc3 size={12} className="text-purple-400" />
@@ -2401,13 +2418,17 @@ useEffect(() => {
                     return <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${color}`}>{score.total}%</span>;
                   })()}
                 </div>
-{/* Energy */}
-                <div title={a?.energy != null ? `Énergie: ${Math.round(a.energy * 100)}% | ${a.energy < 0.3 ? "Calme" : a.energy < 0.6 ? "Modéré" : a.energy < 0.8 ? "Énergique" : "Très énergique"}` : ""} className="flex items-center justify-center gap-1 cursor-help">
-                  <div className="w-10 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: ((a?.energy || 0) * 100) + '%', background: (a?.energy || 0) > 0.7 ? '#f59e0b' : (a?.energy || 0) > 0.4 ? '#22d3ee' : '#64748b' }} />
-                  </div>
-                  <span className="text-[10px] text-yellow-400 font-mono font-bold min-w-[12px]">{energyToRating(a?.energy)}</span>
-                </div>
+          {/* Energy */}
+          <div title={a?.energy != null ? 'Energy: ' + Math.round((a.energy || 0) * 100) + '% - ' + energyToLabel(a?.energy) : 'Not analyzed'} className="text-center select-none">
+            <div className="flex items-center justify-center gap-1">
+              <div className="flex gap-px">
+                {[0, 1, 2, 3, 4].map(seg => (
+                  <div key={seg} className="w-1.5 rounded-sm" style={{ height: (seg + 1) * 2 + 4 + 'px', background: (a?.energy || 0) > seg * 0.2 ? energyToColor(a?.energy) : 'rgb(55,65,81)' }} />
+                ))}
+              </div>
+              <span className="text-[10px] font-mono font-bold min-w-[12px]" style={{ color: energyToColor(a?.energy) }}>{a?.energy != null ? Math.round(a.energy * 100) : '-'}</span>
+            </div>
+          </div>
                 {/* Duration */}
                 <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-slate-500 font-mono text-center cursor-help">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
@@ -2792,7 +2813,7 @@ useEffect(() => {
             <div className="flex gap-4 mt-1">
               <span className="text-xs text-cyan-400">{selectedTrack.analysis?.bpm?.toFixed(1)} BPM</span>
               <span className="text-xs text-purple-400">{toCamelot(selectedTrack.analysis?.key || '')}</span>
-              <span className="text-xs text-green-400">Energy: {selectedTrack.analysis?.energy?.toFixed(0)}%</span>
+              <span className="text-xs" style={{ color: energyToColor(selectedTrack.analysis?.energy) }}>Energy: {selectedTrack.analysis?.energy != null ? Math.round(selectedTrack.analysis.energy * 100) + '% (' + energyToLabel(selectedTrack.analysis?.energy) + ')' : 'N/A'}</span>
             </div>
           </div>
           <h4 className="text-xs font-semibold text-gray-400">Meilleurs enchaînements</h4>
