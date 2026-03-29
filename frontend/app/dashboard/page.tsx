@@ -29,6 +29,23 @@ function toCamelot(key: string | null | undefined): string {
   return CAMELOT_WHEEL[key] || key;
 }
 
+// Harmonic mixing: compatible Camelot keys (same, +/-1, relative major/minor)
+function getCompatibleKeys(camelotKey) {
+  if (!camelotKey) return [];
+  const match = camelotKey.match(/(\d+)([AB])/);
+  if (!match) return [];
+  const num = parseInt(match[1]);
+  const letter = match[2];
+  const other = letter === 'A' ? 'B' : 'A';
+  return [
+    camelotKey,
+    num + other,                              // relative major/minor
+    ((num % 12) + 1) + letter,                // +1 semitone
+    ((num - 2 + 12) % 12 + 1) + letter,      // -1 semitone
+  ];
+}
+
+
 function msToTime(ms: number): string {
   const total = Math.floor(ms / 1000);
   const m = Math.floor(total / 60);
@@ -178,6 +195,7 @@ export default function DashboardPage() {
   const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
   const [filterKey, setFilterKey] = useState<string>('');
+  const [filterGenre, setFilterGenre] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
@@ -243,6 +261,20 @@ export default function DashboardPage() {
   const getDefaultCueColor = (index: number) => {
     const defaults = ["#E13535", "#FF8C00", "#E2D420", "#1DB954", "#21C8DE", "#2B7FFF", "#A855F7", "#FF69B4"];
     return defaults[index % defaults.length];
+  };
+
+  // ── Re-analyze a track ──
+  const reanalyzeTrack = async (trackId) => {
+    try {
+      const resp = await fetch(API + '/tracks/' + trackId + '/analyze', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (resp.ok) {
+        // Update track status locally
+        setTracks(prev => prev.map(t => t.id === trackId ? {...t, status: 'analyzing'} : t));
+      }
+    } catch(e) { console.error('Re-analyze failed:', e); }
   };
 
   const getCueColor = (cueId: number, index: number) => {
@@ -753,6 +785,7 @@ export default function DashboardPage() {
     if (filterBpmMin > 0 && bpm < filterBpmMin) return false;
     if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
     if (filterKey && t.analysis?.key !== filterKey) return false;
+    if (filterGenre && t.genre !== filterGenre) return false;
     return true;
   });
 
@@ -1270,6 +1303,13 @@ useEffect(() => {
                           {Object.entries(CAMELOT_MAP).map(([k, v]) => <option key={k} value={k}>{v} - {k}</option>)}
                         </select>
                       </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 uppercase">Genre</label>
+                        <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
+                          <option value="">All Genres</option>
+                          {[...new Set(tracks.map(t => t.genre).filter(Boolean))].sort().map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
                       
                       <div>
                         <label className="text-[10px] text-gray-500 uppercase">Sort by</label>
@@ -1374,7 +1414,7 @@ useEffect(() => {
                 </span>
                 {/* Key (Camelot) + Compatibility */}
                 <div className="flex items-center justify-center gap-1">
-                  <span className="text-xs text-cyan-400 font-mono text-center font-bold">
+                  <span className={"text-xs font-mono text-center font-bold " + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? "text-green-400" : "text-cyan-400")} title={a?.key ? toCamelot(a.key) + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? ' ✓ Compatible' : '') : ''}>
                     {toCamelot(a?.key)}
                   </span>
                   {selectedTrack && selectedTrack.id !== track.id && track.analysis?.key && selectedTrack.analysis?.key && (() => {
@@ -1391,7 +1431,13 @@ useEffect(() => {
                 <span className="text-xs text-slate-500 font-mono text-center">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
                 </span>
-                {/* Actions */}
+                {/* Status & Actions */}
+                {track.status === 'analyzing' && (
+                  <span className="text-[10px] text-cyan-400 animate-pulse" title="Analyse en cours...">⏳</span>
+                )}
+                {track.status === 'failed' && (
+                  <button onClick={(e) => { e.stopPropagation(); reanalyzeTrack(track.id); }} className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors" title="Réanalyser">🔄</button>
+                )}
                 <button
                   onClick={e => { e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
                   className="p-1 text-slate-600 hover:text-slate-300 transition-colors"
