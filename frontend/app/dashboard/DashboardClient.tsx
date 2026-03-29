@@ -314,7 +314,6 @@ export default function DashboardPage() {
   const [playHistory, setPlayHistory] = useState<{trackId: number; timestamp: number}[]>([]);
   const [mixLog, setMixLog] = useState<{fromId: number; toId: number; score: number; timestamp: number}[]>([]);
   const [filterGenre, setFilterGenre] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
   const [waveformZoom, setWaveformZoom] = useState<number>(1);
