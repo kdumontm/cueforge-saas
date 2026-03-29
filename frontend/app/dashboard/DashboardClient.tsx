@@ -574,7 +574,10 @@ export default function DashboardPage() {
     if (!showColSettings) return;
     const handler = () => setShowColSettings(false);
     document.addEventListener('click', handler);
-      // Track play history and mix transitions
+    return () => document.removeEventListener('click', handler);
+  }, [showColSettings]);
+
+  // Track play history and mix transitions
   const prevSelectedRef = useRef<any>(null);
   useEffect(() => {
     if (selectedTrack) {
@@ -586,9 +589,6 @@ export default function DashboardPage() {
       prevSelectedRef.current = selectedTrack;
     }
   }, [selectedTrack?.id]);
-
-return () => document.removeEventListener('click', handler);
-  }, [showColSettings]);
 
     // Dynamic CSS for hidden columns - only min-width:0 on cells in 0px tracks
   useEffect(() => {
@@ -1294,7 +1294,7 @@ return () => document.removeEventListener('click', handler);
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [selectedTrack, tracks, filtered, wavesurferRef]);
 
   // ── Player controls ───────────────────────────────────────────────────
   function togglePlay() {
@@ -1551,7 +1551,7 @@ return () => document.removeEventListener('click', handler);
           case 'duration': return dir * ((a.analysis?.duration_ms || a.duration_ms || 0) - (b.analysis?.duration_ms || b.duration_ms || 0));
           default: return dir * (new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         }
-      })
+      });
 
   const isLoading = uploading || analyzing;
   const selectedCount = selectedIds.size;
@@ -1578,20 +1578,23 @@ return () => document.removeEventListener('click', handler);
     if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
     if (filterKey && t.analysis?.key !== filterKey) return false;
     if (filterGenre && t.genre !== filterGenre) return false;
-     if (searchQuery) { var q = searchQuery.toLowerCase(); if (!(t.title || '').toLowerCase().includes(q) && !(t.artist || '').toLowerCase().includes(q) && !(t.filename || '').toLowerCase().includes(q)) return false; }
-          const energy = Math.round((t.analysis?.energy || 0) * 100);
-      if (filterEnergyMin > 0 && energy < filterEnergyMin) return false;
-      if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
-            if (filterColor && trackColors[t.id] !== filterColor) return false;
-      if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
-      if (bpmMin > 0 && t.bpm < bpmMin) return false;
-      if (bpmMax < 300 && t.bpm > bpmMax) return false;
-          if (showCompatibleOnly && selectedTrack && selectedTrack.analysis?.key && t.id !== selectedTrack.id) {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(t.title || '').toLowerCase().includes(q) && !(t.artist || '').toLowerCase().includes(q) && !(t.filename || '').toLowerCase().includes(q)) return false;
+    }
+    const energy = Math.round((t.analysis?.energy || 0) * 100);
+    if (filterEnergyMin > 0 && energy < filterEnergyMin) return false;
+    if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
+    if (filterColor && trackColors[t.id] !== filterColor) return false;
+    if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
+    if (bpmMin > 0 && t.bpm < bpmMin) return false;
+    if (bpmMax < 300 && t.bpm > bpmMax) return false;
+    if (showCompatibleOnly && selectedTrack && selectedTrack.analysis?.key && t.id !== selectedTrack.id) {
       const selCamelot = toCamelot(selectedTrack.analysis.key);
       const trackCamelot = toCamelot(t.analysis?.key || '');
       if (selCamelot && trackCamelot && !getCompatibleKeys(selCamelot).includes(trackCamelot)) return false;
     }
-  return true;
+    return true;
   });
 
 
@@ -1639,7 +1642,8 @@ return () => document.removeEventListener('click', handler);
       if (e.key === 'Escape') {
         if (searchQuery) { setSearchQuery(''); }
         (document.activeElement as HTMLElement)?.blur();
-      
+      }
+
       // Q = Quick Mix (jump to best matching track)
       if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault();
@@ -1666,7 +1670,6 @@ return () => document.removeEventListener('click', handler);
           setShowCompatibleOnly(prev => !prev);
         }
       }
-    }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -1703,7 +1706,7 @@ return () => document.removeEventListener('click', handler);
 
   // Sort tracks
 
-useEffect(() => {
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       const ws = wavesurferRef.current;
@@ -5147,7 +5150,7 @@ useEffect(() => {
                 ['Space', 'Play / Pause'],
                     ['\u2190 / \u2192', 'Reculer / Avancer de 5s'],
                     ['M', lang === 'fr' ? 'Mute / Unmute' : 'Mute / Unmute'],
-                ['L', lang === 'fr' ? 'Loop intelligent (IN \u2192 OUT \u2192 Toggle)' : 'Smart Loop (IN \u2192 OUT \u2192 Toggle)' → OUT → Toggle)'],
+                ['L', lang === 'fr' ? 'Loop intelligent (IN \u2192 OUT \u2192 Toggle)' : 'Smart Loop (IN \u2192 OUT \u2192 Toggle)'],
                 ['[', lang === 'fr' ? 'D\u00e9finir Loop IN' : 'Set Loop IN'],
                 [']', lang === 'fr' ? 'D\u00e9finir Loop OUT' : 'Set Loop OUT'],
                 ['Escape', lang === 'fr' ? 'D\u00e9sactiver le loop' : 'Disable loop'],
@@ -5155,7 +5158,7 @@ useEffect(() => {
                 ['?', lang === 'fr' ? 'Afficher / Masquer cette aide' : 'Show / Hide shortcuts'],
                 ['+ / -', lang === 'fr' ? 'Vitesse de lecture +/- 5%' : 'Playback speed +/- 5%'],
                 ['0', lang === 'fr' ? 'Reset vitesse (1.00x)' : 'Reset speed (1.00x)'],
-                ['← / →', 'Seek -5s / +5s']],
+                ['← / →', 'Seek -5s / +5s'],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
                   <kbd className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
