@@ -267,6 +267,14 @@ export default function DashboardPage() {
     return () => document.removeEventListener('click', handler);
   }, [showColSettings]);
 
+  // Inject CSS for grid column overflow (style tags stripped by Next.js build)
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = '.grid > * { min-width: 0; overflow: hidden; }';
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
   const bulkUpdateGenre = async () => {
     if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
     setBulkUpdating(true);
@@ -3107,10 +3115,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         </div>
       )}
-<style>{`
-        /* Column visibility - hide overflow in 0px grid cells */
-        .grid > * { min-width: 0; overflow: hidden; }
-@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+<style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 </div>
   );
 }
