@@ -329,11 +329,11 @@ def detect_sections_ssm(
                 label = "OUTRO"
             
             # DROP: ONLY when a detected drop point falls in this section AND energy is high
-            elif has_drop and section_energy > e_p75 * 0.75 and drop_count < 3:
+            elif has_drop and section_energy > e_p75 and drop_count < 2:
                 label = "DROP"
             
             # DROP: extremely high energy (top 10%) even without detected drop — max 3 total
-            elif section_energy > e_p75 * 1.2 and drop_count < 3:
+            elif section_energy > e_p75 * 1.5 and drop_count < 2 and 0.15 < position < 0.85:
                 label = "DROP"
             
             # BUILD: rising energy trend, not at start/end
@@ -357,6 +357,8 @@ def detect_sections_ssm(
                 label = "BREAKDOWN"
             
             # Default: VERSE for moderate energy, BREAKDOWN for low
+            elif section_energy > e_p75 * 0.9:
+                label = "CHORUS"
             elif section_energy > e_median:
                 label = "VERSE"
             else:
@@ -487,19 +489,19 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         # Adaptive threshold: use percentile of positive values
         positive_scores = drop_score[drop_score > 0.1]
         if len(positive_scores) > 0:
-            threshold = float(np.percentile(positive_scores, 60))
+            threshold = float(np.percentile(positive_scores, 80))
         else:
             threshold = 0.25
-        threshold = max(0.20, min(0.50, threshold))
+        threshold = max(0.35, min(0.65, threshold))
 
         # Minimum distance between drops: 8 seconds
-        min_distance_frames = int(8.0 * sr / hop)
+        min_distance_frames = int(16.0 * sr / hop)
 
         peaks, properties = find_peaks(
             drop_score,
             height=threshold,
             distance=min_distance_frames,
-            prominence=0.08,
+            prominence=0.15,
         )
 
         # Convert to beat-snapped positions (snap to nearest downbeat = every 4 beats)
@@ -982,21 +984,33 @@ def analyze_audio(file_path: str) -> Dict:
         # Convert RMS to perceptual 0-100% energy scale
         # Use dB scale with reference to typical DJ track levels
         rms_mean = float(np.mean(rms))
-        rms_peak = float(np.percentile(rms, 90))  # 90th percentile for "perceived loudness"
-        # Combine mean and peak for better perception
-        rms_combined = 0.4 * rms_mean + 0.6 * rms_peak
-        # Convert to dB (reference: 0.3 RMS = very loud track)
+        rms_peak = float(np.percentile(rms, 95))
+        rms_p75 = float(np.percentile(rms, 75))
+        # Multi-factor energy: loudness (50%) + dynamics (20%) + spectral weight (15%) + BPM factor (15%)
+        # Loudness: dB scale relative to 0.1 RMS reference (typical normalized audio)
+        rms_combined = 0.3 * rms_mean + 0.4 * rms_p75 + 0.3 * rms_peak
         if rms_combined > 0:
-            db = 20 * np.log10(rms_combined / 0.3)
-            # Map dB to 0-100: -30dB = 0%, 0dB = 85%, +6dB = 100%
-            energy_pct = max(0, min(100, (db + 30) * (100 / 36)))
+            db = 20 * np.log10(rms_combined / 0.1)
+            # Map: -40dB=0%, -20dB=30%, -10dB=55%, -3dB=75%, 0dB=85%
+            loudness_pct = max(0, min(85, (db + 40) * (85 / 40)))
         else:
-            energy_pct = 0
-        # Also factor in dynamic range (more dynamic = higher perceived energy)
-        dynamic_factor = min(1.2, float(np.max(rms)) / (rms_mean + 1e-8))
-        energy = round(min(100, energy_pct * min(1.15, 0.85 + dynamic_factor * 0.15)), 1)
-        del rms
-    except Exception:
+            loudness_pct = 0
+        # Dynamics: high variance = more energetic feel
+        rms_cv = float(np.std(rms)) / (rms_mean + 1e-8)
+        dynamics_pct = min(100, rms_cv * 80)
+        # BPM contribution: faster tempo = higher perceived energy
+        bpm_factor = 0
+        if bpm:
+            if bpm >= 170: bpm_factor = 100
+            elif bpm >= 140: bpm_factor = 80
+            elif bpm >= 128: bpm_factor = 65
+            elif bpm >= 120: bpm_factor = 50
+            elif bpm >= 100: bpm_factor = 35
+            else: bpm_factor = 20
+        # Spectral weight: more bass + percussion = higher energy
+        spec_factor = min(100, float(np.mean(np.abs(y)) * 500))
+        energy = round(min(100, max(0, loudness_pct * 0.50 + dynamics_pct * 0.20 + spec_factor * 0.15 + bpm_factor * 0.15)), 1)
+            except Exception:
         energy = None
 
     # Drops (6-factor detection with downbeat snapping)
