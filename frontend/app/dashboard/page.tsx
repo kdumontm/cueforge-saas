@@ -2051,9 +2051,12 @@ useEffect(() => {
                   ) : (track.genre?.split(',')[0]?.trim() || 'â')}
                 </span>
                 {/* BPM */}
-                <span title={a?.bpm ? `BPM: ${a.bpm.toFixed(2)} | ${a.bpm < 100 ? "Slow" : a.bpm < 130 ? "Medium" : a.bpm < 150 ? "Fast" : "Very Fast"}` : ""} className="text-xs text-blue-400 font-mono text-center font-bold cursor-help">
+                <div className="flex flex-col items-center">
+                  <span title={a?.bpm ? `BPM: ${a.bpm.toFixed(2)} | ${a.bpm < 100 ? "Slow" : a.bpm < 130 ? "Medium" : a.bpm < 150 ? "Fast" : "Very Fast"}` : ""} className="text-xs text-blue-400 font-mono text-center font-bold cursor-help">
                   {a?.bpm ? a.bpm.toFixed(1) : '\u2014'}
                 </span>
+                  {selectedTrack && selectedTrack.id !== track.id && a?.bpm && selectedTrack.analysis?.bpm ? (() => { const diff = a.bpm - selectedTrack.analysis.bpm; const absDiff = Math.abs(diff); return <span className={"text-[8px] font-mono " + (absDiff < 3 ? "text-green-400" : absDiff < 8 ? "text-yellow-400" : "text-red-400")}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>; })() : null}
+                </div>
                 {/* Key (Camelot) + Compatibility */}
                 <div title={a?.key ? `Tonalité: ${a.key} | Camelot: ${toCamelot(a.key)}` : ""} className="flex items-center justify-center gap-1 cursor-help">
                   <span className={"text-xs font-mono text-center font-bold " + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? "text-green-400" : "text-cyan-400")} title={a?.key ? toCamelot(a.key) + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? ' ✓ Compatible' : '') : ''}>
