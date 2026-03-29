@@ -1010,7 +1010,7 @@ def analyze_audio(file_path: str) -> Dict:
         # Spectral weight: more bass + percussion = higher energy
         spec_factor = min(100, float(np.mean(np.abs(y)) * 500))
         energy = round(min(100, max(0, loudness_pct * 0.50 + dynamics_pct * 0.20 + spec_factor * 0.15 + bpm_factor * 0.15)), 1)
-            except Exception:
+    except Exception:
         energy = None
 
     # Drops (6-factor detection with downbeat snapping)
