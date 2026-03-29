@@ -77,6 +77,39 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+// Auto-generate cue points from analysis sections/drops
+function generateCuePointsFromAnalysis(analysis: any): Array<{label: string; position: number; color: string}> {
+  const SECTION_COLORS: Record<string, string> = {
+    INTRO: '#ef4444', DROP: '#f97316', PHRASE: '#22c55e',
+    OUTRO: '#f472b6', BUILDUP: '#eab308', BREAKDOWN: '#8b5cf6',
+    VERSE: '#06b6d4', CHORUS: '#ec4899', BRIDGE: '#a855f7'
+  };
+  const cues: Array<{label: string; position: number; color: string}> = [];
+  if (analysis?.sections?.length > 0) {
+    const labelCounts: Record<string, number> = {};
+    analysis.sections.forEach((sec: any) => {
+      const baseLabel = (sec.label || 'CUE').toUpperCase();
+      labelCounts[baseLabel] = (labelCounts[baseLabel] || 0) + 1;
+      const count = labelCounts[baseLabel];
+      const label = count > 1 ? baseLabel + ' ' + count : baseLabel;
+      cues.push({
+        label,
+        position: sec.start,
+        color: SECTION_COLORS[baseLabel] || '#6b7280'
+      });
+    });
+  } else if (analysis?.drop_positions?.length > 0) {
+    analysis.drop_positions.forEach((ms: number, i: number) => {
+      cues.push({
+        label: 'DROP ' + (i + 1),
+        position: ms / 1000,
+        color: '#f97316'
+      });
+    });
+  }
+  return cues;
+}
+
 function energyToRating(energy: number | null | undefined): string {
   if (energy == null) return '\u2014';
   return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
@@ -3302,6 +3335,18 @@ useEffect(() => {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-cyan-400 tracking-widest">CUE POINTS</span>
                 <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">+ Add Cue</button>
+                {selectedTrack.analysis && (
+                  <button onClick={() => {
+                    const autoCues = generateCuePointsFromAnalysis(selectedTrack.analysis);
+                    if (autoCues.length === 0) { showToast('No analysis data for auto-generation'); return; }
+                    const newCues = autoCues.map((c, i) => ({ id: Date.now() + i, label: c.label, position: c.position, color: c.color }));
+                    setSelectedTrack((prev: any) => ({ ...prev, cue_points: newCues }));
+                    setTracks((prev: any) => prev.map((t: any) => t.id === selectedTrack.id ? { ...t, cue_points: newCues } : t));
+                    showToast(autoCues.length + ' cue points auto-generated');
+                  }} className="text-xs px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">
+                    <Sparkles size={12} /> Auto
+                  </button>
+                )}
               </div>
               {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
                 <p className="text-gray-500 text-xs text-center py-4">No cue points yet. Analyze the track or add manually.</p>
