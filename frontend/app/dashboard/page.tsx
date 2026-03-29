@@ -1864,7 +1864,40 @@ useEffect(() => {
             </div>
           )}
         </div>
-        {/* Table header */}
+        {/* Batch Operations Toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 mb-1 p-2 bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-lg border border-blue-500/30">
+              <span className="text-[10px] text-blue-300 font-bold">{selectedIds.size} selected</span>
+              <div className="flex gap-1 ml-2">
+                {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
+                  <button key={c} onClick={() => { selectedIds.forEach(id => setTrackColors(prev => ({...prev, [id]: c}))); }}
+                    className="w-4 h-4 rounded-full border border-gray-500 hover:scale-125 transition-transform"
+                    style={{backgroundColor: c}} title={'Color all ' + c} />
+                ))}
+              </div>
+              <div className="flex gap-0.5 ml-2">
+                {[1,2,3,4,5].map(s => (
+                  <button key={s} onClick={() => { selectedIds.forEach(id => setTrackRatings(prev => ({...prev, [id]: s}))); }}
+                    className="text-[10px] text-yellow-400 hover:scale-125 transition-transform">
+                    <Star className="w-3 h-3 fill-yellow-400" />
+                  </button>
+                ))}
+              </div>
+              {activeSetList >= 0 && (
+                <button onClick={() => { setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: [...new Set([...sl.trackIds, ...Array.from(selectedIds)])]} : sl)); }}
+                  className="text-[9px] bg-green-600/30 text-green-300 px-2 py-0.5 rounded hover:bg-green-600/50 transition-colors ml-1">
+                  + Set List
+                </button>
+              )}
+              <button onClick={() => { setTracks(prev => prev.filter(t => !selectedIds.has(t.id))); setSelectedIds(new Set()); }}
+                className="text-[9px] bg-red-600/30 text-red-300 px-2 py-0.5 rounded hover:bg-red-600/50 transition-colors ml-1">
+                Delete
+              </button>
+              <button onClick={() => setSelectedIds(new Set())}
+                className="text-[9px] text-gray-400 hover:text-white ml-auto">Clear</button>
+            </div>
+          )}
+          {/* Table header */}
         <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
           <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
@@ -2590,6 +2623,41 @@ useEffect(() => {
                         })}
                         {setLists[activeSetList].trackIds.length === 0 && (
                           <div className="text-center py-4 text-gray-500 text-xs">Select a track and click "+ Add Selected" to build your set</div>
+                        )}
+                        {/* Export Set List */}
+                        {setLists[activeSetList].trackIds.length > 0 && (
+                          <div className="flex gap-2 mt-2 pt-2 border-t border-gray-700/50">
+                            <button onClick={() => {
+                              const sl = setLists[activeSetList];
+                              const lines = sl.trackIds.map((tid, i) => {
+                                const tr = tracks.find(t => t.id === tid);
+                                if (!tr) return '';
+                                const note = transitionNotes[activeSetList + '-' + i] || '';
+                                return (i+1) + '. ' + tr.title + ' - ' + (tr.bpm?.toFixed(1) || '?') + ' BPM - ' + (tr.key || '?') + (note ? ' [' + note + ']' : '');
+                              }).filter(Boolean);
+                              const text = 'Set List: ' + sl.name + '\n' + lines.join('\n');
+                              navigator.clipboard.writeText(text);
+                            }} className="flex-1 text-[9px] bg-blue-600/30 text-blue-300 py-1 rounded hover:bg-blue-600/50 transition-colors flex items-center justify-center gap-1">
+                              <Copy className="w-3 h-3" /> Copy as Text
+                            </button>
+                            <button onClick={() => {
+                              const sl = setLists[activeSetList];
+                              const header = 'No,Title,BPM,Key,Note';
+                              const rows = sl.trackIds.map((tid, i) => {
+                                const tr = tracks.find(t => t.id === tid);
+                                if (!tr) return '';
+                                return (i+1) + ',' + (tr.title || '').replace(/,/g, ' ') + ',' + (tr.bpm?.toFixed(1) || '') + ',' + (tr.key || '') + ',' + (transitionNotes[activeSetList + '-' + i] || '');
+                              }).filter(Boolean);
+                              const csv = header + '\n' + rows.join('\n');
+                              const blob = new Blob([csv], {type: 'text/csv'});
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url; a.download = sl.name + '.csv'; a.click();
+                              URL.revokeObjectURL(url);
+                            }} className="flex-1 text-[9px] bg-green-600/30 text-green-300 py-1 rounded hover:bg-green-600/50 transition-colors flex items-center justify-center gap-1">
+                              <Download className="w-3 h-3" /> Export CSV
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
