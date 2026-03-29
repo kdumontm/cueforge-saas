@@ -848,10 +848,10 @@ useEffect(() => {
       switch (e.code) {
         case 'ArrowLeft': if (wavesurferRef.current) wavesurferRef.current.skip(-5); e.preventDefault(); break;
           case 'ArrowRight': if (wavesurferRef.current) wavesurferRef.current.skip(5); e.preventDefault(); break;
-          case 'KeyM': { const next = !muted; setMuted(next); if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume); break;
+          case 'KeyM': { const next = !muted; setMuted(next); if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume); break; }
           case 'Equal': case 'NumpadAdd': { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); e.preventDefault(); break; }
           case 'Minus': case 'NumpadSubtract': { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); e.preventDefault(); break; }
-          case 'Digit0': case 'Numpad0': { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); e.preventDefault(); break; } }
+          case 'Digit0': case 'Numpad0': { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); e.preventDefault(); break; }
           case 'Space':
           e.preventDefault();
           ws.playPause();
