@@ -230,6 +230,19 @@ export default function DashboardPage() {
   // ── Drag & Drop Upload ──
   const dragCountRef = useRef(0);
   const lastClickedIdxRef = useRef<number>(-1);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [previewingTrackId, setPreviewingTrackId] = useState<number | null>(null);
+  
+  // Cleanup audio preview on unmount
+  useEffect(() => {
+    return () => {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+    };
+  }, []);
+
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
     dragCountRef.current++;
@@ -1690,16 +1703,46 @@ useEffect(() => {
                 }}
                 onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
               >
-                {/* Checkbox */}
+                {/* Checkbox / Play */}
                 <div
-                  onClick={(e) => toggleSelect(track.id, e)}
-                  className="flex items-center justify-center cursor-pointer"
+                  className="flex items-center justify-center cursor-pointer relative"
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(track.id, e); }}
                 >
-                  {isSelected ? (
-                    <CheckSquare size={15} className="text-cyan-500/70" />
-                  ) : (
-                    <Square size={15} className="text-slate-700 group-hover:text-slate-500 transition-colors" />
-                  )}
+                  <div className="group-hover:hidden">
+                    {isSelected ? (
+                      <CheckSquare size={15} className="text-cyan-500/70" />
+                    ) : previewingTrackId === track.id ? (
+                      <Pause size={15} className="text-cyan-400 animate-pulse" />
+                    ) : (
+                      <Square size={15} className="text-slate-700 transition-colors" />
+                    )}
+                  </div>
+                  <button
+                    className="hidden group-hover:flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const token = localStorage.getItem('cueforge_token');
+                      if (previewingTrackId === track.id) {
+                        previewAudioRef.current?.pause();
+                        setPreviewingTrackId(null);
+                      } else {
+                        if (previewAudioRef.current) previewAudioRef.current.pause();
+                        const audio = new Audio(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/tracks/${track.id}/audio?token=${token}`);
+                        audio.volume = 0.5;
+                        audio.play();
+                        audio.onended = () => setPreviewingTrackId(null);
+                        previewAudioRef.current = audio;
+                        setPreviewingTrackId(track.id);
+                      }
+                    }}
+                    title={previewingTrackId === track.id ? 'Arrêter' : 'Écouter'}
+                  >
+                    {previewingTrackId === track.id ? (
+                      <Pause size={15} className="text-cyan-400" />
+                    ) : (
+                      <Play size={15} className="text-cyan-400" />
+                    )}
+                  </button>
                 </div>
 
                 {/* Title + Artist + Cover */}
