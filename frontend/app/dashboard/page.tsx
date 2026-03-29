@@ -407,7 +407,7 @@ export default function DashboardPage() {
 
       ws.on('play', () => setIsPlaying(true));
       ws.on('pause', () => setIsPlaying(false));
-      ws.on('timeupdate', (t: number) => { setCurrentTime(t); if (loopActiveRef.current && loopInRef.current !== null && loopOutRef.current !== null && t >= loopOutRef.current) { const dur = ws.getDuration(); if (dur > 0) ws.seekTo(loopInRef.current / dur); } });
+      ws.on('timeupdate', (t: number) => { setCurrentTime(t); if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) { const dur = ws.getDuration(); if (dur > 0) ws.seekTo(loopInRef.current / dur); } });
       ws.on('ready', () => {
         setDuration(ws.getDuration());
         setWaveformReady(true);
@@ -970,9 +970,9 @@ export default function DashboardPage() {
               <div className="col-span-3 bg-black/40 rounded-lg border border-gray-800/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => setLoopIn(wavesurferRef.current?.getCurrentTime())} className="flex-1 h-8 bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 rounded text-[10px] font-bold transition-all border border-transparent hover:border-cyan-500/30">IN</button>
-                  <button onClick={() => setLoopOut(wavesurferRef.current?.getCurrentTime())} className="flex-1 h-8 bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 rounded text-[10px] font-bold transition-all border border-transparent hover:border-cyan-500/30">OUT</button>
-                  <button onClick={() => setLoopActive(!loopActive)} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-white' : 'bg-gray-800/60 text-gray-400 hover:bg-cyan-500/20 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>LOOP</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) setLoopIn(t); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) setLoopOut(t); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
+                  <button onClick={() => setLoopActive(prev => !prev)} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-white' : 'bg-gray-800/60 text-gray-400 hover:bg-cyan-500/20 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>LOOP</button>
                 </div>
               </div>
               <div className="col-span-2 bg-black/40 rounded-lg border border-gray-800/40 p-2">
@@ -1165,7 +1165,7 @@ export default function DashboardPage() {
       <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
         
                 {/* Table header */}
-        <div className="grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+        <div className="grid grid-cols-[28px_2fr_1fr_75px_55px_55px_95px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
           <span>Titre</span>
           <span>Genre</span>
@@ -1192,7 +1192,7 @@ export default function DashboardPage() {
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_80px_60px_60px_80px_40px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
+                className={`grid grid-cols-[28px_2fr_1fr_75px_55px_55px_95px_40px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
@@ -1260,7 +1260,7 @@ export default function DashboardPage() {
                 </span>
                 {/* Duration */}
                 <span className="text-xs text-slate-500 font-mono text-center">
-                  {a?.duration_ms ? msToTime(a.duration_ms) : '\u2014'}
+                  {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
                 </span>
                 {/* Actions */}
                 <button
@@ -1475,7 +1475,7 @@ export default function DashboardPage() {
       )}
 
       {/* RIGHT PANEL - EQ/FX/MIX */}
-      <div className={`${rightPanelExpanded ? "w-[480px]" : "w-72"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
+      <div className={`${rightPanelExpanded ? "w-[560px]" : "w-80"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
         {/* Tab Bar */}
