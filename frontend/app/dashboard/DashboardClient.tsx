@@ -569,6 +569,12 @@ return () => document.removeEventListener('click', handler);
   const [setTimerRemaining, setSetTimerRemaining] = useState(0);
   const [setTimerRunning, setSetTimerRunning] = useState(false);
   const [showSetTimer, setShowSetTimer] = useState(false);
+  // Tap Tempo state
+  const [showTapTempo, setShowTapTempo] = useState(false);
+  const [tapTimes, setTapTimes] = useState<number[]>([]);
+  // Session Notes state
+  const [showSessionNotes, setShowSessionNotes] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState('');
 
   // DJ Set Timer countdown effect
   useEffect(() => {
@@ -1598,11 +1604,13 @@ useEffect(() => {
           { key: 'mixable', icon: <Music2 size={16} />, label: 'Mix' },
           { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
         { key: 'timer', icon: <Clock size={16} />, label: 'Timer' },
+        { key: 'tapTempo', icon: <Activity size={16} />, label: 'Tap BPM' },
+        { key: 'notes', icon: <PenSquare size={16} />, label: 'Notes' },
         ].filter((mod) => {
-          const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis', timer: 'timer' };
+          const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis', timer: 'timer' , tapTempo: 'tap_tempo', notes: 'notes'};
           return isFeatureEnabled(featureMap[mod.key] || mod.key);
         }).map((mod) => (
-          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
+          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); setShowTapTempo(false); setShowSessionNotes(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer, tapTempo: setShowTapTempo, notes: setShowSessionNotes}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
             {mod.icon}
             <span>{mod.label}</span>
           </button>
@@ -4564,6 +4572,52 @@ useEffect(() => {
                 </div>
               </div>
             )}
+      {/* Tap Tempo BPM Counter */}
+      {showTapTempo && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Activity size={20} /> Tap Tempo</h3>
+              <button onClick={() => setShowTapTempo(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+            </div>
+            <div className="text-center space-y-4">
+              <div className="text-6xl font-mono font-bold text-cyan-400">
+                {tapTimes.length < 2 ? '---' : Math.round(60000 * Math.min(tapTimes.length - 1, 7) / (tapTimes[tapTimes.length - 1] - tapTimes[Math.max(0, tapTimes.length - 8)]))}
+              </div>
+              <p className="text-gray-400 text-sm">BPM</p>
+              <button
+                onClick={() => { var now = Date.now(); setTapTimes(function(prev) { if(prev.length > 0 && now - prev[prev.length-1] > 3000) return [now]; return prev.concat([now]).slice(-8); }); }}
+                className="w-48 h-48 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-2xl font-bold shadow-lg shadow-cyan-500/30 transition-all active:scale-95 mx-auto flex items-center justify-center"
+              >TAP</button>
+              <div className="flex gap-2 justify-center">
+                <span className="text-gray-500 text-xs">{tapTimes.length} taps</span>
+                <button onClick={() => setTapTimes([])} className="text-xs text-red-400 hover:text-red-300">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Session Notes */}
+      {showSessionNotes && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[500px] shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2"><PenSquare size={20} /> Session Notes</h3>
+              <button onClick={() => setShowSessionNotes(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+            </div>
+            <textarea
+              value={sessionNotes}
+              onChange={(e) => setSessionNotes(e.target.value)}
+              placeholder="Write your set notes here... Track order, transitions, energy flow..."
+              className="w-full h-64 bg-gray-800 border border-gray-600 rounded-lg p-3 text-white text-sm resize-none focus:outline-none focus:border-cyan-500"
+            />
+            <div className="flex justify-between items-center mt-3">
+              <span className="text-gray-500 text-xs">{sessionNotes.length} characters</span>
+              <button onClick={() => { navigator.clipboard.writeText(sessionNotes); }} className="text-xs text-cyan-400 hover:text-cyan-300">Copy to clipboard</button>
+            </div>
+          </div>
+        </div>
+      )}
           </div>
         </div>
       )}
