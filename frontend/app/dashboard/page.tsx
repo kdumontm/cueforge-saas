@@ -248,7 +248,7 @@ export default function DashboardPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Column visibility
-  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({ genre: true, bpm: true, key: true, energy: true, duration: true });
+  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({ artist: true, album: false, genre: true, bpm: true, key: true, energy: true, duration: true });
   const [showColSettings, setShowColSettings] = useState(false);
 
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function DashboardPage() {
   }, [visibleCols]);
 
   const gridTemplate = useMemo(() => {
-    return ['28px', '2fr', visibleCols.genre ? '1fr' : '0px', visibleCols.bpm ? '60px' : '0px', visibleCols.key ? '45px' : '0px', visibleCols.energy ? '45px' : '0px', visibleCols.duration ? '60px' : '0px', '50px', '30px'].join(' ');
+    return ['28px', '2fr', visibleCols.artist ? '1.2fr' : '0px', visibleCols.album ? '1fr' : '0px', visibleCols.genre ? '0.8fr' : '0px', visibleCols.bpm ? '60px' : '0px', visibleCols.key ? '45px' : '0px', visibleCols.energy ? '45px' : '0px', visibleCols.duration ? '60px' : '0px', '50px', '30px'].join(' ');
   }, [visibleCols]);
 
   const toggleCol = (col: string) => setVisibleCols(prev => ({ ...prev, [col]: !prev[col] }));
@@ -456,6 +456,7 @@ return () => document.removeEventListener('click', handler);
   const [gridView, setGridView] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState('cues');
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
+  const [showModuleView, setShowModuleView] = useState(false);
   const [cueColors, setCueColors] = useState<Record<number, string>>({});
   const [colorPickerCue, setColorPickerCue] = useState<number | null>(null);
   const [colorPickerPos, setColorPickerPos] = useState<{x: number, y: number}>({x: 0, y: 0});
@@ -1028,7 +1029,7 @@ return () => document.removeEventListener('click', handler);
         switch (sortBy) {
           case 'bpm': return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
           case 'key': return dir * ((toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || ''));
-          case 'title': return dir * ((a.title || a.original_filename).localeCompare(b.title || b.original_filename));
+          case 'title': return dir * ((a.title || a.original_filename).localeCompare(b.title || b.original_filename)); case 'artist': return dir * ((a.artist || '').localeCompare(b.artist || '')); case 'album': return dir * ((a.album || '').localeCompare(b.album || ''));
           case 'energy': return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
           case 'genre': return dir * ((a.genre || '').localeCompare(b.genre || ''));
           case 'duration': return dir * ((a.analysis?.duration_ms || a.duration_ms || 0) - (b.analysis?.duration_ms || b.duration_ms || 0));
@@ -1722,7 +1723,7 @@ useEffect(() => {
           <option value="date">Date</option>
           <option value="bpm">BPM</option>
           <option value="key">Key</option>
-          <option value="title">Titre</option>
+          <option value="title">Titre</option> <option value="artist">Artiste</option> <option value="album">Album</option>
           <option value="energy">Energy</option>
           <option value="genre">Genre</option>
           <option value="duration">Durée</option>
@@ -1737,7 +1738,41 @@ useEffect(() => {
         </div>
       )}
 
-                {/* TRACK STATS */}
+                {/* MODULE TABS ROW */}
+<div className="flex items-center gap-1 px-4 py-1.5 border-b border-slate-800/30 bg-gray-950/50">
+  {[
+    { id: 'tracks', label: 'TRACKS', icon: 'ListMusic' },
+    { id: 'cues', label: 'CUES', icon: 'Disc3' },
+    { id: 'eq', label: 'EQ', icon: 'SlidersHorizontal' },
+    { id: 'fx', label: 'FX', icon: 'Wand2' },
+    { id: 'mix', label: 'MIX', icon: 'Disc' },
+    { id: 'playlists', label: 'PLAYLISTS', icon: 'List' },
+    { id: 'history', label: 'HISTORY', icon: 'Clock' },
+    { id: 'stats', label: 'STATS', icon: 'BarChart3' },
+  ].map(tab => (
+    <button key={tab.id} onClick={() => {
+      if (tab.id === 'tracks') { setShowModuleView(false); setActiveBottomTab('cues'); }
+      else { setShowModuleView(true); setActiveBottomTab(tab.id); }
+    }} className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-md transition-all duration-200 ${
+      (tab.id === 'tracks' && !showModuleView) || (tab.id !== 'tracks' && showModuleView && activeBottomTab === tab.id)
+        ? 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/30'
+        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'
+    }`}>
+      {tab.id === 'tracks' && <ListMusic size={12} />}
+      {tab.id === 'cues' && <Disc3 size={12} />}
+      {tab.id === 'eq' && <SlidersHorizontal size={12} />}
+      {tab.id === 'fx' && <Wand2 size={12} />}
+      {tab.id === 'mix' && <Disc size={12} />}
+      {tab.id === 'playlists' && <List size={12} />}
+      {tab.id === 'history' && <Clock size={12} />}
+      {tab.id === 'stats' && <BarChart3 size={12} />}
+      {tab.label}
+    </button>
+  ))}
+</div>
+{!showModuleView ? (
+<>
+{/* TRACK STATS */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-300">{filteredTracks.length} track{filteredTracks.length !== 1 ? 's' : ''}</span>
@@ -1938,7 +1973,7 @@ useEffect(() => {
           </button>
           {showColSettings && (
             <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
-              {[['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
+              {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
                 <label key={k} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/50 cursor-pointer text-xs text-slate-300">
                   <input type="checkbox" checked={visibleCols[k]} onChange={() => toggleCol(k)} className="accent-cyan-500 w-3 h-3" />
                   {label}
@@ -1984,7 +2019,9 @@ useEffect(() => {
         <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
           <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          {visibleCols.artist && <span onClick={() => handleHeaderSort('artist')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'artist' ? "text-cyan-400" : "")}>Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
+              {visibleCols.album && <span onClick={() => handleHeaderSort('album')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'album' ? "text-cyan-400" : "")}>Album {sortBy === 'album' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
+              <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('bpm')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('key')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('energy')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
@@ -2116,7 +2153,11 @@ useEffect(() => {
                     </p>
                   </div>
                 </div>
-                {/* Genre */}
+                {/* Artist */}
+              <span className="text-xs text-slate-400 truncate">{track.artist || '—'}</span>
+              {/* Album */}
+              <span className="text-xs text-slate-400 truncate">{track.album || '—'}</span>
+              {/* Genre */}
                 <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title="Double-click to edit" onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
                     <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
@@ -2419,7 +2460,202 @@ useEffect(() => {
           </div>
         </>
       )}
-      </div>{/* end center */}
+      </>
+) : (
+<div className="flex-1 flex flex-col overflow-y-auto p-4">
+  {/* Module View - replaces track list */}
+  {activeBottomTab === 'cues' && selectedTrack && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Cue Points — {selectedTrack.title}</h3>
+      <div className="grid grid-cols-8 gap-2">
+        {Array.from({length: 8}).map((_, i) => {
+          const cue = selectedTrack.cue_points?.[i];
+          return (
+            <button key={i} onClick={() => {
+              if (cue && wavesurferRef.current) {
+                wavesurferRef.current.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1));
+              }
+            }} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${cue ? 'border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 cursor-pointer' : 'border-gray-800/40 bg-gray-900/30 opacity-40'}`}>
+              <span className="text-lg font-bold" style={{color: cueColors[i] || '#06b6d4'}}>{String.fromCodePoint(0x2776 + i)}</span>
+              <span className="text-[10px] text-gray-400">{cue ? cue.label || 'Cue ' + (i+1) : '—'}</span>
+              <span className="text-[9px] text-gray-600">{cue ? (cue.time_ms / 1000).toFixed(1) + 's' : ''}</span>
+            </button>
+          );
+        })}
+      </div>
+      {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 && (
+        <div className="space-y-1 mt-4">
+          <h4 className="text-xs font-semibold text-gray-400">Détails des cues</h4>
+          {selectedTrack.cue_points.map((cue: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/50 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => wavesurferRef.current?.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1))}>
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{backgroundColor: (cueColors[i] || '#06b6d4') + '30', color: cueColors[i] || '#06b6d4'}}>{i+1}</span>
+              <span className="text-xs text-white font-medium flex-1">{cue.label || 'Cue ' + (i+1)}</span>
+              <span className="text-[10px] text-gray-500">{(cue.time_ms / 1000).toFixed(2)}s</span>
+              <span className="text-[10px] text-gray-600">{cue.type || 'hot_cue'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+  {activeBottomTab === 'eq' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Equalizer</h3>
+      <div className="grid grid-cols-3 gap-6 max-w-lg">
+        {['Low', 'Mid', 'High'].map((band, idx) => (
+          <div key={band} className="flex flex-col items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400">{band}</span>
+            <div className="w-full h-40 bg-gray-900/60 rounded-xl border border-gray-800/40 relative overflow-hidden flex items-end justify-center p-2">
+              <div className="w-8 bg-gradient-to-t from-cyan-500 to-cyan-300 rounded-t-md transition-all" style={{height: '60%', opacity: 0.7}} />
+            </div>
+            <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-500" />
+            <span className="text-[10px] text-gray-500">0 dB</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-600 italic">EQ en temps réel — à venir avec Web Audio API</p>
+    </div>
+  )}
+  {activeBottomTab === 'fx' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Effects</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {['Reverb', 'Delay', 'Filter LP', 'Filter HP', 'Flanger', 'Phaser', 'Distortion', 'Compressor'].map(fx => (
+          <div key={fx} className="flex flex-col items-center gap-2 p-4 bg-gray-900/50 rounded-xl border border-gray-800/40 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all cursor-pointer">
+            <Wand2 size={20} className="text-purple-400" />
+            <span className="text-xs font-semibold text-gray-300">{fx}</span>
+            <input type="range" min="0" max="100" defaultValue="0" className="w-full accent-purple-500" />
+            <span className="text-[10px] text-gray-500">Dry</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-600 italic">FX en temps réel — à venir avec Web Audio API</p>
+    </div>
+  )}
+  {activeBottomTab === 'mix' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Mix Assistant</h3>
+      {selectedTrack ? (
+        <div className="space-y-3">
+          <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
+            <span className="text-xs text-gray-400">Morceau actuel:</span>
+            <p className="text-sm font-semibold text-white">{selectedTrack.title}</p>
+            <div className="flex gap-4 mt-1">
+              <span className="text-xs text-cyan-400">{selectedTrack.analysis?.bpm?.toFixed(1)} BPM</span>
+              <span className="text-xs text-purple-400">{toCamelot(selectedTrack.analysis?.key || '')}</span>
+              <span className="text-xs text-green-400">Energy: {selectedTrack.analysis?.energy?.toFixed(0)}%</span>
+            </div>
+          </div>
+          <h4 className="text-xs font-semibold text-gray-400">Meilleurs enchaînements</h4>
+          <div className="space-y-1">
+            {filteredTracks
+              .filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm)
+              .map(t => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
+              .sort((a, b) => b.score.total - a.score.total)
+              .slice(0, 10)
+              .map(({track: t, score}) => (
+                <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 cursor-pointer transition-colors">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${score.total >= 80 ? 'bg-green-500/20 text-green-400' : score.total >= 60 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{score.total}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white font-medium truncate">{t.title}</p>
+                    <p className="text-[10px] text-gray-500 truncate">{t.artist || 'Unknown'}</p>
+                  </div>
+                  <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
+                  <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
+                  <span className="text-[10px] text-gray-500">{score.verdict}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">Sélectionne un morceau pour voir les suggestions de mix</p>
+      )}
+    </div>
+  )}
+  {activeBottomTab === 'playlists' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Playlists</h3>
+      {setList.length > 0 ? (
+        <div className="space-y-1">
+          {setList.map((t: any, i: number) => (
+            <div key={t.id || i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30">
+              <span className="text-xs font-bold text-gray-600 w-6">{i+1}</span>
+              <span className="text-xs text-white flex-1 truncate">{t.title}</span>
+              <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
+              <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">Aucun morceau dans la set list. Ajoute des morceaux depuis la liste.</p>
+      )}
+    </div>
+  )}
+  {activeBottomTab === 'history' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Historique de lecture</h3>
+      {playHistory.length > 0 ? (
+        <div className="space-y-1">
+          {playHistory.slice().reverse().map((entry: any, i: number) => {
+            const t = tracks.find((tr: any) => tr.id === entry.trackId);
+            return t ? (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 cursor-pointer transition-colors" onClick={() => setSelectedTrack(t)}>
+                <span className="text-[10px] text-gray-600 w-16">{new Date(entry.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</span>
+                <span className="text-xs text-white flex-1 truncate">{t.title}</span>
+                <span className="text-[10px] text-gray-500">{t.artist || ''}</span>
+              </div>
+            ) : null;
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">Aucun historique encore.</p>
+      )}
+    </div>
+  )}
+  {activeBottomTab === 'stats' && (
+    <div className="space-y-4">
+      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Statistiques de la collection</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+          <p className="text-2xl font-bold text-white">{tracks.length}</p>
+          <p className="text-[10px] text-gray-500">Morceaux</p>
+        </div>
+        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+          <p className="text-2xl font-bold text-cyan-400">{tracks.filter((t: any) => t.analysis?.bpm).length}</p>
+          <p className="text-[10px] text-gray-500">Analysés</p>
+        </div>
+        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+          <p className="text-2xl font-bold text-purple-400">{new Set(tracks.map((t: any) => t.analysis?.genre).filter(Boolean)).size}</p>
+          <p className="text-[10px] text-gray-500">Genres</p>
+        </div>
+        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+          <p className="text-2xl font-bold text-green-400">{tracks.filter((t: any) => t.analysis?.energy && t.analysis.energy >= 70).length}</p>
+          <p className="text-[10px] text-gray-500">High Energy</p>
+        </div>
+      </div>
+      {tracks.length > 0 && (() => {
+        const bpms = tracks.filter((t: any) => t.analysis?.bpm).map((t: any) => t.analysis.bpm);
+        const avgBpm = bpms.length > 0 ? (bpms.reduce((a: number, b: number) => a + b, 0) / bpms.length) : 0;
+        const energies = tracks.filter((t: any) => t.analysis?.energy).map((t: any) => t.analysis.energy);
+        const avgEnergy = energies.length > 0 ? (energies.reduce((a: number, b: number) => a + b, 0) / energies.length) : 0;
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
+              <p className="text-xs text-gray-400 mb-1">BPM moyen</p>
+              <p className="text-lg font-bold text-cyan-400">{avgBpm.toFixed(1)}</p>
+            </div>
+            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
+              <p className="text-xs text-gray-400 mb-1">Energy moyenne</p>
+              <p className="text-lg font-bold text-green-400">{avgEnergy.toFixed(0)}%</p>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  )}
+</div>
+)}
+</div>{/* end center */}
       {/* COLOR PICKER POPUP */}
       {colorPickerCue !== null && (
         <div className="fixed inset-0 z-50" onClick={() => setColorPickerCue(null)}>
@@ -2447,7 +2683,8 @@ useEffect(() => {
         </div>
       )}
 
-      {/* RIGHT PANEL - EQ/FX/MIX */}
+      {!showModuleView && (
+{/* RIGHT PANEL - EQ/FX/MIX */}
       <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
@@ -3295,6 +3532,7 @@ useEffect(() => {
         </div>
       </div>
       </div>{/* end right panel */}
+)}
 
       {/* ââ Smart Playlist Builder ââ */}
       {showSmartPlaylist && (
