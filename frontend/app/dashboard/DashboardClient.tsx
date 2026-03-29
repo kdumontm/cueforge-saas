@@ -207,7 +207,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title' | 'energy' | 'genre' | 'duration'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title' | 'energy' | 'genre' | 'duration' | 'rating'>('date');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
   const [metadataPanel, setMetadataPanel] = useState<Track | null>(null);
   const [metadataSuggestions, setMetadataSuggestions] = useState<Record<string, string> | null>(null);
@@ -1398,6 +1398,7 @@ return () => document.removeEventListener('click', handler);
       if (sortBy === 'genre') return dir * ((a.analysis?.genre || '').localeCompare(b.analysis?.genre || ''));
       if (sortBy === 'energy') return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
       if (sortBy === 'duration') return dir * ((a.analysis?.duration || 0) - (b.analysis?.duration || 0));
+      if (sortBy === 'rating') return dir * ((trackRatings[b.id] || 0) - (trackRatings[a.id] || 0));
     return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   });
 
@@ -1987,7 +1988,8 @@ useEffect(() => {
                             <option value="key">Key</option>
                             <option value="energy">Energy</option>
                             <option value="genre">Genre</option>
-                            <option value="duration">Duration</option></select>
+                            <option value="duration">Duration</option>
+              <option value="rating">Rating</option></select>
         <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-400 hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
       </div>
 
@@ -2151,6 +2153,7 @@ useEffect(() => {
                             <option value="bpm">BPM</option>
                             <option value="key">Key</option>
                             <option value="title">Title</option>
+              <option value="rating">Rating</option>
                           </select>
                           <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-gray-900/50 border border-gray-700 rounded text-xs text-gray-400 hover:text-white">
                             {sortDir === 'asc' ? '\u2191' : '\u2193'}
@@ -2293,6 +2296,7 @@ useEffect(() => {
           <span onClick={() => handleHeaderSort('key')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('energy')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('duration')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+              <span onClick={() => handleHeaderSort('rating')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'rating' ? 'text-cyan-400' : '')}>Rating {sortBy === 'rating' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span />
           {/* Column Filter Row */}
             {showStats && (
