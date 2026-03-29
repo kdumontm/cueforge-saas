@@ -668,7 +668,6 @@ return () => document.removeEventListener('click', handler);
   const eqHighRef = useRef<BiquadFilterNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [eqValues, setEqValues] = useState({ low: 0, mid: 0, high: 0 });
-  const [activeFx, setActiveFx] = useState<string | null>(null);
   const [fxParams, setFxParams] = useState<Record<string, number>>({ reverb: 0, delay: 0, filterLP: 20000, filterHP: 20, flanger: 0, phaser: 0, distortion: 0, compressor: 0 });
   const [eqConnected, setEqConnected] = useState(false);
 
