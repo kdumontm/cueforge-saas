@@ -64,7 +64,12 @@ const adminApi = {
   // Settings
   getSettings: () => api("/admin/settings"),
   updateSettings: (data) => api("/admin/settings", { method: "PUT", body: data }),
-  // Pages
+  // Page Configs (toggles on/off)
+  listPageConfigs: () => api("/admin/settings/pages"),
+  createPageConfig: (data) => api("/admin/settings/pages", { method: "POST", body: data }),
+  togglePageConfig: (pageName, data) => api(`/admin/settings/pages/${pageName}`, { method: "PATCH", body: data }),
+  deletePageConfig: (pageName) => api(`/admin/settings/pages/${pageName}`, { method: "DELETE" }),
+  // Pages (CMS)
   listPages: () => api("/admin/pages"),
   getPage: (id) => api(`/admin/pages/${id}`),
   createPage: (data) => api("/admin/pages", { method: "POST", body: data }),
@@ -243,7 +248,8 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 // ═══════════════════════════════════════════════
 const NAV_ITEMS = [
   { id: "dashboard", icon: BarChart3, label: "Dashboard" },
-  { id: "pages", icon: FileText, label: "Pages" },
+  { id: "page_toggles", icon: Globe, label: "Pages Actives" },
+  { id: "pages", icon: Layers, label: "Pages CMS" },
   { id: "settings", icon: Settings, label: "Réglages site" },
   { id: "media", icon: Image, label: "Médias" },
   { id: "users", icon: Users, label: "Utilisateurs" },
@@ -338,7 +344,102 @@ function DashboardView() {
 }
 
 // ═══════════════════════════════════════════════
-// PAGES VIEW (with sections & components)
+// PAGE TOGGLES VIEW (enable/disable site pages)
+// ═══════════════════════════════════════════════
+function PageTogglesView({ showToast }) {
+  const [configs, setConfigs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newPage, setNewPage] = useState({ page_name: "", label: "" });
+
+  const load = useCallback(() => {
+    setLoading(true);
+    adminApi.listPageConfigs().then(setConfigs).catch(() => showToast("Erreur chargement page configs", "error")).finally(() => setLoading(false));
+  }, [showToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleToggle = async (pageName, currentState) => {
+    try {
+      await adminApi.togglePageConfig(pageName, { is_enabled: !currentState });
+      setConfigs((prev) => prev.map((c) => c.page_name === pageName ? { ...c, is_enabled: !currentState } : c));
+      showToast(`Page "${pageName}" ${!currentState ? "activée" : "désactivée"}`);
+    } catch { showToast("Erreur toggle", "error"); }
+  };
+
+  const handleAdd = async () => {
+    if (!newPage.page_name.trim()) return;
+    try {
+      const created = await adminApi.createPageConfig({ page_name: newPage.page_name.trim(), label: newPage.label.trim() || newPage.page_name.trim(), is_enabled: true });
+      setConfigs((prev) => [...prev, created]);
+      setNewPage({ page_name: "", label: "" });
+      setShowAdd(false);
+      showToast(`Page "${created.page_name}" ajoutée`);
+    } catch { showToast("Erreur création", "error"); }
+  };
+
+  const handleDelete = async (pageName) => {
+    try {
+      await adminApi.deletePageConfig(pageName);
+      setConfigs((prev) => prev.filter((c) => c.page_name !== pageName));
+      showToast(`Page "${pageName}" supprimée`);
+    } catch { showToast("Erreur suppression", "error"); }
+  };
+
+  if (loading) return <div style={{ padding: 40, textAlign: "center", color: DS.colors.text.muted }}><Loader size={20} style={{ animation: "spin 1s linear infinite" }} /> Chargement...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: DS.colors.text.primary, margin: 0 }}>Pages Actives</h2>
+        <Btn icon={Plus} onClick={() => setShowAdd(true)}>Ajouter</Btn>
+      </div>
+
+      <Card>
+        <SectionHeader title="Toutes les pages" count={configs.length} icon={Globe} />
+        {configs.length === 0 ? (
+          <div style={{ padding: "30px 20px", textAlign: "center", color: DS.colors.text.muted }}>Aucune page config. Ajoutez-en une !</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {configs.map((c) => (
+              <div key={c.page_name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${DS.colors.border.subtle}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Globe size={16} color={c.is_enabled ? DS.colors.accent.success : DS.colors.text.muted} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: DS.colors.text.primary }}>{c.label || c.page_name}</div>
+                    <div style={{ fontSize: 11, color: DS.colors.text.muted, fontFamily: "monospace" }}>/{c.page_name}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Toggle on={c.is_enabled} onToggle={() => handleToggle(c.page_name, c.is_enabled)} label="" />
+                  <button onClick={() => handleDelete(c.page_name)} style={{ background: "none", border: "none", cursor: "pointer", color: DS.colors.text.muted, padding: 4 }} title="Supprimer">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {showAdd && (
+        <Card style={{ padding: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: DS.colors.text.primary, marginBottom: 12 }}>Nouvelle page</div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+            <Input label="Slug (ex: pricing)" value={newPage.page_name} onChange={(v) => setNewPage({ ...newPage, page_name: v })} placeholder="pricing" />
+            <Input label="Label" value={newPage.label} onChange={(v) => setNewPage({ ...newPage, label: v })} placeholder="Page Tarification" />
+            <Btn icon={Check} onClick={handleAdd}>Créer</Btn>
+            <Btn variant="ghost" icon={X} onClick={() => setShowAdd(false)}>Annuler</Btn>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════
+// PAGES VIEW (CMS with sections & components)
 // ═══════════════════════════════════════════════
 function PagesView({ showToast }) {
   const [pages, setPages] = useState([]);
@@ -1261,6 +1362,7 @@ export default function AdminPage() {
   const renderPage = () => {
     switch (activePage) {
       case "dashboard": return <DashboardView />;
+      case "page_toggles": return <PageTogglesView showToast={showToast} />;
       case "pages": return <PagesView showToast={showToast} />;
       case "settings": return <SettingsView showToast={showToast} />;
       case "media": return <MediaView showToast={showToast} />;
