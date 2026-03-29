@@ -180,7 +180,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Gestion des pages</h2>
-              <p className="text-sm text-gray-400">Activez ou dÃ©sactivez les pages du site</p>
+              <p className="text-sm text-gray-400">Activez ou désactivez les pages du site</p>
             </div>
             <div className="grid gap-3">
               {pages.map((page) => (
@@ -279,7 +279,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm">
-                    CrÃ©er
+                    Créer
                   </button>
                   <button type="button" onClick={() => setShowCreateUser(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
                     Annuler
@@ -305,7 +305,7 @@ export default function AdminPage() {
                   {users.map((user) => (
                     <tr key={user.id} className="border-b border-gray-800/50 hover:bg-gray-900/50">
                       <td className="py-3 pr-4 text-sm text-gray-400">{user.id}</td>
-                      <td className="py-3 pr-4 text-sm">{user.name || "â"}</td>
+                      <td className="py-3 pr-4 text-sm">{user.name || "—"}</td>
                       <td className="py-3 pr-4 text-sm text-gray-300">{user.email}</td>
                       <td className="py-3 pr-4">
                         <select
