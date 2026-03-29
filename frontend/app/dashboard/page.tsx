@@ -207,6 +207,8 @@ export default function DashboardPage() {
   const [showMixPanel, setShowMixPanel] = useState(false);
   const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
+  const [filterEnergyMin, setFilterEnergyMin] = useState<number>(0);
+  const [filterEnergyMax, setFilterEnergyMax] = useState<number>(100);
   const [filterKey, setFilterKey] = useState<string>('');
   const [filterGenre, setFilterGenre] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -951,7 +953,10 @@ export default function DashboardPage() {
     if (filterBpmMax < 999 && bpm > filterBpmMax) return false;
     if (filterKey && t.analysis?.key !== filterKey) return false;
     if (filterGenre && t.genre !== filterGenre) return false;
-    return true;
+          const energy = Math.round((t.analysis?.energy || 0) * 100);
+      if (filterEnergyMin > 0 && energy < filterEnergyMin) return false;
+      if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
+      return true;
   });
 
 
@@ -1654,6 +1659,29 @@ useEffect(() => {
                           {[...new Set(tracks.map(t => t.genre).filter(Boolean))].sort().map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                       </div>
+                    {/* Energy Filter */}
+                    <div>
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">Énergie</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min="0" max="100" step="5"
+                          value={filterEnergyMin}
+                          onChange={e => setFilterEnergyMin(Number(e.target.value))}
+                          className="flex-1 h-1 accent-orange-500"
+                          title={`Min: ${filterEnergyMin}%`}
+                        />
+                        <span className="text-[10px] text-slate-400 font-mono min-w-[60px] text-center">{filterEnergyMin}%-{filterEnergyMax}%</span>
+                        <input
+                          type="range"
+                          min="0" max="100" step="5"
+                          value={filterEnergyMax}
+                          onChange={e => setFilterEnergyMax(Number(e.target.value))}
+                          className="flex-1 h-1 accent-orange-500"
+                          title={`Max: ${filterEnergyMax}%`}
+                        />
+                      </div>
+                    </div>
                       
                       <div>
                         <label className="text-[10px] text-gray-500 uppercase">Sort by</label>
