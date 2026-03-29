@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useallback, useEffect } from 'react';
 import {
   Upload, Music2, Loader2, CheckCircle2, XCircle, Download, Trash2, Clock,
   Activity, Hash, Disc3, ChevronDown, ChevronUp, ExternalLink, User, Tag,
@@ -1133,7 +1133,7 @@ useEffect(() => {
               </div>
             </div>
             <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-5 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-4 bg-black/40 rounded-lg border border-gray-800/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
                 <div className="grid grid-cols-8 gap-1">
                   {Array.from({length: 8}).map((_, i) => (
@@ -1145,7 +1145,7 @@ useEffect(() => {
                   ))}
                 </div>
               </div>
-              <div className="col-span-3 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-4 bg-black/40 rounded-lg border border-gray-800/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
                 <div className="flex gap-1.5">
                   <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopOut !== null && t >= loopOut) return; setLoopIn(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
