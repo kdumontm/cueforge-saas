@@ -327,6 +327,7 @@ export default function DashboardPage() {
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const [showStats, setShowStats] = useState(false);
 
   // Column filters
   const [showColumnFilters, setShowColumnFilters] = useState(false);
@@ -2212,6 +2213,9 @@ useEffect(() => {
               <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
                 <Zap className="w-3 h-3" /> Auto-Analyze {autoAnalyze ? 'ON' : 'OFF'}
               </button>
+              <button onClick={() => setShowStats(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showStats ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+                <BarChart3 className="w-3 h-3" /> Stats
+              </button>
           {showColSettings && (
             <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
               {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
@@ -2269,6 +2273,44 @@ useEffect(() => {
           <span onClick={() => handleHeaderSort('duration')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span />
           {/* Column Filter Row */}
+            {showStats && (
+              <div className="mb-2 p-3 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-white">{tracks.length}</div>
+                    <div className="text-[10px] text-slate-400">Total Tracks</div>
+                    <div className="text-[10px] text-green-400">{tracks.filter(t => t.analysis?.bpm).length} analyzed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-cyan-400">
+                      {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(Boolean) as number[]; return bpms.length ? Math.round(Math.min(...bpms)) + '-' + Math.round(Math.max(...bpms)) : 'N/A'; })()}
+                    </div>
+                    <div className="text-[10px] text-slate-400">BPM Range</div>
+                    <div className="text-[10px] text-cyan-400/70">
+                      avg {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(Boolean) as number[]; return bpms.length ? Math.round(bpms.reduce((a,b) => a+b, 0) / bpms.length) : 'N/A'; })()}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-400">
+                      {(() => { const keys: Record<string,number> = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
+                    </div>
+                    <div className="text-[10px] text-slate-400">Top Key</div>
+                    <div className="text-[10px] text-purple-400/70">
+                      {(() => { const keys: Record<string,number> = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex justify-center gap-1 mt-1">
+                      {[['Calm','rgb(34,197,94)'], ['Mod','rgb(234,179,8)'], ['High','rgb(249,115,22)'], ['Max','rgb(239,68,68)']].map(([label, color], i) => {
+                        const count = tracks.filter(t => { const e = t.analysis?.energy; if (e == null) return false; if (i===0) return e < 0.25; if (i===1) return e >= 0.25 && e < 0.5; if (i===2) return e >= 0.5 && e < 0.75; return e >= 0.75; }).length;
+                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: color as string}}>{count}</div><div className="text-[8px] text-slate-500">{label}</div></div>;
+                      })}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Energy</div>
+                  </div>
+                </div>
+              </div>
+            )}
           {showColumnFilters && (
           <div className="grid track-grid gap-2 px-4 py-2 text-[9px] border-b border-slate-700/50 bg-slate-900/50">
             <span />
