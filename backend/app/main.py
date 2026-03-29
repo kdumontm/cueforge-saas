@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, SessionLocal
 from app.models import user, track  # noqa: F401 — registers models with Base
 from app.models import site_settings  # noqa: F401 — registers PageConfig with Base
+from app.models import organization as org_model  # noqa: F401 — registers Organization with Base
 from app.database import Base
 from app.config import get_settings
 from app.utils.migrations import run_migrations
@@ -69,7 +70,7 @@ settings = get_settings()
 app = FastAPI(
     title="CueForge SaaS API",
     description="Audio analysis and cue point generation for DJs",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
     redirect_slashes=False,
 )
@@ -84,6 +85,7 @@ app.add_middleware(
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402
+from app.routers import org_management  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -93,3 +95,4 @@ app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 app.include_router(waveforms.router)
 app.include_router(organization.router)
+app.include_router(org_management.router, prefix="/api/v1/org", tags=["organization-management"])
