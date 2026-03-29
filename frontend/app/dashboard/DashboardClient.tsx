@@ -989,7 +989,43 @@ return () => document.removeEventListener('click', handler);
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
     const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?token=${authToken}`;
 
-    ws.load(audioUrl);
+    // Pre-decode audio and pass peaks to WaveSurfer (bypasses media element issues)
+    (async () => {
+      try {
+        const response = await fetch(audioUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const contentType = response.headers.get('content-type') || 'audio/flac';
+        const blob = new Blob([arrayBuffer], { type: contentType });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Decode audio via AudioContext (reliable even when <audio> element fails)
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        await audioCtx.resume();
+        const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+
+        // Extract peaks for waveform rendering
+        const ch0 = decoded.getChannelData(0);
+        const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : ch0;
+
+        // Compute RGB spectral colors for the custom renderFunction
+        try {
+          const rgbColors = await computeRGBWaveform(decoded);
+          spectralColorsRef.current = rgbColors;
+        } catch (e) { console.warn('RGB waveform computation failed:', e); }
+
+        // Suppress media element errors (blob URL playback may fail in some environments)
+        ws.on('error', () => {});
+
+        // Load with pre-computed peaks - waveform renders immediately
+        ws.load(blobUrl, [ch0, ch1], decoded.duration);
+
+        audioCtx.close();
+      } catch (err) {
+        console.error('Failed to load track audio:', err);
+        // Fallback: try standard ws.load
+        try { ws.load(audioUrl); } catch (e2) { console.error('Fallback load also failed:', e2); }
+      }
+    })();
     ws.once('decode', () => {
       if (!regions) return;
       regions.clearRegions();
