@@ -6,10 +6,14 @@ Additions:
 - Organization invite emails
 - Configurable templates
 """
+import logging
 import os
 import smtplib
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+logger = logging.getLogger(__name__)
 
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -22,8 +26,8 @@ FRONTEND_URL = os.getenv(
 )
 
 
-def _send_email(to_email: str, subject: str, html_body: str) -> None:
-    """Low-level email sender."""
+def _send_email_sync(to_email: str, subject: str, html_body: str) -> None:
+    """Low-level synchronous email sender."""
     if not SMTP_HOST or not SMTP_USER:
         raise ValueError("SMTP not configured")
 
@@ -38,6 +42,17 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
         server.starttls()
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_FROM, to_email, msg.as_string())
+
+
+
+def _send_email(to_email: str, subject: str, html_body: str) -> None:
+    """Fire-and-forget email sender (runs in a background thread)."""
+    def _worker():
+        try:
+            _send_email_sync(to_email, subject, html_body)
+        except Exception as exc:
+            logger.error("Failed to send email to %s: %s", to_email, exc)
+    threading.Thread(target=_worker, daemon=True).start()
 
 
 def _wrap_template(content: str) -> str:
