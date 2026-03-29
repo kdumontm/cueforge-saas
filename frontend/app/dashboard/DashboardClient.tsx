@@ -1028,6 +1028,15 @@ return () => document.removeEventListener('click', handler);
         setError(`Format non supporté: ${file.name}`);
         continue;
       }
+      // Duplicate detection
+      const existingDupe = tracks.find(t => 
+        (t.original_filename || '').toLowerCase() === file.name.toLowerCase() ||
+        (t.title || '').toLowerCase() === file.name.replace(/\.[^.]+$/, '').toLowerCase()
+      );
+      if (existingDupe) {
+        showToast('Doublon détecté : "' + file.name + '" existe déjà dans votre bibliothèque', 'error');
+        continue;
+      }
       setError('');
       setUploading(true);
       setBatchProgress(`Upload: ${file.name}...`);
