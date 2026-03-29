@@ -2018,8 +2018,8 @@ useEffect(() => {
           <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-4 py-2">
             {/* Now Playing */}
             <div className="text-center mb-1 px-2">
-              <p className="text-xs text-white font-medium truncate">{selectedTrack.title || selectedTrack.filename}</p>
-              {selectedTrack.artist && <p className="text-xs text-gray-400 truncate">{selectedTrack.artist}</p>}
+              <p className="text-xs text-white font-medium truncate">{selectedTrack?.title || selectedTrack?.filename}</p>
+              {selectedTrack?.artist && <p className="text-xs text-gray-400 truncate">{selectedTrack?.artist}</p>}
             </div>
             <div className="flex items-center gap-3 mb-2">
               <div className="flex items-center gap-1">
@@ -3334,14 +3334,14 @@ useEffect(() => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-cyan-400 tracking-widest">CUE POINTS</span>
-                <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">+ Add Cue</button>
-                {selectedTrack.analysis && (
+                <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack?.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack?.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack?.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">+ Add Cue</button>
+                {selectedTrack?.analysis && (
                   <button onClick={() => {
-                    const autoCues = generateCuePointsFromAnalysis(selectedTrack.analysis);
+                    const autoCues = generateCuePointsFromAnalysis(selectedTrack?.analysis);
                     if (autoCues.length === 0) { showToast('No analysis data for auto-generation'); return; }
                     const newCues = autoCues.map((c, i) => ({ id: Date.now() + i, label: c.label, position: c.position, color: c.color }));
                     setSelectedTrack((prev: any) => ({ ...prev, cue_points: newCues }));
-                    setTracks((prev: any) => prev.map((t: any) => t.id === selectedTrack.id ? { ...t, cue_points: newCues } : t));
+                    setTracks((prev: any) => prev.map((t: any) => t.id === selectedTrack?.id ? { ...t, cue_points: newCues } : t));
                     showToast(autoCues.length + ' cue points auto-generated');
                   }} className="text-xs px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">
                     <Sparkles size={12} /> Auto
@@ -3352,7 +3352,7 @@ useEffect(() => {
                 <p className="text-gray-500 text-xs text-center py-4">No cue points yet. Analyze the track or add manually.</p>
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
-                  {selectedTrack.cue_points.map((cue, idx) => (
+                  {selectedTrack?.cue_points.map((cue, idx) => (
                     <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-800/40 hover:bg-gray-800/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }}>
                       <div className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} />
                       <div className="flex-1 min-w-0">
