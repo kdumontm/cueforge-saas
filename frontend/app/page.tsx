@@ -142,21 +142,61 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 mt-10">
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Disc3 size={20} className="text-accent-purple" />
-              <span className="text-sm font-bold text-white">CueForge</span>
+      {/* ── Footer ── */}
+      <footer className="relative z-10 border-t border-white/10 bg-black/40 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
+                  <Music2 size={18} className="text-white" />
+                </div>
+                <span className="text-xl font-bold text-white">CueForge</span>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                L&apos;outil d&apos;analyse audio et de préparation de sets pour DJs professionnels.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-6 text-sm text-slate-400">
-              <Link href="/pricing" className="hover:text-white transition">Tarifs</Link>
-              <Link href="/cgu" className="hover:text-white transition">CGU</Link>
-              <a href="mailto:contact@cueforge.app" className="hover:text-white transition">Contact</a>
+
+            {/* Produit */}
+            <div>
+              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Produit</h4>
+              <ul className="space-y-2">
+                <li><Link href="/pricing" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Tarifs</Link></li>
+                <li><Link href="/dashboard" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Dashboard</Link></li>
+                <li><a href="#features" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Fonctionnalités</a></li>
+              </ul>
+            </div>
+
+            {/* Légal */}
+            <div>
+              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Légal</h4>
+              <ul className="space-y-2">
+                <li><Link href="/cgu" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">CGU</Link></li>
+                <li><a href="mailto:contact@cueforge.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Contact</a></li>
+              </ul>
+            </div>
+
+            {/* Communauté */}
+            <div>
+              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Communauté</h4>
+              <ul className="space-y-2">
+                <li><a href="https://twitter.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Twitter / X</a></li>
+                <li><a href="https://discord.gg/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Discord</a></li>
+                <li><a href="https://instagram.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Instagram</a></li>
+              </ul>
             </div>
           </div>
-          <div className="mt-6 pt-6 border-t border-white/10 text-center text-slate-500 text-xs">
-            © 2026 CueForge. Tous droits réservés.
+
+          {/* Bottom bar */}
+          <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-slate-500">© 2026 CueForge. Tous droits réservés.</p>
+            <div className="flex items-center gap-4">
+              <Link href="/cgu" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">CGU</Link>
+              <Link href="/pricing" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Tarifs</Link>
+              <a href="mailto:contact@cueforge.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Contact</a>
+            </div>
           </div>
         </div>
       </footer>
