@@ -25,7 +25,7 @@ async def get_current_org(
 
 async def get_optional_org(
     user: User = Depends(get_current_user),
-):
+) -> int | None:
     """Get the org ID if the user belongs to one, else None."""
     return user.organization_id
 

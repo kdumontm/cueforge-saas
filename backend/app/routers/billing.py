@@ -101,7 +101,7 @@ PLANS = {
 }
 
 
-# ─── Schemas ────────────────────────────────────────────────
+# ─── Schemas ──────────────────────────────────────────────────────
 
 
 class PlanResponse(BaseModel):
@@ -120,7 +120,7 @@ class CurrentPlanResponse(BaseModel):
     plan: PlanResponse
     subscription_status: Optional[str] = None
     current_period_end: Optional[str] = None
-    stripe_customer_id: Optional[str] = None
+    # stripe_customer_id volontairement absent — ne pas exposer côté client
 
 
 class UsageResponse(BaseModel):
@@ -143,7 +143,7 @@ class CheckoutResponse(BaseModel):
     checkout_url: str
 
 
-# ─── Endpoints ──────────────────────────────────────────────
+# ─── Endpoints ────────────────────────────────────────────────────
 
 
 @router.get("/plans", response_model=List[PlanResponse])
@@ -170,7 +170,6 @@ async def get_current_plan(
     return CurrentPlanResponse(
         plan=PlanResponse(**plan_data),
         subscription_status=sub_status,
-        stripe_customer_id=user.stripe_customer_id,
     )
 
 
@@ -319,12 +318,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
+    if not webhook_secret:
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
     try:
-        if webhook_secret:
-            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-        else:
-            import json
-            event = json.loads(payload)
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")
 
@@ -343,7 +341,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
-# ─── Webhook handlers ────────────────────────────────────────
+# ─── Webhook handlers ────────────────────────────────────────────
 
 
 def _handle_checkout_completed(data: dict, db: Session):

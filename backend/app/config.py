@@ -12,8 +12,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Security
-    SECRET_KEY: str = "change-me-in-production"
+    # Security — pas de valeur par défaut : le démarrage échoue si non défini en prod
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
@@ -67,8 +67,8 @@ class Settings(BaseSettings):
     ENTERPRISE_TRACKS_PER_DAY: int = 500
     ENTERPRISE_MAX_CUES: int = 128
 
-    # CORS
-    CORS_ORIGINS: str = "*"
+    # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
+    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app"
 
     class Config:
         env_file = ".env"

@@ -44,6 +44,7 @@ class User(Base):
     # ── NEW: Email verification ──
     email_verified = Column(Boolean, default=False, nullable=False)
     email_verify_token = Column(String, nullable=True)
+    email_verify_token_expires = Column(DateTime, nullable=True)  # Expiration du token (24h)
 
     # ── NEW: Refresh token (for token rotation) ──
     refresh_token = Column(String, nullable=True)

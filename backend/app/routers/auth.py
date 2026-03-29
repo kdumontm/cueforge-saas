@@ -19,7 +19,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator, constr
 
 from app.database import get_db
 from app.models import User
@@ -47,7 +47,20 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
-    name: str
+    name: constr(min_length=2, max_length=50)
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Le mot de passe doit contenir au moins 8 caractères")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Le mot de passe doit contenir au moins une majuscule")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Le mot de passe doit contenir au moins un chiffre")
+        if not any(c in "!@#$%^&*()_+-=[]{}|;:',.<>?/`~" for c in v):
+            raise ValueError("Le mot de passe doit contenir au moins un caractère spécial")
+        return v
 
 
 class UserLogin(BaseModel):
@@ -56,7 +69,7 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[constr(min_length=2, max_length=50)] = None
     email: Optional[EmailStr] = None
 
 
@@ -104,12 +117,26 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+_ALLOWED_REDIRECT_PREFIXES = (
+    "https://exquisite-art-production-f4c6.up.railway.app",
+    "http://localhost",   # dev only
+    "http://127.0.0.1",  # dev only
+)
+
+
 class OAuthCallbackRequest(BaseModel):
     code: str
     redirect_uri: str
 
+    @field_validator("redirect_uri")
+    @classmethod
+    def redirect_uri_allowlist(cls, v: str) -> str:
+        if not any(v.startswith(prefix) for prefix in _ALLOWED_REDIRECT_PREFIXES):
+            raise ValueError("redirect_uri non autorisé")
+        return v
 
-# ─── Registration ─────────────────────────────────────────────
+
+# ─── Registration ─────────────────────────────────────────────────
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -126,6 +153,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         name=user_data.name,
         password_hash=hash_password(user_data.password),
         email_verify_token=verify_token,
+        email_verify_token_expires=datetime.utcnow() + timedelta(hours=24),
         email_verified=False,
     )
     db.add(new_user)
@@ -153,7 +181,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     )
 
 
-# ─── Email verification ────────────────────────────────────────
+# ─── Email verification ──────────────────────────────────────────
 
 
 @router.post("/verify-email")
@@ -164,8 +192,16 @@ async def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
     if user.email_verified:
         return {"message": "Email already verified"}
 
+    # Vérifier l'expiration du token (24h)
+    if user.email_verify_token_expires and user.email_verify_token_expires < datetime.utcnow():
+        raise HTTPException(
+            status_code=400,
+            detail="Le lien de vérification a expiré. Demandez un nouveau lien.",
+        )
+
     user.email_verified = True
     user.email_verify_token = None
+    user.email_verify_token_expires = None
     db.commit()
 
     # Send welcome email
@@ -183,6 +219,7 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
     if user and not user.email_verified:
         token = generate_email_verify_token()
         user.email_verify_token = token
+        user.email_verify_token_expires = datetime.utcnow() + timedelta(hours=24)
         db.commit()
         try:
             send_verification_email(user.email, token)
@@ -192,7 +229,7 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
     return {"message": "If this email exists and is unverified, a link has been sent."}
 
 
-# ─── Login ────────────────────────────────────────────────
+# ─── Login ────────────────────────────────────────────────────────
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -201,6 +238,13 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == credentials.username).first()
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Veuillez vérifier votre email avant de vous connecter. "
+                   "Vérifiez votre boîte de réception ou demandez un nouveau lien.",
+        )
 
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})
@@ -217,7 +261,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     )
 
 
-# ─── Token refresh ───────────────────────────────────────────
+# ─── Token refresh ───────────────────────────────────────────────
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -253,7 +297,7 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     )
 
 
-# ─── Logout ───────────────────────────────────────────────
+# ─── Logout ──────────────────────────────────────────────────────
 
 
 @router.delete("/logout", status_code=204)
@@ -263,7 +307,7 @@ async def logout(user: User = Depends(get_current_user), db: Session = Depends(g
     db.commit()
 
 
-# ─── Profile ──────────────────────────────────────────────
+# ─── Profile ─────────────────────────────────────────────────────
 
 
 @router.get("/me", response_model=UserResponse)
@@ -290,6 +334,7 @@ async def update_me(
         user.email_verified = False
         token = generate_email_verify_token()
         user.email_verify_token = token
+        user.email_verify_token_expires = datetime.utcnow() + timedelta(hours=24)
         try:
             send_verification_email(user.email, token)
         except Exception:
@@ -325,11 +370,12 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
     user.password_hash = hash_password(req.new_password)
     user.reset_token = None
     user.reset_token_expires = None
+    user.refresh_token = None  # Invalide toutes les sessions actives après reset
     db.commit()
     return {"message": "Password updated successfully"}
 
 
-# ─── Account deletion ────────────────────────────────────────
+# ─── Account deletion ────────────────────────────────────────────
 
 
 @router.delete("/me", status_code=204)
@@ -338,24 +384,32 @@ async def delete_me(user: User = Depends(get_current_user), db: Session = Depend
     db.commit()
 
 
-# ─── Admin setup (existing, unchanged) ───────────────────────────
+# ─── Admin setup ─────────────────────────────────────────────────
+
+
+class AdminSetupRequest(BaseModel):
+    email: EmailStr
+    secret: str
 
 
 @router.post("/setup-admin")
-async def setup_admin(email: str, secret: str, db: Session = Depends(get_db)):
+async def setup_admin(req: AdminSetupRequest, db: Session = Depends(get_db)):
+    """Promouvoir un utilisateur en admin.
+    Le secret doit être dans le body JSON (jamais en query param → évite les logs serveur).
+    """
     import os
     key = os.getenv("ADMIN_SETUP_KEY")
-    if not key or secret != key:
+    if not key or req.secret != key:
         raise HTTPException(status_code=403, detail="Invalid setup key")
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(User.email == req.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_admin = True
     db.commit()
-    return {"message": f"{email} is now admin"}
+    return {"message": f"{req.email} is now admin"}
 
 
-# ─── OAuth endpoints (Google & Spotify) ──────────────────────
+# ─── OAuth endpoints (Google & Spotify) ──────────────────────────
 
 
 @router.post("/oauth/google", response_model=TokenResponse)
@@ -457,7 +511,7 @@ async def _oauth_login_or_register(
     db: Session,
     provider: str,
     provider_id: str,
-    email: str,
+    email: Optional[str],
     name: str,
     avatar_url: Optional[str] = None,
 ) -> TokenResponse:
@@ -467,6 +521,14 @@ async def _oauth_login_or_register(
         User.oauth_provider == provider,
         User.oauth_id == provider_id,
     ).first()
+
+    # Si le provider ne renvoie pas d'email et qu'on n'a pas de compte lié → erreur
+    if not user and not email:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Votre compte {provider} ne fournit pas d'email. "
+                   "Veuillez autoriser l'accès à votre email ou vous inscrire avec email/mot de passe.",
+        )
 
     if not user and email:
         # Check if email already exists (link accounts)
