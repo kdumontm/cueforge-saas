@@ -1334,7 +1334,7 @@ useEffect(() => {
       <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
         
                 {/* Table header */}
-        <div className="grid grid-cols-[28px_2fr_1fr_75px_55px_55px_95px_40px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+        <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <span />
           <span>Titre</span>
           <span>Genre</span>
@@ -1361,7 +1361,7 @@ useEffect(() => {
             return (
               <div
                 key={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_75px_55px_55px_95px_40px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
+                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-bg-elevated/40 cursor-pointer transition-colors group ${isActive ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'}`}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
@@ -1433,10 +1433,10 @@ useEffect(() => {
                 </span>
                 {/* Status & Actions */}
                 {track.status === 'analyzing' && (
-                  <span className="text-[10px] text-cyan-400 animate-pulse" title="Analyse en cours...">⏳</span>
+                  <span className="text-sm text-cyan-400 animate-pulse" title="Analyse en cours...">⏳</span>
                 )}
                 {track.status === 'failed' && (
-                  <button onClick={(e) => { e.stopPropagation(); reanalyzeTrack(track.id); }} className="text-[10px] text-orange-400 hover:text-orange-300 transition-colors" title="Réanalyser">🔄</button>
+                  <button onClick={(e) => { e.stopPropagation(); reanalyzeTrack(track.id); }} className="text-sm text-orange-400 hover:text-orange-300 transition-colors cursor-pointer" title="Réanalyser">🔄</button>
                 )}
                 <button
                   onClick={e => { e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
