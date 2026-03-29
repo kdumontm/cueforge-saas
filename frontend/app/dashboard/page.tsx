@@ -186,6 +186,14 @@ export default function DashboardPage() {
   useEffect(() => { loopActiveRef.current = loopActive; }, [loopActive]);
   useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);
   useEffect(() => { loopOutRef.current = loopOut; }, [loopOut]);
+
+  // Reset loop when track changes
+  useEffect(() => {
+    setLoopIn(null);
+    setLoopOut(null);
+    setLoopActive(false);
+    if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
+  }, [selectedTrack]);
   const [showAddCue, setShowAddCue] = useState(false);
   const [newCueName, setNewCueName] = useState('');
   const [newCuePos, setNewCuePos] = useState('');
@@ -864,21 +872,29 @@ useEffect(() => {
   // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     const ws = wavesurferRef.current;
-    if (!ws || !loopActive || loopIn === null || loopOut === null) return;
     const regions = regionsRef.current;
+    // Always clean up old region first
+    if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
+    if (!ws || !loopActive || loopIn === null || loopOut === null || loopIn >= loopOut) return;
+    // Add visual loop region on waveform
     if (regions) {
-      if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} }
       loopRegionRef.current = regions.addRegion({
-        start: loopIn, end: loopOut,
-        color: 'rgba(236,72,153,0.15)',
-        drag: false, resize: true,
+        start: loopIn,
+        end: loopOut,
+        color: 'rgba(236,72,153,0.18)',
+        drag: true,
+        resize: true,
+      });
+      // Update loop points when user drags/resizes region
+      loopRegionRef.current.on('update-end', () => {
+        const r = loopRegionRef.current;
+        if (r) { setLoopIn(r.start); setLoopOut(r.end); }
       });
     }
-    const onTimeUpdate = () => {
-      if (ws.getCurrentTime() >= loopOut) ws.seekTo(loopIn / ws.getDuration());
+    // Seeking is handled by ref-based timeupdate in ws init - no duplicate needed
+    return () => {
+      if (loopRegionRef.current) { try { loopRegionRef.current.remove(); } catch {} loopRegionRef.current = null; }
     };
-    ws.on('timeupdate', onTimeUpdate);
-    return () => { ws.un('timeupdate', onTimeUpdate); };
   }, [loopActive, loopIn, loopOut]);
 
 
@@ -1132,9 +1148,9 @@ useEffect(() => {
               <div className="col-span-3 bg-black/40 rounded-lg border border-gray-800/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) setLoopIn(t); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) setLoopOut(t); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
-                  <button onClick={() => setLoopActive(prev => !prev)} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-white' : 'bg-gray-800/60 text-gray-400 hover:bg-cyan-500/20 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>LOOP</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopOut !== null && t >= loopOut) return; setLoopIn(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopIn !== null && t <= loopIn) return; setLoopOut(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
+                  <button onClick={() => { if (!loopActive && (loopIn === null || loopOut === null)) return; setLoopActive(prev => !prev); }} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : (loopIn !== null && loopOut !== null) ? 'bg-gray-800/60 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/40 hover:border-cyan-500/60' : 'bg-gray-800/60 text-gray-600 border border-transparent cursor-not-allowed')}>LOOP</button>
                 </div>
               </div>
               <div className="col-span-2 bg-black/40 rounded-lg border border-gray-800/40 p-2">
@@ -1650,7 +1666,7 @@ useEffect(() => {
       )}
 
       {/* RIGHT PANEL - EQ/FX/MIX */}
-      <div className={`${rightPanelExpanded ? "w-[560px]" : "w-80"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
+      <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
         {/* Tab Bar */}
@@ -1672,10 +1688,10 @@ useEffect(() => {
           ))}
           <button
             onClick={() => setRightPanelExpanded((p) => !p)}
-            className="ml-auto px-2 py-2 text-gray-500 hover:text-cyan-400 transition-colors"
+            className="ml-auto px-2.5 py-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded transition-all"
             title={rightPanelExpanded ? 'Collapse panel' : 'Expand panel'}
           >
-            {rightPanelExpanded ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {rightPanelExpanded ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </button>
         </div>
 
