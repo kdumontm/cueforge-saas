@@ -57,7 +57,7 @@ export default function CGUPage() {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="flex items-center gap-3 mb-8">
           <Shield size={32} className="text-green-400" />
-          <h2 className="text-3xl font-bold">Conditions Generales d&apos;Utilisation</h2>
+          <h2 className="text-3xl font-bold">Conditions Générales d&apos;Utilisation</h2>
         </div>
         <p className="text-gray-400 mb-8">Derniere mise a jour : Mars 2026</p>
 
@@ -65,17 +65,17 @@ export default function CGUPage() {
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">1. Objet</h3>
             <p>
-              Les presentes Conditions Generales d&apos;Utilisation (CGU) regissent l&apos;acces et l&apos;utilisation
+              Les presentes Conditions Générales d&apos;Utilisation (CGU) regissent l&apos;accès et l&apos;utilisation
               du service CueForge, plateforme SaaS d&apos;analyse audio et de preparation de morceaux
               destinee aux DJs professionnels et amateurs.
             </p>
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-white mb-3">2. Acces au service</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">2. Accès au service</h3>
             <p>
-              L&apos;inscription est gratuite et donne acces au plan Free. L&apos;utilisateur doit fournir
-              une adresse e-mail valide et un mot de passe. L&apos;acces aux fonctionnalites avancees
+              L&apos;inscription est gratuite et donne accès au plan Free. L&apos;utilisateur doit fournir
+              une adresse e-mail valide et un mot de passe. L&apos;accès aux fonctionnalites avancees
               necessite la souscription a un abonnement payant (Pro ou App Desktop).
             </p>
           </section>
@@ -95,24 +95,24 @@ export default function CGUPage() {
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-white mb-3">4. Propriete intellectuelle</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">4. Propriété intellectuelle</h3>
             <p>
               L&apos;utilisateur reste pleinement proprietaire de ses fichiers audio. CueForge n&apos;acquiert
               aucun droit sur les morceaux uploades. Les fichiers sont stockes temporairement
               pour le traitement et peuvent etre supprimes a tout moment par l&apos;utilisateur.
             </p>
             <p className="mt-2">
-              Le logiciel CueForge, son interface, ses algorithmes et sa marque sont la propriete
+              Le logiciel CueForge, son interface, ses algorithmes et sa marque sont la propriété
               exclusive de CueForge SAS. Toute reproduction non autorisee est interdite.
             </p>
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-white mb-3">5. Protection des donnees</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">5. Protection des données</h3>
             <p>
-              CueForge s&apos;engage a proteger les donnees personnelles de ses utilisateurs
-              conformement au Reglement General sur la Protection des Donnees (RGPD).
-              Les donnees collectees sont : adresse e-mail, nom, historique d&apos;utilisation.
+              CueForge s&apos;engage a proteger les données personnelles de ses utilisateurs
+              conformement au Reglement General sur la Protection des Données (RGPD).
+              Les données collectées sont : adresse e-mail, nom, historique d&apos;utilisation.
               Aucune donnee n&apos;est revendue a des tiers.
             </p>
           </section>
@@ -129,7 +129,7 @@ export default function CGUPage() {
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-white mb-3">7. Responsabilite</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">7. Responsabilité</h3>
             <p>
               CueForge fournit son service &quot;en l&apos;etat&quot;. Bien que nous nous efforcions
               d&apos;assurer la precision des analyses audio (BPM, tonalite, points cue),
@@ -139,10 +139,10 @@ export default function CGUPage() {
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-white mb-3">8. Resiliation</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">8. Résiliation</h3>
             <p>
               L&apos;utilisateur peut resilier son compte a tout moment depuis les parametres
-              de son profil. La resiliation entraine la suppression des donnees sous 30 jours.
+              de son profil. La résiliation entraine la suppression des données sous 30 jours.
               Les abonnements en cours ne sont pas rembourses au prorata.
             </p>
           </section>
