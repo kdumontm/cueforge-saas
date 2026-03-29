@@ -210,6 +210,7 @@ export default function DashboardPage() {
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [eqLow, setEqLow] = useState(50);
   const [eqMid, setEqMid] = useState(50);
@@ -829,6 +830,7 @@ useEffect(() => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       const ws = wavesurferRef.current;
       if (!ws) return;
+      if (e.key === '?') { setShowShortcuts(prev => !prev); return; }
       switch (e.code) {
         case 'Space':
           e.preventDefault();
@@ -867,7 +869,7 @@ useEffect(() => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrack, loopIn, loopOut]);
+  }, [selectedTrack, loopIn, loopOut, showShortcuts]);
 
   // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
@@ -1045,6 +1047,9 @@ useEffect(() => {
                     </button>
                     <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
                       Notes
+                    </button>
+                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
+                      <span className="font-bold">?</span>
                     </button>
                   </div>
                 </div>
@@ -2421,6 +2426,36 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
       {/* ── Metadata Edit Modal ── */}
       
+
+
+      {/* Keyboard Shortcuts Help Panel */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><span className="text-cyan-400">⌨</span> Raccourcis Clavier</h2>
+              <button onClick={() => setShowShortcuts(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              {[
+                ['Space', 'Play / Pause'],
+                ['L', 'Loop intelligent (IN → OUT → Toggle)'],
+                ['[', 'Définir Loop IN'],
+                [']', 'Définir Loop OUT'],
+                ['Escape', 'Désactiver le loop'],
+                ['1-8', 'Aller au Cue Point'],
+                ['?', 'Afficher / Masquer cette aide'],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+                  <kbd className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
+                  <span className="text-gray-300 text-right">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-600 mt-4 text-center">Appuie sur ? pour fermer</p>
+          </div>
+        </div>
+      )}
 </div>
   );
 }
