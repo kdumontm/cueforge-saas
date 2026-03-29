@@ -2031,7 +2031,7 @@ useEffect(() => {
               <div className="flex items-center justify-center gap-2 text-xs mt-1">
                 <span className="text-gray-400 font-mono w-12 text-right">{formatTime(currentTime)}</span>
                 <div
-                  className="flex-1 h-1.5 bg-gray-700 rounded-full cursor-pointer relative group"
+                  className="flex-1 h-2 bg-gray-600 rounded-full cursor-pointer relative group"
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const pct = (e.clientX - rect.left) / rect.width;
@@ -2045,7 +2045,7 @@ useEffect(() => {
                     style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
                   />
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-60 group-hover:opacity-100 transition-opacity"
                     style={{ left: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
                   />
                 </div>
