@@ -2287,27 +2287,27 @@ useEffect(() => {
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-cyan-400">
-                      {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(Boolean) as number[]; return bpms.length ? Math.round(Math.min(...bpms)) + '-' + Math.round(Math.max(...bpms)) : 'N/A'; })()}
+                      {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(Math.min(...bpms)) + '-' + Math.round(Math.max(...bpms)) : 'N/A'; })()}
                     </div>
                     <div className="text-[10px] text-slate-400">BPM Range</div>
                     <div className="text-[10px] text-cyan-400/70">
-                      avg {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(Boolean) as number[]; return bpms.length ? Math.round(bpms.reduce((a,b) => a+b, 0) / bpms.length) : 'N/A'; })()}
+                      avg {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(bpms.reduce((a,b) => a+b, 0) / bpms.length) : 'N/A'; })()}
                     </div>
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-purple-400">
-                      {(() => { const keys: Record<string,number> = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
+                      {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
                     </div>
                     <div className="text-[10px] text-slate-400">Top Key</div>
                     <div className="text-[10px] text-purple-400/70">
-                      {(() => { const keys: Record<string,number> = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
+                      {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
                     </div>
                   </div>
                   <div className="text-center">
                     <div className="flex justify-center gap-1 mt-1">
                       {[['Calm','rgb(34,197,94)'], ['Mod','rgb(234,179,8)'], ['High','rgb(249,115,22)'], ['Max','rgb(239,68,68)']].map(([label, color], i) => {
                         const count = tracks.filter(t => { const e = t.analysis?.energy; if (e == null) return false; if (i===0) return e < 0.25; if (i===1) return e >= 0.25 && e < 0.5; if (i===2) return e >= 0.5 && e < 0.75; return e >= 0.75; }).length;
-                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: color as string}}>{count}</div><div className="text-[8px] text-slate-500">{label}</div></div>;
+                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: String(color)}}>{count}</div><div className="text-[8px] text-slate-500">{label}</div></div>;
                       })}
                     </div>
                     <div className="text-[10px] text-slate-400 mt-0.5">Energy</div>
