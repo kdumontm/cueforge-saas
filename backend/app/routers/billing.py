@@ -10,6 +10,7 @@ Enhanced:
 - Webhook handles more events (invoice.paid, invoice.payment_failed, subscription.updated)
 - Usage tracking integration
 """
+import uuid
 from typing import Optional, List
 from datetime import datetime, timedelta
 
@@ -257,11 +258,13 @@ async def subscribe(
             email=user.email,
             name=user.name,
             metadata={"cueforge_user_id": str(user.id)},
+            idempotency_key=f"cust_create_{user.id}",
         )
         user.stripe_customer_id = customer.id
         db.commit()
 
     session = stripe.checkout.Session.create(
+        idempotency_key=f"checkout_{user.id}_{req.plan_id}_{req.interval}_{uuid.uuid4().hex[:8]}",
         customer=user.stripe_customer_id,
         payment_method_types=["card"],
         line_items=[{"price": price_id, "quantity": 1}],
