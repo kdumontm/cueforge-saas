@@ -211,6 +211,7 @@ export default function DashboardPage() {
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showRemainingTime, setShowRemainingTime] = useState(false);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [eqLow, setEqLow] = useState(50);
   const [eqMid, setEqMid] = useState(50);
@@ -1026,7 +1027,13 @@ useEffect(() => {
                   <span className="text-yellow-400/60">/10</span>
                 </div>
               )}
-              <span className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded">{msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
+              {selectedTrack.genre && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/10 border border-purple-500/20">
+                  <Disc3 size={12} className="text-purple-400" />
+                  <span className="text-purple-400 font-bold text-[11px]">{selectedTrack.genre}</span>
+                </div>
+              )}
+              <span onClick={() => setShowRemainingTime(!showRemainingTime)} className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded cursor-pointer hover:bg-black/60 transition-colors select-none" title="Cliquer pour basculer temps restant">{showRemainingTime ? (`-${msToTime(Math.max(0, (duration - currentTime)) * 1000)}`) : msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
             </div>
           </div>
           )}
@@ -1086,7 +1093,13 @@ useEffect(() => {
                   </div>
                 )}
               </div>
-                {/* TRACK NOTES */}
+                {/* Mini Progress Bar */}
+              {duration > 0 && (
+                <div className="w-full h-1 bg-gray-800/60 rounded-full mt-1 overflow-hidden cursor-pointer" onClick={(e) => { if (wavesurferRef.current && duration > 0) { const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width; wavesurferRef.current.seekTo(Math.max(0, Math.min(1, pct))); }}}>
+                  <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-100" style={{ width: (currentTime / duration * 100) + '%' }} />
+                </div>
+              )}
+              {/* TRACK NOTES */}
                 {showNotes && selectedTrack && (
                   <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                     <div className="flex items-center justify-between mb-1">
