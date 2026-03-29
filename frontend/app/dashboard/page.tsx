@@ -217,6 +217,12 @@ export default function DashboardPage() {
     setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
+
+  // ── Column header sort toggle ──
+  const handleHeaderSort = useCallback((col: typeof sortBy) => {
+    if (sortBy === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+    else { setSortBy(col); setSortDir('asc'); }
+  }, [sortBy]);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
@@ -789,16 +795,17 @@ export default function DashboardPage() {
       );
     })
     .sort((a, b) => {
-      switch (sortBy) {
-        case 'bpm': return (a.analysis?.bpm || 0) - (b.analysis?.bpm || 0);
-        case 'key': return (toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || '');
-        case 'title': return (a.title || a.original_filename).localeCompare(b.title || b.original_filename);
-          case 'energy': return (b.analysis?.energy || 0) - (a.analysis?.energy || 0);
-          case 'genre': return (a.genre || '').localeCompare(b.genre || '');
-          case 'duration': return ((a.analysis?.duration_ms || a.duration_ms || 0)) - ((b.analysis?.duration_ms || b.duration_ms || 0));
-        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-    });
+        const dir = sortDir === 'asc' ? 1 : -1;
+        switch (sortBy) {
+          case 'bpm': return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
+          case 'key': return dir * ((toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || ''));
+          case 'title': return dir * ((a.title || a.original_filename).localeCompare(b.title || b.original_filename));
+          case 'energy': return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
+          case 'genre': return dir * ((a.genre || '').localeCompare(b.genre || ''));
+          case 'duration': return dir * ((a.analysis?.duration_ms || a.duration_ms || 0) - (b.analysis?.duration_ms || b.duration_ms || 0));
+          default: return dir * (new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        }
+      })
 
   const isLoading = uploading || analyzing;
   const selectedCount = selectedIds.size;
@@ -881,6 +888,9 @@ export default function DashboardPage() {
     if (sortBy === 'bpm') return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
     if (sortBy === 'key') return dir * ((a.analysis?.key || '').localeCompare(b.analysis?.key || ''));
     if (sortBy === 'title') return dir * ((a.title || '').localeCompare(b.title || ''));
+      if (sortBy === 'genre') return dir * ((a.analysis?.genre || '').localeCompare(b.analysis?.genre || ''));
+      if (sortBy === 'energy') return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
+      if (sortBy === 'duration') return dir * ((a.analysis?.duration || 0) - (b.analysis?.duration || 0));
     return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   });
 
@@ -1423,6 +1433,7 @@ useEffect(() => {
           <option value="genre">Genre</option>
           <option value="duration">Durée</option>
         </select>
+        <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-400 hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
       </div>
 
       {error && (
@@ -1533,12 +1544,12 @@ useEffect(() => {
         {/* Table header */}
         <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
           <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
-          <span onClick={() => setSortBy(sortBy === 'title' ? 'date' : 'title')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && '▲'}</span>
-          <span onClick={() => setSortBy(sortBy === 'genre' ? 'date' : 'genre')} className={"cursor-pointer hover:text-cyan-400 " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && '▲'}</span>
-          <span onClick={() => setSortBy(sortBy === 'bpm' ? 'date' : 'bpm')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && '▲'}</span>
-          <span onClick={() => setSortBy(sortBy === 'key' ? 'date' : 'key')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && '▲'}</span>
-          <span onClick={() => setSortBy(sortBy === 'energy' ? 'date' : 'energy')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && '▲'}</span>
-          <span onClick={() => setSortBy(sortBy === 'duration' ? 'date' : 'duration')} className={"text-center cursor-pointer hover:text-cyan-400 " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && '▲'}</span>
+          <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          <span onClick={() => handleHeaderSort('bpm')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          <span onClick={() => handleHeaderSort('key')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          <span onClick={() => handleHeaderSort('energy')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
+          <span onClick={() => handleHeaderSort('duration')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span />
         </div>
 
