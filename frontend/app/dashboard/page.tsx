@@ -167,6 +167,7 @@ export default function DashboardPage() {
   const [volume, setVolume] = useState(0.8);
   const [muted, setMuted] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [batchProgress, setBatchProgress] = useState('');
   const [error, setError] = useState('');
@@ -223,6 +224,37 @@ export default function DashboardPage() {
     if (sortBy === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
     else { setSortBy(col); setSortDir('asc'); }
   }, [sortBy]);
+
+  // ── Drag & Drop Upload ──
+  const dragCountRef = useRef(0);
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCountRef.current++;
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+  }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCountRef.current--;
+    if (dragCountRef.current === 0) setIsDragging(false);
+  }, []);
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+  }, []);
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setIsDragging(false);
+    dragCountRef.current = 0;
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|flac|aac|ogg|m4a|aif|aiff)$/i));
+    if (files.length === 0) { showToast('Aucun fichier audio d\u00e9tect\u00e9', 'error'); return; }
+    setUploading(true);
+    showToast(`Upload de ${files.length} fichier(s)...`, 'info');
+    try {
+      for (const file of files) { await uploadTrack(file); }
+      showToast(`${files.length} fichier(s) upload\u00e9(s)`, 'success');
+      loadTracks();
+    } catch (err) { showToast('Erreur lors de l\'upload', 'error'); }
+    setUploading(false);
+  }, [showToast, loadTracks]);
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [trackNotes, setTrackNotes] = useState<Record<number, string>>({});
   const [showNotes, setShowNotes] = useState(false);
@@ -989,8 +1021,18 @@ useEffect(() => {
 
 
   return (
-        <div className="flex w-full h-[calc(100vh-3.5rem)]" onClick={() =>
-       setCtxMenu(null)}>
+        <div className="flex w-full h-[calc(100vh-3.5rem)] relative" onClick={() =>
+       setCtxMenu(null)} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
+      {/* ── Drag & Drop Overlay ── */}
+      {isDragging && (
+        <div className="absolute inset-0 z-[9998] bg-cyan-500/10 backdrop-blur-sm border-2 border-dashed border-cyan-400/60 rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 text-cyan-400">
+            <Upload size={48} className="animate-bounce" />
+            <span className="text-lg font-semibold">D\u00e9pose tes fichiers audio ici</span>
+            <span className="text-sm text-cyan-400/60">MP3, WAV, FLAC, AAC, OGG, M4A, AIF</span>
+          </div>
+        </div>
+      )}
       <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; } ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }" }} ></style>
       {/* Metadata Edit Modal */}
       {showEditMeta && (
