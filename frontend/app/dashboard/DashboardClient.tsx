@@ -326,6 +326,7 @@ export default function DashboardPage() {
   const [showBulkGenre, setShowBulkGenre] = useState(false);
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
 
   // Column filters
   const [showColumnFilters, setShowColumnFilters] = useState(false);
@@ -1037,6 +1038,23 @@ return () => document.removeEventListener('click', handler);
         loadTracks();
         showToast('Track uploadé avec succès', 'success');
         if (!selectedTrack) setSelectedTrack(uploaded);
+        // Auto-analyze after upload
+        if (autoAnalyze && uploaded?.id) {
+          showToast('Analyse automatique en cours...', 'info');
+          (async () => {
+            try {
+              await analyzeTrack(uploaded.id);
+              await pollTrackUntilDone(uploaded.id);
+              loadTracks();
+              const fresh = await getTrack(uploaded.id);
+              if (fresh) setSelectedTrack(fresh);
+              showToast('Analyse terminée avec succès', 'success');
+            } catch (e) {
+              console.error('Auto-analyze failed:', e);
+              showToast('Analyse automatique échouée', 'error');
+            }
+          })();
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inattendue');
         showToast('Erreur lors de l\'upload', 'error');
@@ -2182,6 +2200,9 @@ useEffect(() => {
           <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
             <Filter className="w-3 h-3" /> Filters {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
           </button>
+              <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+                <Zap className="w-3 h-3" /> Auto-Analyze {autoAnalyze ? 'ON' : 'OFF'}
+              </button>
           {showColSettings && (
             <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
               {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
