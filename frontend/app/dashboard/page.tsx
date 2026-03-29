@@ -234,6 +234,7 @@ export default function DashboardPage() {
   const [previewingTrackId, setPreviewingTrackId] = useState<number | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -664,6 +665,11 @@ export default function DashboardPage() {
         } else {
           setSelectedIds(new Set(filtered.map(t => t.id)));
         }
+      }
+    
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcutsModal(p => !p);
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -2285,6 +2291,11 @@ useEffect(() => {
                   </span>
                 )}
               </div>
+              <button
+                onClick={() => setShowShortcutsModal(p => !p)}
+                className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-slate-700/50 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 transition-colors text-[10px] font-bold"
+                title="Raccourcis clavier (?)"
+              >?</button>
 
               {/* ── Action Buttons ── */}
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
@@ -2924,7 +2935,37 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         ))}
       </div>
-      <style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+      
+      {/* ── Keyboard Shortcuts Modal ── */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Raccourcis clavier</h3>
+              <button onClick={() => setShowShortcutsModal(false)} className="text-slate-400 hover:text-white"><XCircle size={20} /></button>
+            </div>
+            <div className="space-y-2">
+              {[
+                ['Ctrl+F', 'Rechercher'],
+                ['Ctrl+A', 'Tout sélectionner'],
+                ['Shift+Clic', 'Sélection par plage'],
+                ['Ctrl+Clic', 'Sélection multiple'],
+                ['\u2191 / \u2193', 'Naviguer entre morceaux'],
+                ['Suppr / Retour', 'Supprimer sélection'],
+                ['Esc', 'Fermer / Désélectionner'],
+                ['?', 'Afficher ce menu'],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-700/50">
+                  <kbd className="px-2 py-0.5 rounded bg-slate-700 text-cyan-400 font-mono text-xs border border-slate-600">{key}</kbd>
+                  <span className="text-sm text-slate-300">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-[10px] text-slate-500 text-center">Appuyez sur ? pour afficher/masquer</p>
+          </div>
+        </div>
+      )}
+<style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 </div>
   );
 }
