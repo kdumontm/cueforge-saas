@@ -575,6 +575,34 @@ return () => document.removeEventListener('click', handler);
   const [showSessionNotes, setShowSessionNotes] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
 
+  // Tap Tempo keyboard shortcut (Space or T to tap when modal open)
+  useEffect(function() {
+    if (!showTapTempo) return;
+    function handleKeyDown(e) {
+      if (e.code === "Space" || e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        var now = Date.now();
+        setTapTimes(function(prev) {
+          if (prev.length > 0 && now - prev[prev.length - 1] > 3000) return [now];
+          return prev.concat([now]).slice(-8);
+        });
+      }
+      if (e.key === "Escape") setShowTapTempo(false);
+      if (e.key === "r" || e.key === "R") setTapTimes([]);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return function() { window.removeEventListener("keydown", handleKeyDown); };
+  }, [showTapTempo]);
+
+  // Persist session notes to localStorage
+  useEffect(function() {
+    var saved = localStorage.getItem("cueforge_session_notes");
+    if (saved) setSessionNotes(saved);
+  }, []);
+  useEffect(function() {
+    localStorage.setItem("cueforge_session_notes", sessionNotes);
+  }, [sessionNotes]);
+
   // DJ Set Timer countdown effect
   useEffect(() => {
     if (!setTimerRunning || setTimerRemaining <= 0) return;
@@ -4569,6 +4597,7 @@ useEffect(() => {
                   <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
                   <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">Reset</button>
                 </div>
+              <p className="text-gray-600 text-xs mt-2">Press Space or T to tap | R to reset | Esc to close</p>
               </div>
             )}
           </div>
