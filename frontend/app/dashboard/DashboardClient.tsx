@@ -4194,6 +4194,33 @@ useEffect(() => {
               >
                 <Download size={18} /> Export All to Traktor NML
               </button>
+              <button
+                onClick={() => {
+                  const xmlLines = ['<?xml version="1.0" encoding="UTF-8"?>', '<VirtualFolder>'];
+                  tracks.forEach((t: any) => {
+                    const fname = t.original_filename || t.filename;
+                    xmlLines.push('  <Song FilePath="' + fname + '">');
+                    xmlLines.push('    <Tags Author="' + (t.artist || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Title="' + (t.title || fname).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Genre="' + (t.genre || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Album="' + (t.album || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Year="' + (t.year || '') + '" />');
+                    const bpm = t.analysis?.bpm ? Number(t.analysis.bpm).toFixed(2) : '';
+                    const key = t.analysis?.key || '';
+                    xmlLines.push('    <Scan Bpm="' + bpm + '" Key="' + key + '" />');
+                    if (t.cue_points?.length > 0) {
+                      t.cue_points.forEach((cp: any, idx: number) => {
+                        xmlLines.push('    <Poi Type="cue" Num="' + (idx + 1) + '" Name="' + (cp.label || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Pos="' + Number(cp.position).toFixed(3) + '" />');
+                      });
+                    }
+                    xmlLines.push('  </Song>');
+                  });
+                  xmlLines.push('</VirtualFolder>');
+                  const blob = new Blob([xmlLines.join('\n')], { type: 'text/xml' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = 'cueforge_virtualdj.xml'; a.click(); URL.revokeObjectURL(url);
+                  showToast('VirtualDJ XML exported');
+                }}
+                className="w-full py-3 rounded-lg font-medium text-white flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
+              >
+                <Download size={18} /> Export All to VirtualDJ
+              </button>
                 <button
                   onClick={() => {
                     const tracksToExport = selectedIds.size > 0 ? filteredTracks.filter(t => selectedIds.has(t.id)) : filteredTracks;
