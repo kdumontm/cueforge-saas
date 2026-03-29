@@ -461,12 +461,13 @@ return () => document.removeEventListener('click', handler);
   const [colorPickerPos, setColorPickerPos] = useState<{x: number, y: number}>({x: 0, y: 0});
 
   // Rekordbox-style cue colors
-  const WAVEFORM_THEMES: Record<string, { wave: string; progress: string; label: string; cursor: string }> = {
-    purple: { wave: '#1a1730', progress: 'rgba(124,58,237,0.15)', cursor: '#fff', label: 'Violet' },
-    cyan: { wave: '#0a1929', progress: 'rgba(6,182,212,0.18)', cursor: '#22d3ee', label: 'Cyan' },
-    green: { wave: '#0a1f0a', progress: 'rgba(34,197,94,0.18)', cursor: '#22c55e', label: 'Vert' },
-    orange: { wave: '#1f1005', progress: 'rgba(249,115,22,0.18)', cursor: '#f97316', label: 'Orange' },
-    fire: { wave: '#1f0505', progress: 'rgba(239,68,68,0.18)', cursor: '#ef4444', label: 'Rouge' },
+  const WAVEFORM_THEMES: Record<string, { wave: string; progress: string; label: string; cursor: string; gradient?: boolean }> = {
+    neon: { wave: '#7c3aed', progress: 'rgba(124,58,237,0.45)', cursor: '#ffffff', label: 'Néon', gradient: true },
+    sunset: { wave: '#f97316', progress: 'rgba(249,115,22,0.45)', cursor: '#ffffff', label: 'Sunset', gradient: true },
+    ocean: { wave: '#06b6d4', progress: 'rgba(6,182,212,0.45)', cursor: '#ffffff', label: 'Océan', gradient: true },
+    forest: { wave: '#22c55e', progress: 'rgba(34,197,94,0.45)', cursor: '#ffffff', label: 'Forêt', gradient: true },
+    fire: { wave: '#ef4444', progress: 'rgba(239,68,68,0.45)', cursor: '#ffffff', label: 'Feu', gradient: true },
+    aurora: { wave: '#a855f7', progress: 'rgba(168,85,247,0.45)', cursor: '#ffffff', label: 'Aurora', gradient: true },
   };
 
   const REKORDBOX_COLORS = [
@@ -622,16 +623,20 @@ return () => document.removeEventListener('click', handler);
 
       ws = WaveSurfer.create({
         container: waveformRef.current!,
-        cursorColor: WAVEFORM_THEMES[waveformTheme].cursor,
+        cursorColor: '#ffffff',
         cursorWidth: 2,
-        height: 80,
+        height: 120,
         normalize: true,
         fillParent: true,
         minPxPerSec: 1,
-        autoScroll: false,
-        autoCenter: false,
+        autoScroll: true,
+        autoCenter: true,
+        interact: true,
         dragToSeek: true,
-        hideScrollbar: true,
+        hideScrollbar: false,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 1,
         plugins: [regions],
         waveColor: WAVEFORM_THEMES[waveformTheme].wave,
         progressColor: WAVEFORM_THEMES[waveformTheme].progress,
@@ -639,19 +644,23 @@ return () => document.removeEventListener('click', handler);
           const colors = spectralColorsRef.current;
           const { width, height } = ctx.canvas;
           const ch = peaks[0] as Float32Array;
-          const bw = 3, gap = 1, step = bw + gap;
+          const bw = 2, gap = 1, step = bw + gap;
           const numBars = Math.floor(width / step);
           const mid = height / 2;
           ctx.clearRect(0, 0, width, height);
           for (let i = 0; i < numBars; i++) {
             const idx = Math.min(Math.floor((i / numBars) * (ch.length / 2)) * 2, ch.length - 2);
             const amp = Math.max(Math.abs(ch[idx] || 0), Math.abs(ch[idx + 1] || 0));
-            const barH = Math.max(1, amp * height * 0.92);
+            const barH = Math.max(2, amp * height * 0.88);
             const ci = colors ? Math.min(Math.floor((i / numBars) * colors.length), colors.length - 1) : -1;
-            const c = ci >= 0 && colors ? colors[ci] : { r: 79, g: 74, b: 133 };
-            ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.5)`;
-            ctx.shadowBlur = 6;
-            ctx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+            const c = ci >= 0 && colors ? colors[ci] : { r: 124, g: 58, b: 237 };
+            const brightness = 0.6 + amp * 0.4;
+            const r = Math.min(255, Math.round(c.r * brightness));
+            const g = Math.min(255, Math.round(c.g * brightness));
+            const b = Math.min(255, Math.round(c.b * brightness));
+            ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.6)';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
             const x = i * step;
             ctx.beginPath();
             ctx.roundRect(x, mid - barH / 2, bw, barH, 1);
@@ -659,7 +668,7 @@ return () => document.removeEventListener('click', handler);
           }
           ctx.shadowBlur = 0;
         },
-      });
+      })
 
       ws.on('play', () => setIsPlaying(true));
       ws.on('pause', () => setIsPlaying(false));
@@ -1169,7 +1178,7 @@ return () => document.removeEventListener('click', handler);
   // Waveform zoom effect
   useEffect(() => {
     if (wavesurferRef.current) {
-      try { wavesurferRef.current.zoom(waveformZoom * 50); } catch(e) {}
+      try { wavesurferRef.current.zoom(Math.max(1, waveformZoom * 20)); } catch(e) {}
     }
   }, [waveformZoom]);
 
