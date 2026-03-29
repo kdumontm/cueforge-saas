@@ -1238,10 +1238,6 @@ export default function DashboardPage() {
   }, [selectedTrack, waveformTheme]);
 
   // ── Keyboard shortcuts (Ctrl+A) ─────────────────────────────────────
-  const filtered = tracks
-    .filter(t => {
-      if (!searchQuery) return true;
-
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
@@ -1521,6 +1517,9 @@ export default function DashboardPage() {
   }
 
   // ── Filtered + sorted tracks ──────────────────────────────────────────
+  const filtered = tracks
+    .filter(t => {
+      if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
         t.original_filename.toLowerCase().includes(q) ||
