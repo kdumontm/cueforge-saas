@@ -888,13 +888,25 @@ return () => document.removeEventListener('click', handler);
         }
       });
 
-      selectedTrack.analysis?.drop_positions?.forEach((ms: number, i: number) => {
+      // Use sections for labeled cue markers instead of just drops
+      selectedTrack.analysis?.sections?.forEach((sec: any) => {
+        const sColors = { INTRO: 'rgba(59,130,246,0.35)', VERSE: 'rgba(34,197,94,0.35)', CHORUS: 'rgba(234,179,8,0.35)', BUILD: 'rgba(249,115,22,0.35)', DROP: 'rgba(239,68,68,0.35)', BREAK: 'rgba(6,182,212,0.35)', OUTRO: 'rgba(139,92,246,0.35)' } as Record<string, string>;
         regions.addRegion({
-          start: ms / 1000,
-          content: `DROP ${i + 1}`,
-          color: '#e11d4890',
+          start: sec.start,
+          content: sec.label,
+          color: sColors[sec.label] || 'rgba(107,114,128,0.35)',
         });
       });
+      // Fallback: if no sections, use drop_positions
+      if (!selectedTrack.analysis?.sections?.length && selectedTrack.analysis?.drop_positions?.length) {
+        selectedTrack.analysis.drop_positions.forEach((ms: number, i: number) => {
+          regions.addRegion({
+            start: ms / 1000,
+            content: 'DROP ' + (i + 1),
+            color: 'rgba(239,68,68,0.35)',
+          });
+        });
+      }
     });
   }, [selectedTrack, waveformTheme]);
 
@@ -1310,7 +1322,7 @@ return () => document.removeEventListener('click', handler);
   // Waveform zoom effect
   useEffect(() => {
     if (wavesurferRef.current) {
-      try { wavesurferRef.current.zoom(Math.max(1, waveformZoom * 20)); } catch(e) {}
+      if (waveformZoom <= 1) { try { wavesurferRef.current.zoom(1); } catch(e) {} } else { try { wavesurferRef.current.zoom(Math.max(1, waveformZoom * 20)); } catch(e) {} } setZoomLevel(Math.max(1, waveformZoom * 20));
     }
   }, [waveformZoom]);
 
@@ -1583,7 +1595,7 @@ useEffect(() => {
                 <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
                 {/* Beat Grid Lines Overlay */}
                 {showBeatGrid && selectedTrack?.analysis?.bpm && duration > 0 && (
-                  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 2 }}>
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 2, pointerEvents: 'none' }}>
                     {(() => {
                       const bpm = selectedTrack.analysis.bpm;
                       const beatDuration = 60 / bpm;
@@ -1609,7 +1621,7 @@ useEffect(() => {
                 )}
                 {/* Cue Point Markers Overlay */}
                 {selectedTrack?.cue_points && duration > 0 && (
-                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }}>
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3, pointerEvents: 'none' }}>
                     {selectedTrack.cue_points.map((cue, i) => {
                       const timeMs = cue.position_ms || cue.time;
                       if (!timeMs) return null;
