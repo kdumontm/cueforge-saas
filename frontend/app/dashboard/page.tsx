@@ -445,6 +445,7 @@ return () => document.removeEventListener('click', handler);
   const [batchField, setBatchField] = useState('genre');
   const [batchValue, setBatchValue] = useState('');
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
+  const [selectedWheelKey, setSelectedWheelKey] = useState<string | null>(null);
   const [showWatchFolder, setShowWatchFolder] = useState(false);
   const [watchFolderPath, setWatchFolderPath] = useState('');
   const [inlineEditId, setInlineEditId] = useState(null);
@@ -3787,93 +3788,130 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Interactive Camelot Wheel ââ */}
-      {showCamelotWheel && (
-        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">ðµ Camelot Wheel - Harmonic Mixing Guide</h3>
-            <button onClick={() => setShowCamelotWheel(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
-          </div>
-          <div className="flex gap-8">
-            <div className="relative w-80 h-80 mx-auto">
-              <svg viewBox="0 0 400 400" className="w-full h-full">
-                {Object.entries(CAMELOT_WHEEL).map(([key, val], i) => {
-                  const isMinor = key.includes('A');
-                  const num = parseInt(key);
-                  const angle = ((num - 1) * 30 - 90) * Math.PI / 180;
-                  const r = isMinor ? 120 : 170;
-                  const x = 200 + r * Math.cos(angle);
-                  const y = 200 + r * Math.sin(angle);
-                  const isSelected = selectedForMix && tracks.find(t => t.id === selectedForMix)?.camelotKey === key;
-                  const compatible = selectedForMix ? (() => {
-                    const selTrack = tracks.find(t => t.id === selectedForMix);
-                    if (!selTrack) return false;
-                    const selNum = parseInt(selTrack.camelotKey);
-                    const selIsMinor = selTrack.camelotKey?.includes('A');
-                    const curNum = parseInt(key);
-                    const curIsMinor = key.includes('A');
-                    return (curNum === selNum && curIsMinor !== selIsMinor) || (curIsMinor === selIsMinor && (curNum === selNum || curNum === (selNum % 12) + 1 || curNum === ((selNum + 10) % 12) + 1));
-                  })() : false;
-                  const trackCount = tracks.filter(t => t.camelotKey === key).length;
-                  const colors = ['#ff6b6b','#ff9f43','#feca57','#48dbfb','#0abde3','#10ac84','#1dd1a1','#54a0ff','#5f27cd','#c44569','#f78fb3','#3dc1d3'];
-                  const color = colors[(num - 1) % 12];
-                  return (
-                    <g key={key}>
-                      <circle cx={x} cy={y} r={isSelected ? 28 : compatible ? 25 : 22} fill={isSelected ? color : compatible ? color + '99' : '#1a1a2e'} stroke={color} strokeWidth={isSelected ? 3 : compatible ? 2 : 1} opacity={selectedForMix ? (isSelected || compatible ? 1 : 0.3) : 1} className="cursor-pointer transition-all duration-200" />
-                      <text x={x} y={y - 4} textAnchor="middle" fill="white" fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"}>{key}</text>
-                      <text x={x} y={y + 10} textAnchor="middle" fill="#aaa" fontSize="8">{trackCount > 0 ? trackCount + ' tracks' : ''}</text>
-                    </g>
-                  );
-                })}
-                <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">Inner: Minor</text>
-                <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">Outer: Major</text>
-              </svg>
-            </div>
-            <div className="flex-1 space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300">Harmonic Mixing Rules</h4>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
-                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
-                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> AâB = Mode change (minor/major)</div>
-              </div>
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold text-gray-300 mb-2">Select a track to see compatible keys:</h4>
-                <select className="bg-gray-800 text-white rounded px-3 py-2 w-full text-sm border border-gray-700" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
-                  <option value="">-- Choose a track --</option>
-                  {tracks.filter(t => t.camelotKey).map(t => (
-                    <option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.camelotKey})</option>
-                  ))}
-                </select>
-              </div>
-              {selectedForMix && (() => {
-                const sel = tracks.find(t => t.id === selectedForMix);
-                if (!sel || !sel.camelotKey) return null;
-                const selNum = parseInt(sel.camelotKey);
-                const selIsMinor = sel.camelotKey.includes('A');
-                const compatibleTracks = tracks.filter(t => {
-                  if (!t.camelotKey || t.id === selectedForMix) return false;
-                  const tNum = parseInt(t.camelotKey);
-                  const tIsMinor = t.camelotKey.includes('A');
-                  return (tNum === selNum && tIsMinor !== selIsMinor) || (tIsMinor === selIsMinor && (tNum === selNum || tNum === (selNum % 12) + 1 || tNum === ((selNum + 10) % 12) + 1));
-                });
-                return (
-                  <div className="mt-3 max-h-40 overflow-y-auto">
-                    <h4 className="text-sm font-semibold text-green-400 mb-1">{compatibleTracks.length} compatible tracks:</h4>
-                    {compatibleTracks.map(t => (
-                      <div key={t.id} className="text-xs text-gray-300 py-1 px-2 bg-gray-800/40 rounded mb-1 flex justify-between">
-                        <span>{t.title} - {t.artist}</span>
-                        <span className="text-cyan-500/70 font-mono">{t.camelotKey} | {t.bpm} BPM</span>
-                      </div>
-                    ))}
+      {/* ── Interactive Camelot Wheel ── */}
+            {showCamelotWheel && (
+              <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">🎵 Camelot Wheel - Harmonic Mixing Guide</h3>
+                  <button onClick={() => { setShowCamelotWheel(false); setSelectedWheelKey(null); }} className="text-gray-400 hover:text-white text-xl">×</button>
+                </div>
+                <div className="flex gap-8">
+                <div className="relative w-80 h-80 mx-auto">
+                  <svg viewBox="0 0 400 400" className="w-full h-full">
+                    {/* Background rings */}
+                    <circle cx="200" cy="200" r="190" fill="none" stroke="#333" strokeWidth="1" opacity="0.3" />
+                    <circle cx="200" cy="200" r="140" fill="none" stroke="#333" strokeWidth="1" opacity="0.3" />
+                    {/* Connection lines for selected key */}
+                    {selectedWheelKey && (() => {
+                      const selMatch = selectedWheelKey.match(/(\d+)([AB])/);
+                      if (!selMatch) return null;
+                      const selNum = parseInt(selMatch[1]);
+                      const selLetter = selMatch[2];
+                      const selIsMinor = selLetter === 'A';
+                      const selAngle = ((selNum - 1) * 30 - 90) * Math.PI / 180;
+                      const selR = selIsMinor ? 120 : 170;
+                      const selX = 200 + selR * Math.cos(selAngle);
+                      const selY = 200 + selR * Math.sin(selAngle);
+                      const compatKeys = getCompatibleKeys(selectedWheelKey);
+                      return compatKeys.filter(k => k !== selectedWheelKey).map(ck => {
+                        const m = ck.match(/(\d+)([AB])/);
+                        if (!m) return null;
+                        const cn = parseInt(m[1]);
+                        const cMinor = m[2] === 'A';
+                        const cAngle = ((cn - 1) * 30 - 90) * Math.PI / 180;
+                        const cR = cMinor ? 120 : 170;
+                        const cX = 200 + cR * Math.cos(cAngle);
+                        const cY = 200 + cR * Math.sin(cAngle);
+                        return <line key={ck} x1={selX} y1={selY} x2={cX} y2={cY} stroke="#06b6d4" strokeWidth="2" opacity="0.5" strokeDasharray="4,4" />;
+                      });
+                    })()}
+                    {Object.entries(CAMELOT_WHEEL).map(([key, val], i) => {
+                      const isMinor = key.includes('A');
+                      const num = parseInt(key);
+                      const angle = ((num - 1) * 30 - 90) * Math.PI / 180;
+                      const r = isMinor ? 120 : 170;
+                      const x = 200 + r * Math.cos(angle);
+                      const y = 200 + r * Math.sin(angle);
+                      const isSelected = selectedWheelKey === key;
+                      const compatKeys = selectedWheelKey ? getCompatibleKeys(selectedWheelKey) : [];
+                      const isCompat = compatKeys.includes(key);
+                      const trackCount = tracks.filter(t => t.camelotKey === key).length;
+                      const colors = ['#ff6b6b','#ff9f43','#feca57','#48dbfb','#0abde3','#10ac84','#1dd1a1','#54a0ff','#5f27cd','#c44569','#f78fb3','#3dc1d3'];
+                      const color = colors[(num - 1) % 12];
+                      return (
+                        <g key={key} onClick={() => setSelectedWheelKey(prev => prev === key ? null : key)} style={{cursor: 'pointer'}}>
+                          {/* Glow effect for selected */}
+                          {isSelected && <circle cx={x} cy={y} r={32} fill={color} opacity="0.2" />}
+                          <circle
+                            cx={x} cy={y}
+                            r={isSelected ? 28 : isCompat ? 25 : trackCount > 0 ? 22 : 18}
+                            fill={isSelected ? color : isCompat ? color + '99' : trackCount > 0 ? '#1e293b' : '#0f172a'}
+                            stroke={isSelected ? '#fff' : isCompat ? color : trackCount > 0 ? color : '#333'}
+                            strokeWidth={isSelected ? 3 : isCompat ? 2.5 : trackCount > 0 ? 1.5 : 0.5}
+                            opacity={selectedWheelKey ? (isSelected || isCompat ? 1 : 0.25) : 1}
+                            className="transition-all duration-200 hover:opacity-100"
+                          />
+                          <text x={x} y={y - 4} textAnchor="middle" fill={isSelected ? '#fff' : isCompat ? '#fff' : '#ccc'} fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"} style={{pointerEvents: 'none'}}>{key}</text>
+                          <text x={x} y={y + 10} textAnchor="middle" fill={isSelected ? '#fff' : '#888'} fontSize="8" style={{pointerEvents: 'none'}}>{trackCount > 0 ? trackCount + ' trk' : ''}</text>
+                        </g>
+                      );
+                    })}
+                    <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">Inner: Minor</text>
+                    <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">Outer: Major</text>
+                  </svg>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-300">Harmonic Mixing Rules</h4>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
+                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
+                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> A↔B = Mode change (minor/major)</div>
                   </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ââ Watch Folder Panel ââ */}
+                  <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400">
+                    💡 Click any key on the wheel to see compatible keys and matching tracks. Click again to deselect.
+                  </div>
+                  {/* Selected key info */}
+                  {selectedWheelKey && (() => {
+                    const compatKeys = getCompatibleKeys(selectedWheelKey);
+                    const matchingTracks = tracks.filter(t => compatKeys.includes(t.camelotKey));
+                    return (
+                      <div className="mt-3">
+                        <h4 className="text-sm font-semibold text-cyan-400 mb-2">Selected: <span className="text-white">{selectedWheelKey}</span> — {compatKeys.length} compatible keys</h4>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {compatKeys.map(ck => (
+                            <span key={ck} onClick={() => setSelectedWheelKey(ck)} className={"px-2 py-0.5 rounded text-xs cursor-pointer transition-colors " + (ck === selectedWheelKey ? "bg-cyan-500 text-black font-bold" : "bg-gray-700 text-gray-300 hover:bg-gray-600")}>{ck}</span>
+                          ))}
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                          <h4 className="text-sm font-semibold text-green-400">{matchingTracks.length} matching tracks:</h4>
+                          {matchingTracks.length === 0 && <p className="text-xs text-gray-500">No tracks in library match these keys</p>}
+                          {matchingTracks.map(t => (
+                            <div key={t.id} onClick={() => { if (currentTrack?.id !== t.id) { setCurrentTrack(t); } }} className="text-xs text-gray-300 py-1.5 px-2 bg-gray-800/40 rounded flex justify-between items-center cursor-pointer hover:bg-gray-700/60 transition-colors">
+                              <span className="truncate mr-2">{t.title} - {t.artist}</span>
+                              <span className="text-cyan-500/70 font-mono whitespace-nowrap">{t.camelotKey} | {t.bpm} BPM</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* Track selector for wheel focus */}
+                  {!selectedWheelKey && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Or select a track:</h4>
+                      <select className="bg-gray-800 text-white rounded px-3 py-2 w-full text-sm border border-gray-700" onChange={(e) => { const trackId = e.target.value ? Number(e.target.value) : null; if (trackId) { const t = tracks.find(tr => tr.id === trackId); if (t?.camelotKey) setSelectedWheelKey(t.camelotKey); } else { setSelectedWheelKey(null); } }} value="">
+                        <option value="">-- Choose a track --</option>
+                        {tracks.filter(t => t.camelotKey).map(t => (
+                          <option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.camelotKey})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                </div>
+              </div>
+            )}
+            {/* ââ Watch Folder Panel ââ */}
       {showWatchFolder && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
