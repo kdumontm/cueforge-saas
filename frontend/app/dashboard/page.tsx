@@ -700,7 +700,7 @@ return () => document.removeEventListener('click', handler);
         container: waveformRef.current!,
         cursorColor: '#ffffff',
         cursorWidth: 2,
-        height: 120,
+        height: 128,
         normalize: true,
         fillParent: true,
         minPxPerSec: 1,
@@ -709,41 +709,52 @@ return () => document.removeEventListener('click', handler);
         interact: true,
         dragToSeek: true,
         hideScrollbar: false,
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 1,
+        barWidth: 0,
+        barGap: 0,
+        barRadius: 0,
         plugins: [regions],
         waveColor: WAVEFORM_THEMES[waveformTheme].wave,
         progressColor: WAVEFORM_THEMES[waveformTheme].progress,
         renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
-          const colors = spectralColorsRef.current;
-          const { width, height } = ctx.canvas;
-          const ch = peaks[0] as Float32Array;
-          const bw = 2, gap = 1, step = bw + gap;
-          const numBars = Math.floor(width / step);
-          const mid = height / 2;
-          ctx.clearRect(0, 0, width, height);
-          for (let i = 0; i < numBars; i++) {
-            const idx = Math.min(Math.floor((i / numBars) * (ch.length / 2)) * 2, ch.length - 2);
-            const amp = Math.max(Math.abs(ch[idx] || 0), Math.abs(ch[idx + 1] || 0));
-            const barH = Math.max(2, amp * height * 0.88);
-            const ci = colors ? Math.min(Math.floor((i / numBars) * colors.length), colors.length - 1) : -1;
-            const c = ci >= 0 && colors ? colors[ci] : { r: 124, g: 58, b: 237 };
-            const brightness = 0.6 + amp * 0.4;
-            const r = Math.min(255, Math.round(c.r * brightness));
-            const g = Math.min(255, Math.round(c.g * brightness));
-            const b = Math.min(255, Math.round(c.b * brightness));
-            ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',0.6)';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
-            const x = i * step;
+            const colors = spectralColorsRef.current;
+            const { width, height } = ctx.canvas;
+            const ch = peaks[0] as Float32Array;
+            const mid = height / 2;
+            ctx.clearRect(0, 0, width, height);
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.roundRect(x, mid - barH / 2, bw, barH, 1);
-            ctx.fill();
-          }
-          ctx.shadowBlur = 0;
-        },
-      })
+            ctx.moveTo(0, mid);
+            ctx.lineTo(width, mid);
+            ctx.stroke();
+            const totalSamples = ch.length / 2;
+            // Draw filled waveform - Lexicon style (1px per column, mirrored)
+            for (let x = 0; x < width; x++) {
+              const sampleIdx = Math.min(Math.floor((x / width) * totalSamples) * 2, ch.length - 2);
+              // Use max of nearby samples for smoother look
+              let amp = 0;
+              for (let s = -1; s <= 1; s++) {
+                const si = Math.max(0, Math.min(ch.length - 2, sampleIdx + s * 2));
+                amp = Math.max(amp, Math.abs(ch[si] || 0), Math.abs(ch[si + 1] || 0));
+              }
+              const barH = Math.max(1, amp * mid * 0.92);
+              // Color from spectral data
+              const ci = colors ? Math.min(Math.floor((x / width) * colors.length), colors.length - 1) : -1;
+              const c = ci >= 0 && colors ? colors[ci] : { r: 124, g: 58, b: 237 };
+              const brightness = 0.55 + amp * 0.45;
+              const r = Math.min(255, Math.round(c.r * brightness));
+              const g = Math.min(255, Math.round(c.g * brightness));
+              const b = Math.min(255, Math.round(c.b * brightness));
+              // Top half (main waveform)
+              ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+              ctx.fillRect(x, mid - barH, 1, barH);
+              // Bottom half (mirror, dimmer)
+              ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.45)';
+              ctx.fillRect(x, mid, 1, barH * 0.75);
+            }
+          },
+        })
 
       ws.on('play', () => setIsPlaying(true));
       ws.on('pause', () => setIsPlaying(false));
@@ -806,12 +817,26 @@ return () => document.removeEventListener('click', handler);
 
   // âÂÂâÂÂ Zoom handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   function handleZoom(direction: 'in' | 'out') {
-    if (!wavesurferRef.current) return;
-    const ws = wavesurferRef.current;
-    let newZoom = zoomLevel;
-    if (direction === 'in') {
-      newZoom = Math.min(zoomLevel * 2, 200);
-    } else {
+      if (!wavesurferRef.current) return;
+      const ws = wavesurferRef.current;
+      let newZoom = zoomLevel;
+      if (direction === 'in') {
+        newZoom = Math.min(zoomLevel * 1.5, 500);
+      } else {
+        newZoom = Math.max(zoomLevel / 1.5, 1);
+      }
+      setZoomLevel(newZoom);
+      try { ws.zoom(newZoom); } catch {}
+      ws.options.autoScroll = newZoom > 1;
+      ws.options.autoCenter = newZoom > 1;
+    }
+
+    // Scroll-wheel zoom on waveform
+    const handleWaveformWheel = useCallback((e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      handleZoom(e.deltaY < 0 ? 'in' : 'out');
+    }, [zoomLevel]) else {
       newZoom = Math.max(zoomLevel / 2, 1);
     }
     setZoomLevel(newZoom);
@@ -825,7 +850,23 @@ return () => document.removeEventListener('click', handler);
     }
   }
 
-  // âÂÂâÂÂ Load track into waveform âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // Wheel zoom listener on waveform
+    useEffect(() => {
+      const container = waveformRef.current;
+      if (!container) return;
+      const handler = (e: WheelEvent) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const ws = wavesurferRef.current;
+        if (!ws) return;
+        const dir = e.deltaY < 0 ? 'in' : 'out';
+        handleZoom(dir);
+      };
+      container.addEventListener('wheel', handler, { passive: false });
+      return () => container.removeEventListener('wheel', handler);
+    }, [zoomLevel]);
+
+    // âÂÂâÂÂ Load track into waveform âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => {
     if (!selectedTrack || !wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -1602,12 +1643,39 @@ useEffect(() => {
                   </div>
                 )}
               </div>
-                {/* Mini Progress Bar */}
-              {duration > 0 && (
-                <div className="w-full h-1 bg-gray-800/60 rounded-full mt-1 overflow-hidden cursor-pointer" onClick={(e) => { if (wavesurferRef.current && duration > 0) { const rect = e.currentTarget.getBoundingClientRect(); const pct = (e.clientX - rect.left) / rect.width; wavesurferRef.current.seekTo(Math.max(0, Math.min(1, pct))); }}}>
-                  <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-100" style={{ width: (currentTime / duration * 100) + '%' }} />
-                </div>
-              )}
+                {/* Overview Bar with Section Labels */}
+                {duration > 0 && (
+                  <div className="w-full mt-1.5 space-y-0.5">
+                    {/* Section labels bar */}
+                    {selectedTrack?.analysis?.sections && selectedTrack.analysis.sections.length > 0 && (
+                      <div className="relative w-full h-5 rounded overflow-hidden bg-gray-900/50">
+                        {selectedTrack.analysis.sections.map((sec: any, i: number) => {
+                          const startPct = (sec.start / duration) * 100;
+                          const endTime = i < selectedTrack.analysis.sections.length - 1 ? selectedTrack.analysis.sections[i + 1].start : duration;
+                          const widthPct = ((endTime - sec.start) / duration) * 100;
+                          const sectionColors: Record<string, string> = { 'INTRO': '#3b82f6', 'VERSE': '#22c55e', 'CHORUS': '#eab308', 'BUILD': '#f97316', 'DROP': '#ef4444', 'BREAK': '#06b6d4', 'OUTRO': '#8b5cf6' };
+                          const bg = sectionColors[sec.label] || '#6b7280';
+                          return (
+                            <div key={i} className="absolute top-0 h-full flex items-center justify-center overflow-hidden border-r border-gray-800/50" style={{ left: startPct + '%', width: widthPct + '%', backgroundColor: bg + '33' }}>
+                              <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: bg }}>{sec.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Progress bar */}
+                    <div className="relative w-full h-1.5 bg-gray-800/60 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+                      if (wavesurferRef.current && duration > 0) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pct = (e.clientX - rect.left) / rect.width;
+                        wavesurferRef.current.seekTo(Math.max(0, Math.min(1, pct)));
+                      }
+                    }}>
+                      <div className="h-full rounded-full bg-gradient-to-r from-purple-500 via-cyan-400 to-blue-500 transition-all duration-75" style={{ width: (currentTime / duration * 100) + '%' }} />
+                      <div className="absolute top-0 h-full w-0.5 bg-white rounded" style={{ left: (currentTime / duration * 100) + '%', transform: 'translateX(-50%)' }} />
+                    </div>
+                  </div>
+                )}
               {/* TRACK NOTES */}
                 {showNotes && selectedTrack && (
                   <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
