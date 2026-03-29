@@ -944,6 +944,11 @@ def analyze_audio(file_path: str) -> Dict:
         real_duration = librosa.get_duration(path=file_path)
         duration_ms = int(real_duration * 1000)
     except Exception:
+        # Get REAL file duration (not limited by MAX_DURATION)
+    try:
+        real_duration = librosa.get_duration(path=file_path)
+        duration_ms = int(real_duration * 1000)
+    except Exception:
         duration_ms = int(len(y) / sr_loaded * 1000)
 
     # BPM and beats
