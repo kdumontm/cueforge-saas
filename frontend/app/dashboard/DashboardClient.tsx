@@ -188,6 +188,11 @@ export default function DashboardPage() {
   const [loopActive, setLoopActive] = useState(false);
 
   // Sync loop refs for timeupdate callback
+  // ── User & plan feature states (must be before callbacks that reference them) ──
+  const [currentUser, setCurrentUser] = useState<{id:number;email:string;name?:string;subscription_plan:string;is_admin:boolean;tracks_today:number}|null>(null);
+  const [planFeatures, setPlanFeatures] = useState<Record<string, Record<string, boolean>>>({});
+  const [featureLabels, setFeatureLabels] = useState<Record<string, string>>({});
+
   // ── Fetch current user & plan features on mount ──
   useEffect(() => {
     const fetchUserAndFeatures = async () => {
@@ -504,9 +509,6 @@ return () => document.removeEventListener('click', handler);
   const [batchValue, setBatchValue] = useState('');
   const [showCamelotWheel, setShowCamelotWheel] = useState(false);
   const [selectedWheelKey, setSelectedWheelKey] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<{id:number;email:string;name?:string;subscription_plan:string;is_admin:boolean;tracks_today:number}|null>(null);
-  const [planFeatures, setPlanFeatures] = useState<Record<string, Record<string, boolean>>>({});
-  const [featureLabels, setFeatureLabels] = useState<Record<string, string>>({});
   const [showPlanAdmin, setShowPlanAdmin] = useState(false);
   const [showWatchFolder, setShowWatchFolder] = useState(false);
   const [watchFolderPath, setWatchFolderPath] = useState('');
