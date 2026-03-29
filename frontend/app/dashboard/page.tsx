@@ -2640,12 +2640,12 @@ useEffect(() => {
                 <span className="text-[10px] text-gray-400">Rating:</span>
                 <div className="flex gap-0.5">
                   {[1,2,3,4,5].map(star => (
-                    <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack.id]: trackRatings[selectedTrack.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
-                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`} />
+                    <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack?.id]: trackRatings[selectedTrack?.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
+                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack?.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`} />
                     </button>
                   ))}
                 </div>
-                {trackRatings[selectedTrack.id] > 0 && <span className="text-[10px] text-yellow-400 font-bold">{trackRatings[selectedTrack.id]}/5</span>}
+                {trackRatings[selectedTrack?.id] > 0 && <span className="text-[10px] text-yellow-400 font-bold">{trackRatings[selectedTrack?.id]}/5</span>}
               </div>
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
                 <div className="flex gap-2">
