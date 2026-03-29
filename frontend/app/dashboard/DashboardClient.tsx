@@ -2248,6 +2248,13 @@ useEffect(() => {
                 className="text-[9px] text-red-400 hover:text-red-300">Reset</button>
             )}
           </div>
+          {/* Genre BPM Presets */}
+          <div className="flex flex-wrap gap-1 mt-1">
+            <span className="text-[9px] text-gray-500 w-full">Genre:</span>
+            {[{n:'Hip-Hop',a:85,b:115},{n:'House',a:120,b:130},{n:'Techno',a:128,b:145},{n:'Trance',a:138,b:150},{n:'DnB',a:170,b:180},{n:'Dubstep',a:138,b:142},{n:'Afro',a:100,b:120},{n:'All',a:0,b:300}].map(function(g) { return (
+              <button key={g.n} onClick={() => { setBpmMin(g.a); setBpmMax(g.b); }} className={"text-[8px] px-1.5 py-0.5 rounded-full border transition-all " + (bpmMin === g.a && bpmMax === g.b ? "bg-cyan-600 border-cyan-500 text-white" : "border-gray-700 text-gray-400 hover:border-cyan-600 hover:text-cyan-300")}>{g.n}</button>
+            ); })}
+          </div>
           <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
             <SlidersHorizontal size={12} /> Colonnes
           </button>
