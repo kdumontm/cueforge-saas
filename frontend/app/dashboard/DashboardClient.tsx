@@ -4571,7 +4571,28 @@ useEffect(() => {
                 </div>
               </div>
             )}
-      {/* Tap Tempo BPM Counter */}
+          </div>
+        </div>
+      )}
+</div>
+    
+    </div>
+  );
+}
+
+// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
+      <span className="text-slate-500 text-xs">{label}</span>
+      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
+    
+
+      {/* ── Metadata Edit Modal ── */}
+      
+
+
+            {/* Tap Tempo BPM Counter */}
       {showTapTempo && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
@@ -4617,28 +4638,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-          </div>
-        </div>
-      )}
-</div>
-    
-    </div>
-  );
-}
-
-// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
-      <span className="text-slate-500 text-xs">{label}</span>
-      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
-    
-
-      {/* ── Metadata Edit Modal ── */}
-      
-
-
-      {/* Keyboard Shortcuts Help Panel */}
+{/* Keyboard Shortcuts Help Panel */}
       {showShortcuts && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcuts(false)}>
           <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
