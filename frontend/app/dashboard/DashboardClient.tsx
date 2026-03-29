@@ -4613,8 +4613,6 @@ useEffect(() => {
         </div>
       )}
 
-      )}
-
       {/* ── AI Mix Suggestions ── */}
       {showMixSuggestions && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
