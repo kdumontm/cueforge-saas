@@ -2868,7 +2868,6 @@ useEffect(() => {
         </div>
       )}
 
-      {!showModuleView && (
       <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
       <div className="p-2">
         <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
@@ -3716,7 +3715,6 @@ useEffect(() => {
         </div>
       </div>
       </div>
-)}
 
       {/* ââ Smart Playlist Builder ââ */}
       {showSmartPlaylist && (
