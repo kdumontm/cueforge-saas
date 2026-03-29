@@ -14,7 +14,9 @@ from app.utils.migrations import run_migrations
 
 
 def _ensure_admin_account():
-    """Create the default kenin admin account if it does not exist yet."""
+    """Create the default kenin admin account if it does not exist yet.
+    Also ensures existing admin account has email_verified=True so login works.
+    """
     from app.models import User
     from app.services.auth_service import hash_password
 
@@ -28,9 +30,15 @@ def _ensure_admin_account():
                 password_hash=hash_password("kenin33"),
                 subscription_plan="unlimited",
                 is_admin=True,
+                email_verified=True,
             )
             db.add(admin)
             db.commit()
+        else:
+            # Ensure the existing admin account can log in
+            if not existing.email_verified:
+                existing.email_verified = True
+                db.commit()
     finally:
         db.close()
 
