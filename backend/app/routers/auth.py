@@ -1,3 +1,52 @@
+
+# ——— RGPD data export ——————————————————————————————————————
+
+
+@router.get("/me/export")
+async def export_my_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """RGPD Art. 20 — Export all personal data as JSON."""
+    from app.models.track import Track
+    from app.models.organization import UsageLog
+
+    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+    usage_logs = db.query(UsageLog).filter(UsageLog.user_id == user.id).all()
+
+    return {
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "subscription_plan": user.subscription_plan,
+            "email_verified": user.email_verified,
+            "oauth_provider": user.oauth_provider,
+            "organization_id": str(user.organization_id) if user.organization_id else None,
+            "org_role": user.org_role,
+            "created_at": str(user.created_at) if user.created_at else None,
+            "last_login_at": str(user.last_login_at) if user.last_login_at else None,
+        },
+        "tracks": [
+            {
+                "id": str(t.id),
+                "original_filename": t.original_filename,
+                "artist": t.artist,
+                "title": t.title,
+                "genre": t.genre,
+                "bpm": t.bpm,
+                "key": t.musical_key if hasattr(t, "musical_key") else None,
+                "created_at": str(t.created_at) if hasattr(t, "created_at") and t.created_at else None,
+            }
+            for t in tracks
+        ],
+        "usage_logs": [
+            {
+                "action": log.action,
+                "timestamp": str(log.timestamp) if hasattr(log, "timestamp") else None,
+            }
+            for log in usage_logs
+        ],
+    }
+
+
 """
 Enhanced auth router — REPLACES backend/app/routers/auth.py
 
