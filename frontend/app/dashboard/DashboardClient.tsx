@@ -224,6 +224,7 @@ export default function DashboardPage() {
   const togglePlanFeature = useCallback(async (planName: string, featureName: string, enabled: boolean) => {
     try {
       const token = localStorage.getItem('cueforge_token');
+      if (!token) return;
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
       const res = await fetch(apiBase + '/admin/plan-features/' + planName + '/' + featureName, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -3972,7 +3973,8 @@ useEffect(() => {
 
       {/* ── Interactive Camelot Wheel ── */}
             {showCamelotWheel && (
-              <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) { setShowCamelotWheel(false); setSelectedWheelKey(null); } }}>
+            <div className="bg-gradient-to-b from-gray-900 to-gray-950 border border-purple-500/30 rounded-xl p-6 max-w-2xl max-h-[90vh] overflow-y-auto w-full mx-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">🎵 Camelot Wheel - Harmonic Mixing Guide</h3>
                   <button onClick={() => { setShowCamelotWheel(false); setSelectedWheelKey(null); }} className="text-gray-400 hover:text-white text-xl">×</button>
@@ -4092,6 +4094,7 @@ useEffect(() => {
                 </div>
                 </div>
               </div>
+            </div>
             )}
             {/* ââ Watch Folder Panel ââ */}
       {showWatchFolder && (
