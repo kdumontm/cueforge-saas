@@ -210,6 +210,7 @@ export default function DashboardPage() {
   const [filterEnergyMin, setFilterEnergyMin] = useState<number>(0);
   const [filterEnergyMax, setFilterEnergyMax] = useState<number>(100);
   const [filterKey, setFilterKey] = useState<string>('');
+  const [showCompatibleOnly, setShowCompatibleOnly] = useState(false);
   const [filterGenre, setFilterGenre] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
@@ -1040,7 +1041,12 @@ export default function DashboardPage() {
       if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
       if (bpmMin > 0 && t.bpm < bpmMin) return false;
       if (bpmMax < 300 && t.bpm > bpmMax) return false;
-      return true;
+          if (showCompatibleOnly && selectedTrack && selectedTrack.analysis?.key && t.id !== selectedTrack.id) {
+      const selCamelot = toCamelot(selectedTrack.analysis.key);
+      const trackCamelot = toCamelot(t.analysis?.key || '');
+      if (selCamelot && trackCamelot && !getCompatibleKeys(selCamelot).includes(trackCamelot)) return false;
+    }
+  return true;
   });
 
 
@@ -1684,6 +1690,11 @@ useEffect(() => {
                     {filteredTracks.length !== tracks.length && (
                       <span className="text-[10px] text-gray-600">/ {tracks.length} total</span>
                     )}
+                    {selectedTrack && (
+                      <button onClick={() => setShowCompatibleOnly(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showCompatibleOnly ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50")}>
+                        <Zap className="w-3 h-3" /> {showCompatibleOnly ? 'Compatible' : 'All Keys'}
+                      </button>
+                    )}
                     {filteredTracks.length > 0 && (() => {
                       const totalMs = filteredTracks.reduce((sum, t) => sum + (t.analysis?.duration_ms || t.duration_ms || 0), 0);
                       const bpmTracks = filteredTracks.filter(t => t.analysis?.bpm);
@@ -2112,6 +2123,22 @@ useEffect(() => {
         </div>
       )}
 
+      {/* Batch Actions Floating Bar */}
+      {selectedIds.size > 1 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-gray-600/50 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 backdrop-blur-xl">
+          <span className="text-sm font-medium text-white">{selectedIds.size} tracks</span>
+          <div className="w-px h-6 bg-gray-600" />
+          <button onClick={() => { const ids = Array.from(selectedIds); setSetLists(prev => prev.map((s, i) => i === activeSetList ? {...s, trackIds: [...new Set([...s.trackIds, ...ids])]} : s)); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/50 text-xs font-medium transition-colors">
+            <ListPlus className="w-3.5 h-3.5" /> Add to Set List
+          </button>
+          <button onClick={async () => { if (!confirm('Delete ' + selectedIds.size + ' tracks?')) return; for (const id of selectedIds) { try { await deleteTrack(id); } catch(e) {} } setTracks(prev => prev.filter(t => !selectedIds.has(t.id))); if (selectedTrack && selectedIds.has(selectedTrack.id)) setSelectedTrack(null); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/50 text-xs font-medium transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-600/50 text-xs font-medium transition-colors">
+            <X className="w-3.5 h-3.5" /> Clear
+          </button>
+        </div>
+      )}
       {/* âÂÂâÂÂ Track Organizer Panel âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
       {organizerTrack && (
         <TrackOrganizer
