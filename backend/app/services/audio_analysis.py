@@ -289,38 +289,57 @@ def detect_sections_ssm(
             # Does a drop fall in this section?
             has_drop = any(start_time <= dt < end_time for dt in drop_times)
 
-            # ── Intelligent labeling ──
+            # ── Intelligent labeling (v3.1 — conservative DROP, add BRIDGE) ──
+            # DJ track structure: INTRO → BUILD → DROP → BREAKDOWN → DROP 2 → BRIDGE → OUTRO
+            # DROPs should ONLY be labeled when there's a detected drop point
+            # or VERY high energy (top 10% of all sections)
+            
+            # Count how many drops we've already labeled
+            drop_count = sum(1 for s in sections if s.get("label") == "DROP")
+            
             # INTRO: low energy at start of track
-            if position < 0.06 and section_energy < e_median:
+            if position < 0.08 and section_energy < e_median:
                 label = "INTRO"
-            elif position < 0.14 and section_energy < e_p25 * 1.4:
+            elif position < 0.15 and section_energy < e_p25 * 1.5 and i < 2:
                 label = "INTRO"
+            
             # OUTRO: low energy at end of track
-            elif position > 0.88 and section_energy < e_median:
+            elif position > 0.85 and section_energy < e_median:
                 label = "OUTRO"
-            elif position > 0.80 and section_energy < e_p25 * 1.4 and energy_trend < 0:
+            elif position > 0.78 and section_energy < e_p25 * 1.5 and energy_trend < -0.01:
                 label = "OUTRO"
-            # DROP: high energy section with detected drop point
-            elif has_drop and section_energy > e_p75 * 0.8:
+            
+            # DROP: ONLY when a detected drop point falls in this section AND energy is high
+            elif has_drop and section_energy > e_p75 * 0.75 and drop_count < 3:
                 label = "DROP"
-            # DROP: very high energy even without detected drop
-            elif section_energy > e_p75 * 1.1:
+            
+            # DROP: extremely high energy (top 10%) even without detected drop — max 3 total
+            elif section_energy > e_p75 * 1.2 and drop_count < 3:
                 label = "DROP"
-            # BUILD: rising energy, moderate level
-            elif energy_trend > 0.06 and section_energy > e_p25:
+            
+            # BUILD: rising energy trend, not at start/end
+            elif energy_trend > 0.04 and section_energy > e_p25 and 0.1 < position < 0.85:
                 label = "BUILD"
-            # BREAKDOWN: low energy section (not at start/end)
-            elif section_energy < e_p25 * 1.15:
+            
+            # BREAKDOWN: low energy section after a drop
+            elif section_energy < e_p25 * 1.2 and position > 0.2 and position < 0.8:
                 label = "BREAKDOWN"
-            # Moderate energy with rising trend = BUILD
-            elif energy_trend > 0.02 and section_energy > e_median * 0.8:
+            
+            # BRIDGE: moderate energy between drops (middle of track, not build/breakdown)
+            elif 0.35 < position < 0.75 and e_p25 < section_energy < e_p75 and abs(energy_trend) < 0.03:
+                label = "BRIDGE"
+            
+            # BUILD: moderate energy with clear rising trend
+            elif energy_trend > 0.02 and section_energy > e_median * 0.7:
                 label = "BUILD"
-            # Moderate energy with falling trend = BREAKDOWN
-            elif energy_trend < -0.02:
+            
+            # BREAKDOWN: moderate energy with falling trend
+            elif energy_trend < -0.02 and section_energy < e_p75:
                 label = "BREAKDOWN"
-            # Default: use energy level
+            
+            # Default: VERSE for moderate energy, BREAKDOWN for low
             elif section_energy > e_median:
-                label = "DROP"
+                label = "VERSE"
             else:
                 label = "BREAKDOWN"
 
@@ -947,7 +966,22 @@ def analyze_audio(file_path: str) -> Dict:
     # Energy
     try:
         rms = librosa.feature.rms(y=y)[0]
-        energy = round(float(np.mean(rms)), 4)
+        # Convert RMS to perceptual 0-100% energy scale
+        # Use dB scale with reference to typical DJ track levels
+        rms_mean = float(np.mean(rms))
+        rms_peak = float(np.percentile(rms, 90))  # 90th percentile for "perceived loudness"
+        # Combine mean and peak for better perception
+        rms_combined = 0.4 * rms_mean + 0.6 * rms_peak
+        # Convert to dB (reference: 0.3 RMS = very loud track)
+        if rms_combined > 0:
+            db = 20 * np.log10(rms_combined / 0.3)
+            # Map dB to 0-100: -30dB = 0%, 0dB = 85%, +6dB = 100%
+            energy_pct = max(0, min(100, (db + 30) * (100 / 36)))
+        else:
+            energy_pct = 0
+        # Also factor in dynamic range (more dynamic = higher perceived energy)
+        dynamic_factor = min(1.2, float(np.max(rms)) / (rms_mean + 1e-8))
+        energy = round(min(100, energy_pct * min(1.15, 0.85 + dynamic_factor * 0.15)), 1)
         del rms
     except Exception:
         energy = None
@@ -998,6 +1032,12 @@ def analyze_audio(file_path: str) -> Dict:
     except Exception:
         phrase_positions = []
 
+    # Genre detection
+    try:
+        genre_data = detect_genre(y, sr_loaded, bpm)
+    except Exception:
+        genre_data = {"genre": "Unknown", "subgenre": "Unknown", "confidence": 0.0, "genre_scores": {}}
+
     # Waveform data for frontend
     try:
         waveform_data = compute_waveform_data(y, sr_loaded)
@@ -1020,4 +1060,7 @@ def analyze_audio(file_path: str) -> Dict:
         "section_labels": section_labels,
         "waveform_peaks": waveform_data.get("waveform_peaks"),
         "spectral_energy": waveform_data.get("spectral_energy"),
+        "genre": genre_data.get("genre"),
+        "subgenre": genre_data.get("subgenre"),
+        "genre_confidence": genre_data.get("confidence"),
     }
