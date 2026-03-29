@@ -58,9 +58,9 @@ export default function SettingsPage() {
 
       const updated = await updateMyProfile(updateData);
       setProfile(updated);
-      setMessage({ type: "success", text: "Profil mis Ã  jour !" });
+      setMessage({ type: "success", text: "Profil mis à jour !" });
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Erreur lors de la mise Ã  jour" });
+      setMessage({ type: "error", text: err.message || "Erreur lors de la mise à jour" });
     } finally {
       setSaving(false);
     }
@@ -78,7 +78,7 @@ export default function SettingsPage() {
     }
 
     if (newPassword.length < 6) {
-      setMessage({ type: "error", text: "Le mot de passe doit contenir au moins 6 caractÃ¨res" });
+      setMessage({ type: "error", text: "Le mot de passe doit contenir au moins 6 caractères" });
       setSaving(false);
       return;
     }
@@ -91,7 +91,7 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setMessage({ type: "success", text: "Mot de passe modifiÃ© !" });
+      setMessage({ type: "success", text: "Mot de passe modifié !" });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Erreur lors du changement de mot de passe" });
     } finally {
@@ -100,9 +100,9 @@ export default function SettingsPage() {
   }
 
   const planLabels: Record<string, string> = {
-    free: "Free â 5 morceaux/jour",
-    pro: "Pro â 20 morceaux/jour",
-    unlimited: "App Desktop â IllimitÃ©",
+    free: "Free — 5 morceaux/jour",
+    pro: "Pro — 20 morceaux/jour",
+    unlimited: "App Desktop — Illimité",
   };
 
   if (loading) {
@@ -121,7 +121,7 @@ export default function SettingsPage() {
           <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-white">
             â Dashboard
           </button>
-          <h1 className="text-xl font-bold">ParamÃ¨tres</h1>
+          <h1 className="text-xl font-bold">Paramètres</h1>
         </div>
       </div>
 
