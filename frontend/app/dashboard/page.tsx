@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Upload, Music2, Loader2, CheckCircle2, XCircle, Download, Trash2, Clock,
   Activity, Hash, Disc3, ChevronDown, ChevronUp, ExternalLink, User, Tag,
@@ -240,6 +240,32 @@ export default function DashboardPage() {
   const [showBulkGenre, setShowBulkGenre] = useState(false);
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  // Column visibility
+  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({ genre: true, bpm: true, key: true, energy: true, duration: true });
+  const [showColSettings, setShowColSettings] = useState(false);
+
+  useEffect(() => {
+    try { const s = localStorage.getItem('cueforge_columns'); if (s) setVisibleCols(JSON.parse(s)); } catch {}
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cueforge_columns', JSON.stringify(visibleCols));
+  }, [visibleCols]);
+
+  const gridTemplate = useMemo(() => {
+    return ['28px', '2fr', visibleCols.genre ? '1fr' : '0px', visibleCols.bpm ? '60px' : '0px', visibleCols.key ? '45px' : '0px', visibleCols.energy ? '45px' : '0px', visibleCols.duration ? '60px' : '0px', '50px', '30px'].join(' ');
+  }, [visibleCols]);
+
+  const toggleCol = (col: string) => setVisibleCols(prev => ({ ...prev, [col]: !prev[col] }));
+
+  // Close column settings on outside click
+  useEffect(() => {
+    if (!showColSettings) return;
+    const handler = () => setShowColSettings(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showColSettings]);
 
   const bulkUpdateGenre = async () => {
     if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
@@ -1727,8 +1753,24 @@ useEffect(() => {
             </div>
           </div>
         )}
+        {/* Column visibility toggle */}
+        <div className="relative inline-block">
+          <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
+            <SlidersHorizontal size={12} /> Colonnes
+          </button>
+          {showColSettings && (
+            <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
+              {[['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
+                <label key={k} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/50 cursor-pointer text-xs text-slate-300">
+                  <input type="checkbox" checked={visibleCols[k]} onChange={() => toggleCol(k)} className="accent-cyan-500 w-3 h-3" />
+                  {label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         {/* Table header */}
-        <div className="grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10">
+        <div className="grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
           <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
@@ -1775,7 +1817,8 @@ useEffect(() => {
               <div
                 key={track.id}
                 data-track-id={track.id}
-                className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
+                className={`grid gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
+                style={{gridTemplateColumns: gridTemplate}}
                 onClick={(e) => {
                   if (e.shiftKey && lastClickedIdxRef.current >= 0) {
                     // Shift+click range selection
@@ -3064,7 +3107,10 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         </div>
       )}
-<style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
+<style>{
+        /* Column visibility - hide overflow in 0px grid cells */
+        .grid > * { min-width: 0; overflow: hidden; }
+`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 </div>
   );
 }
