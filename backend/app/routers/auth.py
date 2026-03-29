@@ -19,7 +19,8 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, field_validator, constr
+from typing import Annotated
+from pydantic import BaseModel, EmailStr, field_validator, Field
 
 from app.database import get_db
 from app.models import User
@@ -60,7 +61,7 @@ def _validate_password_strength(v: str) -> str:
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
-    name: constr(min_length=2, max_length=50)
+    name: Annotated[str, Field(min_length=2, max_length=50)]
 
     @field_validator("password")
     @classmethod
@@ -74,7 +75,7 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: Optional[constr(min_length=2, max_length=50)] = None
+    name: Optional[Annotated[str, Field(min_length=2, max_length=50)]] = None
     email: Optional[EmailStr] = None
 
 

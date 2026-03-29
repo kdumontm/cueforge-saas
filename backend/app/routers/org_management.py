@@ -9,7 +9,8 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, constr
+from typing import Annotated
+from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_db
 from app.models import User
@@ -24,13 +25,13 @@ router = APIRouter()
 
 
 class OrgCreate(BaseModel):
-    name: constr(min_length=2, max_length=100)
+    name: Annotated[str, Field(min_length=2, max_length=100)]
 
 
 class OrgUpdate(BaseModel):
-    name: Optional[constr(min_length=2, max_length=100)] = None
-    description: Optional[constr(max_length=500)] = None
-    logo_url: Optional[constr(max_length=500)] = None
+    name: Optional[Annotated[str, Field(min_length=2, max_length=100)]] = None
+    description: Optional[Annotated[str, Field(max_length=500)]] = None
+    logo_url: Optional[Annotated[str, Field(max_length=500)]] = None
 
 
 class OrgResponse(BaseModel):
