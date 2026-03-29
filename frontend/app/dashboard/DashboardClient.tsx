@@ -598,6 +598,7 @@ return () => document.removeEventListener('click', handler);
   const [setTimerRunning, setSetTimerRunning] = useState(false);
   const [showSetTimer, setShowSetTimer] = useState(false);
   // Tap Tempo state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<Record<string, boolean>>({});
   const [showTapTempo, setShowTapTempo] = useState(false);
   // Session Notes state
   const [showSessionNotes, setShowSessionNotes] = useState(false);
@@ -1682,31 +1683,51 @@ useEffect(() => {
       {/* LEFT SIDEBAR - Module Buttons */}
       <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
         <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">Add</span></button>
-        <div className="w-8 border-t border-gray-700/50 mb-1"></div>
-        {[
-          { key: 'smart', icon: <Sparkles size={16} />, label: 'Smart' },
-          { key: 'duplicates', icon: <Copy size={16} />, label: 'Dupes' },
-          { key: 'export', icon: <Download size={16} />, label: 'Export' },
-          { key: 'stats', icon: <BarChart3 size={16} />, label: 'Stats' },
-          { key: 'batch', icon: <ListIcon size={16} />, label: 'Batch' },
-          { key: 'camelot', icon: <Disc3 size={16} />, label: 'Wheel' },
-          { key: 'watch', icon: <Folder size={16} />, label: 'Watch' },
-          { key: 'ai', icon: <Wand2 size={16} />, label: 'AI Mix' },
-          { key: 'grid', icon: <Grid3X3 size={16} />, label: 'Grid' },
-          { key: 'mixable', icon: <Music2 size={16} />, label: 'Mix' },
-          { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
-        { key: 'timer', icon: <Clock size={16} />, label: 'Timer' },
-        { key: 'tapTempo', icon: <Activity size={16} />, label: 'Tap BPM' },
-        { key: 'notes', icon: <PenSquare size={16} />, label: 'Notes' },
-        ].filter((mod) => {
+          <div className="w-8 border-t border-gray-700/50 mb-1"></div>
+          {(() => {
+            const sidebarGroups = [
+              { id: 'library', title: 'LIB', items: [
+                { key: 'smart', icon: <Sparkles size={16} />, label: 'Smart' },
+                { key: 'duplicates', icon: <Copy size={16} />, label: 'Dupes' },
+                { key: 'batch', icon: <ListIcon size={16} />, label: 'Batch' },
+                { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
+              ]},
+              { id: 'analysis', title: 'DJ', items: [
+                { key: 'stats', icon: <BarChart3 size={16} />, label: 'Stats' },
+                { key: 'camelot', icon: <Disc3 size={16} />, label: 'Wheel' },
+                { key: 'tapTempo', icon: <Activity size={16} />, label: 'Tap' },
+                { key: 'grid', icon: <Hash size={16} />, label: 'Grid' },
+              ]},
+              { id: 'mix', title: 'MIX', items: [
+                { key: 'ai', icon: <Wand2 size={16} />, label: 'AI Mix' },
+                { key: 'mixable', icon: <Music size={16} />, label: 'Mix' },
+                { key: 'timer', icon: <Clock size={16} />, label: 'Timer' },
+                { key: 'watch', icon: <Folder size={16} />, label: 'Watch' },
+              ]},
+              { id: 'export', title: 'OUT', items: [
+                { key: 'export', icon: <Download size={16} />, label: 'Export' },
+                { key: 'notes', icon: <PenSquare size={16} />, label: 'Notes' },
+              ]},
+            ];
           const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis', timer: 'timer' , tapTempo: 'tap_tempo', notes: 'notes'};
-          return isFeatureEnabled(featureMap[mod.key] || mod.key);
-        }).map((mod) => (
+            return sidebarGroups.map((group) => {
+              const visibleItems = group.items.filter((mod) => {
+                const feat = featureMap[mod.key]; return !feat || planFeatures[feat];
+              });
+              if (visibleItems.length === 0) return null;
+              const collapsed = sidebarCollapsed[group.id] || false;
+              return (
+                <div key={group.id} className="w-full flex flex-col items-center">
+                  <button onClick={() => setSidebarCollapsed(prev => ({...prev, [group.id]: !prev[group.id]}))} className="w-10 h-5 flex items-center justify-center text-[7px] font-bold text-gray-500 hover:text-gray-300 tracking-wider cursor-pointer select-none" title={collapsed ? 'Expand ' + group.title : 'Collapse ' + group.title}>
+                    {collapsed ? <ChevronDown size={8} className="mr-0.5" /> : <ChevronUp size={8} className="mr-0.5" />}{group.title}
+                  </button>
+                  {!collapsed && visibleItems.map((mod) => (
           <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); setShowTapTempo(false); setShowSessionNotes(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer, tapTempo: setShowTapTempo, notes: setShowSessionNotes}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
-            {mod.icon}
-            <span>{mod.label}</span>
-          </button>
-        ))}
+                  ))}
+                </div>
+              );
+            });
+          })()}
       </div>
       {/* CENTER CONTENT */}
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
