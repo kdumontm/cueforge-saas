@@ -390,6 +390,9 @@ export default function DashboardPage() {
   const [tapBpm, setTapBpm] = useState<number>(0);
   const [filterColor, setFilterColor] = useState<string | null>(null);
   const [filterRating, setFilterRating] = useState<number>(0);
+  const [bpmMin, setBpmMin] = useState<number>(0);
+  const [bpmMax, setBpmMax] = useState<number>(300);
+  const [transitionNotes, setTransitionNotes] = useState<Record<string, string>>({});
   const [showNotes, setShowNotes] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showRemainingTime, setShowRemainingTime] = useState(false);
@@ -753,6 +756,33 @@ export default function DashboardPage() {
         e.preventDefault();
         setShowShortcutsModal(p => !p);
       }
+      // Space = play/pause
+      const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+      if (e.key === ' ' && !isInput) {
+        e.preventDefault();
+        if (wavesurferRef.current) wavesurferRef.current.playPause();
+      }
+      // Arrow Up/Down = navigate tracks
+      if (e.key === 'ArrowDown' && !isInput) {
+        e.preventDefault();
+        const idx = tracks.findIndex(t => t.id === selectedTrack?.id);
+        if (idx < tracks.length - 1) setSelectedTrack(tracks[idx + 1]);
+      }
+      if (e.key === 'ArrowUp' && !isInput) {
+        e.preventDefault();
+        const idx = tracks.findIndex(t => t.id === selectedTrack?.id);
+        if (idx > 0) setSelectedTrack(tracks[idx - 1]);
+      }
+      // 1-5 = rate selected track
+      if (['1','2','3','4','5'].includes(e.key) && !isInput && selectedTrack) {
+        const star = parseInt(e.key);
+        setTrackRatings(prev => ({...prev, [selectedTrack.id]: prev[selectedTrack.id] === star ? 0 : star}));
+      }
+      // Escape = deselect
+      if (e.key === 'Escape') {
+        setShowShortcutsModal(false);
+        setSelectedIds(new Set());
+      }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1008,6 +1038,8 @@ export default function DashboardPage() {
       if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
             if (filterColor && trackColors[t.id] !== filterColor) return false;
       if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
+      if (bpmMin > 0 && t.bpm < bpmMin) return false;
+      if (bpmMax < 300 && t.bpm > bpmMax) return false;
       return true;
   });
 
@@ -1801,6 +1833,23 @@ useEffect(() => {
                 className="text-[9px] text-red-400 hover:text-red-300 ml-1">Clear</button>
             )}
           </div>
+          {/* BPM Range Filter */}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] text-gray-500">BPM:</span>
+            <input type="range" min="0" max="300" step="5" value={bpmMin}
+              onChange={e => setBpmMin(Number(e.target.value))}
+              className="w-16 h-1 accent-cyan-500 cursor-pointer" />
+            <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMin}</span>
+            <span className="text-[9px] text-gray-600">-</span>
+            <input type="range" min="0" max="300" step="5" value={bpmMax}
+              onChange={e => setBpmMax(Number(e.target.value))}
+              className="w-16 h-1 accent-cyan-500 cursor-pointer" />
+            <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMax}</span>
+            {(bpmMin > 0 || bpmMax < 300) && (
+              <button onClick={() => {setBpmMin(0); setBpmMax(300);}}
+                className="text-[9px] text-red-400 hover:text-red-300">Reset</button>
+            )}
+          </div>
           <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
             <SlidersHorizontal size={12} /> Colonnes
           </button>
@@ -2495,7 +2544,7 @@ useEffect(() => {
                         {setLists[activeSetList].trackIds.map((tid, tIdx) => {
                           const t = tracks.find(tr => tr.id === tid);
                           if (!t) return null;
-                          return (
+                          return (<>
                             <div key={tid} className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 group">
                               <span className="text-[10px] text-gray-500 w-4">{tIdx + 1}</span>
                               {trackColors[tid] && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: trackColors[tid]}} />}
@@ -2528,7 +2577,16 @@ useEffect(() => {
                                 }} className="text-gray-500 hover:text-red-400"><X className="w-3 h-3" /></button>
                               </div>
                             </div>
-                          );
+                          {tIdx < setLists[activeSetList].trackIds.length - 1 && (
+                            <div className="flex items-center gap-1 px-3 py-0.5">
+                              <div className="flex-1 border-t border-dashed border-gray-700" />
+                              <input type="text" placeholder="transition..." value={transitionNotes[activeSetList + '-' + tIdx] || ''}
+                                onChange={e => setTransitionNotes(prev => ({...prev, [activeSetList + '-' + tIdx]: e.target.value}))}
+                                className="bg-transparent text-[9px] text-gray-400 placeholder-gray-600 border-none outline-none w-24 text-center italic" />
+                              <div className="flex-1 border-t border-dashed border-gray-700" />
+                            </div>
+                          )}
+                          </>);
                         })}
                         {setLists[activeSetList].trackIds.length === 0 && (
                           <div className="text-center py-4 text-gray-500 text-xs">Select a track and click "+ Add Selected" to build your set</div>
