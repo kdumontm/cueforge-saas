@@ -311,6 +311,16 @@ export default function DashboardPage() {
   const [bulkGenreValue, setBulkGenreValue] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
+  // Column filters
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
+  const [colFilterTitle, setColFilterTitle] = useState('');
+  const [colFilterArtist, setColFilterArtist] = useState('');
+  const [colFilterGenre, setColFilterGenre] = useState('');
+  const [colFilterKey, setColFilterKey] = useState('');
+  const [colFilterBpmMin, setColFilterBpmMin] = useState('');
+  const [colFilterBpmMax, setColFilterBpmMax] = useState('');
+  const [colFilterEnergyMin, setColFilterEnergyMin] = useState('');
+  const [colFilterEnergyMax, setColFilterEnergyMax] = useState('');
   // Column visibility
   const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>({ artist: true, album: false, genre: true, bpm: true, key: true, energy: true, duration: true });
   const [showColSettings, setShowColSettings] = useState(false);
@@ -1167,6 +1177,17 @@ return () => document.removeEventListener('click', handler);
       );
     })
     .filter(t => !showFavoritesOnly || favoriteIds.has(t.id))
+    .filter(t => {
+      if (colFilterTitle && !(t.title || t.original_filename || '').toLowerCase().includes(colFilterTitle.toLowerCase())) return false;
+      if (colFilterArtist && !(t.artist || '').toLowerCase().includes(colFilterArtist.toLowerCase())) return false;
+      if (colFilterGenre && (t.genre || '') !== colFilterGenre) return false;
+      if (colFilterKey && (t.analysis?.key || '') !== colFilterKey) return false;
+      if (colFilterBpmMin && (t.analysis?.bpm || 0) < parseFloat(colFilterBpmMin)) return false;
+      if (colFilterBpmMax && (t.analysis?.bpm || 999) > parseFloat(colFilterBpmMax)) return false;
+      if (colFilterEnergyMin && ((t.analysis?.energy || 0) * 100) < parseFloat(colFilterEnergyMin)) return false;
+      if (colFilterEnergyMax && ((t.analysis?.energy || 0) * 100) > parseFloat(colFilterEnergyMax)) return false;
+      return true;
+    })
     .sort((a, b) => {
         const dir = sortDir === 'asc' ? 1 : -1;
         switch (sortBy) {
@@ -2141,6 +2162,9 @@ useEffect(() => {
           <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
             <SlidersHorizontal size={12} /> Colonnes
           </button>
+          <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+            <Filter className="w-3 h-3" /> Filters {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
+          </button>
           {showColSettings && (
             <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
               {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
@@ -2197,6 +2221,32 @@ useEffect(() => {
           <span onClick={() => handleHeaderSort('energy')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span onClick={() => handleHeaderSort('duration')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           <span />
+          {/* Column Filter Row */}
+          {showColumnFilters && (
+          <div className="grid track-grid gap-2 px-4 py-2 text-[9px] border-b border-slate-700/50 bg-slate-900/50">
+            <span />
+            <input type="text" placeholder="Filter title..." value={colFilterTitle} onChange={e => setColFilterTitle(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-full" />
+            {visibleCols.artist && <input type="text" placeholder="Filter artist..." value={colFilterArtist} onChange={e => setColFilterArtist(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]" />}
+            {visibleCols.album && <span />}
+            <select value={colFilterGenre} onChange={e => setColFilterGenre(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
+              <option value="">All Genres</option>
+              {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).sort().map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <div className="flex gap-1">
+              <input type="number" placeholder="Min" value={colFilterBpmMin} onChange={e => setColFilterBpmMin(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+              <input type="number" placeholder="Max" value={colFilterBpmMax} onChange={e => setColFilterBpmMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+            </div>
+            <select value={colFilterKey} onChange={e => setColFilterKey(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
+              <option value="">All Keys</option>
+              {Array.from(new Set(tracks.map(t => t.analysis?.key).filter(Boolean))).sort().map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+            <div className="flex gap-1">
+              <input type="number" placeholder="Min" min="0" max="100" value={colFilterEnergyMin} onChange={e => setColFilterEnergyMin(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+              <input type="number" placeholder="Max" min="0" max="100" value={colFilterEnergyMax} onChange={e => setColFilterEnergyMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+            </div>
+            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-slate-400 hover:text-white text-[8px]">Clear</button>
+          </div>
+          )}
         </div>
 
         {filtered.length === 0 ? (
