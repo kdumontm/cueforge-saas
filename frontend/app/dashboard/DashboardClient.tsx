@@ -29,6 +29,36 @@ function toCamelot(key: string | null | undefined): string {
   return CAMELOT_WHEEL[key] || key;
 }
 
+// Camelot-based mix compatibility check
+function getCompatibleKeys(camelotKey) {
+  if (!camelotKey || camelotKey.length < 2) return [];
+  const num = parseInt(camelotKey);
+  const letter = camelotKey.slice(-1);
+  if (isNaN(num)) return [];
+  const compatible = [];
+  compatible.push(camelotKey); // same key
+  compatible.push(num + (letter === 'A' ? 'B' : 'A')); // inner/outer switch
+  compatible.push(((num % 12) + 1) + letter); // +1
+  compatible.push((((num - 2 + 12) % 12) + 1) + letter); // -1
+  return compatible;
+}
+
+function isMixCompatible(trackA, trackB) {
+  if (!trackA || !trackB || !trackA.analysis || !trackB.analysis) return false;
+  const bpmA = trackA.analysis.bpm;
+  const bpmB = trackB.analysis.bpm;
+  if (!bpmA || !bpmB) return false;
+  const bpmRatio = Math.abs(bpmA - bpmB) / Math.max(bpmA, bpmB);
+  const halfRatio = Math.abs(bpmA - bpmB * 2) / Math.max(bpmA, bpmB * 2);
+  const doubleRatio = Math.abs(bpmA * 2 - bpmB) / Math.max(bpmA * 2, bpmB);
+  const bpmOk = bpmRatio < 0.06 || halfRatio < 0.06 || doubleRatio < 0.06;
+  if (!bpmOk) return false;
+  const keyA = toCamelot(trackA.analysis.key);
+  const keyB = toCamelot(trackB.analysis.key);
+  if (keyA === '\u2014' || keyB === '\u2014') return bpmOk;
+  return getCompatibleKeys(keyA).includes(keyB);
+}
+
 // Harmonic mixing: compatible Camelot keys (same, +/-1, relative major/minor)
 function getCompatibleKeys(camelotKey) {
   if (!camelotKey) return [];
@@ -1533,6 +1563,9 @@ useEffect(() => {
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">Cancel</button>
+        <button onClick={() => { const unanalyzed = tracks.filter(t => !t.analysis || !t.analysis.bpm); if (unanalyzed.length === 0) { showToast("Toutes les tracks sont d\u00e9j\u00e0 analys\u00e9es", "info"); return; } showToast("Analyse de " + unanalyzed.length + " tracks en cours...", "info"); batchAnalyzeAudio(unanalyzed.map(t => t.id)); }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-orange-500/30 text-orange-300 border border-orange-500/50 hover:bg-orange-500/50">
+          <RefreshCw className="w-3 h-3" /> Analyze All
+        </button>
               <button onClick={saveMetadata} disabled={savingMeta}
                 className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
                 {savingMeta ? 'Saving...' : 'Save'}
@@ -2457,7 +2490,7 @@ useEffect(() => {
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }} className="inline-flex mr-1 hover:scale-125 transition-transform" title={favoriteIds.has(track.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>
                         <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600 hover:text-yellow-400'} />
                       </button>
-                      {trackColors[track.id] && <span className="w-2 h-2 rounded-full inline-block mr-1 flex-shrink-0" style={{backgroundColor: trackColors[track.id]}} />}{track.title || track.original_filename}
+                      {trackColors[track.id] && <span className="w-2 h-2 rounded-full inline-block mr-1 flex-shrink-0" style={{backgroundColor: trackColors[track.id]}} />}{selectedTrack && selectedTrack.id !== track.id && isMixCompatible(selectedTrack, track) && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1 animate-pulse" title="Mix compatible" />}{track.title || track.original_filename}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">
                       {track.artist || '\u2014'}
