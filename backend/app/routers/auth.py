@@ -1,28 +1,57 @@
+"""
+Enhanced auth router — REPLACES backend/app/routers/auth.py
+
+New endpoints:
+- POST /auth/verify-email         → confirm email with token
+- POST /auth/resend-verify        → resend verification email
+- POST /auth/refresh              → refresh token rotation
+- POST /auth/oauth/google         → Google OAuth callback
+- POST /auth/oauth/spotify        → Spotify OAuth callback
+- DELETE /auth/logout              → invalidate refresh token
+
+Enhanced:
+- register now sends verification email + returns refresh_token
+- login now returns refresh_token + updates last_login_at
+"""
 from typing import Optional
 from datetime import datetime, timedelta
 import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
+
 from app.database import get_db
 from app.models import User
 from app.services.auth_service import (
-    hash_password, verify_password, create_access_token
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_refresh_token,
+    generate_email_verify_token,
 )
-from app.services.email_service import send_reset_email
+from app.services.email_service import (
+    send_reset_email,
+    send_verification_email,
+    send_welcome_email,
+)
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# ─── Pydantic schemas ────────────────────────────────────────────
+
+
 class UserRegister(BaseModel):
-    email: EmailStr       # Required for account, NOT used for login
+    email: EmailStr
     password: str
-    name: str             # This becomes the username used to log in
+    name: str
 
 
 class UserLogin(BaseModel):
-    username: str         # Login is by username (name field), not email
+    username: str  # Login by username (name field)
     password: str
 
 
@@ -38,6 +67,10 @@ class UserResponse(BaseModel):
     subscription_plan: str
     is_admin: bool
     tracks_today: int
+    email_verified: bool = False
+    avatar_url: Optional[str] = None
+    organization_id: Optional[int] = None
+    org_role: str = "member"
 
     class Config:
         from_attributes = True
@@ -45,8 +78,21 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
     user: UserResponse
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerifyRequest(BaseModel):
+    email: EmailStr
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -58,45 +104,171 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class OAuthCallbackRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+# ─── Registration ─────────────────────────────────────────────
+
+
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     if db.query(User).filter(User.name == user_data.name).first():
         raise HTTPException(status_code=400, detail="Username already taken")
+
+    verify_token = generate_email_verify_token()
+
     new_user = User(
         email=user_data.email,
         name=user_data.name,
         password_hash=hash_password(user_data.password),
+        email_verify_token=verify_token,
+        email_verified=False,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    token = create_access_token({"sub": str(new_user.id)})
+
+    # Send verification email (non-blocking, don't fail registration)
+    try:
+        send_verification_email(new_user.email, verify_token)
+    except Exception:
+        pass  # SMTP not configured in dev
+
+    access = create_access_token({"sub": str(new_user.id)})
+    refresh = create_refresh_token({"sub": str(new_user.id)})
+
+    # Store refresh token
+    new_user.refresh_token = refresh
+    db.commit()
+
     return TokenResponse(
-        access_token=token,
+        access_token=access,
+        refresh_token=refresh,
         token_type="bearer",
-        user=UserResponse.from_orm(new_user),
+        user=UserResponse.model_validate(new_user),
     )
+
+
+# ─── Email verification ────────────────────────────────────────
+
+
+@router.post("/verify-email")
+async def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email_verify_token == req.token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+    if user.email_verified:
+        return {"message": "Email already verified"}
+
+    user.email_verified = True
+    user.email_verify_token = None
+    db.commit()
+
+    # Send welcome email
+    try:
+        send_welcome_email(user.email, user.name or "DJ")
+    except Exception:
+        pass
+
+    return {"message": "Email verified successfully"}
+
+
+@router.post("/resend-verify")
+async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == req.email).first()
+    if user and not user.email_verified:
+        token = generate_email_verify_token()
+        user.email_verify_token = token
+        db.commit()
+        try:
+            send_verification_email(user.email, token)
+        except Exception:
+            pass
+    # Always return success (don't reveal if email exists)
+    return {"message": "If this email exists and is unverified, a link has been sent."}
+
+
+# ─── Login ────────────────────────────────────────────────
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login by username (name field). Email is not used for login."""
+    """Login by username. Returns access + refresh tokens."""
     user = db.query(User).filter(User.name == credentials.username).first()
-    if not user or not verify_password(credentials.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = create_access_token({"sub": str(user.id)})
+
+    access = create_access_token({"sub": str(user.id)})
+    refresh = create_refresh_token({"sub": str(user.id)})
+
+    user.refresh_token = refresh
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+
     return TokenResponse(
-        access_token=token,
+        access_token=access,
+        refresh_token=refresh,
         token_type="bearer",
-        user=UserResponse.from_orm(user),
+        user=UserResponse.model_validate(user),
     )
+
+
+# ─── Token refresh ───────────────────────────────────────────
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
+    """Exchange a valid refresh token for a new access + refresh pair (rotation)."""
+    payload = decode_refresh_token(req.refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    user_id = payload.get("sub")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    # Verify the refresh token matches what's stored (prevents reuse)
+    if user.refresh_token != req.refresh_token:
+        # Possible token theft — invalidate all tokens
+        user.refresh_token = None
+        db.commit()
+        raise HTTPException(status_code=401, detail="Token reuse detected, please login again")
+
+    # Rotate tokens
+    new_access = create_access_token({"sub": str(user.id)})
+    new_refresh = create_refresh_token({"sub": str(user.id)})
+    user.refresh_token = new_refresh
+    db.commit()
+
+    return TokenResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+# ─── Logout ───────────────────────────────────────────────
+
+
+@router.delete("/logout", status_code=204)
+async def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Invalidate the user's refresh token."""
+    user.refresh_token = None
+    db.commit()
+
+
+# ─── Profile ──────────────────────────────────────────────
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(user: User = Depends(get_current_user)):
-    return UserResponse.from_orm(user)
+    return UserResponse.model_validate(user)
 
 
 @router.put("/me", response_model=UserResponse)
@@ -114,9 +286,20 @@ async def update_me(
         if existing:
             raise HTTPException(status_code=400, detail="Email already in use")
         user.email = user_data.email
+        # Re-verify email on change
+        user.email_verified = False
+        token = generate_email_verify_token()
+        user.email_verify_token = token
+        try:
+            send_verification_email(user.email, token)
+        except Exception:
+            pass
     db.commit()
     db.refresh(user)
-    return UserResponse.from_orm(user)
+    return UserResponse.model_validate(user)
+
+
+# ─── Password reset (existing, unchanged) ────────────────────────
 
 
 @router.post("/forgot-password")
@@ -130,7 +313,7 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
         try:
             send_reset_email(user.email, token)
         except Exception:
-            pass  # Log but don't fail
+            pass
     return {"message": "If this email exists, a reset link has been sent."}
 
 
@@ -146,10 +329,16 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
     return {"message": "Password updated successfully"}
 
 
+# ─── Account deletion ────────────────────────────────────────
+
+
 @router.delete("/me", status_code=204)
 async def delete_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
+
+
+# ─── Admin setup (existing, unchanged) ───────────────────────────
 
 
 @router.post("/setup-admin")
@@ -164,3 +353,162 @@ async def setup_admin(email: str, secret: str, db: Session = Depends(get_db)):
     user.is_admin = True
     db.commit()
     return {"message": f"{email} is now admin"}
+
+
+# ─── OAuth endpoints (Google & Spotify) ──────────────────────
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
+    """Exchange Google OAuth code for CueForge tokens."""
+    import httpx
+    import os
+
+    client_id = os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=501, detail="Google OAuth not configured")
+
+    # Exchange code for Google access token
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": req.code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": req.redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+        if token_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Google OAuth failed")
+        token_data = token_res.json()
+
+        # Get user info
+        userinfo_res = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+        )
+        if userinfo_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to get Google user info")
+        google_user = userinfo_res.json()
+
+    google_id = google_user["id"]
+    email = google_user.get("email")
+    name = google_user.get("name", email.split("@")[0] if email else "User")
+    avatar = google_user.get("picture")
+
+    return await _oauth_login_or_register(
+        db, provider="google", provider_id=google_id,
+        email=email, name=name, avatar_url=avatar,
+    )
+
+
+@router.post("/oauth/spotify", response_model=TokenResponse)
+async def oauth_spotify(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
+    """Exchange Spotify OAuth code for CueForge tokens."""
+    import httpx
+    import os
+    import base64
+
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=501, detail="Spotify OAuth not configured")
+
+    auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(
+            "https://accounts.spotify.com/api/token",
+            data={
+                "code": req.code,
+                "redirect_uri": req.redirect_uri,
+                "grant_type": "authorization_code",
+            },
+            headers={"Authorization": f"Basic {auth_header}"},
+        )
+        if token_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Spotify OAuth failed")
+        token_data = token_res.json()
+
+        userinfo_res = await client.get(
+            "https://api.spotify.com/v1/me",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+        )
+        if userinfo_res.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to get Spotify user info")
+        spotify_user = userinfo_res.json()
+
+    spotify_id = spotify_user["id"]
+    email = spotify_user.get("email")
+    name = spotify_user.get("display_name", spotify_id)
+    images = spotify_user.get("images", [])
+    avatar = images[0]["url"] if images else None
+
+    return await _oauth_login_or_register(
+        db, provider="spotify", provider_id=spotify_id,
+        email=email, name=name, avatar_url=avatar,
+    )
+
+
+async def _oauth_login_or_register(
+    db: Session,
+    provider: str,
+    provider_id: str,
+    email: str,
+    name: str,
+    avatar_url: Optional[str] = None,
+) -> TokenResponse:
+    """Find or create user from OAuth provider data."""
+    # Check if user already linked this provider
+    user = db.query(User).filter(
+        User.oauth_provider == provider,
+        User.oauth_id == provider_id,
+    ).first()
+
+    if not user and email:
+        # Check if email already exists (link accounts)
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.oauth_provider = provider
+            user.oauth_id = provider_id
+            if avatar_url and not user.avatar_url:
+                user.avatar_url = avatar_url
+
+    if not user:
+        # Create new user
+        # Ensure unique username
+        base_name = name or "dj"
+        unique_name = base_name
+        counter = 1
+        while db.query(User).filter(User.name == unique_name).first():
+            unique_name = f"{base_name}{counter}"
+            counter += 1
+
+        user = User(
+            email=email,
+            name=unique_name,
+            password_hash=None,  # OAuth-only, no password
+            oauth_provider=provider,
+            oauth_id=provider_id,
+            avatar_url=avatar_url,
+            email_verified=True,  # OAuth emails are pre-verified
+        )
+        db.add(user)
+
+    user.last_login_at = datetime.utcnow()
+    access = create_access_token({"sub": str(user.id)})
+    refresh = create_refresh_token({"sub": str(user.id)})
+    user.refresh_token = refresh
+
+    db.commit()
+    db.refresh(user)
+
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
