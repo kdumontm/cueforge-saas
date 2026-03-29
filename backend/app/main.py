@@ -9,6 +9,7 @@ from app.models import site_settings  # noqa: F401 — registers PageConfig with
 from app.models import organization as org_model  # noqa: F401 — registers Organization with Base
 from app.database import Base
 from app.config import get_settings
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.utils.migrations import run_migrations
 
 
@@ -82,6 +83,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware)
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402
