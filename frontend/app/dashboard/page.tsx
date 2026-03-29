@@ -2472,6 +2472,7 @@ useEffect(() => {
               }
               {tracks.filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm).filter(t => mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm).total >= 60).length === 0 && (
                 <div className="text-center py-4 text-gray-500 text-xs">No compatible tracks found. Analyze more tracks.</div>
+              )}
               {/* Track Comparison */}
               {selectedTrack && tracks.length >= 2 && (
                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-3 mt-3 border border-gray-700/50">
@@ -2499,7 +2500,6 @@ useEffect(() => {
                     })}
                   </div>
                 </div>
-              )}
               )}
             </div>
           </div>
