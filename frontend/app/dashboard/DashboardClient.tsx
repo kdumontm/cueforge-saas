@@ -70,6 +70,13 @@ function msToTime(ms: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function formatTime(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function energyToRating(energy: number | null | undefined): string {
   if (energy == null) return '\u2014';
   return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
@@ -1118,6 +1125,15 @@ return () => document.removeEventListener('click', handler);
         setShowShortcutsModal(false);
         setSelectedIds(new Set());
       }
+      // ArrowLeft/Right → seek 5s
+      if (e.key === 'ArrowLeft' && !isInput) {
+        e.preventDefault();
+        if (wavesurferRef.current) wavesurferRef.current.skip(-5);
+      }
+      if (e.key === 'ArrowRight' && !isInput) {
+        e.preventDefault();
+        if (wavesurferRef.current) wavesurferRef.current.skip(5);
+      }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1967,11 +1983,40 @@ useEffect(() => {
                 {/* DECK CONTROLS */}
         {selectedTrack && (
           <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-4 py-2">
+            {/* Now Playing */}
+            <div className="text-center mb-1 px-2">
+              <p className="text-xs text-white font-medium truncate">{selectedTrack.title || selectedTrack.filename}</p>
+              {selectedTrack.artist && <p className="text-xs text-gray-400 truncate">{selectedTrack.artist}</p>}
+            </div>
             <div className="flex items-center gap-3 mb-2">
               <div className="flex items-center gap-1">
                 <button onClick={skipBack} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={16} /></button>
                 <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={22} className="text-white" /> : <Play size={22} className="text-white ml-0.5" />}</button>
                 <button onClick={skipForward} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={16} /></button>
+              </div>
+              {/* Time Display */}
+              <div className="flex items-center justify-center gap-2 text-xs mt-1">
+                <span className="text-gray-400 font-mono w-12 text-right">{formatTime(currentTime)}</span>
+                <div
+                  className="flex-1 h-1.5 bg-gray-700 rounded-full cursor-pointer relative group"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const pct = (e.clientX - rect.left) / rect.width;
+                    if (wavesurferRef.current) {
+                      wavesurferRef.current.seekTo(pct);
+                    }
+                  }}
+                >
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full transition-all"
+                    style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+                  />
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ left: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+                  />
+                </div>
+                <span className="text-gray-400 font-mono w-12">{formatTime(duration)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
