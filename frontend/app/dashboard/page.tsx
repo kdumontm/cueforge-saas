@@ -2183,6 +2183,7 @@ useEffect(() => {
             { id: 'mix', label: 'MIX' },
             { id: 'playlists', label: 'PLAYLISTS' },
             { id: 'history', label: 'HISTORY' },
+            { id: 'stats', label: 'STATS' },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveBottomTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-200 ${
@@ -2316,6 +2317,59 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* Harmonic Mix Suggestions */}
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+          <Music className="w-4 h-4 text-purple-400" /> Harmonic Mix Suggestions
+        </h3>
+        {selectedTrack?.analysis?.key ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-gray-400">Current:</span>
+              <span className="text-xs font-bold text-purple-300 truncate max-w-[120px]">{selectedTrack.title}</span>
+              <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-bold">
+                {CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key} • {selectedTrack.analysis.bpm?.toFixed(0)} BPM
+              </span>
+            </div>
+            <div className="max-h-[180px] overflow-y-auto space-y-1 scrollbar-thin">
+              {tracks
+                .filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm)
+                .map(t => ({ ...t, score: mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm) }))
+                .filter(t => t.score.total >= 60)
+                .sort((a, b) => b.score.total - a.score.total)
+                .slice(0, 10)
+                .map(t => (
+                  <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer transition-colors group">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${t.score.verdict === 'Perfect' ? 'bg-green-500/20 text-green-400' : t.score.verdict === 'Great' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                      {t.score.total}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-white truncate group-hover:text-purple-300 transition-colors">{t.title}</div>
+                      <div className="text-[10px] text-gray-500">{t.artist || 'Unknown'}</div>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 text-[10px] font-mono">
+                      {CAMELOT_WHEEL[t.analysis.key] || t.analysis.key}
+                    </span>
+                    <span className="text-[10px] text-gray-400 w-12 text-right">{t.analysis.bpm?.toFixed(0)}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${t.score.verdict === 'Perfect' ? 'bg-green-500/20 text-green-400' : t.score.verdict === 'Great' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                      {t.score.verdict}
+                    </span>
+                  </div>
+                ))
+              }
+              {tracks.filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm).filter(t => mixScore(selectedTrack.analysis.key || '', selectedTrack.analysis.bpm, t.analysis.key || '', t.analysis.bpm).total >= 60).length === 0 && (
+                <div className="text-center py-4 text-gray-500 text-xs">No compatible tracks found. Analyze more tracks.</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-gray-500 text-xs">
+            <Music className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            Select an analyzed track to see harmonic mix suggestions
+          </div>
+        )}
+      </div>
+
       
             </div>
           )}
@@ -2370,6 +2424,139 @@ useEffect(() => {
             })}
           </div>
         ) : null}
+      </div>
+            </div>
+          )}
+          {activeBottomTab === 'stats' && (
+            <div>
+      {/* Collection Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Key Distribution */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+            <Hash className="w-4 h-4 text-cyan-400" /> Key Distribution
+          </h3>
+          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
+            {(() => {
+              const keyCounts: Record<string, number> = {};
+              tracks.filter(t => t.analysis?.key).forEach(t => {
+                const cam = CAMELOT_WHEEL[t.analysis.key] || t.analysis.key;
+                keyCounts[cam] = (keyCounts[cam] || 0) + 1;
+              });
+              const sorted = Object.entries(keyCounts).sort((a, b) => b[1] - a[1]);
+              const max = sorted[0]?.[1] || 1;
+              return sorted.map(([key, count]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 w-8 font-mono">{key}</span>
+                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                    <div className="bg-cyan-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400 w-5 text-right">{count}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+
+        {/* BPM Range */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+            <Activity className="w-4 h-4 text-blue-400" /> BPM Ranges
+          </h3>
+          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
+            {(() => {
+              const ranges = [
+                { label: '< 100', min: 0, max: 100 },
+                { label: '100-115', min: 100, max: 115 },
+                { label: '115-125', min: 115, max: 125 },
+                { label: '125-135', min: 125, max: 135 },
+                { label: '135-145', min: 135, max: 145 },
+                { label: '145-160', min: 145, max: 160 },
+                { label: '> 160', min: 160, max: 999 },
+              ];
+              const bpmCounts = ranges.map(r => ({
+                ...r,
+                count: tracks.filter(t => t.analysis?.bpm && t.analysis.bpm >= r.min && t.analysis.bpm < r.max).length
+              }));
+              const max = Math.max(...bpmCounts.map(r => r.count), 1);
+              return bpmCounts.map(r => (
+                <div key={r.label} className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 w-12 font-mono">{r.label}</span>
+                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                    <div className="bg-blue-500/60 h-3 rounded-full transition-all" style={{ width: `${(r.count / max) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400 w-5 text-right">{r.count}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+
+        {/* Genre Distribution */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+            <Disc3 className="w-4 h-4 text-pink-400" /> Genre Distribution
+          </h3>
+          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
+            {(() => {
+              const genreCounts: Record<string, number> = {};
+              tracks.filter(t => t.genre).forEach(t => {
+                genreCounts[t.genre] = (genreCounts[t.genre] || 0) + 1;
+              });
+              const sorted = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]);
+              const max = sorted[0]?.[1] || 1;
+              return sorted.length > 0 ? sorted.map(([genre, count]) => (
+                <div key={genre} className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 w-16 truncate">{genre}</span>
+                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                    <div className="bg-pink-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400 w-5 text-right">{count}</span>
+                </div>
+              )) : (
+                <div className="text-center py-4 text-gray-500 text-xs">No genre data available</div>
+              );
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-5 gap-2 mt-3">
+        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+          <div className="text-lg font-bold text-white">{tracks.length}</div>
+          <div className="text-[10px] text-gray-400">Total Tracks</div>
+        </div>
+        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+          <div className="text-lg font-bold text-green-400">{tracks.filter(t => t.status === 'analyzed').length}</div>
+          <div className="text-[10px] text-gray-400">Analyzed</div>
+        </div>
+        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+          <div className="text-lg font-bold text-blue-400">
+            {tracks.filter(t => t.analysis?.bpm).length > 0 ? (tracks.filter(t => t.analysis?.bpm).reduce((sum, t) => sum + t.analysis.bpm, 0) / tracks.filter(t => t.analysis?.bpm).length).toFixed(0) : '-'}
+          </div>
+          <div className="text-[10px] text-gray-400">Avg BPM</div>
+        </div>
+        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+          <div className="text-lg font-bold text-purple-400">
+            {(() => {
+              const keyCounts: Record<string, number> = {};
+              tracks.filter(t => t.analysis?.key).forEach(t => {
+                const cam = CAMELOT_WHEEL[t.analysis.key] || t.analysis.key;
+                keyCounts[cam] = (keyCounts[cam] || 0) + 1;
+              });
+              const sorted = Object.entries(keyCounts).sort((a, b) => b[1] - a[1]);
+              return sorted[0]?.[0] || '-';
+            })()}
+          </div>
+          <div className="text-[10px] text-gray-400">Top Key</div>
+        </div>
+        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+          <div className="text-lg font-bold text-orange-400">
+            {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (tracks.filter(t => t.analysis?.energy !== undefined).reduce((sum, t) => sum + (t.analysis.energy || 0), 0) / tracks.filter(t => t.analysis?.energy !== undefined).length).toFixed(0) : '-'}
+          </div>
+          <div className="text-[10px] text-gray-400">Avg Energy</div>
+        </div>
       </div>
             </div>
           )}
