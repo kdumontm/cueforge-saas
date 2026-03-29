@@ -1712,7 +1712,7 @@ useEffect(() => {
           const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis', timer: 'timer' , tapTempo: 'tap_tempo', notes: 'notes'};
             return sidebarGroups.map((group) => {
               const visibleItems = group.items.filter((mod) => {
-                const feat = featureMap[mod.key]; return !feat || planFeatures[feat];
+              return isFeatureEnabled(featureMap[mod.key] || mod.key);
               });
               if (visibleItems.length === 0) return null;
               const collapsed = sidebarCollapsed[group.id] || false;
