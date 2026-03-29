@@ -211,6 +211,11 @@ export default function DashboardPage() {
   const [filterEnergyMax, setFilterEnergyMax] = useState<number>(100);
   const [filterKey, setFilterKey] = useState<string>('');
   const [showCompatibleOnly, setShowCompatibleOnly] = useState(false);
+  const [bpmTapTimes, setBpmTapTimes] = useState<number[]>([]);
+  const [bpmTapResult, setBpmTapResult] = useState<number | null>(null);
+  const [showBpmTap, setShowBpmTap] = useState(false);
+  const [playHistory, setPlayHistory] = useState<{trackId: number; timestamp: number}[]>([]);
+  const [mixLog, setMixLog] = useState<{fromId: number; toId: number; score: number; timestamp: number}[]>([]);
   const [filterGenre, setFilterGenre] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const loopRegionRef = useRef<any>(null);
@@ -265,7 +270,20 @@ export default function DashboardPage() {
     if (!showColSettings) return;
     const handler = () => setShowColSettings(false);
     document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+      // Track play history and mix transitions
+  const prevSelectedRef = useRef<any>(null);
+  useEffect(() => {
+    if (selectedTrack) {
+      setPlayHistory(prev => [{trackId: selectedTrack.id, timestamp: Date.now()}, ...prev].slice(0, 50));
+      if (prevSelectedRef.current && prevSelectedRef.current.id !== selectedTrack.id && prevSelectedRef.current.analysis?.key && selectedTrack.analysis?.key) {
+        const score = mixScore(prevSelectedRef.current.analysis.key, prevSelectedRef.current.analysis.bpm || 0, selectedTrack.analysis.key, selectedTrack.analysis.bpm || 0);
+        setMixLog(prev => [{fromId: prevSelectedRef.current.id, toId: selectedTrack.id, score: score.total, timestamp: Date.now()}, ...prev].slice(0, 100));
+      }
+      prevSelectedRef.current = selectedTrack;
+    }
+  }, [selectedTrack?.id]);
+
+return () => document.removeEventListener('click', handler);
   }, [showColSettings]);
 
     // Dynamic CSS for hidden columns - only min-width:0 on cells in 0px tracks
@@ -1695,6 +1713,24 @@ useEffect(() => {
                         <Zap className="w-3 h-3" /> {showCompatibleOnly ? 'Compatible' : 'All Keys'}
                       </button>
                     )}
+                    {selectedTrack && (
+                      <button onClick={() => {
+                        if (!selectedTrack.analysis?.key || !selectedTrack.analysis?.bpm) return;
+                        let bestTrack = null;
+                        let bestScore = -1;
+                        filteredTracks.forEach(t => {
+                          if (t.id === selectedTrack.id || !t.analysis?.key || !t.analysis?.bpm) return;
+                          const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm, t.analysis.key, t.analysis.bpm);
+                          if (score.total > bestScore) { bestScore = score.total; bestTrack = t; }
+                        });
+                        if (bestTrack) { setSelectedTrack(bestTrack); }
+                      }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/50 transition-colors" title="Jump to best matching track">
+                        <Sparkles className="w-3 h-3" /> Quick Mix
+                      </button>
+                    )}
+                    <button onClick={() => setShowBpmTap(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showBpmTap ? "bg-orange-500/30 text-orange-300 border border-orange-500/50" : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50")} title="Tap to detect BPM">
+                      <Activity className="w-3 h-3" /> Tap BPM
+                    </button>
                     {filteredTracks.length > 0 && (() => {
                       const totalMs = filteredTracks.reduce((sum, t) => sum + (t.analysis?.duration_ms || t.duration_ms || 0), 0);
                       const bpmTracks = filteredTracks.filter(t => t.analysis?.bpm);
@@ -2126,6 +2162,68 @@ useEffect(() => {
         </div>
       )}
 
+      {/* BPM Tap Tool */}
+      {showBpmTap && (
+        <div className="fixed bottom-20 right-6 z-50 bg-gray-900 border border-gray-600/50 rounded-xl p-4 shadow-2xl backdrop-blur-xl w-64">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400" /> BPM Tap</h3>
+            <button onClick={() => { setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null); }} className="text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="text-center mb-3">
+            <div className="text-3xl font-bold text-orange-400 font-mono">{bpmTapResult ? bpmTapResult.toFixed(1) : '---'}</div>
+            <div className="text-[10px] text-gray-500 mt-1">{bpmTapTimes.length} taps</div>
+          </div>
+          <button onClick={() => {
+            const now = Date.now();
+            setBpmTapTimes(prev => {
+              const times = (prev.length > 0 && now - prev[prev.length - 1] > 3000) ? [now] : [...prev, now];
+              if (times.length >= 2) {
+                const intervals = [];
+                for (let i = 1; i < times.length; i++) intervals.push(times[i] - times[i-1]);
+                const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                setBpmTapResult(60000 / avgInterval);
+              }
+              return times.slice(-16);
+            });
+          }} className="w-full py-3 bg-orange-600/30 text-orange-300 rounded-lg hover:bg-orange-600/50 text-sm font-bold transition-colors border border-orange-500/30 active:scale-95">
+            TAP
+          </button>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-gray-700/50 text-gray-400 rounded text-[10px] hover:bg-gray-600/50 transition-colors">Reset</button>
+            {bpmTapResult && selectedTrack && (
+              <button onClick={() => {
+                setTracks(prev => prev.map(t => t.id === selectedTrack.id ? {...t, analysis: {...(t.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : t));
+                setSelectedTrack(prev => prev ? {...prev, analysis: {...(prev.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : prev);
+                setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null);
+              }} className="flex-1 py-1.5 bg-green-600/30 text-green-300 rounded text-[10px] hover:bg-green-600/50 transition-colors">Apply to Track</button>
+            )}
+          </div>
+        </div>
+      )}
+      {/* Mix Transition Log */}
+      {mixLog.length > 0 && (
+        <div className="fixed top-20 right-4 z-40 bg-gray-900/95 border border-gray-700/50 rounded-xl p-3 shadow-xl backdrop-blur-xl w-56 max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Mix Log</h4>
+            <button onClick={() => setMixLog([])} className="text-gray-500 hover:text-gray-300 text-[9px]">Clear</button>
+          </div>
+          {mixLog.slice(0, 8).map((entry, i) => {
+            const fromTrack = tracks.find(t => t.id === entry.fromId);
+            const toTrack = tracks.find(t => t.id === entry.toId);
+            const scoreColor = entry.score >= 80 ? 'text-green-400' : entry.score >= 60 ? 'text-yellow-400' : 'text-red-400';
+            return (
+              <div key={i} className="flex items-center gap-1.5 py-1 border-b border-gray-800/50 last:border-0">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[9px] text-gray-400 truncate">{fromTrack?.title || '?'}</div>
+                  <div className="text-[8px] text-gray-600 flex items-center gap-0.5"><ArrowUpDown className="w-2.5 h-2.5" /></div>
+                  <div className="text-[9px] text-gray-400 truncate">{toTrack?.title || '?'}</div>
+                </div>
+                <span className={"text-[10px] font-bold font-mono " + scoreColor}>{entry.score}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {/* Batch Actions Floating Bar */}
       {selectedIds.size > 1 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-gray-600/50 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 backdrop-blur-xl">
