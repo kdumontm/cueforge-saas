@@ -1112,7 +1112,34 @@ return () => document.removeEventListener('click', handler);
       if (e.key === 'Escape') {
         if (searchQuery) { setSearchQuery(''); }
         (document.activeElement as HTMLElement)?.blur();
+      
+      // Q = Quick Mix (jump to best matching track)
+      if (e.key === 'q' || e.key === 'Q') {
+        e.preventDefault();
+        if (selectedTrack && selectedTrack.analysis?.key && selectedTrack.analysis?.bpm) {
+          let bestTrack = null;
+          let bestScore = -1;
+          filteredTracks.forEach(t => {
+            if (t.id === selectedTrack.id || !t.analysis?.key || !t.analysis?.bpm) return;
+            const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm, t.analysis.key, t.analysis.bpm);
+            if (score.total > bestScore) { bestScore = score.total; bestTrack = t; }
+          });
+          if (bestTrack) { setSelectedTrack(bestTrack); }
+        }
       }
+      // T = Toggle BPM Tap tool
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        setShowBpmTap(prev => !prev);
+      }
+      // C = Toggle compatible-only filter
+      if (e.key === 'c' || e.key === 'C') {
+        if (selectedTrack) {
+          e.preventDefault();
+          setShowCompatibleOnly(prev => !prev);
+        }
+      }
+    }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -2800,7 +2827,29 @@ useEffect(() => {
                             <Sparkles className="w-3 h-3" /> Auto-Sort by Key & BPM
                           </button>
                         )}
-                        {/* Export Set List */}
+                        {/* Energy Flow Chart */}
+                {setLists[activeSetList].trackIds.length >= 2 && (() => {
+                  const setTracks = setLists[activeSetList].trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean);
+                  const energies = setTracks.map(t => Math.round((t.analysis?.energy || 0) * 100));
+                  const maxE = Math.max(...energies, 1);
+                  return (
+                    <div className="mt-2 mb-1 p-2 bg-gray-800/30 rounded-lg border border-gray-700/30">
+                      <div className="text-[9px] text-gray-500 mb-1 font-medium uppercase tracking-wider">Energy Flow</div>
+                      <div className="flex items-end gap-px h-8">
+                        {energies.map((e, i) => {
+                          const h = Math.max((e / maxE) * 100, 5);
+                          const color = e < 30 ? 'bg-blue-500' : e < 60 ? 'bg-green-500' : e < 80 ? 'bg-yellow-500' : 'bg-red-500';
+                          return <div key={i} className={"rounded-t-sm transition-all " + color} style={{height: h + '%', flex: 1, minWidth: 3, opacity: 0.7}} title={setTracks[i]?.title + ': ' + e + '% energy'} />;
+                        })}
+                      </div>
+                      <div className="flex justify-between mt-0.5">
+                        <span className="text-[7px] text-gray-600">Start</span>
+                        <span className="text-[7px] text-gray-600">End</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Export Set List */}
                         {setLists[activeSetList].trackIds.length > 0 && (
                           <div className="flex gap-2 mt-2 pt-2 border-t border-gray-700/50">
                             <button onClick={() => {
@@ -3835,6 +3884,9 @@ function MetaRow({ label, value }: { label: string; value: string }) {
                 ['Suppr / Retour', 'Supprimer sélection'],
                 ['Esc', 'Fermer / Désélectionner'],
                 ['?', 'Afficher ce menu'],
+                ['Q', 'Quick Mix - Prochain morceau compatible'],
+                ['T', 'Ouvrir le Tap BPM'],
+                ['C', 'Filtrer morceaux compatibles'],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-700/50">
                   <kbd className="px-2 py-0.5 rounded bg-slate-700 text-cyan-400 font-mono text-xs border border-slate-600">{key}</kbd>
