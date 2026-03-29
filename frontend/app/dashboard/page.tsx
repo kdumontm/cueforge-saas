@@ -15,7 +15,7 @@ import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
-// Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Constants Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+// âÂÂâÂÂ Constants âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
 const CAMELOT_WHEEL: Record<string, string> = {
   'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
   'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
@@ -46,7 +46,7 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
-// Ã¢ÂÂÃ¢ÂÂ Camelot Wheel System (Harmonic Mixing) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ââ Camelot Wheel System (Harmonic Mixing) ââââââââââââââââââââââââââââââââ
 const CAMELOT_MAP: Record<string, string> = {
   'C': '8B', 'Cm': '5A', 'C#': '3B', 'C#m': '12A',
   'D': '10B', 'Dm': '7A', 'D#': '5B', 'D#m': '2A',
@@ -82,11 +82,11 @@ function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
   return { total, verdict: total >= 90 ? 'Perfect' : total >= 75 ? 'Great' : total >= 60 ? 'Good' : total >= 40 ? 'OK' : 'Risky' };
 }
 
-// Ã¢ÂÂÃ¢ÂÂ BPM Tap Tempo utility Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ââ BPM Tap Tempo utility âââââââââââââââââââââââââââââââââââââââââââââââââ
 const tapTimesRef = { current: [] as number[] };
 
 
-// Ã¢ÂÂÃ¢ÂÂ RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) Ã¢ÂÂÃ¢ÂÂ
+// ââ RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ââ
 async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
   const src = ctx.createBufferSource();
@@ -133,11 +133,11 @@ async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:
   });
 }
 
-// Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+// âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
 // MAIN DASHBOARD
-// Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+// âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
 export default function DashboardPage() {
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ State Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ State âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -160,7 +160,7 @@ export default function DashboardPage() {
   const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [waveformReady, setWaveformReady] = useState(false);
-  // Ã¢ÂÂÃ¢ÂÂ New feature states Ã¢ÂÂÃ¢ÂÂ
+  // ââ New feature states ââ
   const [loopIn, setLoopIn] = useState<number | null>(null);
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
@@ -342,7 +342,7 @@ export default function DashboardPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Load tracks on mount Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Load tracks on mount âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => { loadTracks(); }, []);
 
   async function loadTracks() {
@@ -352,7 +352,7 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Wavesurfer init (ALWAYS render the div, never unmount it) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Wavesurfer init (ALWAYS render the div, never unmount it) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => {
     if (typeof window === 'undefined' || !waveformRef.current) return;
     let ws: any = null;
@@ -431,7 +431,7 @@ export default function DashboardPage() {
     return () => { if (ws) ws.destroy(); };
   }, []);
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Zoom handler Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Zoom handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   function handleZoom(direction: 'in' | 'out') {
     if (!wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -452,7 +452,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Load track into waveform Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Load track into waveform âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => {
     if (!selectedTrack || !wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -501,7 +501,7 @@ export default function DashboardPage() {
     });
   }, [selectedTrack]);
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Keyboard shortcuts (Ctrl+A) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Keyboard shortcuts (Ctrl+A) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
@@ -519,7 +519,7 @@ export default function DashboardPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Player controls Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Player controls âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   function togglePlay() {
     if (!wavesurferRef.current) return;
     wavesurferRef.current.playPause();
@@ -538,7 +538,7 @@ export default function DashboardPage() {
     if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume);
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Multi-select toggle Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Multi-select toggle âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   function toggleSelect(trackId: number, e: React.MouseEvent) {
     e.stopPropagation();
     const next = new Set(selectedIds);
@@ -552,12 +552,12 @@ export default function DashboardPage() {
     setSelectedIds(next);
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ File handling Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ File handling âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (!file.name.match(/\.(mp3|wav|flac|aiff|aif|m4a|ogg)$/i)) {
-        setError(`Format non supportÃ©: ${file.name}`);
+        setError(`Format non supporté: ${file.name}`);
         continue;
       }
       setError('');
@@ -583,7 +583,7 @@ export default function DashboardPage() {
     if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   }, []);
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Batch Analyze Audio (BPM, Key, Cues) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Batch Analyze Audio (BPM, Key, Cues) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   async function batchAnalyzeAudio(trackIds: number[]) {
     if (trackIds.length === 0) return;
     setAnalyzing(true);
@@ -608,7 +608,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Batch Analyze Metadata (Spotify, Genre, Cover) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Batch Analyze Metadata (Spotify, Genre, Cover) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   async function batchAnalyzeMetadata(trackIds: number[]) {
     if (trackIds.length === 0) return;
     setAnalyzing(true);
@@ -632,7 +632,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Context menu handler Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Context menu handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   async function handleCtxAction(action: string, track: Track) {
     setCtxMenu(null);
     switch (action) {
@@ -646,7 +646,7 @@ export default function DashboardPage() {
         break;
       case 'cue_points':
         setAnalyzing(true);
-        setBatchProgress('GÃ©nÃ©ration des cue points...');
+        setBatchProgress('Génération des cue points...');
         try {
           await analyzeTrack(track.id);
           const done = await pollTrackUntilDone(track.id);
@@ -683,7 +683,7 @@ export default function DashboardPage() {
     }
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Spotify search for metadata panel Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Spotify search for metadata panel âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   async function launchSpotifySearch(track: Track) {
     setMetadataLoading(true);
     setMetadataSuggestions(null);
@@ -703,12 +703,12 @@ export default function DashboardPage() {
       setMetadataPanel(result);
       loadTracks();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Recherche metadata Ã©chouÃ©e');
+      setError(e instanceof Error ? e.message : 'Recherche metadata échouée');
     }
     setMetadataLoading(false);
   }
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Filtered + sorted tracks Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Filtered + sorted tracks âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   const filtered = tracks
     .filter(t => {
       if (!searchQuery) return true;
@@ -732,19 +732,19 @@ export default function DashboardPage() {
   const isLoading = uploading || analyzing;
   const selectedCount = selectedIds.size;
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Context Menu Actions Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂ Context Menu Actions âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   const CONTEXT_ACTIONS = [
     { label: 'Analyser Audio (BPM/Key/Cues)', icon: <Zap size={14} />, action: 'analyze' },
     { label: 'Rechercher Metadata (Spotify)', icon: <Sparkles size={14} />, action: 'analyze_metadata' },
-    { label: 'GÃ©nÃ©rer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points', separator: true },
-    { label: 'Organiser (CatÃ©gorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
+    { label: 'Générer les Cue Points', icon: <Disc3 size={14} />, action: 'cue_points', separator: true },
+    { label: 'Organiser (Catégorie/Tags)', icon: <Folder size={14} />, action: 'organize', separator: true },
     { label: 'Export Rekordbox XML', icon: <Download size={14} />, action: 'export_rekordbox' },
     { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete', separator: true },
   ];
 
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   // RENDER
-  // Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+  // âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
 
   // Computed: filtered + sorted tracks
 
@@ -772,7 +772,7 @@ export default function DashboardPage() {
     return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   });
 
-  // Ã¢ÂÂÃ¢ÂÂ Keyboard Shortcuts Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+  // ââ Keyboard Shortcuts ââââââââââââââââââââââââââââââââââââââââââââââââââ
   
   // Waveform zoom effect
   useEffect(() => {
@@ -828,7 +828,7 @@ useEffect(() => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTrack, loopIn, loopOut]);
 
-  // Ã¢ÂÂÃ¢ÂÂ Loop playback logic Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+  // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     const ws = wavesurferRef.current;
     if (!ws || !loopActive || loopIn === null || loopOut === null) return;
@@ -857,7 +857,7 @@ useEffect(() => {
       {showEditMeta && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-600 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-white mb-4">âï¸ Edit Track Metadata</h2>
+            <h2 className="text-lg font-bold text-white mb-4">✏️ Edit Track Metadata</h2>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Title</label>
@@ -929,7 +929,7 @@ useEffect(() => {
       {/* CENTER CONTENT */}
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
 
-      {/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ TOP: Waveform Player (ALWAYS mounted) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+      {/* âÂÂâÂÂ TOP: Waveform Player (ALWAYS mounted) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
       <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-0.5">
@@ -1032,7 +1032,7 @@ useEffect(() => {
                 )}
           {!selectedTrack && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <p className="text-slate-500 text-sm">SÃ©lectionne un morceau pour voir la waveform</p>
+              <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
             </div>
           )}
           {selectedTrack && (
@@ -1088,7 +1088,7 @@ useEffect(() => {
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
                 <div className="grid grid-cols-8 gap-1">
                   {Array.from({length: 8}).map((_, i) => (
-                    <button key={i} onContextMenu={(e) => { e.preventDefault(); if (selectedTrack.cue_points && selectedTrack.cue_points[i] && selectedTrack.cue_points[i].id) { deleteCuePoint(selectedTrack.cue_points[i].id).then(() => { getTrack(selectedTrack.id).then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
+                    <button key={i} onContextMenu={(e) => { e.preventDefault(); if (selectedTrack.cue_points && selectedTrack.cue_points[i] && selectedTrack.cue_points[i].id) { setColorPickerCue(selectedTrack.cue_points[i].id); setColorPickerPos({x: e.clientX, y: e.clientY}); } }} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
                       className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-white shadow-lg' : 'bg-gray-800/60 text-gray-600')}
                       style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1', boxShadow: '0 0 8px ' + (CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1') + '40'} : {}}>
                       {i + 1}
@@ -1135,7 +1135,7 @@ useEffect(() => {
         )}
         </div>
 
-{/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ TOOLBAR: Upload, Search, Batch Actions Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+{/* âÂÂâÂÂ TOOLBAR: Upload, Search, Batch Actions âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
       <div
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -1158,7 +1158,7 @@ useEffect(() => {
         {selectedCount > 0 && (
           <>
             <div className="w-px h-5 bg-slate-700/60" />
-            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} sÃ©lectionnÃ©{selectedCount > 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}</span>
             <button
               onClick={() => batchAnalyzeAudio(Array.from(selectedIds))}
               disabled={isLoading}
@@ -1180,7 +1180,7 @@ useEffect(() => {
               className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-white text-[11px] transition-colors"
             >
               <X size={12} />
-              DÃ©sÃ©lectionner
+              Désélectionner
             </button>
           </>
         )}
@@ -1193,11 +1193,11 @@ useEffect(() => {
           </div>
         )}
 
-        {dragOver && <span className="text-blue-400 text-xs font-medium">DÃ©pose tes fichiers ici...</span>}
+        {dragOver && <span className="text-blue-400 text-xs font-medium">Dépose tes fichiers ici...</span>}
         <div className="flex-1" />
 
         {/* Select all shortcut hint */}
-        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout sÃ©lectionner</span>
+        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout sélectionner</span>
 
         {/* Search */}
         <div className="relative">
@@ -1244,7 +1244,7 @@ useEffect(() => {
                   })()}
                 </div>
 
-      {/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ TRACK LIST Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+      {/* âÂÂâÂÂ TRACK LIST âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
 
                 {/* FILTER BAR */}
                 <div className="mb-2 space-y-2">
@@ -1301,7 +1301,7 @@ useEffect(() => {
           <span className="text-center">BPM</span>
           <span className="text-center">Key</span>
           <span className="text-center">Energy</span>
-          <span className="text-center">DurÃ©e</span>
+          <span className="text-center">Durée</span>
           <span />
         </div>
 
@@ -1366,7 +1366,7 @@ useEffect(() => {
                 <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title="Double-click to edit" onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
                     <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
-                  ) : (track.genre?.split(',')[0]?.trim() || 'Ã¢ÂÂ')}
+                  ) : (track.genre?.split(',')[0]?.trim() || 'â')}
                 </span>
                 {/* BPM */}
                 <span className="text-xs text-blue-400 font-mono text-center font-bold">
@@ -1404,7 +1404,7 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Context Menu Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+      {/* âÂÂâÂÂ Context Menu âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
       {ctxMenu && (
         <div
           className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
@@ -1432,7 +1432,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Track Organizer Panel Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+      {/* âÂÂâÂÂ Track Organizer Panel âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
       {organizerTrack && (
         <TrackOrganizer
           track={organizerTrack}
@@ -1445,7 +1445,7 @@ useEffect(() => {
         />
       )}
 
-      {/* Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Metadata / Spotify Panel (slide-in, closable) Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ */}
+      {/* âÂÂâÂÂ Metadata / Spotify Panel (slide-in, closable) âÂÂâÂÂâÂÂâÂÂ */}
       {metadataPanel && (
         <>
           {/* Backdrop overlay */}
@@ -1509,7 +1509,7 @@ useEffect(() => {
                   <MetaRow label="Titre" value={metadataPanel.title || '\u2014'} />
                   <MetaRow label="Album" value={metadataPanel.album || '\u2014'} />
                   <MetaRow label="Genre" value={metadataPanel.genre || '\u2014'} />
-                  <MetaRow label="AnnÃ©e" value={metadataPanel.year?.toString() || '\u2014'} />
+                  <MetaRow label="Année" value={metadataPanel.year?.toString() || '\u2014'} />
                 </div>
               </div>
 
@@ -1524,7 +1524,7 @@ useEffect(() => {
               {metadataSuggestions && !metadataLoading && (
                 <div>
                   <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouvÃ©es' : 'Aucune suggestion'}
+                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouvées' : 'Aucune suggestion'}
                   </p>
                   {Object.keys(metadataSuggestions).length > 0 ? (
                     <div className="space-y-2">
@@ -1545,12 +1545,12 @@ useEffect(() => {
                           </div>
                         ))}
                       <p className="text-[10px] text-slate-500 mt-2 italic">
-                        Les suggestions ont Ã©tÃ© appliquÃ©es automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
+                        Les suggestions ont été appliquées automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
                       </p>
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 text-center py-4">
-                      Aucune nouvelle information trouvÃ©e pour ce morceau.
+                      Aucune nouvelle information trouvée pour ce morceau.
                     </p>
                   )}
                 </div>
@@ -1646,11 +1646,11 @@ useEffect(() => {
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack.cue_points.map((cue, idx) => (
-                    <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-800/40 hover:bg-gray-800/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }}>
-                      <div className="w-3 h-3 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }} />
+                    <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-800/40 hover:bg-gray-800/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }}>
+                      <div className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} />
                       <div className="flex-1 min-w-0">
                         <div className="text-[11px] text-white font-medium truncate">{cue.label || cue.name || ('Cue ' + (idx + 1))}</div>
-                        <div className="text-[9px] text-gray-400">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' Â· ' + cue.type) : ''}</div>
+                        <div className="text-[9px] text-gray-400">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' · ' + cue.type) : ''}</div>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); if (cue.id) { deleteCuePoint(cue.id).then(() => { getTrack(selectedTrack.id).then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-1 transition-opacity">
                         <Trash2 size={12} />
@@ -1807,27 +1807,27 @@ useEffect(() => {
             </div>
           )}
 
-              {/* ââ Action Buttons ââ */}
+              {/* ── Action Buttons ── */}
               <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
                 <div className="flex gap-2">
                   <button
                     onClick={openEditMeta}
                     className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white transition-colors"
                   >
-                    âï¸ Edit Metadata
+                    ✏️ Edit Metadata
                   </button>
                   <button
                     onClick={() => selectedTrack && exportRekordbox(selectedTrack.id)}
                     className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-white transition-colors"
                   >
-                    ðµ Export XML
+                    🎵 Export XML
                   </button>
                 </div>
                 <button
                   onClick={exportAllRekordbox}
                   className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-white transition-colors"
                 >
-                  ð¦ Export All to Rekordbox
+                  📦 Export All to Rekordbox
                 </button>
               </div>
 
@@ -1835,7 +1835,7 @@ useEffect(() => {
       </div>
       </div>{/* end right panel */}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Smart Playlist Builder Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Smart Playlist Builder ââ */}
       {showSmartPlaylist && (
         <div className="bg-gradient-to-r from-purple-900/40 via-gray-900 to-purple-900/40 border-t border-purple-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -1887,7 +1887,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Duplicate Detection Panel Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Duplicate Detection Panel ââ */}
       {showDuplicates && (
         <div className="bg-gradient-to-r from-orange-900/30 via-gray-900 to-orange-900/30 border-t border-orange-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -1921,7 +1921,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Export Panel (Rekordbox / Serato / Traktor) Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Export Panel (Rekordbox / Serato / Traktor) ââ */}
       {showExport && (
         <div className="bg-gradient-to-r from-cyan-900/30 via-gray-900 to-cyan-900/30 border-t border-cyan-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -1965,7 +1965,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Stats Dashboard Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Stats Dashboard ââ */}
       {showStats && (
         <div className="bg-gradient-to-r from-green-900/30 via-gray-900 to-green-900/30 border-t border-green-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -2052,7 +2052,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Batch Edit Panel Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Batch Edit Panel ââ */}
       {showBatchEdit && batchSelected.length > 0 && (
         <div className="bg-gradient-to-r from-yellow-900/30 via-gray-900 to-yellow-900/30 border-t border-yellow-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -2088,12 +2088,12 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Interactive Camelot Wheel Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Interactive Camelot Wheel ââ */}
       {showCamelotWheel && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-purple-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">Ã°ÂÂÂµ Camelot Wheel - Harmonic Mixing Guide</h3>
-            <button onClick={() => setShowCamelotWheel(false)} className="text-gray-400 hover:text-white text-xl">ÃÂ</button>
+            <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">ðµ Camelot Wheel - Harmonic Mixing Guide</h3>
+            <button onClick={() => setShowCamelotWheel(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
           </div>
           <div className="flex gap-8">
             <div className="relative w-80 h-80 mx-auto">
@@ -2135,7 +2135,7 @@ useEffect(() => {
               <div className="grid grid-cols-1 gap-2 text-sm">
                 <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
                 <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
-                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> AÃ¢ÂÂB = Mode change (minor/major)</div>
+                <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> AâB = Mode change (minor/major)</div>
               </div>
               <div className="mt-4">
                 <h4 className="text-sm font-semibold text-gray-300 mb-2">Select a track to see compatible keys:</h4>
@@ -2174,12 +2174,12 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ Watch Folder Panel Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ Watch Folder Panel ââ */}
       {showWatchFolder && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">Ã°ÂÂÂ Watch Folder - Auto Import</h3>
-            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">ÃÂ</button>
+            <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">ð Watch Folder - Auto Import</h3>
+            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -2201,8 +2201,8 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">Ã¢ÂÂ¶ Start Watching</button>
-                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">Ã¢ÂÂ¸ Stop</button>
+                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">â¶ Start Watching</button>
+                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">â¸ Stop</button>
               </div>
             </div>
             <div className="space-y-3">
@@ -2220,12 +2220,12 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Ã¢ÂÂÃ¢ÂÂ AI Mix Suggestions Ã¢ÂÂÃ¢ÂÂ */}
+      {/* ââ AI Mix Suggestions ââ */}
       {showMixSuggestions && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">Ã°ÂÂ¤Â AI Mix Suggestions</h3>
-            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">ÃÂ</button>
+            <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">ð¤ AI Mix Suggestions</h3>
+            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
           </div>
           <div className="space-y-4">
             <div className="flex gap-3 items-center">
@@ -2233,7 +2233,7 @@ useEffect(() => {
                 <option value="">-- Select starting track --</option>
                 {tracks.map(t => (<option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.bpm} BPM, {t.camelotKey || 'N/A'})</option>))}
               </select>
-              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">Ã¢ÂÂ¨ Generate Mix</button>
+              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">â¨ Generate Mix</button>
             </div>
             {selectedForMix && (() => {
               const start = tracks.find(t => t.id === selectedForMix);
@@ -2262,7 +2262,7 @@ useEffect(() => {
                         <span className="text-cyan-500/70 font-mono">{t.camelotKey || '?'}</span>
                         <span className="text-green-400">E:{t.energy || '?'}</span>
                       </div>
-                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>Ã¢ÂÂ</span>))}</div>
+                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>â</span>))}</div>
                     </div>
                   ))}
                 </div>
@@ -2272,7 +2272,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Mixable Tracks Panel ââ */}
+      {/* ── Mixable Tracks Panel ── */}
       {showMixPanel && selectedTrack && (
         <div className="fixed right-0 top-14 bottom-12 w-80 bg-gray-950/98 backdrop-blur-md border-l border-cyan-500/20 z-50 flex flex-col shadow-2xl shadow-black/60">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/60 bg-gray-900/80">
@@ -2319,7 +2319,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Analyzed Tracks Panel ââ */}
+      {/* ── Analyzed Tracks Panel ── */}
       {showAnalyzed && (
         <div className="bg-gray-900/95 border border-gray-700/50 rounded-xl p-4 mb-3 mx-2">
           <div className="flex items-center justify-between mb-3">
@@ -2349,7 +2349,7 @@ useEffect(() => {
   );
 }
 
-// Ã¢ÃÂÃÂÃ¢ÃÂÃÂ Small helpers Ã¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂÃ¢ÃÂÃÂ
+// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
@@ -2357,7 +2357,7 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
     
 
-      {/* ââ Metadata Edit Modal ââ */}
+      {/* ── Metadata Edit Modal ── */}
       
 </div>
   );
