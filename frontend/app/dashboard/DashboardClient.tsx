@@ -1910,7 +1910,7 @@ useEffect(() => {
     { id: 'stats', label: 'STATS', icon: 'BarChart3' },
   ].map(tab => (
     <button key={tab.id} onClick={() => {
-      if (tab.id === 'tracks') { setShowModuleView(false); setActiveBottomTab('cues'); } else if (['playlists', 'history', 'stats'].includes(tab.id)) { setShowModuleView(true); setActiveBottomTab(tab.id); } else { setShowModuleView(false); setActiveBottomTab(tab.id); }}} className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-md transition-all duration-200 ${
+      if (tab.id === 'tracks') { setShowModuleView(false); setActiveBottomTab('cues'); } else if (['playlists', 'history', 'stats'].includes(tab.id)) { setShowModuleView(true); setActiveBottomTab(tab.id); } else { setShowModuleView(true); setActiveBottomTab(tab.id); }}} className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-md transition-all duration-200 ${
       (tab.id === 'tracks' && activeBottomTab === 'cues' && !showModuleView) || (tab.id !== 'tracks' && activeBottomTab === tab.id)
         ? 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/30'
         : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'
