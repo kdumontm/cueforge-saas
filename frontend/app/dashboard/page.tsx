@@ -2266,6 +2266,38 @@ useEffect(() => {
                 >
                   📦 Export All to Rekordbox
                 </button>
+                <button
+                  onClick={() => {
+                    const tracksToExport = selectedIds.size > 0 ? filteredTracks.filter(t => selectedIds.has(t.id)) : filteredTracks;
+                    const headers = ['Titre', 'Artiste', 'Genre', 'BPM', 'Tonalité', 'Camelot', 'Énergie', 'Durée (s)', 'Fichier'];
+                    const rows = tracksToExport.map(t => {
+                      const a = t.analysis;
+                      return [
+                        t.title || t.original_filename,
+                        t.artist || '',
+                        t.genre || '',
+                        a?.bpm ? a.bpm.toFixed(1) : '',
+                        a?.key || '',
+                        a?.key ? toCamelot(a.key) : '',
+                        a?.energy != null ? Math.round(a.energy * 100) + '%' : '',
+                        a?.duration_ms ? Math.round(a.duration_ms / 1000) : '',
+                        t.original_filename || ''
+                      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
+                    });
+                    const csv = [headers.join(','), ...rows].join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `cueforge-library-${new Date().toISOString().slice(0,10)}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast(`${tracksToExport.length} morceau${tracksToExport.length > 1 ? 'x' : ''} exporté${tracksToExport.length > 1 ? 's' : ''} en CSV`, 'success');
+                  }}
+                  className="w-full px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded text-xs font-bold text-white transition-colors flex items-center justify-center gap-1"
+                >
+                  <Download size={14} /> Export CSV {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                </button>
               </div>
 
         </div>
