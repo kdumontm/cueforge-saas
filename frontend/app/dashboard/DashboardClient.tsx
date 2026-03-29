@@ -4574,24 +4574,6 @@ useEffect(() => {
           </div>
         </div>
       )}
-</div>
-    
-    </div>
-  );
-}
-
-// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
-      <span className="text-slate-500 text-xs">{label}</span>
-      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
-    
-
-      {/* ── Metadata Edit Modal ── */}
-      
-
-
             {/* Tap Tempo BPM Counter */}
       {showTapTempo && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -4670,6 +4652,24 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         </div>
       )}
+</div>
+    
+    </div>
+  );
+}
+
+// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
+      <span className="text-slate-500 text-xs">{label}</span>
+      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
+    
+
+      {/* ── Metadata Edit Modal ── */}
+      
+
+
 
 
       {/* ── Toast Notifications ── */}
