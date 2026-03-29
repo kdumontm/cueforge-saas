@@ -832,7 +832,10 @@ useEffect(() => {
       if (!ws) return;
       if (e.key === '?') { setShowShortcuts(prev => !prev); return; }
       switch (e.code) {
-        case 'Space':
+        case 'ArrowLeft': if (wavesurferRef.current) wavesurferRef.current.skip(-5); e.preventDefault(); break;
+          case 'ArrowRight': if (wavesurferRef.current) wavesurferRef.current.skip(5); e.preventDefault(); break;
+          case 'KeyM': { const next = !muted; setMuted(next); if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume); break; }
+          case 'Space':
           e.preventDefault();
           ws.playPause();
           break;
@@ -869,7 +872,7 @@ useEffect(() => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrack, loopIn, loopOut, showShortcuts]);
+  }, [selectedTrack, loopIn, loopOut, showShortcuts, muted, volume]);
 
   // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
@@ -1162,7 +1165,8 @@ useEffect(() => {
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
+                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); setVolume(v); setMuted(false); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
+                    <span className="text-[9px] text-gray-500 min-w-[28px] text-right tabular-nums">{Math.round(volume * 100)}%</span>
               </div>
             </div>
             <div className="grid grid-cols-12 gap-3">
@@ -1172,7 +1176,7 @@ useEffect(() => {
                   {Array.from({length: 8}).map((_, i) => (
                     <button key={i} onContextMenu={(e) => { e.preventDefault(); if (selectedTrack.cue_points && selectedTrack.cue_points[i] && selectedTrack.cue_points[i].id) { setColorPickerCue(selectedTrack.cue_points[i].id); setColorPickerPos({x: e.clientX, y: e.clientY}); } }} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
                       className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-white shadow-lg' : 'bg-gray-800/60 text-gray-600')}
-                      style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1', boxShadow: '0 0 8px ' + (CUE_COLOR_MAP[selectedTrack.cue_points[i].type] || '#6366f1') + '40'} : {}}>
+                      style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: getCueColor(selectedTrack.cue_points[i].id, i), boxShadow: '0 0 8px ' + (getCueColor(selectedTrack.cue_points[i].id, i)) + '40'} : {}}>
                       {i + 1}
                     </button>
                   ))}
@@ -2467,6 +2471,8 @@ function MetaRow({ label, value }: { label: string; value: string }) {
             <div className="space-y-1.5 text-sm">
               {[
                 ['Space', 'Play / Pause'],
+                    ['\u2190 / \u2192', 'Reculer / Avancer de 5s'],
+                    ['M', 'Mute / Unmute'],
                 ['L', 'Loop intelligent (IN → OUT → Toggle)'],
                 ['[', 'Définir Loop IN'],
                 [']', 'Définir Loop OUT'],
