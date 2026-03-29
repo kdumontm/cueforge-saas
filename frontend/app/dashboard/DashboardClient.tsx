@@ -4531,6 +4531,42 @@ useEffect(() => {
           <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-500">{tracks.filter((t) => t.bpm && t.key).length} / {tracks.length} tracks analyzed</div>
         </div>
       )}
+      
+      {/* DJ Set Timer Panel */}
+      {showSetTimer && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Clock size={20} /> DJ Set Timer</h3>
+              <button onClick={() => setShowSetTimer(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+            </div>
+            {!setTimerRunning && setTimerRemaining === 0 && (
+              <div className="space-y-3">
+                <p className="text-gray-400 text-sm">Select set duration:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[1800, 3600, 5400, 7200, 10800, 14400].map(function(sec) { return (
+                    <button key={sec} onClick={() => setSetTimerDuration(sec)} className={'rounded-lg py-2 text-sm font-medium transition-all ' + (setTimerDuration === sec ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700')}>{sec < 3600 ? (sec / 60) + 'min' : (sec / 3600) + 'h'}</button>
+                  ); })}
+                </div>
+                <button onClick={() => { setSetTimerRemaining(setTimerDuration); setSetTimerRunning(true); }} className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-lg transition-all">Start Timer</button>
+              </div>
+            )}
+            {(setTimerRunning || setTimerRemaining > 0) && (
+              <div className="text-center space-y-4">
+                <div className="text-6xl font-mono font-bold text-white tabular-nums">{String(Math.floor(setTimerRemaining / 3600)).padStart(2, '0')}:{String(Math.floor((setTimerRemaining % 3600) / 60)).padStart(2, '0')}:{String(setTimerRemaining % 60).padStart(2, '0')}</div>
+                <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+                  <div className={'h-full rounded-full transition-all duration-1000 ' + (setTimerRemaining < 300 ? 'bg-red-500' : setTimerRemaining < 600 ? 'bg-yellow-500' : 'bg-cyan-500')} style={{width: (setTimerDuration > 0 ? (setTimerRemaining / setTimerDuration) * 100 : 0) + '%'}}></div>
+                </div>
+                <p className="text-gray-400 text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
+                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">Reset</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 </div>
     
     </div>
@@ -4601,42 +4637,6 @@ function MetaRow({ label, value }: { label: string; value: string }) {
           </div>
         ))}
       </div>
-      
-      {/* DJ Set Timer Panel */}
-      {showSetTimer && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Clock size={20} /> DJ Set Timer</h3>
-              <button onClick={() => setShowSetTimer(false)} className="text-gray-400 hover:text-white text-xl">X</button>
-            </div>
-            {!setTimerRunning && setTimerRemaining === 0 && (
-              <div className="space-y-3">
-                <p className="text-gray-400 text-sm">Select set duration:</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[1800, 3600, 5400, 7200, 10800, 14400].map(function(sec) { return (
-                    <button key={sec} onClick={() => setSetTimerDuration(sec)} className={'rounded-lg py-2 text-sm font-medium transition-all ' + (setTimerDuration === sec ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700')}>{sec < 3600 ? (sec / 60) + 'min' : (sec / 3600) + 'h'}</button>
-                  ); })}
-                </div>
-                <button onClick={() => { setSetTimerRemaining(setTimerDuration); setSetTimerRunning(true); }} className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-lg transition-all">Start Timer</button>
-              </div>
-            )}
-            {(setTimerRunning || setTimerRemaining > 0) && (
-              <div className="text-center space-y-4">
-                <div className="text-6xl font-mono font-bold text-white tabular-nums">{String(Math.floor(setTimerRemaining / 3600)).padStart(2, '0')}:{String(Math.floor((setTimerRemaining % 3600) / 60)).padStart(2, '0')}:{String(setTimerRemaining % 60).padStart(2, '0')}</div>
-                <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
-                  <div className={'h-full rounded-full transition-all duration-1000 ' + (setTimerRemaining < 300 ? 'bg-red-500' : setTimerRemaining < 600 ? 'bg-yellow-500' : 'bg-cyan-500')} style={{width: (setTimerDuration > 0 ? (setTimerRemaining / setTimerDuration) * 100 : 0) + '%'}}></div>
-                </div>
-                <p className="text-gray-400 text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
-                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">Reset</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
             {/* ── Keyboard Shortcuts Modal ── */}
       {showShortcutsModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
