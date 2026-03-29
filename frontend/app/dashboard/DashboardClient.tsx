@@ -1237,6 +1237,43 @@ export default function DashboardPage() {
     });
   }, [selectedTrack, waveformTheme]);
 
+  // ── Filtered + sorted tracks ──────────────────────────────────────────
+  const filtered = tracks
+    .filter(t => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        t.original_filename.toLowerCase().includes(q) ||
+        t.title?.toLowerCase().includes(q) ||
+        t.artist?.toLowerCase().includes(q) ||
+        t.genre?.toLowerCase().includes(q)
+      );
+    })
+    .filter(t => !showFavoritesOnly || favoriteIds.has(t.id))
+    .filter(t => {
+      if (colFilterTitle && !(t.title || t.original_filename || '').toLowerCase().includes(colFilterTitle.toLowerCase())) return false;
+      if (colFilterArtist && !(t.artist || '').toLowerCase().includes(colFilterArtist.toLowerCase())) return false;
+      if (colFilterGenre && (t.genre || '') !== colFilterGenre) return false;
+      if (colFilterKey && (t.analysis?.key || '') !== colFilterKey) return false;
+      if (colFilterBpmMin && (t.analysis?.bpm || 0) < parseFloat(colFilterBpmMin)) return false;
+      if (colFilterBpmMax && (t.analysis?.bpm || 999) > parseFloat(colFilterBpmMax)) return false;
+      if (colFilterEnergyMin && ((t.analysis?.energy || 0) * 100) < parseFloat(colFilterEnergyMin)) return false;
+      if (colFilterEnergyMax && ((t.analysis?.energy || 0) * 100) > parseFloat(colFilterEnergyMax)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+        const dir = sortDir === 'asc' ? 1 : -1;
+        switch (sortBy) {
+          case 'bpm': return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
+          case 'key': return dir * ((toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || ''));
+          case 'title': return dir * ((a.title || a.original_filename).localeCompare(b.title || b.original_filename)); case 'artist': return dir * ((a.artist || '').localeCompare(b.artist || '')); case 'album': return dir * ((a.album || '').localeCompare(b.album || ''));
+          case 'energy': return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
+          case 'genre': return dir * ((a.genre || '').localeCompare(b.genre || ''));
+          case 'duration': return dir * ((a.analysis?.duration_ms || a.duration_ms || 0) - (b.analysis?.duration_ms || b.duration_ms || 0));
+          default: return dir * (new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        }
+      });
+
   // ── Keyboard shortcuts (Ctrl+A) ─────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -1515,43 +1552,6 @@ export default function DashboardPage() {
     }
     setMetadataLoading(false);
   }
-
-  // ── Filtered + sorted tracks ──────────────────────────────────────────
-  const filtered = tracks
-    .filter(t => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        t.original_filename.toLowerCase().includes(q) ||
-        t.title?.toLowerCase().includes(q) ||
-        t.artist?.toLowerCase().includes(q) ||
-        t.genre?.toLowerCase().includes(q)
-      );
-    })
-    .filter(t => !showFavoritesOnly || favoriteIds.has(t.id))
-    .filter(t => {
-      if (colFilterTitle && !(t.title || t.original_filename || '').toLowerCase().includes(colFilterTitle.toLowerCase())) return false;
-      if (colFilterArtist && !(t.artist || '').toLowerCase().includes(colFilterArtist.toLowerCase())) return false;
-      if (colFilterGenre && (t.genre || '') !== colFilterGenre) return false;
-      if (colFilterKey && (t.analysis?.key || '') !== colFilterKey) return false;
-      if (colFilterBpmMin && (t.analysis?.bpm || 0) < parseFloat(colFilterBpmMin)) return false;
-      if (colFilterBpmMax && (t.analysis?.bpm || 999) > parseFloat(colFilterBpmMax)) return false;
-      if (colFilterEnergyMin && ((t.analysis?.energy || 0) * 100) < parseFloat(colFilterEnergyMin)) return false;
-      if (colFilterEnergyMax && ((t.analysis?.energy || 0) * 100) > parseFloat(colFilterEnergyMax)) return false;
-      return true;
-    })
-    .sort((a, b) => {
-        const dir = sortDir === 'asc' ? 1 : -1;
-        switch (sortBy) {
-          case 'bpm': return dir * ((a.analysis?.bpm || 0) - (b.analysis?.bpm || 0));
-          case 'key': return dir * ((toCamelot(a.analysis?.key) || '').localeCompare(toCamelot(b.analysis?.key) || ''));
-          case 'title': return dir * ((a.title || a.original_filename).localeCompare(b.title || b.original_filename)); case 'artist': return dir * ((a.artist || '').localeCompare(b.artist || '')); case 'album': return dir * ((a.album || '').localeCompare(b.album || ''));
-          case 'energy': return dir * ((a.analysis?.energy || 0) - (b.analysis?.energy || 0));
-          case 'genre': return dir * ((a.genre || '').localeCompare(b.genre || ''));
-          case 'duration': return dir * ((a.analysis?.duration_ms || a.duration_ms || 0) - (b.analysis?.duration_ms || b.duration_ms || 0));
-          default: return dir * (new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        }
-      });
 
   const isLoading = uploading || analyzing;
   const selectedCount = selectedIds.size;
