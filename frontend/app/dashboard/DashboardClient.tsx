@@ -15,7 +15,7 @@ import type { Track, CuePoint } from '@/types';
 import TrackOrganizer from '@/components/TrackOrganizer';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
-// âÂÂâÂÂ Constants âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+// ── Constants ─────────────────────────────────────────────────────────────
 const CAMELOT_WHEEL: Record<string, string> = {
   'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
   'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
@@ -96,7 +96,7 @@ const CUE_TYPE_COLORS: Record<string, string> = {
   load: '#ca8a04', phrase: '#2563eb', drop: '#e11d48', section: '#7c3aed',
 };
 
-// ââ Camelot Wheel System (Harmonic Mixing) ââââââââââââââââââââââââââââââââ
+// ── Camelot Wheel System (Harmonic Mixing) ────────────────────────────────
 const CAMELOT_MAP: Record<string, string> = {
   'C': '8B', 'Cm': '5A', 'C#': '3B', 'C#m': '12A',
   'D': '10B', 'Dm': '7A', 'D#': '5B', 'D#m': '2A',
@@ -132,11 +132,11 @@ function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
   return { total, verdict: total >= 90 ? 'Perfect' : total >= 75 ? 'Great' : total >= 60 ? 'Good' : total >= 40 ? 'OK' : 'Risky' };
 }
 
-// ââ BPM Tap Tempo utility âââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── BPM Tap Tempo utility ─────────────────────────────────────────────────
 const tapTimesRef = { current: [] as number[] };
 
 
-// ââ RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ââ
+// ── RGB DJ Waveform: Frequency-band spectral analysis (Rekordbox-style) ──
 async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
   const src = ctx.createBufferSource();
@@ -183,11 +183,11 @@ async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:
   });
 }
 
-// âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+// ─────────────────────────────────────────────────────────────────────────
 // MAIN DASHBOARD
-// âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+// ─────────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  // âÂÂâÂÂ State âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── State ─────────────────────────────────────────────────────────────
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [tracksLoading, setTracksLoading] = useState(true);
@@ -215,7 +215,7 @@ export default function DashboardPage() {
   const [organizerTrack, setOrganizerTrack] = useState<Track | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [waveformReady, setWaveformReady] = useState(false);
-  // ââ New feature states ââ
+  // ── New feature states ──
   const [loopIn, setLoopIn] = useState<number | null>(null);
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
@@ -801,7 +801,7 @@ return () => document.removeEventListener('click', handler);
   const [eqConnected, setEqConnected] = useState(false);
 
 
-  // âÂÂâÂÂ Load tracks on mount âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Load tracks on mount ──────────────────────────────────────────────
   useEffect(() => { loadTracks(); }, []);
 
   async function loadTracks() {
@@ -812,7 +812,7 @@ return () => document.removeEventListener('click', handler);
     } catch {} finally { setTracksLoading(false); }
   }
 
-  // âÂÂâÂÂ Wavesurfer init (ALWAYS render the div, never unmount it) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Wavesurfer init (ALWAYS render the div, never unmount it) ────────
   useEffect(() => {
     if (typeof window === 'undefined' || !waveformRef.current) return;
     let ws: any = null;
@@ -943,7 +943,7 @@ return () => document.removeEventListener('click', handler);
     if (ref.current) ref.current.gain.value = value;
   }, []);
 
-  // âÂÂâÂÂ Zoom handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Zoom handler ──────────────────────────────────────────────────────
   function handleZoom(direction: 'in' | 'out') {
       if (!wavesurferRef.current) return;
       const ws = wavesurferRef.current;
@@ -975,7 +975,7 @@ return () => document.removeEventListener('click', handler);
       return () => container.removeEventListener('wheel', handler);
     }, [zoomLevel]);
 
-    // âÂÂâÂÂ Load track into waveform âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+    // ── Load track into waveform ──────────────────────────────────────────
   useEffect(() => {
     if (!selectedTrack || !wavesurferRef.current) return;
     const ws = wavesurferRef.current;
@@ -1036,7 +1036,7 @@ return () => document.removeEventListener('click', handler);
     });
   }, [selectedTrack, waveformTheme]);
 
-  // âÂÂâÂÂ Keyboard shortcuts (Ctrl+A) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Keyboard shortcuts (Ctrl+A) ─────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
@@ -1086,7 +1086,7 @@ return () => document.removeEventListener('click', handler);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  // âÂÂâÂÂ Player controls âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Player controls ───────────────────────────────────────────────────
   function togglePlay() {
     if (!wavesurferRef.current) return;
     wavesurferRef.current.playPause();
@@ -1105,7 +1105,7 @@ return () => document.removeEventListener('click', handler);
     if (wavesurferRef.current) wavesurferRef.current.setVolume(next ? 0 : volume);
   }
 
-  // âÂÂâÂÂ Multi-select toggle âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Multi-select toggle ────────────────────────────────────────────────
   function toggleSelect(trackId: number, e: React.MouseEvent) {
     e.stopPropagation();
     const next = new Set(selectedIds);
@@ -1119,7 +1119,7 @@ return () => document.removeEventListener('click', handler);
     setSelectedIds(next);
   }
 
-  // âÂÂâÂÂ File handling âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── File handling ─────────────────────────────────────────────────────
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
@@ -1178,7 +1178,7 @@ return () => document.removeEventListener('click', handler);
     if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   }, []);
 
-  // âÂÂâÂÂ Batch Analyze Audio (BPM, Key, Cues) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Batch Analyze Audio (BPM, Key, Cues) ────────────────────────────
   async function batchAnalyzeAudio(trackIds: number[]) {
     if (trackIds.length === 0) return;
     setAnalyzing(true);
@@ -1203,7 +1203,7 @@ return () => document.removeEventListener('click', handler);
     }
   }
 
-  // âÂÂâÂÂ Batch Analyze Metadata (Spotify, Genre, Cover) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Batch Analyze Metadata (Spotify, Genre, Cover) ───────────────────
   async function batchAnalyzeMetadata(trackIds: number[]) {
     if (trackIds.length === 0) return;
     setAnalyzing(true);
@@ -1227,7 +1227,7 @@ return () => document.removeEventListener('click', handler);
     }
   }
 
-  // âÂÂâÂÂ Context menu handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Context menu handler ──────────────────────────────────────────────
   async function handleCtxAction(action: string, track: Track) {
     setCtxMenu(null);
     switch (action) {
@@ -1281,7 +1281,7 @@ return () => document.removeEventListener('click', handler);
     }
   }
 
-  // âÂÂâÂÂ Spotify search for metadata panel âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Spotify search for metadata panel ─────────────────────────────────
   async function launchSpotifySearch(track: Track) {
     setMetadataLoading(true);
     setMetadataSuggestions(null);
@@ -1306,7 +1306,7 @@ return () => document.removeEventListener('click', handler);
     setMetadataLoading(false);
   }
 
-  // âÂÂâÂÂ Filtered + sorted tracks âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Filtered + sorted tracks ──────────────────────────────────────────
   const filtered = tracks
     .filter(t => {
       if (!searchQuery) return true;
@@ -1346,7 +1346,7 @@ return () => document.removeEventListener('click', handler);
   const isLoading = uploading || analyzing;
   const selectedCount = selectedIds.size;
 
-  // âÂÂâÂÂ Context Menu Actions âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ── Context Menu Actions ────────────────────────────────────────────
   const CONTEXT_ACTIONS = [
     { label: 'Analyser Audio (BPM/Key/Cues)', icon: <Zap size={14} />, action: 'analyze' },
     { label: 'Rechercher Metadata (Spotify)', icon: <Sparkles size={14} />, action: 'analyze_metadata' },
@@ -1356,9 +1356,9 @@ return () => document.removeEventListener('click', handler);
     { label: 'Supprimer', icon: <Trash2 size={14} />, action: 'delete', separator: true },
   ];
 
-  // âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ─────────────────────────────────────────────────────────────────────
   // RENDER
-  // âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+  // ─────────────────────────────────────────────────────────────────────
 
   // Computed: filtered + sorted tracks
 
@@ -1482,7 +1482,7 @@ return () => document.removeEventListener('click', handler);
     return dir * (new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   });
 
-  // ââ Keyboard Shortcuts ââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────────
   
   // Waveform zoom effect
   useEffect(() => {
@@ -1545,7 +1545,7 @@ useEffect(() => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTrack, loopIn, loopOut, showShortcuts, muted, volume, playbackRate]);
 
-  // ââ Loop playback logic âââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Loop playback logic ─────────────────────────────────────────────────
   useEffect(() => {
     const ws = wavesurferRef.current;
     const regions = regionsRef.current;
@@ -1675,7 +1675,7 @@ useEffect(() => {
       {/* CENTER CONTENT */}
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
 
-      {/* âÂÂâÂÂ TOP: Waveform Player (ALWAYS mounted) âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+      {/* ── TOP: Waveform Player (ALWAYS mounted) ─────────── */}
       <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-0.5">
@@ -1986,7 +1986,7 @@ useEffect(() => {
         )}
         </div>
 
-{/* âÂÂâÂÂ TOOLBAR: Upload, Search, Batch Actions âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+{/* ── TOOLBAR: Upload, Search, Batch Actions ────────── */}
       <div
         className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -2171,7 +2171,7 @@ useEffect(() => {
                   })()}
                 </div>
 
-      {/* âÂÂâÂÂ TRACK LIST âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+      {/* ── TRACK LIST ───────────────────────────────────────── */}
 
                 {/* SEARCH BAR */}
                 <div style={{marginBottom: '8px'}}>
@@ -2599,7 +2599,7 @@ useEffect(() => {
                 <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title="Double-click to edit" onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
                     <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
-                  ) : (track.genre?.split(',')[0]?.trim() || 'â')}
+                  ) : (track.genre?.split(',')[0]?.trim() || '—')}
                 </span>
                 {/* BPM */}
                 <div className="flex flex-col items-center">
@@ -2659,7 +2659,7 @@ useEffect(() => {
         )}
       </div>
 
-      {/* âÂÂâÂÂ Context Menu âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+      {/* ── Context Menu ─────────────────────────────────────── */}
       {ctxMenu && (
         <div
           className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
@@ -2765,7 +2765,7 @@ useEffect(() => {
           </button>
         </div>
       )}
-      {/* âÂÂâÂÂ Track Organizer Panel âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ */}
+      {/* ── Track Organizer Panel ────────────────────────────── */}
       {organizerTrack && (
         <TrackOrganizer
           track={organizerTrack}
@@ -2778,7 +2778,7 @@ useEffect(() => {
         />
       )}
 
-      {/* âÂÂâÂÂ Metadata / Spotify Panel (slide-in, closable) âÂÂâÂÂâÂÂâÂÂ */}
+      {/* ── Metadata / Spotify Panel (slide-in, closable) ──── */}
       {metadataPanel && (
         <>
           {/* Backdrop overlay */}
@@ -4008,7 +4008,7 @@ useEffect(() => {
       </div>
       </div>
 
-      {/* ââ Smart Playlist Builder ââ */}
+      {/* ── Smart Playlist Builder ── */}
       {showSmartPlaylist && (
         <div className="bg-gradient-to-r from-purple-900/40 via-gray-900 to-purple-900/40 border-t border-purple-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -4060,7 +4060,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Duplicate Detection Panel ââ */}
+      {/* ── Duplicate Detection Panel ── */}
       {showDuplicates && (
         <div className="bg-gradient-to-r from-orange-900/30 via-gray-900 to-orange-900/30 border-t border-orange-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -4094,7 +4094,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Export Panel (Rekordbox / Serato / Traktor) ââ */}
+      {/* ── Export Panel (Rekordbox / Serato / Traktor) ── */}
       {showExport && (
         <div className="bg-gradient-to-r from-cyan-900/30 via-gray-900 to-cyan-900/30 border-t border-cyan-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -4138,7 +4138,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Stats Dashboard ââ */}
+      {/* ── Stats Dashboard ── */}
       {showStats && (
         <div className="bg-gradient-to-r from-green-900/30 via-gray-900 to-green-900/30 border-t border-green-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -4225,7 +4225,7 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ Batch Edit Panel ââ */}
+      {/* ── Batch Edit Panel ── */}
       {showBatchEdit && batchSelected.length > 0 && (
         <div className="bg-gradient-to-r from-yellow-900/30 via-gray-900 to-yellow-900/30 border-t border-yellow-500/30 p-4">
           <div className="max-w-7xl mx-auto">
@@ -4386,12 +4386,12 @@ useEffect(() => {
               </div>
             </div>
             )}
-            {/* ââ Watch Folder Panel ââ */}
+            {/* ── Watch Folder Panel ── */}
       {showWatchFolder && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">ð Watch Folder - Auto Import</h3>
-            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
+            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">×</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -4413,8 +4413,8 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">â¶ Start Watching</button>
-                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">â¸ Stop</button>
+                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">▶ Start Watching</button>
+                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">⏸ Stop</button>
               </div>
             </div>
             <div className="space-y-3">
@@ -4485,12 +4485,12 @@ useEffect(() => {
         </div>
       )}
 
-      {/* ââ AI Mix Suggestions ââ */}
+      {/* ── AI Mix Suggestions ── */}
       {showMixSuggestions && (
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">ð¤ AI Mix Suggestions</h3>
-            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">Ã</button>
+            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">×</button>
           </div>
           <div className="space-y-4">
             <div className="flex gap-3 items-center">
@@ -4498,7 +4498,7 @@ useEffect(() => {
                 <option value="">-- Select starting track --</option>
                 {tracks.map(t => (<option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.bpm} BPM, {t.camelotKey || 'N/A'})</option>))}
               </select>
-              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">â¨ Generate Mix</button>
+              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">✨ Generate Mix</button>
             </div>
             {selectedForMix && (() => {
               const start = tracks.find(t => t.id === selectedForMix);
@@ -4527,7 +4527,7 @@ useEffect(() => {
                         <span className="text-cyan-500/70 font-mono">{t.camelotKey || '?'}</span>
                         <span className="text-green-400">E:{t.energy || '?'}</span>
                       </div>
-                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>â</span>))}</div>
+                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>★</span>))}</div>
                     </div>
                   ))}
                 </div>
@@ -4729,7 +4729,7 @@ useEffect(() => {
   );
 }
 
-// âÂÂâÂÂ Small helpers âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
+// ── Small helpers ────────────────────────────────────────────────────────
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
