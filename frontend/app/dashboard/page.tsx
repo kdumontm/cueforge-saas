@@ -661,6 +661,17 @@ return () => document.removeEventListener('click', handler);
   const regionsRef = useRef<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
+  // ── EQ / FX Web Audio API ──
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const eqLowRef = useRef<BiquadFilterNode | null>(null);
+  const eqMidRef = useRef<BiquadFilterNode | null>(null);
+  const eqHighRef = useRef<BiquadFilterNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const [eqValues, setEqValues] = useState({ low: 0, mid: 0, high: 0 });
+  const [activeFx, setActiveFx] = useState<string | null>(null);
+  const [fxParams, setFxParams] = useState<Record<string, number>>({ reverb: 0, delay: 0, filterLP: 20000, filterHP: 20, flanger: 0, phaser: 0, distortion: 0, compressor: 0 });
+  const [eqConnected, setEqConnected] = useState(false);
+
 
   // âÂÂâÂÂ Load tracks on mount âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => { loadTracks(); }, []);
@@ -758,6 +769,39 @@ return () => document.removeEventListener('click', handler);
 
     initWavesurfer();
     return () => { if (ws) ws.destroy(); };
+  }, []);
+
+
+
+  // ── EQ Web Audio API Setup ──
+  const connectEQ = useCallback(() => {
+    const ws = wavesurferRef.current;
+    if (!ws || eqConnected) return;
+    try {
+      const media = ws.getMediaElement();
+      if (!media) return;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaElementSource(media);
+      sourceNodeRef.current = source;
+      const low = ctx.createBiquadFilter();
+      low.type = 'lowshelf'; low.frequency.value = 320; low.gain.value = 0;
+      eqLowRef.current = low;
+      const mid = ctx.createBiquadFilter();
+      mid.type = 'peaking'; mid.frequency.value = 1000; mid.Q.value = 0.5; mid.gain.value = 0;
+      eqMidRef.current = mid;
+      const high = ctx.createBiquadFilter();
+      high.type = 'highshelf'; high.frequency.value = 3200; high.gain.value = 0;
+      eqHighRef.current = high;
+      source.connect(low).connect(mid).connect(high).connect(ctx.destination);
+      setEqConnected(true);
+    } catch(e) { console.warn('EQ connect failed:', e); }
+  }, [eqConnected]);
+
+  const updateEQ = useCallback((band: 'low' | 'mid' | 'high', value: number) => {
+    setEqValues(prev => ({ ...prev, [band]: value }));
+    const ref = band === 'low' ? eqLowRef : band === 'mid' ? eqMidRef : eqHighRef;
+    if (ref.current) ref.current.gain.value = value;
   }, []);
 
   // âÂÂâÂÂ Zoom handler âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
@@ -2565,40 +2609,69 @@ useEffect(() => {
     </div>
   )}
   {activeBottomTab === 'eq' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Equalizer</h3>
-      <div className="grid grid-cols-3 gap-6 max-w-lg">
-        {['Low', 'Mid', 'High'].map((band, idx) => (
-          <div key={band} className="flex flex-col items-center gap-2">
-            <span className="text-xs font-semibold text-gray-400">{band}</span>
-            <div className="w-full h-40 bg-gray-900/60 rounded-xl border border-gray-800/40 relative overflow-hidden flex items-end justify-center p-2">
-              <div className="w-8 bg-gradient-to-t from-cyan-500 to-cyan-300 rounded-t-md transition-all" style={{height: '60%', opacity: 0.7}} />
-            </div>
-            <input type="range" min="-12" max="12" defaultValue="0" className="w-full accent-cyan-500" />
-            <span className="text-[10px] text-gray-500">0 dB</span>
-          </div>
-        ))}
-      </div>
-      <p className="text-[10px] text-gray-600 italic">EQ en temps réel — à venir avec Web Audio API</p>
-    </div>
-  )}
-  {activeBottomTab === 'fx' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Effects</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {['Reverb', 'Delay', 'Filter LP', 'Filter HP', 'Flanger', 'Phaser', 'Distortion', 'Compressor'].map(fx => (
-          <div key={fx} className="flex flex-col items-center gap-2 p-4 bg-gray-900/50 rounded-xl border border-gray-800/40 hover:border-purple-500/40 hover:bg-purple-500/5 transition-all cursor-pointer">
-            <Wand2 size={20} className="text-purple-400" />
-            <span className="text-xs font-semibold text-gray-300">{fx}</span>
-            <input type="range" min="0" max="100" defaultValue="0" className="w-full accent-purple-500" />
-            <span className="text-[10px] text-gray-500">Dry</span>
-          </div>
-        ))}
-      </div>
-      <p className="text-[10px] text-gray-600 italic">FX en temps réel — à venir avec Web Audio API</p>
-    </div>
-  )}
-  {activeBottomTab === 'mix' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                    <SlidersHorizontal size={16} /> EQ Controls
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {!eqConnected && <button onClick={connectEQ} className="px-3 py-1 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-md border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors">Connect Audio</button>}
+                    {eqConnected && <span className="text-[10px] text-green-400 flex items-center gap-1"><Check size={10} /> Connected</span>}
+                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-gray-800 text-gray-400 rounded-md hover:bg-gray-700 transition-colors">Reset</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {([['low', 'LOW', '#ef4444', eqValues.low], ['mid', 'MID', '#eab308', eqValues.mid], ['high', 'HIGH', '#3b82f6', eqValues.high]] as const).map(([band, label, color, val]) => (
+                    <div key={band} className="flex flex-col items-center gap-2 p-3 bg-gray-900/60 rounded-xl border border-gray-800/40">
+                      <span className="text-xs font-bold" style={{color}}>{label}</span>
+                      <div className="relative w-full h-32 bg-gray-950 rounded-lg overflow-hidden">
+                        <div className="absolute bottom-0 w-full rounded-b-lg transition-all duration-150" style={{height: `${Math.max(5, 50 + (val as number) / 12 * 50)}%`, background: `linear-gradient(to top, ${color}44, ${color}bb)`}} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold text-white drop-shadow-lg">{(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}</span>
+                        </div>
+                      </div>
+                      <input type="range" min={-12} max={12} step={0.5} value={val as number} onChange={(e) => updateEQ(band as 'low'|'mid'|'high', parseFloat(e.target.value))} className="w-full h-2 rounded-lg appearance-none cursor-pointer" style={{accentColor: color}} />
+                      <span className="text-[10px] text-gray-500">dB</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  {[{name: 'Flat', l: 0, m: 0, h: 0}, {name: 'Bass Boost', l: 6, m: 0, h: -2}, {name: 'Vocal', l: -3, m: 4, h: 2}, {name: 'Treble', l: -4, m: 0, h: 6}].map(p => (
+                    <button key={p.name} onClick={() => { updateEQ('low', p.l); updateEQ('mid', p.m); updateEQ('high', p.h); }} className="flex-1 px-2 py-1.5 text-[10px] font-bold bg-gray-800/60 text-gray-300 rounded-lg border border-gray-700/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all">{p.name}</button>
+                  ))}
+                </div>
+                {!eqConnected && <p className="text-[10px] text-amber-500/80 italic">Click "Connect Audio" to enable real-time EQ via Web Audio API</p>}
+              </div>
+            )}
+            {activeBottomTab === 'fx' && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2"><Wand2 size={16} /> FX Rack</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {[{id: 'reverb', name: 'Reverb', icon: '~'}, {id: 'delay', name: 'Delay', icon: '...'}, {id: 'echo', name: 'Echo', icon: '))'}, {id: 'flanger', name: 'Flanger', icon: 'F'}, {id: 'phaser', name: 'Phaser', icon: 'P'}, {id: 'filter', name: 'Filter', icon: 'V'}].map(fx => (
+                    <button key={fx.id} onClick={() => setActiveFx(activeFx === fx.id ? null : fx.id)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${activeFx === fx.id ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10' : 'bg-gray-900/50 border-gray-800/40 text-gray-400 hover:border-purple-500/30 hover:text-purple-300'}`}>
+                      <span className="text-lg font-bold">{fx.icon}</span>
+                      <span className="text-[10px] font-semibold uppercase">{fx.name}</span>
+                    </button>
+                  ))}
+                </div>
+                {activeFx && (
+                  <div className="p-4 bg-gray-900/60 rounded-xl border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-purple-300 uppercase">{activeFx} Parameters</span>
+                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-gray-500 hover:text-white">Reset</button>
+                    </div>
+                    <div className="space-y-3">
+                      <div><label className="text-[10px] text-gray-400 block mb-1">Dry/Wet</label><input type="range" min={0} max={100} value={fxParams[activeFx] || 0} onChange={(e) => setFxParams(prev => ({...prev, [activeFx]: parseInt(e.target.value)}))} className="w-full accent-purple-500" /><div className="flex justify-between text-[9px] text-gray-600"><span>Dry</span><span>{fxParams[activeFx] || 0}%</span><span>Wet</span></div></div>
+                      <div><label className="text-[10px] text-gray-400 block mb-1">Rate</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
+                      <div><label className="text-[10px] text-gray-400 block mb-1">Depth</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
+                    </div>
+                    <p className="text-[9px] text-amber-500/60 mt-2 italic">Real-time FX processing coming soon</p>
+                  </div>
+                )}
+                {!activeFx && <p className="text-[10px] text-gray-600 italic text-center py-4">Select an effect to adjust parameters</p>}
+              </div>
+            )}
+            {activeBottomTab === 'mix' && (
     <div className="space-y-4">
       <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Mix Assistant</h3>
       {selectedTrack ? (
