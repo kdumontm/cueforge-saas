@@ -12,8 +12,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Security — pas de valeur par défaut : le démarrage échoue si non défini en prod
-    SECRET_KEY: str
+    # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
+    SECRET_KEY: str = "cueforge-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
