@@ -398,33 +398,6 @@ export default function DashboardPage() {
   // âÂÂâÂÂ Load tracks on mount âÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂâÂÂ
   useEffect(() => { loadTracks(); }, []);
 
-  // Keyboard navigation for track list
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (!filteredTracks.length) return;
-      
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const currentIdx = selectedTrack ? filteredTracks.findIndex(t => t.id === selectedTrack.id) : -1;
-        let newIdx: number;
-        if (e.key === 'ArrowDown') {
-          newIdx = currentIdx < filteredTracks.length - 1 ? currentIdx + 1 : 0;
-        } else {
-          newIdx = currentIdx > 0 ? currentIdx - 1 : filteredTracks.length - 1;
-        }
-        setSelectedTrack(filteredTracks[newIdx]);
-        // Auto-scroll to selected row
-        setTimeout(() => {
-          const row = document.querySelector(`[data-track-id="${filteredTracks[newIdx].id}"]`);
-          row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }, 0);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrack, filteredTracks]);
-
   async function loadTracks() {
     try {
       setTracksLoading(true);
@@ -840,6 +813,35 @@ export default function DashboardPage() {
     if (filterGenre && t.genre !== filterGenre) return false;
     return true;
   });
+
+
+
+  // Keyboard navigation for track list
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!filteredTracks.length) return;
+      
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const currentIdx = selectedTrack ? filteredTracks.findIndex(t => t.id === selectedTrack.id) : -1;
+        let newIdx: number;
+        if (e.key === 'ArrowDown') {
+          newIdx = currentIdx < filteredTracks.length - 1 ? currentIdx + 1 : 0;
+        } else {
+          newIdx = currentIdx > 0 ? currentIdx - 1 : filteredTracks.length - 1;
+        }
+        setSelectedTrack(filteredTracks[newIdx]);
+        // Auto-scroll to selected row
+        setTimeout(() => {
+          const row = document.querySelector(`[data-track-id="${filteredTracks[newIdx].id}"]`);
+          row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }, 0);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrack, filteredTracks]);
 
   const getTrackCompat = (t: any) => {
     if (!selectedTrack?.analysis?.bpm || !t?.analysis?.bpm) return null;
