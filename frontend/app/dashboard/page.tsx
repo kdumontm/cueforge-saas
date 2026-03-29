@@ -229,6 +229,7 @@ export default function DashboardPage() {
 
   // ── Drag & Drop Upload ──
   const dragCountRef = useRef(0);
+  const lastClickedIdxRef = useRef<number>(-1);
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
     dragCountRef.current++;
@@ -1669,11 +1670,23 @@ useEffect(() => {
                 data-track-id={track.id}
                 className={`grid grid-cols-[28px_2fr_1fr_60px_45px_45px_60px_50px_30px] gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
                 onClick={(e) => {
-                  if (e.ctrlKey || e.metaKey) {
+                  if (e.shiftKey && lastClickedIdxRef.current >= 0) {
+                    // Shift+click range selection
+                    const start = Math.min(lastClickedIdxRef.current, trackIdx);
+                    const end = Math.max(lastClickedIdxRef.current, trackIdx);
+                    const next = new Set(selectedIds);
+                    for (let i = start; i <= end; i++) {
+                      const t = filteredTracks[i];
+                      if (t) next.add(t.id);
+                    }
+                    setSelectedIds(next);
+                  } else if (e.ctrlKey || e.metaKey) {
                     toggleSelect(track.id, e);
                   } else {
                     setSelectedTrack(track);
+                    setSelectedIds(new Set([track.id]));
                   }
+                  lastClickedIdxRef.current = trackIdx;
                 }}
                 onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
               >
@@ -2171,6 +2184,7 @@ useEffect(() => {
                 <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Suppr</kbd> Supprimer</span>
         <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Ctrl+F</kbd> Rechercher</span>
         <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Esc</kbd> Effacer</span>
+              <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
               </div>
 
               {/* ── Action Buttons ── */}
