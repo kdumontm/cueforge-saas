@@ -3715,7 +3715,7 @@ useEffect(() => {
 
         </div>
       </div>
-      </div>{/* end right panel */}
+      </div>
 )}
 
       {/* ââ Smart Playlist Builder ââ */}
