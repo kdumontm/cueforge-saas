@@ -12,6 +12,23 @@ logger = logging.getLogger(__name__)
 
 # Map of table -> new columns to add if missing
 PENDING_MIGRATIONS = {
+    "users": {
+        # Email verification
+        "email_verified": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "email_verify_token": "VARCHAR(255)",
+        "email_verify_token_expires": "TIMESTAMP",
+        # Refresh token rotation
+        "refresh_token": "VARCHAR(500)",
+        # OAuth / SSO
+        "oauth_provider": "VARCHAR(50)",
+        "oauth_id": "VARCHAR(255)",
+        # Multi-tenant
+        "organization_id": "INTEGER",
+        "org_role": "VARCHAR(20) NOT NULL DEFAULT 'member'",
+        # Profile
+        "avatar_url": "VARCHAR(500)",
+        "last_login_at": "TIMESTAMP",
+    },
     "tracks": {
         # Existing metadata columns
         "artist": "VARCHAR(255)",
