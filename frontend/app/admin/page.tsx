@@ -1410,7 +1410,7 @@ function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
           <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: themes.dark.text.secondary, marginBottom: 6 }}>Email ou nom d&apos;utilisateur</label>
           <input
             type="text" value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@cueforge.app"
+            placeholder="kenin ou kenin@cueforge.app"
             required autoFocus
             style={{
               width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${themes.dark.border.default}`,
