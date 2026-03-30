@@ -20,13 +20,22 @@ export function clearToken(): void {
 // ── Authenticated fetch with auto-logout on 401 ───────────────────────────────
 
 async function authFetch(url: string, options?: RequestInit): Promise<Response> {
-  const response = await fetch(url, options);
+  const token = getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, options);
+  } catch (networkError) {
+    throw new Error('Network error — check your connection');
+  }
+
   if (response.status === 401) {
     clearToken();
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    throw new Error('Session expired. Please log in again.');
+    // Don't do a hard redirect — let the layout/router handle it gracefully
+    throw new Error('Session expired');
   }
   return response;
 }

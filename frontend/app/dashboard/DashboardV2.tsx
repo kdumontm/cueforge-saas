@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Loader2, Zap, RefreshCw } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
 
 import PlayerCard from '@/components/player/PlayerCard';
@@ -71,10 +71,18 @@ export default function DashboardV2() {
   async function loadTracks() {
     try {
       setLoading(true);
+      if (!isAuthenticated()) return;
       const data = await listTracks();
-      setTracks(data || []);
-    } catch (e) {
+      // Handle both array and {tracks: [...]} response formats
+      const trackList = Array.isArray(data) ? data : (data?.tracks || []);
+      setTracks(trackList);
+    } catch (e: any) {
       console.error('Failed to load tracks:', e);
+      // If session expired, don't crash — just show empty state
+      if (e?.message === 'Session expired' || e?.message === 'Not authenticated') {
+        setTracks([]);
+        return;
+      }
     } finally {
       setLoading(false);
     }

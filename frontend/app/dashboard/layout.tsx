@@ -15,7 +15,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
       return;
     }
-    getCurrentUser().then(setUser).catch(() => {});
+    getCurrentUser()
+      .then(setUser)
+      .catch((err) => {
+        console.warn('getCurrentUser failed:', err?.message);
+        // If session expired, redirect to login gracefully
+        if (err?.message === 'Session expired' || err?.message === 'Not authenticated') {
+          clearToken();
+          router.push('/login');
+        }
+      });
   }, [router]);
 
   function handleLogout() {
