@@ -287,15 +287,15 @@ export default function DashboardV2() {
 
         {/* Tab content */}
         <div className="p-4 min-h-[160px]">
-          {activeTab === 'cues' && <CuesTab trackTitle={selectedTrack?.title} />}
-          {activeTab === 'beatgrid' && <BeatgridTab bpm={selectedTrack?.bpm} />}
-          {activeTab === 'stems' && <StemsTab />}
+          {activeTab === 'cues' && <CuesTab track={selectedTrack} />}
+          {activeTab === 'beatgrid' && <BeatgridTab track={selectedTrack} />}
+          {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
           {activeTab === 'eq' && <EQTab />}
           {activeTab === 'fx' && <FXTab />}
-          {activeTab === 'mix' && <MixTab selectedKey={selectedTrack?.key} />}
-          {activeTab === 'playlists' && <PlaylistsTab />}
-          {activeTab === 'stats' && <StatsTab />}
-          {activeTab === 'history' && <HistoryTab />}
+          {activeTab === 'mix' && <MixTab track={selectedTrack} tracks={displayTracks} />}
+          {activeTab === 'playlists' && <PlaylistsTab playlists={[]} />}
+          {activeTab === 'stats' && <StatsTab tracks={displayTracks} />}
+          {activeTab === 'history' && <HistoryTab tracks={displayTracks} />}
         </div>
       </div>
 
