@@ -29,7 +29,7 @@ export function BeatgridTab({
 
   if (!track) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
+      <div className="flex items-center justify-center h-64 text-[var(--text-muted)]">
         <p>Sélectionne un morceau</p>
       </div>
     );
@@ -79,11 +79,11 @@ export function BeatgridTab({
 
   return (
     <div className="space-y-4 p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-gray-400">BPM actuel</div>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xs text-[var(--text-muted)]">BPM actuel</div>
+            <div className="text-3xl font-bold text-[var(--text-primary)] font-mono">
               {beatgrid?.bpm?.toFixed(1) || '—'}
             </div>
           </div>
@@ -92,7 +92,7 @@ export function BeatgridTab({
             className={`p-3 rounded-lg transition-colors ${
               isLocked
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-400'
+                : 'bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)]'
             }`}
             title={isLocked ? 'Verrouillé' : 'Déverrouillé'}
           >
@@ -101,12 +101,12 @@ export function BeatgridTab({
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-gray-300">Offset du downbeat</div>
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">Offset du downbeat</div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => handleOffsetChange(-100)}
-            className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors"
+            className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
           >
             -100ms
           </button>
@@ -120,16 +120,16 @@ export function BeatgridTab({
           />
           <button
             onClick={() => handleOffsetChange(100)}
-            className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors"
+            className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
           >
             +100ms
           </button>
         </div>
-        <div className="text-xs text-gray-400 text-center">{downbeatOffset}ms</div>
+        <div className="text-xs text-[var(--text-muted)] text-center">{downbeatOffset}ms</div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-gray-300">Tap Tempo</div>
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">Tap Tempo</div>
         <button
           onClick={handleTapTempo}
           className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors"
@@ -137,27 +137,27 @@ export function BeatgridTab({
           Tap Tempo ({tapTimes.length})
         </button>
         {tapTimes.length > 0 && (
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-[var(--text-muted)]">
             Derniers taps: {tapTimes.length}/4
           </div>
         )}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-gray-300">Analyse</div>
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">Analyse</div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-2 bg-gray-800 rounded text-center">
-            <div className="text-xs text-gray-400">Durée</div>
-            <div className="text-sm font-mono text-white">{durationSec}s</div>
+          <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
+            <div className="text-xs text-[var(--text-muted)]">Durée</div>
+            <div className="text-sm font-mono text-[var(--text-primary)]">{durationSec}s</div>
           </div>
-          <div className="p-2 bg-gray-800 rounded text-center">
-            <div className="text-xs text-gray-400">Mesures</div>
-            <div className="text-sm font-mono text-white">{bars}</div>
+          <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
+            <div className="text-xs text-[var(--text-muted)]">Mesures</div>
+            <div className="text-sm font-mono text-[var(--text-primary)]">{bars}</div>
           </div>
         </div>
-        <div className="p-2 bg-gray-800 rounded text-center">
-          <div className="text-xs text-gray-400">Temps</div>
-          <div className="text-sm font-mono text-white">{beats} beats</div>
+        <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
+          <div className="text-xs text-[var(--text-muted)]">Temps</div>
+          <div className="text-sm font-mono text-[var(--text-primary)]">{beats} beats</div>
         </div>
       </div>
 
@@ -171,7 +171,7 @@ export function BeatgridTab({
             locked: isLocked,
           });
         }}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors"
       >
         <RotateCcw className="w-4 h-4" />
         Réinitialiser

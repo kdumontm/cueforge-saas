@@ -42,9 +42,9 @@ export function FXTab({
           return (
             <div
               key={effect.key}
-              className="p-3 rounded-lg bg-gray-900 border border-gray-800"
+              className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]"
             >
-              <div className="text-xs font-medium text-gray-300 mb-2">{effect.name}</div>
+              <div className="text-xs font-medium text-[var(--text-secondary)] mb-2">{effect.name}</div>
               <input
                 type="range"
                 min="0"
@@ -67,7 +67,7 @@ export function FXTab({
           setValues(reset);
           onResetAll?.();
         }}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-sm font-medium transition-colors"
       >
         <RotateCcw className="w-4 h-4" />
         Réinitialiser tous les FX

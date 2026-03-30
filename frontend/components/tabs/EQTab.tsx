@@ -56,7 +56,7 @@ export function EQTab({
 
             {/* Value Display */}
             <div className="text-center">
-              <div className="text-xs text-gray-400 mb-1">{band.label}</div>
+              <div className="text-xs text-[var(--text-muted)] mb-1">{band.label}</div>
               <div className={`text-xl font-bold font-mono text-${band.color}-400`}>
                 {values[band.key as keyof EQValues] > 0 ? '+' : ''}{values[band.key as keyof EQValues]}dB
               </div>
@@ -64,19 +64,19 @@ export function EQTab({
 
             {/* Center Indicator */}
             {values[band.key as keyof EQValues] === 0 && (
-              <div className="w-1 h-1 rounded-full bg-gray-600" />
+              <div className="w-1 h-1 rounded-full bg-[var(--bg-elevated)]" />
             )}
           </div>
         ))}
       </div>
 
-      <div className="pt-4 border-t border-gray-800">
+      <div className="pt-4 border-t border-[var(--border-subtle)]">
         <button
           onClick={() => {
             setValues({ low: 0, mid: 0, high: 0 });
             onReset?.();
           }}
-          className="w-full px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+          className="w-full px-4 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-sm font-medium transition-colors"
         >
           Réinitialiser
         </button>

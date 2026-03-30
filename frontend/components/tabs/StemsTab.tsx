@@ -24,7 +24,7 @@ export function StemsTab({
 }: StemsTabProps) {
   if (!track) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
+      <div className="flex items-center justify-center h-64 text-[var(--text-muted)]">
         <p>Sélectionne un morceau</p>
       </div>
     );
@@ -67,12 +67,12 @@ export function StemsTab({
           return (
             <div
               key={stem.name}
-              className="flex items-center gap-3 p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+              className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)]"
             >
               <div className={`w-3 h-3 rounded-full ${stem.color}`} />
               <div className="flex-1">
-                <div className="text-sm font-medium text-white">{stem.name}</div>
-                <div className="text-xs text-gray-400">
+                <div className="text-sm font-medium text-[var(--text-primary)]">{stem.name}</div>
+                <div className="text-xs text-[var(--text-muted)]">
                   {isAvailable ? 'Disponible' : isProcessing ? 'En cours...' : 'Non disponible'}
                 </div>
               </div>
@@ -81,7 +81,7 @@ export function StemsTab({
                 {isAvailable && (
                   <>
                     <button
-                      className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+                      className="p-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors"
                       title="Lire"
                     >
                       <Play className="w-4 h-4" />
@@ -89,7 +89,7 @@ export function StemsTab({
                     <a
                       href={url}
                       download
-                      className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+                      className="p-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors"
                       title="Télécharger"
                     >
                       <Download className="w-4 h-4" />
@@ -97,7 +97,7 @@ export function StemsTab({
                   </>
                 )}
                 {isProcessing && (
-                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-[var(--text-muted)] animate-spin" />
                 )}
               </div>
             </div>

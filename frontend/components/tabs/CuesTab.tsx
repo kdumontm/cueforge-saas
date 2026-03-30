@@ -30,7 +30,7 @@ export function CuesTab({
 
   if (!track) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
+      <div className="flex items-center justify-center h-64 text-[var(--text-muted)]">
         <p>Sélectionne un morceau</p>
       </div>
     );
@@ -59,23 +59,23 @@ export function CuesTab({
   return (
     <div className="space-y-4 p-4">
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-gray-300">Points de cue ({cuePoints.length})</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-secondary)]">Points de cue ({cuePoints.length})</h3>
         {cuePoints.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucun point de cue</p>
+          <p className="text-sm text-[var(--text-muted)]">Aucun point de cue</p>
         ) : (
           <div className="space-y-2">
             {cuePoints.map((cue) => (
               <div
                 key={cue.id}
-                className="flex items-center gap-3 p-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+                className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)]"
               >
                 <div
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: cue.color || cue.color_rgb }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-white truncate">{cue.name}</div>
-                  <div className="text-xs text-gray-400 flex gap-2">
+                  <div className="text-sm font-medium text-[var(--text-primary)] truncate">{cue.name}</div>
+                  <div className="text-xs text-[var(--text-muted)] flex gap-2">
                     <span>{formatTimeMs(cue.position_ms)}</span>
                     <span className="capitalize">
                       {cue.cue_mode === 'hot' ? 'Hot Cue' : 'Mémoire'}
@@ -85,14 +85,14 @@ export function CuesTab({
                 </div>
                 <button
                   onClick={() => onCueClick?.(cue)}
-                  className="p-1 hover:bg-gray-800 rounded transition-colors"
+                  className="p-1 hover:bg-[var(--bg-hover)] rounded transition-colors"
                   title="Éditer"
                 >
                   <Edit2 className="w-4 h-4 text-blue-400" />
                 </button>
                 <button
                   onClick={() => onDeleteCue(cue.id)}
-                  className="p-1 hover:bg-gray-800 rounded transition-colors"
+                  className="p-1 hover:bg-[var(--bg-hover)] rounded transition-colors"
                   title="Supprimer"
                 >
                   <Trash2 className="w-4 h-4 text-red-400" />
@@ -123,38 +123,38 @@ export function CuesTab({
       </div>
 
       {showForm && (
-        <div className="p-3 rounded-lg bg-gray-900 border border-gray-800 space-y-3">
+        <div className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Nom</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Nom</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Drop, Build..."
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded text-[var(--text-primary)] text-sm placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Position (mm:ss.ms)</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Position (mm:ss.ms)</label>
             <input
               type="text"
               value={position}
               onChange={(e) => setPosition(e.target.value)}
               placeholder="0:00.000"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded text-[var(--text-primary)] text-sm placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-2">Couleur</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">Couleur</label>
             <div className="flex gap-2">
               {HOT_CUE_COLORS.map((color) => (
                 <button
                   key={color}
                   onClick={() => setSelectedColor(color)}
                   className={`w-7 h-7 rounded-lg border-2 transition-all ${
-                    selectedColor === color ? 'border-white' : 'border-gray-700'
+                    selectedColor === color ? 'border-white' : 'border-[var(--border-default)]'
                   }`}
                   style={{ backgroundColor: color }}
                 />
@@ -163,11 +163,11 @@ export function CuesTab({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1">Type</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Type</label>
             <select
               value={cueType}
               onChange={(e) => setCueType(e.target.value as 'hot_cue' | 'memory')}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500"
             >
               <option value="hot_cue">Hot Cue</option>
               <option value="memory">Mémoire</option>
@@ -183,7 +183,7 @@ export function CuesTab({
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="flex-1 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors"
+              className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
             >
               Annuler
             </button>

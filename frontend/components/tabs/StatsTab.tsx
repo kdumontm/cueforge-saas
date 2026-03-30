@@ -43,8 +43,8 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
     .slice(0, 6);
 
   const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => (
-    <div className="p-3 rounded-lg bg-gray-900 border border-gray-800">
-      <div className="text-xs text-gray-400 mb-1">{label}</div>
+    <div className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
+      <div className="text-xs text-[var(--text-muted)] mb-1">{label}</div>
       <div className={`text-2xl font-bold font-mono ${color}`}>{value}</div>
     </div>
   );
@@ -61,13 +61,13 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
 
       {/* Top Genres */}
       {topGenres.length > 0 && (
-        <div className="p-3 rounded-lg bg-gray-900 border border-gray-800">
-          <div className="text-sm font-semibold text-gray-300 mb-3">Top Genres</div>
+        <div className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
+          <div className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Top Genres</div>
           <div className="space-y-2">
             {topGenres.map(({ genre, count }) => (
               <div key={genre} className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">{genre}</span>
-                <span className="font-mono text-white">{count}</span>
+                <span className="text-[var(--text-muted)]">{genre}</span>
+                <span className="font-mono text-[var(--text-primary)]">{count}</span>
               </div>
             ))}
           </div>
@@ -76,8 +76,8 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
 
       {/* Key Distribution */}
       {topKeys.length > 0 && (
-        <div className="p-3 rounded-lg bg-gray-900 border border-gray-800">
-          <div className="text-sm font-semibold text-gray-300 mb-3">Distribution des Clés</div>
+        <div className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
+          <div className="text-sm font-semibold text-[var(--text-secondary)] mb-3">Distribution des Clés</div>
           <div className="space-y-2">
             {topKeys.map(([key, count]) => {
               const maxCount = Math.max(...topKeys.map(([, c]) => c));
@@ -86,10 +86,10 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
               return (
                 <div key={key} className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">{key}</span>
-                    <span className="font-mono text-white">{count}</span>
+                    <span className="text-[var(--text-muted)]">{key}</span>
+                    <span className="font-mono text-[var(--text-primary)]">{count}</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                       style={{ width: `${percentage}%` }}

@@ -53,33 +53,33 @@ export function HistoryTab({
 
   return (
     <div className="space-y-4 p-4">
-      <div className="text-sm font-semibold text-gray-300">Historique de lecture</div>
+      <div className="text-sm font-semibold text-[var(--text-secondary)]">Historique de lecture</div>
 
       {historyWithTracks.length === 0 ? (
-        <p className="text-sm text-gray-500 p-3">Aucune lecture enregistrée</p>
+        <p className="text-sm text-[var(--text-muted)] p-3">Aucune lecture enregistrée</p>
       ) : (
         <div className="space-y-2">
           {historyWithTracks.map((entry, index) => (
             <div
               key={index}
-              className="flex items-center gap-3 p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+              className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)]"
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-white truncate">
+                <div className="text-sm font-medium text-[var(--text-primary)] truncate">
                   {entry.track?.title || entry.track?.filename}
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-[var(--text-muted)]">
                   {entry.track?.artist || 'Artiste inconnu'}
                 </div>
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
                 {entry.track?.analysis?.bpm && (
-                  <div className="px-2 py-1 rounded-lg bg-gray-800 text-xs font-mono text-gray-300">
+                  <div className="px-2 py-1 rounded-lg bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-secondary)]">
                     {entry.track.analysis.bpm.toFixed(1)} BPM
                   </div>
                 )}
-                <div className="text-xs text-gray-500 text-right whitespace-nowrap">
+                <div className="text-xs text-[var(--text-muted)] text-right whitespace-nowrap">
                   {formatDate(entry.timestamp)}
                 </div>
               </div>

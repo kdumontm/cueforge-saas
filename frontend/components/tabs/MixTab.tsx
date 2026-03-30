@@ -20,7 +20,7 @@ export function MixTab({
 
   if (!track) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400">
+      <div className="flex items-center justify-center h-64 text-[var(--text-muted)]">
         <p>Sélectionne un morceau</p>
       </div>
     );
@@ -49,8 +49,8 @@ export function MixTab({
   return (
     <div className="space-y-4 p-4">
       {/* Current Track Info */}
-      <div className="p-4 rounded-lg bg-gray-900 border border-gray-800">
-        <div className="text-xs text-gray-400 mb-2">Morceau actuel</div>
+      <div className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
+        <div className="text-xs text-[var(--text-muted)] mb-2">Morceau actuel</div>
         <div className="flex items-center gap-3">
           <div
             className="px-3 py-1 rounded-lg font-bold text-sm text-white"
@@ -58,15 +58,15 @@ export function MixTab({
           >
             {currentKey || '—'}
           </div>
-          <div className="text-sm font-mono text-white">
+          <div className="text-sm font-mono text-[var(--text-primary)]">
             {currentBpm.toFixed(1)} BPM
           </div>
         </div>
       </div>
 
       {/* BPM Tolerance */}
-      <div className="p-4 rounded-lg bg-gray-900 border border-gray-800 space-y-3">
-        <div className="text-sm font-semibold text-gray-300">Tolérance BPM: ±{bpmTolerance}%</div>
+      <div className="p-4 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-3">
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">Tolérance BPM: ±{bpmTolerance}%</div>
         <input
           type="range"
           min="0"
@@ -75,26 +75,26 @@ export function MixTab({
           onChange={(e) => setBpmTolerance(parseInt(e.target.value))}
           className="w-full"
         />
-        <div className="text-xs text-gray-400 text-center">
+        <div className="text-xs text-[var(--text-muted)] text-center">
           ±{((bpmTolerance / 100) * currentBpm).toFixed(1)} BPM
         </div>
       </div>
 
       {/* Compatible Tracks */}
       <div className="space-y-2">
-        <div className="text-sm font-semibold text-gray-300">
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">
           Morceaux compatibles ({compatibleTracks.length})
         </div>
 
         {compatibleTracks.length === 0 ? (
-          <p className="text-sm text-gray-500 p-3">Aucun morceau compatible</p>
+          <p className="text-sm text-[var(--text-muted)] p-3">Aucun morceau compatible</p>
         ) : (
           <div className="space-y-2">
             {compatibleTracks.map(({ track: t, score }) => (
               <button
                 key={t.id}
                 onClick={() => onSelectTrack?.(t)}
-                className="w-full text-left p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 transition-colors"
+                className="w-full text-left p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] transition-colors"
               >
                 <div className="flex items-center gap-3 mb-2">
                   <div
@@ -103,26 +103,26 @@ export function MixTab({
                   >
                     {t.analysis?.key || '—'}
                   </div>
-                  <div className="text-sm font-mono text-white">
+                  <div className="text-sm font-mono text-[var(--text-primary)]">
                     {t.analysis?.bpm?.toFixed(1) || '—'} BPM
                   </div>
                 </div>
 
                 <div className="mb-2">
-                  <div className="text-sm text-gray-300">
+                  <div className="text-sm text-[var(--text-secondary)]">
                     {t.title || t.filename}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-[var(--text-muted)]">
                     {t.artist || 'Artiste inconnu'}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <div className="flex justify-between text-xs text-[var(--text-muted)] mb-1">
                     <span>Compatibilité</span>
                     <span>{Math.round(score)}%</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-green-400 to-blue-500"
                       style={{ width: `${score}%` }}
