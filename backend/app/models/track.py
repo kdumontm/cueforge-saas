@@ -39,6 +39,7 @@ class Track(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
 
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
@@ -85,6 +86,7 @@ class Track(Base):
 
     # Relationships
     user = relationship("User", back_populates="tracks")
+    organization = relationship("Organization", back_populates="tracks", foreign_keys=[org_id])
     analysis = relationship(
         "TrackAnalysis", back_populates="track",
         uselist=False, cascade="all, delete-orphan",
