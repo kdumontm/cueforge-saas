@@ -772,3 +772,284 @@ export async function generateWaveform(
   if (!response.ok) throw new Error('Failed to generate waveform');
   return response.json();
 }
+
+// ── Playlists API ──────────────────────────────────────────────────────────
+
+export interface Playlist {
+  id: number;
+  name: string;
+  description: string | null;
+  is_folder: boolean;
+  parent_id: number | null;
+  track_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listPlaylists(): Promise<Playlist[]> {
+  const response = await authFetch(`${API_URL}/playlists`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch playlists');
+  return response.json();
+}
+
+export async function createPlaylist(name: string, description?: string): Promise<Playlist> {
+  const response = await authFetch(`${API_URL}/playlists`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ name, description: description || null, is_folder: false }),
+  });
+  if (!response.ok) throw new Error('Failed to create playlist');
+  return response.json();
+}
+
+export async function deletePlaylist(playlistId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/playlists/${playlistId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete playlist');
+}
+
+export async function getPlaylistTracks(playlistId: number): Promise<Track[]> {
+  const response = await authFetch(`${API_URL}/playlists/${playlistId}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch playlist');
+  const data = await response.json();
+  return data.tracks || [];
+}
+
+export async function addTracksToPlaylist(playlistId: number, trackIds: number[]): Promise<void> {
+  const response = await authFetch(`${API_URL}/playlists/${playlistId}/tracks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ track_ids: trackIds }),
+  });
+  if (!response.ok) throw new Error('Failed to add tracks to playlist');
+}
+
+export async function removeTrackFromPlaylist(playlistId: number, trackId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/playlists/${playlistId}/tracks/${trackId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to remove track from playlist');
+}
+
+// ── Smart Crates API ───────────────────────────────────────────────────────
+
+export interface SmartCrate {
+  id: number;
+  name: string;
+  description: string | null;
+  rules: any[];
+  match_mode: 'all' | 'any';
+  color: string | null;
+  track_count: number;
+}
+
+export async function listCrates(): Promise<SmartCrate[]> {
+  const response = await authFetch(`${API_URL}/crates`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch crates');
+  return response.json();
+}
+
+export async function getCrateTracks(crateId: number): Promise<{ crate: SmartCrate; tracks: Track[] }> {
+  const response = await authFetch(`${API_URL}/crates/${crateId}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch crate');
+  return response.json();
+}
+
+export async function createCrate(data: { name: string; rules: any[]; match_mode?: string; color?: string }): Promise<SmartCrate> {
+  const response = await authFetch(`${API_URL}/crates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create crate');
+  return response.json();
+}
+
+export async function deleteCrate(crateId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/crates/${crateId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete crate');
+}
+
+// ── DJ Sets API ────────────────────────────────────────────────────────────
+
+export interface DJSet {
+  id: number;
+  name: string;
+  description: string | null;
+  venue: string | null;
+  event_date: string | null;
+  genre_tags: string[];
+  tracks: DJSetTrack[];
+  created_at: string;
+}
+
+export interface DJSetTrack {
+  id: number;
+  track_id: number;
+  position: number;
+  transition_type: string | null;
+  track: Track;
+}
+
+export async function listSets(): Promise<DJSet[]> {
+  const response = await authFetch(`${API_URL}/sets`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch sets');
+  return response.json();
+}
+
+export async function getSet(setId: number): Promise<DJSet> {
+  const response = await authFetch(`${API_URL}/sets/${setId}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch set');
+  return response.json();
+}
+
+export async function createSet(data: { name: string; description?: string; venue?: string }): Promise<DJSet> {
+  const response = await authFetch(`${API_URL}/sets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create set');
+  return response.json();
+}
+
+export async function deleteSet(setId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/sets/${setId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete set');
+}
+
+export async function addTrackToSet(setId: number, trackId: number, position?: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/sets/${setId}/tracks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ track_id: trackId, position }),
+  });
+  if (!response.ok) throw new Error('Failed to add track to set');
+}
+
+export async function removeTrackFromSet(setId: number, trackId: number): Promise<void> {
+  const response = await authFetch(`${API_URL}/sets/${setId}/tracks/${trackId}`, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to remove track from set');
+}
+
+export async function suggestNextTrack(setId: number): Promise<Track[]> {
+  const response = await authFetch(`${API_URL}/sets/${setId}/suggest-next`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to get suggestions');
+  return response.json();
+}
+
+export async function getSetStats(setId: number): Promise<any> {
+  const response = await authFetch(`${API_URL}/sets/${setId}/stats`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to get set stats');
+  return response.json();
+}
+
+// ── Import DJ Software API ─────────────────────────────────────────────────
+
+export async function importRekordbox(file: File): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await authFetch(`${API_URL}/import/rekordbox`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData,
+  });
+  if (!response.ok) throw new Error('Failed to import Rekordbox');
+  return response.json();
+}
+
+export async function importSerato(file: File): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await authFetch(`${API_URL}/import/serato`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData,
+  });
+  if (!response.ok) throw new Error('Failed to import Serato');
+  return response.json();
+}
+
+export async function importTraktor(file: File): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await authFetch(`${API_URL}/import/traktor`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: formData,
+  });
+  if (!response.ok) throw new Error('Failed to import Traktor');
+  return response.json();
+}
+
+// ── Batch Export API ───────────────────────────────────────────────────────
+
+export async function exportAllRekordbox(): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/rekordbox/all`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to export Rekordbox library');
+  return response.blob();
+}
+
+export async function exportBatchRekordbox(trackIds: number[], playlistName?: string): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/rekordbox/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ track_ids: trackIds, playlist_name: playlistName || 'CueForge Export' }),
+  });
+  if (!response.ok) throw new Error('Failed to batch export Rekordbox');
+  return response.blob();
+}
+
+export async function exportPlaylistM3U(playlistId: number): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/playlist/${playlistId}/m3u`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to export M3U');
+  return response.blob();
+}
+
+export async function exportSetRekordbox(setId: number): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/set/${setId}/rekordbox`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to export set');
+  return response.blob();
+}
+
+export async function exportSetM3U(setId: number): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/set/${setId}/m3u`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to export set M3U');
+  return response.blob();
+}

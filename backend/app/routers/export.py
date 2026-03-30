@@ -24,29 +24,40 @@ def track_to_dict(track: Track) -> dict:
             cue_points.append({
                 "position_ms": cp.position_ms,
                 "end_position_ms": getattr(cp, "end_position_ms", None) or 0,
-                "label": cp.label or cp.name if hasattr(cp, "name") else (cp.label or ""),
-                "type": cp.cue_type if hasattr(cp, "cue_type") else "cue",
+                "label": getattr(cp, "name", "") or "",
+                "type": getattr(cp, "cue_type", "cue") or "cue",
                 "color": getattr(cp, "color", None),
             })
 
+    # Get analysis data from the TrackAnalysis relationship
     analysis = {}
-    if track.analysis:
-        if isinstance(track.analysis, str):
-            try:
-                analysis = json.loads(track.analysis)
-            except (json.JSONDecodeError, TypeError):
-                analysis = {}
-        elif isinstance(track.analysis, dict):
-            analysis = track.analysis
+    analysis_obj = track.analysis  # SQLAlchemy relationship (TrackAnalysis or None)
+    if analysis_obj and hasattr(analysis_obj, 'bpm'):
+        # It's a TrackAnalysis ORM object
+        analysis = {
+            "bpm": analysis_obj.bpm,
+            "key": analysis_obj.key,
+            "energy": analysis_obj.energy,
+            "duration_ms": analysis_obj.duration_ms,
+            "drop_positions": analysis_obj.drop_positions or [],
+            "phrase_positions": analysis_obj.phrase_positions or [],
+        }
+    elif isinstance(analysis_obj, str):
+        try:
+            analysis = json.loads(analysis_obj)
+        except (json.JSONDecodeError, TypeError):
+            analysis = {}
+    elif isinstance(analysis_obj, dict):
+        analysis = analysis_obj
 
     return {
         "title": track.title or track.original_filename or "Unknown",
         "artist": track.artist or "",
         "album": getattr(track, "album", "") or "",
-        "genre": analysis.get("genre", "") or getattr(track, "genre", "") or "",
-        "bpm": analysis.get("bpm") or getattr(track, "bpm", 0) or 0,
-        "key": analysis.get("key") or getattr(track, "key", "") or "",
-        "duration_ms": track.duration_ms or analysis.get("duration_ms") or 0,
+        "genre": getattr(track, "genre", "") or "",
+        "bpm": analysis.get("bpm") or 0,
+        "key": analysis.get("key") or "",
+        "duration_ms": analysis.get("duration_ms") or 0,
         "file_path": track.original_filename or "",
         "cue_points": cue_points,
         "analysis": analysis,

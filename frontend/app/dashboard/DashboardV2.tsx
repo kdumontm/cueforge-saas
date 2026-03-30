@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
@@ -99,10 +99,31 @@ export default function DashboardV2() {
   const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  // Playlists state
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
+
   // Register import handler so Sidebar/TopBar can trigger file upload
   useEffect(() => {
     registerImportHandler(() => fileRef.current?.click());
   }, [registerImportHandler]);
+
+  // Load playlists
+  useEffect(() => {
+    listPlaylists().then(setPlaylists).catch(() => {});
+  }, []);
+
+  // Load playlist tracks when a playlist section is active
+  useEffect(() => {
+    if (activeSection.startsWith('playlist_')) {
+      const playlistId = parseInt(activeSection.replace('playlist_', ''));
+      if (!isNaN(playlistId)) {
+        getPlaylistTracks(playlistId).then(setPlaylistTracks).catch(() => setPlaylistTracks([]));
+      }
+    } else {
+      setPlaylistTracks([]);
+    }
+  }, [activeSection]);
 
   // TrackList state
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,9 +162,12 @@ export default function DashboardV2() {
       // Placeholder — filter by tags containing 'vocal' if available
       result = tracks.filter(t => t.tags?.toLowerCase().includes('vocal'));
     }
-    // 'all' and playlist IDs show all tracks (playlists will use API later)
+    // Playlist sections: show playlist tracks
+    if (activeSection.startsWith('playlist_') && playlistTracks.length > 0) {
+      return playlistTracks;
+    }
     return result;
-  }, [tracks, activeSection]);
+  }, [tracks, activeSection, playlistTracks]);
 
   const realDisplayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
 
@@ -563,7 +587,26 @@ export default function DashboardV2() {
           {activeTab === 'eq' && <EQTab />}
           {activeTab === 'fx' && <FXTab />}
           {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
-          {activeTab === 'playlists' && <PlaylistsTab playlists={[]} />}
+          {activeTab === 'playlists' && (
+            <PlaylistsTab
+              playlists={playlists.map(p => ({ id: p.id, name: p.name, track_count: p.track_count || 0 }))}
+              onSelect={(pl) => setActiveSection(`playlist_${pl.id}`)}
+              onCreate={async (name) => {
+                try {
+                  const newPl = await createPlaylist(name);
+                  setPlaylists(prev => [...prev, newPl]);
+                  addToast(`Playlist "${name}" créée`, 'success');
+                } catch { addToast('Erreur création playlist', 'error'); }
+              }}
+              onDelete={async (id) => {
+                try {
+                  await apiDeletePlaylist(id);
+                  setPlaylists(prev => prev.filter(p => p.id !== id));
+                  addToast('Playlist supprimée', 'success');
+                } catch { addToast('Erreur suppression', 'error'); }
+              }}
+            />
+          )}
           {activeTab === 'stats' && <StatsTab tracks={rawTracksForTabs} />}
           {activeTab === 'history' && <HistoryTab tracks={rawTracksForTabs} />}
         </div>
@@ -661,6 +704,26 @@ export default function DashboardV2() {
           >
             <Download size={14} /> Export Rekordbox
           </button>
+          {playlists.length > 0 && (
+            <div className="border-t border-[var(--border-subtle)]">
+              <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] uppercase">Ajouter à playlist</div>
+              {playlists.slice(0, 5).map(pl => (
+                <button
+                  key={pl.id}
+                  onClick={async () => {
+                    try {
+                      await addTracksToPlaylist(pl.id, [contextMenu.trackId]);
+                      addToast(`Ajouté à "${pl.name}"`, 'success');
+                      setContextMenu(null);
+                    } catch { addToast('Erreur ajout playlist', 'error'); }
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+                >
+                  <Copy size={12} /> {pl.name}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => handleDeleteTrack(contextMenu.trackId)}
             className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"

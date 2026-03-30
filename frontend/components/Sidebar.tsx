@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
-  Music, Clock, Zap, LayoutGrid, X,
+  Music, Clock, Zap, LayoutGrid, X, Trash2,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
+import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -24,7 +25,7 @@ const navItems = [
   { href: '/dashboard/export', icon: Download, label: 'Exporter' },
 ];
 
-const SMART_CRATES = [
+const DEFAULT_CRATES = [
   { id: 'crate_peak', label: 'Peak Hour', color: '#ef4444' },
   { id: 'crate_warmup', label: 'Warm-Up', color: '#f97316' },
   { id: 'crate_vocal', label: 'Avec voix', color: '#8b5cf6' },
@@ -32,25 +33,64 @@ const SMART_CRATES = [
 
 export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { collapsed, toggleCollapsed, activeSection, setActiveSection } = useDashboardContext();
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
-  const [playlists, setPlaylists] = useState([
-    { id: 'playlist1', label: 'Set Berghain 2024', count: 12 },
-    { id: 'playlist2', label: 'Outdoor Summer', count: 8 },
-  ]);
+  const [playlists, setPlaylists] = useState<{ id: string; label: string; count: number }[]>([]);
+  const [smartCrates, setSmartCrates] = useState(DEFAULT_CRATES);
+
+  // Load playlists and crates from backend
+  useEffect(() => {
+    listPlaylists()
+      .then(pls => setPlaylists(pls.map(p => ({ id: `playlist_${p.id}`, label: p.name, count: p.track_count || 0 }))))
+      .catch(() => {});
+    listCrates()
+      .then(crates => {
+        if (crates.length > 0) {
+          setSmartCrates(crates.map(c => ({ id: `crate_${c.id}`, label: c.name, color: c.color || '#3b82f6' })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Navigate to dashboard when selecting a library section from a sub-page
+  const handleSectionClick = useCallback((id: string) => {
+    const newSection = activeSection === id && id !== 'all' ? 'all' : id;
+    setActiveSection(newSection);
+    if (pathname !== '/dashboard') {
+      router.push('/dashboard');
+    }
+  }, [activeSection, pathname, router, setActiveSection]);
 
   const W = collapsed ? 56 : 220;
   const initials = username.slice(0, 2).toUpperCase();
 
-  function handleCreatePlaylist() {
+  async function handleCreatePlaylist() {
     if (newPlaylistName.trim()) {
-      const id = 'playlist_' + Date.now();
-      setPlaylists(prev => [...prev, { id, label: newPlaylistName.trim(), count: 0 }]);
-      setNewPlaylistName('');
-      setShowNewPlaylist(false);
-      setActiveSection(id);
+      try {
+        const pl = await createPlaylist(newPlaylistName.trim());
+        const id = `playlist_${pl.id}`;
+        setPlaylists(prev => [...prev, { id, label: pl.name, count: 0 }]);
+        setNewPlaylistName('');
+        setShowNewPlaylist(false);
+        handleSectionClick(id);
+      } catch {
+        // Fallback local
+        const id = 'playlist_' + Date.now();
+        setPlaylists(prev => [...prev, { id, label: newPlaylistName.trim(), count: 0 }]);
+        setNewPlaylistName('');
+        setShowNewPlaylist(false);
+        handleSectionClick(id);
+      }
     }
+  }
+
+  async function handleDeletePlaylist(playlistId: string) {
+    const numericId = parseInt(playlistId.replace('playlist_', ''));
+    try { await deletePlaylist(numericId); } catch {}
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId));
+    if (activeSection === playlistId) setActiveSection('all');
   }
 
   const NavLink = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
@@ -114,7 +154,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           return (
             <button
               key={id}
-              onClick={() => setActiveSection(isActive && id !== 'all' ? 'all' : id)}
+              onClick={() => handleSectionClick(id)}
               className={`w-full flex items-center gap-2.5 rounded-lg text-[13px] transition-all bg-transparent border-none cursor-pointer ${
                 collapsed ? 'px-0 py-2 justify-center' : 'px-2.5 py-[7px]'
               } ${isActive ? 'font-semibold text-[var(--text-primary)] bg-[var(--bg-hover)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
@@ -131,12 +171,12 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           <>
             <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
             <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Smart Crates</div>
-            {SMART_CRATES.map((crate) => {
+            {smartCrates.map((crate) => {
               const isActive = activeSection === crate.id;
               return (
                 <button
                   key={crate.id}
-                  onClick={() => setActiveSection(isActive ? 'all' : crate.id)}
+                  onClick={() => handleSectionClick(crate.id)}
                   className="w-full flex items-center px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px"
                   style={isActive ? { background: crate.color + '18' } : {}}
                 >
@@ -177,17 +217,28 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
             {playlists.map((pl) => {
               const isActive = activeSection === pl.id;
               return (
-                <button
+                <div
                   key={pl.id}
-                  onClick={() => setActiveSection(isActive ? 'all' : pl.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px ${isActive ? 'font-semibold bg-blue-600/10' : 'hover:bg-[var(--bg-hover)]'}`}
+                  className={`w-full flex items-center justify-between px-2.5 py-[6px] rounded-lg cursor-pointer transition-all mb-px group ${isActive ? 'font-semibold bg-blue-600/10' : 'hover:bg-[var(--bg-hover)]'}`}
                 >
-                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleSectionClick(pl.id)}
+                    className="flex items-center gap-2 flex-1 bg-transparent border-none cursor-pointer p-0"
+                  >
                     <Disc3 size={12} className={isActive ? 'text-blue-400' : 'text-[var(--text-muted)]'} />
                     <span className="text-[13px]" style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}>{pl.label}</span>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono">{pl.count}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeletePlaylist(pl.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 bg-transparent border-none cursor-pointer p-0 transition-opacity"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={11} />
+                    </button>
                   </div>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono">{pl.count}</span>
-                </button>
+                </div>
               );
             })}
           </>
