@@ -46,19 +46,15 @@ function formatDuration(seconds: number | null | undefined): string {
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'info', label: 'Info', icon: '📝' },
-  { id: 'cues', label: 'Cues', icon: '🎯' },
-  { id: 'beatgrid', label: 'Beatgrid', icon: '⊞' },
+  { id: 'info',  label: 'Info',  icon: '📝' },
+  { id: 'cues',  label: 'Cues',  icon: '🎯' },
   { id: 'stems', label: 'Stems', icon: '🎸' },
-  { id: 'eq', label: 'EQ', icon: '〰' },
-  { id: 'fx', label: 'FX', icon: '✨' },
-  { id: 'mix', label: 'Mix', icon: '🎡' },
-  { id: 'playlists', label: 'Playlists', icon: '💿' },
-  { id: 'stats', label: 'Stats', icon: '📊' },
-  { id: 'history', label: 'Historique', icon: '🕐' },
+  { id: 'eq',    label: 'EQ',    icon: '〰' },
+  { id: 'fx',    label: 'FX',    icon: '✨' },
+  { id: 'mix',   label: 'Mix',   icon: '🎡' },
 ];
 
-const GLOBAL_TABS = ['stats', 'history', 'playlists'];
+const GLOBAL_TABS: string[] = [];
 
 // ── Demo data (full Track objects + flat display objects) ──────────────
 const DEMO_CUE_POINTS = [
@@ -684,101 +680,89 @@ export default function DashboardV2() {
         />
       )}
 
-      {/* Player Card */}
-      <PlayerCard
-        track={selectedTrack}
-        cuePoints={effectiveCuePoints}
-        onImportClick={() => fileRef.current?.click()}
-        onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
-        onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
-        onWaveformClick={handleWaveformClick}
-        playerRef={playerRef}
-      />
+      {/* Player + Tabs — flex row */}
+      <div className="flex gap-3 items-stretch">
 
-      {/* Tab Panel */}
-      <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">
-        {/* Tab bar */}
-        <div className="flex gap-0 border-b border-[var(--border-subtle)] overflow-x-auto">
-          {TABS.map(t => {
-            const disabled = !selectedTrack && !GLOBAL_TABS.includes(t.id);
-            return (
-              <button
-                key={t.id}
-                onClick={() => !disabled && setActiveTab(t.id)}
-                disabled={disabled}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 border-none text-xs whitespace-nowrap transition-all ${
-                  activeTab === t.id
-                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-semibold border-b-2 border-b-blue-500'
-                    : disabled
-                      ? 'text-[var(--text-muted)] opacity-40 cursor-not-allowed'
-                      : 'text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                }`}
-                style={{
-                  borderBottom: activeTab === t.id ? '2px solid #2563eb' : '2px solid transparent',
-                  background: activeTab === t.id ? 'var(--bg-elevated)' : 'transparent',
+        {/* Left: Player (waveform) + Beatgrid sous le waveform */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <PlayerCard
+            track={selectedTrack}
+            cuePoints={effectiveCuePoints}
+            onImportClick={() => fileRef.current?.click()}
+            onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
+            onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
+            onWaveformClick={handleWaveformClick}
+            playerRef={playerRef}
+          />
+          {/* Beatgrid affiché sous le waveform, pas dans les tabs */}
+          {selectedTrack && (
+            <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">
+              <BeatgridTab
+                track={selectedTrack}
+                beatgrid={selectedTrack?.analysis ? { bpm: selectedTrack.analysis?.bpm, downbeat_ms: 0, locked: false } : undefined}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right: Tab panel vertical */}
+        <div className="w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden">
+
+          {/* Onglets verticaux */}
+          <div className="w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
+            {TABS.map(t => {
+              const disabled = !selectedTrack;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => !disabled && setActiveTab(t.id)}
+                  disabled={disabled}
+                  className={`relative flex flex-col items-center gap-1 py-3 px-1 transition-all border-none ${
+                    activeTab === t.id
+                      ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                      : disabled
+                        ? 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer'
+                  }`}
+                >
+                  {activeTab === t.id && (
+                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r" />
+                  )}
+                  <span className="text-base leading-none">{t.icon}</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-wider leading-none">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Contenu de l'onglet */}
+          <div className="flex-1 min-w-0 overflow-y-auto">
+            {activeTab === 'info' && (
+              <InfoEditTab
+                track={selectedRawTrack}
+                onSave={async (trackId, data) => {
+                  await updateTrack(trackId, data);
+                  addToast('Infos sauvegardées', 'success');
+                  await loadTracks();
                 }}
-              >
-                <span className="text-[13px]">{t.icon}</span>
-                {t.label}
-              </button>
-            );
-          })}
+              />
+            )}
+            {activeTab === 'cues' && (
+              <CuesTab
+                track={selectedTrack}
+                cuePoints={effectiveCuePoints}
+                onCreateCue={handleCreateCue}
+                onDeleteCue={handleDeleteCue}
+                initialPositionMs={cuePositionMs}
+              />
+            )}
+            {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
+            {activeTab === 'eq' && <EQTab />}
+            {activeTab === 'fx' && <FXTab />}
+            {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
+          </div>
         </div>
 
-        {/* Tab content */}
-        <div className="p-4 min-h-[160px]">
-          {activeTab === 'info' && (
-            <InfoEditTab
-              track={selectedRawTrack}
-              onSave={async (trackId, data) => {
-                await updateTrack(trackId, data);
-                addToast('Infos sauvegardées', 'success');
-                await loadTracks();
-              }}
-            />
-          )}
-          {activeTab === 'cues' && (
-            <CuesTab
-              track={selectedTrack}
-              cuePoints={effectiveCuePoints}
-              onCreateCue={handleCreateCue}
-              onDeleteCue={handleDeleteCue}
-              initialPositionMs={cuePositionMs}
-            />
-          )}
-          {activeTab === 'beatgrid' && (
-            <BeatgridTab
-              track={selectedTrack}
-              beatgrid={selectedTrack?.analysis ? { bpm: selectedTrack.analysis?.bpm, downbeat_ms: 0, locked: false } : undefined}
-            />
-          )}
-          {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
-          {activeTab === 'eq' && <EQTab />}
-          {activeTab === 'fx' && <FXTab />}
-          {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
-          {activeTab === 'playlists' && (
-            <PlaylistsTab
-              playlists={playlists.map(p => ({ id: p.id, name: p.name, track_count: p.track_count || 0 }))}
-              onSelect={(pl) => setActiveSection(`playlist_${pl.id}`)}
-              onCreate={async (name) => {
-                try {
-                  const newPl = await createPlaylist(name);
-                  setPlaylists(prev => [...prev, newPl]);
-                  addToast(`Playlist "${name}" créée`, 'success');
-                } catch { addToast('Erreur création playlist', 'error'); }
-              }}
-              onDelete={async (id) => {
-                try {
-                  await apiDeletePlaylist(id);
-                  setPlaylists(prev => prev.filter(p => p.id !== id));
-                  addToast('Playlist supprimée', 'success');
-                } catch { addToast('Erreur suppression', 'error'); }
-              }}
-            />
-          )}
-          {activeTab === 'stats' && <StatsTab tracks={rawTracksForTabs} />}
-          {activeTab === 'history' && <HistoryTab tracks={rawTracksForTabs} />}
-        </div>
       </div>
 
       {/* Batch Action Bar (multi-select) */}
