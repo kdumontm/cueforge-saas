@@ -402,6 +402,15 @@ export default function DashboardV2() {
     setSelectedTrack(track);
   }
 
+  function handleFavorite(trackId: number) {
+    setFavoriteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  }
+
   function handleContextMenu(track: any, e: React.MouseEvent) {
     e.preventDefault();
     setContextMenu({trackId: track.id, x: e.clientX, y: e.clientY});
