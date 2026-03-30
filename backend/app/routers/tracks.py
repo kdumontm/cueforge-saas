@@ -116,6 +116,13 @@ async def upload_track(
             detail=f"File too large ({size_mb:.1f} MB). Max {MAX_FILE_SIZE_MB} MB."
         )
 
+    # 🔴 FIX (faille 4) : Validation des magic bytes — vérifie le contenu réel du fichier
+    if not storage_svc.validate_audio_magic_bytes(content, ext):
+        raise HTTPException(
+            status_code=400,
+            detail="Le contenu du fichier ne correspond pas au format audio déclaré.",
+        )
+
     # Save file
     filename = f"{uuid.uuid4()}{ext}"
     file_path = storage_svc.save_upload(content, filename)
@@ -176,14 +183,16 @@ async def stream_audio(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    if not track.file_path or not os.path.exists(track.file_path):
+    # 🔴 FIX (faille 5) : Validation path traversal — le chemin doit rester dans UPLOAD_DIR
+    safe = storage_svc.safe_path(track.file_path) if track.file_path else None
+    if not safe or not os.path.exists(safe):
         raise HTTPException(status_code=404, detail="Audio file not found on disk")
 
-    ext = os.path.splitext(track.file_path)[1].lower()
+    ext = os.path.splitext(safe)[1].lower()
     content_type = MIME_TYPES.get(ext, "application/octet-stream")
 
     return FileResponse(
-        path=track.file_path,
+        path=safe,
         media_type=content_type,
         filename=track.original_filename,
         headers={

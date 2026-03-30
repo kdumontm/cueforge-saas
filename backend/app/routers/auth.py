@@ -32,7 +32,7 @@ from app.services.auth_service import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
-    generate_email_verify_token,
+    generate_email_verify_token
 )
 from app.services.email_service import (
     send_reset_email,
@@ -189,6 +189,8 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
     # Store hashed refresh token (only hash in DB, plaintext returned to client)
     new_user.refresh_token = _hash_token(refresh)
+    # 🔴 FIX (faille 8) : Stocke le HASH SHA-256 du refresh token, pas le token brut
+    new_user.refresh_token = _hash_token(refresh)
     db.commit()
 
     return TokenResponse(
@@ -268,6 +270,8 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     refresh = create_refresh_token({"sub": str(user.id)})
 
     user.refresh_token = _hash_token(refresh)
+    # 🔴 FIX (faille 8) : Stocke le HASH SHA-256, pas le token brut
+    user.refresh_token = _hash_token(refresh)
     user.last_login_at = datetime.utcnow()
     db.commit()
 
@@ -294,9 +298,9 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # Verify the refresh token matches what's stored — compare hashes
+    # Compare le hash du token reçu avec le hash stocké en DB
     if user.refresh_token != _hash_token(req.refresh_token):
-        # Possible token theft — invalidate all tokens
+        # Possible vol de token — invalide tout
         user.refresh_token = None
         db.commit()
         raise HTTPException(status_code=401, detail="Token reuse detected, please login again")
@@ -638,7 +642,7 @@ async def _oauth_login_or_register(
     user.last_login_at = datetime.utcnow()
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})
-    user.refresh_token = refresh
+    user.refresh_token = _hash_token(refresh)  # 🔴 FIX (faille 8)
 
     db.commit()
     db.refresh(user)

@@ -12,6 +12,7 @@ from app.models import library as library_model  # noqa: F401 — registers v2 l
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.utils.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
@@ -19,10 +20,19 @@ logger = logging.getLogger(__name__)
 
 def _ensure_admin_account():
     """Create the default kenin admin account if it does not exist yet.
-    Also ensures existing admin account has email_verified=True so login works.
+    Le mot de passe est lu depuis ADMIN_PASSWORD (env var) — jamais hardcodé.
     """
+    import os
     from app.models import User
     from app.services.auth_service import hash_password
+
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if not admin_password:
+        logger.warning(
+            "⚠️  ADMIN_PASSWORD non défini — compte admin non créé automatiquement. "
+            "Définissez ADMIN_PASSWORD dans les variables Railway."
+        )
+        return
 
     db = SessionLocal()
     try:
@@ -31,13 +41,14 @@ def _ensure_admin_account():
             admin = User(
                 email="kenin@cueforge.app",
                 name="kenin",
-                password_hash=hash_password("kenin33"),
+                password_hash=hash_password(admin_password),
                 subscription_plan="unlimited",
                 is_admin=True,
                 email_verified=True,
             )
             db.add(admin)
             db.commit()
+            logger.info("✅ Compte admin créé depuis ADMIN_PASSWORD.")
         else:
             # Ensure the existing admin account can log in
             if not existing.email_verified:
@@ -132,6 +143,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)  # 🔴 FIX (faille 9) : headers HTTP sécurité
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402

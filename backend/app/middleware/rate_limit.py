@@ -1,8 +1,10 @@
 """
-Rate limiting middleware — protege les endpoints sensibles contre le brute-force.
+Rate limiting middleware — protège les endpoints sensibles contre le brute-force.
 
-Utilise un stockage en memoire (suffisant pour une instance unique Railway).
-Pour le multi-instance, remplacer par Redis via slowapi ou un middleware custom.
+Fixes:
+- Login réduit à 5/min (était 60 — permettait le brute-force)
+- X-Forwarded-For : utilise le dernier IP de confiance (pas le premier, spoofable)
+- Sliding window par IP réelle
 """
 import time
 from collections import defaultdict
@@ -14,16 +16,14 @@ from starlette.responses import Response, JSONResponse
 
 
 class _RateBucket:
-    """Sliding window rate limiter par cle (IP + path)."""
+    """Sliding window rate limiter par clé (IP + path)."""
 
     def __init__(self):
-        # cle -> liste de timestamps
         self._hits: Dict[str, list] = defaultdict(list)
 
     def is_allowed(self, key: str, max_hits: int, window_seconds: int) -> bool:
         now = time.monotonic()
         cutoff = now - window_seconds
-        # Nettoyer les anciennes entrees
         self._hits[key] = [t for t in self._hits[key] if t > cutoff]
         if len(self._hits[key]) >= max_hits:
             return False
@@ -31,7 +31,7 @@ class _RateBucket:
         return True
 
     def cleanup(self, max_age: int = 3600):
-        """Supprimer les cles inactives pour eviter les fuites memoire."""
+        """Supprime les clés inactives pour éviter les fuites mémoire."""
         now = time.monotonic()
         cutoff = now - max_age
         stale_keys = [k for k, v in self._hits.items() if not v or v[-1] < cutoff]
@@ -41,23 +41,31 @@ class _RateBucket:
 
 _bucket = _RateBucket()
 
-# Regles par path prefix -> (max_hits, window_seconds)
+# Règles par path prefix -> (max_hits, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
-    "/auth/login": (60, 60),          # 60 tentatives / minute (5 en prod via env)
-    "/auth/register": (3, 300),       # 3 inscriptions / 5 min
-    "/auth/forgot-password": (3, 300),  # 3 resets / 5 min
-    "/auth/resend-verify": (3, 300),  # 3 renvois / 5 min
-    "/auth/setup-admin": (3, 3600),   # 3 tentatives / heure
-    "/auth/oauth/": (10, 60),         # 10 OAuth / minute
-    "/auth/refresh": (20, 60),        # 20 refresh / minute
+    "/auth/login":           (5, 60),     # 🔴 FIX: 5/min (était 60) — anti brute-force
+    "/auth/register":        (3, 300),    # 3 inscriptions / 5 min
+    "/auth/forgot-password": (3, 300),   # 3 resets / 5 min
+    "/auth/resend-verify":   (3, 300),   # 3 renvois / 5 min
+    "/auth/setup-admin":     (3, 3600),  # 3 tentatives / heure
+    "/auth/oauth/":          (10, 60),   # 10 OAuth / minute
+    "/auth/refresh":         (20, 60),   # 20 refresh / minute
 }
 
 
 def _get_client_ip(request: Request) -> str:
-    """Extraire l'IP reelle derriere un proxy (Railway, nginx, etc.)."""
+    """
+    Extrait l'IP réelle derrière Railway (proxy de confiance).
+
+    🔴 FIX : on prend le DERNIER IP de X-Forwarded-For, pas le premier.
+    Le premier peut être forgé par l'attaquant. Railway ajoute son propre IP
+    à la fin — c'est la seule entrée qu'on ne peut pas falsifier.
+    """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        # Dernier IP = ajouté par Railway = fiable
+        ips = [ip.strip() for ip in forwarded.split(",")]
+        return ips[-1]
     return request.client.host if request.client else "unknown"
 
 
@@ -76,20 +84,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         client_ip = _get_client_ip(request)
 
-        # Trouver la regle applicable
         for prefix, (max_hits, window) in RATE_LIMITS.items():
             if prefix in path:
                 key = f"{client_ip}:{prefix}"
                 if not _bucket.is_allowed(key, max_hits, window):
-                    # Return JSONResponse directly — raising HTTPException inside
-                    # BaseHTTPMiddleware causes a 500 due to Starlette's error handling
                     return JSONResponse(
                         status_code=429,
-                        content={"detail": f"Trop de requetes. Reessayez dans {window // 60} minute(s)."},
+                        content={"detail": f"Trop de requêtes. Réessayez dans {window // 60} minute(s)."},
+                        headers={"Retry-After": str(window)},
                     )
                 break
 
-        # Nettoyage periodique (toutes les 1000 requetes)
+        # Nettoyage périodique (toutes les 1000 requêtes)
         RateLimitMiddleware._cleanup_counter += 1
         if RateLimitMiddleware._cleanup_counter % 1000 == 0:
             _bucket.cleanup()
