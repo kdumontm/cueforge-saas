@@ -1,200 +1,333 @@
 'use client';
-import { useState } from 'react';
-import { Search, SlidersHorizontal, List, Grid3X3, Upload, Star, Zap, Check } from 'lucide-react';
-import KeyBadge from '@/components/ui/KeyBadge';
-import EnergyBar from '@/components/ui/EnergyBar';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  genre: string;
-  bpm: number | null;
-  key: string | null;
-  energy: number | null;
-  duration: string;
-  rating: number;
-  tags: string[];
-  analyzed: boolean;
-  color: string | null;
-}
-
-const MOCK_TRACKS: Track[] = [
-  { id: 1, title: "Shed My Skin", artist: "Ben Böhmer", genre: "Melodic House", bpm: 124, key: "6A", energy: 72, duration: "6:42", rating: 5, tags: ["peak", "vocal"], analyzed: true, color: "#22c55e" },
-  { id: 2, title: "Lost Highway", artist: "Stephan Bodzin", genre: "Techno", bpm: 134, key: "10B", energy: 88, duration: "8:15", rating: 4, tags: ["dark", "peak"], analyzed: true, color: "#ef4444" },
-  { id: 3, title: "Equinox", artist: "Solomun", genre: "Deep House", bpm: 122, key: "3A", energy: 65, duration: "7:30", rating: 4, tags: ["warmup"], analyzed: true, color: "#3b82f6" },
-  { id: 4, title: "Disco Volante", artist: "ANNA", genre: "Techno", bpm: 136, key: "8A", energy: 91, duration: "7:05", rating: 5, tags: ["peak", "dark"], analyzed: true, color: "#ef4444" },
-  { id: 5, title: "Dreamer", artist: "Tale Of Us", genre: "Melodic House", bpm: 120, key: "1A", energy: 58, duration: "9:10", rating: 3, tags: ["warmup", "vocal"], analyzed: true, color: "#06b6d4" },
-  { id: 6, title: "Bangalore", artist: "Bicep", genre: "House", bpm: 128, key: "4B", energy: 80, duration: "5:55", rating: 4, tags: ["festival"], analyzed: true, color: "#f97316" },
-  { id: 7, title: "New Track 01.flac", artist: "Unknown", genre: "—", bpm: null, key: null, energy: null, duration: "5:20", rating: 0, tags: [], analyzed: false, color: null },
-  { id: 8, title: "New Track 02.wav", artist: "Unknown", genre: "—", bpm: null, key: null, energy: null, duration: "7:45", rating: 0, tags: [], analyzed: false, color: null },
-];
+import { useMemo, useState } from 'react';
+import { Search, Grid3x3, List, Upload } from 'lucide-react';
+import { FilterPanel } from './FilterPanel';
+import { TrackRow } from './TrackRow';
+import { TrackGrid } from './TrackGrid';
+import type { Track } from '@/types';
 
 interface TrackListProps {
-  onSelectTrack?: (track: Track) => void;
-  selectedTrackId?: number | null;
+  tracks: Track[];
+  selectedTrack: Track | null;
+  playingTrackId: number | null;
+  favoriteIds: Set<number>;
+  searchQuery: string;
+  gridView: boolean;
+  sortBy: string;
+  filters: {
+    bpmMin: number;
+    bpmMax: number;
+    keyFilter: string | null;
+    genreFilter: string | null;
+    energyMin: number;
+    energyMax: number;
+    showAnalyzedOnly: boolean;
+    showFavoritesOnly: boolean;
+  };
+  genres: string[];
+  onSelect: (track: Track) => void;
+  onDoubleClick: (track: Track) => void;
+  onContextMenu: (track: Track, e: React.MouseEvent) => void;
+  onFavoriteToggle: (trackId: number) => void;
+  onSearchChange: (query: string) => void;
+  onSortChange: (sortBy: string) => void;
+  onGridToggle: (gridView: boolean) => void;
+  onFilterChange: (key: string, value: any) => void;
+  onFilterReset: () => void;
+  isLoading?: boolean;
 }
 
-export default function TrackList({ onSelectTrack, selectedTrackId }: TrackListProps) {
+const SORT_OPTIONS = [
+  { value: 'date', label: 'Date (récent)' },
+  { value: 'bpm', label: 'BPM' },
+  { value: 'key', label: 'Tonalité' },
+  { value: 'title', label: 'Titre' },
+  { value: 'energy', label: 'Énergie' },
+  { value: 'genre', label: 'Genre' },
+  { value: 'duration', label: 'Durée' },
+  { value: 'rating', label: 'Évaluation' },
+];
+
+const formatTime = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  return m + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
+};
+
+const COLUMN_HEADERS = [
+  { key: 'index', label: '#', width: '40px' },
+  { key: 'play', label: '', width: '40px' },
+  { key: 'title', label: 'Titre', width: '2fr' },
+  { key: 'bpm', label: 'BPM', width: '80px' },
+  { key: 'key', label: 'Tonalité', width: '80px' },
+  { key: 'energy', label: 'Énergie', width: '120px' },
+  { key: 'genre', label: 'Genre', width: '100px' },
+  { key: 'duration', label: 'Durée', width: '80px' },
+  { key: 'rating', label: '', width: '40px' },
+];
+
+export function TrackList({
+  tracks,
+  selectedTrack,
+  playingTrackId,
+  favoriteIds,
+  searchQuery,
+  gridView,
+  sortBy,
+  filters,
+  genres,
+  onSelect,
+  onDoubleClick,
+  onContextMenu,
+  onFavoriteToggle,
+  onSearchChange,
+  onSortChange,
+  onGridToggle,
+  onFilterChange,
+  onFilterReset,
+  isLoading = false,
+}: TrackListProps) {
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
+  // Filter and sort tracks
+  const filteredTracks = useMemo(() => {
+    let result = [...tracks];
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(query) ||
+          t.artist.toLowerCase().includes(query) ||
+          (t.genre && t.genre.toLowerCase().includes(query))
+      );
+    }
+
+    // BPM filter
+    if (filters.bpmMin > 0 || filters.bpmMax < 300) {
+      result = result.filter(
+        (t) => t.bpm && t.bpm >= filters.bpmMin && t.bpm <= filters.bpmMax
+      );
+    }
+
+    // Key filter
+    if (filters.keyFilter) {
+      result = result.filter((t) => t.key === filters.keyFilter);
+    }
+
+    // Genre filter
+    if (filters.genreFilter) {
+      result = result.filter((t) => t.genre === filters.genreFilter);
+    }
+
+    // Energy filter
+    if (filters.energyMin > 0 || filters.energyMax < 100) {
+      result = result.filter(
+        (t) =>
+          t.energy !== undefined &&
+          t.energy >= filters.energyMin &&
+          t.energy <= filters.energyMax
+      );
+    }
+
+    // Analyzed only
+    if (filters.showAnalyzedOnly) {
+      result = result.filter((t) => t.analyzed !== false);
+    }
+
+    // Favorites only
+    if (filters.showFavoritesOnly) {
+      result = result.filter((t) => favoriteIds.has(t.id));
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'bpm':
+          return (b.bpm || 0) - (a.bpm || 0);
+        case 'key':
+          return (a.key || '').localeCompare(b.key || '');
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'energy':
+          return (b.energy || 0) - (a.energy || 0);
+        case 'genre':
+          return (a.genre || '').localeCompare(b.genre || '');
+        case 'duration':
+          return (b.duration || 0) - (a.duration || 0);
+        case 'rating':
+          return (favoriteIds.has(b.id) ? 1 : 0) - (favoriteIds.has(a.id) ? 1 : 0);
+        case 'date':
+        default:
+          return (b.id || 0) - (a.id || 0);
+      }
+    });
+
+    return result;
+  }, [tracks, searchQuery, filters, favoriteIds, sortBy]);
 
   return (
-    <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border-subtle)]">
-        <span className="text-sm font-bold text-[var(--text-primary)]">Tracks</span>
-        <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-default)]">
-          {MOCK_TRACKS.length}
-        </span>
-        <div className="flex-1" />
-        {/* Search */}
-        <div className="flex items-center gap-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg px-2.5 py-[5px]">
-          <Search size={12} className="text-[var(--text-muted)]" />
-          <input
-            type="text"
-            placeholder="Rechercher des tracks..."
-            className="bg-transparent border-none outline-none text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] w-[150px]"
-          />
-        </div>
-        {/* Filter toggle */}
-        <button
-          onClick={() => setShowFilters(f => !f)}
-          className={`flex items-center gap-1.5 px-3 py-[5px] rounded-lg text-xs cursor-pointer transition-colors ${
-            showFilters
-              ? 'border border-blue-500/50 bg-blue-600/15 text-blue-400 font-semibold'
-              : 'border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]'
-          }`}
-        >
-          <SlidersHorizontal size={12} /> Filtres
-        </button>
-        {/* View toggle */}
-        <div className="flex border border-[var(--border-default)] rounded-lg overflow-hidden">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-2.5 py-[5px] border-none text-xs cursor-pointer ${
-              viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-            }`}
+    <div className="flex flex-col h-full bg-[var(--bg-primary)]">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 p-4 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        {/* Search and Controls */}
+        <div className="flex items-center gap-3">
+          {/* Search Input */}
+          <div className="flex-1 relative">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
+            />
+            <input
+              type="text"
+              placeholder="Rechercher des morceaux..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => onSortChange(e.target.value)}
+            className="px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
           >
-            <List size={13} />
-          </button>
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`px-2.5 py-[5px] border-none text-xs cursor-pointer ${
-              viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-            }`}
-          >
-            <Grid3X3 size={13} />
-          </button>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {/* View Toggle */}
+          <div className="flex gap-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-1">
+            <button
+              onClick={() => onGridToggle(false)}
+              className={`p-2 rounded transition-colors ${
+                !gridView
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <List size={16} />
+            </button>
+            <button
+              onClick={() => onGridToggle(true)}
+              className={`p-2 rounded transition-colors ${
+                gridView
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Grid3x3 size={16} />
+            </button>
+          </div>
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-[5px] rounded-lg bg-blue-600 text-white text-[11px] font-semibold cursor-pointer border-none">
-          <Upload size={12} /> Upload
-        </button>
+
+        {/* Filter Panel */}
+        <FilterPanel
+          filters={filters}
+          genres={genres}
+          onFilterChange={onFilterChange}
+          onReset={onFilterReset}
+        />
       </div>
 
-      {/* Filter panel */}
-      {showFilters && (
-        <div className="px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] flex gap-5 items-end flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-[10px] font-semibold text-[var(--text-muted)] mb-1.5">BPM Range</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {[100, 110, 120, 125, 128, 130, 135, 140, 145].map(bpm => (
-                <button key={bpm} className="px-[7px] py-[2px] rounded-[5px] border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[10px] cursor-pointer hover:bg-[var(--bg-hover)]">
-                  {bpm}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] font-semibold text-[var(--text-muted)] mb-1.5">Tonalité</div>
-            <div className="flex gap-1">
-              {["Am", "Em", "Bm", "Dm"].map(k => (
-                <button key={k} className="px-[7px] py-[2px] rounded-[5px] border border-[var(--border-default)] bg-[var(--bg-primary)] text-[var(--text-muted)] text-[10px] cursor-pointer">{k}</button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] font-semibold text-[var(--text-muted)] mb-1.5">Genre</div>
-            <div className="flex gap-1">
-              {["Techno", "House", "Melodic"].map(g => (
-                <button key={g} className="px-[7px] py-[2px] rounded-[5px] border border-[var(--border-default)] bg-[var(--bg-primary)] text-[var(--text-muted)] text-[10px] cursor-pointer">{g}</button>
-              ))}
-            </div>
-          </div>
-          <button className="px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer">
-            Reset
-          </button>
-        </div>
-      )}
-
-      {/* Column headers */}
-      <div className="grid gap-0 px-4 py-[7px] border-b border-[var(--border-subtle)]" style={{ gridTemplateColumns: '28px 1fr 80px 70px 60px 70px 80px 60px 80px' }}>
-        {["", "TITRE", "BPM", "TONALITÉ", "ÉNERGIE", "DURÉE", "GENRE", "RATING", "TAGS"].map((h, i) => (
-          <div key={i} className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider pr-2">{h}</div>
-        ))}
+      {/* Track Count */}
+      <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
+        {filteredTracks.length} morceau{filteredTracks.length !== 1 ? 'x' : ''}
+        {tracks.length !== filteredTracks.length &&
+          ` (${tracks.length} total)`}
       </div>
 
-      {/* Rows */}
-      {MOCK_TRACKS.map(t => (
-        <div
-          key={t.id}
-          onClick={() => onSelectTrack?.(t)}
-          className={`grid gap-0 px-4 py-[9px] border-b border-[var(--border-subtle)] cursor-pointer items-center transition-colors ${
-            selectedTrackId === t.id ? 'bg-blue-600/10' : 'hover:bg-[var(--bg-hover)]'
-          }`}
-          style={{ gridTemplateColumns: '28px 1fr 80px 70px 60px 70px 80px 60px 80px' }}
-        >
-          {/* Status */}
-          <div className="flex items-center justify-center">
-            {t.analyzed ? (
-              <Check size={13} className="text-emerald-500" />
-            ) : (
-              <Zap size={13} className="text-amber-400 cursor-pointer" title="Analyser" />
-            )}
-          </div>
-          {/* Title */}
-          <div className="min-w-0 pr-3">
-            <div className="text-[13px] font-semibold text-[var(--text-primary)] truncate">{t.title}</div>
-            <div className="text-[11px] text-[var(--text-muted)]">{t.artist}</div>
-          </div>
-          {/* BPM */}
-          <div>
-            {t.bpm ? (
-              <span className="text-xs font-semibold text-[var(--text-primary)] font-mono">{t.bpm}</span>
-            ) : (
-              <button className="px-[7px] py-[2px] rounded-[5px] border border-amber-500/40 bg-amber-500/15 text-amber-400 text-[10px] cursor-pointer">
-                Analyser
-              </button>
-            )}
-          </div>
-          {/* Key */}
-          <div>{t.key ? <KeyBadge camelotKey={t.key} /> : <span className="text-[var(--text-muted)]">—</span>}</div>
-          {/* Energy */}
-          <div><EnergyBar energy={t.energy} width={36} /></div>
-          {/* Duration */}
-          <div className="text-xs text-[var(--text-secondary)] font-mono">{t.duration}</div>
-          {/* Genre */}
-          <div className="text-[11px] text-[var(--text-secondary)] truncate">{t.genre}</div>
-          {/* Rating */}
-          <div className="flex items-center gap-0.5">
-            {t.rating > 0 ? (
-              Array.from({ length: 5 }, (_, i) => (
-                <Star key={i} size={10} className={i < t.rating ? 'text-amber-400 fill-amber-400' : 'text-[var(--text-muted)]'} />
-              ))
-            ) : (
-              <span className="text-[var(--text-muted)]">—</span>
-            )}
-          </div>
-          {/* Tags */}
-          <div className="flex gap-1 flex-wrap">
-            {t.tags.map(tag => (
-              <span key={tag} className="px-[5px] py-[1px] rounded text-[9px] font-semibold bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-default)]">
-                {tag}
-              </span>
+      {/* Content */}
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          // Loading Skeleton
+          <div className="p-4 space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="h-10 bg-[var(--bg-secondary)] rounded animate-pulse"
+              />
             ))}
           </div>
-        </div>
-      ))}
+        ) : filteredTracks.length === 0 ? (
+          // Empty State
+          <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
+            <Upload size={48} className="text-[var(--text-secondary)] opacity-50" />
+            <div>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">
+                Aucun morceau
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Commencez par importer vos pistes audio
+              </p>
+            </div>
+          </div>
+        ) : gridView ? (
+          // Grid View
+          <TrackGrid
+            tracks={filteredTracks}
+            selectedTrack={selectedTrack}
+            playingTrackId={playingTrackId}
+            favoriteIds={favoriteIds}
+            onSelect={onSelect}
+            onDoubleClick={onDoubleClick}
+            onContextMenu={onContextMenu}
+            onFavoriteToggle={onFavoriteToggle}
+          />
+        ) : (
+          // List View
+          <div className="flex flex-col">
+            {/* Column Headers */}
+            <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 py-2">
+              <div
+                className="grid gap-3 text-xs font-medium text-[var(--text-secondary)]"
+                style={{
+                  gridTemplateColumns: COLUMN_HEADERS.map((h) => h.width).join(' '),
+                }}
+              >
+                {COLUMN_HEADERS.map((header) => (
+                  <button
+                    key={header.key}
+                    onClick={() => {
+                      if (header.key !== 'index' && header.key !== 'play') {
+                        onSortChange(header.key);
+                      }
+                    }}
+                    className={`text-left hover:text-[var(--text-primary)] transition-colors ${
+                      header.key === 'index' || header.key === 'play'
+                        ? 'cursor-default'
+                        : 'cursor-pointer'
+                    }`}
+                  >
+                    {header.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rows */}
+            {filteredTracks.map((track, index) => (
+              <TrackRow
+                key={track.id}
+                track={track}
+                index={index}
+                isSelected={selectedTrack?.id === track.id}
+                isPlaying={playingTrackId === track.id}
+                isFavorite={favoriteIds.has(track.id)}
+                onSelect={onSelect}
+                onDoubleClick={onDoubleClick}
+                onContextMenu={onContextMenu}
+                onFavoriteToggle={onFavoriteToggle}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
