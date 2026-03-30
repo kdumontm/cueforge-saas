@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Tag, Palette, MessageSquare, Music2, Star, Zap, RotateCcw, Check, X, Disc3 } from 'lucide-react';
+import { Save, RotateCcw, Check, X, Star } from 'lucide-react';
 import type { Track } from '@/types';
 import { CATEGORY_PRESETS } from '@/types';
 
@@ -12,14 +12,14 @@ interface InfoEditTabProps {
 }
 
 const COLOR_PRESETS = [
-  { name: 'Rouge', value: '#C02626' },
+  { name: 'Rouge',  value: '#C02626' },
   { name: 'Orange', value: '#F8821A' },
-  { name: 'Jaune', value: '#F1E315' },
-  { name: 'Vert', value: '#1FAD2D' },
-  { name: 'Cyan', value: '#0DC5C1' },
-  { name: 'Bleu', value: '#1644AD' },
+  { name: 'Jaune',  value: '#F1E315' },
+  { name: 'Vert',   value: '#1FAD2D' },
+  { name: 'Cyan',   value: '#0DC5C1' },
+  { name: 'Bleu',   value: '#1644AD' },
   { name: 'Violet', value: '#9110C2' },
-  { name: 'Rose', value: '#E91180' },
+  { name: 'Rose',   value: '#E91180' },
 ];
 
 const TAG_SUGGESTIONS = [
@@ -28,27 +28,15 @@ const TAG_SUGGESTIONS = [
   'remix', 'edit', 'mashup', 'b2b', 'transition', 'build',
 ];
 
-const CUE_COLORS = ['#C02626','#F8821A','#F1E315','#1FAD2D','#0DC5C1','#1644AD','#9110C2','#E91180'];
-
-function formatDuration(ms: number) {
-  const total = Math.floor(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
 function EnergyBar({ value }: { value: number }) {
   return (
     <div className="flex gap-0.5 mt-1">
       {Array.from({ length: 10 }, (_, i) => (
-        <div
-          key={i}
-          className={`flex-1 h-1.5 rounded-sm ${
-            i < value
-              ? i < 3 ? 'bg-emerald-500' : i < 6 ? 'bg-yellow-500' : i < 8 ? 'bg-orange-500' : 'bg-red-500'
-              : 'bg-[var(--bg-elevated)]'
-          }`}
-        />
+        <div key={i} className={`flex-1 h-1 rounded-sm ${
+          i < value
+            ? i < 3 ? 'bg-emerald-500' : i < 6 ? 'bg-yellow-500' : i < 8 ? 'bg-orange-500' : 'bg-red-500'
+            : 'bg-[var(--bg-elevated)]'
+        }`} />
       ))}
     </div>
   );
@@ -56,17 +44,9 @@ function EnergyBar({ value }: { value: number }) {
 
 export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [formData, setFormData] = useState({
-    title: '',
-    artist: '',
-    album: '',
-    genre: '',
-    label: '',
-    category: '',
-    tags: '',
-    comment: '',
-    color_code: '',
-    energy_level: 0,
-    rating: 0,
+    title: '', artist: '', album: '', genre: '', label: '',
+    category: '', tags: '', comment: '', color_code: '',
+    energy_level: 0, rating: 0,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -75,23 +55,23 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   useEffect(() => {
     if (!track) return;
     setFormData({
-      title: track.title || track.original_filename || '',
-      artist: track.artist || '',
-      album: track.album || '',
-      genre: track.genre || '',
-      label: (track as any).label || '',
-      category: track.category || '',
-      tags: track.tags || '',
-      comment: track.comment || '',
-      color_code: track.color_code || '',
+      title:        track.title || track.original_filename || '',
+      artist:       track.artist || '',
+      album:        track.album || '',
+      genre:        track.genre || '',
+      label:        (track as any).label || '',
+      category:     track.category || '',
+      tags:         track.tags || '',
+      comment:      track.comment || '',
+      color_code:   track.color_code || '',
       energy_level: track.energy_level || 0,
-      rating: track.rating || 0,
+      rating:       track.rating || 0,
     });
     setDirty(false);
     setSaved(false);
   }, [track?.id]);
 
-  const updateField = useCallback((field: string, value: any) => {
+  const set = useCallback((field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setDirty(true);
     setSaved(false);
@@ -131,273 +111,104 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   };
 
   const toggleTag = (tag: string) => {
-    const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-    const idx = currentTags.indexOf(tag);
-    if (idx >= 0) currentTags.splice(idx, 1);
-    else currentTags.push(tag);
-    updateField('tags', currentTags.join(','));
+    const tags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const idx = tags.indexOf(tag);
+    if (idx >= 0) tags.splice(idx, 1); else tags.push(tag);
+    set('tags', tags.join(','));
   };
 
   const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
 
+  const inputCls = 'w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors';
+  const labelCls = 'block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1';
+
   if (!track) {
     return (
-      <div className="flex items-center justify-center h-32 text-[var(--text-muted)] text-sm">
+      <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm">
         Sélectionnez un morceau
       </div>
     );
   }
 
-  const analysis = track.analysis;
-  const cuePoints = (track as any).cue_points || [];
-
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
+    <div className="flex h-full overflow-hidden">
 
-      {/* ──────────── LEFT: Analysis summary ──────────── */}
-      <div className="flex-1 flex flex-col gap-4 p-4 overflow-y-auto border-r border-[var(--border-subtle)] min-w-0">
+      {/* Zone vide gauche */}
+      <div className="flex-1" />
 
-        {/* Track identity */}
-        <div>
-          <div className="text-base font-bold text-[var(--text-primary)] truncate leading-tight">
-            {track.title || track.original_filename}
-          </div>
-          <div className="text-sm text-[var(--text-secondary)] truncate mt-0.5">{track.artist}</div>
-          {track.genre && (
-            <div className="mt-1">
-              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
-                {track.genre}
-              </span>
-            </div>
-          )}
-        </div>
+      {/* Panneau compact droit */}
+      <div className="w-[270px] flex-shrink-0 flex flex-col h-full border-l border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
 
-        {/* BPM / Key / Energy cards */}
-        {analysis && (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
-              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">BPM</div>
-              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
-                {analysis.bpm ? Math.round(analysis.bpm * 10) / 10 : '—'}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
-              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Tonalité</div>
-              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
-                {analysis.key || '—'}
-              </div>
-            </div>
-            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
-              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Énergie</div>
-              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
-                {analysis.energy ? Math.round(analysis.energy * 100) + '%' : '—'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Duration + filename */}
-        <div className="flex flex-col gap-1.5 text-xs">
-          {analysis?.duration_ms && (
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)]">Durée</span>
-              <span className="font-mono text-[var(--text-secondary)] font-medium">{formatDuration(analysis.duration_ms)}</span>
-            </div>
-          )}
-          {track.original_filename && (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[var(--text-muted)] shrink-0">Fichier</span>
-              <span className="font-mono text-[var(--text-muted)] truncate text-right">{track.original_filename}</span>
-            </div>
-          )}
-          {analysis && (
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--text-muted)]">Statut</span>
-              <span className="text-emerald-400 font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                Analysé
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Hot cues */}
-        {cuePoints.length > 0 && (
-          <div>
-            <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">Hot Cues</div>
-            <div className="flex flex-col gap-1.5">
-              {cuePoints.slice(0, 6).map((cue: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div
-                    className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                    style={{ backgroundColor: cue.color || CUE_COLORS[i % CUE_COLORS.length] }}
-                  >
-                    {i + 1}
-                  </div>
-                  <span className="text-xs font-mono text-[var(--text-muted)]">
-                    {cue.position_ms != null
-                      ? formatDuration(cue.position_ms)
-                      : cue.time_ms != null
-                        ? formatDuration(cue.time_ms)
-                        : '—'}
-                  </span>
-                  {cue.name && (
-                    <span className="text-xs text-[var(--text-secondary)] truncate">{cue.name}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Color badge */}
-        {track.color_code && (
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: track.color_code }} />
-            <span className="text-xs text-[var(--text-muted)]">Couleur assignée</span>
-          </div>
-        )}
-
-        {/* Tags display */}
-        {currentTags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {currentTags.map(tag => (
-              <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/25">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ──────────── RIGHT: Compact edit form ──────────── */}
-      <div className="w-[260px] flex-shrink-0 flex flex-col overflow-y-auto bg-[var(--bg-secondary)]">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-secondary)] z-10">
-          <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Modifier</span>
-          <div className="flex items-center gap-1">
+        {/* Header sticky */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-subtle)] flex-shrink-0">
+          <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Informations</span>
+          <div className="flex items-center gap-1.5">
             {dirty && (
-              <button
-                onClick={handleReset}
-                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
-                title="Annuler"
-              >
+              <button onClick={handleReset} className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors" title="Annuler">
                 <RotateCcw size={11} />
               </button>
             )}
             <button
               onClick={handleSave}
               disabled={!dirty || saving}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
-                saved
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : dirty
-                    ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
-                    : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
+              className={`px-2.5 py-1 rounded text-[10px] font-semibold flex items-center gap-1 transition-all ${
+                saved    ? 'bg-emerald-500/20 text-emerald-400'
+                : dirty  ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
+                         : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
               }`}
             >
-              {saving ? (
-                <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : saved ? (
-                <Check size={11} />
-              ) : (
-                <Save size={11} />
-              )}
-              {saved ? 'OK' : 'Sauver'}
+              {saving ? <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+               : saved ? <Check size={11} />
+                       : <Save size={11} />}
+              {saved ? 'Sauvé' : 'Sauver'}
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 p-3">
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
 
-          {/* Titre */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Titre</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={e => updateField('title', e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-            />
+            <label className={labelCls}>Titre</label>
+            <input className={inputCls} value={formData.title} onChange={e => set('title', e.target.value)} />
           </div>
 
-          {/* Artiste */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Artiste</label>
-            <input
-              type="text"
-              value={formData.artist}
-              onChange={e => updateField('artist', e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-            />
+            <label className={labelCls}>Artiste</label>
+            <input className={inputCls} value={formData.artist} onChange={e => set('artist', e.target.value)} />
           </div>
 
-          {/* Genre + Label */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Genre</label>
-              <input
-                type="text"
-                value={formData.genre}
-                onChange={e => updateField('genre', e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-              />
+              <label className={labelCls}>Genre</label>
+              <input className={inputCls} value={formData.genre} onChange={e => set('genre', e.target.value)} />
             </div>
             <div>
-              <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Label</label>
-              <input
-                type="text"
-                value={formData.label}
-                onChange={e => updateField('label', e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-              />
+              <label className={labelCls}>Label</label>
+              <input className={inputCls} value={formData.label} onChange={e => set('label', e.target.value)} />
             </div>
           </div>
 
-          {/* Album */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Album</label>
-            <input
-              type="text"
-              value={formData.album}
-              onChange={e => updateField('album', e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-            />
+            <label className={labelCls}>Album</label>
+            <input className={inputCls} value={formData.album} onChange={e => set('album', e.target.value)} />
           </div>
 
-          {/* Catégorie */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Catégorie</label>
-            <select
-              value={formData.category}
-              onChange={e => updateField('category', e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-            >
+            <label className={labelCls}>Catégorie</label>
+            <select className={inputCls} value={formData.category} onChange={e => set('category', e.target.value)}>
               <option value="">— Aucune —</option>
-              {CATEGORY_PRESETS.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
+              {CATEGORY_PRESETS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
           </div>
 
           {/* Rating */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Évaluation</label>
-            <div className="flex items-center gap-0.5">
-              {[1, 2, 3, 4, 5].map(star => (
-                <button
-                  key={star}
-                  onClick={() => updateField('rating', formData.rating === star ? 0 : star)}
-                  className="p-0.5 hover:bg-[var(--bg-hover)] rounded transition-colors"
-                >
-                  <Star
-                    size={16}
-                    className={star <= formData.rating
-                      ? 'fill-yellow-500 text-yellow-500'
-                      : 'text-[var(--bg-elevated)]'
-                    }
-                  />
+            <label className={labelCls}>Évaluation</label>
+            <div className="flex gap-1">
+              {[1,2,3,4,5].map(s => (
+                <button key={s} onClick={() => set('rating', formData.rating === s ? 0 : s)} className="hover:bg-[var(--bg-hover)] rounded p-0.5 transition-colors">
+                  <Star size={16} className={s <= formData.rating ? 'fill-yellow-500 text-yellow-500' : 'text-[var(--bg-elevated)]'} />
                 </button>
               ))}
             </div>
@@ -405,43 +216,23 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
 
           {/* Energy */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">
-              Énergie <span className="normal-case font-normal">{formData.energy_level || 0}/10</span>
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={formData.energy_level}
-              onChange={e => updateField('energy_level', parseInt(e.target.value))}
-              className="w-full accent-blue-500"
-            />
+            <label className={labelCls}>Énergie <span className="normal-case font-normal text-[var(--text-muted)]">{formData.energy_level}/10</span></label>
+            <input type="range" min="0" max="10" value={formData.energy_level} onChange={e => set('energy_level', parseInt(e.target.value))} className="w-full accent-blue-500" />
             <EnergyBar value={formData.energy_level} />
           </div>
 
           {/* Couleur */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Couleur</label>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <label className={labelCls}>Couleur</label>
+            <div className="flex gap-1.5 flex-wrap">
               {COLOR_PRESETS.map(c => (
-                <button
-                  key={c.value}
-                  onClick={() => updateField('color_code', formData.color_code === c.value ? '' : c.value)}
-                  className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
-                    formData.color_code === c.value
-                      ? 'border-white scale-110 shadow-md'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                  style={{ backgroundColor: c.value }}
-                  title={c.name}
-                />
+                <button key={c.value} onClick={() => set('color_code', formData.color_code === c.value ? '' : c.value)}
+                  className={`w-5 h-5 rounded-full border-2 transition-all hover:scale-110 ${formData.color_code === c.value ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                  style={{ backgroundColor: c.value }} title={c.name} />
               ))}
               {formData.color_code && (
-                <button
-                  onClick={() => updateField('color_code', '')}
-                  className="w-6 h-6 rounded-full border border-[var(--border-subtle)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
-                >
-                  <X size={10} className="text-[var(--text-muted)]" />
+                <button onClick={() => set('color_code', '')} className="w-5 h-5 rounded-full border border-[var(--border-subtle)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors">
+                  <X size={9} className="text-[var(--text-muted)]" />
                 </button>
               )}
             </div>
@@ -449,15 +240,12 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
 
           {/* Tags */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Tags</label>
+            <label className={labelCls}>Tags</label>
             {currentTags.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-1.5">
                 {currentTags.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => toggleTag(tag)}
-                    className="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all flex items-center gap-0.5"
-                  >
+                  <button key={tag} onClick={() => toggleTag(tag)}
+                    className="px-1.5 py-0.5 rounded-full text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all flex items-center gap-0.5">
                     {tag} <X size={8} />
                   </button>
                 ))}
@@ -465,11 +253,8 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
             )}
             <div className="flex flex-wrap gap-1">
               {TAG_SUGGESTIONS.filter(t => !currentTags.includes(t)).slice(0, 12).map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className="px-1.5 py-0.5 rounded-full text-[9px] bg-[var(--bg-primary)] text-[var(--text-muted)] border border-[var(--border-subtle)] hover:border-blue-500/50 hover:text-blue-400 transition-all"
-                >
+                <button key={tag} onClick={() => toggleTag(tag)}
+                  className="px-1.5 py-0.5 rounded-full text-[9px] bg-[var(--bg-primary)] text-[var(--text-muted)] border border-[var(--border-subtle)] hover:border-blue-500/50 hover:text-blue-400 transition-all">
                   +{tag}
                 </button>
               ))}
@@ -478,14 +263,10 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
 
           {/* Commentaire */}
           <div>
-            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Commentaire</label>
-            <textarea
-              value={formData.comment}
-              onChange={e => updateField('comment', e.target.value)}
-              placeholder="Notes, mix ideas..."
-              rows={2}
-              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors resize-none"
-            />
+            <label className={labelCls}>Commentaire</label>
+            <textarea value={formData.comment} onChange={e => set('comment', e.target.value)}
+              placeholder="Notes, mix ideas..." rows={3}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors resize-none" />
           </div>
 
         </div>
