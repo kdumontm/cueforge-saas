@@ -39,11 +39,11 @@ class TrackAnalysisResponse(BaseModel):
     key: Optional[str] = None
     energy: Optional[float] = None
     duration_ms: Optional[int] = None
-    drop_positions: List[int] = []
-    phrase_positions: List[int] = []
-    beat_positions: List[int] = []
-    section_labels: List[Dict[str, Any]] = []
-    analyzed_at: datetime
+    drop_positions: Optional[List[int]] = []
+    phrase_positions: Optional[List[int]] = []
+    beat_positions: Optional[List[int]] = []
+    section_labels: Optional[List[Dict[str, Any]]] = []
+    analyzed_at: Optional[datetime] = None
 
 
 class TrackResponse(BaseModel):

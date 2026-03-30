@@ -93,8 +93,8 @@ class DJSetResponse(BaseModel):
     target_duration_min: Optional[int] = None
     target_bpm_start: Optional[float] = None
     target_bpm_end: Optional[float] = None
-    genre_tags: List[str] = []
-    status: str
+    genre_tags: Optional[List[str]] = []
+    status: str = "draft"
     track_count: int = 0
 
     model_config = {"from_attributes": True}

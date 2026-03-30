@@ -147,7 +147,7 @@ export async function refreshToken(): Promise<AuthResponse> {
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
-  const response = await authFetch(`${API_URL}/auth/forgot-password`, {
+  const response = await fetch(`${API_URL}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -157,7 +157,7 @@ export async function forgotPassword(email: string): Promise<{ message: string }
 }
 
 export async function resetPassword(token: string, new_password: string): Promise<{ message: string }> {
-  const response = await authFetch(`${API_URL}/auth/reset-password`, {
+  const response = await fetch(`${API_URL}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),

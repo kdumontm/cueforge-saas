@@ -60,11 +60,11 @@ class SmartCrateResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
-    rules: List[dict]
-    match_mode: str
+    rules: Optional[List[dict]] = []
+    match_mode: str = "all"
     limit: Optional[int] = None
-    sort_by: str
-    sort_dir: str
+    sort_by: str = "created_at"
+    sort_dir: str = "desc"
     track_count: int = 0
 
     model_config = {"from_attributes": True}

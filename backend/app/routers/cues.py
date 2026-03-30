@@ -62,7 +62,7 @@ class RuleResponse(BaseModel):
     track_id: int
     rule_type: str
     is_active: bool
-    parameters: Dict
+    parameters: Optional[Dict] = {}
 
     class Config:
         from_attributes = True

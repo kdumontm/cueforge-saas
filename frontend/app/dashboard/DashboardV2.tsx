@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
@@ -99,9 +99,10 @@ export default function DashboardV2() {
   const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  // Playlists state
+  // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
+  const [crateTracks, setCrateTracks] = useState<Track[]>([]);
 
   // Register import handler so Sidebar/TopBar can trigger file upload
   useEffect(() => {
@@ -122,6 +123,19 @@ export default function DashboardV2() {
       }
     } else {
       setPlaylistTracks([]);
+    }
+  }, [activeSection]);
+
+  // Load crate tracks when a dynamic smart crate is active
+  useEffect(() => {
+    const dynamicCrateIds = ['crate_peak', 'crate_warmup', 'crate_vocal'];
+    if (activeSection.startsWith('crate_') && !dynamicCrateIds.includes(activeSection)) {
+      const crateId = parseInt(activeSection.replace('crate_', ''));
+      if (!isNaN(crateId)) {
+        getCrateTracks(crateId).then(res => setCrateTracks(res.tracks || [])).catch(() => setCrateTracks([]));
+      }
+    } else {
+      setCrateTracks([]);
     }
   }, [activeSection]);
 
@@ -150,7 +164,7 @@ export default function DashboardV2() {
     if (activeSection === 'recent') {
       result = [...tracks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
     } else if (activeSection === 'unanalyzed') {
-      result = tracks.filter(t => t.status !== 'analyzed');
+      result = tracks.filter(t => t.status !== 'completed');
     } else if (activeSection === 'crate_peak') {
       result = tracks.filter(t => (t.analysis?.energy || 0) >= 0.7);
     } else if (activeSection === 'crate_warmup') {
@@ -159,15 +173,17 @@ export default function DashboardV2() {
         return e >= 0.3 && e < 0.7;
       });
     } else if (activeSection === 'crate_vocal') {
-      // Placeholder — filter by tags containing 'vocal' if available
-      result = tracks.filter(t => t.tags?.toLowerCase().includes('vocal'));
+      result = tracks.filter(t => (t.tags || '').toLowerCase().includes('vocal'));
+    } else if (activeSection.startsWith('crate_') && crateTracks.length > 0) {
+      // Dynamic smart crate — tracks loaded from API
+      return crateTracks;
     }
     // Playlist sections: show playlist tracks
     if (activeSection.startsWith('playlist_') && playlistTracks.length > 0) {
       return playlistTracks;
     }
     return result;
-  }, [tracks, activeSection, playlistTracks]);
+  }, [tracks, activeSection, playlistTracks, crateTracks]);
 
   const realDisplayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
 
