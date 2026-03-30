@@ -361,7 +361,7 @@ export default function DashboardV2() {
         <div className="p-4 min-h-[160px]">
           {activeTab === 'cues' && (
             <CuesTab
-track={selectedTrack}
+              track={selectedTrack}
               cuePoints={cuePoints}
               onCreateCue={handleCreateCue}
               onDeleteCue={handleDeleteCue}
