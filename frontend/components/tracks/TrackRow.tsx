@@ -128,7 +128,11 @@ export function TrackRow({
 
       {/* Duration */}
       <div className="text-xs font-mono text-[var(--text-primary)] text-right">
-        {formatTime(track.duration || 0)}
+        {typeof (track as any).duration === 'string'
+          ? (track as any).duration
+          : track.analysis?.duration_ms
+            ? formatTime(track.analysis.duration_ms / 1000)
+            : '—'}
       </div>
 
       {/* Rating */}

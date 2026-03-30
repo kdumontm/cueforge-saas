@@ -111,24 +111,36 @@ export default function DashboardV2() {
     const analysis = t.analysis || {} as any;
     return {
       id: t.id,
-      title: t.title || t.filename || 'Unknown',
+      title: t.title || t.original_filename || t.filename || 'Unknown',
       artist: t.artist || 'Unknown',
       genre: analysis.genre || '—',
       bpm: analysis.bpm ? Math.round(analysis.bpm * 10) / 10 : null,
       key: toCamelot(analysis.key),
       energy: analysis.energy ? Math.round(analysis.energy * 100) : null,
-      duration: formatDuration(analysis.duration_seconds || t.duration_seconds),
+      duration: formatDuration(analysis.duration_ms ? analysis.duration_ms / 1000 : null),
       rating: t.rating || 0,
       tags: t.tags ? (typeof t.tags === 'string' ? t.tags.split(',').filter(Boolean) : t.tags) : [],
       analyzed: t.status === 'analyzed',
       color: null,
+      waveformPeaks: analysis.waveform_peaks || null,
     };
   }
 
   function handleSelectTrack(track: any) {
-    // If the track comes from TrackList mock data, use as-is
-    // If it's from API, transform it
     setSelectedTrack(track);
+  }
+
+  // Navigation prev/next dans la liste
+  function handlePrev() {
+    if (!selectedTrack || displayTracks.length === 0) return;
+    const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
+    if (idx > 0) setSelectedTrack(displayTracks[idx - 1]);
+  }
+
+  function handleNext() {
+    if (!selectedTrack || displayTracks.length === 0) return;
+    const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
+    if (idx < displayTracks.length - 1) setSelectedTrack(displayTracks[idx + 1]);
   }
 
   // File upload
@@ -167,7 +179,12 @@ export default function DashboardV2() {
       onDrop={handleFileDrop}
     >
       {/* Player Card */}
-      <PlayerCard track={selectedTrack} />
+      <PlayerCard
+        track={selectedTrack}
+        onImportClick={() => fileRef.current?.click()}
+        onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
+        onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
+      />
 
       {/* Tab Panel */}
       <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">

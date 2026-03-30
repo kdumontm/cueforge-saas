@@ -16,13 +16,16 @@ interface Track {
   energy?: number | null;
   duration?: string;
   color?: string | null;
+  waveformPeaks?: number[] | null;
 }
 
 interface PlayerCardProps {
   track: Track | null;
+  onImportClick?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
-// Mock hot cues — will come from API
 const MOCK_HOT_CUES = [
   { slot: 0, time: "0:32", label: "Intro" },
   { slot: 2, time: "1:45", label: "Drop" },
@@ -30,7 +33,7 @@ const MOCK_HOT_CUES = [
   { slot: 6, time: "5:55", label: "Outro" },
 ];
 
-export default function PlayerCard({ track }: PlayerCardProps) {
+export default function PlayerCard({ track, onImportClick, onPrev, onNext }: PlayerCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   if (!track) {
@@ -39,7 +42,10 @@ export default function PlayerCard({ track }: PlayerCardProps) {
         <div className="text-5xl opacity-25">🎵</div>
         <div className="text-base font-semibold text-[var(--text-secondary)]">Glisse tes tracks ici</div>
         <div className="text-[13px] text-[var(--text-muted)]">ou sélectionne un track dans la liste ci-dessous</div>
-        <button className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold cursor-pointer border-none">
+        <button
+          onClick={onImportClick}
+          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
+        >
           ⬆️ Importer des tracks
         </button>
       </div>
@@ -79,7 +85,11 @@ export default function PlayerCard({ track }: PlayerCardProps) {
         </div>
         {/* Transport controls */}
         <div className="flex items-center gap-2">
-          <button className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1">
+          <button
+            onClick={onPrev}
+            disabled={!onPrev}
+            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             <SkipBack size={18} />
           </button>
           <button
@@ -88,24 +98,37 @@ export default function PlayerCard({ track }: PlayerCardProps) {
           >
             {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
           </button>
-          <button className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1">
+          <button
+            onClick={onNext}
+            disabled={!onNext}
+            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             <SkipForward size={18} />
           </button>
         </div>
       </div>
 
-      {/* Waveform overview */}
+      {/* Waveform overview (petit) */}
       <div className="px-[18px] pb-1">
         <div className="bg-[var(--bg-elevated)] rounded-md overflow-hidden h-8">
-          <WaveformDisplay height={32} overview />
+          <WaveformDisplay
+            height={32}
+            overview
+            waveformPeaks={track.waveformPeaks}
+            trackId={track.id}
+          />
         </div>
       </div>
 
-      {/* Waveform detailed */}
+      {/* Waveform détaillée */}
       <div className="px-[18px] py-1">
         <div className="bg-[var(--bg-primary)] rounded-lg overflow-hidden h-20 relative">
-          <WaveformDisplay height={80} hotCues={MOCK_HOT_CUES} />
-          {/* Beatgrid lines */}
+          <WaveformDisplay
+            height={80}
+            hotCues={MOCK_HOT_CUES}
+            waveformPeaks={track.waveformPeaks}
+            trackId={track.id}
+          />
           {Array.from({ length: 32 }, (_, i) => (
             <div
               key={i}
@@ -125,8 +148,7 @@ export default function PlayerCard({ track }: PlayerCardProps) {
 
       {/* Time / Loop row */}
       <div className="flex items-center gap-4 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">
-        <span className="text-xs text-[var(--text-primary)] font-mono">2:21</span>
-        <span className="text-xs text-[var(--text-muted)] font-mono">-4:21</span>
+        <span className="text-xs text-[var(--text-primary)] font-mono">0:00</span>
         <span className="text-xs text-[var(--text-muted)] font-mono">/ {track.duration || '0:00'}</span>
         <div className="flex-1" />
         <button className="px-2.5 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
