@@ -743,7 +743,7 @@ export default function DashboardV2() {
               onContextMenu={handleContextMenu}
               onFavorite={handleFavorite}
               onGridToggle={setGridView}
-              onSearchChange={setSearch}
+              onSearchChange={setSearchQuery}
               onSortChange={setSortBy}
               onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
               onFilterReset={() => setFilters({ bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false })}
