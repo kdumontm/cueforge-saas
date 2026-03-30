@@ -104,3 +104,5 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
     </div>
   );
 }
+
+export default StatsTab;

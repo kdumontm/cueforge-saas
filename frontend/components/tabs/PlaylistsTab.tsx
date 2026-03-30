@@ -106,3 +106,5 @@ export function PlaylistsTab({
     </div>
   );
 }
+
+export default PlaylistsTab;
