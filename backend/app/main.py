@@ -86,10 +86,15 @@ settings = get_settings()
 app = FastAPI(
     title="CueForge SaaS API",
     description="Audio analysis and cue point generation for DJs",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
     redirect_slashes=False,
 )
+
+
+@app.get("/api/v1/health")
+def health_check():
+    return {"status": "ok", "version": "0.4.0"}
 
 app.add_middleware(
     CORSMiddleware,
