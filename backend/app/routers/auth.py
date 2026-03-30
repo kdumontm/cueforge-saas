@@ -245,8 +245,11 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login by username. Returns access + refresh tokens."""
-    user = db.query(User).filter(User.name == credentials.username).first()
+    """Login by username or email. Returns access + refresh tokens."""
+    from sqlalchemy import or_
+    user = db.query(User).filter(
+        or_(User.name == credentials.username, User.email == credentials.username)
+    ).first()
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
