@@ -21,6 +21,7 @@ interface SidebarProps {
 const navItems = [
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, label: 'Set Builder' },
+  { href: '/dashboard/gig-prep', icon: Zap, label: 'Prépa Gig' },
   { href: '/dashboard/upload', icon: Upload, label: 'Importer' },
   { href: '/dashboard/export', icon: Download, label: 'Exporter' },
 ];

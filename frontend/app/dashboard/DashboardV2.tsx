@@ -21,6 +21,7 @@ import HistoryTab from '@/components/tabs/HistoryTab';
 import InfoEditTab from '@/components/tabs/InfoEditTab';
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
+import DuplicateDetector from '@/components/DuplicateDetector';
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -665,6 +666,22 @@ export default function DashboardV2() {
             Analyser tout
           </button>
         </div>
+      )}
+
+      {/* Duplicate Detection */}
+      {!isDemo && tracks.length > 1 && (
+        <DuplicateDetector
+          tracks={tracks}
+          onDeleteTrack={async (trackId) => {
+            await deleteTrack(trackId);
+            await loadTracks();
+            addToast('Doublon supprimé', 'success');
+          }}
+          onSelectTrack={(track) => {
+            const dt = toDisplayTrack(track);
+            setSelectedTrack(dt);
+          }}
+        />
       )}
 
       {/* Player Card */}
