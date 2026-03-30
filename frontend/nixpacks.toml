@@ -1,0 +1,12 @@
+[variables]
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+CI = "true"
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
