@@ -94,7 +94,40 @@ app = FastAPI(
 
 @app.get("/api/v1/health")
 def health_check():
-    return {"status": "ok", "version": "0.4.0"}
+    return {"status": "ok", "version": "0.4.1"}
+
+
+@app.get("/api/v1/debug/tracks")
+def debug_tracks():
+    """Diagnostic endpoint for track serialization issues."""
+    import traceback as tb
+    from app.database import get_db, SessionLocal
+    from app.models.track import Track
+    from app.schemas.track import TrackResponse
+    db = SessionLocal()
+    try:
+        count = db.query(Track).count()
+        tracks = db.query(Track).limit(1).all()
+        if not tracks:
+            return {"count": count, "status": "no tracks"}
+        t = tracks[0]
+        # Try raw attributes
+        raw = {
+            "id": t.id, "filename": t.filename, "status": str(t.status),
+            "analysis_type": type(t.analysis).__name__ if t.analysis else "None",
+            "cue_points_type": type(t.cue_points).__name__,
+            "cue_count": len(t.cue_points) if t.cue_points else 0,
+        }
+        # Try serialization
+        try:
+            validated = TrackResponse.model_validate(t)
+            return {"count": count, "raw": raw, "validated": "OK"}
+        except Exception as e:
+            return {"count": count, "raw": raw, "validation_error": str(e), "tb": tb.format_exc()}
+    except Exception as e:
+        return {"error": str(e), "tb": tb.format_exc()}
+    finally:
+        db.close()
 
 app.add_middleware(
     CORSMiddleware,
