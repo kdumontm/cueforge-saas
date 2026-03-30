@@ -256,7 +256,7 @@ const NAV_ITEMS = [
   { id: "features", icon: Zap, label: "Features / Plans" },
 ];
 
-function AdminSidebar({ active, onNavigate, theme, onThemeToggle }) {
+function AdminSidebar({ active, onNavigate, theme, onThemeToggle, onLogout }: any) {
   return (
     <div style={{ width: 220, height: "100vh", background: DS.colors.bg.surface, borderRight: `1px solid ${DS.colors.border.subtle}`, display: "flex", flexDirection: "column", flexShrink: 0, position: "fixed", left: 0, top: 0, zIndex: 50 }}>
       {/* Logo */}
@@ -292,6 +292,11 @@ function AdminSidebar({ active, onNavigate, theme, onThemeToggle }) {
         <a href="/dashboard" style={{ fontSize: 11, color: DS.colors.accent.secondary, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
           <ExternalLink size={11} /> App
         </a>
+        {onLogout && (
+          <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", color: DS.colors.accent.error, fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+            <Lock size={11} /> Déco
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1342,22 +1347,158 @@ function FeatureForm({ onSave, onCancel }) {
 }
 
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// LOGIN SCREEN
+// ═══════════════════════════════════════════════
+function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Identifiants invalides");
+      if (!data.user?.is_admin) throw new Error("Accès réservé aux administrateurs");
+      localStorage.setItem("cueforge_token", data.access_token);
+      if (data.refresh_token) localStorage.setItem("cueforge_refresh", data.refresh_token);
+      onLogin();
+    } catch (err: any) {
+      setError(err.message || "Erreur de connexion");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: themes.dark.bg.base }}>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', -apple-system, sans-serif; }
+      `}</style>
+      <form onSubmit={handleSubmit} style={{
+        width: 380, padding: 32, borderRadius: 16,
+        background: themes.dark.bg.surface, border: `1px solid ${themes.dark.border.subtle}`,
+        display: "flex", flexDirection: "column", gap: 20,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8 }}>
+            <Disc3 size={28} color={themes.dark.accent.primary} />
+            <span style={{ fontSize: 22, fontWeight: 700, color: themes.dark.text.primary }}>CueForge</span>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: `linear-gradient(135deg, ${themes.dark.accent.pink}, ${themes.dark.accent.purple})`, color: "#fff" }}>ADMIN</span>
+          </div>
+          <p style={{ fontSize: 13, color: themes.dark.text.muted }}>Connexion au back-office</p>
+        </div>
+
+        {error && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: `${themes.dark.accent.error}15`, border: `1px solid ${themes.dark.accent.error}30`, color: themes.dark.accent.error, fontSize: 13 }}>
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: themes.dark.text.secondary, marginBottom: 6 }}>Email ou nom d&apos;utilisateur</label>
+          <input
+            type="text" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="admin@cueforge.app"
+            required autoFocus
+            style={{
+              width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${themes.dark.border.default}`,
+              background: themes.dark.bg.card, color: themes.dark.text.primary, fontSize: 14, outline: "none",
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: themes.dark.text.secondary, marginBottom: 6 }}>Mot de passe</label>
+          <input
+            type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            style={{
+              width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${themes.dark.border.default}`,
+              background: themes.dark.bg.card, color: themes.dark.text.primary, fontSize: 14, outline: "none",
+            }}
+          />
+        </div>
+
+        <button type="submit" disabled={loading} style={{
+          width: "100%", padding: "12px 0", borderRadius: 8, border: "none", cursor: loading ? "wait" : "pointer",
+          background: `linear-gradient(135deg, ${themes.dark.accent.primary}, ${themes.dark.accent.purple})`,
+          color: "#fff", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          opacity: loading ? 0.7 : 1,
+        }}>
+          {loading ? <Loader size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Shield size={16} />}
+          {loading ? "Connexion..." : "Se connecter"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
 // MAIN ADMIN APP
 // ═══════════════════════════════════════════════
 export default function AdminPage() {
   const [activePage, setActivePage] = useState("dashboard");
   const [theme, setTheme] = useState("dark");
   const [toast, setToast] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check if already logged in
+  useEffect(() => {
+    const token = getToken();
+    if (token) {
+      // Verify token is still valid by calling dashboard
+      api("/admin/dashboard").then(() => {
+        setIsAuthenticated(true);
+      }).catch(() => {
+        localStorage.removeItem("cueforge_token");
+        setIsAuthenticated(false);
+      }).finally(() => setCheckingAuth(false));
+    } else {
+      setCheckingAuth(false);
+    }
+  }, []);
 
   // Apply theme
   DS.colors = themes[theme];
 
-  const showToast = (message, type = "success") => {
+  const showToast = (message: string, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
 
   const toggleTheme = () => setTheme((t) => t === "dark" ? "light" : "dark");
+
+  const handleLogout = () => {
+    localStorage.removeItem("cueforge_token");
+    localStorage.removeItem("cueforge_refresh");
+    setIsAuthenticated(false);
+  };
+
+  if (checkingAuth) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: themes.dark.bg.base }}>
+        <Loader size={24} style={{ animation: "spin 1s linear infinite", color: themes.dark.accent.primary }} />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AdminLoginScreen onLogin={() => setIsAuthenticated(true)} />;
+  }
 
   const renderPage = () => {
     switch (activePage) {
@@ -1385,7 +1526,7 @@ export default function AdminPage() {
         ::selection { background: ${DS.colors.accent.primary}40; }
       `}</style>
 
-      <AdminSidebar active={activePage} onNavigate={setActivePage} theme={theme} onThemeToggle={toggleTheme} />
+      <AdminSidebar active={activePage} onNavigate={setActivePage} theme={theme} onThemeToggle={toggleTheme} onLogout={handleLogout} />
 
       <main style={{ flex: 1, marginLeft: 220, padding: "24px 32px", minHeight: "100vh" }}>
         {renderPage()}
