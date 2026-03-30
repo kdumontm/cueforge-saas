@@ -1027,14 +1027,21 @@ export default function DashboardPage() {
     } catch {} finally { setTracksLoading(false); }
   }
 
+  // ── Track blob URL cleanup ref ──
+  const currentBlobUrlRef = useRef<string | null>(null);
+  const loadAbortRef = useRef<AbortController | null>(null);
+
   // ── Wavesurfer init (ALWAYS render the div, never unmount it) ────────
   useEffect(() => {
     if (typeof window === 'undefined' || !waveformRef.current) return;
     let ws: any = null;
+    let destroyed = false;
 
     async function initWavesurfer() {
       const WaveSurfer = (await import('wavesurfer.js')).default;
       const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.esm.js')).default;
+
+      if (destroyed) return;
 
       const regions = RegionsPlugin.create();
       regionsRef.current = regions;
@@ -1062,6 +1069,7 @@ export default function DashboardPage() {
             const colors = spectralColorsRef.current;
             const { width, height } = ctx.canvas;
             const ch = peaks[0] as Float32Array;
+            if (!ch || ch.length === 0) return;
             const mid = height / 2;
             ctx.clearRect(0, 0, width, height);
             // Draw center line
@@ -1099,30 +1107,36 @@ export default function DashboardPage() {
           },
         })
 
-      ws.on('play', () => setIsPlaying(true));
-      ws.on('pause', () => setIsPlaying(false));
-      ws.on('timeupdate', (t: number) => { setCurrentTime(t); if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) { const dur = ws.getDuration(); if (dur > 0) ws.seekTo(loopInRef.current / dur); } });
+      ws.on('play', () => { if (!destroyed) setIsPlaying(true); });
+      ws.on('pause', () => { if (!destroyed) setIsPlaying(false); });
+      ws.on('timeupdate', (t: number) => {
+        if (destroyed) return;
+        setCurrentTime(t);
+        if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
+          const dur = ws.getDuration();
+          if (dur > 0) ws.seekTo(loopInRef.current / dur);
+        }
+      });
       ws.on('ready', () => {
-        setDuration(ws.getDuration());
-        setWaveformReady(true);
+        if (!destroyed) {
+          setDuration(ws.getDuration());
+          setWaveformReady(true);
+        }
       });
 
-      // RGB spectral analysis: compute frequency colors on decode
-      ws.on('decode', () => {
-        const audioData = ws.getDecodedData();
-        if (audioData) {
-          computeRGBWaveform(audioData).then(colors => {
-            spectralColorsRef.current = colors;
-            try { ws.drawBuffer(); } catch {}
-          }).catch(() => {});
-        }
+      // Suppress non-critical media element errors (blob playback quirks)
+      ws.on('error', (err: any) => {
+        console.warn('WaveSurfer error (non-fatal):', err);
       });
 
       wavesurferRef.current = ws;
     }
 
     initWavesurfer();
-    return () => { if (ws) ws.destroy(); };
+    return () => {
+      destroyed = true;
+      if (ws) ws.destroy();
+    };
   }, []);
 
 
@@ -1196,27 +1210,63 @@ export default function DashboardPage() {
     const ws = wavesurferRef.current;
     const regions = regionsRef.current;
 
+    // Abort previous load if still in progress
+    if (loadAbortRef.current) loadAbortRef.current.abort();
+    const abortController = new AbortController();
+    loadAbortRef.current = abortController;
+
+    // Revoke previous blob URL to prevent memory leak
+    if (currentBlobUrlRef.current) {
+      URL.revokeObjectURL(currentBlobUrlRef.current);
+      currentBlobUrlRef.current = null;
+    }
+
+    // Reset spectral colors for new track
+    spectralColorsRef.current = null;
+
     setZoomLevel(1);
     setWaveformReady(false);
     try { ws.zoom(1); } catch {}
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + (
+      (process.env.NEXT_PUBLIC_API_URL || '').endsWith('/api/v1') ? '' : '/api/v1'
+    );
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
     const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?token=${authToken}`;
+
+    // Capture track ref for stale check
+    const trackId = selectedTrack.id;
 
     // Pre-decode audio and pass peaks to WaveSurfer (bypasses media element issues)
     (async () => {
       try {
-        const response = await fetch(audioUrl);
+        const response = await fetch(audioUrl, { signal: abortController.signal });
+        if (!response.ok) throw new Error(`Audio fetch failed: ${response.status}`);
+
+        // Check if this load was cancelled (user switched tracks)
+        if (abortController.signal.aborted) return;
+
         const arrayBuffer = await response.arrayBuffer();
-        const contentType = response.headers.get('content-type') || 'audio/flac';
+        if (abortController.signal.aborted) return;
+
+        const contentType = response.headers.get('content-type') || 'audio/mpeg';
         const blob = new Blob([arrayBuffer], { type: contentType });
         const blobUrl = URL.createObjectURL(blob);
+        currentBlobUrlRef.current = blobUrl;
 
         // Decode audio via AudioContext (reliable even when <audio> element fails)
+        // Use .slice(0) to create a copy since decodeAudioData detaches the buffer
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         await audioCtx.resume();
-        const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+        const bufferCopy = arrayBuffer.slice(0);
+        const decoded = await audioCtx.decodeAudioData(bufferCopy);
+
+        if (abortController.signal.aborted) {
+          URL.revokeObjectURL(blobUrl);
+          currentBlobUrlRef.current = null;
+          audioCtx.close();
+          return;
+        }
 
         // Extract peaks for waveform rendering
         const ch0 = decoded.getChannelData(0);
@@ -1225,24 +1275,35 @@ export default function DashboardPage() {
         // Compute RGB spectral colors for the custom renderFunction
         try {
           const rgbColors = await computeRGBWaveform(decoded);
-          spectralColorsRef.current = rgbColors;
+          if (!abortController.signal.aborted) {
+            spectralColorsRef.current = rgbColors;
+          }
         } catch (e) { console.warn('RGB waveform computation failed:', e); }
 
-        // Suppress media element errors (blob URL playback may fail in some environments)
-        ws.on('error', () => {});
+        if (abortController.signal.aborted) {
+          URL.revokeObjectURL(blobUrl);
+          currentBlobUrlRef.current = null;
+          audioCtx.close();
+          return;
+        }
 
-        // Load with pre-computed peaks - waveform renders immediately
+        // Load with pre-computed peaks - waveform renders immediately with RGB colors
         ws.load(blobUrl, [ch0, ch1], decoded.duration);
 
         audioCtx.close();
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return; // Normal: user switched tracks
         console.error('Failed to load track audio:', err);
-        // Fallback: try standard ws.load
-        try { ws.load(audioUrl); } catch (e2) { console.error('Fallback load also failed:', e2); }
+        // Fallback: try standard ws.load (will use <audio> element)
+        if (!abortController.signal.aborted) {
+          try { ws.load(audioUrl); } catch (e2) { console.error('Fallback load also failed:', e2); }
+        }
       }
     })();
+
+    // Add cue point regions once waveform is decoded
     ws.once('decode', () => {
-      if (!regions) return;
+      if (!regions || abortController.signal.aborted) return;
       regions.clearRegions();
 
       selectedTrack.cue_points?.forEach((cue: CuePoint, i: number) => {
@@ -1285,7 +1346,26 @@ export default function DashboardPage() {
         });
       }
     });
-  }, [selectedTrack, waveformTheme]);
+
+    // Cleanup: abort fetch if track changes before load completes
+    return () => {
+      abortController.abort();
+    };
+  }, [selectedTrack]);
+
+  // ── Waveform theme change (redraw only, no audio reload) ──
+  useEffect(() => {
+    const ws = wavesurferRef.current;
+    if (!ws) return;
+    const theme = WAVEFORM_THEMES[waveformTheme];
+    if (!theme) return;
+    try {
+      ws.setOptions({
+        waveColor: theme.wave,
+        progressColor: theme.progress,
+      });
+    } catch (e) { console.warn('Theme update failed:', e); }
+  }, [waveformTheme]);
 
   // ── Filtered + sorted tracks ──────────────────────────────────────────
   const filtered = tracks
@@ -1753,9 +1833,13 @@ export default function DashboardPage() {
   
   // Waveform zoom effect
   useEffect(() => {
-    if (wavesurferRef.current) {
-      if (waveformZoom <= 1) { try { wavesurferRef.current.zoom(1); } catch(e) {} } else { try { wavesurferRef.current.zoom(Math.max(1, waveformZoom * 20)); } catch(e) {} } setZoomLevel(Math.max(1, waveformZoom * 20));
-    }
+    if (!wavesurferRef.current) return;
+    const ws = wavesurferRef.current;
+    const pxPerSec = waveformZoom <= 1 ? 1 : Math.max(1, waveformZoom * 20);
+    try { ws.zoom(pxPerSec); } catch (e) {}
+    setZoomLevel(pxPerSec);
+    ws.options.autoScroll = pxPerSec > 1;
+    ws.options.autoCenter = pxPerSec > 1;
   }, [waveformZoom]);
 
   // Sort tracks
