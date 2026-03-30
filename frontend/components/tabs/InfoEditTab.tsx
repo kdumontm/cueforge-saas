@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Tag, Palette, MessageSquare, Music2, Star, Zap, RotateCcw, Check, X, Disc3, Hash } from 'lucide-react';
+import { Save, Tag, Palette, MessageSquare, Music2, Star, Zap, RotateCcw, Check, X, Disc3 } from 'lucide-react';
 import type { Track } from '@/types';
 import { CATEGORY_PRESETS } from '@/types';
 
@@ -28,6 +28,32 @@ const TAG_SUGGESTIONS = [
   'remix', 'edit', 'mashup', 'b2b', 'transition', 'build',
 ];
 
+const CUE_COLORS = ['#C02626','#F8821A','#F1E315','#1FAD2D','#0DC5C1','#1644AD','#9110C2','#E91180'];
+
+function formatDuration(ms: number) {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function EnergyBar({ value }: { value: number }) {
+  return (
+    <div className="flex gap-0.5 mt-1">
+      {Array.from({ length: 10 }, (_, i) => (
+        <div
+          key={i}
+          className={`flex-1 h-1.5 rounded-sm ${
+            i < value
+              ? i < 3 ? 'bg-emerald-500' : i < 6 ? 'bg-yellow-500' : i < 8 ? 'bg-orange-500' : 'bg-red-500'
+              : 'bg-[var(--bg-elevated)]'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [formData, setFormData] = useState({
     title: '',
@@ -46,7 +72,6 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // Sync form when track changes
   useEffect(() => {
     if (!track) return;
     setFormData({
@@ -108,11 +133,8 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const toggleTag = (tag: string) => {
     const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
     const idx = currentTags.indexOf(tag);
-    if (idx >= 0) {
-      currentTags.splice(idx, 1);
-    } else {
-      currentTags.push(tag);
-    }
+    if (idx >= 0) currentTags.splice(idx, 1);
+    else currentTags.push(tag);
     updateField('tags', currentTags.join(','));
   };
 
@@ -121,276 +143,353 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   if (!track) {
     return (
       <div className="flex items-center justify-center h-32 text-[var(--text-muted)] text-sm">
-        Sélectionnez un morceau pour modifier ses informations
+        Sélectionnez un morceau
       </div>
     );
   }
 
+  const analysis = track.analysis;
+  const cuePoints = (track as any).cue_points || [];
+
   return (
-    <div className="space-y-4 p-1">
-      {/* Save Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Music2 size={16} className="text-[var(--accent-purple)]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">Informations du morceau</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {dirty && (
-            <button
-              onClick={handleReset}
-              className="px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-1.5"
-            >
-              <RotateCcw size={12} /> Annuler
-            </button>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              saved
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : dirty
-                  ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
-                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
-            }`}
-          >
-            {saving ? (
-              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : saved ? (
-              <Check size={12} />
-            ) : (
-              <Save size={12} />
-            )}
-            {saved ? 'Sauvegardé' : 'Sauvegarder'}
-          </button>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 overflow-hidden">
 
-      {/* Main Info */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Titre</label>
-          <input
-            type="text"
-            value={formData.title}
-            onChange={e => updateField('title', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Artiste</label>
-          <input
-            type="text"
-            value={formData.artist}
-            onChange={e => updateField('artist', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Album</label>
-          <input
-            type="text"
-            value={formData.album}
-            onChange={e => updateField('album', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Genre</label>
-          <input
-            type="text"
-            value={formData.genre}
-            onChange={e => updateField('genre', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Label</label>
-          <input
-            type="text"
-            value={formData.label}
-            onChange={e => updateField('label', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">Catégorie</label>
-          <select
-            value={formData.category}
-            onChange={e => updateField('category', e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
-          >
-            <option value="">— Aucune —</option>
-            {CATEGORY_PRESETS.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* ──────────── LEFT: Analysis summary ──────────── */}
+      <div className="flex-1 flex flex-col gap-4 p-4 overflow-y-auto border-r border-[var(--border-subtle)] min-w-0">
 
-      {/* Rating */}
-      <div>
-        <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          <Star size={10} className="inline mr-1" />Évaluation
-        </label>
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map(star => (
-            <button
-              key={star}
-              onClick={() => updateField('rating', formData.rating === star ? 0 : star)}
-              className="p-1 hover:bg-[var(--bg-hover)] rounded transition-colors"
-            >
-              <Star
-                size={20}
-                className={star <= formData.rating
-                  ? 'fill-yellow-500 text-yellow-500'
-                  : 'text-[var(--text-muted)]'
-                }
-              />
-            </button>
-          ))}
-          {formData.rating > 0 && (
-            <span className="ml-2 text-xs text-[var(--text-muted)]">{formData.rating}/5</span>
-          )}
-        </div>
-      </div>
-
-      {/* Energy Level */}
-      <div>
-        <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          <Zap size={10} className="inline mr-1" />Niveau d'énergie: {formData.energy_level || '—'}
-        </label>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="0"
-            max="10"
-            value={formData.energy_level}
-            onChange={e => updateField('energy_level', parseInt(e.target.value))}
-            className="flex-1 accent-blue-500"
-          />
-          <div className="flex gap-0.5">
-            {Array.from({ length: 10 }, (_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-4 rounded-sm transition-colors ${
-                  i < formData.energy_level
-                    ? i < 3 ? 'bg-emerald-500' : i < 6 ? 'bg-yellow-500' : i < 8 ? 'bg-orange-500' : 'bg-red-500'
-                    : 'bg-[var(--bg-primary)]'
-                }`}
-              />
-            ))}
+        {/* Track identity */}
+        <div>
+          <div className="text-base font-bold text-[var(--text-primary)] truncate leading-tight">
+            {track.title || track.original_filename}
           </div>
-        </div>
-      </div>
-
-      {/* Color Code */}
-      <div>
-        <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          <Palette size={10} className="inline mr-1" />Couleur
-        </label>
-        <div className="flex items-center gap-2 flex-wrap">
-          {COLOR_PRESETS.map(c => (
-            <button
-              key={c.value}
-              onClick={() => updateField('color_code', formData.color_code === c.value ? '' : c.value)}
-              className={`w-7 h-7 rounded-full border-2 transition-all hover:scale-110 ${
-                formData.color_code === c.value
-                  ? 'border-white scale-110 shadow-lg'
-                  : 'border-transparent opacity-70 hover:opacity-100'
-              }`}
-              style={{ backgroundColor: c.value }}
-              title={c.name}
-            />
-          ))}
-          {formData.color_code && (
-            <button
-              onClick={() => updateField('color_code', '')}
-              className="w-7 h-7 rounded-full border border-[var(--border-subtle)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
-              title="Supprimer la couleur"
-            >
-              <X size={12} className="text-[var(--text-muted)]" />
-            </button>
+          <div className="text-sm text-[var(--text-secondary)] truncate mt-0.5">{track.artist}</div>
+          {track.genre && (
+            <div className="mt-1">
+              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg-elevated)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                {track.genre}
+              </span>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Tags */}
-      <div>
-        <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-          <Tag size={10} className="inline mr-1" />Tags
-        </label>
-        {/* Current tags */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {currentTags.map(tag => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all flex items-center gap-1"
-            >
-              {tag} <X size={10} />
-            </button>
-          ))}
-          {currentTags.length === 0 && (
-            <span className="text-xs text-[var(--text-muted)] italic">Aucun tag</span>
-          )}
-        </div>
-        {/* Suggestions */}
-        <div className="flex flex-wrap gap-1">
-          {TAG_SUGGESTIONS.filter(t => !currentTags.includes(t)).map(tag => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className="px-2 py-0.5 rounded-full text-[10px] bg-[var(--bg-primary)] text-[var(--text-muted)] border border-[var(--border-subtle)] hover:border-blue-500/50 hover:text-blue-400 transition-all"
-            >
-              + {tag}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Comment */}
-      <div>
-        <label className="block text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
-          <MessageSquare size={10} className="inline mr-1" />Commentaire
-        </label>
-        <textarea
-          value={formData.comment}
-          onChange={e => updateField('comment', e.target.value)}
-          placeholder="Notes personnelles, mix ideas, etc."
-          rows={2}
-          className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors resize-none"
-        />
-      </div>
-
-      {/* Analysis Info (read-only) */}
-      {track.analysis && (
-        <div className="p-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)]">
-          <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
-            <Disc3 size={10} className="inline mr-1" />Analyse (auto-détecté)
-          </div>
-          <div className="grid grid-cols-4 gap-3 text-xs">
-            <div>
-              <span className="text-[var(--text-muted)]">BPM</span>
-              <div className="font-mono font-bold text-[var(--text-primary)]">{track.analysis.bpm ? Math.round(track.analysis.bpm * 10) / 10 : '—'}</div>
+        {/* BPM / Key / Energy cards */}
+        {analysis && (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
+              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">BPM</div>
+              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
+                {analysis.bpm ? Math.round(analysis.bpm * 10) / 10 : '—'}
+              </div>
             </div>
-            <div>
-              <span className="text-[var(--text-muted)]">Tonalité</span>
-              <div className="font-mono font-bold text-[var(--text-primary)]">{track.analysis.key || '—'}</div>
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
+              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Tonalité</div>
+              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
+                {analysis.key || '—'}
+              </div>
             </div>
-            <div>
-              <span className="text-[var(--text-muted)]">Énergie</span>
-              <div className="font-mono font-bold text-[var(--text-primary)]">{track.analysis.energy ? Math.round(track.analysis.energy * 100) + '%' : '—'}</div>
-            </div>
-            <div>
-              <span className="text-[var(--text-muted)]">Durée</span>
-              <div className="font-mono font-bold text-[var(--text-primary)]">
-                {track.analysis.duration_ms ? `${Math.floor(track.analysis.duration_ms / 60000)}:${String(Math.floor((track.analysis.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '—'}
+            <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-3 text-center">
+              <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Énergie</div>
+              <div className="text-2xl font-black font-mono text-[var(--text-primary)] leading-none">
+                {analysis.energy ? Math.round(analysis.energy * 100) + '%' : '—'}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Duration + filename */}
+        <div className="flex flex-col gap-1.5 text-xs">
+          {analysis?.duration_ms && (
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--text-muted)]">Durée</span>
+              <span className="font-mono text-[var(--text-secondary)] font-medium">{formatDuration(analysis.duration_ms)}</span>
+            </div>
+          )}
+          {track.original_filename && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[var(--text-muted)] shrink-0">Fichier</span>
+              <span className="font-mono text-[var(--text-muted)] truncate text-right">{track.original_filename}</span>
+            </div>
+          )}
+          {analysis && (
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--text-muted)]">Statut</span>
+              <span className="text-emerald-400 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                Analysé
+              </span>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Hot cues */}
+        {cuePoints.length > 0 && (
+          <div>
+            <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">Hot Cues</div>
+            <div className="flex flex-col gap-1.5">
+              {cuePoints.slice(0, 6).map((cue: any, i: number) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div
+                    className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: cue.color || CUE_COLORS[i % CUE_COLORS.length] }}
+                  >
+                    {i + 1}
+                  </div>
+                  <span className="text-xs font-mono text-[var(--text-muted)]">
+                    {cue.position_ms != null
+                      ? formatDuration(cue.position_ms)
+                      : cue.time_ms != null
+                        ? formatDuration(cue.time_ms)
+                        : '—'}
+                  </span>
+                  {cue.name && (
+                    <span className="text-xs text-[var(--text-secondary)] truncate">{cue.name}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Color badge */}
+        {track.color_code && (
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: track.color_code }} />
+            <span className="text-xs text-[var(--text-muted)]">Couleur assignée</span>
+          </div>
+        )}
+
+        {/* Tags display */}
+        {currentTags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {currentTags.map(tag => (
+              <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ──────────── RIGHT: Compact edit form ──────────── */}
+      <div className="w-[260px] flex-shrink-0 flex flex-col overflow-y-auto bg-[var(--bg-secondary)]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-secondary)] z-10">
+          <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Modifier</span>
+          <div className="flex items-center gap-1">
+            {dirty && (
+              <button
+                onClick={handleReset}
+                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
+                title="Annuler"
+              >
+                <RotateCcw size={11} />
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className={`px-2.5 py-1 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                saved
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : dirty
+                    ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
+                    : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed'
+              }`}
+            >
+              {saving ? (
+                <div className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : saved ? (
+                <Check size={11} />
+              ) : (
+                <Save size={11} />
+              )}
+              {saved ? 'OK' : 'Sauver'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 p-3">
+
+          {/* Titre */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Titre</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={e => updateField('title', e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Artiste */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Artiste</label>
+            <input
+              type="text"
+              value={formData.artist}
+              onChange={e => updateField('artist', e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Genre + Label */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Genre</label>
+              <input
+                type="text"
+                value={formData.genre}
+                onChange={e => updateField('genre', e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Label</label>
+              <input
+                type="text"
+                value={formData.label}
+                onChange={e => updateField('label', e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Album */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Album</label>
+            <input
+              type="text"
+              value={formData.album}
+              onChange={e => updateField('album', e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Catégorie */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Catégorie</label>
+            <select
+              value={formData.category}
+              onChange={e => updateField('category', e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+            >
+              <option value="">— Aucune —</option>
+              {CATEGORY_PRESETS.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Rating */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Évaluation</label>
+            <div className="flex items-center gap-0.5">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  onClick={() => updateField('rating', formData.rating === star ? 0 : star)}
+                  className="p-0.5 hover:bg-[var(--bg-hover)] rounded transition-colors"
+                >
+                  <Star
+                    size={16}
+                    className={star <= formData.rating
+                      ? 'fill-yellow-500 text-yellow-500'
+                      : 'text-[var(--bg-elevated)]'
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Energy */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">
+              Énergie <span className="normal-case font-normal">{formData.energy_level || 0}/10</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={formData.energy_level}
+              onChange={e => updateField('energy_level', parseInt(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+            <EnergyBar value={formData.energy_level} />
+          </div>
+
+          {/* Couleur */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Couleur</label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {COLOR_PRESETS.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => updateField('color_code', formData.color_code === c.value ? '' : c.value)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all hover:scale-110 ${
+                    formData.color_code === c.value
+                      ? 'border-white scale-110 shadow-md'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: c.value }}
+                  title={c.name}
+                />
+              ))}
+              {formData.color_code && (
+                <button
+                  onClick={() => updateField('color_code', '')}
+                  className="w-6 h-6 rounded-full border border-[var(--border-subtle)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
+                >
+                  <X size={10} className="text-[var(--text-muted)]" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1.5">Tags</label>
+            {currentTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {currentTags.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all flex items-center gap-0.5"
+                  >
+                    {tag} <X size={8} />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1">
+              {TAG_SUGGESTIONS.filter(t => !currentTags.includes(t)).slice(0, 12).map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className="px-1.5 py-0.5 rounded-full text-[9px] bg-[var(--bg-primary)] text-[var(--text-muted)] border border-[var(--border-subtle)] hover:border-blue-500/50 hover:text-blue-400 transition-all"
+                >
+                  +{tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Commentaire */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-1">Commentaire</label>
+            <textarea
+              value={formData.comment}
+              onChange={e => updateField('comment', e.target.value)}
+              placeholder="Notes, mix ideas..."
+              rows={2}
+              className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors resize-none"
+            />
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
