@@ -20,6 +20,7 @@ import StatsTab from '@/components/tabs/StatsTab';
 import HistoryTab from '@/components/tabs/HistoryTab';
 import InfoEditTab from '@/components/tabs/InfoEditTab';
 import BatchActionBar from '@/components/tracks/BatchActionBar';
+import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -104,6 +105,8 @@ export default function DashboardV2() {
 
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // Keyboard shortcuts modal
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -263,6 +266,23 @@ export default function DashboardV2() {
             setSelectedTrack(null);
           }).catch(console.error);
         }
+        return;
+      }
+      // Up/Down = navigate tracks
+      if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        handlePrev();
+        return;
+      }
+      if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        handleNext();
+        return;
+      }
+      // ? = show shortcuts
+      if (e.key === '?' || (e.shiftKey && e.code === 'Slash')) {
+        e.preventDefault();
+        setShowShortcuts(true);
         return;
       }
       // 1-5 = rate
@@ -841,6 +861,9 @@ export default function DashboardV2() {
           </div>
         ))}
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       {/* Context Menu */}
       {contextMenu && (
