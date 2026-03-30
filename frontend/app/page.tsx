@@ -262,6 +262,59 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <span className="text-xs font-bold uppercase tracking-widest text-accent-purple">Témoignages</span>
+          <h2 className="text-3xl font-bold text-white mt-2">Les DJs adorent CueForge</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { name: 'DJ Marko', role: 'Résident Club', quote: 'CueForge a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures.' },
+            { name: 'Sarah B.', role: 'DJ Mobile & Mariages', quote: 'Le système de tags et de catégories est parfait pour organiser mes milliers de tracks. Je retrouve le bon morceau en secondes.' },
+            { name: 'TechnoKid', role: 'DJ Producer', quote: 'L\'Energy Flow me permet de visualiser l\'énergie de mes sets avant de jouer. C\'est un game changer pour les festivals.' },
+          ].map((t, i) => (
+            <div key={i} className="bg-bg-secondary border border-slate-800/50 rounded-2xl p-6 hover:border-accent-purple/30 transition-all">
+              <div className="flex items-center gap-1 mb-3">
+                {[1,2,3,4,5].map(s => <Star key={s} size={14} className="fill-yellow-500 text-yellow-500" />)}
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
+              <div>
+                <div className="text-sm font-semibold text-white">{t.name}</div>
+                <div className="text-xs text-slate-500">{t.role}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="relative z-10 max-w-3xl mx-auto px-6 py-20">
+        <div className="text-center mb-12">
+          <span className="text-xs font-bold uppercase tracking-widest text-accent-cyan">FAQ</span>
+          <h2 className="text-3xl font-bold text-white mt-2">Questions fréquentes</h2>
+        </div>
+        <div className="space-y-3">
+          {[
+            { q: 'CueForge est-il gratuit ?', a: 'Oui ! Le plan gratuit permet d\'analyser jusqu\'à 50 tracks par mois. Pour un usage intensif, le plan Pro offre des analyses illimitées et des fonctionnalités avancées.' },
+            { q: 'Quels formats audio sont supportés ?', a: 'CueForge supporte MP3, WAV, FLAC, AIFF, AAC, OGG et M4A. Tes fichiers sont analysés dans le cloud et ne sont jamais partagés.' },
+            { q: 'Puis-je exporter vers Rekordbox, Serato ou Traktor ?', a: 'Absolument ! CueForge exporte en XML Rekordbox, M3U, CSV, et prend aussi en charge l\'import depuis ces trois logiciels.' },
+            { q: 'L\'analyse est-elle précise ?', a: 'Notre moteur d\'analyse utilise des algorithmes avancés pour détecter le BPM, la tonalité, l\'énergie et la structure des morceaux avec une précision professionnelle.' },
+            { q: 'Mes fichiers sont-ils sécurisés ?', a: 'Tes fichiers audio sont chiffrés pendant le transfert et l\'analyse, puis supprimés de nos serveurs après traitement. Seules les métadonnées sont conservées.' },
+          ].map((faq, i) => (
+            <details key={i} className="group bg-bg-secondary border border-slate-800/50 rounded-xl overflow-hidden">
+              <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-medium text-white hover:text-accent-purple transition-colors list-none">
+                {faq.q}
+                <ChevronRight size={16} className="text-slate-500 group-open:rotate-90 transition-transform" />
+              </summary>
+              <div className="px-5 pb-4 text-sm text-slate-400 leading-relaxed">
+                {faq.a}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 bg-black/40 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-12">
