@@ -1344,113 +1344,166 @@ function UserEditForm({ user, onSave, onCancel }) {
 function FeaturesView({ showToast }) {
   const [features, setFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [planFilter, setPlanFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const PLANS = ["free", "pro", "unlimited", "enterprise"];
+  const PLAN_LABELS = { free: "Free", pro: "Pro", unlimited: "Unlimited", enterprise: "Enterprise" };
+  const planColors = { free: DS.colors.text.muted, pro: DS.colors.accent.primary, unlimited: DS.colors.accent.purple, enterprise: DS.colors.accent.warning };
 
   const loadFeatures = useCallback(() => {
     setLoading(true);
-    adminApi.listFeatures(planFilter || null).then(setFeatures).catch(() => {}).finally(() => setLoading(false));
-  }, [planFilter]);
+    adminApi.listFeatures(null).then(setFeatures).catch(() => {}).finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => { loadFeatures(); }, [loadFeatures]);
 
-  const handleCreate = async (data) => {
-    try {
-      await adminApi.createFeature(data);
-      showToast("Feature créée");
-      setShowCreate(false);
-      loadFeatures();
-    } catch (e) { showToast(e.message, "error"); }
-  };
-
-  const handleToggle = async (f) => {
-    try {
-      await adminApi.updateFeature(f.id, { is_enabled: !f.is_enabled });
-      showToast(`Feature ${f.is_enabled ? "désactivée" : "activée"}`);
-      loadFeatures();
-    } catch (e) { showToast(e.message, "error"); }
-  };
-
-  const handleDelete = async (f) => {
-    if (!confirm(`Supprimer "${f.feature_name}" du plan ${f.plan_name} ?`)) return;
-    try {
-      await adminApi.deleteFeature(f.id);
-      showToast("Feature supprimée");
-      loadFeatures();
-    } catch (e) { showToast(e.message, "error"); }
-  };
-
-  const plans = ["", "free", "pro", "unlimited", "enterprise"];
-  const planColors = { free: DS.colors.text.muted, pro: DS.colors.accent.primary, unlimited: DS.colors.accent.purple, enterprise: DS.colors.accent.warning };
-
-  // Group by plan
-  const grouped = {};
+  // Matrice : { featureName: { free: entry, pro: entry, ... } }
+  const matrix: Record<string, Record<string, any>> = {};
+  const featureLabels: Record<string, string> = {};
   features.forEach((f) => {
-    if (!grouped[f.plan_name]) grouped[f.plan_name] = [];
-    grouped[f.plan_name].push(f);
+    if (!matrix[f.feature_name]) matrix[f.feature_name] = {};
+    matrix[f.feature_name][f.plan_name] = f;
+    if (f.label) featureLabels[f.feature_name] = f.label;
   });
+  const featureNames = Object.keys(matrix).sort();
+
+  const handleToggle = async (featureName, plan) => {
+    const existing = matrix[featureName]?.[plan];
+    try {
+      if (existing) {
+        await adminApi.updateFeature(existing.id, { is_enabled: !existing.is_enabled });
+      } else {
+        await adminApi.createFeature({ feature_name: featureName, plan_name: plan, is_enabled: true, label: featureLabels[featureName] || "" });
+      }
+      loadFeatures();
+    } catch (e) { showToast(e.message, "error"); }
+  };
+
+  const handleCreateFeature = async () => {
+    if (!newName.trim()) return;
+    setSaving(true);
+    try {
+      await Promise.all(PLANS.map((plan) =>
+        adminApi.createFeature({ feature_name: newName.trim(), plan_name: plan, is_enabled: false, label: newLabel.trim() })
+      ));
+      showToast(`Feature "${newName.trim()}" créée`);
+      setNewName(""); setNewLabel(""); setShowCreate(false);
+      loadFeatures();
+    } catch (e) { showToast(e.message, "error"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDeleteFeature = async (featureName) => {
+    if (!confirm(`Supprimer "${featureName}" de tous les plans ?`)) return;
+    try {
+      await Promise.all(Object.values(matrix[featureName] || {}).map((f: any) => adminApi.deleteFeature(f.id)));
+      showToast(`Feature "${featureName}" supprimée`);
+      loadFeatures();
+    } catch (e) { showToast(e.message, "error"); }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: DS.colors.text.primary, margin: 0 }}>Features / Plans</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Select value={planFilter} onChange={setPlanFilter} options={plans.map((p) => ({ value: p, label: p || "Tous" }))} style={{ width: 130 }} />
-          <Btn variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>Nouvelle feature</Btn>
-        </div>
+        <Btn variant="primary" icon={Plus} onClick={() => setShowCreate(!showCreate)}>Nouvelle feature</Btn>
       </div>
 
+      {/* Formulaire ajout */}
       {showCreate && (
-        <Card style={{ padding: 20 }}>
-          <FeatureForm onSave={handleCreate} onCancel={() => setShowCreate(false)} />
+        <Card style={{ padding: 16 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <Input label="Feature name" value={newName} onChange={setNewName} placeholder="track_analysis" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Input label="Label (optionnel)" value={newLabel} onChange={setNewLabel} placeholder="Analyse de tracks" />
+            </div>
+            <Btn variant="primary" icon={Save} onClick={handleCreateFeature} disabled={!newName.trim() || saving}>
+              {saving ? "…" : "Créer"}
+            </Btn>
+            <Btn onClick={() => { setShowCreate(false); setNewName(""); setNewLabel(""); }}>Annuler</Btn>
+          </div>
+          <p style={{ fontSize: 11, color: DS.colors.text.muted, marginTop: 8 }}>
+            La feature sera créée pour tous les plans (désactivée par défaut). Coche ensuite les plans souhaités.
+          </p>
         </Card>
       )}
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: DS.colors.text.muted }}><Loader size={16} style={{ animation: "spin 1s linear infinite" }} /></div>
-      ) : Object.keys(grouped).length === 0 ? (
-        <Card style={{ padding: 30, textAlign: "center", color: DS.colors.text.muted }}>Aucune feature configurée.</Card>
-      ) : (
-        Object.entries(grouped).map(([plan, feats]) => (
-          <Card key={plan}>
-            <SectionHeader title={plan.toUpperCase()} count={feats.length} icon={Zap}>
-              <Badge color={planColors[plan]}>{plan}</Badge>
-            </SectionHeader>
-            {feats.map((f) => (
-              <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px", borderBottom: `1px solid ${DS.colors.border.subtle}` }}>
-                <Toggle on={f.is_enabled} onToggle={() => handleToggle(f)} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: DS.colors.text.primary }}>{f.feature_name}</span>
-                  {f.label && <span style={{ marginLeft: 8, fontSize: 11, color: DS.colors.text.muted }}>{f.label}</span>}
-                </div>
-                <Btn small icon={Trash2} variant="ghost" onClick={() => handleDelete(f)} />
-              </div>
-            ))}
-          </Card>
-        ))
-      )}
-    </div>
-  );
-}
-
-function FeatureForm({ onSave, onCancel }) {
-  const [form, setForm] = useState({ plan_name: "free", feature_name: "", is_enabled: true, label: "" });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-      <Select label="Plan" value={form.plan_name} onChange={(v) => set("plan_name", v)} options={[
-        { value: "free", label: "Free" }, { value: "pro", label: "Pro" }, { value: "unlimited", label: "Unlimited" }, { value: "enterprise", label: "Enterprise" },
-      ]} />
-      <Input label="Feature name" value={form.feature_name} onChange={(v) => set("feature_name", v)} placeholder="track_analysis" />
-      <Input label="Label (optionnel)" value={form.label} onChange={(v) => set("label", v)} placeholder="Analyse de tracks" />
-      <div style={{ display: "flex", alignItems: "end" }}>
-        <Toggle on={form.is_enabled} onToggle={() => set("is_enabled", !form.is_enabled)} label="Activée" />
-      </div>
-      <div style={{ gridColumn: "span 2", display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <Btn onClick={onCancel}>Annuler</Btn>
-        <Btn variant="primary" icon={Save} onClick={() => onSave(form)}>Créer</Btn>
-      </div>
+      {/* Tableau matrice */}
+      <Card style={{ overflow: "hidden" }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center", color: DS.colors.text.muted }}>
+            <Loader size={16} style={{ animation: "spin 1s linear infinite" }} />
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${DS.colors.border.subtle}`, background: DS.colors.bg.card }}>
+                <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 11, fontWeight: 600, color: DS.colors.text.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Feature
+                </th>
+                {PLANS.map((plan) => (
+                  <th key={plan} style={{ textAlign: "center", padding: "12px 24px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: planColors[plan] }}>
+                    {PLAN_LABELS[plan]}
+                  </th>
+                ))}
+                <th style={{ width: 44 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {featureNames.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: 32, textAlign: "center", color: DS.colors.text.muted, fontSize: 13 }}>
+                    Aucune feature configurée. Clique sur « Nouvelle feature » pour commencer.
+                  </td>
+                </tr>
+              ) : featureNames.map((featureName, i) => (
+                <tr
+                  key={featureName}
+                  style={{
+                    borderBottom: i < featureNames.length - 1 ? `1px solid ${DS.colors.border.subtle}` : "none",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = DS.colors.bg.card)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  {/* Nom de la feature */}
+                  <td style={{ padding: "10px 16px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: DS.colors.text.primary }}>{featureName}</div>
+                    {featureLabels[featureName] && (
+                      <div style={{ fontSize: 11, color: DS.colors.text.muted, marginTop: 2 }}>{featureLabels[featureName]}</div>
+                    )}
+                  </td>
+                  {/* Checkbox par plan */}
+                  {PLANS.map((plan) => {
+                    const entry = matrix[featureName]?.[plan];
+                    const checked = entry?.is_enabled ?? false;
+                    return (
+                      <td key={plan} style={{ textAlign: "center", padding: "10px 24px" }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleToggle(featureName, plan)}
+                          style={{ width: 17, height: 17, cursor: "pointer", accentColor: planColors[plan] }}
+                        />
+                      </td>
+                    );
+                  })}
+                  {/* Supprimer */}
+                  <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                    <Btn small icon={Trash2} variant="ghost" onClick={() => handleDeleteFeature(featureName)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </div>
   );
 }
