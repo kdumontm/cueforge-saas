@@ -583,7 +583,7 @@ export interface UserProfile {
 }
 
 export async function getMyProfile(): Promise<UserProfile> {
-  const response = await authFetch(`${API_URL}/admin/me`, {
+  const response = await authFetch(`${API_URL}/auth/me`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error("Failed to fetch profile");

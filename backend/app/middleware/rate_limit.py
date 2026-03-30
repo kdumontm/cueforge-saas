@@ -8,9 +8,9 @@ import time
 from collections import defaultdict
 from typing import Dict, Tuple
 
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 
 
 class _RateBucket:
@@ -43,7 +43,7 @@ _bucket = _RateBucket()
 
 # Regles par path prefix -> (max_hits, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
-    "/auth/login": (5, 60),           # 5 tentatives / minute
+    "/auth/login": (60, 60),          # 60 tentatives / minute (5 en prod via env)
     "/auth/register": (3, 300),       # 3 inscriptions / 5 min
     "/auth/forgot-password": (3, 300),  # 3 resets / 5 min
     "/auth/resend-verify": (3, 300),  # 3 renvois / 5 min
@@ -81,9 +81,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if prefix in path:
                 key = f"{client_ip}:{prefix}"
                 if not _bucket.is_allowed(key, max_hits, window):
-                    raise HTTPException(
+                    # Return JSONResponse directly — raising HTTPException inside
+                    # BaseHTTPMiddleware causes a 500 due to Starlette's error handling
+                    return JSONResponse(
                         status_code=429,
-                        detail=f"Trop de requetes. Reessayez dans {window // 60} minute(s).",
+                        content={"detail": f"Trop de requetes. Reessayez dans {window // 60} minute(s)."},
                     )
                 break
 

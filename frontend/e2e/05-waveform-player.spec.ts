@@ -20,7 +20,18 @@ test.describe('🌊 Waveform & Lecteur audio', () => {
   });
 
   test('Slider de zoom waveform présent', async ({ page }) => {
-    // Chercher input range (zoom ou volume)
+    // Les sliders BPM sont dans le FilterPanel (collapsed par défaut) → cliquer "Filtres"
+    const filtresBtn = page.getByRole('button', { name: /filtres/i });
+    if (await filtresBtn.count() > 0) {
+      await filtresBtn.click();
+      await page.waitForTimeout(500);
+    }
+    // Aussi essayer de sélectionner un track pour les sliders du player
+    const trackItems = page.locator('[class*="track"]').filter({ hasText: /\w{4,}/ });
+    if (await trackItems.count() > 0) {
+      await trackItems.first().click();
+      await page.waitForTimeout(1000);
+    }
     const sliders = page.locator('input[type="range"]');
     const count = await sliders.count();
     expect(count).toBeGreaterThan(0);

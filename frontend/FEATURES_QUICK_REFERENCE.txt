@@ -1,0 +1,331 @@
+================================================================================
+DASHBOARDCLIENT INTERACTIVE FEATURES — QUICK REFERENCE
+================================================================================
+File: app/dashboard/DashboardClient.tsx (5,119 lines)
+Test Coverage: 13% (render only, no interaction tests)
+Untested Features: 41/47 (87%)
+
+================================================================================
+ALL 47 FEATURES (with line numbers & API calls)
+================================================================================
+
+PLAYBACK CONTROLS (8 features)
+─────────────────────────────────────────────────────────────────────────────
+1  Play/Pause Toggle          Line: 1176-1179, 2027       NO API
+2  Skip Forward               Line: 1184-1187, 2028       NO API
+3  Skip Back                  Line: 1180-1183, 2026       NO API
+4  Seek on Progress Bar       Line: 1943-1946             NO API
+5  Volume Slider              Line: 2064-2065             NO API
+6  Mute Toggle                Line: 1188-1193, 2064       NO API
+7  Playback Rate +/-          Line: 2070-2072             NO API
+8  Loop IN/OUT/LOOP           Line: 259-261, 2091-2093    NO API
+
+TRACK SELECTION & NAV (3 features)
+─────────────────────────────────────────────────────────────────────────────
+9  Click Track Row            Line: 2665, 232             NO API
+10 Keyboard: Arrow Up         Line: 1144, 1118-1173       NO API
+11 Keyboard: Arrow Down       Line: 1149, 1118-1173       NO API
+
+DATA MODIFICATION (5 features)
+─────────────────────────────────────────────────────────────────────────────
+12 Edit Metadata Modal        Line: 745-759, 1681-1724    PATCH /tracks/{id}
+13 Save Metadata              Line: 762-787               PATCH /tracks/{id}
+14 Delete Track (confirm)     Line: 1357-1366, 2898       DELETE /tracks/{id}
+15 Add Cue Point              Line: 339-343               POST /tracks/{id}/cue-points
+16 Delete Cue Point           Line: (varies)              DELETE /cue-points/{id}
+
+FILE OPERATIONS (2 features)
+─────────────────────────────────────────────────────────────────────────────
+17 File Input Upload          Line: 1734, 2136-2144       POST /tracks/upload
+18 Drag & Drop Upload         Line: 1261-1316, 1667       POST /tracks/upload
+
+SEARCH & FILTER (3 features)
+─────────────────────────────────────────────────────────────────────────────
+19 Search Input Filtering     Line: 2189-2200, 249        NO API
+20 Sort Column Change         Line: 2204, 250, 370-373    NO API
+21 Sort Direction Toggle      Line: 2214, 371             NO API
+
+BATCH OPERATIONS (2 features)
+─────────────────────────────────────────────────────────────────────────────
+22 Multi-select Checkboxes    Line: 1195-1210, 234        NO API
+23 Batch Analyze Audio        Line: 1318-1341, 2152-2167  POST /tracks/{id}/analyze
+
+CONTEXT MENUS (1 feature)
+─────────────────────────────────────────────────────────────────────────────
+24 Right-click Menu           Line: 1317-1376, 2665       (multiple APIs)
+
+FILTERING & VISIBILITY (5 features)
+─────────────────────────────────────────────────────────────────────────────
+25 Compatible Tracks Filter   Line: 1520-1532, 2264-2278  NO API
+26 Column Visibility Toggle   Line: 431, 446, 2473        NO API
+27 Column Filter Inputs       Line: 421-429, 2476-2489    NO API
+28 Favorites Filter           Line: 409, 4018-4024        NO API
+29 Time Display Toggle        Line: 1837, 597             NO API
+
+ADVANCED PLAYBACK (3 features)
+─────────────────────────────────────────────────────────────────────────────
+30 Cue Point Seek             Line: 2056-2062             NO API
+31 Waveform Zoom In/Out       Line: 1847-1851, 988-998    NO API
+32 Beat Grid Toggle           Line: 1856, 581             NO API
+
+SPECIALIZED FEATURES (6 features)
+─────────────────────────────────────────────────────────────────────────────
+33 BPM Tap Tempo              Line: 2283-2299, 647-680    NO API
+34 Mix Suggestions            Line: 686, 1520-1532        NO API
+35 Track Rating (1-5 stars)   Line: 415-417               NO API
+36 Keyboard Shortcuts Modal   Line: 1862, 1132            NO API
+37 Notes Panel                Line: 1859, 1964            NO API
+38 Auto-Analyze Toggle        Line: 414, 1237-1248        POST /tracks/{id}/analyze
+
+EXPORT FEATURES (3 features)
+─────────────────────────────────────────────────────────────────────────────
+39 Export Tracklist CSV       Line: 376-401, 2323-2324    NO API
+40 Export Tracklist TXT       Line: 376-401, 2323-2324    NO API
+41 Export Rekordbox XML       Line: 788-862, 1346-1355    GET /tracks/{id}/export-rekordbox
+
+KEYBOARD SHORTCUTS (covers 1-6, 10-11, 14, 36, 42-47)
+─────────────────────────────────────────────────────────────────────────────
+42 Space: Play/Pause          Line: 1134, 1118-1173       NO API
+43 Delete: Delete Track       Line: 1152-1154             DELETE /tracks/{id}
+44 Escape: Close Modals       Line: 659, 1118-1173        NO API
+45 /: Focus Search            Line: 1161, 1118-1173       NO API
+46 T: Tap Tempo               Line: 1163, 1118-1173       NO API
+47 ?: Show Shortcuts          Line: 1132, 1587            NO API
+
+MISCELLANEOUS (4 features)
+─────────────────────────────────────────────────────────────────────────────
+48 Module Sidebar Buttons     Line: 1774                  (varies)
+49 TrackOrganizer Modal       Line: 255, 1434-1449        (varies)
+50 Duplicate Detection        Line: 1222, 618             NO API
+51 Metadata Suggestions       Line: 252-254               (external API)
+
+================================================================================
+CRITICAL FEATURES (TEST IMMEDIATELY)
+================================================================================
+
+Priority 1 (Core Playback - Test First):
+  [ ] Play/Pause (line 1176)
+  [ ] Skip Forward/Back (line 1184, 1180)
+  [ ] Seek on Bar (line 1943)
+  [ ] Volume/Mute (line 2064)
+  [ ] Playback Rate (line 2070)
+  [ ] Loop Controls (line 2091-2093)
+
+Priority 2 (Data Operations - Test Second):
+  [ ] Track Selection (line 2665)
+  [ ] Metadata Edit (line 1687-1724)
+  [ ] Delete with Confirm (line 1357-1366)
+  [ ] Add Cue Point (line 339-343)
+  [ ] Delete Cue Point (varies)
+
+Priority 3 (File Handling - Test Third):
+  [ ] File Upload (line 1734)
+  [ ] Drag & Drop (line 1261-1316)
+  [ ] Auto-Analyze (line 1237-1248)
+
+================================================================================
+API ENDPOINTS CALLED BY INTERACTIVE FEATURES
+================================================================================
+
+POST /api/v1/tracks/upload
+  ↓ Used by: File upload (line 1734), Drag & drop (line 1261)
+
+POST /api/v1/tracks/{id}/analyze
+  ↓ Used by: Batch analyze (line 1318), Re-analyze (line 725), Auto-analyze (line 1237)
+
+GET /api/v1/tracks/{id}
+  ↓ Used by: Polling after analyze (line 725+)
+
+GET /api/v1/tracks/{id}/cue-points
+  ↓ Used by: Track selection (line 2665)
+
+POST /api/v1/tracks/{id}/cue-points
+  ↓ Used by: Add cue point (line 339-343)
+
+DELETE /api/v1/tracks/{id}
+  ↓ Used by: Delete track (line 1357), Keyboard Delete (line 1152)
+
+DELETE /api/v1/cue-points/{id}
+  ↓ Used by: Delete cue point (varies)
+
+PATCH /api/v1/tracks/{id}
+  ↓ Used by: Save metadata (line 762), Bulk genre update (line 484)
+
+GET /api/v1/tracks/{id}/export-rekordbox
+  ↓ Used by: Export Rekordbox (line 788)
+
+PATCH /api/v1/tracks/{id}
+  ↓ Used by: Bulk operations (line 484-507)
+
+PATCH /api/v1/admin/plan-features/{plan}/{feature}
+  ↓ Used by: Plan admin toggle (line 297) [ADMIN ONLY]
+
+POST /api/v1/admin/plan-features/reset
+  ↓ Used by: Reset plan features (line 313) [ADMIN ONLY]
+
+================================================================================
+STATE VARIABLES MODIFIED BY USER ACTIONS
+================================================================================
+
+isPlaying              → Play/Pause, Keyboard Space (line 237)
+currentTime            → Seek, Skip, Loop (line 238)
+volume                 → Volume slider (line 240)
+muted                  → Mute toggle (line 241)
+selectedTrack          → Track click, Arrow keys, Select suggestion (line 232)
+selectedIds            → Checkbox toggle (line 234)
+searchQuery            → Search input (line 249)
+sortBy                 → Sort dropdown (line 250)
+sortDir                → Sort direction toggle (line ???)
+ctxMenu                → Right-click (line 251)
+showEditMeta           → Edit button (line 745)
+editForm               → Form inputs (line 746)
+loopIn                 → Loop IN button (line 259)
+loopOut                → Loop OUT button (line 260)
+loopActive             → Loop button (line 261)
+waveformZoom           → Zoom buttons (line 359)
+showAddCue             → Add cue button (line 339)
+showCompatibleOnly     → Compatible filter (line 350)
+showBpmTap             → BPM Tap button (line 353)
+showFilters            → Filters button (line 357)
+favoriteIds            → Star click (line 408)
+showFavoritesOnly      → Favorites filter (line 409)
+visibleCols            → Column visibility (line 431)
+showColSettings        → Column settings (line 432)
+bpmTapTimes            → Each tap (line 351)
+showBeatGrid           → Beat grid button (line 581)
+showNotes              → Notes button (line 595)
+showShortcuts          → ? key (line 596)
+activeModule           → Module button (line 692)
+waveformTheme          → Color button (line 256)
+trackNotes             → Notes textarea (line 1964)
+
+================================================================================
+EXISTING TEST COVERAGE (from dashboard-buttons.test.tsx)
+================================================================================
+
+✅ Component renders without crashing
+✅ Tracks loaded on mount
+✅ User loaded on mount
+✅ Track titles display
+✅ Upload button exists
+✅ File input exists
+✅ Search input exists
+✅ Sort direction button visible
+✅ Play/pause icons visible
+✅ Skip forward/back icons visible
+✅ Volume mute icon visible
+✅ Zoom in/out buttons visible
+✅ Loop IN/OUT/LOOP buttons visible
+✅ Playback rate display visible
+✅ Batch analyze button visible
+✅ Waveform theme buttons visible
+✅ Context menu icons visible
+✅ Export buttons visible
+✅ Sidebar module buttons visible
+
+❌ No actual click handlers tested
+❌ No state changes tested
+❌ No API calls tested
+❌ No keyboard events tested
+❌ No modal interactions tested
+❌ No form submissions tested
+❌ No delete confirmations tested
+❌ No drag & drop tested
+
+================================================================================
+TEST FILE STRUCTURE (RECOMMENDED)
+================================================================================
+
+__tests__/
+├── dashboard-buttons.test.tsx          ← existing (406 lines) - KEEP
+├── dashboard-playback.test.tsx         ← NEW: 8 playback tests (250 lines)
+├── dashboard-selection.test.tsx        ← NEW: 3 selection tests (200 lines)
+├── dashboard-data-edit.test.tsx        ← NEW: 5 data modification tests (300 lines)
+├── dashboard-upload.test.tsx           ← NEW: 2 upload tests (250 lines)
+├── dashboard-search-sort.test.tsx      ← NEW: 3 search/sort tests (200 lines)
+├── dashboard-batch.test.tsx            ← NEW: 2 batch tests (150 lines)
+├── dashboard-advanced.test.tsx         ← NEW: 10 advanced tests (300 lines)
+└── dashboard-context-menu.test.tsx     ← NEW: 1 context menu test (150 lines)
+
+Total effort: ~28 hours (4 work days)
+Total new tests: ~41
+Total new lines: ~1,800
+
+================================================================================
+QUICK START: FIRST TEST TO WRITE
+================================================================================
+
+Test: "Play button click triggers playback"
+File: __tests__/dashboard-playback.test.tsx
+Lines: ~30
+Time: 30 minutes
+Validation: Tests core playback mechanism
+
+Key steps:
+1. Render component
+2. Select a track (click row)
+3. Click play button
+4. Assert wavesurferRef.play() was called
+5. Assert isPlaying state changed
+
+Template provided in TESTING_CHECKLIST.md
+
+================================================================================
+KEYBOARD SHORTCUTS REFERENCE
+================================================================================
+
+Space      → Play/Pause
+↑/↓        → Select Previous/Next Track
+Delete     → Delete Selected Track
+Escape     → Close Modals (BPM Tap, Shortcuts)
+?          → Show Shortcuts Modal
+/          → Focus Search Input
+T          → Tap Tempo (when BPM Tap modal open)
+
+================================================================================
+FEATURE CATEGORIES BY COMPLEXITY
+================================================================================
+
+TRIVIAL (can test in 30 min each):
+  - Toggle buttons (play/pause, mute, loop, zoom, grid, notes, shortcuts)
+  - Input fields (search, sort, filter)
+  - State display changes (time, rate, favorites)
+
+SIMPLE (can test in 1 hour each):
+  - Track selection
+  - Navigation (arrow keys, skip)
+  - Basic modals (add cue, edit metadata)
+  - Keyboard shortcuts
+
+MODERATE (can test in 2 hours each):
+  - Drag & drop upload
+  - File input upload
+  - Delete with confirmation
+  - Batch operations
+  - Context menus
+  - Advanced filters
+
+COMPLEX (requires careful setup):
+  - BPM tap tempo (needs timing calculations)
+  - Mix suggestions (needs algorithm validation)
+  - Export features (file generation)
+  - Metadata suggestions (external API mocking)
+
+================================================================================
+QUESTIONS FOR IMPLEMENTATION CLARIFICATION
+================================================================================
+
+1. Should favorites + ratings persist to API or stay local?
+2. Should cue point color changes trigger API saves immediately?
+3. Should BPM tap results auto-save to track analysis?
+4. Should loop regions be session-only or persist to API?
+5. Should track notes be API-persisted or local-only?
+6. Should bulk genre update show individual failures or just count?
+7. Should deleted tracks be soft-deleted (archive) or hard-deleted?
+8. Should metadata suggestions merge or replace existing data?
+9. Should auto-analyze be user-configurable or always on?
+10. Should duplicate detection be case-sensitive or case-insensitive?
+
+================================================================================
+END OF QUICK REFERENCE
+================================================================================
