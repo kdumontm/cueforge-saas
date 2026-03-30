@@ -64,6 +64,7 @@ const COLUMN_HEADERS = [
   { key: 'genre', label: 'Genre', width: '100px' },
   { key: 'duration', label: 'Durée', width: '80px' },
   { key: 'rating', label: '', width: '40px' },
+  { key: 'actions', label: '', width: '40px' },
 ];
 
 export function TrackList({

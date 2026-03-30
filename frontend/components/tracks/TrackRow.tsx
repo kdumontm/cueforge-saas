@@ -67,7 +67,7 @@ export function TrackRow({
       onDoubleClick={() => onDoubleClick(track)}
       onContextMenu={handleContextMenu}
       className={`
-        grid grid-cols-[40px_40px_2fr_80px_80px_120px_100px_80px_40px] gap-3 px-4 py-2
+        grid grid-cols-[40px_40px_2fr_80px_80px_120px_100px_80px_40px_40px] gap-3 px-4 py-2
         items-center border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)]
         transition-colors cursor-pointer
         ${isSelected ? 'bg-[var(--bg-secondary)] border-l-4 border-l-[var(--accent)]' : ''}
