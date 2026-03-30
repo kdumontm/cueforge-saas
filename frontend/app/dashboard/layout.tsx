@@ -6,6 +6,7 @@ import type { User } from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import { DashboardProvider, useDashboardContext } from './DashboardContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -61,8 +62,10 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardProvider>
-      <DashboardInner>{children}</DashboardInner>
-    </DashboardProvider>
+    <ErrorBoundary>
+      <DashboardProvider>
+        <DashboardInner>{children}</DashboardInner>
+      </DashboardProvider>
+    </ErrorBoundary>
   );
 }

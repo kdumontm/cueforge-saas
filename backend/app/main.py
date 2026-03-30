@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,6 +13,8 @@ from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.utils.migrations import run_migrations
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_admin_account():
@@ -70,14 +73,31 @@ def _seed_default_pages():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables for any new models
-    Base.metadata.create_all(bind=engine)
-    # Add any missing columns to existing tables
-    run_migrations(engine)
-    # Seed default admin account
-    _ensure_admin_account()
-    # Seed default page configs
-    _seed_default_pages()
+    # 1. Créer les tables manquantes — non bloquant si ça échoue
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.error("⚠️  create_all échoué (non bloquant) : %s", exc)
+
+    # 2. Migrations de colonnes manquantes — non bloquant
+    try:
+        run_migrations(engine)
+    except Exception as exc:
+        logger.error("⚠️  run_migrations échoué (non bloquant) : %s", exc)
+
+    # 3. Compte admin par défaut — non bloquant
+    try:
+        _ensure_admin_account()
+    except Exception as exc:
+        logger.error("⚠️  _ensure_admin_account échoué (non bloquant) : %s", exc)
+
+    # 4. Pages par défaut — non bloquant
+    try:
+        _seed_default_pages()
+    except Exception as exc:
+        logger.error("⚠️  _seed_default_pages échoué (non bloquant) : %s", exc)
+
+    logger.info("✅ CueForge backend démarré.")
     yield
 
 
@@ -94,7 +114,15 @@ app = FastAPI(
 
 @app.get("/api/v1/health")
 def health_check():
-    return {"status": "ok", "version": "0.5.0"}
+    """Health check — Railway l'utilise pour vérifier que le service est up."""
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception:
+        db_status = "degraded"
+    return {"status": "ok", "version": "0.5.0", "db": db_status}
 
 app.add_middleware(
     CORSMiddleware,
