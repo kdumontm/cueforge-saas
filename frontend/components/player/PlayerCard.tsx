@@ -1,10 +1,26 @@
 'use client';
-import { useState } from 'react';
-import { SkipBack, SkipForward, Play, Pause } from 'lucide-react';
-import WaveformDisplay from './WaveformDisplay';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { SkipBack, SkipForward } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import HotCuesBar from './HotCuesBar';
 import KeyBadge from '@/components/ui/KeyBadge';
 import EnergyBar from '@/components/ui/EnergyBar';
+
+// WaveSurferPlayer chargé côté client uniquement (pas de SSR)
+const WaveSurferPlayer = dynamic(() => import('./WaveSurferPlayer'), { ssr: false });
+
+interface CuePoint {
+  id: number;
+  position_ms: number;
+  color?: string | null;
+  color_rgb?: string | null;
+  name?: string;
+  number?: number | null;
+  cue_mode?: string;
+  time?: string;
+  label?: string;
+  slot?: number;
+}
 
 interface Track {
   id: number;
@@ -21,20 +37,55 @@ interface Track {
 
 interface PlayerCardProps {
   track: Track | null;
+  cuePoints?: CuePoint[];
   onImportClick?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  onTimeUpdate?: (positionMs: number) => void;
+  onWaveformClick?: (positionMs: number) => void; // clic sur waveform → poser un cue
 }
 
-const MOCK_HOT_CUES = [
-  { slot: 0, time: "0:32", label: "Intro" },
-  { slot: 2, time: "1:45", label: "Drop" },
-  { slot: 4, time: "4:10", label: "Break" },
-  { slot: 6, time: "5:55", label: "Outro" },
-];
+const ZOOM_LEVELS = [0.5, 1, 2, 4] as const;
+type ZoomLevel = typeof ZOOM_LEVELS[number];
 
-export default function PlayerCard({ track, onImportClick, onPrev, onNext }: PlayerCardProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
+// Convertit une durée "m:ss" en secondes
+function parseDuration(d?: string): number {
+  if (!d) return 0;
+  const parts = d.split(':');
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+  return 0;
+}
+
+export default function PlayerCard({
+  track,
+  cuePoints = [],
+  onImportClick,
+  onPrev,
+  onNext,
+  onTimeUpdate,
+  onWaveformClick,
+}: PlayerCardProps) {
+  const [zoom, setZoom] = useState<ZoomLevel>(1);
+  // Clé pour forcer le remount de WaveSurfer quand le track change
+  const [playerKey, setPlayerKey] = useState(0);
+  const prevTrackId = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (track && track.id !== prevTrackId.current) {
+      prevTrackId.current = track.id;
+      setPlayerKey(k => k + 1);
+      setZoom(1);
+    }
+  }, [track?.id]);
+
+  // Hot cues bar : transforme les cue points en format HotCuesBar
+  const hotCues = cuePoints.map((c, i) => ({
+    slot: c.number ?? i,
+    time: c.position_ms
+      ? `${Math.floor(c.position_ms / 60000)}:${String(Math.floor((c.position_ms % 60000) / 1000)).padStart(2, '0')}`
+      : (c.time || '0:00'),
+    label: c.name || c.label || `Cue ${i + 1}`,
+  }));
 
   if (!track) {
     return (
@@ -56,9 +107,8 @@ export default function PlayerCard({ track, onImportClick, onPrev, onNext }: Pla
     <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] mb-3 overflow-hidden">
       {/* Track info row */}
       <div className="flex items-center gap-4 px-[18px] pt-[14px] pb-[10px]">
-        {/* Artwork placeholder */}
         <div
-          className="w-11 h-11 rounded-[10px] flex items-center justify-center text-xl"
+          className="w-11 h-11 rounded-[10px] flex items-center justify-center text-xl flex-shrink-0"
           style={{
             background: track.color ? track.color + '30' : 'var(--bg-elevated)',
             border: `1px solid ${track.color || 'var(--border-default)'}40`,
@@ -66,91 +116,67 @@ export default function PlayerCard({ track, onImportClick, onPrev, onNext }: Pla
         >
           🎵
         </div>
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-bold text-[var(--text-primary)] truncate">{track.title}</div>
           <div className="text-xs text-[var(--text-secondary)]">
             {track.artist}{track.genre ? ` · ${track.genre}` : ''}
           </div>
         </div>
-        {/* Badges */}
         <div className="flex items-center gap-2">
           {track.bpm && (
             <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-              {track.bpm} BPM
+              {typeof track.bpm === 'number' ? track.bpm.toFixed(1) : track.bpm} BPM
             </span>
           )}
           {track.key && <KeyBadge camelotKey={track.key} />}
           {track.energy != null && <EnergyBar energy={track.energy} showValue width={50} />}
         </div>
-        {/* Transport controls */}
         <div className="flex items-center gap-2">
           <button
             onClick={onPrev}
             disabled={!onPrev}
             className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Track précédent"
           >
             <SkipBack size={18} />
-          </button>
-          <button
-            onClick={() => setIsPlaying(p => !p)}
-            className="w-[38px] h-[38px] rounded-full bg-blue-600 border-none cursor-pointer flex items-center justify-center text-white hover:bg-blue-500 transition-colors"
-          >
-            {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
           </button>
           <button
             onClick={onNext}
             disabled={!onNext}
             className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Track suivant"
           >
             <SkipForward size={18} />
           </button>
         </div>
       </div>
 
-      {/* Waveform overview (petit) */}
-      <div className="px-[18px] pb-1">
-        <div className="bg-[var(--bg-elevated)] rounded-md overflow-hidden h-8">
-          <WaveformDisplay
-            height={32}
-            overview
-            waveformPeaks={track.waveformPeaks}
-            trackId={track.id}
-          />
-        </div>
-      </div>
-
-      {/* Waveform détaillée */}
-      <div className="px-[18px] py-1">
-        <div className="bg-[var(--bg-primary)] rounded-lg overflow-hidden h-20 relative">
-          <WaveformDisplay
-            height={80}
-            hotCues={MOCK_HOT_CUES}
-            waveformPeaks={track.waveformPeaks}
-            trackId={track.id}
-          />
-          {Array.from({ length: 32 }, (_, i) => (
-            <div
-              key={i}
-              className="absolute top-0 bottom-0"
-              style={{
-                left: `${(i / 32) * 100}%`,
-                width: 1,
-                background: i % 4 === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
-              }}
-            />
-          ))}
-        </div>
+      {/* WaveSurfer — vrai player interactif */}
+      <div className="px-[18px] pb-2">
+        <WaveSurferPlayer
+          key={`ws-${track.id}-${playerKey}`}
+          trackId={track.id}
+          trackDuration={parseDuration(track.duration)}
+          cuePoints={cuePoints}
+          zoom={zoom}
+          height={88}
+          onTimeUpdate={onTimeUpdate}
+          onWaveformClick={onWaveformClick}
+        />
       </div>
 
       {/* Hot Cues row */}
-      <HotCuesBar hotCues={MOCK_HOT_CUES} />
+      {hotCues.length > 0 && <HotCuesBar hotCues={hotCues} />}
 
-      {/* Time / Loop row */}
-      <div className="flex items-center gap-4 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">
-        <span className="text-xs text-[var(--text-primary)] font-mono">0:00</span>
-        <span className="text-xs text-[var(--text-muted)] font-mono">/ {track.duration || '0:00'}</span>
-        <div className="flex-1" />
+      {/* Hint si pas de cues */}
+      {hotCues.length === 0 && (
+        <div className="px-[18px] py-[4px] text-[11px] text-[var(--text-muted)]">
+          Clique sur la waveform pour poser un point de cue ↑
+        </div>
+      )}
+
+      {/* Loop / Zoom row */}
+      <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">
         <button className="px-2.5 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
           IN
         </button>
@@ -160,20 +186,22 @@ export default function PlayerCard({ track, onImportClick, onPrev, onNext }: Pla
         <button className="px-2.5 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
           OUT
         </button>
-        <div className="flex gap-1 ml-2">
-          {["0.5×", "1×", "2×", "4×"].map(z => (
-            <button
-              key={z}
-              className={`px-[7px] py-[2px] rounded-[5px] border text-[10px] cursor-pointer transition-colors ${
-                z === "1×"
-                  ? 'border-blue-500/40 bg-blue-600/20 text-blue-400'
-                  : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
-              }`}
-            >
-              {z}
-            </button>
-          ))}
-        </div>
+        <div className="flex-1" />
+        {/* Zoom buttons — fonctionnels */}
+        <span className="text-[10px] text-[var(--text-muted)] mr-1">Zoom:</span>
+        {ZOOM_LEVELS.map(z => (
+          <button
+            key={z}
+            onClick={() => setZoom(z)}
+            className={`px-[7px] py-[2px] rounded-[5px] border text-[10px] cursor-pointer transition-colors ${
+              zoom === z
+                ? 'border-blue-500/60 bg-blue-600/25 text-blue-400 font-semibold'
+                : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+            }`}
+          >
+            {z}×
+          </button>
+        ))}
       </div>
     </div>
   );

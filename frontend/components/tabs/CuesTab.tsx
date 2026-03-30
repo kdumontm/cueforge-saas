@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Edit2, Plus, Wand2 } from 'lucide-react';
@@ -8,10 +8,12 @@ import { Trash2, Edit2, Plus, Wand2 } from 'lucide-react';
 interface CuesTabProps {
   track: Track | null;
   cuePoints?: CuePoint[];
-  onCreateCue: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) => void;
-  onDeleteCue: (cueId: number) => void;
+  onCreateCue?: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) => void;
+  onDeleteCue?: (cueId: number) => void;
   onCueClick?: (cue: CuePoint) => void;
   onAutoDetect?: () => void;
+  /** Position pré-remplie depuis un clic sur la waveform (en ms) */
+  initialPositionMs?: number | null;
 }
 
 export function CuesTab({
@@ -21,12 +23,22 @@ export function CuesTab({
   onDeleteCue,
   onCueClick,
   onAutoDetect,
+  initialPositionMs,
 }: CuesTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [position, setPosition] = useState('0:00.000');
   const [selectedColor, setSelectedColor] = useState(HOT_CUE_COLORS[0]);
   const [cueType, setCueType] = useState<'hot_cue' | 'memory'>('hot_cue');
+
+  // Pré-remplir la position quand on clique sur la waveform
+  useEffect(() => {
+    if (initialPositionMs == null) return;
+    const m = Math.floor(initialPositionMs / 60000);
+    const s = ((initialPositionMs % 60000) / 1000).toFixed(3).padStart(6, '0');
+    setPosition(`${m}:${s}`);
+    setShowForm(true);
+  }, [initialPositionMs]);
 
   if (!track) {
     return (
@@ -42,7 +54,7 @@ export function CuesTab({
     const seconds = parseFloat(parts[1] || '0') || 0;
     const positionMs = (minutes * 60 + seconds) * 1000;
 
-    onCreateCue({
+    onCreateCue?.({
       name: name || `Cue ${cuePoints.length + 1}`,
       position_ms: positionMs,
       color: selectedColor,
@@ -91,7 +103,7 @@ export function CuesTab({
                   <Edit2 className="w-4 h-4 text-blue-400" />
                 </button>
                 <button
-                  onClick={() => onDeleteCue(cue.id)}
+onClick={() => onDeleteCue?.(cue.id)}
                   className="p-1 hover:bg-[var(--bg-hover)] rounded transition-colors"
                   title="Supprimer"
                 >

@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
@@ -179,6 +179,51 @@ export default function DashboardV2() {
     };
   }
 
+  // ── Cue points ────────────────────────────────────────────────────────
+  const [cuePoints, setCuePoints] = useState<any[]>([]);
+  const [cuePositionMs, setCuePositionMs] = useState<number | null>(null); // position cliquée sur la waveform
+
+  // Charger les cue points quand le track change (pas pour les démo tracks)
+  useEffect(() => {
+    setCuePoints([]);
+    if (!selectedTrack || selectedTrack.id < 0) return; // tracks démo
+    getTrackCuePoints(selectedTrack.id)
+      .then(setCuePoints)
+      .catch(() => setCuePoints([]));
+  }, [selectedTrack?.id]);
+
+  async function handleCreateCue(data: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) {
+    if (!selectedTrack || selectedTrack.id < 0) return;
+    try {
+      await createCuePoint(selectedTrack.id, {
+        name: data.name,
+        position_ms: data.position_ms,
+        color: data.color,
+        cue_type: data.cue_type,
+        number: data.number ?? null,
+      });
+      const updated = await getTrackCuePoints(selectedTrack.id);
+      setCuePoints(updated);
+    } catch (e) {
+      console.error('Failed to create cue point:', e);
+    }
+  }
+
+  async function handleDeleteCue(cueId: number) {
+    try {
+      await deleteCuePoint(cueId);
+      setCuePoints(prev => prev.filter(c => c.id !== cueId));
+    } catch (e) {
+      console.error('Failed to delete cue point:', e);
+    }
+  }
+
+  // Clic sur la waveform → mémoriser la position pour pré-remplir le formulaire CuesTab
+  function handleWaveformClick(positionMs: number) {
+    setCuePositionMs(positionMs);
+    setActiveTab('cues'); // ouvrir l'onglet Cues automatiquement
+  }
+
   function handleSelectTrack(track: any) {
     setSelectedTrack(track);
   }
@@ -250,9 +295,11 @@ export default function DashboardV2() {
       {/* Player Card */}
       <PlayerCard
         track={selectedTrack}
+        cuePoints={cuePoints}
         onImportClick={() => fileRef.current?.click()}
         onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
         onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
+        onWaveformClick={handleWaveformClick}
       />
 
       {/* Tab Panel */}
@@ -287,7 +334,15 @@ export default function DashboardV2() {
 
         {/* Tab content */}
         <div className="p-4 min-h-[160px]">
-          {activeTab === 'cues' && <CuesTab track={selectedTrack} />}
+          {activeTab === 'cues' && (
+            <CuesTab
+              track={selectedTrack}
+              cuePoints={cuePoints}
+              onCreateCue={handleCreateCue}
+              onDeleteCue={handleDeleteCue}
+              initialPositionMs={cuePositionMs}
+            />
+          )}
           {activeTab === 'beatgrid' && <BeatgridTab track={selectedTrack} />}
           {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
           {activeTab === 'eq' && <EQTab />}
