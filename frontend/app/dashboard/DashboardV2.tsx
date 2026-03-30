@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Upload, Loader2, Zap, RefreshCw } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint } from '@/lib/api';
+import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
@@ -92,6 +92,12 @@ export default function DashboardV2() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const playerRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [toasts, setToasts] = useState<{id: number; msg: string; type: 'success' | 'error' | 'info'}[]>([]);
+  const toastIdRef = useRef(0);
+  const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Register import handler so Sidebar/TopBar can trigger file upload
   useEffect(() => {
@@ -164,6 +170,72 @@ export default function DashboardV2() {
     loadTracks();
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Space = play/pause
+      if (e.code === 'Space' && selectedTrack) {
+        e.preventDefault();
+        playerRef.current?.playPause?.();
+        return;
+      }
+      // ArrowLeft = skip -5s
+      if (e.code === 'ArrowLeft' && selectedTrack) {
+        e.preventDefault();
+        playerRef.current?.skip?.(-5);
+        return;
+      }
+      // ArrowRight = skip +5s
+      if (e.code === 'ArrowRight' && selectedTrack) {
+        e.preventDefault();
+        playerRef.current?.skip?.(5);
+        return;
+      }
+      // Escape = deselect
+      if (e.code === 'Escape') {
+        setSelectedTrack(null);
+        return;
+      }
+      // Ctrl+A = select all
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
+        e.preventDefault();
+        const allIds = new Set(displayTracks.map((t: any) => t.id));
+        setFavoriteIds(allIds);
+        return;
+      }
+      // Ctrl+F = focus search
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      // Delete = delete selected track
+      if (e.code === 'Delete' && selectedTrack && selectedTrack.id > 0) {
+        if (window.confirm('Delete this track?')) {
+          deleteTrack(selectedTrack.id).then(() => {
+            loadTracks();
+            setSelectedTrack(null);
+          }).catch(console.error);
+        }
+        return;
+      }
+      // 1-5 = rate
+      if (e.code.startsWith('Digit') && selectedTrack && selectedTrack.id > 0) {
+        const num = parseInt(e.code.replace('Digit', ''));
+        if (num >= 1 && num <= 5) {
+          updateTrack(selectedTrack.id, {rating: num})
+            .then(() => {
+              addToast(`Rated ${num}⭐`, 'success');
+              loadTracks();
+            })
+            .catch(() => addToast('Rating failed', 'error'));
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrack, displayTracks]);
+
   async function loadTracks() {
     try {
       setLoading(true);
@@ -183,6 +255,13 @@ export default function DashboardV2() {
       setLoading(false);
     }
   }
+
+  // Toast system
+  const addToast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
 
   // Transform API track to display format
   function toDisplayTrack(t: Track) {
@@ -253,6 +332,66 @@ export default function DashboardV2() {
     setSelectedTrack(track);
   }
 
+  function handleContextMenu(track: any, e: React.MouseEvent) {
+    e.preventDefault();
+    setContextMenu({trackId: track.id, x: e.clientX, y: e.clientY});
+  }
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
+
+  async function handleReanalyzeTrack(trackId: number) {
+    try {
+      addToast('Analyzing track...', 'info');
+      await analyzeTrack(trackId);
+      await pollTrackUntilDone(trackId);
+      await loadTracks();
+      addToast('Track analyzed!', 'success');
+      setContextMenu(null);
+    } catch (e) {
+      addToast('Analysis failed', 'error');
+    }
+  }
+
+  async function handleDeleteTrack(trackId: number) {
+    if (!window.confirm('Delete this track?')) return;
+    try {
+      await deleteTrack(trackId);
+      await loadTracks();
+      setSelectedTrack(null);
+      addToast('Track deleted', 'success');
+      setContextMenu(null);
+    } catch (e) {
+      addToast('Delete failed', 'error');
+    }
+  }
+
+  async function handleExportRekordbox(trackId: number) {
+    try {
+      const blob = await exportRekordbox(trackId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `track_${trackId}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Exported to Rekordbox', 'success');
+      setContextMenu(null);
+    } catch (e) {
+      addToast('Export failed', 'error');
+    }
+  }
+
   // Navigation prev/next dans la liste
   function handlePrev() {
     if (!selectedTrack || displayTracks.length === 0) return;
@@ -273,11 +412,14 @@ export default function DashboardV2() {
       try {
         const uploaded = await uploadTrack(file);
         if (uploaded?.id) {
+          addToast(`Uploading ${file.name}...`, 'info');
           await analyzeTrack(uploaded.id);
           await pollTrackUntilDone(uploaded.id);
+          addToast(`${file.name} analyzed!`, 'success');
         }
       } catch (e) {
         console.error('Upload failed:', e);
+        addToast(`Failed to upload ${file.name}`, 'error');
       }
     }
     await loadTracks();
@@ -294,6 +436,25 @@ export default function DashboardV2() {
   }
 
   const unanalyzedCount = tracks.filter(t => t.status !== 'analyzed').length;
+
+  async function handleBatchAnalyze() {
+    const unanalyzed = tracks.filter(t => t.status !== 'analyzed');
+    if (unanalyzed.length === 0) {
+      addToast('No unanalyzed tracks', 'info');
+      return;
+    }
+    addToast(`Analyzing ${unanalyzed.length} tracks...`, 'info');
+    for (const track of unanalyzed) {
+      try {
+        await analyzeTrack(track.id);
+        await pollTrackUntilDone(track.id);
+      } catch (e) {
+        console.error(`Failed to analyze track ${track.id}:`, e);
+      }
+    }
+    await loadTracks();
+    addToast(`Analyzed ${unanalyzed.length} tracks!`, 'success');
+  }
 
   return (
     <div
@@ -317,6 +478,22 @@ export default function DashboardV2() {
         </div>
       )}
 
+      {/* Batch analyze button */}
+      {unanalyzedCount > 0 && !isDemo && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-600/20 border border-emerald-500/30 rounded-xl">
+          <Zap size={16} className="text-emerald-400" />
+          <span className="text-sm text-[var(--text-primary)]">
+            <strong>{unanalyzedCount} tracks</strong> en attente d'analyse
+          </span>
+          <button
+            onClick={handleBatchAnalyze}
+            className="ml-auto px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-emerald-500 transition-colors"
+          >
+            Analyser tout
+          </button>
+        </div>
+      )}
+
       {/* Player Card */}
       <PlayerCard
         track={selectedTrack}
@@ -325,6 +502,7 @@ export default function DashboardV2() {
         onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
         onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
         onWaveformClick={handleWaveformClick}
+        playerRef={playerRef}
       />
 
       {/* Tab Panel */}
@@ -397,12 +575,20 @@ export default function DashboardV2() {
         genres={genres}
         onSelect={handleSelectTrack}
         onDoubleClick={handleSelectTrack}
-        onContextMenu={() => {}}
+        onContextMenu={handleContextMenu}
         onFavoriteToggle={(id: number) => setFavoriteIds(prev => {
           const next = new Set(prev);
           next.has(id) ? next.delete(id) : next.add(id);
           return next;
         })}
+        onRatingChange={(trackId: number, rating: number) => {
+          updateTrack(trackId, {rating})
+            .then(() => {
+              addToast(`Rated ${rating}⭐`, 'success');
+              loadTracks();
+            })
+            .catch(() => addToast('Rating failed', 'error'));
+        }}
         onSearchChange={setSearchQuery}
         onSortChange={setSortBy}
         onGridToggle={setGridView}
@@ -426,6 +612,54 @@ export default function DashboardV2() {
         <div className="fixed bottom-4 right-4 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg z-50">
           <Loader2 size={16} className="text-blue-400 animate-spin" />
           <span className="text-sm text-[var(--text-primary)]">Upload en cours...</span>
+        </div>
+      )}
+
+      {/* Toast notifications */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-xs pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`px-4 py-3 rounded-xl border pointer-events-auto shadow-lg text-sm font-medium ${
+              t.type === 'success'
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                : t.type === 'error'
+                ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                : 'bg-blue-500/15 border-blue-500/30 text-blue-400'
+            }`}
+          >
+            {t.msg}
+          </div>
+        ))}
+      </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg overflow-hidden"
+          style={{left: `${contextMenu.x}px`, top: `${contextMenu.y}px`}}
+        >
+          <button
+            onClick={() => {
+              handleReanalyzeTrack(contextMenu.trackId);
+            }}
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+          >
+            <RefreshCw size={14} /> Analyze
+          </button>
+          <button
+            onClick={() => handleExportRekordbox(contextMenu.trackId)}
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+          >
+            <Download size={14} /> Export Rekordbox
+          </button>
+          <button
+            onClick={() => handleDeleteTrack(contextMenu.trackId)}
+            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+          >
+            <Trash2 size={14} /> Delete
+          </button>
         </div>
       )}
     </div>

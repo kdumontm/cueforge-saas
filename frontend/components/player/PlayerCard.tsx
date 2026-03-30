@@ -43,6 +43,7 @@ interface PlayerCardProps {
   onNext?: () => void;
   onTimeUpdate?: (positionMs: number) => void;
   onWaveformClick?: (positionMs: number) => void; // clic sur waveform → poser un cue
+  playerRef?: React.MutableRefObject<any>;
 }
 
 const ZOOM_LEVELS = [0.5, 1, 2, 4] as const;
@@ -56,6 +57,13 @@ function parseDuration(d?: string): number {
   return 0;
 }
 
+// Format seconds to m:ss
+function fmt(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
 export default function PlayerCard({
   track,
   cuePoints = [],
@@ -64,17 +72,26 @@ export default function PlayerCard({
   onNext,
   onTimeUpdate,
   onWaveformClick,
+  playerRef,
 }: PlayerCardProps) {
   const [zoom, setZoom] = useState<ZoomLevel>(1);
   // Clé pour forcer le remount de WaveSurfer quand le track change
   const [playerKey, setPlayerKey] = useState(0);
   const prevTrackId = useRef<number | null>(null);
+  const wsPlayerRef = useRef<any>(null);
+  const [loopIn, setLoopIn] = useState<number | null>(null);
+  const [loopOut, setLoopOut] = useState<number | null>(null);
+  const [loopActive, setLoopActive] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
     if (track && track.id !== prevTrackId.current) {
       prevTrackId.current = track.id;
       setPlayerKey(k => k + 1);
       setZoom(1);
+      setLoopIn(null);
+      setLoopOut(null);
+      setLoopActive(false);
     }
   }, [track?.id]);
 
@@ -160,8 +177,29 @@ export default function PlayerCard({
           cuePoints={cuePoints}
           zoom={zoom}
           height={88}
-          onTimeUpdate={onTimeUpdate}
+          onTimeUpdate={(ms) => {
+            setCurrentTime(ms / 1000);
+            onTimeUpdate?.(ms);
+          }}
           onWaveformClick={onWaveformClick}
+          playerRef={wsPlayerRef}
+          onLoopChange={(loopInVal, loopOutVal, loopActiveVal) => {
+            setLoopIn(loopInVal);
+            setLoopOut(loopOutVal);
+            setLoopActive(loopActiveVal);
+          }}
+          onSetLoopIn={() => {
+            setLoopIn(currentTime);
+          }}
+          onSetLoopOut={() => {
+            setLoopOut(currentTime);
+            if (loopIn !== null && currentTime > loopIn) setLoopActive(true);
+          }}
+          onToggleLoop={() => {
+            if (loopIn !== null && loopOut !== null && loopIn < loopOut) {
+              setLoopActive(prev => !prev);
+            }
+          }}
         />
       </div>
 
@@ -177,15 +215,42 @@ export default function PlayerCard({
 
       {/* Loop / Zoom row */}
       <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">
-        <button className="px-2.5 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
+        <button
+          onClick={() => wsPlayerRef.current?.setLoopIn?.()}
+          className={`px-2.5 py-[3px] rounded-md border text-[11px] cursor-pointer transition-colors ${
+            loopIn !== null
+              ? 'border-blue-500/50 bg-blue-500/15 text-blue-400 font-semibold'
+              : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+          }`}
+        >
           IN
         </button>
-        <button className="px-2.5 py-[3px] rounded-md border border-emerald-500/50 bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold cursor-pointer">
+        <button
+          onClick={() => wsPlayerRef.current?.toggleLoop?.()}
+          disabled={loopIn === null || loopOut === null}
+          className={`px-2.5 py-[3px] rounded-md border text-[11px] font-semibold cursor-pointer transition-colors ${
+            loopActive
+              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+              : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
           🔁 LOOP
         </button>
-        <button className="px-2.5 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
+        <button
+          onClick={() => wsPlayerRef.current?.setLoopOut?.()}
+          className={`px-2.5 py-[3px] rounded-md border text-[11px] cursor-pointer transition-colors ${
+            loopOut !== null
+              ? 'border-orange-500/50 bg-orange-500/15 text-orange-400 font-semibold'
+              : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+          }`}
+        >
           OUT
         </button>
+        {loopIn !== null && loopOut !== null && (
+          <div className="text-[10px] text-[var(--text-muted)] font-mono">
+            {fmt(loopIn)} → {fmt(loopOut)}
+          </div>
+        )}
         <div className="flex-1" />
         {/* Zoom buttons — fonctionnels */}
         <span className="text-[10px] text-[var(--text-muted)] mr-1">Zoom:</span>

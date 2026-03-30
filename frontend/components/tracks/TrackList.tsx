@@ -30,6 +30,7 @@ interface TrackListProps {
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
+  onRatingChange?: (trackId: number, rating: number) => void;
   onSearchChange: (query: string) => void;
   onSortChange: (sortBy: string) => void;
   onGridToggle: (gridView: boolean) => void;
@@ -81,6 +82,7 @@ export function TrackList({
   onDoubleClick,
   onContextMenu,
   onFavoriteToggle,
+  onRatingChange,
   onSearchChange,
   onSortChange,
   onGridToggle,
@@ -279,6 +281,7 @@ export function TrackList({
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
             onFavoriteToggle={onFavoriteToggle}
+            onRatingChange={onRatingChange}
           />
         ) : (
           // List View
@@ -324,6 +327,7 @@ export function TrackList({
                 onDoubleClick={onDoubleClick}
                 onContextMenu={onContextMenu}
                 onFavoriteToggle={onFavoriteToggle}
+                onRatingChange={onRatingChange}
               />
             ))}
           </div>

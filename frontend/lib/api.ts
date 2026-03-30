@@ -252,6 +252,16 @@ export async function deleteTrack(trackId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete track');
 }
 
+export async function updateTrack(trackId: number, data: {rating?: number; tags?: string}): Promise<Track> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update track');
+  return response.json();
+}
+
 // ── Export API ───────────────────────────────────────────────────────────────
 
 export async function exportRekordbox(trackId: number): Promise<Blob> {

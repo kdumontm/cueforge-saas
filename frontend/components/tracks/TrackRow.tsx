@@ -14,6 +14,7 @@ interface TrackRowProps {
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
+  onRatingChange?: (trackId: number, rating: number) => void;
 }
 
 const formatTime = (seconds: number): string => {
@@ -52,8 +53,10 @@ export function TrackRow({
   onDoubleClick,
   onContextMenu,
   onFavoriteToggle,
+  onRatingChange,
 }: TrackRowProps) {
   const [showContextMenu, setShowContextMenu] = useState(false);
+  const [hoverRating, setHoverRating] = useState(0);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -135,24 +138,31 @@ export function TrackRow({
             : '—'}
       </div>
 
-      {/* Rating */}
-      <div className="flex justify-center">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavoriteToggle(track.id);
-          }}
-          className="p-1 hover:bg-[var(--bg-primary)] rounded transition-colors"
-        >
-          <Star
-            size={16}
-            className={`${
-              isFavorite
-                ? 'fill-[var(--accent)] text-[var(--accent)]'
-                : 'text-[var(--text-secondary)]'
-            }`}
-          />
-        </button>
+      {/* Rating — Stars */}
+      <div
+        className="flex justify-center gap-0.5"
+        onMouseLeave={() => setHoverRating(0)}
+      >
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onMouseEnter={() => setHoverRating(star)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRatingChange?.(track.id, star);
+            }}
+            className="p-0.5 hover:bg-[var(--bg-hover)] rounded transition-colors cursor-pointer"
+          >
+            <Star
+              size={14}
+              className={`${
+                star <= (hoverRating || track.rating || 0)
+                  ? 'fill-yellow-500 text-yellow-500'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            />
+          </button>
+        ))}
       </div>
 
       {/* Actions Menu */}

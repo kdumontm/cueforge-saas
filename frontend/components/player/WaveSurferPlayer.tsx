@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
 import { getToken } from '@/lib/api';
 
 interface CuePoint {
@@ -29,6 +30,10 @@ interface WaveSurferPlayerProps {
     skip: (s: number) => void;
     seekTo: (ms: number) => void;
   } | null>;
+  onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
+  onSetLoopIn?: () => void;
+  onSetLoopOut?: () => void;
+  onToggleLoop?: () => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -38,6 +43,53 @@ const ZOOM_PX_PER_SEC: Record<string, number> = {
   '2':   70,
   '4':  160,
 };
+
+// RGB spectral analysis
+async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
+  const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  if (freq2) {
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = freq; hp.Q.value = 0.7;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = freq2; lp.Q.value = 0.7;
+    src.connect(hp).connect(lp).connect(ctx.destination);
+  } else {
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = 0.7;
+    src.connect(f).connect(ctx.destination);
+  }
+  src.start(0);
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:number,g:number,b:number}[]> {
+  const [lowBand, midBand, highBand] = await Promise.all([
+    filterBand(buf, 'lowpass', 200),
+    filterBand(buf, 'bandpass', 200, 4000),
+    filterBand(buf, 'highpass', 4000),
+  ]);
+  const segLen = Math.floor(buf.length / numBars);
+  const rawColors: {lo:number,mi:number,hi:number}[] = [];
+  let maxLo = 0, maxMi = 0, maxHi = 0;
+  for (let i = 0; i < numBars; i++) {
+    const s = i * segLen, e = Math.min(s + segLen, buf.length);
+    let le = 0, me = 0, he = 0;
+    for (let j = s; j < e; j++) { le += lowBand[j]*lowBand[j]; me += midBand[j]*midBand[j]; he += highBand[j]*highBand[j]; }
+    const n = e - s || 1;
+    le = Math.sqrt(le/n); me = Math.sqrt(me/n); he = Math.sqrt(he/n);
+    maxLo = Math.max(maxLo, le); maxMi = Math.max(maxMi, me); maxHi = Math.max(maxHi, he);
+    rawColors.push({ lo: le, mi: me, hi: he });
+  }
+  return rawColors.map(c => {
+    const lo = c.lo / (maxLo || 1);
+    const mi = c.mi / (maxMi || 1);
+    const hi = c.hi / (maxHi || 1);
+    const r = Math.min(255, Math.floor(lo * 220 + mi * 60));
+    const g = Math.min(255, Math.floor(mi * 200 + hi * 50 + lo * 25));
+    const b = Math.min(255, Math.floor(hi * 240 + mi * 30));
+    return { r: Math.max(25, r), g: Math.max(15, g), b: Math.max(35, b) };
+  });
+}
 
 export default function WaveSurferPlayer({
   trackId,
@@ -49,6 +101,10 @@ export default function WaveSurferPlayer({
   zoom = 1,
   height = 96,
   playerRef,
+  onLoopChange,
+  onSetLoopIn,
+  onSetLoopOut,
+  onToggleLoop,
 }: WaveSurferPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<any>(null);
@@ -62,6 +118,15 @@ export default function WaveSurferPlayer({
   const [duration, setDuration] = useState(trackDuration ?? 0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [muted, setMuted] = useState(false);
+  const [loopIn, setLoopIn] = useState<number | null>(null);
+  const [loopOut, setLoopOut] = useState<number | null>(null);
+  const [loopActive, setLoopActive] = useState(false);
+  const loopInRef = useRef<number | null>(null);
+  const loopOutRef = useRef<number | null>(null);
+  const loopActiveRef = useRef(false);
+  const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
 
   // --- Formatage temps ---
   const fmt = (s: number) => {
@@ -69,6 +134,11 @@ export default function WaveSurferPlayer({
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
+
+  // Sync loop refs
+  useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);
+  useEffect(() => { loopOutRef.current = loopOut; }, [loopOut]);
+  useEffect(() => { loopActiveRef.current = loopActive; }, [loopActive]);
 
   // --- Initialisation WaveSurfer (une seule fois) ---
   useEffect(() => {
@@ -101,6 +171,33 @@ export default function WaveSurferPlayer({
           barRadius: 3,
           waveColor: ['#ef4444cc', '#22c55ecc', '#3b82f6cc'],
           progressColor: ['#ef4444', '#22c55e', '#3b82f6'],
+          renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
+            const colors = spectralColorsRef.current;
+            const { width, height: h } = ctx.canvas;
+            const ch = peaks[0] as Float32Array;
+            if (!ch || ch.length === 0) return;
+            const mid = h / 2;
+            ctx.clearRect(0, 0, width, h);
+            const barCount = Math.max(1, Math.min(Math.floor(width / 3), ch.length / 2));
+            for (let x = 0; x < width; x += 2) {
+              const idx = Math.floor((x / width) * barCount);
+              const sampleIdx = Math.floor((idx / barCount) * ch.length);
+              let amp = Math.abs(ch[sampleIdx] || 0);
+              for (let s = -1; s <= 1; s++) {
+                const si = Math.max(0, Math.min(ch.length - 2, sampleIdx + s * 2));
+                amp = Math.max(amp, Math.abs(ch[si] || 0), Math.abs(ch[si + 1] || 0));
+              }
+              const barH = Math.max(1, amp * mid * 0.92);
+              const ci = colors ? Math.min(Math.floor((x / width) * colors.length), colors.length - 1) : -1;
+              const c = ci >= 0 && colors ? colors[ci] : { r: 124, g: 58, b: 237 };
+              const brightness = 0.55 + amp * 0.45;
+              const r = Math.min(255, Math.round(c.r * brightness));
+              const g = Math.min(255, Math.round(c.g * brightness));
+              const b = Math.min(255, Math.round(c.b * brightness));
+              ctx.fillStyle = `rgb(${r},${g},${b})`;
+              ctx.fillRect(x, mid - barH / 2, 2, barH);
+            }
+          },
           plugins: [regions],
         });
 
@@ -118,6 +215,11 @@ export default function WaveSurferPlayer({
           if (destroyed) return;
           setCurrentTime(t);
           onTimeUpdate?.(t * 1000);
+          // Handle loop playback
+          if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
+            const dur = ws.getDuration();
+            if (dur > 0) ws.seekTo(loopInRef.current / dur);
+          }
         });
         ws.on('interaction', (t: number) => {
           if (destroyed) return;
@@ -147,6 +249,17 @@ export default function WaveSurferPlayer({
             seekTo: (ms: number) => {
               const dur = ws.getDuration();
               if (dur > 0) ws.seekTo(Math.max(0, Math.min(1, ms / 1000 / dur)));
+            },
+            setVolume: (v: number) => {
+              const vol = Math.max(0, Math.min(1, v));
+              setVolume(vol);
+              ws.setVolume(vol);
+              if (vol > 0 && muted) setMuted(false);
+            },
+            toggleMute: () => {
+              const next = !muted;
+              setMuted(next);
+              ws.setVolume(next ? 0 : volume);
             },
           };
         }
@@ -190,6 +303,7 @@ export default function WaveSurferPlayer({
     setError(null);
     setCurrentTime(0);
     setIsPlaying(false);
+    spectralColorsRef.current = null;
 
     try {
       const token = getToken();
@@ -203,6 +317,21 @@ export default function WaveSurferPlayer({
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
       ws.load(url);
+
+      // Compute RGB spectral colors async
+      if (id > 0) {
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const decoded = await audioContext.decodeAudioData(arrayBuffer);
+          const rgbColors = await computeRGBWaveform(decoded);
+          if (!abort.signal.aborted) {
+            spectralColorsRef.current = rgbColors;
+          }
+        } catch (e) {
+          console.warn('RGB waveform computation failed:', e);
+        }
+      }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       console.error('Audio load error:', e);
@@ -273,6 +402,34 @@ export default function WaveSurferPlayer({
   const togglePlay = useCallback(() => wsRef.current?.playPause(), []);
   const skipBack = useCallback(() => wsRef.current?.skip(-5), []);
   const skipFwd = useCallback(() => wsRef.current?.skip(5), []);
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const vol = parseFloat(e.target.value) / 100;
+    setVolume(vol);
+    if (wsRef.current) wsRef.current.setVolume(vol);
+    if (muted) setMuted(false);
+  }, [muted]);
+  const handleToggleMute = useCallback(() => {
+    const next = !muted;
+    setMuted(next);
+    if (wsRef.current) wsRef.current.setVolume(next ? 0 : volume);
+  }, [muted, volume]);
+  const handleSetLoopIn = useCallback(() => {
+    setLoopIn(currentTime);
+  }, [currentTime]);
+  const handleSetLoopOut = useCallback(() => {
+    setLoopOut(currentTime);
+    if (loopIn !== null && currentTime > loopIn) setLoopActive(true);
+  }, [currentTime, loopIn]);
+  const handleToggleLoop = useCallback(() => {
+    if (loopIn !== null && loopOut !== null && loopIn < loopOut) {
+      setLoopActive(prev => !prev);
+    }
+  }, [loopIn, loopOut]);
+
+  // Sync loop changes to parent
+  useEffect(() => {
+    onLoopChange?.(loopIn, loopOut, loopActive);
+  }, [loopIn, loopOut, loopActive, onLoopChange]);
 
   return (
     <div className="w-full">
@@ -345,6 +502,38 @@ export default function WaveSurferPlayer({
           >
             5s ↪
           </button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Volume Controls */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleToggleMute}
+            disabled={!isReady}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-0.5 disabled:opacity-40"
+            title={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={muted ? 0 : Math.round(volume * 100)}
+            onChange={handleVolumeChange}
+            disabled={!isReady}
+            className="w-20 h-1.5 rounded-full bg-[var(--bg-hover)] appearance-none cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, #2563eb 0%, #2563eb ${
+                muted ? 0 : volume * 100
+              }%, var(--bg-hover) ${muted ? 0 : volume * 100}%, var(--bg-hover) 100%)`,
+            }}
+            title="Volume"
+          />
+          <span className="text-[10px] text-[var(--text-muted)] w-8 text-right">
+            {muted ? '0%' : `${Math.round(volume * 100)}%`}
+          </span>
         </div>
       </div>
     </div>
