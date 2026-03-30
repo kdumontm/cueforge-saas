@@ -1,72 +1,181 @@
 'use client';
-import { RefreshCw, Check } from 'lucide-react';
 
-interface BeatgridTabProps {
-  bpm?: number | null;
+import { useState } from 'react';
+import { Track } from '@/types';
+import { Lock, Unlock, RotateCcw } from 'lucide-react';
+
+interface Beatgrid {
+  bpm: number | null;
+  downbeat_ms: number;
+  locked: boolean;
 }
 
-export default function BeatgridTab({ bpm }: BeatgridTabProps) {
+interface BeatgridTabProps {
+  track: Track | null;
+  beatgrid?: Beatgrid;
+  onUpdateBeatgrid?: (beatgrid: Beatgrid) => void;
+  onTapTempo?: (bpm: number) => void;
+}
+
+export function BeatgridTab({
+  track,
+  beatgrid = { bpm: null, downbeat_ms: 0, locked: false },
+  onUpdateBeatgrid,
+  onTapTempo,
+}: BeatgridTabProps) {
+  const [tapTimes, setTapTimes] = useState<number[]>([]);
+  const [isLocked, setIsLocked] = useState(beatgrid?.locked || false);
+  const [downbeatOffset, setDownbeatOffset] = useState(beatgrid?.downbeat_ms || 0);
+
+  if (!track) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        <p>Sélectionne un morceau</p>
+      </div>
+    );
+  }
+
+  const handleTapTempo = () => {
+    const now = Date.now();
+    const newTapTimes = [...tapTimes, now];
+
+    if (newTapTimes.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < newTapTimes.length; i++) {
+        intervals.push(newTapTimes[i] - newTapTimes[i - 1]);
+      }
+      const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+      const bpm = Math.round((60000 / avgInterval) * 10) / 10;
+      onTapTempo?.(bpm);
+    }
+
+    setTapTimes(newTapTimes.length >= 4 ? [now] : newTapTimes);
+  };
+
+  const handleLockToggle = () => {
+    const newLocked = !isLocked;
+    setIsLocked(newLocked);
+    onUpdateBeatgrid?.({
+      bpm: beatgrid?.bpm || 0,
+      downbeat_ms: downbeatOffset,
+      locked: newLocked,
+    });
+  };
+
+  const handleOffsetChange = (delta: number) => {
+    const newOffset = downbeatOffset + delta;
+    setDownbeatOffset(newOffset);
+    onUpdateBeatgrid?.({
+      bpm: beatgrid?.bpm || 0,
+      downbeat_ms: newOffset,
+      locked: isLocked,
+    });
+  };
+
+  const duration = track.analysis?.duration_ms || 0;
+  const durationSec = Math.floor(duration / 1000);
+  const bars = beatgrid?.bpm ? Math.floor((duration / (60000 / beatgrid.bpm)) / 4) : 0;
+  const beats = beatgrid?.bpm ? Math.floor(duration / (60000 / beatgrid.bpm)) : 0;
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className="text-[13px] font-semibold text-[var(--text-primary)]">Beatgrid Editor</div>
-          <div className="text-[11px] text-[var(--text-muted)]">Corrige le grid manuellement pour un mix parfait</div>
-        </div>
-        <div className="flex gap-1.5">
-          <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)]">
-            <RefreshCw size={11} /> Re-analyser
-          </button>
-          <button className="px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)]">÷2 BPM</button>
-          <button className="px-2.5 py-1 rounded-lg border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)]">×2 BPM</button>
-        </div>
-      </div>
-      {/* Waveform with beatgrid */}
-      <div className="bg-[var(--bg-primary)] rounded-[9px] p-3 mb-3 relative h-20 overflow-hidden">
-        {/* Simplified waveform bars */}
-        <svg width="100%" height="56" viewBox="0 0 120 56" preserveAspectRatio="none" className="absolute inset-3">
-          {Array.from({ length: 120 }, (_, i) => {
-            const h = (Math.sin(i * 0.3) * 0.4 + 0.6) * 45;
-            return <rect key={i} x={i} y={(56 - h) / 2} width={0.6} height={h} fill="#3b82f640" />;
-          })}
-        </svg>
-        {/* Beat markers */}
-        {Array.from({ length: 32 }, (_, i) => (
-          <div
-            key={i}
-            className="absolute top-0 bottom-0"
-            style={{
-              left: `${(i / 32) * 100}%`,
-              width: i % 4 === 0 ? 2 : 1,
-              background: i % 4 === 0 ? 'rgba(37,99,235,0.6)' : 'rgba(37,99,235,0.2)',
-              cursor: 'pointer',
-            }}
-          >
-            {i % 4 === 0 && (
-              <div className="absolute top-[2px] left-[3px] text-[9px] text-blue-500 font-mono">
-                {Math.floor(i / 4) + 1}
-              </div>
-            )}
+    <div className="space-y-4 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-gray-400">BPM actuel</div>
+            <div className="text-3xl font-bold text-white font-mono">
+              {beatgrid?.bpm?.toFixed(1) || '—'}
+            </div>
           </div>
-        ))}
+          <button
+            onClick={handleLockToggle}
+            className={`p-3 rounded-lg transition-colors ${
+              isLocked
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-800 hover:bg-gray-700 text-gray-400'
+            }`}
+            title={isLocked ? 'Verrouillé' : 'Déverrouillé'}
+          >
+            {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
-      {/* BPM controls */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-[var(--text-muted)]">BPM détecté:</span>
-          <span className="text-lg font-bold text-[var(--text-primary)] font-mono">{bpm ?? '—'}</span>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-300">Offset du downbeat</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleOffsetChange(-100)}
+            className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors"
+          >
+            -100ms
+          </button>
+          <input
+            type="range"
+            min="-500"
+            max="500"
+            value={downbeatOffset}
+            onChange={(e) => setDownbeatOffset(parseInt(e.target.value))}
+            className="flex-1"
+          />
+          <button
+            onClick={() => handleOffsetChange(100)}
+            className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors"
+          >
+            +100ms
+          </button>
         </div>
-        <div className="flex gap-1">
-          {['-0.5', '-0.1', '+0.1', '+0.5'].map(adj => (
-            <button key={adj} className="px-2 py-1 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-primary)] text-[13px] cursor-pointer font-mono hover:bg-[var(--bg-hover)] transition-colors">
-              {adj}
-            </button>
-          ))}
-        </div>
-        <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-semibold cursor-pointer hover:bg-emerald-500/30 transition-colors">
-          <Check size={12} /> Confirmer le grid
+        <div className="text-xs text-gray-400 text-center">{downbeatOffset}ms</div>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-300">Tap Tempo</div>
+        <button
+          onClick={handleTapTempo}
+          className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors"
+        >
+          Tap Tempo ({tapTimes.length})
         </button>
+        {tapTimes.length > 0 && (
+          <div className="text-xs text-gray-400">
+            Derniers taps: {tapTimes.length}/4
+          </div>
+        )}
       </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3">
+        <div className="text-sm font-semibold text-gray-300">Analyse</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-2 bg-gray-800 rounded text-center">
+            <div className="text-xs text-gray-400">Durée</div>
+            <div className="text-sm font-mono text-white">{durationSec}s</div>
+          </div>
+          <div className="p-2 bg-gray-800 rounded text-center">
+            <div className="text-xs text-gray-400">Mesures</div>
+            <div className="text-sm font-mono text-white">{bars}</div>
+          </div>
+        </div>
+        <div className="p-2 bg-gray-800 rounded text-center">
+          <div className="text-xs text-gray-400">Temps</div>
+          <div className="text-sm font-mono text-white">{beats} beats</div>
+        </div>
+      </div>
+
+      <button
+        onClick={() => {
+          setDownbeatOffset(0);
+          setTapTimes([]);
+          onUpdateBeatgrid?.({
+            bpm: beatgrid?.bpm || 0,
+            downbeat_ms: 0,
+            locked: isLocked,
+          });
+        }}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+      >
+        <RotateCcw className="w-4 h-4" />
+        Réinitialiser
+      </button>
     </div>
   );
 }

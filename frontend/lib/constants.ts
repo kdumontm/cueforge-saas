@@ -46,3 +46,39 @@ export function getCompatibleKeys(camelotKey: string): string[] {
     `${num}${mode === "A" ? "B" : "A"}`,
   ];
 }
+
+export function formatTimeMs(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const milliseconds = Math.floor((ms % 1000) / 10);
+  return `${minutes}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
+}
+
+export function toCamelot(camelotKey: string): string {
+  return camelotKey;
+}
+
+export function isMixCompatible(key1: string, key2: string, bpmTolerance: number = 0.06): boolean {
+  if (!key1 || !key2) return false;
+  const compatibleKeys = getCompatibleKeys(key1);
+  return compatibleKeys.includes(key2);
+}
+
+export function getCompatibilityScore(key1: string, key2: string, bpm1: number, bpm2: number, tolerance: number = 0.06): number {
+  if (!isMixCompatible(key1, key2)) return 0;
+
+  const bpmDiff = Math.abs(bpm1 - bpm2) / Math.max(bpm1, bpm2);
+  if (bpmDiff > tolerance) return 0;
+
+  const num1 = parseInt(key1);
+  const num2 = parseInt(key2);
+  const mode1 = key1.includes("A") ? "A" : "B";
+  const mode2 = key2.includes("A") ? "A" : "B";
+
+  if (key1 === key2) return 100;
+  if (mode1 === mode2 && Math.abs(num1 - num2) === 1) return 90;
+  if (mode1 !== mode2) return 85;
+
+  return 70;
+}

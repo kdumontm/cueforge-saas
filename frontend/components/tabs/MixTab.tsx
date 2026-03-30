@@ -1,123 +1,138 @@
 'use client';
-import { CAMELOT_WHEEL, getKeyColor, getCompatibleKeys } from '@/lib/constants';
-import KeyBadge from '@/components/ui/KeyBadge';
 
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  bpm?: number | null;
-  key?: string | null;
-}
+import { useState } from 'react';
+import { Track } from '@/types';
+import { toCamelot, getCompatibleKeys, isMixCompatible, getCompatibilityScore } from '@/lib/constants';
+import { getKeyColor } from '@/lib/constants';
 
 interface MixTabProps {
-  selectedKey?: string | null;
-  compatibleTracks?: Track[];
+  track: Track | null;
+  tracks: Track[];
+  onSelectTrack?: (track: Track) => void;
 }
 
-function CamelotWheel({ selectedKey }: { selectedKey?: string | null }) {
-  const size = 200;
-  const cx = size / 2, cy = size / 2;
-  const outerR = 88, innerR = 55;
-  const compatible = selectedKey ? getCompatibleKeys(selectedKey) : [];
+export function MixTab({
+  track,
+  tracks = [],
+  onSelectTrack,
+}: MixTabProps) {
+  const [bpmTolerance, setBpmTolerance] = useState(6);
 
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {CAMELOT_WHEEL.map((item) => {
-        const isOuter = item.n.includes("B");
-        const num = parseInt(item.n);
-        const r = isOuter ? outerR : innerR;
-        const textR = isOuter ? 75 : 43;
-        const angle = ((num - 1) / 12) * 2 * Math.PI - Math.PI / 2;
-        const slice = (2 * Math.PI) / 12;
-        const startAngle = angle - slice / 2;
-        const endAngle = angle + slice / 2;
-        const gap = 0.04;
-        const x1 = cx + (r - 14) * Math.cos(startAngle + gap);
-        const y1 = cy + (r - 14) * Math.sin(startAngle + gap);
-        const x2 = cx + (r + 14) * Math.cos(startAngle + gap);
-        const y2 = cy + (r + 14) * Math.sin(startAngle + gap);
-        const x3 = cx + (r + 14) * Math.cos(endAngle - gap);
-        const y3 = cy + (r + 14) * Math.sin(endAngle - gap);
-        const x4 = cx + (r - 14) * Math.cos(endAngle - gap);
-        const y4 = cy + (r - 14) * Math.sin(endAngle - gap);
-        const isSelected = item.n === selectedKey;
-        const isCompat = compatible.includes(item.n);
-        const tx = cx + textR * Math.cos(angle);
-        const ty = cy + textR * Math.sin(angle);
-
-        return (
-          <g key={item.n}>
-            <path
-              d={`M ${x1} ${y1} L ${x2} ${y2} A ${r + 14} ${r + 14} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${r - 14} ${r - 14} 0 0 0 ${x1} ${y1}`}
-              fill={isSelected ? item.color : isCompat ? item.color + '70' : item.color + '30'}
-              stroke={isSelected ? 'white' : isCompat ? item.color + '90' : 'transparent'}
-              strokeWidth={isSelected ? 2 : 1}
-              style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-            />
-            <text
-              x={tx} y={ty}
-              textAnchor="middle" dominantBaseline="middle"
-              fontSize={isSelected ? 9 : 8}
-              fontWeight={isSelected ? 700 : 500}
-              fill={isSelected || isCompat ? 'white' : 'rgba(255,255,255,0.5)'}
-            >
-              {item.n}
-            </text>
-          </g>
-        );
-      })}
-      {/* Center */}
-      <circle cx={cx} cy={cy} r={28} fill="var(--bg-elevated)" stroke="var(--border-default)" strokeWidth={1} />
-      <text x={cx} y={cy - 5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--text-primary)">Camelot</text>
-      <text x={cx} y={cy + 8} textAnchor="middle" fontSize={12} fontWeight={700} fill={selectedKey ? getKeyColor(selectedKey) : 'var(--text-muted)'}>{selectedKey || '—'}</text>
-    </svg>
-  );
-}
-
-// Mock compatible tracks
-const MOCK_COMPATIBLE: Track[] = [
-  { id: 3, title: "Equinox", artist: "Solomun", bpm: 122, key: "3A" },
-  { id: 5, title: "Dreamer", artist: "Tale Of Us", bpm: 120, key: "1A" },
-  { id: 6, title: "Bangalore", artist: "Bicep", bpm: 128, key: "4B" },
-  { id: 1, title: "Shed My Skin", artist: "Ben Böhmer", bpm: 124, key: "6A" },
-];
-
-export default function MixTab({ selectedKey, compatibleTracks }: MixTabProps) {
-  const tracks = compatibleTracks || MOCK_COMPATIBLE;
-
-  return (
-    <div className="flex gap-5">
-      {/* Camelot Wheel */}
-      <div className="flex-shrink-0 flex flex-col items-center gap-2">
-        <div className="text-xs font-semibold text-[var(--text-secondary)]">Roue de Camelot</div>
-        <CamelotWheel selectedKey={selectedKey} />
+  if (!track) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        <p>Sélectionne un morceau</p>
       </div>
-      {/* Compatible tracks */}
-      <div className="flex-1">
-        <div className="text-xs font-semibold text-[var(--text-secondary)] mb-2.5">
-          Tracks compatibles{selectedKey ? ` avec ${selectedKey}` : ''}
+    );
+  }
+
+  const currentKey = track.analysis?.key;
+  const currentBpm = track.analysis?.bpm || 0;
+
+  const compatibleTracks = tracks
+    .filter((t) => t.id !== track.id && t.analysis)
+    .filter((t) => {
+      if (!currentKey || !t.analysis?.key) return false;
+      const compatible = isMixCompatible(currentKey, t.analysis.key);
+      if (!compatible) return false;
+
+      const trackBpm = t.analysis?.bpm || 0;
+      const tolerance = (bpmTolerance / 100) * currentBpm;
+      return Math.abs(currentBpm - trackBpm) <= tolerance;
+    })
+    .map((t) => ({
+      track: t,
+      score: t.analysis?.key ? getCompatibilityScore(currentKey!, t.analysis.key, currentBpm, t.analysis.bpm || 0, bpmTolerance / 100) : 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="space-y-4 p-4">
+      {/* Current Track Info */}
+      <div className="p-4 rounded-lg bg-gray-900 border border-gray-800">
+        <div className="text-xs text-gray-400 mb-2">Morceau actuel</div>
+        <div className="flex items-center gap-3">
+          <div
+            className="px-3 py-1 rounded-lg font-bold text-sm text-white"
+            style={{ backgroundColor: getKeyColor(currentKey || '') }}
+          >
+            {currentKey || '—'}
+          </div>
+          <div className="text-sm font-mono text-white">
+            {currentBpm.toFixed(1)} BPM
+          </div>
         </div>
-        {tracks.map(t => {
-          const score = t.key === selectedKey ? 100 : Math.floor(Math.random() * 40 + 55);
-          const scoreColor = score > 85 ? '#10b981' : score > 70 ? '#f59e0b' : '#ef4444';
-          return (
-            <div key={t.id} className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-[9px] mb-1 bg-[var(--bg-elevated)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
-              <div className="w-1 h-[30px] rounded-sm" style={{ background: scoreColor }} />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{t.title}</div>
-                <div className="text-[10px] text-[var(--text-muted)]">{t.artist}</div>
-              </div>
-              {t.key && <KeyBadge camelotKey={t.key} />}
-              {t.bpm && (
-                <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                  {t.bpm}
-                </span>
-              )}
-              <span className="text-[11px] font-bold font-mono" style={{ color: scoreColor }}>{score}%</span>
-            </div>
-          );
-        })}
+      </div>
+
+      {/* BPM Tolerance */}
+      <div className="p-4 rounded-lg bg-gray-900 border border-gray-800 space-y-3">
+        <div className="text-sm font-semibold text-gray-300">Tolérance BPM: ±{bpmTolerance}%</div>
+        <input
+          type="range"
+          min="0"
+          max="20"
+          value={bpmTolerance}
+          onChange={(e) => setBpmTolerance(parseInt(e.target.value))}
+          className="w-full"
+        />
+        <div className="text-xs text-gray-400 text-center">
+          ±{((bpmTolerance / 100) * currentBpm).toFixed(1)} BPM
+        </div>
+      </div>
+
+      {/* Compatible Tracks */}
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-300">
+          Morceaux compatibles ({compatibleTracks.length})
+        </div>
+
+        {compatibleTracks.length === 0 ? (
+          <p className="text-sm text-gray-500 p-3">Aucun morceau compatible</p>
+        ) : (
+          <div className="space-y-2">
+            {compatibleTracks.map(({ track: t, score }) => (
+              <button
+                key={t.id}
+                onClick={() => onSelectTrack?.(t)}
+                className="w-full text-left p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 transition-colors"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div
+                    className="px-2 py-1 rounded-lg font-bold text-xs text-white"
+                    style={{ backgroundColor: getKeyColor(t.analysis?.key || '') }}
+                  >
+                    {t.analysis?.key || '—'}
+                  </div>
+                  <div className="text-sm font-mono text-white">
+                    {t.analysis?.bpm?.toFixed(1) || '—'} BPM
+                  </div>
+                </div>
+
+                <div className="mb-2">
+                  <div className="text-sm text-gray-300">
+                    {t.title || t.filename}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {t.artist || 'Artiste inconnu'}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Compatibilité</span>
+                    <span>{Math.round(score)}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-green-400 to-blue-500"
+                      style={{ width: `${score}%` }}
+                    />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,29 +1,92 @@
 'use client';
 
-const MOCK_HISTORY = [
-  { title: "Disco Volante", artist: "ANNA", bpm: 136, minutesAgo: 8 },
-  { title: "Lost Highway", artist: "Stephan Bodzin", bpm: 134, minutesAgo: 16 },
-  { title: "Bangalore", artist: "Bicep", bpm: 128, minutesAgo: 24 },
-  { title: "Shed My Skin", artist: "Ben Böhmer", bpm: 124, minutesAgo: 32 },
-  { title: "Equinox", artist: "Solomun", bpm: 122, minutesAgo: 40 },
-];
+import { Track } from '@/types';
+import { formatTimeMs } from '@/lib/constants';
 
-export default function HistoryTab() {
+interface HistoryEntry {
+  trackId: number;
+  timestamp: string;
+}
+
+interface HistoryTabProps {
+  tracks: Track[];
+  history?: HistoryEntry[];
+}
+
+export function HistoryTab({
+  tracks = [],
+  history = [],
+}: HistoryTabProps) {
+  const trackMap = new Map(tracks.map((t) => [t.id, t]));
+
+  const historyWithTracks = history
+    .map((entry) => ({
+      ...entry,
+      track: trackMap.get(entry.trackId),
+    }))
+    .filter((entry) => entry.track);
+
+  const formatDate = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'À l\'instant';
+      if (diffMins < 60) return `Il y a ${diffMins} min`;
+      if (diffHours < 24) return `Il y a ${diffHours}h`;
+      if (diffDays < 7) return `Il y a ${diffDays}j`;
+
+      return date.toLocaleDateString('fr-FR', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return timestamp;
+    }
+  };
+
   return (
-    <div>
-      <div className="text-[13px] font-semibold text-[var(--text-primary)] mb-2.5">Historique de lecture</div>
-      {MOCK_HISTORY.map((t, i) => (
-        <div key={i} className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-[9px] mb-1 bg-[var(--bg-elevated)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
-          <span className="text-[10px] text-[var(--text-muted)] w-4 text-right font-mono">{i + 1}</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{t.title}</div>
-            <div className="text-[10px] text-[var(--text-muted)]">{t.artist} · Il y a {t.minutesAgo} min</div>
-          </div>
-          <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-            {t.bpm}
-          </span>
+    <div className="space-y-4 p-4">
+      <div className="text-sm font-semibold text-gray-300">Historique de lecture</div>
+
+      {historyWithTracks.length === 0 ? (
+        <p className="text-sm text-gray-500 p-3">Aucune lecture enregistrée</p>
+      ) : (
+        <div className="space-y-2">
+          {historyWithTracks.map((entry, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-3 p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white truncate">
+                  {entry.track?.title || entry.track?.filename}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {entry.track?.artist || 'Artiste inconnu'}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {entry.track?.analysis?.bpm && (
+                  <div className="px-2 py-1 rounded-lg bg-gray-800 text-xs font-mono text-gray-300">
+                    {entry.track.analysis.bpm.toFixed(1)} BPM
+                  </div>
+                )}
+                <div className="text-xs text-gray-500 text-right whitespace-nowrap">
+                  {formatDate(entry.timestamp)}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

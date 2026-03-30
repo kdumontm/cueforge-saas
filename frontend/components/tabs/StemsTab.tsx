@@ -1,49 +1,119 @@
 'use client';
-import { Zap } from 'lucide-react';
 
-const STEMS = [
-  { id: "vocals", label: "Voix", icon: "🎤", color: "#ec4899" },
-  { id: "drums", label: "Drums", icon: "🥁", color: "#f97316" },
-  { id: "bass", label: "Basse", icon: "🎸", color: "#22c55e" },
-  { id: "melody", label: "Mélodie", icon: "🎹", color: "#3b82f6" },
-];
+import { Track } from '@/types';
+import { Play, Download, Loader2, AlertCircle } from 'lucide-react';
 
-export default function StemsTab() {
+interface StemsStatus {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  vocals_url?: string | null;
+  drums_url?: string | null;
+  bass_url?: string | null;
+  other_url?: string | null;
+}
+
+interface StemsTabProps {
+  track: Track | null;
+  stemsStatus?: StemsStatus | null;
+  onRequestStems?: () => void;
+}
+
+export function StemsTab({
+  track,
+  stemsStatus,
+  onRequestStems,
+}: StemsTabProps) {
+  if (!track) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400">
+        <p>Sélectionne un morceau</p>
+      </div>
+    );
+  }
+
+  const stems = [
+    { name: 'Vocals', key: 'vocals_url', color: 'text-red-400' },
+    { name: 'Drums', key: 'drums_url', color: 'text-yellow-400' },
+    { name: 'Bass', key: 'bass_url', color: 'text-purple-400' },
+    { name: 'Other', key: 'other_url', color: 'text-blue-400' },
+  ];
+
+  const isProcessing = stemsStatus?.status === 'processing';
+  const isCompleted = stemsStatus?.status === 'completed';
+  const isFailed = stemsStatus?.status === 'failed';
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <div className="text-[13px] font-semibold text-[var(--text-primary)]">Stem Separation</div>
-          <div className="text-[11px] text-[var(--text-muted)]">Isoler ou muter chaque élément du track</div>
+    <div className="space-y-4 p-4">
+      {/* Status Indicator */}
+      {isProcessing && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-900/30 border border-blue-800 text-blue-300">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Séparation des stems en cours...</span>
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors">
-          <Zap size={12} /> Séparer les stems
+      )}
+
+      {isFailed && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-300">
+          <AlertCircle className="w-4 h-4" />
+          <span className="text-sm">Erreur lors de la séparation</span>
+        </div>
+      )}
+
+      {/* Stems Grid */}
+      <div className="space-y-3">
+        {stems.map((stem) => {
+          const url = stemsStatus?.[stem.key as keyof StemsStatus];
+          const isAvailable = url && typeof url === 'string';
+
+          return (
+            <div
+              key={stem.name}
+              className="flex items-center gap-3 p-3 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700"
+            >
+              <div className={`w-3 h-3 rounded-full ${stem.color}`} />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-white">{stem.name}</div>
+                <div className="text-xs text-gray-400">
+                  {isAvailable ? 'Disponible' : isProcessing ? 'En cours...' : 'Non disponible'}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {isAvailable && (
+                  <>
+                    <button
+                      className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+                      title="Lire"
+                    >
+                      <Play className="w-4 h-4" />
+                    </button>
+                    <a
+                      href={url}
+                      download
+                      className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
+                      title="Télécharger"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </>
+                )}
+                {isProcessing && (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action Button */}
+      {!isCompleted && !isProcessing && (
+        <button
+          onClick={onRequestStems}
+          className="w-full px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors"
+        >
+          Séparer les stems
         </button>
-      </div>
-      <div className="grid grid-cols-2 gap-2.5">
-        {STEMS.map(s => (
-          <div key={s.id} className="rounded-[10px] p-[10px_14px]" style={{ border: `1px solid ${s.color}40`, background: s.color + '10' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-base">{s.icon}</span>
-                <span className="text-[13px] font-semibold text-[var(--text-primary)]">{s.label}</span>
-              </div>
-              <div className="flex gap-1">
-                <button className="px-2 py-[2px] rounded-[5px] text-[10px] font-bold cursor-pointer border" style={{ borderColor: s.color + '50', background: s.color + '20', color: s.color }}>S</button>
-                <button className="px-2 py-[2px] rounded-[5px] text-[10px] cursor-pointer border border-[var(--border-default)] bg-transparent text-[var(--text-muted)]">M</button>
-              </div>
-            </div>
-            <div className="h-6 bg-[var(--bg-primary)] rounded-[5px] overflow-hidden">
-              <svg width="100%" height="24" viewBox="0 0 100 24">
-                {Array.from({ length: 50 }, (_, i) => {
-                  const h = Math.abs(Math.sin(i * 0.5 + s.id.length)) * 18 + 3;
-                  return <rect key={i} x={i * 2} y={(24 - h) / 2} width={1.5} height={h} fill={s.color + '80'} />;
-                })}
-              </svg>
-            </div>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
