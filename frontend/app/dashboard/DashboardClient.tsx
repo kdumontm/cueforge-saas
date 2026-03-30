@@ -1024,6 +1024,25 @@ export default function DashboardPage() {
   // ── Load tracks on mount ──────────────────────────────────────────────
   useEffect(() => { loadTracks(); }, []);
 
+  // ── Hash-based sidebar navigation ─────────────────────────────────────
+  useEffect(() => {
+    function handleHash() {
+      const hash = window.location.hash;
+      if (hash === '#upload') {
+        // Trigger file picker
+        setTimeout(() => fileRef.current?.click(), 100);
+      } else if (hash === '#export') {
+        setShowExport(true);
+      } else if (hash === '#library') {
+        const el = document.getElementById('library-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    handleHash(); // handle initial hash on mount
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   async function loadTracks() {
     try {
       setTracksLoading(true);
@@ -1643,15 +1662,9 @@ export default function DashboardPage() {
         break;
       case 'export_rekordbox':
         try {
-          const blob = await exportRekordbox(track.id);
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `cueforge_${track.id}.xml`;
-          a.click();
-            showToast('Export Rekordbox XML téléchargé', 'success');
-          URL.revokeObjectURL(url);
-        } catch {}
+          await exportRekordbox(track.id);
+          showToast('Export Rekordbox XML téléchargé', 'success');
+        } catch { showToast('Erreur export Rekordbox', 'error'); }
         break;
       case 'delete':
         if (!confirm('Supprimer ce morceau ?')) return;
@@ -2389,11 +2402,14 @@ export default function DashboardPage() {
         </div>
 
         {/* ── TRACK LIST ── */}
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
+        <div id="library-section" className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
           <div className="p-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
             <div className="flex items-center justify-between gap-3 mb-3">
               <h2 className="text-base font-bold text-[var(--text-primary)]">Tracks ({tracks.length})</h2>
               <div className="flex gap-2">
+                <button onClick={() => setShowExport(true)} className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-cyan-500/50 text-[var(--text-secondary)] hover:text-cyan-400 text-[11px] font-medium transition-colors flex items-center gap-1">
+                  <Download size={12} /> Export
+                </button>
                 <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium transition-colors flex items-center gap-1">
                   <Upload size={12} /> Upload
                 </button>
@@ -2489,6 +2505,61 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Export Modal ── */}
+      {showExport && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowExport(false)}>
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-default)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Download size={18} className="text-cyan-400" /> Export Bibliothèque
+              </h2>
+              <button onClick={() => setShowExport(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={async () => { await exportAllRekordbox(); setShowExport(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20">
+                  <Download size={16} className="text-cyan-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Rekordbox XML</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Compatible Pioneer DJ, rekordbox 5/6</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { handleExportTracklist('csv'); setShowExport(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-green-500/50 hover:bg-green-500/5 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20">
+                  <Download size={16} className="text-green-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">CSV Tracklist</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Title, Artist, BPM, Key, Genre, Energy</p>
+                </div>
+              </button>
+              <button
+                onClick={() => { handleExportTracklist('txt'); setShowExport(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-purple-500/50 hover:bg-purple-500/5 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20">
+                  <Download size={16} className="text-purple-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">Tracklist TXT</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Format texte numéroté</p>
+                </div>
+              </button>
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">
+              {tracks.length} morceaux dans la bibliothèque
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* File input */}
       <input
