@@ -158,6 +158,12 @@ export default function DashboardV2() {
     return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
   }, [selectedTrack, rawTracksForTabs]);
 
+  // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
+  const effectiveCuePoints = useMemo(() => {
+    if (isDemo && selectedRawTrack) return (selectedRawTrack.cue_points as any[]) || [];
+    return cuePoints;
+  }, [isDemo, selectedRawTrack, cuePoints]);
+
   // Auto-select first track when loaded (real or demo)
   useEffect(() => {
     if (!selectedTrack && displayTracks.length > 0 && !loading) {
@@ -497,7 +503,7 @@ export default function DashboardV2() {
       {/* Player Card */}
       <PlayerCard
         track={selectedTrack}
-        cuePoints={cuePoints}
+        cuePoints={effectiveCuePoints}
         onImportClick={() => fileRef.current?.click()}
         onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
         onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
@@ -540,7 +546,7 @@ export default function DashboardV2() {
           {activeTab === 'cues' && (
             <CuesTab
               track={selectedTrack}
-              cuePoints={cuePoints}
+              cuePoints={effectiveCuePoints}
               onCreateCue={handleCreateCue}
               onDeleteCue={handleDeleteCue}
               initialPositionMs={cuePositionMs}

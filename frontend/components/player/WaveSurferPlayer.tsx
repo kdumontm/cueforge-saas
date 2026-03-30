@@ -116,6 +116,10 @@ export default function WaveSurferPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(trackDuration ?? 0);
+  // Sync trackDuration prop si WaveSurfer n'a pas encore chargé l'audio
+  useEffect(() => {
+    if (trackDuration && duration === 0) setDuration(trackDuration);
+  }, [trackDuration]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [volume, setVolume] = useState(0.8);
@@ -225,10 +229,10 @@ export default function WaveSurferPlayer({
           if (destroyed) return;
           onSeek?.(t * 1000);
         });
-        // Clic sur waveform → poser un cue
+        // Clic sur waveform → poser un cue (fallback sur trackDuration si pas d'audio réel)
         ws.on('click', (relX: number) => {
           if (destroyed) return;
-          const dur = ws.getDuration();
+          const dur = ws.getDuration() || (trackDuration ?? 0);
           if (dur > 0) onWaveformClick?.(relX * dur * 1000);
         });
         ws.on('error', (err: any) => {
@@ -334,9 +338,15 @@ export default function WaveSurferPlayer({
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
-      console.error('Audio load error:', e);
-      setError('Fichier audio introuvable');
-      setLoading(false);
+      console.warn('Audio load error (demo mode?):', e);
+      // En mode démo (tracks négatifs), pas d'erreur visible — juste désactiver le loading
+      if (id < 0) {
+        setLoading(false);
+        setIsReady(true); // Permettre le clic waveform même sans audio
+      } else {
+        setError('Fichier audio introuvable');
+        setLoading(false);
+      }
     }
   }, []);
 
