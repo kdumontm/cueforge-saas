@@ -1856,49 +1856,49 @@ export default function DashboardPage() {
       {/* Metadata Edit Modal */}
       {showEditMeta && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
-          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-600 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-white mb-4">✏️ Edit Track Metadata</h2>
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-default)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">✏️ Edit Track Metadata</h2>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">{t("titre")}</label>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("titre")}</label>
                 <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">{t("artiste")}</label>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("artiste")}</label>
                 <input type="text" value={editForm.artist} onChange={(e) => setEditForm({...editForm, artist: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">{t("album")}</label>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("album")}</label>
                 <input type="text" value={editForm.album} onChange={(e) => setEditForm({...editForm, album: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none" />
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-gray-400 block mb-1">{t("genre")}</label>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("genre")}</label>
                   <input type="text" value={editForm.genre} onChange={(e) => setEditForm({...editForm, genre: e.target.value})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none" />
                 </div>
                 <div className="w-20">
-                  <label className="text-xs text-gray-400 block mb-1">{t("annee")}</label>
+                  <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("annee")}</label>
                   <input type="number" value={editForm.year || ''} onChange={(e) => setEditForm({...editForm, year: parseInt(e.target.value) || 0})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">{t("commentaire")}</label>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("commentaire")}</label>
                 <textarea value={editForm.comment} onChange={(e) => setEditForm({...editForm, comment: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
+                  className="w-full bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-3 py-2 text-[var(--text-primary)] text-sm focus:border-cyan-500 focus:outline-none h-16 resize-none" />
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white font-medium">{t("annuler")}</button>
+              <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-[var(--bg-hover)] hover:bg-gray-500 rounded text-sm text-[var(--text-primary)] font-medium">{t("annuler")}</button>
         <button onClick={() => { const unanalyzed = tracks.filter(t => !t.analysis || !t.analysis.bpm); if (unanalyzed.length === 0) { showToast("Toutes les tracks sont d\u00e9j\u00e0 analys\u00e9es", "info"); return; } showToast("Analyse de " + unanalyzed.length + " tracks en cours...", "info"); batchAnalyzeAudio(unanalyzed.map(t => t.id)); }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-orange-500/30 text-orange-300 border border-orange-500/50 hover:bg-orange-500/50">
           <RefreshCw className="w-3 h-3" /> Analyze All
         </button>
               <button onClick={saveMetadata} disabled={savingMeta}
-                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
+                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-[var(--text-primary)] font-bold disabled:opacity-50">
                 {savingMeta ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -1907,9 +1907,9 @@ export default function DashboardPage() {
       )}
 
       {/* LEFT SIDEBAR - Module Buttons */}
-      <div className="w-12 bg-gray-950/90 border-r border-gray-800/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
-        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-white flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">{t('ajouter')}</span></button>
-          <div className="w-8 border-t border-gray-700/50 mb-1"></div>
+      <div className="w-12 bg-[var(--bg-primary)]/90 border-r border-[var(--border-subtle)]/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
+        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">{t('ajouter')}</span></button>
+          <div className="w-8 border-t border-[var(--border-subtle)]/50 mb-1"></div>
           {(() => {
             const sidebarGroups = [
               { id: 'library', title: 'LIB', items: [
@@ -1944,11 +1944,11 @@ export default function DashboardPage() {
               const collapsed = sidebarCollapsed[group.id] || false;
               return (
                 <div key={group.id} className="w-full flex flex-col items-center">
-                  <button onClick={() => setSidebarCollapsed(prev => ({...prev, [group.id]: !prev[group.id]}))} className="w-10 h-5 flex items-center justify-center text-[7px] font-bold text-gray-500 hover:text-gray-300 tracking-wider cursor-pointer select-none" title={collapsed ? 'Expand ' + group.title : 'Collapse ' + group.title}>
+                  <button onClick={() => setSidebarCollapsed(prev => ({...prev, [group.id]: !prev[group.id]}))} className="w-10 h-5 flex items-center justify-center text-[7px] font-bold text-[var(--text-muted)] hover:text-[var(--text-secondary)] tracking-wider cursor-pointer select-none" title={collapsed ? 'Expand ' + group.title : 'Collapse ' + group.title}>
                     {collapsed ? <ChevronDown size={8} className="mr-0.5" /> : <ChevronUp size={8} className="mr-0.5" />}{group.title}
                   </button>
                   {!collapsed && visibleItems.map((mod) => (
-          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); setShowTapTempo(false); setShowSessionNotes(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer, tapTempo: setShowTapTempo, notes: setShowSessionNotes}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}>
+          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); setShowTapTempo(false); setShowSessionNotes(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer, tapTempo: setShowTapTempo, notes: setShowSessionNotes}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-white/5'}`}>
                     {mod.icon}
                     <span className="text-[8px]">{mod.label}</span>
                   </button>
@@ -1962,7 +1962,7 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
 
       {/* ── TOP: Waveform Player (ALWAYS mounted) ─────────── */}
-      <div className="bg-bg-secondary border-b border-slate-800/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
+      <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-subtle)]/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
         {selectedTrack && (
           <div className="flex items-center justify-between mb-0.5">
             <div className="flex items-center gap-3 min-w-0">
@@ -1971,19 +1971,19 @@ export default function DashboardPage() {
                 <img src={selectedTrack.artwork_url} alt="" className="w-6 h-6 rounded object-cover" />
               ) : (
                 <div className="w-6 h-6 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                  <Music2 size={12} className="text-slate-500" />
+                  <Music2 size={12} className="text-[var(--text-muted)]" />
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white truncate">
+                <p className="text-sm font-bold text-[var(--text-primary)] truncate">
                   {selectedTrack.title || selectedTrack.original_filename}
                 </p>
-                <p className="text-xs text-slate-400 truncate">
+                <p className="text-xs text-[var(--text-secondary)] truncate">
                   {selectedTrack.artist || 'Artiste inconnu'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs font-mono text-slate-400 flex-shrink-0">
+            <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-secondary)] flex-shrink-0">
               {selectedTrack.analysis?.bpm && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
                   <Activity size={12} className="text-blue-400" />
@@ -2011,39 +2011,39 @@ export default function DashboardPage() {
                   <span className="text-purple-400 font-bold text-[11px]">{selectedTrack.genre}</span>
                 </div>
               )}
-              <span onClick={() => setShowRemainingTime(!showRemainingTime)} className="text-white font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded cursor-pointer hover:bg-black/60 transition-colors select-none" title="Cliquer pour basculer temps restant">{showRemainingTime ? (`-${msToTime(Math.max(0, (duration - currentTime)) * 1000)}`) : msToTime(currentTime * 1000)} <span className="text-slate-500">/</span> {msToTime(duration * 1000)}</span>
+              <span onClick={() => setShowRemainingTime(!showRemainingTime)} className="text-[var(--text-primary)] font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded cursor-pointer hover:bg-black/60 transition-colors select-none" title="Cliquer pour basculer temps restant">{showRemainingTime ? (`-${msToTime(Math.max(0, (duration - currentTime)) * 1000)}`) : msToTime(currentTime * 1000)} <span className="text-[var(--text-muted)]">/</span> {msToTime(duration * 1000)}</span>
             </div>
           </div>
           )}
 
         {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
-        <div className="relative w-full rounded-lg bg-bg-primary border border-slate-800/40" style={{ height: 110, overflow: 'visible' }} onWheel={(e) => { e.preventDefault(); if (e.deltaY < 0) setWaveformZoom((z) => Math.min(20, z + 1)); else setWaveformZoom((z) => Math.max(1, z - 1)); }}>
+        <div className="relative w-full rounded-lg bg-[var(--bg-primary)] border border-[var(--border-subtle)]/40" style={{ height: 110, overflow: 'visible' }} onWheel={(e) => { e.preventDefault(); if (e.deltaY < 0) setWaveformZoom((z) => Math.min(20, z + 1)); else setWaveformZoom((z) => Math.max(1, z - 1)); }}>
                 {/* WAVEFORM TOOLBAR */}
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setWaveformZoom(Math.max(1, waveformZoom - 1))} className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" title="Zoom Out">
+                    <button onClick={() => setWaveformZoom(Math.max(1, waveformZoom - 1))} className="p-1 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom Out">
                       <ZoomOut size={14} />
                     </button>
-                    <span className="text-[10px] text-gray-500 min-w-[30px] text-center">{waveformZoom}x</span>
-                    <button onClick={() => setWaveformZoom(Math.min(10, waveformZoom + 1))} className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" title="Zoom In">
+                    <span className="text-[10px] text-[var(--text-muted)] min-w-[30px] text-center">{waveformZoom}x</span>
+                    <button onClick={() => setWaveformZoom(Math.min(10, waveformZoom + 1))} className="p-1 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom In">
                       <ZoomIn size={14} />
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setShowBeatGrid(!showBeatGrid)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showBeatGrid ? 'bg-purple-500/30 text-cyan-400/80 border border-purple-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                    <button onClick={() => setShowBeatGrid(!showBeatGrid)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showBeatGrid ? 'bg-purple-500/30 text-cyan-400/80 border border-purple-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
                       <Grid3X3 size={10} /> Beat Grid
                     </button>
-                    <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-gray-800 text-gray-500 hover:text-gray-300'}`}>
+                    <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
                       Notes
                     </button>
-                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-gray-500 hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
+                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-[var(--text-muted)] hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
                       <span className="font-bold">?</span>
                     </button>
               {/* Waveform Theme */}
               <div className="flex items-center gap-1 ml-1">
-                <Palette size={10} className="text-gray-600" />
+                <Palette size={10} className="text-[var(--text-muted)]" />
                 {Object.entries(WAVEFORM_THEMES).map(([key, t]) => (
-                  <button key={key} onClick={() => setWaveformTheme(key as any)} className={"w-3 h-3 rounded-full border transition-all " + (waveformTheme === key ? "border-white scale-125 ring-1 ring-white/30" : "border-gray-600 hover:border-gray-400")} style={{ backgroundColor: t.cursor === '#fff' ? '#7c3aed' : t.cursor }} title={t.label} />
+                  <button key={key} onClick={() => setWaveformTheme(key as any)} className={"w-3 h-3 rounded-full border transition-all " + (waveformTheme === key ? "border-white scale-125 ring-1 ring-white/30" : "border-[var(--border-default)] hover:border-gray-400")} style={{ backgroundColor: t.cursor === '#fff' ? '#7c3aed' : t.cursor }} title={t.label} />
                 ))}
               </div>
                   </div>
@@ -2089,7 +2089,7 @@ export default function DashboardPage() {
                       return (
                         <div key={cue.id || i} className="absolute top-0" style={{ left: pct + '%', transform: 'translateX(-50%)' }}>
                           <div style={{ width: 2, height: '100%', backgroundColor: color, opacity: 0.6 }} />
-                          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold text-white px-0.5 rounded-sm" style={{ backgroundColor: color }}>{i + 1}</div>
+                          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold text-[var(--text-primary)] px-0.5 rounded-sm" style={{ backgroundColor: color }}>{i + 1}</div>
                         </div>
                       );
                     })}
@@ -2101,7 +2101,7 @@ export default function DashboardPage() {
                   <div className="w-full mt-1.5 space-y-0.5">
                     {/* Section labels bar */}
                     {selectedTrack?.analysis?.sections && selectedTrack.analysis.sections.length > 0 && (
-                      <div className="relative w-full h-5 rounded overflow-hidden bg-gray-900/50">
+                      <div className="relative w-full h-5 rounded overflow-hidden bg-[var(--bg-secondary)]/50">
                         {selectedTrack.analysis.sections.map((sec: any, i: number) => {
                           const startPct = (sec.start / duration) * 100;
                           const endTime = i < selectedTrack.analysis.sections.length - 1 ? selectedTrack.analysis.sections[i + 1].start : duration;
@@ -2109,7 +2109,7 @@ export default function DashboardPage() {
                           const sectionColors: Record<string, string> = { 'INTRO': '#3b82f6', 'VERSE': '#22c55e', 'CHORUS': '#eab308', 'BUILD': '#f97316', 'DROP': '#ef4444', 'BREAK': '#06b6d4', 'OUTRO': '#8b5cf6' };
                           const bg = sectionColors[sec.label] || '#6b7280';
                           return (
-                            <div key={i} className="absolute top-0 h-full flex items-center justify-center overflow-hidden border-r border-gray-800/50" style={{ left: startPct + '%', width: widthPct + '%', backgroundColor: bg + '33' }}>
+                            <div key={i} className="absolute top-0 h-full flex items-center justify-center overflow-hidden border-r border-[var(--border-subtle)]/50" style={{ left: startPct + '%', width: widthPct + '%', backgroundColor: bg + '33' }}>
                               <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: bg }}>{sec.label}</span>
                             </div>
                           );
@@ -2117,7 +2117,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                     {/* Progress bar */}
-                    <div className="relative w-full h-1.5 bg-gray-800/60 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
+                    <div className="relative w-full h-1.5 bg-[var(--bg-card)]/60 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
                       if (wavesurferRef.current && duration > 0) {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const pct = (e.clientX - rect.left) / rect.width;
@@ -2131,38 +2131,38 @@ export default function DashboardPage() {
                 )}
               {/* TRACK NOTES */}
                 {showNotes && selectedTrack && (
-                  <div className="mt-2 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                  <div className="mt-2 bg-[var(--bg-card)]/50 rounded-lg p-3 border border-[var(--border-subtle)]/50">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t("notes_dj")}</span>
-                      <span className="text-[10px] text-gray-600">{(trackNotes[selectedTrack.id] || '').length}/500</span>
+                      <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider">{t("notes_dj")}</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">{(trackNotes[selectedTrack.id] || '').length}/500</span>
                     </div>
                     <textarea
                       value={trackNotes[selectedTrack.id] || ''}
                       onChange={e => setTrackNotes(prev => ({...prev, [selectedTrack.id]: e.target.value.slice(0, 500)}))}
                       placeholder="Mix notes: transition ideas, EQ settings, energy flow..."
-                      className="w-full bg-gray-900/50 border border-gray-700 rounded p-2 text-xs text-gray-300 placeholder-gray-600 resize-none focus:border-purple-500/50 focus:outline-none"
+                      className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded p-2 text-xs text-[var(--text-secondary)] placeholder-[var(--text-muted)] resize-none focus:border-purple-500/50 focus:outline-none"
                       rows={2}
                     />
                   </div>
                 )}
                 {/* BEAT GRID OVERLAY */}
                 {showBeatGrid && selectedTrack?.analysis?.bpm && (
-                  <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-500">
+                  <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
                     <Grid3X3 size={10} className="text-cyan-500/70" />
                     <span>Beat Grid: {selectedTrack.analysis.bpm} BPM</span>
-                    <span className="text-gray-700">|</span>
+                    <span className="text-[var(--text-muted)]">|</span>
                     <span>Beat: {(60 / selectedTrack.analysis.bpm * 1000).toFixed(0)}ms</span>
-                    <span className="text-gray-700">|</span>
+                    <span className="text-[var(--text-muted)]">|</span>
                     <span>Bar: {(60 / selectedTrack.analysis.bpm * 4).toFixed(2)}s</span>
-                    <span className="text-gray-700">|</span>
+                    <span className="text-[var(--text-muted)]">|</span>
                     <span>Phrase (8bar): {(60 / selectedTrack.analysis.bpm * 32).toFixed(1)}s</span>
                   </div>
                 )}
           {!selectedTrack && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-3">
-              <Disc3 size={32} className="text-slate-600 animate-spin" style={{ animationDuration: '3s' }} />
-              <p className="text-slate-500 text-sm">Sélectionne un morceau pour voir la waveform</p>
-              <p className="text-slate-600 text-[10px]">Clique sur un track dans la liste ci-dessous</p>
+              <Disc3 size={32} className="text-[var(--text-muted)] animate-spin" style={{ animationDuration: '3s' }} />
+              <p className="text-[var(--text-muted)] text-sm">Sélectionne un morceau pour voir la waveform</p>
+              <p className="text-[var(--text-muted)] text-[10px]">Clique sur un track dans la liste ci-dessous</p>
             </div>
           )}
           {selectedTrack && (
@@ -2170,18 +2170,18 @@ export default function DashboardPage() {
               <button
                 onClick={() => handleZoom('out')}
                 disabled={zoomLevel <= 1}
-                className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
+                className="w-7 h-7 flex items-center justify-center bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-card)] disabled:opacity-30 text-[var(--text-primary)] rounded-md border border-[var(--border-subtle)]/50 transition-all"
                 title="Zoom out"
               >
                 <ZoomOut size={14} />
               </button>
-              <span className="text-[10px] font-mono text-slate-400 min-w-[32px] text-center">
+              <span className="text-[10px] font-mono text-[var(--text-secondary)] min-w-[32px] text-center">
                 {zoomLevel <= 1 ? 'Full' : `${zoomLevel}x`}
               </span>
               <button
                 onClick={() => handleZoom('in')}
                 disabled={zoomLevel >= 200}
-                className="w-7 h-7 flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 disabled:opacity-30 text-white rounded-md border border-slate-700/50 transition-all"
+                className="w-7 h-7 flex items-center justify-center bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-card)] disabled:opacity-30 text-[var(--text-primary)] rounded-md border border-[var(--border-subtle)]/50 transition-all"
                 title="Zoom in"
               >
                 <ZoomIn size={14} />
@@ -2192,23 +2192,23 @@ export default function DashboardPage() {
 
                 {/* DECK CONTROLS */}
         {selectedTrack && (
-          <div className="bg-gray-900/95 backdrop-blur-md border-t border-b border-gray-800/60 px-4 py-2">
+          <div className="bg-[var(--bg-secondary)]/95 backdrop-blur-md border-t border-b border-[var(--border-subtle)]/60 px-4 py-2">
             {/* Now Playing */}
             <div className="text-center mb-1 px-2">
-              <p className="text-xs text-white font-medium truncate">{selectedTrack?.title || selectedTrack?.filename}</p>
-              {selectedTrack?.artist && <p className="text-xs text-gray-400 truncate">{selectedTrack?.artist}</p>}
+              <p className="text-xs text-[var(--text-primary)] font-medium truncate">{selectedTrack?.title || selectedTrack?.filename}</p>
+              {selectedTrack?.artist && <p className="text-xs text-[var(--text-secondary)] truncate">{selectedTrack?.artist}</p>}
             </div>
             <div className="flex items-center gap-3 mb-2">
               <div className="flex items-center gap-1">
-                <button onClick={skipBack} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={16} /></button>
-                <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={22} className="text-white" /> : <Play size={22} className="text-white ml-0.5" />}</button>
-                <button onClick={skipForward} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={16} /></button>
+                <button onClick={skipBack} className="w-8 h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={16} /></button>
+                <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={22} className="text-[var(--text-primary)]" /> : <Play size={22} className="text-[var(--text-primary)] ml-0.5" />}</button>
+                <button onClick={skipForward} className="w-8 h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={16} /></button>
               </div>
               {/* Time Display */}
               <div className="flex items-center justify-center gap-2 text-xs mt-1">
-                <span className="text-gray-400 font-mono w-12 text-right">{formatTime(currentTime)}</span>
+                <span className="text-[var(--text-secondary)] font-mono w-12 text-right">{formatTime(currentTime)}</span>
                 <div
-                  className="flex-1 h-2 bg-gray-600 rounded-full cursor-pointer relative group"
+                  className="flex-1 h-2 bg-[var(--bg-hover)] rounded-full cursor-pointer relative group"
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const pct = (e.clientX - rect.left) / rect.width;
@@ -2226,7 +2226,7 @@ export default function DashboardPage() {
                     style={{ left: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
                   />
                 </div>
-                <span className="text-gray-400 font-mono w-12">{formatTime(duration)}</span>
+                <span className="text-[var(--text-secondary)] font-mono w-12">{formatTime(duration)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
@@ -2238,42 +2238,42 @@ export default function DashboardPage() {
                 ))}
               </div>
               <div className="flex items-center gap-2 ml-auto">
-                <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
+                <button onClick={toggleMute} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
                 <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); setVolume(v); setMuted(false); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
-                    <span className="text-[9px] text-gray-500 min-w-[28px] text-right tabular-nums">{Math.round(volume * 100)}%</span>
+                    <span className="text-[9px] text-[var(--text-muted)] min-w-[28px] text-right tabular-nums">{Math.round(volume * 100)}%</span>
               </div>
               {/* Playback Speed */}
-              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-800">
-                <button onClick={() => { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-gray-500 hover:text-white text-[10px] px-1 rounded hover:bg-white/10">-</button>
-                <button onClick={() => { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); }} className={"text-[10px] font-mono min-w-[32px] text-center px-1 rounded cursor-pointer " + (playbackRate === 1.0 ? "text-gray-400" : "text-cyan-400 font-bold")} title="Cliquer pour reset">{playbackRate.toFixed(2)}x</button>
-                <button onClick={() => { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-gray-500 hover:text-white text-[10px] px-1 rounded hover:bg-white/10">+</button>
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[var(--border-subtle)]">
+                <button onClick={() => { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[10px] px-1 rounded hover:bg-white/10">-</button>
+                <button onClick={() => { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); }} className={"text-[10px] font-mono min-w-[32px] text-center px-1 rounded cursor-pointer " + (playbackRate === 1.0 ? "text-[var(--text-secondary)]" : "text-cyan-400 font-bold")} title="Cliquer pour reset">{playbackRate.toFixed(2)}x</button>
+                <button onClick={() => { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[10px] px-1 rounded hover:bg-white/10">+</button>
               </div>
             </div>
             <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-4 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-4 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
                 <div className="grid grid-cols-8 gap-1">
                   {Array.from({length: 8}).map((_, i) => (
                     <button key={i} onContextMenu={(e) => { e.preventDefault(); if (selectedTrack.cue_points && selectedTrack.cue_points[i] && selectedTrack.cue_points[i].id) { setColorPickerCue(selectedTrack.cue_points[i].id); setColorPickerPos({x: e.clientX, y: e.clientY}); } }} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
-                      className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-white shadow-lg' : 'bg-gray-800/60 text-gray-600')}
+                      className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-[var(--text-primary)] shadow-lg' : 'bg-[var(--bg-card)]/60 text-[var(--text-muted)]')}
                       style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: getCueColor(selectedTrack.cue_points[i].id, i), boxShadow: '0 0 8px ' + (getCueColor(selectedTrack.cue_points[i].id, i)) + '40'} : {}}>
                       {i + 1}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="col-span-4 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-4 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopOut !== null && t >= loopOut) return; setLoopIn(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopIn !== null && t <= loopIn) return; setLoopOut(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-gray-800/60 hover:bg-cyan-500/20 text-gray-400 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
-                  <button onClick={() => { if (!loopActive && (loopIn === null || loopOut === null)) return; setLoopActive(prev => !prev); }} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : (loopIn !== null && loopOut !== null) ? 'bg-gray-800/60 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/40 hover:border-cyan-500/60' : 'bg-gray-800/60 text-gray-600 border border-transparent cursor-not-allowed')}>LOOP</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopOut !== null && t >= loopOut) return; setLoopIn(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-[var(--bg-card)]/60 hover:bg-cyan-500/20 text-[var(--text-secondary)] hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
+                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopIn !== null && t <= loopIn) return; setLoopOut(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-[var(--bg-card)]/60 hover:bg-cyan-500/20 text-[var(--text-secondary)] hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
+                  <button onClick={() => { if (!loopActive && (loopIn === null || loopOut === null)) return; setLoopActive(prev => !prev); }} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-[var(--text-primary)] shadow-lg shadow-cyan-500/30' : (loopIn !== null && loopOut !== null) ? 'bg-[var(--bg-card)]/60 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/40 hover:border-cyan-500/60' : 'bg-[var(--bg-card)]/60 text-[var(--text-muted)] border border-transparent cursor-not-allowed')}>LOOP</button>
                 </div>
               </div>
-              <div className="col-span-2 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-2 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">KEY</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-black text-white tracking-tight">{selectedTrack.analysis?.key ? (CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key) : '--'}</span>
+                  <span className="text-lg font-black text-[var(--text-primary)] tracking-tight">{selectedTrack.analysis?.key ? (CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key) : '--'}</span>
                 </div>
                 {selectedTrack.analysis?.key && CAMELOT_WHEEL[selectedTrack.analysis.key] && (
                   <div className="flex gap-1 mt-1">
@@ -2287,13 +2287,13 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-              <div className="col-span-2 bg-black/40 rounded-lg border border-gray-800/40 p-2">
+              <div className="col-span-2 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
                 <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">{t("energie")}</div>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-[var(--bg-card)] rounded-full overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{width: String((selectedTrack.analysis?.energy || 0) * 100) + '%'}} />
                   </div>
-                  <span className="text-xs font-bold text-gray-300 w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
+                  <span className="text-xs font-bold text-[var(--text-secondary)] w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
                 </div>
               </div>
             </div>
@@ -2303,7 +2303,7 @@ export default function DashboardPage() {
 
 {/* ── TOOLBAR: Upload, Search, Batch Actions ────────── */}
       <div
-        className={`flex items-center gap-2 px-4 py-2 border-b border-slate-800/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-bg-secondary/50'}`}
+        className={`flex items-center gap-2 px-4 py-2 border-b border-[var(--border-subtle)]/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-[var(--bg-secondary)]/50'}`}
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleFileDrop}
@@ -2312,7 +2312,7 @@ export default function DashboardPage() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-all"
+          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] text-xs font-semibold rounded-lg transition-all"
         >
           <Upload size={13} />
           Ajouter
@@ -2323,12 +2323,12 @@ export default function DashboardPage() {
         {/* Batch action buttons */}
         {selectedCount > 0 && (
           <>
-            <div className="w-px h-5 bg-slate-700/60" />
-            <span className="text-[10px] text-slate-400 font-medium">{selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}</span>
+            <div className="w-px h-5 bg-[var(--bg-elevated)]/60" />
+            <span className="text-[10px] text-[var(--text-secondary)] font-medium">{selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}</span>
             <button
               onClick={() => batchAnalyzeAudio(Array.from(selectedIds))}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 disabled:opacity-50 text-white text-[11px] font-semibold rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 disabled:opacity-50 text-[var(--text-primary)] text-[11px] font-semibold rounded-lg transition-all"
             >
               <Zap size={12} />
               Analyser Audio
@@ -2336,14 +2336,14 @@ export default function DashboardPage() {
             <button
               onClick={() => batchAnalyzeMetadata(Array.from(selectedIds))}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/80 hover:bg-green-500 disabled:opacity-50 text-white text-[11px] font-semibold rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/80 hover:bg-green-500 disabled:opacity-50 text-[var(--text-primary)] text-[11px] font-semibold rounded-lg transition-all"
             >
               <Sparkles size={12} />
               Rechercher Infos
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="flex items-center gap-1 px-2 py-1.5 text-slate-400 hover:text-white text-[11px] transition-colors"
+              className="flex items-center gap-1 px-2 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[11px] transition-colors"
             >
               <X size={12} />
               Désélectionner
@@ -2363,23 +2363,23 @@ export default function DashboardPage() {
         <div className="flex-1" />
 
         {/* Select all shortcut hint */}
-        <span className="text-[10px] text-slate-600 hidden md:block">Ctrl+A = tout sélectionner</span>
+        <span className="text-[10px] text-[var(--text-muted)] hidden md:block">Ctrl+A = tout sélectionner</span>
 
         {/* Search */}
         <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input ref={searchInputRef} type="text" placeholder="Rechercher..." value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)} autoFocus
-            className="pl-8 pr-7 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
+            className="pl-8 pr-7 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-primary)] placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
           {searchQuery && (
-            <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+            <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
               <X size={12} />
             </button>
           )}
         </div>
         {/* Sort */}
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-          className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-300 focus:outline-none">
+          className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none">
           <option value="date">{t("date_ajout")}</option>
                             <option value="title">{t("titre")}</option>
                             <option value="bpm">BPM</option>
@@ -2388,7 +2388,7 @@ export default function DashboardPage() {
                             <option value="genre">{t("genre")}</option>
                             <option value="duration">{t("duree")}</option>
               <option value="rating">{t("note")}</option></select>
-        <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-bg-primary border border-slate-800/50 rounded-lg text-xs text-slate-400 hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
+        <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-secondary)] hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
       </div>
 
       {error && (
@@ -2399,7 +2399,7 @@ export default function DashboardPage() {
       )}
 
                 {/* MODULE TABS ROW */}
-<div className="flex items-center gap-1 px-4 py-1.5 border-b border-slate-800/30 bg-gray-950/50">
+<div className="flex items-center gap-1 px-4 py-1.5 border-b border-[var(--border-subtle)]/30 bg-[var(--bg-primary)]/50">
   {[
     { id: 'tracks', label: 'TRACKS', icon: 'ListMusic' },
     { id: 'cues', label: 'CUES', icon: 'Disc3' },
@@ -2414,7 +2414,7 @@ export default function DashboardPage() {
       if (tab.id === 'tracks') { setShowModuleView(false); setActiveBottomTab('cues'); } else if (['playlists', 'history', 'stats'].includes(tab.id)) { setShowModuleView(true); setActiveBottomTab(tab.id); } else { setShowModuleView(true); setActiveBottomTab(tab.id); }}} className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-md transition-all duration-200 ${
       (tab.id === 'tracks' && activeBottomTab === 'cues' && !showModuleView) || (tab.id !== 'tracks' && activeBottomTab === tab.id)
         ? 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/30'
-        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'
+        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-white/5 border border-transparent'
     }`}>
       {tab.id === 'tracks' && <ListMusic size={12} />}
       {tab.id === 'cues' && <Disc3 size={12} />}
@@ -2433,12 +2433,12 @@ export default function DashboardPage() {
 {/* TRACK STATS */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-300">{filteredTracks.length} track{filteredTracks.length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs font-medium text-[var(--text-secondary)]">{filteredTracks.length} track{filteredTracks.length !== 1 ? 's' : ''}</span>
                     {filteredTracks.length !== tracks.length && (
-                      <span className="text-[10px] text-gray-600">/ {tracks.length} total</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">/ {tracks.length} total</span>
                     )}
                     {selectedTrack && (
-                      <button onClick={() => setShowCompatibleOnly(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showCompatibleOnly ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50")}>
+                      <button onClick={() => setShowCompatibleOnly(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showCompatibleOnly ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] border border-[var(--border-default)]/30 hover:bg-[var(--bg-hover)]/50")}>
                         <Zap className="w-3 h-3" /> {showCompatibleOnly ? 'Compatible' : 'All Keys'}
                       </button>
                     )}
@@ -2457,7 +2457,7 @@ export default function DashboardPage() {
                         <Sparkles className="w-3 h-3" /> Quick Mix
                       </button>
                     )}
-                    <button onClick={() => setShowBpmTap(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showBpmTap ? "bg-orange-500/30 text-orange-300 border border-orange-500/50" : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-600/50")} title="Tap to detect BPM">
+                    <button onClick={() => setShowBpmTap(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showBpmTap ? "bg-orange-500/30 text-orange-300 border border-orange-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] border border-[var(--border-default)]/30 hover:bg-[var(--bg-hover)]/50")} title="Tap to detect BPM">
                       <Activity className="w-3 h-3" /> Tap BPM
                     </button>
                     {filteredTracks.length > 0 && (() => {
@@ -2466,9 +2466,9 @@ export default function DashboardPage() {
                       const avgBpm = bpmTracks.length > 0 ? bpmTracks.reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / bpmTracks.length : 0;
                       return (
                         <>
-                          <span className="text-[10px] text-gray-600">·</span>
-                          <span className="text-[10px] text-gray-500">{Math.floor(totalMs / 60000)}min</span>
-                          {avgBpm > 0 && <><span className="text-[10px] text-gray-600">·</span><span className="text-[10px] text-gray-500">~{avgBpm.toFixed(0)} BPM</span></>}
+                          <span className="text-[10px] text-[var(--text-muted)]">·</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">{Math.floor(totalMs / 60000)}min</span>
+                          {avgBpm > 0 && <><span className="text-[10px] text-[var(--text-muted)]">·</span><span className="text-[10px] text-[var(--text-muted)]">~{avgBpm.toFixed(0)} BPM</span></>}
                         </>
                       );
                     })()}
@@ -2503,38 +2503,38 @@ export default function DashboardPage() {
 
                 {/* FILTER BAR */}
                 <div className="mb-2 space-y-2">
-                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     <Filter size={12} /> {showFilters ? 'Hide Filters' : t('filter_sort')}{(() => { const n = (filterBpmMin > 0 ? 1 : 0) + (filterBpmMax < 999 ? 1 : 0) + (filterKey ? 1 : 0) + (filterGenre ? 1 : 0) + (filterEnergyMin > 0 ? 1 : 0) + (filterEnergyMax < 100 ? 1 : 0); return n > 0 ? ` (${n})` : ''; })()}
                   </button>
                   {showFilters && (
-                    <div className="bg-gray-800/50 rounded-lg p-2 space-y-2 border border-gray-700/50">
+                    <div className="bg-[var(--bg-card)]/50 rounded-lg p-2 space-y-2 border border-[var(--border-subtle)]/50">
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <label className="text-[10px] text-gray-500 uppercase">BPM Min</label>
-                          <input type="number" value={filterBpmMin || ''} onChange={e => setFilterBpmMin(Number(e.target.value) || 0)} placeholder="60" className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white" />
+                          <label className="text-[10px] text-[var(--text-muted)] uppercase">BPM Min</label>
+                          <input type="number" value={filterBpmMin || ''} onChange={e => setFilterBpmMin(Number(e.target.value) || 0)} placeholder="60" className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]" />
                         </div>
                         <div className="flex-1">
-                          <label className="text-[10px] text-gray-500 uppercase">BPM Max</label>
-                          <input type="number" value={filterBpmMax >= 999 ? '' : filterBpmMax} onChange={e => setFilterBpmMax(Number(e.target.value) || 999)} placeholder="200" className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white" />
+                          <label className="text-[10px] text-[var(--text-muted)] uppercase">BPM Max</label>
+                          <input type="number" value={filterBpmMax >= 999 ? '' : filterBpmMax} onChange={e => setFilterBpmMax(Number(e.target.value) || 999)} placeholder="200" className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]" />
                         </div>
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase">Key</label>
-                        <select value={filterKey} onChange={e => setFilterKey(e.target.value)} className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
+                        <label className="text-[10px] text-[var(--text-muted)] uppercase">Key</label>
+                        <select value={filterKey} onChange={e => setFilterKey(e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
                           <option value="">{t("toutes_cles")}</option>
                           {Object.entries(CAMELOT_MAP).map(([k, v]) => <option key={k} value={k}>{v} - {k}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase">{t("genre")}</label>
-                        <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
+                        <label className="text-[10px] text-[var(--text-muted)] uppercase">{t("genre")}</label>
+                        <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
                           <option value="">{t("tous_genres")}</option>
                           {[...new Set(tracks.map(t => t.genre).filter(Boolean))].sort().map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                       </div>
                     {/* Energy Filter */}
                     <div>
-                      <label className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">Énergie</label>
+                      <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Énergie</label>
                       <div className="flex items-center gap-2">
                         <input
                           type="range"
@@ -2544,7 +2544,7 @@ export default function DashboardPage() {
                           className="flex-1 h-1 accent-orange-500"
                           title={`Min: ${filterEnergyMin}%`}
                         />
-                        <span className="text-[10px] text-slate-400 font-mono min-w-[60px] text-center">{filterEnergyMin}%-{filterEnergyMax}%</span>
+                        <span className="text-[10px] text-[var(--text-secondary)] font-mono min-w-[60px] text-center">{filterEnergyMin}%-{filterEnergyMax}%</span>
                         <input
                           type="range"
                           min="0" max="100" step="5"
@@ -2557,16 +2557,16 @@ export default function DashboardPage() {
                     </div>
                       
                       <div>
-                        <label className="text-[10px] text-gray-500 uppercase">{t("trier_par")}</label>
+                        <label className="text-[10px] text-[var(--text-muted)] uppercase">{t("trier_par")}</label>
                         <div className="flex gap-1">
-                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="flex-1 bg-gray-900/50 border border-gray-700 rounded px-2 py-1 text-xs text-white">
+                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="flex-1 bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
                             <option value="date">{t("date_ajout")}</option>
                             <option value="bpm">BPM</option>
                             <option value="key">{t("annee").slice(0,0)}Key</option>
                             <option value="title">{t("titre")}</option>
               <option value="rating">{t("note")}</option>
                           </select>
-                          <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-gray-900/50 border border-gray-700 rounded text-xs text-gray-400 hover:text-white">
+                          <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                             {sortDir === 'asc' ? '\u2191' : '\u2193'}
                           </button>
                         </div>
@@ -2585,7 +2585,7 @@ export default function DashboardPage() {
             <span className="text-xs font-medium text-purple-300">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
             <button onClick={() => { const ids = Array.from(selectedIds); showToast(`Analyse de ${ids.length} track(s) lanc\u00e9e`, 'info'); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
             <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); showToast(`${ids.length} track(s) supprim\u00e9(s)`, 'success'); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
-            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-slate-300 hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
+            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-[var(--text-secondary)] hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
           </div>
         )}
         {/* ── Upload Progress Bar ── */}
@@ -2594,9 +2594,9 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-xs text-cyan-400 mb-1">
               <Upload size={12} className="animate-bounce" />
               <span>{t('upload')} {uploadProgress.current}/{uploadProgress.total}</span>
-              <span className="text-slate-500">({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
+              <span className="text-[var(--text-muted)]">({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
             </div>
-            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300 ease-out" style={{width: `${(uploadProgress.current / uploadProgress.total) * 100}%`}} />
             </div>
           </div>
@@ -2605,16 +2605,16 @@ export default function DashboardPage() {
         <div className="relative inline-block">
           {/* Quick Filters */}
           <div className="flex items-center gap-1 flex-wrap mb-1">
-            <span className="text-[9px] text-gray-500 mr-1">{t('quick_label')}</span>
+            <span className="text-[9px] text-[var(--text-muted)] mr-1">{t('quick_label')}</span>
             {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
               <button key={c} onClick={() => setFilterColor(filterColor === c ? null : c)}
-                className={`w-4 h-4 rounded-full border transition-all ${filterColor === c ? 'border-white scale-125 ring-1 ring-white/30' : 'border-gray-600 opacity-50 hover:opacity-100'}`}
+                className={`w-4 h-4 rounded-full border transition-all ${filterColor === c ? 'border-white scale-125 ring-1 ring-white/30' : 'border-[var(--border-default)] opacity-50 hover:opacity-100'}`}
                 style={{backgroundColor: c}} />
             ))}
-            <span className="text-gray-600 mx-1">|</span>
+            <span className="text-[var(--text-muted)] mx-1">|</span>
             {[1,2,3,4,5].map(r => (
               <button key={r} onClick={() => setFilterRating(filterRating === r ? 0 : r)}
-                className={`text-[10px] transition-colors ${filterRating >= r ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`}>
+                className={`text-[10px] transition-colors ${filterRating >= r ? 'text-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400/50'}`}>
                 <Star className={`w-3 h-3 ${filterRating >= r ? 'fill-yellow-400' : ''}`} />
               </button>
             ))}
@@ -2625,12 +2625,12 @@ export default function DashboardPage() {
           </div>
           {/* BPM Range Filter */}
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[9px] text-gray-500">BPM:</span>
+            <span className="text-[9px] text-[var(--text-muted)]">BPM:</span>
             <input type="range" min="0" max="300" step="5" value={bpmMin}
               onChange={e => setBpmMin(Number(e.target.value))}
               className="w-16 h-1 accent-cyan-500 cursor-pointer" />
             <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMin}</span>
-            <span className="text-[9px] text-gray-600">-</span>
+            <span className="text-[9px] text-[var(--text-muted)]">-</span>
             <input type="range" min="0" max="300" step="5" value={bpmMax}
               onChange={e => setBpmMax(Number(e.target.value))}
               className="w-16 h-1 accent-cyan-500 cursor-pointer" />
@@ -2642,27 +2642,27 @@ export default function DashboardPage() {
           </div>
           {/* Genre BPM Presets */}
           <div className="flex flex-wrap gap-1 mt-1">
-            <span className="text-[9px] text-gray-500 w-full">Genre:</span>
+            <span className="text-[9px] text-[var(--text-muted)] w-full">Genre:</span>
             {[{n:'Hip-Hop',a:85,b:115},{n:'House',a:120,b:130},{n:'Techno',a:128,b:145},{n:'Trance',a:138,b:150},{n:'DnB',a:170,b:180},{n:'Dubstep',a:138,b:142},{n:'Afro',a:100,b:120},{n:'All',a:0,b:300}].map(function(g) { return (
-              <button key={g.n} onClick={() => { setBpmMin(g.a); setBpmMax(g.b); }} className={"text-[8px] px-1.5 py-0.5 rounded-full border transition-all " + (bpmMin === g.a && bpmMax === g.b ? "bg-cyan-600 border-cyan-500 text-white" : "border-gray-700 text-gray-400 hover:border-cyan-600 hover:text-cyan-300")}>{g.n}</button>
+              <button key={g.n} onClick={() => { setBpmMin(g.a); setBpmMax(g.b); }} className={"text-[8px] px-1.5 py-0.5 rounded-full border transition-all " + (bpmMin === g.a && bpmMax === g.b ? "bg-cyan-600 border-cyan-500 text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-cyan-600 hover:text-cyan-300")}>{g.n}</button>
             ); })}
           </div>
-          <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-slate-400 hover:text-cyan-400 hover:bg-slate-800/50 transition-colors mb-1" title="Colonnes visibles">
+          <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-[var(--text-secondary)] hover:text-cyan-400 hover:bg-[var(--bg-card)]/50 transition-colors mb-1" title="Colonnes visibles">
             <SlidersHorizontal size={12} /> Colonnes
           </button>
-          <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+          <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
             <Filter className="w-3 h-3" /> {t('filters')} {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
           </button>
-              <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+              <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
                 <Zap className="w-3 h-3" /> {autoAnalyze ? t('auto_analyze_on') : t('auto_analyze_off')}
               </button>
-              <button onClick={() => setShowStats(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showStats ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
+              <button onClick={() => setShowStats(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showStats ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
                 <BarChart3 className="w-3 h-3" /> {t('stats')}
               </button>
           {showColSettings && (
-            <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-full left-0 z-50 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
               {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
-                <label key={k} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/50 cursor-pointer text-xs text-slate-300">
+                <label key={k} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--bg-elevated)]/50 cursor-pointer text-xs text-[var(--text-secondary)]">
                   <input type="checkbox" checked={visibleCols[k]} onChange={() => toggleCol(k)} className="accent-cyan-500 w-3 h-3" />
                   {label}
                 </label>
@@ -2700,12 +2700,12 @@ export default function DashboardPage() {
                 Delete
               </button>
               <button onClick={() => setSelectedIds(new Set())}
-                className="text-[9px] text-gray-400 hover:text-white ml-auto">{t("effacer")}</button>
+                className="text-[9px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] ml-auto">{t("effacer")}</button>
             </div>
           )}
           {/* Table header */}
-        <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-800/30 sticky top-0 bg-bg-primary z-10" style={{gridTemplateColumns: gridTemplate}}>
-          <input type="checkbox" className="rounded border-slate-600 bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
+        <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border-subtle)]/30 sticky top-0 bg-[var(--bg-primary)] z-10" style={{gridTemplateColumns: gridTemplate}}>
+          <input type="checkbox" className="rounded border-[var(--border-default)] bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
           <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
           {visibleCols.artist && <span onClick={() => handleHeaderSort('artist')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'artist' ? "text-cyan-400" : "")}>Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
               {visibleCols.album && <span onClick={() => handleHeaderSort('album')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'album' ? "text-cyan-400" : "")}>Album {sortBy === 'album' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
@@ -2718,18 +2718,18 @@ export default function DashboardPage() {
           <span />
           {/* Column Filter Row */}
             {showStats && (
-              <div className="mb-2 p-3 rounded-lg bg-slate-800/60 border border-slate-700/50">
+              <div className="mb-2 p-3 rounded-lg bg-[var(--bg-card)]/60 border border-[var(--border-subtle)]/50">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center">
-                    <div className="text-lg font-bold text-white">{tracks.length}</div>
-                    <div className="text-[10px] text-slate-400">{t("total_morceaux")}</div>
+                    <div className="text-lg font-bold text-[var(--text-primary)]">{tracks.length}</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">{t("total_morceaux")}</div>
                     <div className="text-[10px] text-green-400">{tracks.filter(t => t.analysis?.bpm).length} analyzed</div>
                   </div>
                   <div className="text-center">
                     <div className="text-lg font-bold text-cyan-400">
                       {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(Math.min(...bpms)) + '-' + Math.round(Math.max(...bpms)) : 'N/A'; })()}
                     </div>
-                    <div className="text-[10px] text-slate-400">BPM Range</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">BPM Range</div>
                     <div className="text-[10px] text-cyan-400/70">
                       avg {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(bpms.reduce((a,b) => a+b, 0) / bpms.length) : 'N/A'; })()}
                     </div>
@@ -2738,7 +2738,7 @@ export default function DashboardPage() {
                     <div className="text-lg font-bold text-purple-400">
                       {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
                     </div>
-                    <div className="text-[10px] text-slate-400">{t("cle_principale")}</div>
+                    <div className="text-[10px] text-[var(--text-secondary)]">{t("cle_principale")}</div>
                     <div className="text-[10px] text-purple-400/70">
                       {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
                     </div>
@@ -2747,43 +2747,43 @@ export default function DashboardPage() {
                     <div className="flex justify-center gap-1 mt-1">
                       {[['Calm','rgb(34,197,94)'], ['Mod','rgb(234,179,8)'], ['High','rgb(249,115,22)'], ['Max','rgb(239,68,68)']].map(([label, color], i) => {
                         const count = tracks.filter(t => { const e = t.analysis?.energy; if (e == null) return false; if (i===0) return e < 0.25; if (i===1) return e >= 0.25 && e < 0.5; if (i===2) return e >= 0.5 && e < 0.75; return e >= 0.75; }).length;
-                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: String(color)}}>{count}</div><div className="text-[8px] text-slate-500">{label}</div></div>;
+                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: String(color)}}>{count}</div><div className="text-[8px] text-[var(--text-muted)]">{label}</div></div>;
                       })}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Energy</div>
+                    <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">Energy</div>
                   </div>
                 </div>
               </div>
             )}
           {showColumnFilters && (
-          <div className="grid track-grid gap-2 px-4 py-2 text-[9px] border-b border-slate-700/50 bg-slate-900/50">
+          <div className="grid track-grid gap-2 px-4 py-2 text-[9px] border-b border-[var(--border-subtle)]/50 bg-[var(--bg-secondary)]/50">
             <span />
-            <input type="text" placeholder="Filter title..." value={colFilterTitle} onChange={e => setColFilterTitle(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-full" />
-            {visibleCols.artist && <input type="text" placeholder="Filter artist..." value={colFilterArtist} onChange={e => setColFilterArtist(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]" />}
+            <input type="text" placeholder="Filter title..." value={colFilterTitle} onChange={e => setColFilterTitle(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-full" />
+            {visibleCols.artist && <input type="text" placeholder="Filter artist..." value={colFilterArtist} onChange={e => setColFilterArtist(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]" />}
             {visibleCols.album && <span />}
-            <select value={colFilterGenre} onChange={e => setColFilterGenre(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
+            <select value={colFilterGenre} onChange={e => setColFilterGenre(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]">
               <option value="">{t("tous_genres")}</option>
               {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).sort().map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             <div className="flex gap-1">
-              <input type="number" placeholder="Min" value={colFilterBpmMin} onChange={e => setColFilterBpmMin(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
-              <input type="number" placeholder="Max" value={colFilterBpmMax} onChange={e => setColFilterBpmMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+              <input type="number" placeholder="Min" value={colFilterBpmMin} onChange={e => setColFilterBpmMin(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
+              <input type="number" placeholder="Max" value={colFilterBpmMax} onChange={e => setColFilterBpmMax(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
             </div>
-            <select value={colFilterKey} onChange={e => setColFilterKey(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px]">
+            <select value={colFilterKey} onChange={e => setColFilterKey(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]">
               <option value="">{t("toutes_cles")}</option>
               {Array.from(new Set(tracks.map(t => t.analysis?.key).filter(Boolean))).sort().map(k => <option key={k} value={k}>{k}</option>)}
             </select>
             <div className="flex gap-1">
-              <input type="number" placeholder="Min" min="0" max="100" value={colFilterEnergyMin} onChange={e => setColFilterEnergyMin(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
-              <input type="number" placeholder="Max" min="0" max="100" value={colFilterEnergyMax} onChange={e => setColFilterEnergyMax(e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1 py-0.5 text-slate-300 text-[9px] w-12" />
+              <input type="number" placeholder="Min" min="0" max="100" value={colFilterEnergyMin} onChange={e => setColFilterEnergyMin(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
+              <input type="number" placeholder="Max" min="0" max="100" value={colFilterEnergyMax} onChange={e => setColFilterEnergyMax(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
             </div>
-            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-slate-400 hover:text-white text-[8px]">{t("effacer")}</button>
+            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[8px]">{t("effacer")}</button>
           </div>
           )}
         </div>
 
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+          <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
             {tracks.length > 0 ? (
               <>
                 <Search size={48} className="mb-4 opacity-30" />
@@ -2818,7 +2818,7 @@ export default function DashboardPage() {
               <div
                 key={track.id}
                 data-track-id={track.id}
-                className={`grid track-grid gap-2 px-4 py-2.5 items-center border-b border-slate-800/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
+                className={`grid track-grid gap-2 px-4 py-2.5 items-center border-b border-[var(--border-subtle)]/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
                 style={{gridTemplateColumns: gridTemplate}}
                 onClick={(e) => {
                   if (e.shiftKey && lastClickedIdxRef.current >= 0) {
@@ -2890,30 +2890,30 @@ export default function DashboardPage() {
                     <img src={track.artwork_url} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0 shadow" />
                   ) : (
                     <div className="w-9 h-9 rounded bg-gradient-to-br from-slate-700/80 to-slate-800/80 flex items-center justify-center flex-shrink-0 relative">
-                      <Music2 size={14} className="text-slate-600 group-hover:opacity-0 transition-opacity" />
-                      <Play size={14} className="text-white absolute opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
+                      <Music2 size={14} className="text-[var(--text-muted)] group-hover:opacity-0 transition-opacity" />
+                      <Play size={14} className="text-[var(--text-primary)] absolute opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm text-white font-medium truncate">
+                    <p className="text-sm text-[var(--text-primary)] font-medium truncate">
                       <button onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }} className="inline-flex mr-1 hover:scale-125 transition-transform" title={favoriteIds.has(track.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>
-                        <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600 hover:text-yellow-400'} />
+                        <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400'} />
                       </button>
                       {trackColors[track.id] && <span className="w-2 h-2 rounded-full inline-block mr-1 flex-shrink-0" style={{backgroundColor: trackColors[track.id]}} />}{selectedTrack && selectedTrack.id !== track.id && isMixCompatible(selectedTrack, track) && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1 animate-pulse" title="Mix compatible" />}{track.title || track.original_filename}
                     </p>
-                    <p className="text-[11px] text-slate-500 truncate">
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">
                       {track.artist || '\u2014'}
                     </p>
                   </div>
                 </div>
                 {/* Artist */}
-              <span className="text-xs text-slate-400 truncate">{track.artist || '—'}</span>
+              <span className="text-xs text-[var(--text-secondary)] truncate">{track.artist || '—'}</span>
               {/* Album */}
-              <span className="text-xs text-slate-400 truncate">{track.album || '—'}</span>
+              <span className="text-xs text-[var(--text-secondary)] truncate">{track.album || '—'}</span>
               {/* Genre */}
-                <span className="text-xs text-slate-400 truncate cursor-pointer hover:text-yellow-400 hover:bg-gray-800/50 px-1 rounded transition-colors" title={t('double_click_edit')} onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
+                <span className="text-xs text-[var(--text-secondary)] truncate cursor-pointer hover:text-yellow-400 hover:bg-[var(--bg-card)]/50 px-1 rounded transition-colors" title={t('double_click_edit')} onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
                   {inlineEditId === track.id && inlineEditField === 'genre' ? (
-                    <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-gray-900 text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
+                    <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-[var(--bg-secondary)] text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
                   ) : (track.genre?.split(',')[0]?.trim() || '—')}
                 </span>
                 {/* BPM */}
@@ -2948,11 +2948,11 @@ export default function DashboardPage() {
                   {/* Rating */}
                   <div className="flex items-center justify-center gap-px" onClick={(e) => e.stopPropagation()}>
                     {[1,2,3,4,5].map(star => (
-                      <Star key={star} className={"w-3 h-3 cursor-pointer transition-colors " + ((trackRatings[track.id] || 0) >= star ? "text-yellow-400 fill-yellow-400" : "text-slate-600 hover:text-yellow-400/50")} onClick={(e) => { e.stopPropagation(); setRating(track.id, star); }} />
+                      <Star key={star} className={"w-3 h-3 cursor-pointer transition-colors " + ((trackRatings[track.id] || 0) >= star ? "text-yellow-400 fill-yellow-400" : "text-[var(--text-muted)] hover:text-yellow-400/50")} onClick={(e) => { e.stopPropagation(); setRating(track.id, star); }} />
                     ))}
                   </div>
                 {/* Duration */}
-                <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-slate-500 font-mono text-center cursor-help">
+                <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-[var(--text-muted)] font-mono text-center cursor-help">
                   {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
                 </span>
                 {/* Status & Actions */}
@@ -2964,7 +2964,7 @@ export default function DashboardPage() {
                 )}
                 <button
                   onClick={e => { e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
-                  className="p-1 text-slate-600 hover:text-slate-300 transition-colors"
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
                 >
                   <MoreVertical size={14} />
                 </button>
@@ -2977,22 +2977,22 @@ export default function DashboardPage() {
       {/* ── Context Menu ─────────────────────────────────────── */}
       {ctxMenu && (
         <div
-          className="fixed z-50 bg-bg-secondary border border-slate-700/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
+          className="fixed z-50 bg-[var(--bg-secondary)] border border-[var(--border-subtle)]/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
           style={{ left: Math.min(ctxMenu.x, window.innerWidth - 280), top: Math.min(ctxMenu.y, window.innerHeight - 350) }}
           onClick={e => e.stopPropagation()}
         >
-          <div className="px-3 py-2 border-b border-slate-800/40">
-            <p className="text-xs font-bold text-white truncate">
+          <div className="px-3 py-2 border-b border-[var(--border-subtle)]/40">
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
               {ctxMenu.track.title || ctxMenu.track.original_filename}
             </p>
-            <p className="text-[10px] text-slate-500">{ctxMenu.track.artist || ''}</p>
+            <p className="text-[10px] text-[var(--text-muted)]">{ctxMenu.track.artist || ''}</p>
           </div>
           {CONTEXT_ACTIONS.map((a) => (
             <div key={a.action}>
-              {a.separator && <div className="my-1 border-t border-slate-800/40" />}
+              {a.separator && <div className="my-1 border-t border-[var(--border-subtle)]/40" />}
               <button
                 onClick={() => handleCtxAction(a.action, ctxMenu.track)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-bg-elevated hover:text-white transition-colors ${a.action === 'delete' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : ''}`}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors ${a.action === 'delete' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : ''}`}
               >
                 {a.icon}
                 {a.label}
@@ -3004,14 +3004,14 @@ export default function DashboardPage() {
 
       {/* BPM Tap Tool */}
       {showBpmTap && (
-        <div className="fixed bottom-20 right-6 z-50 bg-gray-900 border border-gray-600/50 rounded-xl p-4 shadow-2xl backdrop-blur-xl w-64">
+        <div className="fixed bottom-20 right-6 z-50 bg-[var(--bg-secondary)] border border-[var(--border-default)]/50 rounded-xl p-4 shadow-2xl backdrop-blur-xl w-64">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400" /> BPM Tap</h3>
-            <button onClick={() => { setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null); }} className="text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400" /> BPM Tap</h3>
+            <button onClick={() => { setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X className="w-4 h-4" /></button>
           </div>
           <div className="text-center mb-3">
             <div className="text-3xl font-bold text-orange-400 font-mono">{bpmTapResult ? bpmTapResult.toFixed(1) : '---'}</div>
-            <div className="text-[10px] text-gray-500 mt-1">{bpmTapTimes.length} taps</div>
+            <div className="text-[10px] text-[var(--text-muted)] mt-1">{bpmTapTimes.length} taps</div>
           </div>
           <button onClick={() => {
             const now = Date.now();
@@ -3029,7 +3029,7 @@ export default function DashboardPage() {
             TAP
           </button>
           <div className="flex gap-2 mt-2">
-            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-gray-700/50 text-gray-400 rounded text-[10px] hover:bg-gray-600/50 transition-colors">{t("reinitialiser")}</button>
+            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded text-[10px] hover:bg-[var(--bg-hover)]/50 transition-colors">{t("reinitialiser")}</button>
             {bpmTapResult && selectedTrack && (
               <button onClick={() => {
                 setTracks(prev => prev.map(t => t.id === selectedTrack.id ? {...t, analysis: {...(t.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : t));
@@ -3042,21 +3042,21 @@ export default function DashboardPage() {
       )}
       {/* Mix Transition Log */}
       {mixLog.length > 0 && (
-        <div className="fixed top-20 right-4 z-40 bg-gray-900/95 border border-gray-700/50 rounded-xl p-3 shadow-xl backdrop-blur-xl w-56 max-h-64 overflow-y-auto">
+        <div className="fixed top-20 right-4 z-40 bg-[var(--bg-secondary)]/95 border border-[var(--border-subtle)]/50 rounded-xl p-3 shadow-xl backdrop-blur-xl w-56 max-h-64 overflow-y-auto">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Mix Log</h4>
-            <button onClick={() => setMixLog([])} className="text-gray-500 hover:text-gray-300 text-[9px]">{t("effacer")}</button>
+            <h4 className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Mix Log</h4>
+            <button onClick={() => setMixLog([])} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-[9px]">{t("effacer")}</button>
           </div>
           {mixLog.slice(0, 8).map((entry, i) => {
             const fromTrack = tracks.find(t => t.id === entry.fromId);
             const toTrack = tracks.find(t => t.id === entry.toId);
             const scoreColor = entry.score >= 80 ? 'text-green-400' : entry.score >= 60 ? 'text-yellow-400' : 'text-red-400';
             return (
-              <div key={i} className="flex items-center gap-1.5 py-1 border-b border-gray-800/50 last:border-0">
+              <div key={i} className="flex items-center gap-1.5 py-1 border-b border-[var(--border-subtle)]/50 last:border-0">
                 <div className="flex-1 min-w-0">
-                  <div className="text-[9px] text-gray-400 truncate">{fromTrack?.title || '?'}</div>
-                  <div className="text-[8px] text-gray-600 flex items-center gap-0.5"><ArrowUpDown className="w-2.5 h-2.5" /></div>
-                  <div className="text-[9px] text-gray-400 truncate">{toTrack?.title || '?'}</div>
+                  <div className="text-[9px] text-[var(--text-secondary)] truncate">{fromTrack?.title || '?'}</div>
+                  <div className="text-[8px] text-[var(--text-muted)] flex items-center gap-0.5"><ArrowUpDown className="w-2.5 h-2.5" /></div>
+                  <div className="text-[9px] text-[var(--text-secondary)] truncate">{toTrack?.title || '?'}</div>
                 </div>
                 <span className={"text-[10px] font-bold font-mono " + scoreColor}>{entry.score}%</span>
               </div>
@@ -3066,16 +3066,16 @@ export default function DashboardPage() {
       )}
       {/* Batch Actions Floating Bar */}
       {selectedIds.size > 1 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-gray-600/50 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 backdrop-blur-xl">
-          <span className="text-sm font-medium text-white">{selectedIds.size} tracks</span>
-          <div className="w-px h-6 bg-gray-600" />
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-[var(--border-default)]/50 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 backdrop-blur-xl">
+          <span className="text-sm font-medium text-[var(--text-primary)]">{selectedIds.size} tracks</span>
+          <div className="w-px h-6 bg-[var(--bg-hover)]" />
           <button onClick={() => { const ids = Array.from(selectedIds); setSetLists(prev => prev.map((s, i) => i === activeSetList ? {...s, trackIds: [...new Set([...s.trackIds, ...ids])]} : s)); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/50 text-xs font-medium transition-colors">
             <ListPlus className="w-3.5 h-3.5" /> Add to Set List
           </button>
           <button onClick={async () => { if (!confirm('Delete ' + selectedIds.size + ' tracks?')) return; for (const id of selectedIds) { try { await deleteTrack(id); } catch(e) {} } setTracks(prev => prev.filter(t => !selectedIds.has(t.id))); if (selectedTrack && selectedIds.has(selectedTrack.id)) setSelectedTrack(null); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/50 text-xs font-medium transition-colors">
             <Trash2 className="w-3.5 h-3.5" /> Delete
           </button>
-          <button onClick={() => setSelectedIds(new Set())} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-600/50 text-xs font-medium transition-colors">
+          <button onClick={() => setSelectedIds(new Set())} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-hover)]/50 text-xs font-medium transition-colors">
             <X className="w-3.5 h-3.5" /> Clear
           </button>
         </div>
@@ -3098,14 +3098,14 @@ export default function DashboardPage() {
         <>
           {/* Backdrop overlay */}
           <div className="fixed inset-0 bg-black/30 z-30" onClick={() => setMetadataPanel(null)} />
-          <div className="fixed inset-y-0 right-0 w-[420px] max-w-full bg-bg-secondary border-l border-slate-800/60 z-40 shadow-2xl overflow-y-auto">
+          <div className="fixed inset-y-0 right-0 w-[420px] max-w-full bg-[var(--bg-secondary)] border-l border-[var(--border-subtle)]/60 z-40 shadow-2xl overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/40 sticky top-0 bg-bg-secondary z-10">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-subtle)]/40 sticky top-0 bg-[var(--bg-secondary)] z-10">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Sparkles size={16} className="text-green-400" />
                 Metadata & Spotify
               </h3>
-              <button onClick={() => setMetadataPanel(null)} className="p-1 text-slate-500 hover:text-white rounded-lg hover:bg-slate-700/50 transition-all">
+              <button onClick={() => setMetadataPanel(null)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-elevated)]/50 transition-all">
                 <X size={18} />
               </button>
             </div>
@@ -3117,13 +3117,13 @@ export default function DashboardPage() {
                   <img src={metadataPanel.artwork_url} alt="" className="w-24 h-24 rounded-xl object-cover shadow-xl" />
                 ) : (
                   <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-xl">
-                    <Image size={28} className="text-slate-600" />
+                    <Image size={28} className="text-[var(--text-muted)]" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-white font-bold truncate">{metadataPanel.title || metadataPanel.original_filename}</p>
-                  <p className="text-sm text-slate-400 truncate">{metadataPanel.artist || 'Artiste inconnu'}</p>
-                  <p className="text-xs text-slate-500 truncate">{metadataPanel.album || 'Album inconnu'}</p>
+                  <p className="text-[var(--text-primary)] font-bold truncate">{metadataPanel.title || metadataPanel.original_filename}</p>
+                  <p className="text-sm text-[var(--text-secondary)] truncate">{metadataPanel.artist || 'Artiste inconnu'}</p>
+                  <p className="text-xs text-[var(--text-muted)] truncate">{metadataPanel.album || 'Album inconnu'}</p>
                   <div className="flex items-center gap-2 mt-2">
                     {metadataPanel.genre && (
                       <span className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-cyan-400/80 rounded-full border border-purple-500/30">
@@ -3131,7 +3131,7 @@ export default function DashboardPage() {
                       </span>
                     )}
                     {metadataPanel.year && (
-                      <span className="text-[10px] px-2 py-0.5 bg-slate-700/50 text-slate-400 rounded-full">
+                      <span className="text-[10px] px-2 py-0.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded-full">
                         {metadataPanel.year}
                       </span>
                     )}
@@ -3150,7 +3150,7 @@ export default function DashboardPage() {
 
               {/* Current metadata */}
               <div>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Informations actuelles</p>
+                <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Informations actuelles</p>
                 <div className="space-y-2 text-xs">
                   <MetaRow label="Fichier" value={metadataPanel.original_filename} />
                   <MetaRow label="Artiste" value={metadataPanel.artist || '\u2014'} />
@@ -3165,13 +3165,13 @@ export default function DashboardPage() {
               {metadataLoading && (
                 <div className="flex items-center justify-center gap-3 py-8">
                   <Loader2 size={20} className="animate-spin text-green-400" />
-                  <span className="text-sm text-slate-400">Recherche en cours...</span>
+                  <span className="text-sm text-[var(--text-secondary)]">Recherche en cours...</span>
                 </div>
               )}
 
               {metadataSuggestions && !metadataLoading && (
                 <div>
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
                     {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouvées' : 'Aucune suggestion'}
                   </p>
                   {Object.keys(metadataSuggestions).length > 0 ? (
@@ -3181,7 +3181,7 @@ export default function DashboardPage() {
                         .map(([key, value]) => (
                           <div key={key} className="flex items-center justify-between p-2.5 bg-green-500/5 border border-green-500/20 rounded-lg">
                             <div className="min-w-0">
-                              <span className="text-[10px] text-slate-500 uppercase">{key}</span>
+                              <span className="text-[10px] text-[var(--text-muted)] uppercase">{key}</span>
                               <p className="text-xs text-green-400 font-medium truncate">{value}</p>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0 ml-2">
@@ -3192,12 +3192,12 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         ))}
-                      <p className="text-[10px] text-slate-500 mt-2 italic">
+                      <p className="text-[10px] text-[var(--text-muted)] mt-2 italic">
                         Les suggestions ont été appliquées automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
                       </p>
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 text-center py-4">
+                    <p className="text-xs text-[var(--text-muted)] text-center py-4">
                       Aucune nouvelle information trouvée pour ce morceau.
                     </p>
                   )}
@@ -3212,7 +3212,7 @@ export default function DashboardPage() {
                 <div className="text-center py-4">
                   <button
                     onClick={() => launchSpotifySearch(metadataPanel)}
-                    className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-green-600/20"
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-[var(--text-primary)] text-xs font-semibold rounded-xl transition-all shadow-lg shadow-green-600/20"
                   >
                     <Search size={13} className="inline mr-2" />
                     Lancer la recherche Spotify
@@ -3238,23 +3238,23 @@ export default function DashboardPage() {
               if (cue && wavesurferRef.current) {
                 wavesurferRef.current.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1));
               }
-            }} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${cue ? 'border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 cursor-pointer' : 'border-gray-800/40 bg-gray-900/30 opacity-40'}`}>
+            }} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${cue ? 'border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 cursor-pointer' : 'border-[var(--border-subtle)]/40 bg-[var(--bg-secondary)]/30 opacity-40'}`}>
               <span className="text-lg font-bold" style={{color: cueColors[i] || '#06b6d4'}}>{String.fromCodePoint(0x2776 + i)}</span>
-              <span className="text-[10px] text-gray-400">{cue ? cue.label || 'Cue ' + (i+1) : '—'}</span>
-              <span className="text-[9px] text-gray-600">{cue ? (cue.time_ms / 1000).toFixed(1) + 's' : ''}</span>
+              <span className="text-[10px] text-[var(--text-secondary)]">{cue ? cue.label || 'Cue ' + (i+1) : '—'}</span>
+              <span className="text-[9px] text-[var(--text-muted)]">{cue ? (cue.time_ms / 1000).toFixed(1) + 's' : ''}</span>
             </button>
           );
         })}
       </div>
       {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 && (
         <div className="space-y-1 mt-4">
-          <h4 className="text-xs font-semibold text-gray-400">Détails des cues</h4>
+          <h4 className="text-xs font-semibold text-[var(--text-secondary)]">Détails des cues</h4>
           {selectedTrack.cue_points.map((cue: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/50 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => wavesurferRef.current?.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1))}>
+            <div key={i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/50 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 transition-colors cursor-pointer" onClick={() => wavesurferRef.current?.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1))}>
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{backgroundColor: (cueColors[i] || '#06b6d4') + '30', color: cueColors[i] || '#06b6d4'}}>{i+1}</span>
-              <span className="text-xs text-white font-medium flex-1">{cue.label || 'Cue ' + (i+1)}</span>
-              <span className="text-[10px] text-gray-500">{(cue.time_ms / 1000).toFixed(2)}s</span>
-              <span className="text-[10px] text-gray-600">{cue.type || 'hot_cue'}</span>
+              <span className="text-xs text-[var(--text-primary)] font-medium flex-1">{cue.label || 'Cue ' + (i+1)}</span>
+              <span className="text-[10px] text-[var(--text-muted)]">{(cue.time_ms / 1000).toFixed(2)}s</span>
+              <span className="text-[10px] text-[var(--text-muted)]">{cue.type || 'hot_cue'}</span>
             </div>
           ))}
         </div>
@@ -3270,27 +3270,27 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2">
                     {!eqConnected && <button onClick={connectEQ} className="px-3 py-1 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-md border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors">{t("connecter_audio")}</button>}
                     {eqConnected && <span className="text-[10px] text-green-400 flex items-center gap-1"><Check size={10} /> Connected</span>}
-                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-gray-800 text-gray-400 rounded-md hover:bg-gray-700 transition-colors">{t("reinitialiser")}</button>
+                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-elevated)] transition-colors">{t("reinitialiser")}</button>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   {([['low', 'LOW', '#ef4444', eqValues.low], ['mid', 'MID', '#eab308', eqValues.mid], ['high', 'HIGH', '#3b82f6', eqValues.high]] as const).map(([band, label, color, val]) => (
-                    <div key={band} className="flex flex-col items-center gap-2 p-3 bg-gray-900/60 rounded-xl border border-gray-800/40">
+                    <div key={band} className="flex flex-col items-center gap-2 p-3 bg-[var(--bg-secondary)]/60 rounded-xl border border-[var(--border-subtle)]/40">
                       <span className="text-xs font-bold" style={{color}}>{label}</span>
-                      <div className="relative w-full h-32 bg-gray-950 rounded-lg overflow-hidden">
+                      <div className="relative w-full h-32 bg-[var(--bg-primary)] rounded-lg overflow-hidden">
                         <div className="absolute bottom-0 w-full rounded-b-lg transition-all duration-150" style={{height: `${Math.max(5, 50 + (val as number) / 12 * 50)}%`, background: `linear-gradient(to top, ${color}44, ${color}bb)`}} />
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-lg font-bold text-white drop-shadow-lg">{(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}</span>
+                          <span className="text-lg font-bold text-[var(--text-primary)] drop-shadow-lg">{(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}</span>
                         </div>
                       </div>
                       <input type="range" min={-12} max={12} step={0.5} value={val as number} onChange={(e) => updateEQ(band as 'low'|'mid'|'high', parseFloat(e.target.value))} className="w-full h-2 rounded-lg appearance-none cursor-pointer" style={{accentColor: color}} />
-                      <span className="text-[10px] text-gray-500">dB</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">dB</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex gap-2">
                   {[{name: 'Flat', l: 0, m: 0, h: 0}, {name: 'Bass Boost', l: 6, m: 0, h: -2}, {name: 'Vocal', l: -3, m: 4, h: 2}, {name: 'Treble', l: -4, m: 0, h: 6}].map(p => (
-                    <button key={p.name} onClick={() => { updateEQ('low', p.l); updateEQ('mid', p.m); updateEQ('high', p.h); }} className="flex-1 px-2 py-1.5 text-[10px] font-bold bg-gray-800/60 text-gray-300 rounded-lg border border-gray-700/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all">{p.name}</button>
+                    <button key={p.name} onClick={() => { updateEQ('low', p.l); updateEQ('mid', p.m); updateEQ('high', p.h); }} className="flex-1 px-2 py-1.5 text-[10px] font-bold bg-[var(--bg-card)]/60 text-[var(--text-secondary)] rounded-lg border border-[var(--border-subtle)]/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all">{p.name}</button>
                   ))}
                 </div>
                 {!eqConnected && <p className="text-[10px] text-amber-500/80 italic">Click "Connect Audio" to enable real-time EQ via Web Audio API</p>}
@@ -3301,27 +3301,27 @@ export default function DashboardPage() {
                 <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2"><Wand2 size={16} /> FX Rack</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {[{id: 'reverb', name: 'Reverb', icon: '~'}, {id: 'delay', name: 'Delay', icon: '...'}, {id: 'echo', name: 'Echo', icon: '))'}, {id: 'flanger', name: 'Flanger', icon: 'F'}, {id: 'phaser', name: 'Phaser', icon: 'P'}, {id: 'filter', name: 'Filter', icon: 'V'}].map(fx => (
-                    <button key={fx.id} onClick={() => setActiveFx(activeFx === fx.id ? null : fx.id)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${activeFx === fx.id ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10' : 'bg-gray-900/50 border-gray-800/40 text-gray-400 hover:border-purple-500/30 hover:text-purple-300'}`}>
+                    <button key={fx.id} onClick={() => setActiveFx(activeFx === fx.id ? null : fx.id)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${activeFx === fx.id ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10' : 'bg-[var(--bg-secondary)]/50 border-[var(--border-subtle)]/40 text-[var(--text-secondary)] hover:border-purple-500/30 hover:text-purple-300'}`}>
                       <span className="text-lg font-bold">{fx.icon}</span>
                       <span className="text-[10px] font-semibold uppercase">{fx.name}</span>
                     </button>
                   ))}
                 </div>
                 {activeFx && (
-                  <div className="p-4 bg-gray-900/60 rounded-xl border border-purple-500/20">
+                  <div className="p-4 bg-[var(--bg-secondary)]/60 rounded-xl border border-purple-500/20">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-purple-300 uppercase">{activeFx} Parameters</span>
-                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-gray-500 hover:text-white">{t("reinitialiser")}</button>
+                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">{t("reinitialiser")}</button>
                     </div>
                     <div className="space-y-3">
-                      <div><label className="text-[10px] text-gray-400 block mb-1">Dry/Wet</label><input type="range" min={0} max={100} value={fxParams[activeFx] || 0} onChange={(e) => setFxParams(prev => ({...prev, [activeFx]: parseInt(e.target.value)}))} className="w-full accent-purple-500" /><div className="flex justify-between text-[9px] text-gray-600"><span>Dry</span><span>{fxParams[activeFx] || 0}%</span><span>Wet</span></div></div>
-                      <div><label className="text-[10px] text-gray-400 block mb-1">{t("taux")}</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
-                      <div><label className="text-[10px] text-gray-400 block mb-1">{t("profondeur")}</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
+                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">Dry/Wet</label><input type="range" min={0} max={100} value={fxParams[activeFx] || 0} onChange={(e) => setFxParams(prev => ({...prev, [activeFx]: parseInt(e.target.value)}))} className="w-full accent-purple-500" /><div className="flex justify-between text-[9px] text-[var(--text-muted)]"><span>Dry</span><span>{fxParams[activeFx] || 0}%</span><span>Wet</span></div></div>
+                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">{t("taux")}</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
+                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">{t("profondeur")}</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
                     </div>
                     <p className="text-[9px] text-amber-500/60 mt-2 italic">{t("fx_bientot")}</p>
                   </div>
                 )}
-                {!activeFx && <p className="text-[10px] text-gray-600 italic text-center py-4">{t("select_effet_params")}</p>}
+                {!activeFx && <p className="text-[10px] text-[var(--text-muted)] italic text-center py-4">{t("select_effet_params")}</p>}
               </div>
             )}
             {activeBottomTab === 'mix' && (
@@ -3329,16 +3329,16 @@ export default function DashboardPage() {
       <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{t("assistant_mix")}</h3>
       {selectedTrack ? (
         <div className="space-y-3">
-          <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
-            <span className="text-xs text-gray-400">Morceau actuel:</span>
-            <p className="text-sm font-semibold text-white">{selectedTrack.title}</p>
+          <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
+            <span className="text-xs text-[var(--text-secondary)]">Morceau actuel:</span>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedTrack.title}</p>
             <div className="flex gap-4 mt-1">
               <span className="text-xs text-cyan-400">{selectedTrack.analysis?.bpm?.toFixed(1)} BPM</span>
               <span className="text-xs text-purple-400">{toCamelot(selectedTrack.analysis?.key || '')}</span>
               <span className="text-xs" style={{ color: energyToColor(selectedTrack.analysis?.energy) }}>Energy: {selectedTrack.analysis?.energy != null ? Math.round(selectedTrack.analysis.energy * 100) + '% (' + energyToLabel(selectedTrack.analysis?.energy) + ')' : 'N/A'}</span>
             </div>
           </div>
-          <h4 className="text-xs font-semibold text-gray-400">Meilleurs enchaînements</h4>
+          <h4 className="text-xs font-semibold text-[var(--text-secondary)]">Meilleurs enchaînements</h4>
           <div className="space-y-1">
             {filteredTracks
               .filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm)
@@ -3346,21 +3346,21 @@ export default function DashboardPage() {
               .sort((a, b) => b.score.total - a.score.total)
               .slice(0, 10)
               .map(({track: t, score}) => (
-                <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 cursor-pointer transition-colors">
+                <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 cursor-pointer transition-colors">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${score.total >= 80 ? 'bg-green-500/20 text-green-400' : score.total >= 60 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{score.total}</div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white font-medium truncate">{t.title}</p>
-                    <p className="text-[10px] text-gray-500 truncate">{t.artist || 'Unknown'}</p>
+                    <p className="text-xs text-[var(--text-primary)] font-medium truncate">{t.title}</p>
+                    <p className="text-[10px] text-[var(--text-muted)] truncate">{t.artist || 'Unknown'}</p>
                   </div>
                   <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
                   <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
-                  <span className="text-[10px] text-gray-500">{score.verdict}</span>
+                  <span className="text-[10px] text-[var(--text-muted)]">{score.verdict}</span>
                 </div>
               ))}
           </div>
         </div>
       ) : (
-        <p className="text-xs text-gray-500">Sélectionne un morceau pour voir les suggestions de mix</p>
+        <p className="text-xs text-[var(--text-muted)]">Sélectionne un morceau pour voir les suggestions de mix</p>
       )}
     </div>
   )}
@@ -3370,16 +3370,16 @@ export default function DashboardPage() {
       {setList.length > 0 ? (
         <div className="space-y-1">
           {setList.map((t: any, i: number) => (
-            <div key={t.id || i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30">
-              <span className="text-xs font-bold text-gray-600 w-6">{i+1}</span>
-              <span className="text-xs text-white flex-1 truncate">{t.title}</span>
+            <div key={t.id || i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30">
+              <span className="text-xs font-bold text-[var(--text-muted)] w-6">{i+1}</span>
+              <span className="text-xs text-[var(--text-primary)] flex-1 truncate">{t.title}</span>
               <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
               <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-gray-500">Aucun morceau dans la set list. Ajoute des morceaux depuis la liste.</p>
+        <p className="text-xs text-[var(--text-muted)]">Aucun morceau dans la set list. Ajoute des morceaux depuis la liste.</p>
       )}
     </div>
   )}
@@ -3391,16 +3391,16 @@ export default function DashboardPage() {
           {playHistory.slice().reverse().map((entry: any, i: number) => {
             const t = tracks.find((tr: any) => tr.id === entry.trackId);
             return t ? (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 bg-gray-900/40 rounded-lg border border-gray-800/30 hover:bg-gray-800/50 cursor-pointer transition-colors" onClick={() => setSelectedTrack(t)}>
-                <span className="text-[10px] text-gray-600 w-16">{new Date(entry.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</span>
-                <span className="text-xs text-white flex-1 truncate">{t.title}</span>
-                <span className="text-[10px] text-gray-500">{t.artist || ''}</span>
+              <div key={i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 cursor-pointer transition-colors" onClick={() => setSelectedTrack(t)}>
+                <span className="text-[10px] text-[var(--text-muted)] w-16">{new Date(entry.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</span>
+                <span className="text-xs text-[var(--text-primary)] flex-1 truncate">{t.title}</span>
+                <span className="text-[10px] text-[var(--text-muted)]">{t.artist || ''}</span>
               </div>
             ) : null;
           })}
         </div>
       ) : (
-        <p className="text-xs text-gray-500">Aucun historique encore.</p>
+        <p className="text-xs text-[var(--text-muted)]">Aucun historique encore.</p>
       )}
     </div>
   )}
@@ -3408,21 +3408,21 @@ export default function DashboardPage() {
     <div className="space-y-4">
       <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Statistiques de la collection</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
-          <p className="text-2xl font-bold text-white">{tracks.length}</p>
-          <p className="text-[10px] text-gray-500">Morceaux</p>
+        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{tracks.length}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Morceaux</p>
         </div>
-        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
           <p className="text-2xl font-bold text-cyan-400">{tracks.filter((t: any) => t.analysis?.bpm).length}</p>
-          <p className="text-[10px] text-gray-500">Analysés</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Analysés</p>
         </div>
-        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
           <p className="text-2xl font-bold text-purple-400">{new Set(tracks.map((t: any) => t.analysis?.genre).filter(Boolean)).size}</p>
-          <p className="text-[10px] text-gray-500">Genres</p>
+          <p className="text-[10px] text-[var(--text-muted)]">Genres</p>
         </div>
-        <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40 text-center">
+        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
           <p className="text-2xl font-bold text-green-400">{tracks.filter((t: any) => t.analysis?.energy && t.analysis.energy >= 70).length}</p>
-          <p className="text-[10px] text-gray-500">{t("haute_energie")}</p>
+          <p className="text-[10px] text-[var(--text-muted)]">{t("haute_energie")}</p>
         </div>
       </div>
       {tracks.length > 0 && (() => {
@@ -3432,12 +3432,12 @@ export default function DashboardPage() {
         const avgEnergy = energies.length > 0 ? (energies.reduce((a: number, b: number) => a + b, 0) / energies.length) : 0;
         return (
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
-              <p className="text-xs text-gray-400 mb-1">BPM moyen</p>
+            <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
+              <p className="text-xs text-[var(--text-secondary)] mb-1">BPM moyen</p>
               <p className="text-lg font-bold text-cyan-400">{avgBpm.toFixed(1)}</p>
             </div>
-            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/40">
-              <p className="text-xs text-gray-400 mb-1">Energy moyenne</p>
+            <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
+              <p className="text-xs text-[var(--text-secondary)] mb-1">Energy moyenne</p>
               <p className="text-lg font-bold text-green-400">{avgEnergy.toFixed(0)}%</p>
             </div>
           </div>
@@ -3452,11 +3452,11 @@ export default function DashboardPage() {
       {colorPickerCue !== null && (
         <div className="fixed inset-0 z-50" onClick={() => setColorPickerCue(null)}>
           <div
-            className="absolute bg-gray-900 border border-gray-700 rounded-lg p-2 shadow-2xl"
+            className="absolute bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg p-2 shadow-2xl"
             style={{ left: colorPickerPos.x, top: colorPickerPos.y }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-[10px] text-gray-400 mb-1.5 px-1">{t("couleur_cue")}</div>
+            <div className="text-[10px] text-[var(--text-secondary)] mb-1.5 px-1">{t("couleur_cue")}</div>
             <div className="grid grid-cols-4 gap-1.5">
               {REKORDBOX_COLORS.map((c) => (
                 <button
@@ -3475,11 +3475,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-gray-800/50 flex flex-col overflow-y-auto bg-gray-950/90 transition-all duration-300`}>
+      <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-[var(--border-subtle)]/50 flex flex-col overflow-y-auto bg-[var(--bg-primary)]/90 transition-all duration-300`}>
       <div className="p-2">
-        <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800/80">
+        <div className="bg-[var(--bg-secondary)]/95 backdrop-blur-sm border-t border-[var(--border-subtle)]/80">
         {/* Tab Bar */}
-        <div className="flex items-center border-b border-gray-800/50 px-1">
+        <div className="flex items-center border-b border-[var(--border-subtle)]/50 px-1">
           {[
             { id: 'cues', label: 'CUES' },
             { id: 'eq', label: 'EQ' },
@@ -3493,12 +3493,12 @@ export default function DashboardPage() {
               className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-200 ${
                 activeBottomTab === tab.id
                   ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-400/5'
-                  : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent hover:bg-white/[0.02]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] border-b-2 border-transparent hover:bg-white/[0.02]'
               }`}>{tab.label}</button>
           ))}
           <button
             onClick={() => setRightPanelExpanded((p) => !p)}
-            className="ml-auto px-2.5 py-2 text-gray-400 hover:text-cyan-400 hover:bg-cyan-400/10 rounded transition-all"
+            className="ml-auto px-2.5 py-2 text-[var(--text-secondary)] hover:text-cyan-400 hover:bg-cyan-400/10 rounded transition-all"
             title={rightPanelExpanded ? 'Collapse panel' : t('expand_panel')}
           >
             {rightPanelExpanded ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -3520,21 +3520,21 @@ export default function DashboardPage() {
                     setSelectedTrack((prev: any) => ({ ...prev, cue_points: newCues }));
                     setTracks((prev: any) => prev.map((t: any) => t.id === selectedTrack?.id ? { ...t, cue_points: newCues } : t));
                     showToast(autoCues.length + ' cue points auto-generated');
-                  }} className="text-xs px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1">
+                  }} className="text-xs px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-[var(--text-primary)] flex items-center gap-1">
                     <Sparkles size={12} /> Auto
                   </button>
                 )}
               </div>
               {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
-                <p className="text-gray-500 text-xs text-center py-4">{t("pas_cue_points")}</p>
+                <p className="text-[var(--text-muted)] text-xs text-center py-4">{t("pas_cue_points")}</p>
               ) : (
                 <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
                   {selectedTrack?.cue_points.map((cue, idx) => (
-                    <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-gray-800/40 hover:bg-gray-800/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }}>
+                    <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-[var(--bg-card)]/40 hover:bg-[var(--bg-card)]/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }}>
                       <div className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} />
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-white font-medium truncate">{cue.label || cue.name || ('Cue ' + (idx + 1))}</div>
-                        <div className="text-[9px] text-gray-400">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' · ' + cue.type) : ''}</div>
+                        <div className="text-[11px] text-[var(--text-primary)] font-medium truncate">{cue.label || cue.name || ('Cue ' + (idx + 1))}</div>
+                        <div className="text-[9px] text-[var(--text-secondary)]">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' · ' + cue.type) : ''}</div>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); if (cue.id) { deleteCuePoint(cue.id).then(() => { getTrack(selectedTrack.id).then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-1 transition-opacity">
                         <Trash2 size={12} />
@@ -3548,28 +3548,28 @@ export default function DashboardPage() {
           {activeBottomTab === 'eq' && (
             <div>
 {/* EQ 3-Band Controls */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
             <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
           </h3>
-          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700">{t("reinitialiser")}</button>
+          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1 rounded bg-[var(--bg-elevated)]">{t("reinitialiser")}</button>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <span className="text-xs text-red-400 w-10">LOW</span>
             <input type="range" min={0} max={100} value={eqLow} onChange={(e) => setEqLow(Number(e.target.value))} className="flex-1 accent-red-500" />
-            <span className="text-xs text-gray-300 w-8">{eqLow}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{eqLow}%</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-yellow-400 w-10">MID</span>
             <input type="range" min={0} max={100} value={eqMid} onChange={(e) => setEqMid(Number(e.target.value))} className="flex-1 accent-yellow-500" />
-            <span className="text-xs text-gray-300 w-8">{eqMid}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{eqMid}%</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-blue-400 w-10">HIGH</span>
             <input type="range" min={0} max={100} value={eqHigh} onChange={(e) => setEqHigh(Number(e.target.value))} className="flex-1 accent-blue-500" />
-            <span className="text-xs text-gray-300 w-8">{eqHigh}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{eqHigh}%</span>
           </div>
         </div>
       </div>
@@ -3580,15 +3580,15 @@ export default function DashboardPage() {
           {activeBottomTab === 'fx' && (
             <div>
 {/* FX Rack */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
           <Wand2 className="w-4 h-4 text-cyan-500/70" /> FX Rack
         </h3>
         <div className="grid grid-cols-3 gap-2 mb-3">
           {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
             return (
               <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
-                className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white" : "px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"}
+                className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-[var(--text-primary)]" : "px-2 py-1 rounded text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"}
               >{fxName}</button>
             );
           })}
@@ -3597,10 +3597,10 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-cyan-400/80 w-8">Wet</span>
             <input type="range" min={0} max={100} value={fxWet} onChange={(e) => setFxWet(Number(e.target.value))} className="flex-1 accent-purple-500" />
-            <span className="text-xs text-gray-300 w-8">{fxWet}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{fxWet}%</span>
           </div>
         ) : (
-          <p className="text-xs text-gray-500 text-center">{t("select_effet")}</p>
+          <p className="text-xs text-[var(--text-muted)] text-center">{t("select_effet")}</p>
         )}
       </div>
 
@@ -3610,32 +3610,32 @@ export default function DashboardPage() {
           {activeBottomTab === 'mix' && (
             <div>
 {/* Mix Controls */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
           <Volume2 className="w-4 h-4 text-green-400" /> Mix Controls
         </h3>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <span className="text-xs text-green-400 w-14">Master</span>
             <input type="range" min={0} max={100} value={masterGain} onChange={(e) => setMasterGain(Number(e.target.value))} className="flex-1 accent-green-500" />
-            <span className="text-xs text-gray-300 w-8">{masterGain}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{masterGain}%</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-orange-400 w-14">X-Fade</span>
             <input type="range" min={0} max={100} value={crossfader} onChange={(e) => setCrossfader(Number(e.target.value))} className="flex-1 accent-orange-500" />
-            <span className="text-xs text-gray-300 w-8">{crossfader}%</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{crossfader}%</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-sky-400 w-14">Pitch</span>
             <input type="range" min={-12} max={12} value={pitchShift} onChange={(e) => setPitchShift(Number(e.target.value))} className="flex-1 accent-sky-500" />
-            <span className="text-xs text-gray-300 w-8">{pitchShift > 0 ? "+" : ""}{pitchShift}</span>
+            <span className="text-xs text-[var(--text-secondary)] w-8">{pitchShift > 0 ? "+" : ""}{pitchShift}</span>
           </div>
         </div>
       </div>
 
       {/* Harmonic Mix Suggestions */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
           <Music className="w-4 h-4 text-purple-400" /> Harmonic Mix Suggestions
         </h3>
         {selectedTrack?.analysis?.key ? (
@@ -3681,7 +3681,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-6 text-gray-500 text-xs">
+          <div className="text-center py-6 text-[var(--text-muted)] text-xs">
             <Music className="w-8 h-8 mx-auto mb-2 opacity-30" />
             Select an analyzed track to see harmonic mix suggestions
           </div>
@@ -3694,21 +3694,21 @@ export default function DashboardPage() {
           {activeBottomTab === 'playlists' && (
             <div>
 {/* Playlist Manager */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
           <Folder className="w-4 h-4 text-amber-400" /> Playlists
         </h3>
         <div className="flex gap-2 mb-3">
-          <input type="text" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-gray-700 rounded px-2 py-1 text-xs text-white border border-gray-600 focus:border-amber-500 outline-none" />
-          <button onClick={() => { if (newPlaylistName.trim()) { var n = newPlaylistName.trim(); var next = Object.assign({}, playlists); next[n] = []; setPlaylists(next); setCurrentPlaylist(n); setNewPlaylistName(""); } }} className="px-2 py-1 rounded text-xs bg-amber-600 text-white hover:bg-amber-500">+</button>
+          <input type="text" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-[var(--bg-elevated)] rounded px-2 py-1 text-xs text-[var(--text-primary)] border border-[var(--border-default)] focus:border-amber-500 outline-none" />
+          <button onClick={() => { if (newPlaylistName.trim()) { var n = newPlaylistName.trim(); var next = Object.assign({}, playlists); next[n] = []; setPlaylists(next); setCurrentPlaylist(n); setNewPlaylistName(""); } }} className="px-2 py-1 rounded text-xs bg-amber-600 text-[var(--text-primary)] hover:bg-amber-500">+</button>
         </div>
         <div className="space-y-1 max-h-32 overflow-y-auto">
           {Object.keys(playlists).length === 0 ? (
-            <p className="text-xs text-gray-500 text-center py-2">{t("pas_playlists")}</p>
+            <p className="text-xs text-[var(--text-muted)] text-center py-2">{t("pas_playlists")}</p>
           ) : Object.keys(playlists).map(function(name) {
             return (
               <button key={name} onClick={() => setCurrentPlaylist(name)}
-                className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-white" : "w-full text-left px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"}
+                className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-[var(--text-primary)]" : "w-full text-left px-2 py-1 rounded text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"}
               >{name} ({playlists[name].length})</button>
             );
           })}
@@ -3718,8 +3718,8 @@ export default function DashboardPage() {
       
             
             {/* Set List Builder */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
                 <ListMusic className="w-4 h-4 text-cyan-400" /> Set List Builder
               </h3>
               <div className="flex gap-2 mb-3">
@@ -3728,7 +3728,7 @@ export default function DashboardPage() {
                   value={newSetListName}
                   onChange={(e) => setNewSetListName(e.target.value)}
                   placeholder="New set list name..."
-                  className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-cyan-500 focus:outline-none"
+                  className="flex-1 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-cyan-500 focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newSetListName.trim()) {
                       setSetLists(prev => [...prev, {name: newSetListName.trim(), trackIds: []}]);
@@ -3745,7 +3745,7 @@ export default function DashboardPage() {
                       setActiveSetList(setLists.length);
                     }
                   }}
-                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-colors"
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] text-xs font-bold rounded-lg transition-colors"
                 >+ Create</button>
               </div>
               {setLists.length > 0 ? (
@@ -3753,7 +3753,7 @@ export default function DashboardPage() {
                   <div className="flex gap-1 flex-wrap mb-2">
                     {setLists.map((sl, i) => (
                       <button key={i} onClick={() => setActiveSetList(i)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${activeSetList === i ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${activeSetList === i ? 'bg-cyan-600 text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}>
                         {sl.name} ({sl.trackIds.length})
                       </button>
                     ))}
@@ -3761,7 +3761,7 @@ export default function DashboardPage() {
                   {activeSetList >= 0 && activeSetList < setLists.length && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400">{setLists[activeSetList].trackIds.length} tracks</span>
+                        <span className="text-xs text-[var(--text-secondary)]">{setLists[activeSetList].trackIds.length} tracks</span>
                         <div className="flex gap-1">
                           <button onClick={() => {
                             if (selectedTrack && !setLists[activeSetList].trackIds.includes(selectedTrack.id)) {
@@ -3783,12 +3783,12 @@ export default function DashboardPage() {
                           const t = tracks.find(tr => tr.id === tid);
                           if (!t) return null;
                           return (<>
-                            <div key={tid} className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 group">
-                              <span className="text-[10px] text-gray-500 w-4">{tIdx + 1}</span>
+                            <div key={tid} className="flex items-center gap-2 px-2 py-1 rounded bg-[var(--bg-card)]/50 group">
+                              <span className="text-[10px] text-[var(--text-muted)] w-4">{tIdx + 1}</span>
                               {trackColors[tid] && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: trackColors[tid]}} />}
-                              <span className="text-xs text-white truncate flex-1 cursor-pointer hover:text-cyan-300" onClick={() => setSelectedTrack(t)}>{t.title || t.original_filename}</span>
-                              <span className="text-[10px] text-gray-500">{t.analysis?.bpm?.toFixed(0) || '-'}</span>
-                              <span className="text-[10px] text-gray-500">{t.analysis?.key ? (CAMELOT_WHEEL[t.analysis.key] || t.analysis.key) : '-'}</span>
+                              <span className="text-xs text-[var(--text-primary)] truncate flex-1 cursor-pointer hover:text-cyan-300" onClick={() => setSelectedTrack(t)}>{t.title || t.original_filename}</span>
+                              <span className="text-[10px] text-[var(--text-muted)]">{t.analysis?.bpm?.toFixed(0) || '-'}</span>
+                              <span className="text-[10px] text-[var(--text-muted)]">{t.analysis?.key ? (CAMELOT_WHEEL[t.analysis.key] || t.analysis.key) : '-'}</span>
                               <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => {
                                   if (tIdx > 0) {
@@ -3799,7 +3799,7 @@ export default function DashboardPage() {
                                       return {...sl, trackIds: ids};
                                     }));
                                   }
-                                }} className="text-gray-500 hover:text-white"><ChevronUp className="w-3 h-3" /></button>
+                                }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><ChevronUp className="w-3 h-3" /></button>
                                 <button onClick={() => {
                                   if (tIdx < setLists[activeSetList].trackIds.length - 1) {
                                     setSetLists(prev => prev.map((sl, i) => {
@@ -3809,25 +3809,25 @@ export default function DashboardPage() {
                                       return {...sl, trackIds: ids};
                                     }));
                                   }
-                                }} className="text-gray-500 hover:text-white"><ChevronDown className="w-3 h-3" /></button>
+                                }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><ChevronDown className="w-3 h-3" /></button>
                                 <button onClick={() => {
                                   setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: sl.trackIds.filter(id => id !== tid)} : sl));
-                                }} className="text-gray-500 hover:text-red-400"><X className="w-3 h-3" /></button>
+                                }} className="text-[var(--text-muted)] hover:text-red-400"><X className="w-3 h-3" /></button>
                               </div>
                             </div>
                           {tIdx < setLists[activeSetList].trackIds.length - 1 && (
                             <div className="flex items-center gap-1 px-3 py-0.5">
-                              <div className="flex-1 border-t border-dashed border-gray-700" />
+                              <div className="flex-1 border-t border-dashed border-[var(--border-subtle)]" />
                               <input type="text" placeholder="transition..." value={transitionNotes[activeSetList + '-' + tIdx] || ''}
                                 onChange={e => setTransitionNotes(prev => ({...prev, [activeSetList + '-' + tIdx]: e.target.value}))}
-                                className="bg-transparent text-[9px] text-gray-400 placeholder-gray-600 border-none outline-none w-24 text-center italic" />
-                              <div className="flex-1 border-t border-dashed border-gray-700" />
+                                className="bg-transparent text-[9px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] border-none outline-none w-24 text-center italic" />
+                              <div className="flex-1 border-t border-dashed border-[var(--border-subtle)]" />
                             </div>
                           )}
                           </>);
                         })}
                         {setLists[activeSetList].trackIds.length === 0 && (
-                          <div className="text-center py-4 text-gray-500 text-xs">Select a track and click "+ Add Selected" to build your set</div>
+                          <div className="text-center py-4 text-[var(--text-muted)] text-xs">Select a track and click "+ Add Selected" to build your set</div>
                         )}
                         {/* Smart Sort */}
                         {setLists[activeSetList].trackIds.length > 1 && (
@@ -3855,8 +3855,8 @@ export default function DashboardPage() {
                   const energies = setTracks.map(t => Math.round((t.analysis?.energy || 0) * 100));
                   const maxE = Math.max(...energies, 1);
                   return (
-                    <div className="mt-2 mb-1 p-2 bg-gray-800/30 rounded-lg border border-gray-700/30">
-                      <div className="text-[9px] text-gray-500 mb-1 font-medium uppercase tracking-wider">{t("flux_energie")}</div>
+                    <div className="mt-2 mb-1 p-2 bg-[var(--bg-card)]/30 rounded-lg border border-[var(--border-subtle)]/30">
+                      <div className="text-[9px] text-[var(--text-muted)] mb-1 font-medium uppercase tracking-wider">{t("flux_energie")}</div>
                       <div className="flex items-end gap-px h-8">
                         {energies.map((e, i) => {
                           const h = Math.max((e / maxE) * 100, 5);
@@ -3865,15 +3865,15 @@ export default function DashboardPage() {
                         })}
                       </div>
                       <div className="flex justify-between mt-0.5">
-                        <span className="text-[7px] text-gray-600">{t("debut")}</span>
-                        <span className="text-[7px] text-gray-600">{t("fin")}</span>
+                        <span className="text-[7px] text-[var(--text-muted)]">{t("debut")}</span>
+                        <span className="text-[7px] text-[var(--text-muted)]">{t("fin")}</span>
                       </div>
                     </div>
                   );
                 })()}
                 {/* Export Set List */}
                         {setLists[activeSetList].trackIds.length > 0 && (
-                          <div className="flex gap-2 mt-2 pt-2 border-t border-gray-700/50">
+                          <div className="flex gap-2 mt-2 pt-2 border-t border-[var(--border-subtle)]/50">
                             <button onClick={() => {
                               const sl = setLists[activeSetList];
                               const lines = sl.trackIds.map((tid, i) => {
@@ -3911,25 +3911,25 @@ export default function DashboardPage() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-6 text-gray-500 text-xs">
+                <div className="text-center py-6 text-[var(--text-muted)] text-xs">
                   <ListMusic className="w-8 h-8 mx-auto mb-2 opacity-30" />
                   Create a set list to organize your DJ sets
                 </div>
               )}
             </div>
             {/* Smart Playlists - Auto-generated */}
-            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800/50 mt-4">
+            <div className="bg-[var(--bg-secondary)]/50 rounded-xl p-4 border border-[var(--border-subtle)]/50 mt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={18} className="text-yellow-400" />
-                <h3 className="text-sm font-bold text-white">{t("playlists_intelligentes")}</h3>
-                <span className="text-[10px] text-gray-500 ml-auto">{t("auto_generees")}</span>
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">{t("playlists_intelligentes")}</h3>
+                <span className="text-[10px] text-[var(--text-muted)] ml-auto">{t("auto_generees")}</span>
               </div>
               {tracks.length === 0 ? (
-                <p className="text-gray-500 text-xs text-center py-4">{t("ajoutez_playlists")}sts</p>
+                <p className="text-[var(--text-muted)] text-xs text-center py-4">{t("ajoutez_playlists")}sts</p>
               ) : (
                 <div className="space-y-1.5">
                   {/* By Energy Level */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-1">{t("par_energie")}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-1">{t("par_energie")}</p>
                   {[
                     { name: "Warm-Up", icon: "sun", min: 0, max: 40 },
                     { name: "Peak Time", icon: "flame", min: 40, max: 75 },
@@ -3938,17 +3938,17 @@ export default function DashboardPage() {
                     const matched = tracks.filter(t => (((t.analysis?.energy ?? 0) * 100) || 0) >= smart.min && (((t.analysis?.energy ?? 0) * 100) || 0) < smart.max);
                     if (matched.length === 0) return null;
                     return (
-                      <div key={smart.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all" onClick={() => { setSelectedGenre(null); }}>
+                      <div key={smart.name} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all" onClick={() => { setSelectedGenre(null); }}>
                         <span className="text-sm">{smart.icon === "sun" ? "\u2600\uFE0F" : smart.icon === "flame" ? "\uD83D\uDD25" : "\uD83C\uDF19"}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-white truncate">{smart.name}</p>
+                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{smart.name}</p>
                         </div>
                         <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
                       </div>
                     );
                   })}
                   {/* By BPM Range */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">{t("par_bpm")}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-2">{t("par_bpm")}</p>
                   {[
                     { name: "Slow (80-110)", min: 80, max: 110 },
                     { name: "Mid (110-125)", min: 110, max: 125 },
@@ -3958,24 +3958,24 @@ export default function DashboardPage() {
                     const matched = tracks.filter(t => ((t.analysis?.bpm ?? 0) || 0) >= bpm.min && ((t.analysis?.bpm ?? 0) || 0) < bpm.max);
                     if (matched.length === 0) return null;
                     return (
-                      <div key={bpm.name} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all">
+                      <div key={bpm.name} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all">
                         <Activity size={14} className="text-green-400" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-white truncate">{bpm.name}</p>
+                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{bpm.name}</p>
                         </div>
                         <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
                       </div>
                     );
                   })}
                   {/* By Genre */}
-                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider mt-2">{t("par_genre")}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-2">{t("par_genre")}</p>
                   {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).map(genre => {
                     const matched = tracks.filter(t => t.genre === genre);
                     return (
-                      <div key={String(genre)} className="flex items-center gap-2 p-2 rounded-lg bg-gray-800/40 hover:bg-gray-700/40 cursor-pointer transition-all">
+                      <div key={String(genre)} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all">
                         <ListMusic size={14} className="text-purple-400" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-white truncate">{String(genre)}</p>
+                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{String(genre)}</p>
                         </div>
                         <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
                       </div>
@@ -3989,22 +3989,22 @@ export default function DashboardPage() {
           {activeBottomTab === 'history' && (
             <div>
 {/* DJ History */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
             <Clock className="w-4 h-4 text-pink-400" /> DJ History
           </h3>
-          <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-gray-400 hover:text-white">{showHistory ? "Hide" : "Show"}</button>
+          <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{showHistory ? "Hide" : "Show"}</button>
         </div>
         {showHistory ? (
           <div className="space-y-1 max-h-40 overflow-y-auto">
             {djHistory.length === 0 ? (
-              <p className="text-xs text-gray-500 text-center py-2">{t("aucun_joue")}</p>
+              <p className="text-xs text-[var(--text-muted)] text-center py-2">{t("aucun_joue")}</p>
             ) : djHistory.map(function(item, idx) {
               return (
-                <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-xs">
+                <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-[var(--bg-elevated)] rounded text-xs">
                   <span className="text-pink-400">{idx + 1}.</span>
-                  <span className="text-white truncate flex-1">{String(item)}</span>
+                  <span className="text-[var(--text-primary)] truncate flex-1">{String(item)}</span>
                 </div>
               );
             })}
@@ -4018,8 +4018,8 @@ export default function DashboardPage() {
       {/* Collection Stats */}
       <div className="grid grid-cols-3 gap-3">
         {/* Key Distribution */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
             <Hash className="w-4 h-4 text-cyan-400" /> Key Distribution
           </h3>
           <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
@@ -4033,11 +4033,11 @@ export default function DashboardPage() {
               const max = sorted[0]?.[1] || 1;
               return sorted.map(([key, count]) => (
                 <div key={key} className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400 w-8 font-mono">{key}</span>
-                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                  <span className="text-[10px] text-[var(--text-secondary)] w-8 font-mono">{key}</span>
+                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
                     <div className="bg-cyan-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
                   </div>
-                  <span className="text-[10px] text-gray-400 w-5 text-right">{count}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{count}</span>
                 </div>
               ));
             })()}
@@ -4045,8 +4045,8 @@ export default function DashboardPage() {
         </div>
 
         {/* BPM Range */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
             <Activity className="w-4 h-4 text-blue-400" /> BPM Ranges
           </h3>
           <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
@@ -4067,11 +4067,11 @@ export default function DashboardPage() {
               const max = Math.max(...bpmCounts.map(r => r.count), 1);
               return bpmCounts.map(r => (
                 <div key={r.label} className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400 w-12 font-mono">{r.label}</span>
-                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                  <span className="text-[10px] text-[var(--text-secondary)] w-12 font-mono">{r.label}</span>
+                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
                     <div className="bg-blue-500/60 h-3 rounded-full transition-all" style={{ width: `${(r.count / max) * 100}%` }} />
                   </div>
-                  <span className="text-[10px] text-gray-400 w-5 text-right">{r.count}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{r.count}</span>
                 </div>
               ));
             })()}
@@ -4079,8 +4079,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Genre Distribution */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
             <Disc3 className="w-4 h-4 text-pink-400" /> Genre Distribution
           </h3>
           <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
@@ -4093,14 +4093,14 @@ export default function DashboardPage() {
               const max = sorted[0]?.[1] || 1;
               return sorted.length > 0 ? sorted.map(([genre, count]) => (
                 <div key={genre} className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400 w-16 truncate">{genre}</span>
-                  <div className="flex-1 bg-gray-700/30 rounded-full h-3">
+                  <span className="text-[10px] text-[var(--text-secondary)] w-16 truncate">{genre}</span>
+                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
                     <div className="bg-pink-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
                   </div>
-                  <span className="text-[10px] text-gray-400 w-5 text-right">{count}</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{count}</span>
                 </div>
               )) : (
-                <div className="text-center py-4 text-gray-500 text-xs">{t("aucune_donnee_genre")}</div>
+                <div className="text-center py-4 text-[var(--text-muted)] text-xs">{t("aucune_donnee_genre")}</div>
               );
             })()}
           </div>
@@ -4108,8 +4108,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Energy Flow - Playlist Visualization */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-gray-700 mt-3">
-        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
+        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
           <Zap className="w-4 h-4 text-yellow-400" /> Energy Flow
         </h3>
         {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (
@@ -4124,7 +4124,7 @@ export default function DashboardPage() {
                 return (
                   <div key={t.id} className="flex-1 min-w-[4px] max-w-[20px] group relative cursor-pointer" onClick={() => setSelectedTrack(t)}>
                     <div className="w-full rounded-t transition-all hover:opacity-80" style={{ height: `${heightPct}%`, background: `hsl(${hue}, 80%, 55%)` }} />
-                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-[9px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[9px] text-[var(--text-primary)] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
                       {t.title?.substring(0, 20)} - {t.analysis?.bpm?.toFixed(0)} BPM - E:{energy}%
                     </div>
                   </div>
@@ -4132,31 +4132,31 @@ export default function DashboardPage() {
               })}
           </div>
         ) : (
-          <div className="text-center py-4 text-gray-500 text-xs">{t("analysez_flux")}</div>
+          <div className="text-center py-4 text-[var(--text-muted)] text-xs">{t("analysez_flux")}</div>
         )}
         <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-gray-500">{t("bpm_bas")}</span>
-          <span className="text-[9px] text-gray-500">{t("bpm_eleve")}</span>
+          <span className="text-[9px] text-[var(--text-muted)]">{t("bpm_bas")}</span>
+          <span className="text-[9px] text-[var(--text-muted)]">{t("bpm_eleve")}</span>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-5 gap-2 mt-3">
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
-          <div className="text-lg font-bold text-white">{tracks.length}</div>
-          <div className="text-[10px] text-gray-400">{t("total_morceaux")}</div>
+        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
+          <div className="text-lg font-bold text-[var(--text-primary)]">{tracks.length}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{t("total_morceaux")}</div>
         </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
           <div className="text-lg font-bold text-green-400">{tracks.filter(t => t.status === 'analyzed').length}</div>
-          <div className="text-[10px] text-gray-400">{t("analyses")}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{t("analyses")}</div>
         </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
           <div className="text-lg font-bold text-blue-400">
             {tracks.filter(t => t.analysis?.bpm).length > 0 ? (tracks.filter(t => t.analysis?.bpm).reduce((sum, t) => sum + t.analysis.bpm, 0) / tracks.filter(t => t.analysis?.bpm).length).toFixed(0) : '-'}
           </div>
-          <div className="text-[10px] text-gray-400">{t("bpm_moyen")}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{t("bpm_moyen")}</div>
         </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
           <div className="text-lg font-bold text-purple-400">
             {(() => {
               const keyCounts: Record<string, number> = {};
@@ -4168,32 +4168,32 @@ export default function DashboardPage() {
               return sorted[0]?.[0] || '-';
             })()}
           </div>
-          <div className="text-[10px] text-gray-400">{t("cle_principale")}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{t("cle_principale")}</div>
         </div>
-        <div className="bg-gray-800/50 rounded-lg p-3 text-center border border-gray-700/50">
+        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
           <div className="text-lg font-bold text-orange-400">
             {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (tracks.filter(t => t.analysis?.energy !== undefined).reduce((sum, t) => sum + (t.analysis.energy || 0), 0) / tracks.filter(t => t.analysis?.energy !== undefined).length).toFixed(0) : '-'}
           </div>
-          <div className="text-[10px] text-gray-400">{t("energie_moyenne")}</div>
+          <div className="text-[10px] text-[var(--text-secondary)]">{t("energie_moyenne")}</div>
         </div>
       </div>
             </div>
           )}
 
               {/* ── Keyboard Shortcuts Hint ── */}
-              <div className="flex items-center gap-4 px-3 py-1.5 border-t border-white/[0.04] bg-slate-900/30">
-                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">↑↓</kbd> Naviguer</span>
-                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Espace</kbd> Play/Pause</span>
-                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Clic droit</kbd> Menu</span>
-                <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Suppr</kbd> Supprimer</span>
-        <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Ctrl+F</kbd> Rechercher</span>
-        <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Esc</kbd> Effacer</span>
-              <span className="text-[10px] text-slate-500 flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400 font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
+              <div className="flex items-center gap-4 px-3 py-1.5 border-t border-white/[0.04] bg-[var(--bg-secondary)]/30">
+                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">↑↓</kbd> Naviguer</span>
+                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Espace</kbd> Play/Pause</span>
+                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Clic droit</kbd> Menu</span>
+                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Suppr</kbd> Supprimer</span>
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Ctrl+F</kbd> Rechercher</span>
+        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Esc</kbd> Effacer</span>
+              <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
               </div>
               {/* ── Favorites Toggle ── */}
               <button
                 onClick={() => setShowFavoritesOnly(p => !p)}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-slate-500 hover:text-yellow-400'}`}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-[var(--text-muted)] hover:text-yellow-400'}`}
                 title={showFavoritesOnly ? 'Afficher tous les morceaux' : 'Afficher uniquement les favoris'}
               >
                 <Star size={10} className={showFavoritesOnly ? 'fill-yellow-400 text-yellow-400' : ''} />
@@ -4201,7 +4201,7 @@ export default function DashboardPage() {
               </button>
               {/* ── Status Bar ── */}
               <div className="flex items-center gap-3 px-1">
-                <span className="text-[10px] text-slate-600">
+                <span className="text-[10px] text-[var(--text-muted)]">
                   {tracks.length} morceau{tracks.length !== 1 ? 'x' : ''}
                   {searchQuery && ` | ${filteredTracks.length} résultat${filteredTracks.length !== 1 ? 's' : ''}`}
                 </span>
@@ -4209,24 +4209,24 @@ export default function DashboardPage() {
                   <span className="text-[10px] text-cyan-400 flex items-center gap-1.5">
                     <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[9px]">{selectedIds.size}</span>
                     sélectionné{selectedIds.size !== 1 ? 's' : ''}
-                    <button onClick={() => setSelectedIds(new Set())} className="ml-1 text-[9px] text-slate-500 hover:text-red-400 transition-colors underline">Désélect.</button>
+                    <button onClick={() => setSelectedIds(new Set())} className="ml-1 text-[9px] text-[var(--text-muted)] hover:text-red-400 transition-colors underline">Désélect.</button>
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setShowShortcutsModal(p => !p)}
-                className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-slate-700/50 text-slate-500 hover:text-cyan-400 hover:bg-slate-700 transition-colors text-[10px] font-bold"
+                className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--bg-elevated)]/50 text-[var(--text-muted)] hover:text-cyan-400 hover:bg-[var(--bg-elevated)] transition-colors text-[10px] font-bold"
                 title="Raccourcis clavier (?)"
               >?</button>
 
               {/* ── Action Buttons ── */}
               {/* Star Rating */}
               <div className="flex items-center gap-2 mt-3">
-                <span className="text-[10px] text-gray-400">{t("note")}:</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">{t("note")}:</span>
                 <div className="flex gap-0.5">
                   {[1,2,3,4,5].map(star => (
                     <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack?.id]: trackRatings[selectedTrack?.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
-                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack?.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 hover:text-yellow-400/50'}`} />
+                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack?.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400/50'}`} />
                     </button>
                   ))}
                 </div>
@@ -4234,40 +4234,40 @@ export default function DashboardPage() {
               </div>
               {/* Color Tags */}
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] text-gray-400">Tag:</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Tag:</span>
                 <div className="flex gap-1">
                   {['', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'].map(color => (
                     <button
                       key={color || 'none'}
                       onClick={() => setTrackColors(prev => ({...prev, [selectedTrack?.id || 0]: color}))}
-                      className={`w-5 h-5 rounded-full border-2 transition-all ${trackColors[selectedTrack?.id || 0] === color ? 'border-white scale-110' : 'border-gray-600 hover:border-gray-400'}`}
+                      className={`w-5 h-5 rounded-full border-2 transition-all ${trackColors[selectedTrack?.id || 0] === color ? 'border-white scale-110' : 'border-[var(--border-default)] hover:border-gray-400'}`}
                       style={color ? {backgroundColor: color} : {background: 'linear-gradient(135deg, #374151, #1f2937)'}}
                       title={color ? color : 'No tag'}
                     >
-                      {!color && trackColors[selectedTrack?.id || 0] === '' && <X className="w-3 h-3 text-gray-400 mx-auto" />}
+                      {!color && trackColors[selectedTrack?.id || 0] === '' && <X className="w-3 h-3 text-[var(--text-secondary)] mx-auto" />}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
+              <div className="mt-4 space-y-2 border-t border-[var(--border-subtle)] pt-3">
                 <div className="flex gap-2">
                   <button
                     onClick={openEditMeta}
-                    className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-white transition-colors"
+                    className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
                   >
                     ✏️ {t("modifier_metadata")}
                   </button>
                   <button
                     onClick={() => selectedTrack && exportRekordbox(selectedTrack.id)}
-                    className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-white transition-colors"
+                    className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
                   >
                     🎵 {t("exporter_xml")}
                   </button>
                 </div>
               {/* Tap Tempo */}
-              <div className="mt-3 p-2 bg-gray-800/50 rounded-lg">
+              <div className="mt-3 p-2 bg-[var(--bg-card)]/50 rounded-lg">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-gray-400 flex items-center gap-1"><Activity className="w-3 h-3" /> Tap Tempo</span>
+                  <span className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1"><Activity className="w-3 h-3" /> Tap Tempo</span>
                   {tapBpm > 0 && <span className="text-sm font-bold text-cyan-400">{tapBpm.toFixed(1)} BPM</span>}
                 </div>
                 <div className="flex gap-2">
@@ -4283,17 +4283,17 @@ export default function DashboardPage() {
                         setTapBpm(60000 / avgMs);
                       }
                     }}
-                    className="flex-1 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-lg transition-all active:scale-95"
+                    className="flex-1 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] text-xs font-bold rounded-lg transition-all active:scale-95"
                   >TAP</button>
                   <button
                     onClick={() => { setTapTimes([]); setTapBpm(0); }}
-                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors"
+                    className="px-3 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-xs rounded-lg transition-colors"
                   >{t("reinitialiser")}</button>
                 </div>
               </div>
                 <button
                   onClick={exportAllRekordbox}
-                  className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-white transition-colors"
+                  className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
                 >
                   📦 {t("exporter_rekordbox")}
                 </button>
@@ -4335,7 +4335,7 @@ export default function DashboardPage() {
                   URL.revokeObjectURL(url);
                   showToast('Serato CSV exported');
                 }}
-                className="w-full py-3 rounded-xl font-semibold text-white bg-orange-600 hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl font-semibold text-[var(--text-primary)] bg-orange-600 hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={18} /> {t("exporter_serato")} CSV
               </button>
@@ -4367,7 +4367,7 @@ export default function DashboardPage() {
                   URL.revokeObjectURL(url);
                   showToast('Traktor NML exported');
                 }}
-                className="w-full py-3 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl font-semibold text-[var(--text-primary)] bg-purple-600 hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={18} /> {t("exporter_traktor")} NML
               </button>
@@ -4394,7 +4394,7 @@ export default function DashboardPage() {
                   const a = document.createElement('a'); a.href = url; a.download = 'cueforge_virtualdj.xml'; a.click(); URL.revokeObjectURL(url);
                   showToast('VirtualDJ XML exported');
                 }}
-                className="w-full py-3 rounded-lg font-medium text-white flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
+                className="w-full py-3 rounded-lg font-medium text-[var(--text-primary)] flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
               >
                 <Download size={18} /> {t("exporter_virtualdj")}
               </button>
@@ -4426,18 +4426,18 @@ export default function DashboardPage() {
                     URL.revokeObjectURL(url);
                     showToast(`${tracksToExport.length} morceau${tracksToExport.length > 1 ? 'x' : ''} exporté${tracksToExport.length > 1 ? 's' : ''} en CSV`, 'success');
                   }}
-                  className="w-full px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded text-xs font-bold text-white transition-colors flex items-center justify-center gap-1"
+                  className="w-full px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors flex items-center justify-center gap-1"
                 >
                   <Download size={14} /> {t('export_csv')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
                 </button>
                   {selectedIds.size > 0 && (
                     <div className="w-full space-y-2">
-                      <div className="border-t border-slate-700/50 pt-2" />
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider">Actions groupées ({selectedIds.size})</p>
+                      <div className="border-t border-[var(--border-subtle)]/50 pt-2" />
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Actions groupées ({selectedIds.size})</p>
                       {!showBulkGenre ? (
                         <button
                           onClick={() => setShowBulkGenre(true)}
-                          className="w-full px-3 py-2 bg-purple-600/80 hover:bg-purple-500 rounded text-xs font-bold text-white transition-colors flex items-center justify-center gap-1"
+                          className="w-full px-3 py-2 bg-purple-600/80 hover:bg-purple-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors flex items-center justify-center gap-1"
                         >
                           <Tag size={14} /> Modifier le genre
                         </button>
@@ -4448,7 +4448,7 @@ export default function DashboardPage() {
                             value={bulkGenreValue}
                             onChange={e => setBulkGenreValue(e.target.value)}
                             placeholder="Ex: Tech House, Melodic Techno..."
-                            className="w-full px-2 py-1.5 bg-slate-700/50 border border-slate-600 rounded text-xs text-white placeholder:text-slate-500 focus:border-purple-500 focus:outline-none"
+                            className="w-full px-2 py-1.5 bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-purple-500 focus:outline-none"
                             autoFocus
                             onKeyDown={e => { if (e.key === 'Enter') bulkUpdateGenre(); if (e.key === 'Escape') setShowBulkGenre(false); }}
                           />
@@ -4456,13 +4456,13 @@ export default function DashboardPage() {
                             <button
                               onClick={bulkUpdateGenre}
                               disabled={bulkUpdating || !bulkGenreValue.trim()}
-                              className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 rounded text-[10px] font-bold text-white transition-colors"
+                              className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-muted)] rounded text-[10px] font-bold text-[var(--text-primary)] transition-colors"
                             >
                               {bulkUpdating ? 'Mise à jour...' : 'Appliquer'}
                             </button>
                             <button
                               onClick={() => { setShowBulkGenre(false); setBulkGenreValue(''); }}
-                              className="px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px] text-slate-400 transition-colors"
+                              className="px-2 py-1.5 bg-[var(--bg-elevated)] hover:bg-slate-600 rounded text-[10px] text-[var(--text-secondary)] transition-colors"
                             >
                               Annuler
                             </button>
@@ -4483,12 +4483,12 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-cyan-400/80 flex items-center gap-2"><Sparkles size={18}/> Smart Playlist Builder</h3>
-              <button onClick={() => setShowSmartPlaylist(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+              <button onClick={() => setShowSmartPlaylist(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
               {smartRules.map((rule, i) => (
-                <div key={i} className="bg-gray-800/80 rounded-lg p-3 border border-purple-500/20 flex items-center gap-2">
-                  <select value={rule.field} onChange={(e) => {const r = [...smartRules]; r[i].field = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+                <div key={i} className="bg-[var(--bg-card)]/80 rounded-lg p-3 border border-purple-500/20 flex items-center gap-2">
+                  <select value={rule.field} onChange={(e) => {const r = [...smartRules]; r[i].field = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm">
                     <option value="genre">{t("genre")}</option>
                     <option value="bpm">BPM</option>
                     <option value="key">{t("annee").slice(0,0)}Key</option>
@@ -4496,20 +4496,20 @@ export default function DashboardPage() {
                     <option value="artist">{t("artiste")}</option>
                     <option value="year">{t("annee")}</option>
                   </select>
-                  <select value={rule.op} onChange={(e) => {const r = [...smartRules]; r[i].op = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+                  <select value={rule.op} onChange={(e) => {const r = [...smartRules]; r[i].op = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm">
                     <option value="equals">equals</option>
                     <option value="contains">contains</option>
                     <option value="gt">greater than</option>
                     <option value="lt">less than</option>
                     <option value="between">between</option>
                   </select>
-                  <input value={rule.value} onChange={(e) => {const r = [...smartRules]; r[i].value = e.target.value; setSmartRules(r);}} className="bg-gray-700 text-white rounded px-2 py-1 text-sm flex-1" placeholder="Value..."/>
+                  <input value={rule.value} onChange={(e) => {const r = [...smartRules]; r[i].value = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm flex-1" placeholder="Value..."/>
                   <button onClick={() => setSmartRules(smartRules.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300"><X size={14}/></button>
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setSmartRules([...smartRules, {field: 'genre', op: 'equals', value: ''}])} className="bg-gradient-to-b from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Sparkles size={14}/> Add Rule</button>
+              <button onClick={() => setSmartRules([...smartRules, {field: 'genre', op: 'equals', value: ''}])} className="bg-gradient-to-b from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Sparkles size={14}/> Add Rule</button>
               <button onClick={() => {
                 const filtered = tracks.filter((t) => smartRules.every((rule) => {
                   const val = (t[rule.field] || '').toString().toLowerCase();
@@ -4523,7 +4523,7 @@ export default function DashboardPage() {
                 const name = 'Smart ' + new Date().toLocaleTimeString();
                 setPlaylists({...playlists, [name]: filtered.map(t => t.id)});
                 setCurrentPlaylist(name);
-              }} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Generate Playlist</button>
+              }} className="bg-green-600 hover:bg-green-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Generate Playlist</button>
             </div>
           </div>
         </div>
@@ -4535,7 +4535,7 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-orange-300 flex items-center gap-2"><AlertTriangle size={18}/> Duplicate Detection</h3>
-              <button onClick={() => setShowDuplicates(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+              <button onClick={() => setShowDuplicates(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
             </div>
             <button onClick={() => {
               const groups = [];
@@ -4546,15 +4546,15 @@ export default function DashboardPage() {
               });
               Object.values(seen).forEach((g) => { if (g.length > 1) groups.push(g); });
               setDuplicateGroups(groups);
-            }} className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-sm mb-4 flex items-center gap-1"><Search size={14}/> Scan for Duplicates</button>
-            {duplicateGroups.length === 0 && <p className="text-gray-400 text-sm">{t("aucun_doublon")} analyze your library.</p>}
+            }} className="bg-orange-600 hover:bg-orange-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm mb-4 flex items-center gap-1"><Search size={14}/> Scan for Duplicates</button>
+            {duplicateGroups.length === 0 && <p className="text-[var(--text-secondary)] text-sm">{t("aucun_doublon")} analyze your library.</p>}
             {duplicateGroups.map((group, gi) => (
-              <div key={gi} className="bg-gray-800/60 rounded-lg p-3 mb-2 border border-orange-500/20">
+              <div key={gi} className="bg-[var(--bg-card)]/60 rounded-lg p-3 mb-2 border border-orange-500/20">
                 <p className="text-orange-300 text-sm font-semibold mb-2">Group {gi + 1} - {group.length} copies</p>
                 {group.map((t, ti) => (
                   <div key={ti} className="flex items-center justify-between py-1 text-sm">
-                    <span className="text-white">{t.title} - {t.artist}</span>
-                    <span className="text-gray-400">{t.genre} | {t.bpm} BPM</span>
+                    <span className="text-[var(--text-primary)]">{t.title} - {t.artist}</span>
+                    <span className="text-[var(--text-secondary)]">{t.genre} | {t.bpm} BPM</span>
                   </div>
                 ))}
               </div>
@@ -4569,14 +4569,14 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-cyan-300 flex items-center gap-2"><Download size={18}/> DJ App Export</h3>
-              <button onClick={() => setShowExport(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+              <button onClick={() => setShowExport(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {['rekordbox', 'serato', 'traktor', 'virtualdj'].map((fmt) => (
-                <button key={fmt} onClick={() => setExportFormat(fmt)} className={`rounded-xl p-4 border text-center transition-all ${exportFormat === fmt ? 'bg-cyan-600/30 border-cyan-400 text-cyan-200' : 'bg-gray-800/60 border-gray-700 text-gray-300 hover:border-cyan-600'}`}>
+                <button key={fmt} onClick={() => setExportFormat(fmt)} className={`rounded-xl p-4 border text-center transition-all ${exportFormat === fmt ? 'bg-cyan-600/30 border-cyan-400 text-cyan-200' : 'bg-[var(--bg-card)]/60 border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-cyan-600'}`}>
                   <Disc size={24} className="mx-auto mb-2"/>
                   <p className="font-bold capitalize">{fmt}</p>
-                  <p className="text-xs text-gray-400 mt-1">{fmt === 'rekordbox' ? 'XML Collection' : fmt === 'serato' ? 'Crates V2' : fmt === 'traktor' ? 'NML Collection' : 'VDJ Database'}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">{fmt === 'rekordbox' ? 'XML Collection' : fmt === 'serato' ? 'Crates V2' : fmt === 'traktor' ? 'NML Collection' : 'VDJ Database'}</p>
                 </button>
               ))}
             </div>
@@ -4589,7 +4589,7 @@ export default function DashboardPage() {
                 const a = document.createElement('a');
                 a.href = url; a.download = `cueforge-${exportFormat}-export.xml`; a.click();
                 URL.revokeObjectURL(url);
-              }} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Download size={14}/> Export {tracks.length} Tracks</button>
+              }} className="bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Download size={14}/> Export {tracks.length} Tracks</button>
               <button onClick={() => {
                 if (!currentPlaylist || !playlists[currentPlaylist]) return;
                 const ids = playlists[currentPlaylist];
@@ -4601,7 +4601,7 @@ export default function DashboardPage() {
                 const a = document.createElement('a');
                 a.href = url; a.download = `cueforge-playlist-${currentPlaylist}.xml`; a.click();
                 URL.revokeObjectURL(url);
-              }} className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Folder size={14}/> Export Playlist Only</button>
+              }} className="bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Folder size={14}/> Export Playlist Only</button>
             </div>
           </div>
         </div>
@@ -4613,52 +4613,52 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-green-300 flex items-center gap-2"><Activity size={18}/> Library Stats</h3>
-              <button onClick={() => setShowStats(false)} className="text-gray-400 hover:text-white"><X size={18}/></button>
+              <button onClick={() => setShowStats(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-green-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-green-500/20">
                 <p className="text-3xl font-bold text-green-400">{tracks.length}</p>
-                <p className="text-xs text-gray-400 mt-1">{t("total_morceaux")}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("total_morceaux")}</p>
               </div>
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-blue-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-blue-500/20">
                 <p className="text-3xl font-bold text-blue-400">{new Set(tracks.map(t => t.genre).filter(Boolean)).size}</p>
-                <p className="text-xs text-gray-400 mt-1">Genres</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Genres</p>
               </div>
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-purple-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-purple-500/20">
                 <p className="text-3xl font-bold text-cyan-500/70">{new Set(tracks.map(t => t.artist).filter(Boolean)).size}</p>
-                <p className="text-xs text-gray-400 mt-1">{t("artistes")}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("artistes")}</p>
               </div>
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-yellow-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-yellow-500/20">
                 <p className="text-3xl font-bold text-yellow-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.bpm) || 0), 0) / tracks.filter(t => t.bpm).length) : 0}</p>
-                <p className="text-xs text-gray-400 mt-1">{t("bpm_moyen")}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("bpm_moyen")}</p>
               </div>
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-pink-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-pink-500/20">
                 <p className="text-3xl font-bold text-pink-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.energy) || 0), 0) / tracks.filter(t => t.energy).length) || 0 : 0}</p>
-                <p className="text-xs text-gray-400 mt-1">{t("energie_moyenne")}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("energie_moyenne")}</p>
               </div>
-              <div className="bg-gray-800/60 rounded-xl p-4 text-center border border-cyan-500/20">
+              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-cyan-500/20">
                 <p className="text-3xl font-bold text-cyan-400">{Object.keys(playlists).length}</p>
-                <p className="text-xs text-gray-400 mt-1">{t("playlists")}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("playlists")}</p>
               </div>
             </div>
             {/* Genre Distribution */}
-            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_genres")}</h4>
+            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)]">
+              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_genres")}</h4>
               <div className="space-y-2">
                 {Object.entries(tracks.reduce((acc, t) => { const g = t.genre || 'Unknown'; acc[g] = (acc[g] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([genre, count]) => (
                   <div key={genre} className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400 w-24 truncate">{genre}</span>
-                    <div className="flex-1 bg-gray-700 rounded-full h-3">
+                    <span className="text-xs text-[var(--text-secondary)] w-24 truncate">{genre}</span>
+                    <div className="flex-1 bg-[var(--bg-elevated)] rounded-full h-3">
                       <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full transition-all" style={{width: `${(count / tracks.length) * 100}%`}}/>
                     </div>
-                    <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+                    <span className="text-xs text-[var(--text-secondary)] w-8 text-right">{count}</span>
                   </div>
                 ))}
               </div>
             </div>
             {/* BPM Histogram */}
-            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_bpm")}</h4>
+            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
+              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_bpm")}</h4>
               <div className="flex items-end gap-1 h-32">
                 {Array.from({length: 20}, (_, i) => {
                   const min = 60 + i * 10;
@@ -4668,23 +4668,23 @@ export default function DashboardPage() {
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <div className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all" style={{height: `${(count / maxCount) * 100}%`}} title={`${min}-${max} BPM: ${count} tracks`}/>
-                      {i % 4 === 0 && <span className="text-[9px] text-gray-500">{min}</span>}
+                      {i % 4 === 0 && <span className="text-[9px] text-[var(--text-muted)]">{min}</span>}
                     </div>
                   );
                 })}
               </div>
             </div>
             {/* Key Distribution (Camelot Wheel) */}
-            <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700 mt-3">
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">{t("distribution_cles")}</h4>
+            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
+              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_cles")}</h4>
               <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
                 {Object.entries(CAMELOT_WHEEL).map(([key, camelot]) => {
                   const count = tracks.filter(t => t.key === key || t.key === camelot).length;
                   return (
-                    <div key={key} className={`rounded-lg p-2 text-center border transition-all ${count > 0 ? 'bg-purple-600/30 border-purple-400/50' : 'bg-gray-800/30 border-gray-700/30'}`}>
-                      <p className="text-xs font-bold text-white">{camelot}</p>
-                      <p className="text-[10px] text-gray-400">{key}</p>
-                      <p className={`text-xs font-bold ${count > 0 ? 'text-cyan-400/80' : 'text-gray-600'}`}>{count}</p>
+                    <div key={key} className={`rounded-lg p-2 text-center border transition-all ${count > 0 ? 'bg-purple-600/30 border-purple-400/50' : 'bg-[var(--bg-card)]/30 border-[var(--border-subtle)]/30'}`}>
+                      <p className="text-xs font-bold text-[var(--text-primary)]">{camelot}</p>
+                      <p className="text-[10px] text-[var(--text-secondary)]">{key}</p>
+                      <p className={`text-xs font-bold ${count > 0 ? 'text-cyan-400/80' : 'text-[var(--text-muted)]'}`}>{count}</p>
                     </div>
                   );
                 })}
@@ -4780,12 +4780,12 @@ export default function DashboardPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold text-yellow-300 flex items-center gap-2"><Tag size={18}/> Batch Edit - {batchSelected.length} tracks selected</h3>
-              <button onClick={() => {setShowBatchEdit(false); setBatchSelected([]);}} className="text-gray-400 hover:text-white"><X size={18}/></button>
+              <button onClick={() => {setShowBatchEdit(false); setBatchSelected([]);}} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
             </div>
             <div className="flex gap-3 items-end">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">{t("champ")}</label>
-                <select value={batchField} onChange={(e) => setBatchField(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm">
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("champ")}</label>
+                <select value={batchField} onChange={(e) => setBatchField(e.target.value)} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-3 py-2 text-sm">
                   <option value="genre">{t("genre")}</option>
                   <option value="artist">{t("artiste")}</option>
                   <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
@@ -4793,8 +4793,8 @@ export default function DashboardPage() {
                 </select>
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-400 block mb-1">{t("nouvelle_valeur")}</label>
-                <input value={batchValue} onChange={(e) => setBatchValue(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 text-sm w-full" placeholder="Enter new value..."/>
+                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("nouvelle_valeur")}</label>
+                <input value={batchValue} onChange={(e) => setBatchValue(e.target.value)} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-3 py-2 text-sm w-full" placeholder="Enter new value..."/>
               </div>
               <button onClick={() => {
                 batchSelected.forEach((id) => {
@@ -4804,7 +4804,7 @@ export default function DashboardPage() {
                 setTracks([...tracks]);
                 setBatchSelected([]);
                 setShowBatchEdit(false);
-              }} className="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Apply to All</button>
+              }} className="bg-yellow-600 hover:bg-yellow-500 text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Apply to All</button>
             </div>
           </div>
         </div>
@@ -4816,7 +4816,7 @@ export default function DashboardPage() {
             <div className="bg-gradient-to-b from-gray-900 to-gray-950 border border-purple-500/30 rounded-xl p-6 max-w-2xl max-h-[90vh] overflow-y-auto w-full mx-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">🎵 Camelot Wheel - Harmonic Mixing Guide</h3>
-                  <button onClick={() => { setShowCamelotWheel(false); setSelectedWheelKey(null); }} className="text-gray-400 hover:text-white text-xl">×</button>
+                  <button onClick={() => { setShowCamelotWheel(false); setSelectedWheelKey(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
                 </div>
                 <div className="flex gap-8">
                 <div className="relative w-80 h-80 mx-auto">
@@ -4884,11 +4884,11 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div className="flex-1 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-300">{t("regles_harmonic")}</h4>
+                  <h4 className="text-sm font-semibold text-[var(--text-secondary)]">{t("regles_harmonic")}</h4>
                   <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
-                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
-                    <div className="bg-gray-800/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> A↔B = Mode change (minor/major)</div>
+                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
+                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
+                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> A↔B = Mode change (minor/major)</div>
                   </div>
                   <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400">
                     💡 Click any key on the wheel to see compatible keys and matching tracks. Click again to deselect.
@@ -4899,17 +4899,17 @@ export default function DashboardPage() {
                     const matchingTracks = tracks.filter(t => compatKeys.includes(t.camelotKey));
                     return (
                       <div className="mt-3">
-                        <h4 className="text-sm font-semibold text-cyan-400 mb-2">Selected: <span className="text-white">{selectedWheelKey}</span> — {compatKeys.length} compatible keys</h4>
+                        <h4 className="text-sm font-semibold text-cyan-400 mb-2">Selected: <span className="text-[var(--text-primary)]">{selectedWheelKey}</span> — {compatKeys.length} compatible keys</h4>
                         <div className="flex flex-wrap gap-1 mb-2">
                           {compatKeys.map(ck => (
-                            <span key={ck} onClick={() => setSelectedWheelKey(ck)} className={"px-2 py-0.5 rounded text-xs cursor-pointer transition-colors " + (ck === selectedWheelKey ? "bg-cyan-500 text-black font-bold" : "bg-gray-700 text-gray-300 hover:bg-gray-600")}>{ck}</span>
+                            <span key={ck} onClick={() => setSelectedWheelKey(ck)} className={"px-2 py-0.5 rounded text-xs cursor-pointer transition-colors " + (ck === selectedWheelKey ? "bg-cyan-500 text-black font-bold" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]")}>{ck}</span>
                           ))}
                         </div>
                         <div className="max-h-40 overflow-y-auto space-y-1">
                           <h4 className="text-sm font-semibold text-green-400">{matchingTracks.length} matching tracks:</h4>
-                          {matchingTracks.length === 0 && <p className="text-xs text-gray-500">{t("aucun_match_cles")}ys</p>}
+                          {matchingTracks.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t("aucun_match_cles")}ys</p>}
                           {matchingTracks.map(t => (
-                            <div key={t.id} onClick={() => { if (currentTrack?.id !== t.id) { setCurrentTrack(t); } }} className="text-xs text-gray-300 py-1.5 px-2 bg-gray-800/40 rounded flex justify-between items-center cursor-pointer hover:bg-gray-700/60 transition-colors">
+                            <div key={t.id} onClick={() => { if (currentTrack?.id !== t.id) { setCurrentTrack(t); } }} className="text-xs text-[var(--text-secondary)] py-1.5 px-2 bg-[var(--bg-card)]/40 rounded flex justify-between items-center cursor-pointer hover:bg-[var(--bg-elevated)]/60 transition-colors">
                               <span className="truncate mr-2">{t.title} - {t.artist}</span>
                               <span className="text-cyan-500/70 font-mono whitespace-nowrap">{t.camelotKey} | {t.bpm} BPM</span>
                             </div>
@@ -4921,8 +4921,8 @@ export default function DashboardPage() {
                   {/* Track selector for wheel focus */}
                   {!selectedWheelKey && (
                     <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Or select a track:</h4>
-                      <select className="bg-gray-800 text-white rounded px-3 py-2 w-full text-sm border border-gray-700" onChange={(e) => { const trackId = e.target.value ? Number(e.target.value) : null; if (trackId) { const t = tracks.find(tr => tr.id === trackId); if (t?.camelotKey) setSelectedWheelKey(t.camelotKey); } else { setSelectedWheelKey(null); } }} value="">
+                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">Or select a track:</h4>
+                      <select className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 w-full text-sm border border-[var(--border-subtle)]" onChange={(e) => { const trackId = e.target.value ? Number(e.target.value) : null; if (trackId) { const t = tracks.find(tr => tr.id === trackId); if (t?.camelotKey) setSelectedWheelKey(t.camelotKey); } else { setSelectedWheelKey(null); } }} value="">
                         <option value="">-- Choose a track --</option>
                         {tracks.filter(t => t.camelotKey).map(t => (
                           <option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.camelotKey})</option>
@@ -4940,41 +4940,41 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">ð Watch Folder - Auto Import</h3>
-            <button onClick={() => setShowWatchFolder(false)} className="text-gray-400 hover:text-white text-xl">×</button>
+            <button onClick={() => setShowWatchFolder(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-400 block mb-1">{t("chemin_dossier")}</label>
+                <label className="text-sm text-[var(--text-secondary)] block mb-1">{t("chemin_dossier")}</label>
                 <div className="flex gap-2">
-                  <input type="text" value={watchFolderPath} onChange={(e) => setWatchFolderPath(e.target.value)} placeholder="/Users/music/incoming" className="flex-1 bg-gray-800 text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-yellow-500 outline-none" />
+                  <input type="text" value={watchFolderPath} onChange={(e) => setWatchFolderPath(e.target.value)} placeholder="/Users/music/incoming" className="flex-1 bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 text-sm border border-[var(--border-subtle)] focus:border-yellow-500 outline-none" />
                   <button className="bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded text-sm font-semibold">{t("parcourir")}</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-yellow-400">0</div>
-                  <div className="text-xs text-gray-400">{t("fichiers_surveilles")}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{t("fichiers_surveilles")}</div>
                 </div>
-                <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+                <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-green-400">0</div>
-                  <div className="text-xs text-gray-400">{t("auto_importes")}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{t("auto_importes")}</div>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold">▶ Start Watching</button>
-                <button className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">⏸ Stop</button>
+                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-semibold">▶ Start Watching</button>
+                <button className="flex-1 bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm">⏸ Stop</button>
               </div>
             </div>
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300">{t("parametres")}</h4>
-              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-analyze new files (BPM, Key, Energy)</label>
-              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-detect duplicates</label>
-              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" className="accent-yellow-500" /> Auto-add to playlist</label>
-              <label className="flex items-center gap-2 text-sm text-gray-400"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Watch subfolders</label>
+              <h4 className="text-sm font-semibold text-[var(--text-secondary)]">{t("parametres")}</h4>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-analyze new files (BPM, Key, Energy)</label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-detect duplicates</label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" className="accent-yellow-500" /> Auto-add to playlist</label>
+              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Watch subfolders</label>
               <div>
-                <label className="text-sm text-gray-400 block mb-1">{t("formats_supportes")}</label>
-                <div className="flex flex-wrap gap-1">{['MP3','WAV','FLAC','AIFF','AAC','OGG','M4A','WMA'].map(f => (<span key={f} className="bg-gray-800 text-yellow-400 text-xs px-2 py-1 rounded font-mono">{f}</span>))}</div>
+                <label className="text-sm text-[var(--text-secondary)] block mb-1">{t("formats_supportes")}</label>
+                <div className="flex flex-wrap gap-1">{['MP3','WAV','FLAC','AIFF','AAC','OGG','M4A','WMA'].map(f => (<span key={f} className="bg-[var(--bg-card)] text-yellow-400 text-xs px-2 py-1 rounded font-mono">{f}</span>))}</div>
               </div>
             </div>
           </div>
@@ -4986,15 +4986,15 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">ð¤ AI Mix Suggestions</h3>
-            <button onClick={() => setShowMixSuggestions(false)} className="text-gray-400 hover:text-white text-xl">×</button>
+            <button onClick={() => setShowMixSuggestions(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
           </div>
           <div className="space-y-4">
             <div className="flex gap-3 items-center">
-              <select className="bg-gray-800 text-white rounded px-3 py-2 text-sm border border-gray-700 flex-1" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
+              <select className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 text-sm border border-[var(--border-subtle)] flex-1" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
                 <option value="">-- Select starting track --</option>
                 {tracks.map(t => (<option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.bpm} BPM, {t.camelotKey || 'N/A'})</option>))}
               </select>
-              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">✨ Generate Mix</button>
+              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">✨ Generate Mix</button>
             </div>
             {selectedForMix && (() => {
               const start = tracks.find(t => t.id === selectedForMix);
@@ -5010,20 +5010,20 @@ export default function DashboardPage() {
               }).sort((a, b) => (b._mixScore || 0) - (a._mixScore || 0)).slice(0, 10);
               return (
                 <div className="space-y-2">
-                  <div className="text-sm text-gray-400">Starting from: <span className="text-white font-semibold">{start.title}</span> ({start.bpm} BPM, {start.camelotKey}, Energy: {start.energy})</div>
-                  {suggestions.length === 0 ? (<div className="text-gray-500 text-sm py-4 text-center">{t("ajouter_morceaux")} with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
-                    <div key={t.id} className="flex items-center gap-3 bg-gray-800/50 rounded-lg p-3 hover:bg-gray-800 transition-colors">
+                  <div className="text-sm text-[var(--text-secondary)]">Starting from: <span className="text-[var(--text-primary)] font-semibold">{start.title}</span> ({start.bpm} BPM, {start.camelotKey}, Energy: {start.energy})</div>
+                  {suggestions.length === 0 ? (<div className="text-[var(--text-muted)] text-sm py-4 text-center">{t("ajouter_morceaux")} with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
+                    <div key={t.id} className="flex items-center gap-3 bg-[var(--bg-card)]/50 rounded-lg p-3 hover:bg-[var(--bg-card)] transition-colors">
                       <span className="text-pink-400 font-bold text-lg w-6">{i + 1}</span>
                       <div className="flex-1">
-                        <div className="text-white text-sm font-medium">{t.title}</div>
-                        <div className="text-gray-400 text-xs">{t.artist}</div>
+                        <div className="text-[var(--text-primary)] text-sm font-medium">{t.title}</div>
+                        <div className="text-[var(--text-secondary)] text-xs">{t.artist}</div>
                       </div>
                       <div className="flex gap-4 text-xs">
                         <span className="text-blue-400">{t.bpm} BPM</span>
                         <span className="text-cyan-500/70 font-mono">{t.camelotKey || '?'}</span>
                         <span className="text-green-400">E:{t.energy || '?'}</span>
                       </div>
-                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-gray-700'}>★</span>))}</div>
+                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-[var(--text-muted)]'}>★</span>))}</div>
                     </div>
                   ))}
                 </div>
@@ -5035,13 +5035,13 @@ export default function DashboardPage() {
 
       {/* ── Mixable Tracks Panel ── */}
       {showMixPanel && selectedTrack && (
-        <div className="fixed right-0 top-14 bottom-12 w-80 bg-gray-950/98 backdrop-blur-md border-l border-cyan-500/20 z-50 flex flex-col shadow-2xl shadow-black/60">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/60 bg-gray-900/80">
+        <div className="fixed right-0 top-14 bottom-12 w-80 bg-[var(--bg-primary)]/98 backdrop-blur-md border-l border-cyan-500/20 z-50 flex flex-col shadow-2xl shadow-black/60">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)]/60 bg-[var(--bg-secondary)]/80">
             <span className="text-[10px] font-bold text-cyan-400/80 tracking-[0.2em]">MIXABLE TRACKS</span>
-            <button onClick={() => setShowMixPanel(false)} className="text-slate-500 hover:text-white transition-colors"><X size={14}/></button>
+            <button onClick={() => setShowMixPanel(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><X size={14}/></button>
           </div>
-          <div className="px-3 py-2 border-b border-slate-800/40 bg-gray-900/40">
-            <div className="text-[10px] text-slate-400">Playing: <span className="text-white font-medium">{selectedTrack.title?.substring(0, 30)}</span></div>
+          <div className="px-3 py-2 border-b border-[var(--border-subtle)]/40 bg-[var(--bg-secondary)]/40">
+            <div className="text-[10px] text-[var(--text-secondary)]">Playing: <span className="text-[var(--text-primary)] font-medium">{selectedTrack.title?.substring(0, 30)}</span></div>
             <div className="flex gap-2 mt-0.5">
               <span className="text-[10px] text-cyan-400 font-medium">{selectedTrack.analysis?.key || '?'}</span>
               <span className="text-[10px] text-purple-400">{selectedTrack.analysis?.bpm ? (Math.round(selectedTrack.analysis.bpm * 10) / 10) + ' BPM' : '?'}</span>
@@ -5055,17 +5055,17 @@ export default function DashboardPage() {
               .map(({track: t, score}) => (
                 <div key={t.id}
                   onClick={() => setSelectedTrack(t)}
-                  className={"flex items-center gap-2 px-3 py-2 border-b border-slate-800/20 cursor-pointer hover:bg-slate-800/50 transition-colors" + (selectedTrack.id === t.id ? " bg-cyan-500/10" : "")}>
+                  className={"flex items-center gap-2 px-3 py-2 border-b border-[var(--border-subtle)]/20 cursor-pointer hover:bg-[var(--bg-card)]/50 transition-colors" + (selectedTrack.id === t.id ? " bg-cyan-500/10" : "")}>
                   <div className={"w-8 h-8 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0 " + (score.total >= 80 ? "bg-green-500/20 text-green-400" : score.total >= 60 ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400")}>
                     {score.total}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[11px] text-white truncate">{t.title}</div>
-                    <div className="text-[9px] text-slate-500 truncate">{t.artist || 'Unknown'}</div>
+                    <div className="text-[11px] text-[var(--text-primary)] truncate">{t.title}</div>
+                    <div className="text-[9px] text-[var(--text-muted)] truncate">{t.artist || 'Unknown'}</div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-[10px] text-cyan-400">{t.analysis?.key || '?'}</div>
-                    <div className="text-[9px] text-slate-500">{t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : '?'}</div>
+                    <div className="text-[9px] text-[var(--text-muted)]">{t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : '?'}</div>
                   </div>
                   <div className={"text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 " + (score.verdict === 'Perfect' ? "bg-green-500/20 text-green-400" : score.verdict === 'Great' ? "bg-emerald-500/20 text-emerald-400" : score.verdict === 'Good' ? "bg-yellow-500/20 text-yellow-400" : score.verdict === 'OK' ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400")}>
                     {score.verdict}
@@ -5074,7 +5074,7 @@ export default function DashboardPage() {
               ))
             }
             {filteredTracks.filter((t) => t.id !== selectedTrack.id && t.analysis?.key).length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-xs">No analyzed tracks to compare</div>
+              <div className="text-center py-8 text-[var(--text-muted)] text-xs">No analyzed tracks to compare</div>
             )}
           </div>
         </div>
@@ -5082,60 +5082,60 @@ export default function DashboardPage() {
 
       {/* ── Analyzed Tracks Panel ── */}
       {showAnalyzed && (
-        <div className="bg-gray-900/95 border border-gray-700/50 rounded-xl p-4 mb-3 mx-2">
+        <div className="bg-[var(--bg-secondary)]/95 border border-[var(--border-subtle)]/50 rounded-xl p-4 mb-3 mx-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2"><CheckSquare size={14} className="text-green-400" /> Analyzed Tracks</h3>
-            <button onClick={() => { setShowAnalyzed(false); setActiveModule(null); }} className="text-gray-400 hover:text-white"><X size={14} /></button>
+            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2"><CheckSquare size={14} className="text-green-400" /> Analyzed Tracks</h3>
+            <button onClick={() => { setShowAnalyzed(false); setActiveModule(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={14} /></button>
           </div>
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {tracks.filter((t) => t.bpm && t.key).length === 0 ? (
-              <p className="text-gray-500 text-xs text-center py-4">No analyzed tracks yet</p>
+              <p className="text-[var(--text-muted)] text-xs text-center py-4">No analyzed tracks yet</p>
             ) : (
               tracks.filter((t) => t.bpm && t.key).map((t) => (
-                <div key={t.id} onClick={() => setSelectedTrack(t)} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs ${selectedTrack?.id === t.id ? 'bg-blue-600/30 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
+                <div key={t.id} onClick={() => setSelectedTrack(t)} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs ${selectedTrack?.id === t.id ? 'bg-blue-600/30 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
                   <CheckSquare size={10} className="text-green-400 flex-shrink-0" />
                   <span className="truncate flex-1">{t.title || t.filename}</span>
-                  <span className="text-gray-500 flex-shrink-0">{t.bpm} BPM</span>
-                  <span className="text-gray-500 flex-shrink-0">{t.key}</span>
+                  <span className="text-[var(--text-muted)] flex-shrink-0">{t.bpm} BPM</span>
+                  <span className="text-[var(--text-muted)] flex-shrink-0">{t.key}</span>
                 </div>
               ))
             )}
           </div>
-          <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-500">{tracks.filter((t) => t.bpm && t.key).length} / {tracks.length} tracks analyzed</div>
+          <div className="mt-2 pt-2 border-t border-[var(--border-subtle)]/50 text-xs text-[var(--text-muted)]">{tracks.filter((t) => t.bpm && t.key).length} / {tracks.length} tracks analyzed</div>
         </div>
       )}
       
       {/* DJ Set Timer Panel */}
       {showSetTimer && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-96 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Clock size={20} /> DJ Set Timer</h3>
-              <button onClick={() => setShowSetTimer(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Clock size={20} /> DJ Set Timer</h3>
+              <button onClick={() => setShowSetTimer(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
             </div>
             {!setTimerRunning && setTimerRemaining === 0 && (
               <div className="space-y-3">
-                <p className="text-gray-400 text-sm">Select set duration:</p>
+                <p className="text-[var(--text-secondary)] text-sm">Select set duration:</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[1800, 3600, 5400, 7200, 10800, 14400].map(function(sec) { return (
-                    <button key={sec} onClick={() => setSetTimerDuration(sec)} className={'rounded-lg py-2 text-sm font-medium transition-all ' + (setTimerDuration === sec ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700')}>{sec < 3600 ? (sec / 60) + 'min' : (sec / 3600) + 'h'}</button>
+                    <button key={sec} onClick={() => setSetTimerDuration(sec)} className={'rounded-lg py-2 text-sm font-medium transition-all ' + (setTimerDuration === sec ? 'bg-cyan-600 text-[var(--text-primary)]' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]')}>{sec < 3600 ? (sec / 60) + 'min' : (sec / 3600) + 'h'}</button>
                   ); })}
                 </div>
-                <button onClick={() => { setSetTimerRemaining(setTimerDuration); setSetTimerRunning(true); }} className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-lg transition-all">Start Timer</button>
+                <button onClick={() => { setSetTimerRemaining(setTimerDuration); setSetTimerRunning(true); }} className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] font-bold text-lg transition-all">Start Timer</button>
               </div>
             )}
             {(setTimerRunning || setTimerRemaining > 0) && (
               <div className="text-center space-y-4">
-                <div className="text-6xl font-mono font-bold text-white tabular-nums">{String(Math.floor(setTimerRemaining / 3600)).padStart(2, '0')}:{String(Math.floor((setTimerRemaining % 3600) / 60)).padStart(2, '0')}:{String(setTimerRemaining % 60).padStart(2, '0')}</div>
-                <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
+                <div className="text-6xl font-mono font-bold text-[var(--text-primary)] tabular-nums">{String(Math.floor(setTimerRemaining / 3600)).padStart(2, '0')}:{String(Math.floor((setTimerRemaining % 3600) / 60)).padStart(2, '0')}:{String(setTimerRemaining % 60).padStart(2, '0')}</div>
+                <div className="w-full bg-[var(--bg-card)] rounded-full h-3 overflow-hidden">
                   <div className={'h-full rounded-full transition-all duration-1000 ' + (setTimerRemaining < 300 ? 'bg-red-500' : setTimerRemaining < 600 ? 'bg-yellow-500' : 'bg-cyan-500')} style={{width: (setTimerDuration > 0 ? (setTimerRemaining / setTimerDuration) * 100 : 0) + '%'}}></div>
                 </div>
-                <p className="text-gray-400 text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
+                <p className="text-[var(--text-secondary)] text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-green-600 hover:bg-green-500 text-white')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
-                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-white">{t("reinitialiser")}</button>
+                  <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-[var(--text-primary)]' : 'bg-green-600 hover:bg-green-500 text-[var(--text-primary)]')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
+                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-[var(--text-primary)]">{t("reinitialiser")}</button>
                 </div>
-              <p className="text-gray-600 text-xs mt-2">Press Space or T to tap | R to reset | Esc to close</p>
+              <p className="text-[var(--text-muted)] text-xs mt-2">Press Space or T to tap | R to reset | Esc to close</p>
               </div>
             )}
           </div>
@@ -5144,22 +5144,22 @@ export default function DashboardPage() {
             {/* Tap Tempo BPM Counter */}
       {showTapTempo && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-96 shadow-2xl">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-96 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Activity size={20} /> Tap Tempo</h3>
-              <button onClick={() => setShowTapTempo(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Activity size={20} /> Tap Tempo</h3>
+              <button onClick={() => setShowTapTempo(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
             </div>
             <div className="text-center space-y-4">
               <div className="text-6xl font-mono font-bold text-cyan-400">
                 {tapTimes.length < 2 ? '---' : Math.round(60000 * Math.min(tapTimes.length - 1, 7) / (tapTimes[tapTimes.length - 1] - tapTimes[Math.max(0, tapTimes.length - 8)]))}
               </div>
-              <p className="text-gray-400 text-sm">BPM</p>
+              <p className="text-[var(--text-secondary)] text-sm">BPM</p>
               <button
                 onClick={() => { var now = Date.now(); setTapTimes(function(prev) { if(prev.length > 0 && now - prev[prev.length-1] > 3000) return [now]; return prev.concat([now]).slice(-8); }); }}
-                className="w-48 h-48 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-2xl font-bold shadow-lg shadow-cyan-500/30 transition-all active:scale-95 mx-auto flex items-center justify-center"
+                className="w-48 h-48 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] text-2xl font-bold shadow-lg shadow-cyan-500/30 transition-all active:scale-95 mx-auto flex items-center justify-center"
               >TAP</button>
               <div className="flex gap-2 justify-center">
-                <span className="text-gray-500 text-xs">{tapTimes.length} taps</span>
+                <span className="text-[var(--text-muted)] text-xs">{tapTimes.length} taps</span>
                 <button onClick={() => setTapTimes([])} className="text-xs text-red-400 hover:text-red-300">{t("reinitialiser")}</button>
               </div>
             </div>
@@ -5169,19 +5169,19 @@ export default function DashboardPage() {
       {/* Session Notes */}
       {showSessionNotes && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[500px] shadow-2xl">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-[500px] shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><PenSquare size={20} /> Session Notes</h3>
-              <button onClick={() => setShowSessionNotes(false)} className="text-gray-400 hover:text-white text-xl">X</button>
+              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><PenSquare size={20} /> Session Notes</h3>
+              <button onClick={() => setShowSessionNotes(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
             </div>
             <textarea
               value={sessionNotes}
               onChange={(e) => setSessionNotes(e.target.value)}
               placeholder="Write your set notes here... Track order, transitions, energy flow..."
-              className="w-full h-64 bg-gray-800 border border-gray-600 rounded-lg p-3 text-white text-sm resize-none focus:outline-none focus:border-cyan-500"
+              className="w-full h-64 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg p-3 text-[var(--text-primary)] text-sm resize-none focus:outline-none focus:border-cyan-500"
             />
             <div className="flex justify-between items-center mt-3">
-              <span className="text-gray-500 text-xs">{sessionNotes.length} characters</span>
+              <span className="text-[var(--text-muted)] text-xs">{sessionNotes.length} characters</span>
               <button onClick={() => { navigator.clipboard.writeText(sessionNotes); }} className="text-xs text-cyan-400 hover:text-cyan-300">Copy to clipboard</button>
             </div>
           </div>
@@ -5190,10 +5190,10 @@ export default function DashboardPage() {
 {/* Keyboard Shortcuts Help Panel */}
       {showShortcuts && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-secondary)] border border-cyan-500/30 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2"><span className="text-cyan-400">⌨</span> Raccourcis Clavier</h2>
-              <button onClick={() => setShowShortcuts(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+              <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><span className="text-cyan-400">⌨</span> Raccourcis Clavier</h2>
+              <button onClick={() => setShowShortcuts(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">✕</button>
             </div>
             <div className="space-y-1.5 text-sm">
               {[
@@ -5210,13 +5210,13 @@ export default function DashboardPage() {
                 ['0', lang === 'fr' ? 'Reset vitesse (1.00x)' : 'Reset speed (1.00x)'],
                 ['← / →', 'Seek -5s / +5s'],
               ].map(([key, desc]) => (
-                <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
-                  <kbd className="px-2.5 py-1 bg-gray-800 border border-gray-700 rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
-                  <span className="text-gray-300 text-right">{desc}</span>
+                <div key={key} className="flex items-center justify-between py-1.5 border-b border-[var(--border-subtle)]/50 last:border-0">
+                  <kbd className="px-2.5 py-1 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
+                  <span className="text-[var(--text-secondary)] text-right">{desc}</span>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-gray-600 mt-4 text-center">Appuie sur ? pour fermer</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">Appuie sur ? pour fermer</p>
           </div>
         </div>
       )}
@@ -5226,7 +5226,7 @@ export default function DashboardPage() {
         onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
         title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
         style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', border: '2px solid rgba(139, 92, 246, 0.5)', cursor: 'pointer' }}
-        className="bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
+        className="bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-lg"
       >
         {lang === 'fr' ? 'EN' : 'FR'}
       </button>
@@ -5237,9 +5237,9 @@ export default function DashboardPage() {
 // ── Small helpers ────────────────────────────────────────────────────────
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-bg-primary/50">
-      <span className="text-slate-500 text-xs">{label}</span>
-      <span className="text-white text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
+    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-[var(--bg-primary)]/50">
+      <span className="text-[var(--text-muted)] text-xs">{label}</span>
+      <span className="text-[var(--text-primary)] text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
     
 
       {/* ── Metadata Edit Modal ── */}
@@ -5252,9 +5252,9 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
         {toasts.map(t => (
           <div key={t.id} className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-sm border text-sm font-medium animate-[slideIn_0.3s_ease-out] ${
-            t.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/50 text-white' :
-            t.type === 'error' ? 'bg-red-500/90 border-red-400/50 text-white' :
-            'bg-slate-700/90 border-slate-500/50 text-slate-100'
+            t.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/50 text-[var(--text-primary)]' :
+            t.type === 'error' ? 'bg-red-500/90 border-red-400/50 text-[var(--text-primary)]' :
+            'bg-[var(--bg-elevated)]/90 border-slate-500/50 text-[var(--text-primary)]'
           }`}>
             {t.type === 'success' && <CheckCircle2 size={16} />}
             {t.type === 'error' && <XCircle size={16} />}
@@ -5269,10 +5269,10 @@ function MetaRow({ label, value }: { label: string; value: string }) {
             {/* ── Keyboard Shortcuts Modal ── */}
       {showShortcutsModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
-          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Raccourcis clavier</h3>
-              <button onClick={() => setShowShortcutsModal(false)} className="text-slate-400 hover:text-white"><XCircle size={20} /></button>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Raccourcis clavier</h3>
+              <button onClick={() => setShowShortcutsModal(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><XCircle size={20} /></button>
             </div>
             <div className="space-y-2">
               {[
@@ -5288,13 +5288,13 @@ function MetaRow({ label, value }: { label: string; value: string }) {
                 ['T', 'Ouvrir le Tap BPM'],
                 ['C', 'Filtrer morceaux compatibles'],
               ].map(([key, desc]) => (
-                <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-700/50">
-                  <kbd className="px-2 py-0.5 rounded bg-slate-700 text-cyan-400 font-mono text-xs border border-slate-600">{key}</kbd>
-                  <span className="text-sm text-slate-300">{desc}</span>
+                <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-[var(--bg-elevated)]/50">
+                  <kbd className="px-2 py-0.5 rounded bg-[var(--bg-elevated)] text-cyan-400 font-mono text-xs border border-[var(--border-default)]">{key}</kbd>
+                  <span className="text-sm text-[var(--text-secondary)]">{desc}</span>
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-[10px] text-slate-500 text-center">Appuyez sur ? pour afficher/masquer</p>
+            <p className="mt-4 text-[10px] text-[var(--text-muted)] text-center">Appuyez sur ? pour afficher/masquer</p>
           </div>
         </div>
       )}
