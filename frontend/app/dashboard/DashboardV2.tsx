@@ -55,15 +55,33 @@ const TABS = [
 
 const GLOBAL_TABS = ['stats', 'history', 'playlists'];
 
-// ── Demo tracks (shown when user has no real tracks yet) ──────────────
-const DEMO_TRACKS: any[] = [
-  { id: -1, title: "Shed My Skin", artist: "Ben Bohmer", genre: "Melodic House", bpm: 124, key: "6A", energy: 72, duration: "6:42", rating: 5, tags: ["peak", "vocal"], analyzed: true, color: "#22c55e" },
-  { id: -2, title: "Lost Highway", artist: "Stephan Bodzin", genre: "Techno", bpm: 134, key: "10B", energy: 88, duration: "8:15", rating: 4, tags: ["dark", "peak"], analyzed: true, color: "#ef4444" },
-  { id: -3, title: "Equinox", artist: "Solomun", genre: "Deep House", bpm: 122, key: "3A", energy: 65, duration: "7:30", rating: 4, tags: ["warmup"], analyzed: true, color: "#3b82f6" },
-  { id: -4, title: "Disco Volante", artist: "ANNA", genre: "Techno", bpm: 136, key: "8A", energy: 91, duration: "7:05", rating: 5, tags: ["peak", "dark"], analyzed: true, color: "#ef4444" },
-  { id: -5, title: "Dreamer", artist: "Tale Of Us", genre: "Melodic House", bpm: 120, key: "1A", energy: 58, duration: "9:10", rating: 3, tags: ["warmup", "vocal"], analyzed: true, color: "#06b6d4" },
-  { id: -6, title: "Bangalore", artist: "Bicep", genre: "House", bpm: 128, key: "4B", energy: 80, duration: "5:55", rating: 4, tags: ["festival"], analyzed: true, color: "#f97316" },
+// ── Demo data (full Track objects + flat display objects) ──────────────
+const DEMO_CUE_POINTS = [
+  { id: -1, position_ms: 32000, cue_type: 'hot_cue', name: 'Intro', color: '#22c55e', number: 0, end_position_ms: null },
+  { id: -2, position_ms: 105000, cue_type: 'hot_cue', name: 'Drop', color: '#ef4444', number: 2, end_position_ms: null },
+  { id: -3, position_ms: 250000, cue_type: 'hot_cue', name: 'Break', color: '#3b82f6', number: 4, end_position_ms: null },
+  { id: -4, position_ms: 355000, cue_type: 'hot_cue', name: 'Outro', color: '#f97316', number: 6, end_position_ms: null },
 ];
+
+function makeDemoAnalysis(bpm: number, key: string, energy: number, durationMs: number) {
+  return { id: 0, bpm, bpm_confidence: 0.98, key, energy, duration_ms: durationMs, drop_positions: [], phrase_positions: [], beat_positions: [], section_labels: [], analyzed_at: '2025-03-28T10:00:00Z' };
+}
+
+const DEMO_RAW_TRACKS: Track[] = [
+  { id: -1, filename: 'shed_my_skin.mp3', original_filename: 'Shed My Skin.mp3', status: 'analyzed', created_at: '2025-03-28T10:00:00Z', title: 'Shed My Skin', artist: 'Ben Bohmer', genre: 'Melodic House', rating: 5, tags: 'peak,vocal', category: 'Peak Time', cue_points: DEMO_CUE_POINTS, analysis: makeDemoAnalysis(124, '6A', 0.72, 402000) },
+  { id: -2, filename: 'lost_highway.mp3', original_filename: 'Lost Highway.mp3', status: 'analyzed', created_at: '2025-03-27T09:00:00Z', title: 'Lost Highway', artist: 'Stephan Bodzin', genre: 'Techno', rating: 4, tags: 'dark,peak', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(134, '10B', 0.88, 495000) },
+  { id: -3, filename: 'equinox.mp3', original_filename: 'Equinox.mp3', status: 'analyzed', created_at: '2025-03-26T08:00:00Z', title: 'Equinox', artist: 'Solomun', genre: 'Deep House', rating: 4, tags: 'warmup', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(122, '3A', 0.65, 450000) },
+  { id: -4, filename: 'disco_volante.mp3', original_filename: 'Disco Volante.mp3', status: 'analyzed', created_at: '2025-03-25T07:00:00Z', title: 'Disco Volante', artist: 'ANNA', genre: 'Techno', rating: 5, tags: 'peak,dark', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(136, '8A', 0.91, 425000) },
+  { id: -5, filename: 'dreamer.mp3', original_filename: 'Dreamer.mp3', status: 'analyzed', created_at: '2025-03-24T06:00:00Z', title: 'Dreamer', artist: 'Tale Of Us', genre: 'Melodic House', rating: 3, tags: 'warmup,vocal', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(120, '1A', 0.58, 550000) },
+  { id: -6, filename: 'bangalore.mp3', original_filename: 'Bangalore.mp3', status: 'analyzed', created_at: '2025-03-23T05:00:00Z', title: 'Bangalore', artist: 'Bicep', genre: 'House', rating: 4, tags: 'festival', category: 'Build Up', cue_points: [], analysis: makeDemoAnalysis(128, '4B', 0.80, 355000) },
+];
+
+const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
+  id: t.id, title: t.title, artist: t.artist, genre: t.genre || '—',
+  bpm: t.analysis?.bpm, key: t.analysis?.key, energy: t.analysis?.energy ? Math.round(t.analysis.energy * 100) : null,
+  duration: (() => { const s = (t.analysis?.duration_ms || 0) / 1000; return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`; })(),
+  rating: t.rating || 0, tags: t.tags ? String(t.tags).split(',') : [], analyzed: true, color: null,
+}));
 
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
@@ -125,7 +143,14 @@ export default function DashboardV2() {
 
   // Use demo tracks when no real tracks exist
   const isDemo = realDisplayTracks.length === 0 && !loading;
-  const displayTracks = isDemo ? DEMO_TRACKS : realDisplayTracks;
+  const displayTracks = isDemo ? DEMO_DISPLAY_TRACKS : realDisplayTracks;
+  const rawTracksForTabs = isDemo ? DEMO_RAW_TRACKS : sectionFilteredTracks;
+
+  // Find the raw Track for the selected display track (needed by tabs)
+  const selectedRawTrack = useMemo(() => {
+    if (!selectedTrack) return null;
+    return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
+  }, [selectedTrack, rawTracksForTabs]);
 
   // Auto-select first track when loaded (real or demo)
   useEffect(() => {
@@ -336,21 +361,26 @@ export default function DashboardV2() {
         <div className="p-4 min-h-[160px]">
           {activeTab === 'cues' && (
             <CuesTab
-              track={selectedTrack}
+track={selectedTrack}
               cuePoints={cuePoints}
               onCreateCue={handleCreateCue}
               onDeleteCue={handleDeleteCue}
               initialPositionMs={cuePositionMs}
             />
           )}
-          {activeTab === 'beatgrid' && <BeatgridTab track={selectedTrack} />}
+          {activeTab === 'beatgrid' && (
+            <BeatgridTab
+              track={selectedTrack}
+              beatgrid={selectedTrack?.analysis ? { bpm: selectedTrack.analysis?.bpm, downbeat_ms: 0, locked: false } : undefined}
+            />
+          )}
           {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
           {activeTab === 'eq' && <EQTab />}
           {activeTab === 'fx' && <FXTab />}
-          {activeTab === 'mix' && <MixTab track={selectedTrack} tracks={displayTracks} />}
+          {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
           {activeTab === 'playlists' && <PlaylistsTab playlists={[]} />}
-          {activeTab === 'stats' && <StatsTab tracks={displayTracks} />}
-          {activeTab === 'history' && <HistoryTab tracks={displayTracks} />}
+          {activeTab === 'stats' && <StatsTab tracks={rawTracksForTabs} />}
+          {activeTab === 'history' && <HistoryTab tracks={rawTracksForTabs} />}
         </div>
       </div>
 
