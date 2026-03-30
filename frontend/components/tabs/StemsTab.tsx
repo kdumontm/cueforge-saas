@@ -117,3 +117,4 @@ export function StemsTab({
     </div>
   );
 }
+export default StemsTab;

@@ -137,3 +137,4 @@ export function MixTab({
     </div>
   );
 }
+export default MixTab;

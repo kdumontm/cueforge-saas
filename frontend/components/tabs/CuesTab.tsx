@@ -193,3 +193,4 @@ export function CuesTab({
     </div>
   );
 }
+export default CuesTab;

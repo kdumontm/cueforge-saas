@@ -84,3 +84,4 @@ export function EQTab({
     </div>
   );
 }
+export default EQTab;

@@ -75,3 +75,4 @@ export function FXTab({
     </div>
   );
 }
+export default FXTab;
