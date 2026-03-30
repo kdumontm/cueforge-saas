@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
@@ -62,6 +62,24 @@ export default function DashboardV2() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // TrackList state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gridView, setGridView] = useState(false);
+  const [sortBy, setSortBy] = useState('date');
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [filters, setFilters] = useState({
+    bpmMin: 0, bpmMax: 300, keyFilter: null as string | null, genreFilter: null as string | null,
+    energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false,
+  });
+  const DEFAULT_FILTERS = { bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false };
+
+  const genres = useMemo(() => {
+    const g = new Set(tracks.map((t: any) => t.analysis?.genre).filter(Boolean));
+    return Array.from(g) as string[];
+  }, [tracks]);
+
+  const displayTracks = useMemo(() => tracks.map(toDisplayTrack), [tracks]);
 
   // Load tracks from API
   useEffect(() => {
@@ -197,8 +215,29 @@ export default function DashboardV2() {
 
       {/* Track List */}
       <TrackList
-        onSelectTrack={handleSelectTrack}
-        selectedTrackId={selectedTrack?.id}
+        tracks={displayTracks}
+        selectedTrack={selectedTrack}
+        playingTrackId={null}
+        favoriteIds={favoriteIds}
+        searchQuery={searchQuery}
+        gridView={gridView}
+        sortBy={sortBy}
+        filters={filters}
+        genres={genres}
+        onSelect={handleSelectTrack}
+        onDoubleClick={handleSelectTrack}
+        onContextMenu={() => {}}
+        onFavoriteToggle={(id: number) => setFavoriteIds(prev => {
+          const next = new Set(prev);
+          next.has(id) ? next.delete(id) : next.add(id);
+          return next;
+        })}
+        onSearchChange={setSearchQuery}
+        onSortChange={setSortBy}
+        onGridToggle={setGridView}
+        onFilterChange={(key: string, value: any) => setFilters(prev => ({ ...prev, [key]: value }))}
+        onFilterReset={() => setFilters(DEFAULT_FILTERS)}
+        isLoading={loading}
       />
 
       {/* Hidden file input */}
