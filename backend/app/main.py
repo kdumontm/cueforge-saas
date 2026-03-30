@@ -40,6 +40,12 @@ def _ensure_admin_account():
             if not existing.email_verified:
                 existing.email_verified = True
                 db.commit()
+
+        # Also ensure kenin.dumont@gmail.com is verified
+        kenin_gmail = db.query(User).filter(User.email == "kenin.dumont@gmail.com").first()
+        if kenin_gmail and not kenin_gmail.email_verified:
+            kenin_gmail.email_verified = True
+            db.commit()
     finally:
         db.close()
 
