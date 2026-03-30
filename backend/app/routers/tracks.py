@@ -408,25 +408,8 @@ def list_tracks(
     offset = (page - 1) * limit
     tracks = q.offset(offset).limit(limit).all()
 
-    try:
-        validated = [TrackResponse.model_validate(t) for t in tracks]
-    except Exception as e:
-        import traceback
-        logger.error(f"TrackResponse validation failed: {e}\n{traceback.format_exc()}")
-        # Try to identify the bad track
-        validated = []
-        for t in tracks:
-            try:
-                validated.append(TrackResponse.model_validate(t))
-            except Exception as inner_e:
-                logger.error(f"Track {t.id} ({t.title}) failed: {inner_e}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Track serialization error on track {t.id}: {str(inner_e)}"
-                )
-
     return TrackListResponse(
-        tracks=validated,
+        tracks=[TrackResponse.model_validate(t) for t in tracks],
         total=total,
         page=page,
         pages=(total + limit - 1) // limit,
