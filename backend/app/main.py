@@ -84,7 +84,6 @@ app = FastAPI(
     redirect_slashes=False,
 )
 
-settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),

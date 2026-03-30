@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Annotated
 from pydantic import BaseModel, EmailStr, field_validator, Field
@@ -246,7 +247,6 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     """Login by username or email. Returns access + refresh tokens."""
-    from sqlalchemy import or_
     user = db.query(User).filter(
         or_(User.name == credentials.username, User.email == credentials.username)
     ).first()

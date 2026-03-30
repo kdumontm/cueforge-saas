@@ -11,22 +11,25 @@ from app.services.cue_generator import apply_rules_to_track
 router = APIRouter(prefix="/cues", tags=["cues"])
 
 
+# ─── Pydantic Schemas ────────────────────────────────────────────────────────
+
 class TrackAnalysisResponse(BaseModel):
-    """Track analysis response"""
     id: int
     track_id: int
-    bpm: float
-    beats: List[float]
-    drops: List[Dict]
-    sections: List[Dict]
-    phrases: List[Dict]
+    bpm: Optional[float] = None
+    key: Optional[str] = None
+    energy: Optional[float] = None
+    duration_ms: Optional[int] = None
+    drop_positions: Optional[List] = []
+    phrase_positions: Optional[List] = []
+    beat_positions: Optional[List] = []
+    section_labels: Optional[List] = []
 
     class Config:
         from_attributes = True
 
 
 class CuePointResponse(BaseModel):
-    """Cue point response"""
     id: int
     track_id: int
     position_ms: int
@@ -40,357 +43,286 @@ class CuePointResponse(BaseModel):
 
 
 class CuePointCreate(BaseModel):
-    """Create cue point request"""
-    time: float
+    time: float          # secondes → converti en ms
     label: str
     hot_cue_slot: Optional[int] = None
     color: Optional[str] = None
     cue_type: Optional[str] = "hot_cue"
 
 
+class CuePointUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    cue_type: Optional[str] = None
+    position_ms: Optional[int] = None
+
+
 class RuleResponse(BaseModel):
-    """Rule response"""
     id: int
-    user_id: int
+    track_id: int
     rule_type: str
-    enabled: bool
-    config: Dict
+    is_active: bool
+    parameters: Dict
 
     class Config:
         from_attributes = True
 
 
 class RuleCreate(BaseModel):
-    """Create rule request"""
+    track_id: int
     rule_type: str
-    enabled: bool = True
-    config: Optional[Dict] = None
+    is_active: bool = True
+    parameters: Optional[Dict] = None
 
 
 class RuleUpdate(BaseModel):
-    """Update rule request"""
-    enabled: Optional[bool] = None
-    config: Optional[Dict] = None
+    is_active: Optional[bool] = None
+    parameters: Optional[Dict] = None
 
+
+# ─── Analysis ────────────────────────────────────────────────────────────────
 
 @router.get("/{track_id}/analysis", response_model=TrackAnalysisResponse)
 async def get_analysis(
     track_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> TrackAnalysisResponse:
-    """
-    Get track analysis results.
-
-    Args:
-        track_id: Track ID
-        user: Current user
-        db: Database session
-
-    Returns:
-        Analysis data
-    """
-    # Verify track ownership
+    db: Session = Depends(get_db),
+):
+    """Récupère les résultats d'analyse audio d'un track."""
     track = db.query(Track).filter(
         Track.id == track_id,
-        Track.user_id == user.id
+        Track.user_id == user.id,
     ).first()
-
     if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Track not found"
-        )
+        raise HTTPException(status_code=404, detail="Track not found")
 
-    # Get analysis
     analysis = db.query(TrackAnalysis).filter(
         TrackAnalysis.track_id == track_id
     ).first()
-
     if not analysis:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Analysis not available"
-        )
+        raise HTTPException(status_code=404, detail="Analysis not available")
 
-    return TrackAnalysisResponse.from_orm(analysis)
+    return TrackAnalysisResponse.model_validate(analysis)
 
+
+# ─── Cue Points ──────────────────────────────────────────────────────────────
 
 @router.get("/{track_id}/points", response_model=List[CuePointResponse])
 async def list_cue_points(
     track_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> List[CuePointResponse]:
-    """
-    List cue points for a track.
-
-    Args:
-        track_id: Track ID
-        user: Current user
-        db: Database session
-
-    Returns:
-        List of cue points
-    """
-    # Verify track ownership
+    db: Session = Depends(get_db),
+):
+    """Liste les cue points d'un track (trié par position)."""
     track = db.query(Track).filter(
         Track.id == track_id,
-        Track.user_id == user.id
+        Track.user_id == user.id,
     ).first()
-
     if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Track not found"
-        )
+        raise HTTPException(status_code=404, detail="Track not found")
 
-    points = db.query(CuePoint).filter(
-        CuePoint.track_id == track_id
-    ).order_by(CuePoint.time).all()
+    points = (
+        db.query(CuePoint)
+        .filter(CuePoint.track_id == track_id)
+        .order_by(CuePoint.position_ms)
+        .all()
+    )
+    return [CuePointResponse.model_validate(p) for p in points]
 
-    return [CuePointResponse.from_orm(p) for p in points]
 
-
-@router.post("/{track_id}/points", response_model=CuePointResponse)
+@router.post("/{track_id}/points", response_model=CuePointResponse, status_code=201)
 async def create_cue_point(
     track_id: int,
     cue_data: CuePointCreate,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> CuePointResponse:
-    """
-    Create a cue point.
-
-    Args:
-        track_id: Track ID
-        cue_data: Cue point data
-        user: Current user
-        db: Database session
-
-    Returns:
-        Created cue point
-    """
-    # Verify track ownership
+    db: Session = Depends(get_db),
+):
+    """Crée un cue point sur un track."""
     track = db.query(Track).filter(
         Track.id == track_id,
-        Track.user_id == user.id
+        Track.user_id == user.id,
     ).first()
-
     if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Track not found"
-        )
+        raise HTTPException(status_code=404, detail="Track not found")
 
-    # Create cue point
     cue = CuePoint(
         track_id=track_id,
         position_ms=int(cue_data.time * 1000),
         name=cue_data.label,
         number=cue_data.hot_cue_slot,
         color=cue_data.color or "blue",
-        cue_type=cue_data.cue_type or "hot_cue"
+        cue_type=cue_data.cue_type or "hot_cue",
     )
     db.add(cue)
     db.commit()
     db.refresh(cue)
+    return CuePointResponse.model_validate(cue)
 
-    return CuePointResponse.from_orm(cue)
+
+@router.patch("/points/{cue_id}", response_model=CuePointResponse)
+async def update_cue_point(
+    cue_id: int,
+    data: CuePointUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Modifie un cue point (nom, couleur, position)."""
+    cue = db.query(CuePoint).filter(CuePoint.id == cue_id).first()
+    if not cue:
+        raise HTTPException(status_code=404, detail="Cue point not found")
+
+    # Vérification ownership via le track
+    track = db.query(Track).filter(
+        Track.id == cue.track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(cue, field, value)
+
+    db.commit()
+    db.refresh(cue)
+    return CuePointResponse.model_validate(cue)
 
 
-@router.delete("/points/{cue_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/points/{cue_id}", status_code=204)
 async def delete_cue_point(
     cue_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> None:
-    """
-    Delete a cue point.
-
-    Args:
-        cue_id: Cue point ID
-        user: Current user
-        db: Database session
-    """
-    # Get cue and verify ownership via track
+    db: Session = Depends(get_db),
+):
+    """Supprime un cue point."""
     cue = db.query(CuePoint).filter(CuePoint.id == cue_id).first()
-
     if not cue:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cue point not found"
-        )
+        raise HTTPException(status_code=404, detail="Cue point not found")
 
     track = db.query(Track).filter(
         Track.id == cue.track_id,
-        Track.user_id == user.id
+        Track.user_id == user.id,
     ).first()
-
     if not track:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized"
-        )
+        raise HTTPException(status_code=403, detail="Not authorized")
 
     db.delete(cue)
     db.commit()
 
 
-@router.get("/rules", response_model=List[RuleResponse])
+# ─── Rules ───────────────────────────────────────────────────────────────────
+
+def _get_rule_with_ownership(rule_id: int, user: User, db: Session) -> CueRule:
+    """Récupère une règle et vérifie que l'utilisateur en est le propriétaire."""
+    rule = db.query(CueRule).filter(CueRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    track = db.query(Track).filter(
+        Track.id == rule.track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return rule
+
+
+@router.get("/{track_id}/rules", response_model=List[RuleResponse])
 async def list_rules(
+    track_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> List[RuleResponse]:
-    """
-    List user's rules.
+    db: Session = Depends(get_db),
+):
+    """Liste les règles d'un track (scoped à l'utilisateur)."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
 
-    Args:
-        user: Current user
-        db: Database session
-
-    Returns:
-        List of rules
-    """
-    rules = db.query(CueRule).filter(CueRule.track_id != None).all()
-    return [RuleResponse.from_orm(r) for r in rules]
+    rules = db.query(CueRule).filter(CueRule.track_id == track_id).all()
+    return [RuleResponse.model_validate(r) for r in rules]
 
 
-@router.post("/rules", response_model=RuleResponse)
+@router.post("/{track_id}/rules", response_model=RuleResponse, status_code=201)
 async def create_rule(
+    track_id: int,
     rule_data: RuleCreate,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> RuleResponse:
-    """
-    Create a rule.
+    db: Session = Depends(get_db),
+):
+    """Crée une règle sur un track."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
 
-    Args:
-        rule_data: Rule data
-        user: Current user
-        db: Database session
-
-    Returns:
-        Created rule
-    """
     rule = CueRule(
-        track_id=0,  # TODO: fix
+        track_id=track_id,
         rule_type=rule_data.rule_type,
-        is_active=rule_data.enabled,
-        parameters=rule_data.config or {}
+        is_active=rule_data.is_active,
+        parameters=rule_data.parameters or {},
     )
     db.add(rule)
     db.commit()
     db.refresh(rule)
+    return RuleResponse.model_validate(rule)
 
-    return RuleResponse.from_orm(rule)
 
-
-@router.put("/rules/{rule_id}", response_model=RuleResponse)
+@router.put("/{track_id}/rules/{rule_id}", response_model=RuleResponse)
 async def update_rule(
+    track_id: int,
     rule_id: int,
     rule_data: RuleUpdate,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> RuleResponse:
-    """
-    Update a rule.
+    db: Session = Depends(get_db),
+):
+    """Modifie une règle."""
+    rule = _get_rule_with_ownership(rule_id, user, db)
 
-    Args:
-        rule_id: Rule ID
-        rule_data: Update data
-        user: Current user
-        db: Database session
-
-    Returns:
-        Updated rule
-    """
-    rule = db.query(CueRule).filter(
-        CueRule.id == rule_id,
-        CueRule.track_id != None
-    ).first()
-
-    if not rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Rule not found"
-        )
-
-    if rule_data.enabled is not None:
-        rule.is_active = rule_data.enabled
-
-    if rule_data.config is not None:
-        rule.parameters = rule_data.config or {}
+    if rule_data.is_active is not None:
+        rule.is_active = rule_data.is_active
+    if rule_data.parameters is not None:
+        rule.parameters = rule_data.parameters
 
     db.commit()
     db.refresh(rule)
+    return RuleResponse.model_validate(rule)
 
-    return RuleResponse.from_orm(rule)
 
-
-@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{track_id}/rules/{rule_id}", status_code=204)
 async def delete_rule(
+    track_id: int,
     rule_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-) -> None:
-    """
-    Delete a rule.
-
-    Args:
-        rule_id: Rule ID
-        user: Current user
-        db: Database session
-    """
-    rule = db.query(CueRule).filter(
-        CueRule.id == rule_id,
-        CueRule.track_id != None
-    ).first()
-
-    if not rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Rule not found"
-        )
-
+    db: Session = Depends(get_db),
+):
+    """Supprime une règle."""
+    rule = _get_rule_with_ownership(rule_id, user, db)
     db.delete(rule)
     db.commit()
 
+
+# ─── Generate ────────────────────────────────────────────────────────────────
 
 @router.post("/{track_id}/generate")
 async def generate_cues(
     track_id: int,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> Dict:
-    """
-    Generate cues from rules for a track.
-
-    Args:
-        track_id: Track ID
-        user: Current user
-        db: Database session
-
-    Returns:
-        Success message
-    """
-    # Verify track ownership
+    """Lance la génération de cue points à partir des règles du track."""
     track = db.query(Track).filter(
         Track.id == track_id,
-        Track.user_id == user.id
+        Track.user_id == user.id,
     ).first()
-
     if not track:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Track not found"
-        )
+        raise HTTPException(status_code=404, detail="Track not found")
 
     try:
         apply_rules_to_track(track_id, user.id, db)
         return {"message": "Cues generated successfully"}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating cues: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error generating cues: {str(e)}")
