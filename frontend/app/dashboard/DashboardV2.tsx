@@ -55,6 +55,16 @@ const TABS = [
 
 const GLOBAL_TABS = ['stats', 'history', 'playlists'];
 
+// ── Demo tracks (shown when user has no real tracks yet) ──────────────
+const DEMO_TRACKS: any[] = [
+  { id: -1, title: "Shed My Skin", artist: "Ben Bohmer", genre: "Melodic House", bpm: 124, key: "6A", energy: 72, duration: "6:42", rating: 5, tags: ["peak", "vocal"], analyzed: true, color: "#22c55e" },
+  { id: -2, title: "Lost Highway", artist: "Stephan Bodzin", genre: "Techno", bpm: 134, key: "10B", energy: 88, duration: "8:15", rating: 4, tags: ["dark", "peak"], analyzed: true, color: "#ef4444" },
+  { id: -3, title: "Equinox", artist: "Solomun", genre: "Deep House", bpm: 122, key: "3A", energy: 65, duration: "7:30", rating: 4, tags: ["warmup"], analyzed: true, color: "#3b82f6" },
+  { id: -4, title: "Disco Volante", artist: "ANNA", genre: "Techno", bpm: 136, key: "8A", energy: 91, duration: "7:05", rating: 5, tags: ["peak", "dark"], analyzed: true, color: "#ef4444" },
+  { id: -5, title: "Dreamer", artist: "Tale Of Us", genre: "Melodic House", bpm: 120, key: "1A", energy: 58, duration: "9:10", rating: 3, tags: ["warmup", "vocal"], analyzed: true, color: "#06b6d4" },
+  { id: -6, title: "Bangalore", artist: "Bicep", genre: "House", bpm: 128, key: "4B", energy: 80, duration: "5:55", rating: 4, tags: ["festival"], analyzed: true, color: "#f97316" },
+];
+
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
   const { activeSection, globalSearch, registerImportHandler } = useDashboardContext();
@@ -111,7 +121,18 @@ export default function DashboardV2() {
     return result;
   }, [tracks, activeSection]);
 
-  const displayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
+  const realDisplayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
+
+  // Use demo tracks when no real tracks exist
+  const isDemo = realDisplayTracks.length === 0 && !loading;
+  const displayTracks = isDemo ? DEMO_TRACKS : realDisplayTracks;
+
+  // Auto-select first track when loaded (real or demo)
+  useEffect(() => {
+    if (!selectedTrack && displayTracks.length > 0 && !loading) {
+      setSelectedTrack(displayTracks[0]);
+    }
+  }, [displayTracks, loading]);
 
   // Load tracks from API
   useEffect(() => {
@@ -210,6 +231,22 @@ export default function DashboardV2() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
+      {/* Demo banner */}
+      {isDemo && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
+          <span className="text-sm">🎧</span>
+          <span className="text-sm text-[var(--text-primary)]">
+            <strong>Mode demo</strong> — Importe tes tracks pour commencer l'analyse !
+          </span>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="ml-auto px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
+          >
+            Importer
+          </button>
+        </div>
+      )}
+
       {/* Player Card */}
       <PlayerCard
         track={selectedTrack}
