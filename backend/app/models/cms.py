@@ -70,6 +70,10 @@ class SiteSettings(Base):
     # Analytics
     google_analytics_id = Column(String, nullable=True)
 
+    # Theme config — JSON storing CSS variable overrides for dark and light modes
+    # Structure: {"dark": {"--bg-primary": "#08080f", ...}, "light": {"--bg-primary": "#f8fafc", ...}}
+    theme_config = Column(Text, nullable=True)
+
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 

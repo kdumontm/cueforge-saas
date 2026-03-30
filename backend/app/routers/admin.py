@@ -60,6 +60,7 @@ class SiteSettingsUpdate(BaseModel):
     maintenance_mode: Optional[bool] = None
     maintenance_message: Optional[str] = None
     google_analytics_id: Optional[str] = None
+    theme_config: Optional[dict] = None
 
 
 # ── Pages ──
@@ -311,6 +312,7 @@ async def get_site_settings(
         "maintenance_mode": settings.maintenance_mode,
         "maintenance_message": settings.maintenance_message,
         "google_analytics_id": settings.google_analytics_id,
+        "theme_config": json.loads(settings.theme_config) if settings.theme_config else None,
         "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
     }
 
@@ -329,7 +331,10 @@ async def update_site_settings(
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(settings, key, value)
+        if key == "theme_config" and isinstance(value, dict):
+            setattr(settings, key, json.dumps(value, ensure_ascii=False))
+        else:
+            setattr(settings, key, value)
 
     settings.updated_by = admin.id
     db.commit()
@@ -1120,6 +1125,7 @@ async def get_public_settings(db: Session = Depends(get_db)):
         "youtube_url": settings.youtube_url,
         "maintenance_mode": settings.maintenance_mode,
         "maintenance_message": settings.maintenance_message,
+        "theme_config": json.loads(settings.theme_config) if settings.theme_config else None,
     }
 
 

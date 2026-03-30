@@ -910,6 +910,112 @@ function ComponentForm({ component, componentTypes, onSave, onCancel, isEdit }) 
 }
 
 // ═══════════════════════════════════════════════
+// THEME CONFIG EDITOR — CSS Variable overrides
+// ═══════════════════════════════════════════════
+
+const THEME_CSS_VARS = [
+  { key: "--bg-primary", label: "Fond principal", category: "Backgrounds" },
+  { key: "--bg-secondary", label: "Fond secondaire", category: "Backgrounds" },
+  { key: "--bg-card", label: "Fond carte", category: "Backgrounds" },
+  { key: "--bg-elevated", label: "Fond élevé", category: "Backgrounds" },
+  { key: "--bg-hover", label: "Fond hover", category: "Backgrounds" },
+  { key: "--text-primary", label: "Texte principal", category: "Texte" },
+  { key: "--text-secondary", label: "Texte secondaire", category: "Texte" },
+  { key: "--text-muted", label: "Texte atténué", category: "Texte" },
+  { key: "--border-subtle", label: "Bordure subtile", category: "Bordures" },
+  { key: "--border-default", label: "Bordure standard", category: "Bordures" },
+  { key: "--accent", label: "Accent (bleu)", category: "Accent" },
+  { key: "--scrollbar-track", label: "Scrollbar piste", category: "Autres" },
+  { key: "--scrollbar-thumb", label: "Scrollbar curseur", category: "Autres" },
+];
+
+const DEFAULT_DARK = {
+  "--bg-primary": "#08080f", "--bg-secondary": "#0f0f1a", "--bg-card": "#151525",
+  "--bg-elevated": "#1c1c32", "--bg-hover": "#22223a", "--text-primary": "#f1f5f9",
+  "--text-secondary": "#94a3b8", "--text-muted": "#64748b", "--border-subtle": "#1e293b",
+  "--border-default": "#334155", "--accent": "#2563eb", "--scrollbar-track": "#0f0f1a",
+  "--scrollbar-thumb": "#2563eb",
+};
+
+const DEFAULT_LIGHT = {
+  "--bg-primary": "#f8fafc", "--bg-secondary": "#ffffff", "--bg-card": "#f1f5f9",
+  "--bg-elevated": "#e2e8f0", "--bg-hover": "#cbd5e1", "--text-primary": "#0f172a",
+  "--text-secondary": "#475569", "--text-muted": "#94a3b8", "--border-subtle": "#e2e8f0",
+  "--border-default": "#cbd5e1", "--accent": "#2563eb", "--scrollbar-track": "#f1f5f9",
+  "--scrollbar-thumb": "#2563eb",
+};
+
+function ThemeConfigEditor({ settings, set }) {
+  const [editMode, setEditMode] = useState("dark");
+
+  const tc = settings.theme_config || { dark: { ...DEFAULT_DARK }, light: { ...DEFAULT_LIGHT } };
+  const currentVars = editMode === "dark" ? { ...DEFAULT_DARK, ...(tc.dark || {}) } : { ...DEFAULT_LIGHT, ...(tc.light || {}) };
+
+  const setVar = (key, value) => {
+    const updated = { ...tc };
+    if (!updated[editMode]) updated[editMode] = editMode === "dark" ? { ...DEFAULT_DARK } : { ...DEFAULT_LIGHT };
+    updated[editMode] = { ...updated[editMode], [key]: value };
+    set("theme_config", updated);
+  };
+
+  const resetToDefaults = () => {
+    const updated = { ...tc };
+    updated[editMode] = editMode === "dark" ? { ...DEFAULT_DARK } : { ...DEFAULT_LIGHT };
+    set("theme_config", updated);
+  };
+
+  const categories = [...new Set(THEME_CSS_VARS.map((v) => v.category))];
+
+  return (
+    <Card style={{ padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: DS.colors.text.primary, display: "flex", alignItems: "center", gap: 8 }}>
+          <Palette size={15} color={DS.colors.accent.primary} /> Thème Dashboard (CSS Variables)
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["dark", "light"].map((m) => (
+            <button key={m} onClick={() => setEditMode(m)} style={{
+              padding: "5px 14px", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none",
+              background: editMode === m ? DS.colors.accent.primary : DS.colors.bg.elevated,
+              color: editMode === m ? "white" : DS.colors.text.secondary, transition: "all 0.15s",
+            }}>
+              {m === "dark" ? "Mode Sombre" : "Mode Clair"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: DS.colors.text.muted, marginBottom: 16, padding: "8px 12px", background: DS.colors.bg.surface, borderRadius: 7, border: `1px solid ${DS.colors.border.subtle}` }}>
+        Ces couleurs seront appliquées automatiquement au dashboard sans pousser de code. Cliquez sur Sauvegarder pour appliquer.
+      </div>
+
+      {categories.map((cat) => (
+        <div key={cat} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: DS.colors.text.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{cat}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            {THEME_CSS_VARS.filter((v) => v.category === cat).map(({ key, label }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="color" value={currentVars[key] || "#000000"} onChange={(e) => setVar(key, e.target.value)} style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${DS.colors.border.default}`, cursor: "pointer", padding: 0 }} />
+                <div>
+                  <div style={{ fontSize: 10, color: DS.colors.text.muted }}>{label}</div>
+                  <div style={{ fontSize: 11, color: DS.colors.text.primary, ...mono }}>{currentVars[key]}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+        <button onClick={resetToDefaults} style={{ padding: "5px 14px", borderRadius: 7, fontSize: 11, cursor: "pointer", border: `1px solid ${DS.colors.border.default}`, background: "transparent", color: DS.colors.text.muted }}>
+          Réinitialiser {editMode === "dark" ? "sombre" : "clair"} par défaut
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+// ═══════════════════════════════════════════════
 // SETTINGS VIEW
 // ═══════════════════════════════════════════════
 function SettingsView({ showToast }) {
@@ -956,10 +1062,10 @@ function SettingsView({ showToast }) {
         </div>
       </Card>
 
-      {/* Colors */}
+      {/* Colors (legacy) */}
       <Card style={{ padding: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: DS.colors.text.primary, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          <Palette size={15} color={DS.colors.accent.pink} /> Couleurs
+          <Palette size={15} color={DS.colors.accent.pink} /> Couleurs générales
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           {["primary_color", "secondary_color", "accent_color", "background_color", "text_color"].map((k) => (
@@ -973,6 +1079,9 @@ function SettingsView({ showToast }) {
           ))}
         </div>
       </Card>
+
+      {/* Theme Dashboard — Full CSS Variable Editor */}
+      <ThemeConfigEditor settings={settings} set={set} />
 
       {/* SEO */}
       <Card style={{ padding: 20 }}>

@@ -61,6 +61,10 @@ PENDING_MIGRATIONS = {
         # Waveform and spectral data columns
         "waveform_peaks": "JSON",
         "spectral_energy": "JSON",
+    },
+    "site_settings": {
+        # Theme config — full CSS variable overrides for dark/light modes
+        "theme_config": "TEXT",
     }
 }
 
