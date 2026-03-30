@@ -1,6 +1,6 @@
 import dynamic from 'next/dynamic';
 
-const DashboardClient = dynamic(() => import('./DashboardClient'), {
+const DashboardV2 = dynamic(() => import('./DashboardV2'), {
   ssr: false,
   loading: () => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0a0f', color: '#a78bfa' }}>
@@ -13,5 +13,5 @@ const DashboardClient = dynamic(() => import('./DashboardClient'), {
 });
 
 export default function DashboardPage() {
-  return <DashboardClient />;
+  return <DashboardV2 />;
 }

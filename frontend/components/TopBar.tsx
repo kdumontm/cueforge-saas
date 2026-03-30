@@ -1,14 +1,15 @@
 'use client';
 
-import { Search, Sun, Moon, Bell } from 'lucide-react';
+import { Search, Sun, Moon, Bell, Zap } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 
 interface TopBarProps {
   title: string;
   subtitle?: string;
+  unanalyzedCount?: number;
 }
 
-export default function TopBar({ title, subtitle }: TopBarProps) {
+export default function TopBar({ title, subtitle, unanalyzedCount = 0 }: TopBarProps) {
   const { mode, toggle, isDark } = useTheme();
 
   return (
@@ -28,13 +29,22 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           <Search size={13} className="text-[var(--text-muted)]" />
           <span className="text-xs text-[var(--text-muted)]">Rechercher...</span>
           <kbd className="ml-auto text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-default)]">
-            /
+            ⌘K
           </kbd>
         </div>
 
+        {/* Analyze all button */}
+        {unanalyzedCount > 0 && (
+          <button className="flex items-center gap-1.5 px-3 py-[6px] rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 text-xs font-semibold cursor-pointer hover:bg-amber-500/25 transition-colors">
+            <Zap size={13} />
+            Analyser tout ({unanalyzedCount})
+          </button>
+        )}
+
         {/* Notifications */}
-        <button className="flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer">
+        <button className="relative flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer">
           <Bell size={15} />
+          <span className="absolute top-1.5 right-1.5 w-[6px] h-[6px] rounded-full bg-red-500" />
         </button>
 
         {/* Theme toggle */}

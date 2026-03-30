@@ -31,7 +31,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         plan={(user as any)?.subscription_plan || 'free'}
         onLogout={handleLogout}
       />
-      <div className="ml-[210px] flex-1 min-h-screen bg-[var(--bg-primary)] transition-colors duration-300">
+      {/* ml-[210px] quand sidebar ouverte, ml-[56px] quand collapsed — géré par CSS peer ou JS */}
+      <div className="ml-[210px] flex-1 min-h-screen bg-[var(--bg-primary)] transition-all duration-250">
         <TopBar
           title="Dashboard"
           subtitle="Analyse et prépare tes sets"
