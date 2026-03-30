@@ -1840,24 +1840,26 @@ export default function DashboardPage() {
 
 
   return (
-        <div className="flex w-full h-[calc(100vh-3.5rem)] relative" onClick={() =>
-       setCtxMenu(null)} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className="flex w-full h-[calc(100vh-3.5rem)] relative" onClick={() => setCtxMenu(null)} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
       {/* ── Drag & Drop Overlay ── */}
       {isDragging && (
         <div className="absolute inset-0 z-[9998] bg-cyan-500/10 backdrop-blur-sm border-2 border-dashed border-cyan-400/60 rounded-xl flex items-center justify-center pointer-events-none">
           <div className="flex flex-col items-center gap-3 text-cyan-400">
             <Upload size={48} className="animate-bounce" />
-            <span className="text-lg font-semibold">D\u00e9pose tes fichiers audio ici</span>
+            <span className="text-lg font-semibold">Dépose tes fichiers audio ici</span>
             <span className="text-sm text-cyan-400/60">MP3, WAV, FLAC, AAC, OGG, M4A, AIF</span>
           </div>
         </div>
       )}
-      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; } ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }" }} ></style>
+
+      {/* Global styles */}
+      <style dangerouslySetInnerHTML={{ __html: "@keyframes eqBar { 0%,100% { height: 3px; } 50% { height: 12px; } } .eq-bar { display: inline-block; width: 2px; margin: 0 0.5px; border-radius: 1px; animation: eqBar 0.4s ease infinite; } .eq-bar:nth-child(1) { animation-delay: 0s; } .eq-bar:nth-child(2) { animation-delay: 0.15s; } .eq-bar:nth-child(3) { animation-delay: 0.3s; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 3px; } ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }" }} />
+
       {/* Metadata Edit Modal */}
       {showEditMeta && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowEditMeta(false)}>
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-default)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">✏️ Edit Track Metadata</h2>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">Edit Track Metadata</h2>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("titre")}</label>
@@ -1894,11 +1896,8 @@ export default function DashboardPage() {
             </div>
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowEditMeta(false)} className="flex-1 px-4 py-2 bg-[var(--bg-hover)] hover:bg-gray-500 rounded text-sm text-[var(--text-primary)] font-medium">{t("annuler")}</button>
-        <button onClick={() => { const unanalyzed = tracks.filter(t => !t.analysis || !t.analysis.bpm); if (unanalyzed.length === 0) { showToast("Toutes les tracks sont d\u00e9j\u00e0 analys\u00e9es", "info"); return; } showToast("Analyse de " + unanalyzed.length + " tracks en cours...", "info"); batchAnalyzeAudio(unanalyzed.map(t => t.id)); }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors bg-orange-500/30 text-orange-300 border border-orange-500/50 hover:bg-orange-500/50">
-          <RefreshCw className="w-3 h-3" /> Analyze All
-        </button>
               <button onClick={saveMetadata} disabled={savingMeta}
-                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-[var(--text-primary)] font-bold disabled:opacity-50">
+                className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded text-sm text-white font-bold disabled:opacity-50">
                 {savingMeta ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -1906,154 +1905,114 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* LEFT SIDEBAR - Module Buttons */}
-      <div className="w-12 bg-[var(--bg-primary)]/90 border-r border-[var(--border-subtle)]/50 flex flex-col items-center py-2 gap-1 flex-shrink-0 overflow-y-auto">
-        <button onClick={() => fileRef.current?.click()} className="w-10 h-10 rounded-lg bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] flex flex-col items-center justify-center mb-2" title="Ajouter un son"><Upload size={16} /><span className="text-[8px]">{t('ajouter')}</span></button>
-          <div className="w-8 border-t border-[var(--border-subtle)]/50 mb-1"></div>
-          {(() => {
-            const sidebarGroups = [
-              { id: 'library', title: 'LIB', items: [
-                { key: 'smart', icon: <Sparkles size={16} />, label: 'Smart' },
-                { key: 'duplicates', icon: <Copy size={16} />, label: 'Dupes' },
-                { key: 'batch', icon: <ListIcon size={16} />, label: 'Batch' },
-                { key: 'analyzed', icon: <CheckSquare size={16} />, label: 'Done' },
-              ]},
-              { id: 'analysis', title: 'DJ', items: [
-                { key: 'stats', icon: <BarChart3 size={16} />, label: 'Stats' },
-                { key: 'camelot', icon: <Disc3 size={16} />, label: 'Wheel' },
-                { key: 'tapTempo', icon: <Activity size={16} />, label: 'Tap' },
-                { key: 'grid', icon: <Hash size={16} />, label: 'Grid' },
-              ]},
-              { id: 'mix', title: 'MIX', items: [
-                { key: 'ai', icon: <Wand2 size={16} />, label: 'AI Mix' },
-                { key: 'mixable', icon: <Music size={16} />, label: 'Mix' },
-                { key: 'timer', icon: <Clock size={16} />, label: 'Timer' },
-                { key: 'watch', icon: <Folder size={16} />, label: 'Watch' },
-              ]},
-              { id: 'export', title: 'OUT', items: [
-                { key: 'export', icon: <Download size={16} />, label: 'Export' },
-                { key: 'notes', icon: <PenSquare size={16} />, label: 'Notes' },
-              ]},
-            ];
-          const featureMap: Record<string, string> = { smart: 'playlists', duplicates: 'playlists', export: 'rekordbox_export', stats: 'stats', batch: 'batch_analysis', camelot: 'camelot_wheel', watch: 'watch_folder', ai: 'mix', grid: 'waveform', mixable: 'mix', analyzed: 'analysis', timer: 'timer' , tapTempo: 'tap_tempo', notes: 'notes'};
-            return sidebarGroups.map((group) => {
-              const visibleItems = group.items.filter((mod) => {
-              return isFeatureEnabled(featureMap[mod.key] || mod.key);
-              });
-              if (visibleItems.length === 0) return null;
-              const collapsed = sidebarCollapsed[group.id] || false;
-              return (
-                <div key={group.id} className="w-full flex flex-col items-center">
-                  <button onClick={() => setSidebarCollapsed(prev => ({...prev, [group.id]: !prev[group.id]}))} className="w-10 h-5 flex items-center justify-center text-[7px] font-bold text-[var(--text-muted)] hover:text-[var(--text-secondary)] tracking-wider cursor-pointer select-none" title={collapsed ? 'Expand ' + group.title : 'Collapse ' + group.title}>
-                    {collapsed ? <ChevronDown size={8} className="mr-0.5" /> : <ChevronUp size={8} className="mr-0.5" />}{group.title}
-                  </button>
-                  {!collapsed && visibleItems.map((mod) => (
-          <button key={mod.key} onClick={() => { const closing = activeModule === mod.key; setActiveModule(closing ? null : mod.key); setShowSmartPlaylist(false); setShowDuplicates(false); setShowExport(false); setShowStats(false); setShowBatchEdit(false); setShowCamelotWheel(false); setShowWatchFolder(false); setShowMixSuggestions(false); setShowBeatGrid(false); setShowAnalyzed(false); setShowSetTimer(false); setShowTapTempo(false); setShowSessionNotes(false); if (!closing) { const m = {smart: setShowSmartPlaylist, duplicates: setShowDuplicates, export: setShowExport, stats: setShowStats, batch: setShowBatchEdit, camelot: setShowCamelotWheel, watch: setShowWatchFolder, ai: setShowMixSuggestions, grid: setShowBeatGrid, analyzed: setShowAnalyzed, timer: setShowSetTimer, tapTempo: setShowTapTempo, notes: setShowSessionNotes}; if (m[mod.key]) m[mod.key](true); } }} className={`flex flex-col items-center gap-0.5 p-1.5 rounded-lg text-[9px] w-full transition-all ${activeModule === mod.key ? 'bg-cyan-500/20 text-cyan-400' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-white/5'}`}>
-                    {mod.icon}
-                    <span className="text-[8px]">{mod.label}</span>
-                  </button>
-                  ))}
-                </div>
-              );
-            });
-          })()}
-      </div>
-      {/* CENTER CONTENT */}
-      <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
+      {/* CENTER CONTENT - NO LEFT SIDEBAR */}
+      <div className="flex-1 flex flex-col overflow-y-auto min-w-0 p-5 gap-3">
 
-      {/* ── TOP: Waveform Player (ALWAYS mounted) ─────────── */}
-      <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-subtle)]/60 px-2 py-0.5 flex-shrink-0 sticky top-0 z-10">
+        {/* ── PLAYER CARD ── */}
         {selectedTrack && (
-          <div className="flex items-center justify-between mb-0.5">
-            <div className="flex items-center gap-3 min-w-0">
-              {/* Cover art */}
-              {selectedTrack.artwork_url ? (
-                <img src={selectedTrack.artwork_url} alt="" className="w-6 h-6 rounded object-cover" />
-              ) : (
-                <div className="w-6 h-6 rounded bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                  <Music2 size={12} className="text-[var(--text-muted)]" />
-                </div>
-              )}
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
+            {/* Title + controls + analysis badges inline */}
+            <div className="flex items-center gap-3 mb-3">
+              {/* Play button */}
+              <button 
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center flex-shrink-0 transition-colors"
+                title="Play/Pause">
+                {isPlaying ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+              </button>
+
+              {/* Skip buttons */}
+              <button onClick={() => { const idx = tracks.findIndex(t => t.id === selectedTrack.id); if (idx > 0) setSelectedTrack(tracks[idx - 1]); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer" title="Previous">
+                <SkipBack size={14} />
+              </button>
+              <button onClick={() => { const idx = tracks.findIndex(t => t.id === selectedTrack.id); if (idx < tracks.length - 1) setSelectedTrack(tracks[idx + 1]); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer" title="Next">
+                <SkipForward size={14} />
+              </button>
+
+              {/* Track title + artist */}
               <div className="min-w-0">
-                <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                  {selectedTrack.title || selectedTrack.original_filename}
-                </p>
-                <p className="text-xs text-[var(--text-secondary)] truncate">
-                  {selectedTrack.artist || 'Artiste inconnu'}
-                </p>
+                <p className="text-sm font-bold text-[var(--text-primary)] truncate">{selectedTrack.title || selectedTrack.original_filename}</p>
+                <p className="text-xs text-[var(--text-muted)] truncate">{selectedTrack.artist || 'Artiste inconnu'}</p>
+              </div>
+
+              {/* Analysis badges inline */}
+              <div className="flex gap-1.5 ml-auto flex-wrap flex-shrink-0">
+                {selectedTrack.analysis?.bpm && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-[10px]">
+                    <Activity size={10} className="text-cyan-400" />
+                    <span className="font-mono font-bold text-cyan-400">{selectedTrack.analysis.bpm.toFixed(1)}</span>
+                    <span className="text-cyan-400/60">BPM</span>
+                  </div>
+                )}
+                {selectedTrack.analysis?.key && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-[10px]">
+                    <Music2 size={10} className="text-blue-400" />
+                    <span className="font-mono font-bold text-blue-400">{toCamelot(selectedTrack.analysis.key)}</span>
+                  </div>
+                )}
+                {selectedTrack.analysis?.energy != null && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px]" style={{ background: energyToColor(selectedTrack.analysis.energy) + '15', borderColor: energyToColor(selectedTrack.analysis.energy) + '50', borderWidth: '1px' }}>
+                    <Zap size={10} style={{ color: energyToColor(selectedTrack.analysis.energy) }} />
+                    <span className="font-mono font-bold" style={{ color: energyToColor(selectedTrack.analysis.energy) }}>{energyToRating(selectedTrack.analysis.energy)}</span>
+                    <span style={{ color: energyToColor(selectedTrack.analysis.energy), fontSize: '8px' }}>/{energyToLabel(selectedTrack.analysis.energy)}</span>
+                  </div>
+                )}
+                {selectedTrack.duration && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-500/10 border border-gray-500/20 text-[10px]">
+                    <Clock size={10} className="text-gray-400" />
+                    <span className="font-mono text-gray-400">{msToTime(selectedTrack.duration * 1000)}</span>
+                  </div>
+                )}
+                {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-pink-500/10 border border-pink-500/20 text-[10px]">
+                    <Layers size={10} className="text-pink-400" />
+                    <span className="font-mono font-bold text-pink-400">{selectedTrack.cue_points.length}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Player extras: playback rate, volume */}
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">{playbackRate}x</span>
+                <button onClick={() => setMuted(!muted)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors" title={muted ? 'Unmute' : 'Mute'}>
+                  {muted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-secondary)] flex-shrink-0">
-              {selectedTrack.analysis?.bpm && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20">
-                  <Activity size={12} className="text-blue-400" />
-                  <span className="text-blue-400 font-bold">{selectedTrack.analysis.bpm.toFixed(1)}</span>
-                  <span className="text-blue-400/60">BPM</span>
-                </div>
-              )}
-              {selectedTrack.analysis?.key && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/20">
-                  <Music2 size={12} className="text-cyan-400" />
-                  <span className="text-cyan-400 font-bold">{toCamelot(selectedTrack.analysis.key)}</span>
-                </div>
-              )}
-            {selectedTrack.analysis?.energy != null && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md border" style={{ background: energyToColor(selectedTrack.analysis.energy) + '15', borderColor: energyToColor(selectedTrack.analysis.energy) + '50' }}>
-                <Zap size={12} style={{ color: energyToColor(selectedTrack.analysis.energy) }} />
-                <span className="font-bold" style={{ color: energyToColor(selectedTrack.analysis.energy) }}>{energyToRating(selectedTrack.analysis.energy)}</span>
-                <span style={{ color: energyToColor(selectedTrack.analysis.energy), opacity: 0.6 }}>/10</span>
-                <span className="text-[9px] ml-1" style={{ color: energyToColor(selectedTrack.analysis.energy), opacity: 0.8 }}>{energyToLabel(selectedTrack.analysis.energy)}</span>
-              </div>
-            )}
-              {selectedTrack.genre && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/10 border border-purple-500/20">
-                  <Disc3 size={12} className="text-purple-400" />
-                  <span className="text-purple-400 font-bold text-[11px]">{selectedTrack.genre}</span>
-                </div>
-              )}
-              <span onClick={() => setShowRemainingTime(!showRemainingTime)} className="text-[var(--text-primary)] font-mono text-sm tabular-nums bg-black/40 px-2 py-0.5 rounded cursor-pointer hover:bg-black/60 transition-colors select-none" title="Cliquer pour basculer temps restant">{showRemainingTime ? (`-${msToTime(Math.max(0, (duration - currentTime)) * 1000)}`) : msToTime(currentTime * 1000)} <span className="text-[var(--text-muted)]">/</span> {msToTime(duration * 1000)}</span>
-            </div>
-          </div>
-          )}
 
-        {/* Waveform container - ALWAYS mounted, never conditionally unmounted */}
-        <div className="relative w-full rounded-lg bg-[var(--bg-primary)] border border-[var(--border-subtle)]/40" style={{ height: 110, overflow: 'visible' }} onWheel={(e) => { e.preventDefault(); if (e.deltaY < 0) setWaveformZoom((z) => Math.min(20, z + 1)); else setWaveformZoom((z) => Math.max(1, z - 1)); }}>
-                {/* WAVEFORM TOOLBAR */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setWaveformZoom(Math.max(1, waveformZoom - 1))} className="p-1 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom Out">
-                      <ZoomOut size={14} />
-                    </button>
-                    <span className="text-[10px] text-[var(--text-muted)] min-w-[30px] text-center">{waveformZoom}x</span>
-                    <button onClick={() => setWaveformZoom(Math.min(10, waveformZoom + 1))} className="p-1 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom In">
-                      <ZoomIn size={14} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setShowBeatGrid(!showBeatGrid)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showBeatGrid ? 'bg-purple-500/30 text-cyan-400/80 border border-purple-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
-                      <Grid3X3 size={10} /> Beat Grid
-                    </button>
-                    <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
-                      Notes
-                    </button>
-                    <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors text-[var(--text-muted)] hover:text-cyan-400 hover:bg-cyan-400/10" title="Raccourcis clavier (?)">
-                      <span className="font-bold">?</span>
-                    </button>
-              {/* Waveform Theme */}
-              <div className="flex items-center gap-1 ml-1">
-                <Palette size={10} className="text-[var(--text-muted)]" />
-                {Object.entries(WAVEFORM_THEMES).map(([key, t]) => (
-                  <button key={key} onClick={() => setWaveformTheme(key as any)} className={"w-3 h-3 rounded-full border transition-all " + (waveformTheme === key ? "border-white scale-125 ring-1 ring-white/30" : "border-[var(--border-default)] hover:border-gray-400")} style={{ backgroundColor: t.cursor === '#fff' ? '#7c3aed' : t.cursor }} title={t.label} />
-                ))}
-              </div>
-                  </div>
+            {/* Waveform container */}
+            <div className="relative w-full rounded-lg bg-[var(--bg-primary)] border border-[var(--border-subtle)]/40 overflow-hidden" style={{ height: 110 }} onWheel={(e) => { e.preventDefault(); if (e.deltaY < 0) setWaveformZoom((z) => Math.min(20, z + 1)); else setWaveformZoom((z) => Math.max(1, z - 1)); }}>
+              {/* Waveform toolbar */}
+              <div className="flex items-center justify-between mb-1 p-1">
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setWaveformZoom(Math.max(1, waveformZoom - 1))} className="p-0.5 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom Out">
+                    <ZoomOut size={12} />
+                  </button>
+                  <span className="text-[9px] text-[var(--text-muted)] min-w-[25px] text-center">{waveformZoom}x</span>
+                  <button onClick={() => setWaveformZoom(Math.min(20, waveformZoom + 1))} className="p-0.5 rounded bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="Zoom In">
+                    <ZoomIn size={12} />
+                  </button>
                 </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setShowBeatGrid(!showBeatGrid)} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] transition-colors ${showBeatGrid ? 'bg-purple-500/30 text-cyan-400/80 border border-purple-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
+                    <Grid3X3 size={10} /> Beat
+                  </button>
+                  <button onClick={() => setShowNotes(!showNotes)} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] transition-colors ${showNotes ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
+                    Notes
+                  </button>
+                  <button onClick={() => setShowShortcuts(!showShortcuts)} className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-[var(--text-muted)] hover:text-cyan-400 hover:bg-cyan-400/10 transition-colors" title="Keyboard shortcuts">
+                    <span className="font-bold">?</span>
+                  </button>
+                </div>
+              </div>
 
-          <div className="relative w-full h-full">
+              {/* Waveform content */}
+              <div className="relative w-full h-full">
                 <div ref={waveformRef} className="w-full h-full" style={{ overflow: 'hidden' }} />
-                {/* Beat Grid Lines Overlay */}
+                
+                {/* Beat Grid Overlay */}
                 {showBeatGrid && selectedTrack?.analysis?.bpm && duration > 0 && (
-                  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 2, pointerEvents: 'none' }}>
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 2 }}>
                     {(() => {
                       const bpm = selectedTrack.analysis.bpm;
                       const beatDuration = 60 / bpm;
@@ -2077,11 +2036,12 @@ export default function DashboardPage() {
                     })()}
                   </div>
                 )}
+
                 {/* Cue Point Markers Overlay */}
                 {selectedTrack?.cue_points && duration > 0 && (
-                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3, pointerEvents: 'none' }}>
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }}>
                     {selectedTrack.cue_points.map((cue, i) => {
-                      const timeMs = cue.position_ms || cue.time;
+                      const timeMs = cue.position_ms || (cue.time ? cue.time * 1000 : 0);
                       if (!timeMs) return null;
                       const pct = (timeMs / (duration * 1000)) * 100;
                       if (pct < 0 || pct > 100) return null;
@@ -2089,3204 +2049,379 @@ export default function DashboardPage() {
                       return (
                         <div key={cue.id || i} className="absolute top-0" style={{ left: pct + '%', transform: 'translateX(-50%)' }}>
                           <div style={{ width: 2, height: '100%', backgroundColor: color, opacity: 0.6 }} />
-                          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold text-[var(--text-primary)] px-0.5 rounded-sm" style={{ backgroundColor: color }}>{i + 1}</div>
+                          <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold text-white px-0.5 rounded-sm" style={{ backgroundColor: color }}>{i + 1}</div>
                         </div>
                       );
                     })}
                   </div>
                 )}
+
+                {/* Loop Region */}
+                {loopIn !== null && loopOut !== null && duration > 0 && (
+                  <div className="absolute top-0 bottom-0 pointer-events-none" style={{
+                    left: (loopIn / duration) * 100 + '%',
+                    width: ((loopOut - loopIn) / duration) * 100 + '%',
+                    backgroundColor: 'rgba(34,197,94,0.15)',
+                    borderLeft: '2px solid rgb(34,197,94)',
+                    borderRight: '2px solid rgb(34,197,94)',
+                  }} />
+                )}
               </div>
-                {/* Overview Bar with Section Labels */}
-                {duration > 0 && (
-                  <div className="w-full mt-1.5 space-y-0.5">
-                    {/* Section labels bar */}
-                    {selectedTrack?.analysis?.sections && selectedTrack.analysis.sections.length > 0 && (
-                      <div className="relative w-full h-5 rounded overflow-hidden bg-[var(--bg-secondary)]/50">
-                        {selectedTrack.analysis.sections.map((sec: any, i: number) => {
-                          const startPct = (sec.start / duration) * 100;
-                          const endTime = i < selectedTrack.analysis.sections.length - 1 ? selectedTrack.analysis.sections[i + 1].start : duration;
-                          const widthPct = ((endTime - sec.start) / duration) * 100;
-                          const sectionColors: Record<string, string> = { 'INTRO': '#3b82f6', 'VERSE': '#22c55e', 'CHORUS': '#eab308', 'BUILD': '#f97316', 'DROP': '#ef4444', 'BREAK': '#06b6d4', 'OUTRO': '#8b5cf6' };
-                          const bg = sectionColors[sec.label] || '#6b7280';
-                          return (
-                            <div key={i} className="absolute top-0 h-full flex items-center justify-center overflow-hidden border-r border-[var(--border-subtle)]/50" style={{ left: startPct + '%', width: widthPct + '%', backgroundColor: bg + '33' }}>
-                              <span className="text-[8px] font-bold uppercase tracking-wider" style={{ color: bg }}>{sec.label}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {/* Progress bar */}
-                    <div className="relative w-full h-1.5 bg-[var(--bg-card)]/60 rounded-full overflow-hidden cursor-pointer" onClick={(e) => {
-                      if (wavesurferRef.current && duration > 0) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pct = (e.clientX - rect.left) / rect.width;
-                        wavesurferRef.current.seekTo(Math.max(0, Math.min(1, pct)));
-                      }
-                    }}>
-                      <div className="h-full rounded-full bg-gradient-to-r from-purple-500 via-cyan-400 to-blue-500 transition-all duration-75" style={{ width: (currentTime / duration * 100) + '%' }} />
-                      <div className="absolute top-0 h-full w-0.5 bg-white rounded" style={{ left: (currentTime / duration * 100) + '%', transform: 'translateX(-50%)' }} />
-                    </div>
-                  </div>
-                )}
-              {/* TRACK NOTES */}
-                {showNotes && selectedTrack && (
-                  <div className="mt-2 bg-[var(--bg-card)]/50 rounded-lg p-3 border border-[var(--border-subtle)]/50">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider">{t("notes_dj")}</span>
-                      <span className="text-[10px] text-[var(--text-muted)]">{(trackNotes[selectedTrack.id] || '').length}/500</span>
-                    </div>
-                    <textarea
-                      value={trackNotes[selectedTrack.id] || ''}
-                      onChange={e => setTrackNotes(prev => ({...prev, [selectedTrack.id]: e.target.value.slice(0, 500)}))}
-                      placeholder="Mix notes: transition ideas, EQ settings, energy flow..."
-                      className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded p-2 text-xs text-[var(--text-secondary)] placeholder-[var(--text-muted)] resize-none focus:border-purple-500/50 focus:outline-none"
-                      rows={2}
-                    />
-                  </div>
-                )}
-                {/* BEAT GRID OVERLAY */}
-                {showBeatGrid && selectedTrack?.analysis?.bpm && (
-                  <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-                    <Grid3X3 size={10} className="text-cyan-500/70" />
-                    <span>Beat Grid: {selectedTrack.analysis.bpm} BPM</span>
-                    <span className="text-[var(--text-muted)]">|</span>
-                    <span>Beat: {(60 / selectedTrack.analysis.bpm * 1000).toFixed(0)}ms</span>
-                    <span className="text-[var(--text-muted)]">|</span>
-                    <span>Bar: {(60 / selectedTrack.analysis.bpm * 4).toFixed(2)}s</span>
-                    <span className="text-[var(--text-muted)]">|</span>
-                    <span>Phrase (8bar): {(60 / selectedTrack.analysis.bpm * 32).toFixed(1)}s</span>
-                  </div>
-                )}
-          {!selectedTrack && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-3">
-              <Disc3 size={32} className="text-[var(--text-muted)] animate-spin" style={{ animationDuration: '3s' }} />
-              <p className="text-[var(--text-muted)] text-sm">Sélectionne un morceau pour voir la waveform</p>
-              <p className="text-[var(--text-muted)] text-[10px]">Clique sur un track dans la liste ci-dessous</p>
             </div>
-          )}
-          {selectedTrack && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-              <button
-                onClick={() => handleZoom('out')}
-                disabled={zoomLevel <= 1}
-                className="w-7 h-7 flex items-center justify-center bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-card)] disabled:opacity-30 text-[var(--text-primary)] rounded-md border border-[var(--border-subtle)]/50 transition-all"
-                title="Zoom out"
-              >
-                <ZoomOut size={14} />
-              </button>
-              <span className="text-[10px] font-mono text-[var(--text-secondary)] min-w-[32px] text-center">
-                {zoomLevel <= 1 ? 'Full' : `${zoomLevel}x`}
+
+            {/* Time display and controls */}
+            <div className="flex items-center justify-between mt-2 text-[10px] font-mono text-[var(--text-secondary)]">
+              <span>{msToTime(currentTime * 1000)}</span>
+              <span onClick={() => setShowRemainingTime(!showRemainingTime)} className="cursor-pointer hover:text-cyan-400 transition-colors">
+                {showRemainingTime ? `-${msToTime(Math.max(0, (duration - currentTime)) * 1000)}` : msToTime(duration * 1000)}
               </span>
+            </div>
+
+            {/* Loop controls */}
+            <div className="flex items-center gap-2 mt-3">
               <button
-                onClick={() => handleZoom('in')}
-                disabled={zoomLevel >= 200}
-                className="w-7 h-7 flex items-center justify-center bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-card)] disabled:opacity-30 text-[var(--text-primary)] rounded-md border border-[var(--border-subtle)]/50 transition-all"
-                title="Zoom in"
-              >
-                <ZoomIn size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-
-                {/* DECK CONTROLS */}
-        {selectedTrack && (
-          <div className="bg-[var(--bg-secondary)]/95 backdrop-blur-md border-t border-b border-[var(--border-subtle)]/60 px-4 py-2">
-            {/* Now Playing */}
-            <div className="text-center mb-1 px-2">
-              <p className="text-xs text-[var(--text-primary)] font-medium truncate">{selectedTrack?.title || selectedTrack?.filename}</p>
-              {selectedTrack?.artist && <p className="text-xs text-[var(--text-secondary)] truncate">{selectedTrack?.artist}</p>}
-            </div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex items-center gap-1">
-                <button onClick={skipBack} className="w-8 h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-white/5 transition-colors"><SkipBack size={16} /></button>
-                <button onClick={togglePlay} className="w-12 h-12 flex items-center justify-center bg-gradient-to-b from-cyan-400 to-cyan-600 rounded-full shadow-cyan-500/30 hover:from-cyan-300 hover:to-cyan-500 transition-all">{isPlaying ? <Pause size={22} className="text-[var(--text-primary)]" /> : <Play size={22} className="text-[var(--text-primary)] ml-0.5" />}</button>
-                <button onClick={skipForward} className="w-8 h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-white/5 transition-colors"><SkipForward size={16} /></button>
-              </div>
-              {/* Time Display */}
-              <div className="flex items-center justify-center gap-2 text-xs mt-1">
-                <span className="text-[var(--text-secondary)] font-mono w-12 text-right">{formatTime(currentTime)}</span>
-                <div
-                  className="flex-1 h-2 bg-[var(--bg-hover)] rounded-full cursor-pointer relative group"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const pct = (e.clientX - rect.left) / rect.width;
-                    if (wavesurferRef.current) {
-                      wavesurferRef.current.seekTo(pct);
-                    }
-                  }}
-                >
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full transition-all"
-                    style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
-                  />
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-60 group-hover:opacity-100 transition-opacity"
-                    style={{ left: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
-                  />
-                </div>
-                <span className="text-[var(--text-secondary)] font-mono w-12">{formatTime(duration)}</span>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap">
-                {selectedTrack.cue_points && selectedTrack.cue_points.map((cue, i) => (
-                  <button key={i} onClick={() => { if (wavesurferRef.current && wavesurferRef.current.getDuration() > 0) { wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (wavesurferRef.current.getDuration() * 1000)); } }}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold border bg-black/40"
-                    style={{ backgroundColor: (CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1') + '22', borderColor: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1', color: CUE_COLOR_MAP[cue.cue_type || cue.type] || '#6366f1' }}>
-                    <span>{i + 1}</span><span className="uppercase opacity-70 ml-0.5 truncate max-w-[50px]">{cue.name || cue.label || cue.cue_type || 'CUE'}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 ml-auto">
-                <button onClick={toggleMute} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">{volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => { const v = parseFloat(e.target.value); setVolume(v); setMuted(false); if (wavesurferRef.current) wavesurferRef.current.setVolume(v); }} className="w-20 h-1 accent-cyan-400" />
-                    <span className="text-[9px] text-[var(--text-muted)] min-w-[28px] text-right tabular-nums">{Math.round(volume * 100)}%</span>
-              </div>
-              {/* Playback Speed */}
-              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[var(--border-subtle)]">
-                <button onClick={() => { const r = Math.max(0.5, playbackRate - 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[10px] px-1 rounded hover:bg-white/10">-</button>
-                <button onClick={() => { setPlaybackRate(1.0); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(1.0); }} className={"text-[10px] font-mono min-w-[32px] text-center px-1 rounded cursor-pointer " + (playbackRate === 1.0 ? "text-[var(--text-secondary)]" : "text-cyan-400 font-bold")} title="Cliquer pour reset">{playbackRate.toFixed(2)}x</button>
-                <button onClick={() => { const r = Math.min(2.0, playbackRate + 0.05); setPlaybackRate(r); if (wavesurferRef.current) wavesurferRef.current.setPlaybackRate(r); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-[10px] px-1 rounded hover:bg-white/10">+</button>
-              </div>
-            </div>
-            <div className="grid grid-cols-12 gap-3">
-              <div className="col-span-4 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">HOT CUES</div>
-                <div className="grid grid-cols-8 gap-1">
-                  {Array.from({length: 8}).map((_, i) => (
-                    <button key={i} onContextMenu={(e) => { e.preventDefault(); if (selectedTrack.cue_points && selectedTrack.cue_points[i] && selectedTrack.cue_points[i].id) { setColorPickerCue(selectedTrack.cue_points[i].id); setColorPickerPos({x: e.clientX, y: e.clientY}); } }} onClick={() => { if (selectedTrack.cue_points && selectedTrack.cue_points[i] && wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) { wavesurferRef.current.seekTo((selectedTrack.cue_points[i].position_ms || selectedTrack.cue_points[i].time) / (dur * 1000)); } } }}
-                      className={'h-8 rounded text-[10px] font-bold transition-all ' + (selectedTrack.cue_points && selectedTrack.cue_points[i] ? 'text-[var(--text-primary)] shadow-lg' : 'bg-[var(--bg-card)]/60 text-[var(--text-muted)]')}
-                      style={selectedTrack.cue_points && selectedTrack.cue_points[i] ? {backgroundColor: getCueColor(selectedTrack.cue_points[i].id, i), boxShadow: '0 0 8px ' + (getCueColor(selectedTrack.cue_points[i].id, i)) + '40'} : {}}>
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="col-span-4 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">LOOP</div>
-                <div className="flex gap-1.5">
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopOut !== null && t >= loopOut) return; setLoopIn(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopIn !== null ? 'bg-green-600/30 text-green-400 border border-green-500/40' : 'bg-[var(--bg-card)]/60 hover:bg-cyan-500/20 text-[var(--text-secondary)] hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopIn !== null ? 'IN ' + Math.floor(loopIn / 60) + ':' + String(Math.floor(loopIn % 60)).padStart(2,'0') : 'IN'}</button>
-                  <button onClick={() => { const t = wavesurferRef.current?.getCurrentTime(); if (t != null) { if (loopIn !== null && t <= loopIn) return; setLoopOut(t); } }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopOut !== null ? 'bg-orange-600/30 text-orange-400 border border-orange-500/40' : 'bg-[var(--bg-card)]/60 hover:bg-cyan-500/20 text-[var(--text-secondary)] hover:text-cyan-400 border border-transparent hover:border-cyan-500/30')}>{loopOut !== null ? 'OUT ' + Math.floor(loopOut / 60) + ':' + String(Math.floor(loopOut % 60)).padStart(2,'0') : 'OUT'}</button>
-                  <button onClick={() => { if (!loopActive && (loopIn === null || loopOut === null)) return; setLoopActive(prev => !prev); }} onDoubleClick={() => { setLoopIn(null); setLoopOut(null); setLoopActive(false); }} className={'flex-1 h-8 rounded text-[10px] font-bold transition-all ' + (loopActive ? 'bg-cyan-500 text-[var(--text-primary)] shadow-lg shadow-cyan-500/30' : (loopIn !== null && loopOut !== null) ? 'bg-[var(--bg-card)]/60 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/40 hover:border-cyan-500/60' : 'bg-[var(--bg-card)]/60 text-[var(--text-muted)] border border-transparent cursor-not-allowed')}>LOOP</button>
-                </div>
-              </div>
-              <div className="col-span-2 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">KEY</div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-black text-[var(--text-primary)] tracking-tight">{selectedTrack.analysis?.key ? (CAMELOT_WHEEL[selectedTrack.analysis.key] || selectedTrack.analysis.key) : '--'}</span>
-                </div>
-                {selectedTrack.analysis?.key && CAMELOT_WHEEL[selectedTrack.analysis.key] && (
-                  <div className="flex gap-1 mt-1">
-                    {[
-                      String((parseInt(CAMELOT_WHEEL[selectedTrack.analysis.key]) % 12) + 1) + CAMELOT_WHEEL[selectedTrack.analysis.key].replace(/[0-9]/g, ''),
-                      String(((parseInt(CAMELOT_WHEEL[selectedTrack.analysis.key]) - 2 + 12) % 12) + 1) + CAMELOT_WHEEL[selectedTrack.analysis.key].replace(/[0-9]/g, ''),
-                      String(parseInt(CAMELOT_WHEEL[selectedTrack.analysis.key])) + (CAMELOT_WHEEL[selectedTrack.analysis.key].replace(/[0-9]/g, '') === 'A' ? 'B' : 'A')
-                    ].map(c => (
-                      <span key={c} className="text-[8px] px-1 py-0.5 bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/30">{c}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="col-span-2 bg-black/40 rounded-lg border border-[var(--border-subtle)]/40 p-2">
-                <div className="text-[9px] font-bold text-cyan-400/60 tracking-[0.2em] mb-1">{t("energie")}</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 bg-[var(--bg-card)] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 transition-all" style={{width: String((selectedTrack.analysis?.energy || 0) * 100) + '%'}} />
-                  </div>
-                  <span className="text-xs font-bold text-[var(--text-secondary)] w-8 text-right">{((selectedTrack.analysis?.energy || 0) * 100).toFixed(0)}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        </div>
-
-{/* ── TOOLBAR: Upload, Search, Batch Actions ────────── */}
-      <div
-        className={`flex items-center gap-2 px-4 py-2 border-b border-[var(--border-subtle)]/40 flex-shrink-0 transition-colors ${dragOver ? 'bg-blue-600/10 border-blue-500/40' : 'bg-[var(--bg-secondary)]/50'}`}
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleFileDrop}
-      >
-        {/* Upload button */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-[var(--text-primary)] text-xs font-semibold rounded-lg transition-all"
-        >
-          <Upload size={13} />
-          Ajouter
-        </button>
-        <input ref={fileRef} type="file" multiple accept=".mp3,.wav,.flac,.aiff,.aif,.m4a,.ogg,audio/*" className="hidden"
-          onChange={e => e.target.files && handleFiles(e.target.files)} />
-
-        {/* Batch action buttons */}
-        {selectedCount > 0 && (
-          <>
-            <div className="w-px h-5 bg-[var(--bg-elevated)]/60" />
-            <span className="text-[10px] text-[var(--text-secondary)] font-medium">{selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}</span>
-            <button
-              onClick={() => batchAnalyzeAudio(Array.from(selectedIds))}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600/80 hover:bg-purple-500 disabled:opacity-50 text-[var(--text-primary)] text-[11px] font-semibold rounded-lg transition-all"
-            >
-              <Zap size={12} />
-              Analyser Audio
-            </button>
-            <button
-              onClick={() => batchAnalyzeMetadata(Array.from(selectedIds))}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600/80 hover:bg-green-500 disabled:opacity-50 text-[var(--text-primary)] text-[11px] font-semibold rounded-lg transition-all"
-            >
-              <Sparkles size={12} />
-              Rechercher Infos
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="flex items-center gap-1 px-2 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[11px] transition-colors"
-            >
-              <X size={12} />
-              Désélectionner
-            </button>
-          </>
-        )}
-
-        {/* Loading indicator */}
-        {isLoading && batchProgress && (
-          <div className="flex items-center gap-2 text-xs text-blue-400">
-            <Loader2 size={13} className="animate-spin" />
-            {batchProgress}
-          </div>
-        )}
-
-        {dragOver && <span className="text-blue-400 text-xs font-medium">Dépose tes fichiers ici...</span>}
-        <div className="flex-1" />
-
-        {/* Select all shortcut hint */}
-        <span className="text-[10px] text-[var(--text-muted)] hidden md:block">Ctrl+A = tout sélectionner</span>
-
-        {/* Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-          <input ref={searchInputRef} type="text" placeholder="Rechercher..." value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)} autoFocus
-            className="pl-8 pr-7 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-primary)] placeholder-slate-500 focus:outline-none focus:border-blue-600/50 w-44" />
-          {searchQuery && (
-            <button onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
-              <X size={12} />
-            </button>
-          )}
-        </div>
-        {/* Sort */}
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-          className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-secondary)] focus:outline-none">
-          <option value="date">{t("date_ajout")}</option>
-                            <option value="title">{t("titre")}</option>
-                            <option value="bpm">BPM</option>
-                            <option value="key">{t("annee").slice(0,0)}Key</option>
-                            <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
-                            <option value="genre">{t("genre")}</option>
-                            <option value="duration">{t("duree")}</option>
-              <option value="rating">{t("note")}</option></select>
-        <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)]/50 rounded-lg text-xs text-[var(--text-secondary)] hover:text-cyan-400 transition-colors" title={sortDir === 'asc' ? 'Croissant' : 'Décroissant'}>{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</button>
-      </div>
-
-      {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs flex-shrink-0">
-          <XCircle size={14} />{error}
-          <button onClick={() => setError('')} className="ml-auto"><X size={12} /></button>
-        </div>
-      )}
-
-                {/* MODULE TABS ROW */}
-<div className="flex items-center gap-1 px-4 py-1.5 border-b border-[var(--border-subtle)]/30 bg-[var(--bg-primary)]/50">
-  {[
-    { id: 'tracks', label: 'TRACKS', icon: 'ListMusic' },
-    { id: 'cues', label: 'CUES', icon: 'Disc3' },
-    { id: 'eq', label: 'EQ', icon: 'SlidersHorizontal' },
-    { id: 'fx', label: 'FX', icon: 'Wand2' },
-    { id: 'mix', label: 'MIX', icon: 'Disc' },
-    { id: 'playlists', label: 'PLAYLISTS', icon: 'List' },
-    { id: 'history', label: 'HISTORY', icon: 'Clock' },
-    { id: 'stats', label: 'STATS', icon: 'BarChart3' },
-  ].map(tab => (
-    <button key={tab.id} onClick={() => {
-      if (tab.id === 'tracks') { setShowModuleView(false); setActiveBottomTab('cues'); } else if (['playlists', 'history', 'stats'].includes(tab.id)) { setShowModuleView(true); setActiveBottomTab(tab.id); } else { setShowModuleView(true); setActiveBottomTab(tab.id); }}} className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-md transition-all duration-200 ${
-      (tab.id === 'tracks' && activeBottomTab === 'cues' && !showModuleView) || (tab.id !== 'tracks' && activeBottomTab === tab.id)
-        ? 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/30'
-        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-white/5 border border-transparent'
-    }`}>
-      {tab.id === 'tracks' && <ListMusic size={12} />}
-      {tab.id === 'cues' && <Disc3 size={12} />}
-      {tab.id === 'eq' && <SlidersHorizontal size={12} />}
-      {tab.id === 'fx' && <Wand2 size={12} />}
-      {tab.id === 'mix' && <Disc size={12} />}
-      {tab.id === 'playlists' && <ListIcon size={12} />}
-      {tab.id === 'history' && <Clock size={12} />}
-      {tab.id === 'stats' && <BarChart3 size={12} />}
-      {tab.label}
-    </button>
-  ))}
-</div>
-{!showModuleView ? (
-<>
-{/* TRACK STATS */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-[var(--text-secondary)]">{filteredTracks.length} track{filteredTracks.length !== 1 ? 's' : ''}</span>
-                    {filteredTracks.length !== tracks.length && (
-                      <span className="text-[10px] text-[var(--text-muted)]">/ {tracks.length} total</span>
-                    )}
-                    {selectedTrack && (
-                      <button onClick={() => setShowCompatibleOnly(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showCompatibleOnly ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] border border-[var(--border-default)]/30 hover:bg-[var(--bg-hover)]/50")}>
-                        <Zap className="w-3 h-3" /> {showCompatibleOnly ? 'Compatible' : 'All Keys'}
-                      </button>
-                    )}
-                    {selectedTrack && (
-                      <button onClick={() => {
-                        if (!selectedTrack.analysis?.key || !selectedTrack.analysis?.bpm) return;
-                        let bestTrack = null;
-                        let bestScore = -1;
-                        filteredTracks.forEach(t => {
-                          if (t.id === selectedTrack.id || !t.analysis?.key || !t.analysis?.bpm) return;
-                          const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm, t.analysis.key, t.analysis.bpm);
-                          if (score.total > bestScore) { bestScore = score.total; bestTrack = t; }
-                        });
-                        if (bestTrack) { setSelectedTrack(bestTrack); }
-                      }} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/50 transition-colors" title="Jump to best matching track">
-                        <Sparkles className="w-3 h-3" /> Quick Mix
-                      </button>
-                    )}
-                    <button onClick={() => setShowBpmTap(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showBpmTap ? "bg-orange-500/30 text-orange-300 border border-orange-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] border border-[var(--border-default)]/30 hover:bg-[var(--bg-hover)]/50")} title="Tap to detect BPM">
-                      <Activity className="w-3 h-3" /> Tap BPM
-                    </button>
-                    {filteredTracks.length > 0 && (() => {
-                      const totalMs = filteredTracks.reduce((sum, t) => sum + (t.analysis?.duration_ms || t.duration_ms || 0), 0);
-                      const bpmTracks = filteredTracks.filter(t => t.analysis?.bpm);
-                      const avgBpm = bpmTracks.length > 0 ? bpmTracks.reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / bpmTracks.length : 0;
-                      return (
-                        <>
-                          <span className="text-[10px] text-[var(--text-muted)]">·</span>
-                          <span className="text-[10px] text-[var(--text-muted)]">{Math.floor(totalMs / 60000)}min</span>
-                          {avgBpm > 0 && <><span className="text-[10px] text-[var(--text-muted)]">·</span><span className="text-[10px] text-[var(--text-muted)]">~{avgBpm.toFixed(0)} BPM</span></>}
-                        </>
-                      );
-                    })()}
-                  </div>
-                  {selectedTrack && filteredTracks.length > 1 && (() => {
-                    const best = filteredTracks
-                      .filter(t => t.id !== selectedTrack.id && t.analysis?.key)
-                      .map(t => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
-                      .sort((a, b) => b.score.total - a.score.total)[0];
-                    return best ? (
-                      <button onClick={() => setSelectedTrack(best.track)} className="flex items-center gap-1 text-[10px] text-green-400 hover:text-green-300 transition-colors" title="Best harmonic match">
-                        <Sparkles size={10} /> Next: {best.track.title?.slice(0, 15)}... ({best.score.total}%)
-                      </button>
-                    ) : null;
-                  })()}
-                </div>
-
-      {/* ── TRACK LIST ───────────────────────────────────────── */}
-
-                {/* SEARCH BAR */}
-                <div style={{marginBottom: '8px'}}>
-                  <div style={{position: 'relative'}}>
-                    <Search size={14} style={{position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af'}} />
-                    <input type="text" value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} placeholder={t("rechercher")} style={{width: '100%', padding: '8px 10px 8px 32px', fontSize: '13px', borderRadius: '8px', border: '1px solid #374151', background: '#111827', color: 'white', outline: 'none'}} />
-                    {searchQuery && <button onClick={function() { setSearchQuery(''); }} style={{position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px'}}>X</button>}
-                  </div>
-                </div>                {/* EXPORT BUTTONS */}
-                <div style={{display: 'flex', gap: '6px', marginBottom: '6px'}}>
-                  <button onClick={function() { handleExportTracklist('txt'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Copy size={10} /> {t('copy_txt')}</button>
-                  <button onClick={function() { handleExportTracklist('csv'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Download size={10} /> {t('export_csv')}</button>
-                </div>
-
-                {/* FILTER BAR */}
-                <div className="mb-2 space-y-2">
-                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                    <Filter size={12} /> {showFilters ? 'Hide Filters' : t('filter_sort')}{(() => { const n = (filterBpmMin > 0 ? 1 : 0) + (filterBpmMax < 999 ? 1 : 0) + (filterKey ? 1 : 0) + (filterGenre ? 1 : 0) + (filterEnergyMin > 0 ? 1 : 0) + (filterEnergyMax < 100 ? 1 : 0); return n > 0 ? ` (${n})` : ''; })()}
-                  </button>
-                  {showFilters && (
-                    <div className="bg-[var(--bg-card)]/50 rounded-lg p-2 space-y-2 border border-[var(--border-subtle)]/50">
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <label className="text-[10px] text-[var(--text-muted)] uppercase">BPM Min</label>
-                          <input type="number" value={filterBpmMin || ''} onChange={e => setFilterBpmMin(Number(e.target.value) || 0)} placeholder="60" className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="text-[10px] text-[var(--text-muted)] uppercase">BPM Max</label>
-                          <input type="number" value={filterBpmMax >= 999 ? '' : filterBpmMax} onChange={e => setFilterBpmMax(Number(e.target.value) || 999)} placeholder="200" className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[var(--text-muted)] uppercase">Key</label>
-                        <select value={filterKey} onChange={e => setFilterKey(e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
-                          <option value="">{t("toutes_cles")}</option>
-                          {Object.entries(CAMELOT_MAP).map(([k, v]) => <option key={k} value={k}>{v} - {k}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-[var(--text-muted)] uppercase">{t("genre")}</label>
-                        <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="w-full bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
-                          <option value="">{t("tous_genres")}</option>
-                          {[...new Set(tracks.map(t => t.genre).filter(Boolean))].sort().map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                      </div>
-                    {/* Energy Filter */}
-                    <div>
-                      <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Énergie</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="0" max="100" step="5"
-                          value={filterEnergyMin}
-                          onChange={e => setFilterEnergyMin(Number(e.target.value))}
-                          className="flex-1 h-1 accent-orange-500"
-                          title={`Min: ${filterEnergyMin}%`}
-                        />
-                        <span className="text-[10px] text-[var(--text-secondary)] font-mono min-w-[60px] text-center">{filterEnergyMin}%-{filterEnergyMax}%</span>
-                        <input
-                          type="range"
-                          min="0" max="100" step="5"
-                          value={filterEnergyMax}
-                          onChange={e => setFilterEnergyMax(Number(e.target.value))}
-                          className="flex-1 h-1 accent-orange-500"
-                          title={`Max: ${filterEnergyMax}%`}
-                        />
-                      </div>
-                    </div>
-                      
-                      <div>
-                        <label className="text-[10px] text-[var(--text-muted)] uppercase">{t("trier_par")}</label>
-                        <div className="flex gap-1">
-                          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="flex-1 bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]">
-                            <option value="date">{t("date_ajout")}</option>
-                            <option value="bpm">BPM</option>
-                            <option value="key">{t("annee").slice(0,0)}Key</option>
-                            <option value="title">{t("titre")}</option>
-              <option value="rating">{t("note")}</option>
-                          </select>
-                          <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} className="px-2 py-1 bg-[var(--bg-secondary)]/50 border border-[var(--border-subtle)] rounded text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                            {sortDir === 'asc' ? '\u2191' : '\u2193'}
-                          </button>
-                        </div>
-                      </div>
-{(filterBpmMin > 0 || filterBpmMax < 999 || filterKey || filterGenre || filterEnergyMin > 0 || filterEnergyMax < 100) && (
-                        <button onClick={() => { setFilterBpmMin(0); setFilterBpmMax(999); setFilterKey(''); setFilterGenre(''); setFilterEnergyMin(0); setFilterEnergyMax(100); }} className="text-[10px] text-red-400 hover:text-red-300">{t("reinit_filtres")}</button>
-                      )}
-                    </div>
-                  )}
-                </div>
-      <div className="flex-1 overflow-y-auto max-h-[35vh] min-h-[120px]">
-        
-                {/* Selection action bar */}
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
-            <span className="text-xs font-medium text-purple-300">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
-            <button onClick={() => { const ids = Array.from(selectedIds); showToast(`Analyse de ${ids.length} track(s) lanc\u00e9e`, 'info'); ids.forEach(id => { analyzeTrack(id).then(() => pollTrackUntilDone(id)).then(updated => { setTracks(prev => prev.map(t => t.id === updated.id ? updated : t)); }); }); }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition-colors">Analyser</button>
-            <button onClick={() => { const ids = Array.from(selectedIds); Promise.all(ids.map(id => deleteTrack(id))).then(() => { setTracks(prev => prev.filter(t => !ids.includes(t.id))); setSelectedIds(new Set()); showToast(`${ids.length} track(s) supprim\u00e9(s)`, 'success'); }); }} className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">Supprimer</button>
-            <button onClick={() => setSelectedIds(new Set())} className="text-[10px] px-2 py-0.5 rounded bg-slate-500/20 text-[var(--text-secondary)] hover:bg-slate-500/30 transition-colors ml-auto">Désélectionner</button>
-          </div>
-        )}
-        {/* ── Upload Progress Bar ── */}
-        {uploadProgress && (
-          <div className="mx-4 mb-2">
-            <div className="flex items-center gap-2 text-xs text-cyan-400 mb-1">
-              <Upload size={12} className="animate-bounce" />
-              <span>{t('upload')} {uploadProgress.current}/{uploadProgress.total}</span>
-              <span className="text-[var(--text-muted)]">({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
-            </div>
-            <div className="h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300 ease-out" style={{width: `${(uploadProgress.current / uploadProgress.total) * 100}%`}} />
-            </div>
-          </div>
-        )}
-        {/* Column visibility toggle */}
-        <div className="relative inline-block">
-          {/* Quick Filters */}
-          <div className="flex items-center gap-1 flex-wrap mb-1">
-            <span className="text-[9px] text-[var(--text-muted)] mr-1">{t('quick_label')}</span>
-            {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
-              <button key={c} onClick={() => setFilterColor(filterColor === c ? null : c)}
-                className={`w-4 h-4 rounded-full border transition-all ${filterColor === c ? 'border-white scale-125 ring-1 ring-white/30' : 'border-[var(--border-default)] opacity-50 hover:opacity-100'}`}
-                style={{backgroundColor: c}} />
-            ))}
-            <span className="text-[var(--text-muted)] mx-1">|</span>
-            {[1,2,3,4,5].map(r => (
-              <button key={r} onClick={() => setFilterRating(filterRating === r ? 0 : r)}
-                className={`text-[10px] transition-colors ${filterRating >= r ? 'text-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400/50'}`}>
-                <Star className={`w-3 h-3 ${filterRating >= r ? 'fill-yellow-400' : ''}`} />
-              </button>
-            ))}
-            {(filterColor || filterRating > 0) && (
-              <button onClick={() => {setFilterColor(null); setFilterRating(0);}}
-                className="text-[9px] text-red-400 hover:text-red-300 ml-1">{t("effacer")}</button>
-            )}
-          </div>
-          {/* BPM Range Filter */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[9px] text-[var(--text-muted)]">BPM:</span>
-            <input type="range" min="0" max="300" step="5" value={bpmMin}
-              onChange={e => setBpmMin(Number(e.target.value))}
-              className="w-16 h-1 accent-cyan-500 cursor-pointer" />
-            <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMin}</span>
-            <span className="text-[9px] text-[var(--text-muted)]">-</span>
-            <input type="range" min="0" max="300" step="5" value={bpmMax}
-              onChange={e => setBpmMax(Number(e.target.value))}
-              className="w-16 h-1 accent-cyan-500 cursor-pointer" />
-            <span className="text-[9px] text-cyan-400 font-mono w-6">{bpmMax}</span>
-            {(bpmMin > 0 || bpmMax < 300) && (
-              <button onClick={() => {setBpmMin(0); setBpmMax(300);}}
-                className="text-[9px] text-red-400 hover:text-red-300">{t("reinitialiser")}</button>
-            )}
-          </div>
-          {/* Genre BPM Presets */}
-          <div className="flex flex-wrap gap-1 mt-1">
-            <span className="text-[9px] text-[var(--text-muted)] w-full">Genre:</span>
-            {[{n:'Hip-Hop',a:85,b:115},{n:'House',a:120,b:130},{n:'Techno',a:128,b:145},{n:'Trance',a:138,b:150},{n:'DnB',a:170,b:180},{n:'Dubstep',a:138,b:142},{n:'Afro',a:100,b:120},{n:'All',a:0,b:300}].map(function(g) { return (
-              <button key={g.n} onClick={() => { setBpmMin(g.a); setBpmMax(g.b); }} className={"text-[8px] px-1.5 py-0.5 rounded-full border transition-all " + (bpmMin === g.a && bpmMax === g.b ? "bg-cyan-600 border-cyan-500 text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-cyan-600 hover:text-cyan-300")}>{g.n}</button>
-            ); })}
-          </div>
-          <button onClick={() => setShowColSettings(p => !p)} className="flex items-center gap-1 px-2 py-1 rounded text-[10px] text-[var(--text-secondary)] hover:text-cyan-400 hover:bg-[var(--bg-card)]/50 transition-colors mb-1" title="Colonnes visibles">
-            <SlidersHorizontal size={12} /> Colonnes
-          </button>
-          <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
-            <Filter className="w-3 h-3" /> {t('filters')} {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
-          </button>
-              <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
-                <Zap className="w-3 h-3" /> {autoAnalyze ? t('auto_analyze_on') : t('auto_analyze_off')}
-              </button>
-              <button onClick={() => setShowStats(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showStats ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-default)]/50")}>
-                <BarChart3 className="w-3 h-3" /> {t('stats')}
-              </button>
-          {showColSettings && (
-            <div className="absolute top-full left-0 z-50 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
-              {[['artist','Artiste'],['album','Album'],['genre','Genre'],['bpm','BPM'],['key','Key'],['energy','Energy'],['duration','Durée']].map(([k,label]) => (
-                <label key={k} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--bg-elevated)]/50 cursor-pointer text-xs text-[var(--text-secondary)]">
-                  <input type="checkbox" checked={visibleCols[k]} onChange={() => toggleCol(k)} className="accent-cyan-500 w-3 h-3" />
-                  {label}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Batch Operations Toolbar */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 mb-1 p-2 bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-lg border border-blue-500/30">
-              <span className="text-[10px] text-blue-300 font-bold">{selectedIds.size} selected</span>
-              <div className="flex gap-1 ml-2">
-                {['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7','#ec4899'].map(c => (
-                  <button key={c} onClick={() => { selectedIds.forEach(id => setTrackColors(prev => ({...prev, [id]: c}))); }}
-                    className="w-4 h-4 rounded-full border border-gray-500 hover:scale-125 transition-transform"
-                    style={{backgroundColor: c}} title={'Color all ' + c} />
-                ))}
-              </div>
-              <div className="flex gap-0.5 ml-2">
-                {[1,2,3,4,5].map(s => (
-                  <button key={s} onClick={() => { selectedIds.forEach(id => setTrackRatings(prev => ({...prev, [id]: s}))); }}
-                    className="text-[10px] text-yellow-400 hover:scale-125 transition-transform">
-                    <Star className="w-3 h-3 fill-yellow-400" />
-                  </button>
-                ))}
-              </div>
-              {activeSetList >= 0 && (
-                <button onClick={() => { setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: [...new Set([...sl.trackIds, ...Array.from(selectedIds)])]} : sl)); }}
-                  className="text-[9px] bg-green-600/30 text-green-300 px-2 py-0.5 rounded hover:bg-green-600/50 transition-colors ml-1">
-                  + Set List
-                </button>
-              )}
-              <button onClick={() => { setTracks(prev => prev.filter(t => !selectedIds.has(t.id))); setSelectedIds(new Set()); }}
-                className="text-[9px] bg-red-600/30 text-red-300 px-2 py-0.5 rounded hover:bg-red-600/50 transition-colors ml-1">
-                Delete
-              </button>
-              <button onClick={() => setSelectedIds(new Set())}
-                className="text-[9px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] ml-auto">{t("effacer")}</button>
-            </div>
-          )}
-          {/* Table header */}
-        <div className="grid track-grid gap-2 px-4 py-2 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border-subtle)]/30 sticky top-0 bg-[var(--bg-primary)] z-10" style={{gridTemplateColumns: gridTemplate}}>
-          <input type="checkbox" className="rounded border-[var(--border-default)] bg-transparent cursor-pointer accent-purple-500" checked={selectedIds.size === filteredTracks.length && filteredTracks.length > 0} onChange={() => { if (selectedIds.size === filteredTracks.length) { setSelectedIds(new Set()); } else { setSelectedIds(new Set(filteredTracks.map(t => t.id))); } }} />
-          <span onClick={() => handleHeaderSort('title')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'title' ? "text-cyan-400" : "")}>Titre {sortBy === 'title' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          {visibleCols.artist && <span onClick={() => handleHeaderSort('artist')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'artist' ? "text-cyan-400" : "")}>Artiste {sortBy === 'artist' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
-              {visibleCols.album && <span onClick={() => handleHeaderSort('album')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'album' ? "text-cyan-400" : "")}>Album {sortBy === 'album' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>}
-              <span onClick={() => handleHeaderSort('genre')} className={"cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'genre' ? "text-cyan-400" : "")}>Genre {sortBy === 'genre' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span onClick={() => handleHeaderSort('bpm')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'bpm' ? "text-cyan-400" : "")}>BPM {sortBy === 'bpm' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span onClick={() => handleHeaderSort('key')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'key' ? "text-cyan-400" : "")}>Key {sortBy === 'key' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span onClick={() => handleHeaderSort('energy')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'energy' ? "text-cyan-400" : "")}>Energy {sortBy === 'energy' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span onClick={() => handleHeaderSort('duration')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'duration' ? "text-cyan-400" : "")}>Durée {sortBy === 'duration' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-              <span onClick={() => handleHeaderSort('rating')} className={"text-center cursor-pointer hover:text-cyan-400 select-none transition-colors " + (sortBy === 'rating' ? 'text-cyan-400' : '')}>Rating {sortBy === 'rating' && (sortDir === 'asc' ? '\u25B2' : '\u25BC')}</span>
-          <span />
-          {/* Column Filter Row */}
-            {showStats && (
-              <div className="mb-2 p-3 rounded-lg bg-[var(--bg-card)]/60 border border-[var(--border-subtle)]/50">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-[var(--text-primary)]">{tracks.length}</div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">{t("total_morceaux")}</div>
-                    <div className="text-[10px] text-green-400">{tracks.filter(t => t.analysis?.bpm).length} analyzed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-cyan-400">
-                      {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(Math.min(...bpms)) + '-' + Math.round(Math.max(...bpms)) : 'N/A'; })()}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">BPM Range</div>
-                    <div className="text-[10px] text-cyan-400/70">
-                      avg {(() => { const bpms = tracks.map(t => t.analysis?.bpm).filter(b => typeof b === "number"); return bpms.length ? Math.round(bpms.reduce((a,b) => a+b, 0) / bpms.length) : 'N/A'; })()}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-purple-400">
-                      {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); const sorted = Object.entries(keys).sort((a,b) => b[1]-a[1]); return sorted.length ? sorted[0][0] : 'N/A'; })()}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-secondary)]">{t("cle_principale")}</div>
-                    <div className="text-[10px] text-purple-400/70">
-                      {(() => { const keys: Object = {}; tracks.forEach(t => { const k = t.analysis?.key; if (k) keys[k] = (keys[k]||0) + 1; }); return Object.keys(keys).length + ' keys'; })()}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex justify-center gap-1 mt-1">
-                      {[['Calm','rgb(34,197,94)'], ['Mod','rgb(234,179,8)'], ['High','rgb(249,115,22)'], ['Max','rgb(239,68,68)']].map(([label, color], i) => {
-                        const count = tracks.filter(t => { const e = t.analysis?.energy; if (e == null) return false; if (i===0) return e < 0.25; if (i===1) return e >= 0.25 && e < 0.5; if (i===2) return e >= 0.5 && e < 0.75; return e >= 0.75; }).length;
-                        return <div key={label} className="flex flex-col items-center"><div className="text-xs font-bold" style={{color: String(color)}}>{count}</div><div className="text-[8px] text-[var(--text-muted)]">{label}</div></div>;
-                      })}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">Energy</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          {showColumnFilters && (
-          <div className="grid track-grid gap-2 px-4 py-2 text-[9px] border-b border-[var(--border-subtle)]/50 bg-[var(--bg-secondary)]/50">
-            <span />
-            <input type="text" placeholder="Filter title..." value={colFilterTitle} onChange={e => setColFilterTitle(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-full" />
-            {visibleCols.artist && <input type="text" placeholder="Filter artist..." value={colFilterArtist} onChange={e => setColFilterArtist(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]" />}
-            {visibleCols.album && <span />}
-            <select value={colFilterGenre} onChange={e => setColFilterGenre(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]">
-              <option value="">{t("tous_genres")}</option>
-              {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).sort().map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <div className="flex gap-1">
-              <input type="number" placeholder="Min" value={colFilterBpmMin} onChange={e => setColFilterBpmMin(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
-              <input type="number" placeholder="Max" value={colFilterBpmMax} onChange={e => setColFilterBpmMax(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
-            </div>
-            <select value={colFilterKey} onChange={e => setColFilterKey(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px]">
-              <option value="">{t("toutes_cles")}</option>
-              {Array.from(new Set(tracks.map(t => t.analysis?.key).filter(Boolean))).sort().map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-            <div className="flex gap-1">
-              <input type="number" placeholder="Min" min="0" max="100" value={colFilterEnergyMin} onChange={e => setColFilterEnergyMin(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
-              <input type="number" placeholder="Max" min="0" max="100" value={colFilterEnergyMax} onChange={e => setColFilterEnergyMax(e.target.value)} className="bg-[var(--bg-card)] border border-[var(--border-default)] rounded px-1 py-0.5 text-[var(--text-secondary)] text-[9px] w-12" />
-            </div>
-            <button onClick={() => { setColFilterTitle(''); setColFilterArtist(''); setColFilterGenre(''); setColFilterKey(''); setColFilterBpmMin(''); setColFilterBpmMax(''); setColFilterEnergyMin(''); setColFilterEnergyMax(''); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[8px]">{t("effacer")}</button>
-          </div>
-          )}
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)]">
-            {tracks.length > 0 ? (
-              <>
-                <Search size={48} className="mb-4 opacity-30" />
-                <p className="text-sm font-medium">Aucun résultat</p>
-                <p className="text-xs mt-1">Aucun morceau ne correspond à ta recherche</p>
-                {searchQuery && <button onClick={() => setSearchQuery('')} className="mt-3 px-3 py-1 text-xs bg-cyan-600/20 text-cyan-400 rounded-lg hover:bg-cyan-600/30 transition-colors">Effacer la recherche</button>}
-              </>
-            ) : (
-              <>
-                <Headphones size={48} className="mb-4 opacity-30" />
-                <p className="text-sm font-medium">Aucun morceau</p>
-                <p className="text-xs mt-1">Glisse des fichiers audio ici ou clique sur &quot;Ajouter&quot;</p>
-              </>
-            )}
-          </div>
-        ) : tracksLoading ? (
-          <div className="space-y-1 p-2">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-10 rounded bg-white/[0.03] animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-            ))}
-          </div>
-        ) : (
-          filteredTracks.map((track, trackIdx) => {
-            const a = track.analysis;
-            const isActive = selectedTrack?.id === track.id;
-            const isSelected = selectedIds.has(track.id);
-            const isAnalyzing = track.status === 'analyzing' || track.status === 'pending';
-                  const statusDot = track.status === 'completed' ? 'bg-green-400'
-                    : track.status === 'failed' ? 'bg-red-400'
-                    : isAnalyzing ? 'bg-yellow-400 animate-pulse' : 'bg-slate-500';
-            return (
-              <div
-                key={track.id}
-                data-track-id={track.id}
-                className={`grid track-grid gap-2 px-4 py-2.5 items-center border-b border-[var(--border-subtle)]/20 hover:bg-white/[0.04] cursor-pointer transition-all duration-150 group ${isActive ? 'bg-blue-500/15 border-l-2 border-l-blue-400 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]' : isSelected ? 'bg-purple-600/10 border-l-2 border-l-purple-500' : 'border-l-2 border-l-transparent'} ${trackIdx % 2 === 1 ? 'bg-white/[0.015]' : ''}`}
-                style={{gridTemplateColumns: gridTemplate}}
-                onClick={(e) => {
-                  if (e.shiftKey && lastClickedIdxRef.current >= 0) {
-                    // Shift+click range selection
-                    const start = Math.min(lastClickedIdxRef.current, trackIdx);
-                    const end = Math.max(lastClickedIdxRef.current, trackIdx);
-                    const next = new Set(selectedIds);
-                    for (let i = start; i <= end; i++) {
-                      const t = filteredTracks[i];
-                      if (t) next.add(t.id);
-                    }
-                    setSelectedIds(next);
-                  } else if (e.ctrlKey || e.metaKey) {
-                    toggleSelect(track.id, e);
+                onClick={() => {
+                  if (!loopIn) {
+                    setLoopIn(currentTime);
+                  } else if (!loopOut) {
+                    setLoopOut(currentTime);
+                    setLoopActive(true);
                   } else {
-                    setSelectedTrack(track);
-                    setSelectedIds(new Set([track.id]));
+                    setLoopIn(null);
+                    setLoopOut(null);
+                    setLoopActive(false);
                   }
-                  lastClickedIdxRef.current = trackIdx;
                 }}
-                onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
+                className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${loopActive ? 'bg-green-500/30 text-green-300 border border-green-500/50' : 'bg-[var(--bg-hover)] text-[var(--text-primary)]'}`}
               >
-                {/* Checkbox / Play */}
-                <div
-                  className="flex items-center justify-center cursor-pointer relative"
-                  onClick={(e) => { e.stopPropagation(); toggleSelect(track.id, e); }}
-                >
-                  <div className="group-hover:hidden">
-                    {isSelected ? (
-                      <CheckSquare size={15} className="text-cyan-500/70" />
-                    ) : previewingTrackId === track.id ? (
-                      <Pause size={15} className="text-cyan-400 animate-pulse" />
-                    ) : (
-                      <Square size={15} className="text-slate-700 transition-colors" />
-                    )}
-                  </div>
-                  <button
-                    className="hidden group-hover:flex items-center justify-center"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const token = localStorage.getItem('cueforge_token');
-                      if (previewingTrackId === track.id) {
-                        previewAudioRef.current?.pause();
-                        setPreviewingTrackId(null);
-                      } else {
-                        if (previewAudioRef.current) previewAudioRef.current.pause();
-                        const audio = new Audio(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/tracks/${track.id}/audio?token=${token}`);
-                        audio.volume = 0.5;
-                        audio.play();
-                        audio.onended = () => setPreviewingTrackId(null);
-                        previewAudioRef.current = audio;
-                        setPreviewingTrackId(track.id);
-                      }
-                    }}
-                    title={previewingTrackId === track.id ? 'Arrêter' : 'Écouter'}
-                  >
-                    {previewingTrackId === track.id ? (
-                      <Pause size={15} className="text-cyan-400" />
-                    ) : (
-                      <Play size={15} className="text-cyan-400" />
-                    )}
-                  </button>
+                {!loopIn ? 'Loop In' : !loopOut ? 'Loop Out' : 'Clear Loop'}
+              </button>
+              {loopIn !== null && loopOut !== null && (
+                <div className="text-[9px] text-[var(--text-muted)] font-mono">
+                  {msToTime(loopIn * 1000)} → {msToTime(loopOut * 1000)}
                 </div>
-
-                {/* Title + Artist + Cover */}
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot}`} />
-                  {track.artwork_url ? (
-                    <img src={track.artwork_url} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0 shadow" />
-                  ) : (
-                    <div className="w-9 h-9 rounded bg-gradient-to-br from-slate-700/80 to-slate-800/80 flex items-center justify-center flex-shrink-0 relative">
-                      <Music2 size={14} className="text-[var(--text-muted)] group-hover:opacity-0 transition-opacity" />
-                      <Play size={14} className="text-[var(--text-primary)] absolute opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm text-[var(--text-primary)] font-medium truncate">
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }} className="inline-flex mr-1 hover:scale-125 transition-transform" title={favoriteIds.has(track.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}>
-                        <Star size={12} className={favoriteIds.has(track.id) ? 'text-yellow-400 fill-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400'} />
-                      </button>
-                      {trackColors[track.id] && <span className="w-2 h-2 rounded-full inline-block mr-1 flex-shrink-0" style={{backgroundColor: trackColors[track.id]}} />}{selectedTrack && selectedTrack.id !== track.id && isMixCompatible(selectedTrack, track) && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1 animate-pulse" title="Mix compatible" />}{track.title || track.original_filename}
-                    </p>
-                    <p className="text-[11px] text-[var(--text-muted)] truncate">
-                      {track.artist || '\u2014'}
-                    </p>
-                  </div>
-                </div>
-                {/* Artist */}
-              <span className="text-xs text-[var(--text-secondary)] truncate">{track.artist || '—'}</span>
-              {/* Album */}
-              <span className="text-xs text-[var(--text-secondary)] truncate">{track.album || '—'}</span>
-              {/* Genre */}
-                <span className="text-xs text-[var(--text-secondary)] truncate cursor-pointer hover:text-yellow-400 hover:bg-[var(--bg-card)]/50 px-1 rounded transition-colors" title={t('double_click_edit')} onDoubleClick={() => { setInlineEditId(track.id); setInlineEditField('genre'); setInlineEditValue(track.genre || ''); }}>
-                  {inlineEditId === track.id && inlineEditField === 'genre' ? (
-                    <input autoFocus type="text" value={inlineEditValue} onChange={(e) => setInlineEditValue(e.target.value)} onBlur={() => { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { setTracks(prev => prev.map(t => t.id === track.id ? {...t, genre: inlineEditValue} : t)); setInlineEditId(null); } if (e.key === 'Escape') setInlineEditId(null); }} className="bg-[var(--bg-secondary)] text-yellow-400 text-xs px-1 py-0 rounded border border-yellow-500/50 outline-none w-20" onClick={(e) => e.stopPropagation()} />
-                  ) : (track.genre?.split(',')[0]?.trim() || '—')}
-                </span>
-                {/* BPM */}
-                <div className="flex flex-col items-center">
-                  <span title={a?.bpm ? `BPM: ${a.bpm.toFixed(2)} | ${a.bpm < 100 ? "Slow" : a.bpm < 130 ? "Medium" : a.bpm < 150 ? "Fast" : "Very Fast"}` : ""} className="text-xs text-blue-400 font-mono text-center font-bold cursor-help">
-                  {a?.bpm ? a.bpm.toFixed(1) : '\u2014'}
-                </span>
-                  {selectedTrack && selectedTrack.id !== track.id && a?.bpm && selectedTrack.analysis?.bpm ? (() => { const diff = a.bpm - selectedTrack.analysis.bpm; const absDiff = Math.abs(diff); return <span className={"text-[8px] font-mono " + (absDiff < 3 ? "text-green-400" : absDiff < 8 ? "text-yellow-400" : "text-red-400")}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>; })() : null}
-                </div>
-                {/* Key (Camelot) + Compatibility */}
-                <div title={a?.key ? `Tonalité: ${a.key} | Camelot: ${toCamelot(a.key)}` : ""} className="flex items-center justify-center gap-1 cursor-help">
-                  <span className={"text-xs font-mono text-center font-bold " + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? "text-green-400" : "text-cyan-400")} title={a?.key ? toCamelot(a.key) + (selectedTrack && selectedTrack.analysis?.key && a?.key && selectedTrack.id !== track.id && getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).includes(toCamelot(a.key)) ? ' ✓ Compatible' : '') : ''}>
-                    {toCamelot(a?.key)}
-                  </span>
-                  {selectedTrack && selectedTrack.id !== track.id && track.analysis?.key && selectedTrack.analysis?.key && (() => {
-                    const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm || 0, track.analysis.key, track.analysis.bpm || 0);
-                    const color = score.total >= 80 ? 'text-green-400 bg-green-500/20' : score.total >= 50 ? 'text-yellow-400 bg-yellow-500/20' : 'text-red-400 bg-red-500/20';
-                    return <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${color}`}>{score.total}%</span>;
-                  })()}
-                </div>
-          {/* Energy */}
-          <div title={a?.energy != null ? 'Energy: ' + Math.round((a.energy || 0) * 100) + '% - ' + energyToLabel(a?.energy) : t('not_analyzed')} className="text-center select-none">
-            <div className="flex items-center justify-center gap-1">
-              <div className="flex gap-px">
-                {[0, 1, 2, 3, 4].map(seg => (
-                  <div key={seg} className="w-1.5 rounded-sm" style={{ height: (seg + 1) * 2 + 4 + 'px', background: (a?.energy || 0) > seg * 0.2 ? energyToColor(a?.energy) : 'rgb(55,65,81)' }} />
-                ))}
-              </div>
-              <span className="text-[10px] font-mono font-bold min-w-[12px]" style={{ color: energyToColor(a?.energy) }}>{a?.energy != null ? Math.round(a.energy * 100) : '-'}</span>
+              )}
             </div>
           </div>
-                  {/* Rating */}
-                  <div className="flex items-center justify-center gap-px" onClick={(e) => e.stopPropagation()}>
-                    {[1,2,3,4,5].map(star => (
-                      <Star key={star} className={"w-3 h-3 cursor-pointer transition-colors " + ((trackRatings[track.id] || 0) >= star ? "text-yellow-400 fill-yellow-400" : "text-[var(--text-muted)] hover:text-yellow-400/50")} onClick={(e) => { e.stopPropagation(); setRating(track.id, star); }} />
-                    ))}
-                  </div>
-                {/* Duration */}
-                <span title={(a?.duration_ms || track.duration_ms) ? `Durée: ${Math.floor((a?.duration_ms || track.duration_ms) / 60000)}m ${Math.floor(((a?.duration_ms || track.duration_ms) % 60000) / 1000)}s (${Math.round((a?.duration_ms || track.duration_ms) / 1000)}s total)` : ""} className="text-xs text-[var(--text-muted)] font-mono text-center cursor-help">
-                  {(a?.duration_ms || track.duration_ms) ? msToTime(a?.duration_ms || track.duration_ms) : '\u2014'}
-                </span>
-                {/* Status & Actions */}
-                {track.status === 'analyzing' && (
-                  <span className="text-sm text-cyan-400 animate-pulse" title={t('analyzing')}>⏳</span>
-                )}
-                {track.status === 'failed' && (
-                  <button onClick={(e) => { e.stopPropagation(); reanalyzeTrack(track.id); }} className="text-sm text-orange-400 hover:text-orange-300 transition-colors cursor-pointer" title="Réanalyser">🔄</button>
-                )}
-                <button
-                  onClick={e => { e.stopPropagation(); setCtxMenu({ x: e.clientX, y: e.clientY, track }); }}
-                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                >
-                  <MoreVertical size={14} />
-                </button>
-              </div>
-            );
-          })
         )}
-      </div>
 
-      {/* ── Context Menu ─────────────────────────────────────── */}
-      {ctxMenu && (
-        <div
-          className="fixed z-50 bg-[var(--bg-secondary)] border border-[var(--border-subtle)]/80 rounded-xl shadow-2xl py-1 min-w-[260px]"
-          style={{ left: Math.min(ctxMenu.x, window.innerWidth - 280), top: Math.min(ctxMenu.y, window.innerHeight - 350) }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="px-3 py-2 border-b border-[var(--border-subtle)]/40">
-            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
-              {ctxMenu.track.title || ctxMenu.track.original_filename}
-            </p>
-            <p className="text-[10px] text-[var(--text-muted)]">{ctxMenu.track.artist || ''}</p>
-          </div>
-          {CONTEXT_ACTIONS.map((a) => (
-            <div key={a.action}>
-              {a.separator && <div className="my-1 border-t border-[var(--border-subtle)]/40" />}
+        {/* ── BOTTOM TABS ── */}
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden flex-1 flex flex-col">
+          {/* Tab buttons */}
+          <div className="flex gap-1 p-3 border-b border-[var(--border-default)] bg-[var(--bg-surface)] overflow-x-auto">
+            {[
+              { id: 'cues', label: 'Cues', icon: Layers },
+              { id: 'eq', label: 'EQ', icon: SlidersHorizontal },
+              { id: 'fx', label: 'FX', icon: Sparkles },
+              { id: 'mix', label: 'Mix', icon: Compass },
+              { id: 'playlists', label: 'Playlists', icon: Folder },
+              { id: 'stats', label: 'Stats', icon: BarChart3 },
+              { id: 'history', label: 'History', icon: Clock },
+            ].map((tab) => (
               <button
-                onClick={() => handleCtxAction(a.action, ctxMenu.track)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] transition-colors ${a.action === 'delete' ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : ''}`}
+                key={tab.id}
+                onClick={() => setActiveBottomTab(tab.id)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap ${
+                  activeBottomTab === tab.id
+                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                }`}
               >
-                {a.icon}
-                {a.label}
+                <tab.icon size={12} />
+                {tab.label}
               </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* BPM Tap Tool */}
-      {showBpmTap && (
-        <div className="fixed bottom-20 right-6 z-50 bg-[var(--bg-secondary)] border border-[var(--border-default)]/50 rounded-xl p-4 shadow-2xl backdrop-blur-xl w-64">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-1.5"><Activity className="w-4 h-4 text-orange-400" /> BPM Tap</h3>
-            <button onClick={() => { setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X className="w-4 h-4" /></button>
+            ))}
           </div>
-          <div className="text-center mb-3">
-            <div className="text-3xl font-bold text-orange-400 font-mono">{bpmTapResult ? bpmTapResult.toFixed(1) : '---'}</div>
-            <div className="text-[10px] text-[var(--text-muted)] mt-1">{bpmTapTimes.length} taps</div>
-          </div>
-          <button onClick={() => {
-            const now = Date.now();
-            setBpmTapTimes(prev => {
-              const times = (prev.length > 0 && now - prev[prev.length - 1] > 3000) ? [now] : [...prev, now];
-              if (times.length >= 2) {
-                const intervals = [];
-                for (let i = 1; i < times.length; i++) intervals.push(times[i] - times[i-1]);
-                const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-                setBpmTapResult(60000 / avgInterval);
-              }
-              return times.slice(-16);
-            });
-          }} className="w-full py-3 bg-orange-600/30 text-orange-300 rounded-lg hover:bg-orange-600/50 text-sm font-bold transition-colors border border-orange-500/30 active:scale-95">
-            TAP
-          </button>
-          <div className="flex gap-2 mt-2">
-            <button onClick={() => { setBpmTapTimes([]); setBpmTapResult(null); }} className="flex-1 py-1.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded text-[10px] hover:bg-[var(--bg-hover)]/50 transition-colors">{t("reinitialiser")}</button>
-            {bpmTapResult && selectedTrack && (
-              <button onClick={() => {
-                setTracks(prev => prev.map(t => t.id === selectedTrack.id ? {...t, analysis: {...(t.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : t));
-                setSelectedTrack(prev => prev ? {...prev, analysis: {...(prev.analysis || {}), bpm: Math.round(bpmTapResult * 10) / 10}} : prev);
-                setShowBpmTap(false); setBpmTapTimes([]); setBpmTapResult(null);
-              }} className="flex-1 py-1.5 bg-green-600/30 text-green-300 rounded text-[10px] hover:bg-green-600/50 transition-colors">{t("appliquer_track")}</button>
-            )}
-          </div>
-        </div>
-      )}
-      {/* Mix Transition Log */}
-      {mixLog.length > 0 && (
-        <div className="fixed top-20 right-4 z-40 bg-[var(--bg-secondary)]/95 border border-[var(--border-subtle)]/50 rounded-xl p-3 shadow-xl backdrop-blur-xl w-56 max-h-64 overflow-y-auto">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Mix Log</h4>
-            <button onClick={() => setMixLog([])} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-[9px]">{t("effacer")}</button>
-          </div>
-          {mixLog.slice(0, 8).map((entry, i) => {
-            const fromTrack = tracks.find(t => t.id === entry.fromId);
-            const toTrack = tracks.find(t => t.id === entry.toId);
-            const scoreColor = entry.score >= 80 ? 'text-green-400' : entry.score >= 60 ? 'text-yellow-400' : 'text-red-400';
-            return (
-              <div key={i} className="flex items-center gap-1.5 py-1 border-b border-[var(--border-subtle)]/50 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <div className="text-[9px] text-[var(--text-secondary)] truncate">{fromTrack?.title || '?'}</div>
-                  <div className="text-[8px] text-[var(--text-muted)] flex items-center gap-0.5"><ArrowUpDown className="w-2.5 h-2.5" /></div>
-                  <div className="text-[9px] text-[var(--text-secondary)] truncate">{toTrack?.title || '?'}</div>
-                </div>
-                <span className={"text-[10px] font-bold font-mono " + scoreColor}>{entry.score}%</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {/* Batch Actions Floating Bar */}
-      {selectedIds.size > 1 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-[var(--border-default)]/50 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-4 backdrop-blur-xl">
-          <span className="text-sm font-medium text-[var(--text-primary)]">{selectedIds.size} tracks</span>
-          <div className="w-px h-6 bg-[var(--bg-hover)]" />
-          <button onClick={() => { const ids = Array.from(selectedIds); setSetLists(prev => prev.map((s, i) => i === activeSetList ? {...s, trackIds: [...new Set([...s.trackIds, ...ids])]} : s)); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/30 text-blue-300 rounded-lg hover:bg-blue-600/50 text-xs font-medium transition-colors">
-            <ListPlus className="w-3.5 h-3.5" /> Add to Set List
-          </button>
-          <button onClick={async () => { if (!confirm('Delete ' + selectedIds.size + ' tracks?')) return; for (const id of selectedIds) { try { await deleteTrack(id); } catch(e) {} } setTracks(prev => prev.filter(t => !selectedIds.has(t.id))); if (selectedTrack && selectedIds.has(selectedTrack.id)) setSelectedTrack(null); setSelectedIds(new Set()); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/30 text-red-300 rounded-lg hover:bg-red-600/50 text-xs font-medium transition-colors">
-            <Trash2 className="w-3.5 h-3.5" /> Delete
-          </button>
-          <button onClick={() => setSelectedIds(new Set())} className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-hover)]/50 text-xs font-medium transition-colors">
-            <X className="w-3.5 h-3.5" /> Clear
-          </button>
-        </div>
-      )}
-      {/* ── Track Organizer Panel ────────────────────────────── */}
-      {organizerTrack && (
-        <TrackOrganizer
-          track={organizerTrack}
-          onClose={() => setOrganizerTrack(null)}
-          onUpdate={(updated) => {
-            setOrganizerTrack(null);
-            setTracks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-            if (selectedTrack?.id === updated.id) setSelectedTrack(updated);
-          }}
-        />
-      )}
 
-      {/* ── Metadata / Spotify Panel (slide-in, closable) ──── */}
-      {metadataPanel && (
-        <>
-          {/* Backdrop overlay */}
-          <div className="fixed inset-0 bg-black/30 z-30" onClick={() => setMetadataPanel(null)} />
-          <div className="fixed inset-y-0 right-0 w-[420px] max-w-full bg-[var(--bg-secondary)] border-l border-[var(--border-subtle)]/60 z-40 shadow-2xl overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-subtle)]/40 sticky top-0 bg-[var(--bg-secondary)] z-10">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-                <Sparkles size={16} className="text-green-400" />
-                Metadata & Spotify
-              </h3>
-              <button onClick={() => setMetadataPanel(null)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-elevated)]/50 transition-all">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-5">
-              {/* Current cover + info */}
-              <div className="flex items-start gap-4">
-                {metadataPanel.artwork_url ? (
-                  <img src={metadataPanel.artwork_url} alt="" className="w-24 h-24 rounded-xl object-cover shadow-xl" />
-                ) : (
-                  <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center shadow-xl">
-                    <Image size={28} className="text-[var(--text-muted)]" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-[var(--text-primary)] font-bold truncate">{metadataPanel.title || metadataPanel.original_filename}</p>
-                  <p className="text-sm text-[var(--text-secondary)] truncate">{metadataPanel.artist || 'Artiste inconnu'}</p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">{metadataPanel.album || 'Album inconnu'}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    {metadataPanel.genre && (
-                      <span className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-cyan-400/80 rounded-full border border-purple-500/30">
-                        {metadataPanel.genre.split(',')[0].trim()}
-                      </span>
-                    )}
-                    {metadataPanel.year && (
-                      <span className="text-[10px] px-2 py-0.5 bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] rounded-full">
-                        {metadataPanel.year}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Spotify link if available */}
-              {metadataPanel.spotify_url && (
-                <a href={metadataPanel.spotify_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2.5 bg-green-600/10 hover:bg-green-600/20 border border-green-500/30 rounded-xl text-green-400 text-xs font-semibold transition-all">
-                  <ExternalLink size={14} />
-                  Ouvrir sur Spotify
-                </a>
-              )}
-
-              {/* Current metadata */}
+          {/* Tab content */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {activeBottomTab === 'cues' && selectedTrack && (
               <div>
-                <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Informations actuelles</p>
-                <div className="space-y-2 text-xs">
-                  <MetaRow label="Fichier" value={metadataPanel.original_filename} />
-                  <MetaRow label="Artiste" value={metadataPanel.artist || '\u2014'} />
-                  <MetaRow label="Titre" value={metadataPanel.title || '\u2014'} />
-                  <MetaRow label="Album" value={metadataPanel.album || '\u2014'} />
-                  <MetaRow label="Genre" value={metadataPanel.genre || '\u2014'} />
-                  <MetaRow label="Année" value={metadataPanel.year?.toString() || '\u2014'} />
-                </div>
-              </div>
-
-              {/* Suggestions from analysis */}
-              {metadataLoading && (
-                <div className="flex items-center justify-center gap-3 py-8">
-                  <Loader2 size={20} className="animate-spin text-green-400" />
-                  <span className="text-sm text-[var(--text-secondary)]">Recherche en cours...</span>
-                </div>
-              )}
-
-              {metadataSuggestions && !metadataLoading && (
-                <div>
-                  <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-                    {Object.keys(metadataSuggestions).length > 0 ? 'Suggestions trouvées' : 'Aucune suggestion'}
-                  </p>
-                  {Object.keys(metadataSuggestions).length > 0 ? (
-                    <div className="space-y-2">
-                      {Object.entries(metadataSuggestions)
-                        .filter(([k]) => k !== 'artwork_url' && k !== 'spotify_url')
-                        .map(([key, value]) => (
-                          <div key={key} className="flex items-center justify-between p-2.5 bg-green-500/5 border border-green-500/20 rounded-lg">
-                            <div className="min-w-0">
-                              <span className="text-[10px] text-[var(--text-muted)] uppercase">{key}</span>
-                              <p className="text-xs text-green-400 font-medium truncate">{value}</p>
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                              <span className="text-[10px] text-yellow-400/70 flex items-center gap-0.5">
-                                <AlertTriangle size={10} />
-                                Suggestion
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      <p className="text-[10px] text-[var(--text-muted)] mt-2 italic">
-                        Les suggestions ont été appliquées automatiquement. Si elles sont incorrectes, vous pouvez modifier les tags manuellement.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[var(--text-muted)] text-center py-4">
-                      Aucune nouvelle information trouvée pour ce morceau.
-                    </p>
-                  )}
-                </div>
-              )}
-
-
-
-
-              {/* Search button if no suggestions yet */}
-              {!metadataSuggestions && !metadataLoading && (
-                <div className="text-center py-4">
-                  <button
-                    onClick={() => launchSpotifySearch(metadataPanel)}
-                    className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-[var(--text-primary)] text-xs font-semibold rounded-xl transition-all shadow-lg shadow-green-600/20"
-                  >
-                    <Search size={13} className="inline mr-2" />
-                    Lancer la recherche Spotify
+                <div className="flex justify-between items-center mb-3">
+                  <div className="text-sm font-semibold text-[var(--text-primary)]">Cue Points ({selectedTrack?.cue_points?.length || 0})</div>
+                  <button onClick={() => setShowAddCue(!showAddCue)} className="text-[10px] px-2 py-1 rounded bg-blue-600/30 text-blue-400 border border-blue-500/50 hover:bg-blue-600/50 transition-colors">
+                    + Add
                   </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-      </>
-) : (
-<div className="flex-1 flex flex-col overflow-y-auto p-4">
-  {/* Module View - replaces track list */}
-  {activeBottomTab === 'cues' && selectedTrack && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Cue Points — {selectedTrack.title}</h3>
-      <div className="grid grid-cols-8 gap-2">
-        {Array.from({length: 8}).map((_, i) => {
-          const cue = selectedTrack.cue_points?.[i];
-          return (
-            <button key={i} onClick={() => {
-              if (cue && wavesurferRef.current) {
-                wavesurferRef.current.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1));
-              }
-            }} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${cue ? 'border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 cursor-pointer' : 'border-[var(--border-subtle)]/40 bg-[var(--bg-secondary)]/30 opacity-40'}`}>
-              <span className="text-lg font-bold" style={{color: cueColors[i] || '#06b6d4'}}>{String.fromCodePoint(0x2776 + i)}</span>
-              <span className="text-[10px] text-[var(--text-secondary)]">{cue ? cue.label || 'Cue ' + (i+1) : '—'}</span>
-              <span className="text-[9px] text-[var(--text-muted)]">{cue ? (cue.time_ms / 1000).toFixed(1) + 's' : ''}</span>
-            </button>
-          );
-        })}
-      </div>
-      {selectedTrack.cue_points && selectedTrack.cue_points.length > 0 && (
-        <div className="space-y-1 mt-4">
-          <h4 className="text-xs font-semibold text-[var(--text-secondary)]">Détails des cues</h4>
-          {selectedTrack.cue_points.map((cue: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/50 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 transition-colors cursor-pointer" onClick={() => wavesurferRef.current?.seekTo(cue.time_ms / (selectedTrack.analysis?.duration_ms || selectedTrack.duration_ms || 1))}>
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{backgroundColor: (cueColors[i] || '#06b6d4') + '30', color: cueColors[i] || '#06b6d4'}}>{i+1}</span>
-              <span className="text-xs text-[var(--text-primary)] font-medium flex-1">{cue.label || 'Cue ' + (i+1)}</span>
-              <span className="text-[10px] text-[var(--text-muted)]">{(cue.time_ms / 1000).toFixed(2)}s</span>
-              <span className="text-[10px] text-[var(--text-muted)]">{cue.type || 'hot_cue'}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )}
-  {activeBottomTab === 'eq' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                    <SlidersHorizontal size={16} /> EQ Controls
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {!eqConnected && <button onClick={connectEQ} className="px-3 py-1 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded-md border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors">{t("connecter_audio")}</button>}
-                    {eqConnected && <span className="text-[10px] text-green-400 flex items-center gap-1"><Check size={10} /> Connected</span>}
-                    <button onClick={() => { updateEQ('low', 0); updateEQ('mid', 0); updateEQ('high', 0); }} className="px-2 py-1 text-[10px] font-bold bg-[var(--bg-card)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-elevated)] transition-colors">{t("reinitialiser")}</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  {([['low', 'LOW', '#ef4444', eqValues.low], ['mid', 'MID', '#eab308', eqValues.mid], ['high', 'HIGH', '#3b82f6', eqValues.high]] as const).map(([band, label, color, val]) => (
-                    <div key={band} className="flex flex-col items-center gap-2 p-3 bg-[var(--bg-secondary)]/60 rounded-xl border border-[var(--border-subtle)]/40">
-                      <span className="text-xs font-bold" style={{color}}>{label}</span>
-                      <div className="relative w-full h-32 bg-[var(--bg-primary)] rounded-lg overflow-hidden">
-                        <div className="absolute bottom-0 w-full rounded-b-lg transition-all duration-150" style={{height: `${Math.max(5, 50 + (val as number) / 12 * 50)}%`, background: `linear-gradient(to top, ${color}44, ${color}bb)`}} />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-lg font-bold text-[var(--text-primary)] drop-shadow-lg">{(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}</span>
+                <div className="space-y-2">
+                  {selectedTrack?.cue_points?.map((cue, i) => (
+                    <div key={cue.id || i} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-subtle)]/40 text-[10px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: getCueColor(cue.id, i) }} />
+                        <div className="min-w-0">
+                          <p className="font-mono font-bold truncate" style={{ color: getCueColor(cue.id, i) }}>{cue.label || `CUE ${i + 1}`}</p>
+                          <p className="text-[9px] text-[var(--text-muted)]">{msToTime((cue.position_ms || (cue.time ? cue.time * 1000 : 0)))}</p>
                         </div>
                       </div>
-                      <input type="range" min={-12} max={12} step={0.5} value={val as number} onChange={(e) => updateEQ(band as 'low'|'mid'|'high', parseFloat(e.target.value))} className="w-full h-2 rounded-lg appearance-none cursor-pointer" style={{accentColor: color}} />
-                      <span className="text-[10px] text-[var(--text-muted)]">dB</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  {[{name: 'Flat', l: 0, m: 0, h: 0}, {name: 'Bass Boost', l: 6, m: 0, h: -2}, {name: 'Vocal', l: -3, m: 4, h: 2}, {name: 'Treble', l: -4, m: 0, h: 6}].map(p => (
-                    <button key={p.name} onClick={() => { updateEQ('low', p.l); updateEQ('mid', p.m); updateEQ('high', p.h); }} className="flex-1 px-2 py-1.5 text-[10px] font-bold bg-[var(--bg-card)]/60 text-[var(--text-secondary)] rounded-lg border border-[var(--border-subtle)]/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all">{p.name}</button>
-                  ))}
-                </div>
-                {!eqConnected && <p className="text-[10px] text-amber-500/80 italic">Click "Connect Audio" to enable real-time EQ via Web Audio API</p>}
-              </div>
-            )}
-            {activeBottomTab === 'fx' && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2"><Wand2 size={16} /> FX Rack</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {[{id: 'reverb', name: 'Reverb', icon: '~'}, {id: 'delay', name: 'Delay', icon: '...'}, {id: 'echo', name: 'Echo', icon: '))'}, {id: 'flanger', name: 'Flanger', icon: 'F'}, {id: 'phaser', name: 'Phaser', icon: 'P'}, {id: 'filter', name: 'Filter', icon: 'V'}].map(fx => (
-                    <button key={fx.id} onClick={() => setActiveFx(activeFx === fx.id ? null : fx.id)} className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition-all ${activeFx === fx.id ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10' : 'bg-[var(--bg-secondary)]/50 border-[var(--border-subtle)]/40 text-[var(--text-secondary)] hover:border-purple-500/30 hover:text-purple-300'}`}>
-                      <span className="text-lg font-bold">{fx.icon}</span>
-                      <span className="text-[10px] font-semibold uppercase">{fx.name}</span>
-                    </button>
-                  ))}
-                </div>
-                {activeFx && (
-                  <div className="p-4 bg-[var(--bg-secondary)]/60 rounded-xl border border-purple-500/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-purple-300 uppercase">{activeFx} Parameters</span>
-                      <button onClick={() => setFxParams(prev => ({...prev, [activeFx]: 0}))} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">{t("reinitialiser")}</button>
-                    </div>
-                    <div className="space-y-3">
-                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">Dry/Wet</label><input type="range" min={0} max={100} value={fxParams[activeFx] || 0} onChange={(e) => setFxParams(prev => ({...prev, [activeFx]: parseInt(e.target.value)}))} className="w-full accent-purple-500" /><div className="flex justify-between text-[9px] text-[var(--text-muted)]"><span>Dry</span><span>{fxParams[activeFx] || 0}%</span><span>Wet</span></div></div>
-                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">{t("taux")}</label><input type="range" min={0} max={100} defaultValue={50} className="w-full accent-purple-400" /></div>
-                      <div><label className="text-[10px] text-[var(--text-secondary)] block mb-1">{t("profondeur")}</label><input type="range" min={0} max={100} defaultValue={30} className="w-full accent-purple-300" /></div>
-                    </div>
-                    <p className="text-[9px] text-amber-500/60 mt-2 italic">{t("fx_bientot")}</p>
-                  </div>
-                )}
-                {!activeFx && <p className="text-[10px] text-[var(--text-muted)] italic text-center py-4">{t("select_effet_params")}</p>}
-              </div>
-            )}
-            {activeBottomTab === 'mix' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{t("assistant_mix")}</h3>
-      {selectedTrack ? (
-        <div className="space-y-3">
-          <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
-            <span className="text-xs text-[var(--text-secondary)]">Morceau actuel:</span>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedTrack.title}</p>
-            <div className="flex gap-4 mt-1">
-              <span className="text-xs text-cyan-400">{selectedTrack.analysis?.bpm?.toFixed(1)} BPM</span>
-              <span className="text-xs text-purple-400">{toCamelot(selectedTrack.analysis?.key || '')}</span>
-              <span className="text-xs" style={{ color: energyToColor(selectedTrack.analysis?.energy) }}>Energy: {selectedTrack.analysis?.energy != null ? Math.round(selectedTrack.analysis.energy * 100) + '% (' + energyToLabel(selectedTrack.analysis?.energy) + ')' : 'N/A'}</span>
-            </div>
-          </div>
-          <h4 className="text-xs font-semibold text-[var(--text-secondary)]">Meilleurs enchaînements</h4>
-          <div className="space-y-1">
-            {filteredTracks
-              .filter(t => t.id !== selectedTrack.id && t.analysis?.key && t.analysis?.bpm)
-              .map(t => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
-              .sort((a, b) => b.score.total - a.score.total)
-              .slice(0, 10)
-              .map(({track: t, score}) => (
-                <div key={t.id} onClick={() => setSelectedTrack(t)} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 cursor-pointer transition-colors">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${score.total >= 80 ? 'bg-green-500/20 text-green-400' : score.total >= 60 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{score.total}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[var(--text-primary)] font-medium truncate">{t.title}</p>
-                    <p className="text-[10px] text-[var(--text-muted)] truncate">{t.artist || 'Unknown'}</p>
-                  </div>
-                  <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
-                  <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">{score.verdict}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-[var(--text-muted)]">Sélectionne un morceau pour voir les suggestions de mix</p>
-      )}
-    </div>
-  )}
-  {activeBottomTab === 'playlists' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{t("playlists")}</h3>
-      {setList.length > 0 ? (
-        <div className="space-y-1">
-          {setList.map((t: any, i: number) => (
-            <div key={t.id || i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30">
-              <span className="text-xs font-bold text-[var(--text-muted)] w-6">{i+1}</span>
-              <span className="text-xs text-[var(--text-primary)] flex-1 truncate">{t.title}</span>
-              <span className="text-[10px] text-cyan-400">{t.analysis?.bpm?.toFixed(1)}</span>
-              <span className="text-[10px] text-purple-400">{toCamelot(t.analysis?.key || '')}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-[var(--text-muted)]">Aucun morceau dans la set list. Ajoute des morceaux depuis la liste.</p>
-      )}
-    </div>
-  )}
-  {activeBottomTab === 'history' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Historique de lecture</h3>
-      {playHistory.length > 0 ? (
-        <div className="space-y-1">
-          {playHistory.slice().reverse().map((entry: any, i: number) => {
-            const t = tracks.find((tr: any) => tr.id === entry.trackId);
-            return t ? (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-secondary)]/40 rounded-lg border border-[var(--border-subtle)]/30 hover:bg-[var(--bg-card)]/50 cursor-pointer transition-colors" onClick={() => setSelectedTrack(t)}>
-                <span className="text-[10px] text-[var(--text-muted)] w-16">{new Date(entry.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</span>
-                <span className="text-xs text-[var(--text-primary)] flex-1 truncate">{t.title}</span>
-                <span className="text-[10px] text-[var(--text-muted)]">{t.artist || ''}</span>
-              </div>
-            ) : null;
-          })}
-        </div>
-      ) : (
-        <p className="text-xs text-[var(--text-muted)]">Aucun historique encore.</p>
-      )}
-    </div>
-  )}
-  {activeBottomTab === 'stats' && (
-    <div className="space-y-4">
-      <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Statistiques de la collection</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{tracks.length}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Morceaux</p>
-        </div>
-        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
-          <p className="text-2xl font-bold text-cyan-400">{tracks.filter((t: any) => t.analysis?.bpm).length}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Analysés</p>
-        </div>
-        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
-          <p className="text-2xl font-bold text-purple-400">{new Set(tracks.map((t: any) => t.analysis?.genre).filter(Boolean)).size}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">Genres</p>
-        </div>
-        <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40 text-center">
-          <p className="text-2xl font-bold text-green-400">{tracks.filter((t: any) => t.analysis?.energy && t.analysis.energy >= 70).length}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">{t("haute_energie")}</p>
-        </div>
-      </div>
-      {tracks.length > 0 && (() => {
-        const bpms = tracks.filter((t: any) => t.analysis?.bpm).map((t: any) => t.analysis.bpm);
-        const avgBpm = bpms.length > 0 ? (bpms.reduce((a: number, b: number) => a + b, 0) / bpms.length) : 0;
-        const energies = tracks.filter((t: any) => t.analysis?.energy).map((t: any) => t.analysis.energy);
-        const avgEnergy = energies.length > 0 ? (energies.reduce((a: number, b: number) => a + b, 0) / energies.length) : 0;
-        return (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
-              <p className="text-xs text-[var(--text-secondary)] mb-1">BPM moyen</p>
-              <p className="text-lg font-bold text-cyan-400">{avgBpm.toFixed(1)}</p>
-            </div>
-            <div className="p-3 bg-[var(--bg-secondary)]/50 rounded-xl border border-[var(--border-subtle)]/40">
-              <p className="text-xs text-[var(--text-secondary)] mb-1">Energy moyenne</p>
-              <p className="text-lg font-bold text-green-400">{avgEnergy.toFixed(0)}%</p>
-            </div>
-          </div>
-        );
-      })()}
-    </div>
-  )}
-</div>
-)}
-</div>{/* end center */}
-      {/* COLOR PICKER POPUP */}
-      {colorPickerCue !== null && (
-        <div className="fixed inset-0 z-50" onClick={() => setColorPickerCue(null)}>
-          <div
-            className="absolute bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg p-2 shadow-2xl"
-            style={{ left: colorPickerPos.x, top: colorPickerPos.y }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-[10px] text-[var(--text-secondary)] mb-1.5 px-1">{t("couleur_cue")}</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {REKORDBOX_COLORS.map((c) => (
-                <button
-                  key={c.hex}
-                  className="w-7 h-7 rounded-md border-2 hover:scale-110 transition-transform"
-                  style={{ backgroundColor: c.hex, borderColor: cueColors[colorPickerCue] === c.hex ? '#fff' : 'transparent' }}
-                  title={c.name}
-                  onClick={() => {
-                    setCueColors((prev) => ({ ...prev, [colorPickerCue]: c.hex }));
-                    setColorPickerCue(null);
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className={`${rightPanelExpanded ? "w-[700px]" : "w-96"} flex-shrink-0 border-l border-[var(--border-subtle)]/50 flex flex-col overflow-y-auto bg-[var(--bg-primary)]/90 transition-all duration-300`}>
-      <div className="p-2">
-        <div className="bg-[var(--bg-secondary)]/95 backdrop-blur-sm border-t border-[var(--border-subtle)]/80">
-        {/* Tab Bar */}
-        <div className="flex items-center border-b border-[var(--border-subtle)]/50 px-1">
-          {[
-            { id: 'cues', label: 'CUES' },
-            { id: 'eq', label: 'EQ' },
-            { id: 'fx', label: 'FX' },
-            { id: 'mix', label: 'MIX' },
-            { id: 'playlists', label: 'PLAYLISTS' },
-            { id: 'history', label: 'HISTORY' },
-            { id: 'stats', label: 'STATS' },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveBottomTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] transition-all duration-200 ${
-                activeBottomTab === tab.id
-                  ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-400/5'
-                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] border-b-2 border-transparent hover:bg-white/[0.02]'
-              }`}>{tab.label}</button>
-          ))}
-          <button
-            onClick={() => setRightPanelExpanded((p) => !p)}
-            className="ml-auto px-2.5 py-2 text-[var(--text-secondary)] hover:text-cyan-400 hover:bg-cyan-400/10 rounded transition-all"
-            title={rightPanelExpanded ? 'Collapse panel' : t('expand_panel')}
-          >
-            {rightPanelExpanded ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <div className="p-3">
-          {activeBottomTab === 'cues' && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-cyan-400 tracking-widest">CUE POINTS</span>
-                <button onClick={() => { if (selectedTrack && wavesurferRef.current) { const pos = wavesurferRef.current.getCurrentTime() * 1000; createCuePoint(selectedTrack?.id, { position_ms: pos, label: 'Cue ' + ((selectedTrack?.cue_points?.length || 0) + 1), type: 'cue' }).then(() => { const fresh = getTrack(selectedTrack?.id); fresh.then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="text-[10px] px-2 py-0.5 rounded bg-cyan-600/30 text-cyan-300 hover:bg-cyan-600/50 transition-colors">{t("ajouter_cue")}</button>
-                {selectedTrack?.analysis && (
-                  <button onClick={() => {
-                    const autoCues = generateCuePointsFromAnalysis(selectedTrack?.analysis);
-                    if (autoCues.length === 0) { showToast('No analysis data for auto-generation'); return; }
-                    const newCues = autoCues.map((c, i) => ({ id: Date.now() + i, label: c.label, position: c.position, color: c.color }));
-                    setSelectedTrack((prev: any) => ({ ...prev, cue_points: newCues }));
-                    setTracks((prev: any) => prev.map((t: any) => t.id === selectedTrack?.id ? { ...t, cue_points: newCues } : t));
-                    showToast(autoCues.length + ' cue points auto-generated');
-                  }} className="text-xs px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-[var(--text-primary)] flex items-center gap-1">
-                    <Sparkles size={12} /> Auto
-                  </button>
-                )}
-              </div>
-              {(!selectedTrack?.cue_points || selectedTrack.cue_points.length === 0) ? (
-                <p className="text-[var(--text-muted)] text-xs text-center py-4">{t("pas_cue_points")}</p>
-              ) : (
-                <div className="space-y-1 max-h-[300px] overflow-y-auto scrollbar-thin">
-                  {selectedTrack?.cue_points.map((cue, idx) => (
-                    <div key={cue.id || idx} className="flex items-center gap-2 p-1.5 rounded bg-[var(--bg-card)]/40 hover:bg-[var(--bg-card)]/60 cursor-pointer group transition-colors" onClick={() => { if (wavesurferRef.current) { const dur = wavesurferRef.current.getDuration(); if (dur > 0) wavesurferRef.current.seekTo((cue.position_ms || cue.time) / (dur * 1000)); } }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setColorPickerCue(cue.id || idx); setColorPickerPos({x: e.clientX, y: e.clientY}); }}>
-                      <div className="w-4 h-4 rounded-full flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-white/50 transition-all" style={{backgroundColor: getCueColor(cue.id || idx, idx)}} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[var(--text-primary)] font-medium truncate">{cue.label || cue.name || ('Cue ' + (idx + 1))}</div>
-                        <div className="text-[9px] text-[var(--text-secondary)]">{Math.floor((cue.position_ms || cue.time || 0) / 60000) + ':' + String(Math.floor(((cue.position_ms || cue.time || 0) % 60000) / 1000)).padStart(2, '0') + '.' + String(Math.floor(((cue.position_ms || cue.time || 0) % 1000) / 10)).padStart(2, '0')} {cue.type ? (' · ' + cue.type) : ''}</div>
-                      </div>
-                      <button onClick={(e) => { e.stopPropagation(); if (cue.id) { deleteCuePoint(cue.id).then(() => { getTrack(selectedTrack.id).then((t) => setSelectedTrack(t)).catch(() => {}); }).catch(() => {}); } }} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 p-1 transition-opacity">
-                        <Trash2 size={12} />
+                      <button onClick={() => deleteCuePoint(selectedTrack.id, cue.id)} className="text-red-500/60 hover:text-red-500 transition-colors" title="Delete">
+                        <Trash2 size={10} />
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-          {activeBottomTab === 'eq' && (
-            <div>
-{/* EQ 3-Band Controls */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Disc className="w-4 h-4 text-cyan-400" /> EQ Controls
-          </h3>
-          <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); }} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1 rounded bg-[var(--bg-elevated)]">{t("reinitialiser")}</button>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-red-400 w-10">LOW</span>
-            <input type="range" min={0} max={100} value={eqLow} onChange={(e) => setEqLow(Number(e.target.value))} className="flex-1 accent-red-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{eqLow}%</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-yellow-400 w-10">MID</span>
-            <input type="range" min={0} max={100} value={eqMid} onChange={(e) => setEqMid(Number(e.target.value))} className="flex-1 accent-yellow-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{eqMid}%</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-blue-400 w-10">HIGH</span>
-            <input type="range" min={0} max={100} value={eqHigh} onChange={(e) => setEqHigh(Number(e.target.value))} className="flex-1 accent-blue-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{eqHigh}%</span>
-          </div>
-        </div>
-      </div>
-
-      
-            </div>
-          )}
-          {activeBottomTab === 'fx' && (
-            <div>
-{/* FX Rack */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-          <Wand2 className="w-4 h-4 text-cyan-500/70" /> FX Rack
-        </h3>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {["Reverb", "Delay", "Echo", "Flanger", "Phaser", "Filter"].map(function(fxName) {
-            return (
-              <button key={fxName} onClick={() => setActiveFx(activeFx === fxName ? "" : fxName)}
-                className={activeFx === fxName ? "px-2 py-1 rounded text-xs font-medium bg-purple-600 text-[var(--text-primary)]" : "px-2 py-1 rounded text-xs font-medium bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"}
-              >{fxName}</button>
-            );
-          })}
-        </div>
-        {activeFx ? (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-cyan-400/80 w-8">Wet</span>
-            <input type="range" min={0} max={100} value={fxWet} onChange={(e) => setFxWet(Number(e.target.value))} className="flex-1 accent-purple-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{fxWet}%</span>
-          </div>
-        ) : (
-          <p className="text-xs text-[var(--text-muted)] text-center">{t("select_effet")}</p>
-        )}
-      </div>
-
-      
-            </div>
-          )}
-          {activeBottomTab === 'mix' && (
-            <div>
-{/* Mix Controls */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-          <Volume2 className="w-4 h-4 text-green-400" /> Mix Controls
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-green-400 w-14">Master</span>
-            <input type="range" min={0} max={100} value={masterGain} onChange={(e) => setMasterGain(Number(e.target.value))} className="flex-1 accent-green-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{masterGain}%</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-orange-400 w-14">X-Fade</span>
-            <input type="range" min={0} max={100} value={crossfader} onChange={(e) => setCrossfader(Number(e.target.value))} className="flex-1 accent-orange-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{crossfader}%</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-sky-400 w-14">Pitch</span>
-            <input type="range" min={-12} max={12} value={pitchShift} onChange={(e) => setPitchShift(Number(e.target.value))} className="flex-1 accent-sky-500" />
-            <span className="text-xs text-[var(--text-secondary)] w-8">{pitchShift > 0 ? "+" : ""}{pitchShift}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Harmonic Mix Suggestions */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-          <Music className="w-4 h-4 text-purple-400" /> Harmonic Mix Suggestions
-        </h3>
-        {selectedTrack?.analysis?.key ? (
-          <div>
-            <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"16px",padding:"12px",background:"rgba(6,182,212,0.1)",borderRadius:"8px",border:"1px solid rgba(6,182,212,0.3)"}}>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:"24px",fontWeight:"bold",color:"#06b6d4"}}>{toCamelot(selectedTrack.analysis.key)}</div>
-                <div style={{fontSize:"10px",color:"#94a3b8"}}>{selectedTrack.analysis.key}</div>
               </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:"13px",fontWeight:"600",color:"#e2e8f0"}}>{selectedTrack.title || selectedTrack.original_filename || selectedTrack.filename}</div>
-                <div style={{fontSize:"11px",color:"#94a3b8"}}>{Math.round(selectedTrack.analysis.bpm)} BPM</div>
+            )}
+
+            {activeBottomTab === 'eq' && (
+              <div>
+                <div className="text-sm font-semibold text-cyan-400 mb-4">3-Band Equalizer</div>
+                <div className="flex gap-8">
+                  {[
+                    { label: 'LOW', value: eqLow, set: setEqLow, color: 'rgb(239, 68, 68)' },
+                    { label: 'MID', value: eqMid, set: setEqMid, color: 'rgb(245, 158, 11)' },
+                    { label: 'HIGH', value: eqHigh, set: setEqHigh, color: 'rgb(6, 182, 212)' },
+                  ].map((band) => (
+                    <div key={band.label} className="text-center">
+                      <div className="w-10 h-20 bg-[var(--bg-hover)] rounded-lg relative m-auto mb-2 cursor-pointer" onClick={(e) => {
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const newVal = Math.round(((r.bottom - e.clientY) / r.height) * 24 - 12);
+                        band.set(Math.max(-12, Math.min(12, newVal)));
+                      }}>
+                        <div className="absolute bottom-1/2 left-1 right-1 h-1 rounded-full" style={{ backgroundColor: band.color, transform: `translateY(${(band.value / 24) * 100}%)` }} />
+                        <div className="absolute bottom-1/2 left-1 right-1 h-px bg-[var(--border-default)]" />
+                      </div>
+                      <p className="font-mono text-[11px] font-bold" style={{ color: band.color }}>{band.value > 0 ? '+' : ''}{band.value}dB</p>
+                      <p className="text-[10px] text-[var(--text-muted)]">{band.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 pt-4 border-t border-[var(--border-subtle)]">
+                  <div className="text-[10px] text-[var(--text-muted)] mb-2">Playback Rate</div>
+                  <div className="flex gap-2 mb-3">
+                    {[0.75, 1, 1.25, 1.5].map((r) => (
+                      <button key={r} onClick={() => setPlaybackRate(r)} className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${playbackRate === r ? 'bg-blue-600/30 text-blue-400 border border-blue-500/50' : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'}`}>
+                        {r}x
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => { setEqLow(50); setEqMid(50); setEqHigh(50); setPlaybackRate(1); }} className="px-2 py-1 rounded text-[10px] font-medium bg-orange-500/30 text-orange-400 border border-orange-500/50 hover:bg-orange-500/50 transition-colors w-full">
+                    <RotateCcw size={10} className="inline mr-1" /> Reset
+                  </button>
+                </div>
               </div>
-            </div>
-            <div style={{marginBottom:"12px"}}>
-              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>{t("cles_compatibles")}</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                {getCompatibleKeys(toCamelot(selectedTrack.analysis.key)).map(function(ck){return(
-                  <span key={ck} style={{padding:"4px 10px",borderRadius:"6px",fontSize:"11px",fontWeight:"500",background:"rgba(6,182,212,0.15)",color:"#06b6d4",border:"1px solid rgba(6,182,212,0.3)"}}>{ck}</span>
-                )})}
-              </div>
-            </div>
-            <div style={{marginBottom:"8px"}}>
-              <div style={{fontSize:"11px",fontWeight:"600",color:"#94a3b8",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>{t("morceaux_compatibles")}</div>
-              {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).length > 0 ? (
-                <div style={{display:"flex",flexDirection:"column",gap:"6px"}}>
-                  {tracks.filter(function(t){return t.id !== selectedTrack.id && t.analysis && t.analysis.key && isMixCompatible(selectedTrack, t)}).map(function(t){return(
-                    <div key={t.id} onClick={function(){setSelectedTrack(t)}} style={{display:"flex",alignItems:"center",gap:"10px",padding:"8px 10px",borderRadius:"6px",background:"rgba(30,41,59,0.8)",border:"1px solid rgba(51,65,85,0.5)",cursor:"pointer"}}>
-                      <span style={{fontSize:"13px",fontWeight:"bold",color:"#22d3ee",minWidth:"28px"}}>{toCamelot(t.analysis.key)}</span>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:"12px",color:"#e2e8f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.title || t.original_filename || t.filename}</div>
-                        <div style={{fontSize:"10px",color:"#64748b"}}>{Math.round(t.analysis.bpm)} BPM &middot; {t.analysis.key}</div>
+            )}
+
+            {activeBottomTab === 'fx' && (
+              <div>
+                <div className="text-sm font-semibold text-purple-400 mb-4">Effects</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Reverb', 'Delay', 'Flanger', 'Phaser', 'Lo-Pass', 'Hi-Pass', 'Bitcrush'].map((fx) => (
+                    <div key={fx} className="p-3 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-subtle)]/40 cursor-pointer hover:bg-[var(--bg-elevated)] transition-colors text-center">
+                      <p className="text-[11px] font-medium text-[var(--text-primary)]">{fx}</p>
+                      <div className="w-full h-1 bg-[var(--bg-primary)] rounded-full mt-2">
+                        <div className="w-0 h-full bg-purple-500 rounded-full" />
                       </div>
                     </div>
-                  )})}
+                  ))}
                 </div>
-              ) : (
-                <div style={{textAlign:"center",padding:"20px 12px",color:"#64748b",fontSize:"12px"}}>
-                  <p style={{marginBottom:"4px"}}>{t("aucun_compatible")} library.</p>
-                  <p style={{fontSize:"11px"}}>{t("ajoutez_analyses")}monic mix suggestions.</p>
+              </div>
+            )}
+
+            {activeBottomTab === 'mix' && (
+              <div>
+                <div className="text-sm font-semibold text-cyan-400 mb-3">Mix Assistant</div>
+                {selectedTrack?.analysis && (
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="text-[var(--text-muted)]">Key:</span>
+                      <span className="px-2 py-1 rounded bg-blue-600/30 text-blue-400 font-mono font-bold">{toCamelot(selectedTrack.analysis.key)}</span>
+                    </div>
+                    <div className="text-[9px] text-[var(--text-muted)]">
+                      Compatible: {getCompatibleKeys(toCamelot(selectedTrack.analysis.key || '')).join(', ')}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {tracks.filter(t => t.id !== selectedTrack?.id && t.analysis?.bpm).map((t) => {
+                    const compatible = selectedTrack && isMixCompatible(selectedTrack, t);
+                    return (
+                      <div key={t.id} onClick={() => setSelectedTrack(t)} className={`p-2 rounded-lg cursor-pointer transition-colors ${compatible ? 'bg-green-500/10 border border-green-500/30' : 'bg-[var(--bg-hover)] border border-[var(--border-subtle)]/40'}`}>
+                        <p className="text-[11px] font-semibold text-[var(--text-primary)]">{t.title}</p>
+                        <p className="text-[9px] text-[var(--text-muted)]">{t.artist} · {t.analysis?.bpm.toFixed(1)} BPM · {toCamelot(t.analysis?.key || '')}</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-6 text-[var(--text-muted)] text-xs">
-            <Music className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            Select an analyzed track to see harmonic mix suggestions
-          </div>
-        )}
-      </div>
+              </div>
+            )}
 
-      
-            </div>
-          )}
-          {activeBottomTab === 'playlists' && (
-            <div>
-{/* Playlist Manager */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-          <Folder className="w-4 h-4 text-amber-400" /> Playlists
-        </h3>
-        <div className="flex gap-2 mb-3">
-          <input type="text" value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)} placeholder="New playlist..." className="flex-1 bg-[var(--bg-elevated)] rounded px-2 py-1 text-xs text-[var(--text-primary)] border border-[var(--border-default)] focus:border-amber-500 outline-none" />
-          <button onClick={() => { if (newPlaylistName.trim()) { var n = newPlaylistName.trim(); var next = Object.assign({}, playlists); next[n] = []; setPlaylists(next); setCurrentPlaylist(n); setNewPlaylistName(""); } }} className="px-2 py-1 rounded text-xs bg-amber-600 text-[var(--text-primary)] hover:bg-amber-500">+</button>
-        </div>
-        <div className="space-y-1 max-h-32 overflow-y-auto">
-          {Object.keys(playlists).length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)] text-center py-2">{t("pas_playlists")}</p>
-          ) : Object.keys(playlists).map(function(name) {
-            return (
-              <button key={name} onClick={() => setCurrentPlaylist(name)}
-                className={currentPlaylist === name ? "w-full text-left px-2 py-1 rounded text-xs bg-amber-600 text-[var(--text-primary)]" : "w-full text-left px-2 py-1 rounded text-xs bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"}
-              >{name} ({playlists[name].length})</button>
-            );
-          })}
-        </div>
-      </div>
+            {activeBottomTab === 'playlists' && (
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <div className="text-sm font-semibold text-cyan-400">Playlists</div>
+                  <button className="text-[10px] px-2 py-1 rounded bg-blue-600/30 text-blue-400 border border-blue-500/50 hover:bg-blue-600/50 transition-colors">
+                    + New
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--text-muted)] text-center py-4">No playlists yet</p>
+              </div>
+            )}
 
-      
-            
-            {/* Set List Builder */}
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-                <ListMusic className="w-4 h-4 text-cyan-400" /> Set List Builder
-              </h3>
-              <div className="flex gap-2 mb-3">
+            {activeBottomTab === 'stats' && (
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Tracks', value: tracks.length, color: 'blue' },
+                  { label: 'Analyzed', value: tracks.filter(t => t.analysis?.bpm).length, color: 'green' },
+                  { label: 'Avg BPM', value: Math.round(tracks.filter(t => t.analysis?.bpm).reduce((a, t) => a + t.analysis!.bpm!, 0) / Math.max(1, tracks.filter(t => t.analysis?.bpm).length)), color: 'cyan' },
+                  { label: 'Genres', value: new Set(tracks.map(t => t.genre)).size, color: 'purple' },
+                ].map((s, i) => (
+                  <div key={i} className="p-2 rounded-lg bg-[var(--bg-hover)] border border-[var(--border-subtle)]/40 text-center">
+                    <p className={`text-lg font-bold font-mono text-${s.color}-400`}>{s.value}</p>
+                    <p className="text-[9px] text-[var(--text-muted)]">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeBottomTab === 'history' && (
+              <div>
+                <div className="text-sm font-semibold text-cyan-400 mb-3">Playback History</div>
+                {tracks.slice(0, 5).map((t, i) => (
+                  <div key={t.id} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors text-[10px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono text-[var(--text-muted)]">#{i + 1}</span>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[var(--text-primary)] truncate">{t.title}</p>
+                        <p className="text-[9px] text-[var(--text-muted)] truncate">{t.artist}</p>
+                      </div>
+                    </div>
+                    {t.analysis?.bpm && (
+                      <span className="font-mono text-cyan-400">{t.analysis.bpm.toFixed(1)} BPM</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── TRACK LIST ── */}
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
+          <div className="p-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-base font-bold text-[var(--text-primary)]">Tracks ({tracks.length})</h2>
+              <div className="flex gap-2">
+                <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium transition-colors flex items-center gap-1">
+                  <Upload size={12} /> Upload
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] flex-1">
+                <Search size={12} className="text-[var(--text-muted)]" />
                 <input
                   type="text"
-                  value={newSetListName}
-                  onChange={(e) => setNewSetListName(e.target.value)}
-                  placeholder="New set list name..."
-                  className="flex-1 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-cyan-500 focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newSetListName.trim()) {
-                      setSetLists(prev => [...prev, {name: newSetListName.trim(), trackIds: []}]);
-                      setNewSetListName('');
-                      setActiveSetList(setLists.length);
-                    }
-                  }}
+                  placeholder="Search tracks..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[11px] text-[var(--text-primary)] placeholder-[var(--text-muted)]"
                 />
-                <button
-                  onClick={() => {
-                    if (newSetListName.trim()) {
-                      setSetLists(prev => [...prev, {name: newSetListName.trim(), trackIds: []}]);
-                      setNewSetListName('');
-                      setActiveSetList(setLists.length);
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] text-xs font-bold rounded-lg transition-colors"
-                >+ Create</button>
               </div>
-              {setLists.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex gap-1 flex-wrap mb-2">
-                    {setLists.map((sl, i) => (
-                      <button key={i} onClick={() => setActiveSetList(i)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors ${activeSetList === i ? 'bg-cyan-600 text-[var(--text-primary)]' : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}>
-                        {sl.name} ({sl.trackIds.length})
-                      </button>
-                    ))}
-                  </div>
-                  {activeSetList >= 0 && activeSetList < setLists.length && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-[var(--text-secondary)]">{setLists[activeSetList].trackIds.length} tracks</span>
-                        <div className="flex gap-1">
-                          <button onClick={() => {
-                            if (selectedTrack && !setLists[activeSetList].trackIds.includes(selectedTrack.id)) {
-                              setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: [...sl.trackIds, selectedTrack.id]} : sl));
-                            }
-                          }} className="px-2 py-0.5 bg-green-600/20 text-green-400 text-[10px] rounded hover:bg-green-600/30 transition-colors">
-                            + Add Selected
-                          </button>
-                          <button onClick={() => {
-                            setSetLists(prev => prev.filter((_, i) => i !== activeSetList));
-                            setActiveSetList(-1);
-                          }} className="px-2 py-0.5 bg-red-600/20 text-red-400 text-[10px] rounded hover:bg-red-600/30 transition-colors">
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                      <div className="max-h-[150px] overflow-y-auto space-y-1 scrollbar-thin">
-                        {setLists[activeSetList].trackIds.map((tid, tIdx) => {
-                          const t = tracks.find(tr => tr.id === tid);
-                          if (!t) return null;
-                          return (<>
-                            <div key={tid} className="flex items-center gap-2 px-2 py-1 rounded bg-[var(--bg-card)]/50 group">
-                              <span className="text-[10px] text-[var(--text-muted)] w-4">{tIdx + 1}</span>
-                              {trackColors[tid] && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{backgroundColor: trackColors[tid]}} />}
-                              <span className="text-xs text-[var(--text-primary)] truncate flex-1 cursor-pointer hover:text-cyan-300" onClick={() => setSelectedTrack(t)}>{t.title || t.original_filename}</span>
-                              <span className="text-[10px] text-[var(--text-muted)]">{t.analysis?.bpm?.toFixed(0) || '-'}</span>
-                              <span className="text-[10px] text-[var(--text-muted)]">{t.analysis?.key ? (CAMELOT_WHEEL[t.analysis.key] || t.analysis.key) : '-'}</span>
-                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => {
-                                  if (tIdx > 0) {
-                                    setSetLists(prev => prev.map((sl, i) => {
-                                      if (i !== activeSetList) return sl;
-                                      const ids = [...sl.trackIds];
-                                      [ids[tIdx], ids[tIdx-1]] = [ids[tIdx-1], ids[tIdx]];
-                                      return {...sl, trackIds: ids};
-                                    }));
-                                  }
-                                }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><ChevronUp className="w-3 h-3" /></button>
-                                <button onClick={() => {
-                                  if (tIdx < setLists[activeSetList].trackIds.length - 1) {
-                                    setSetLists(prev => prev.map((sl, i) => {
-                                      if (i !== activeSetList) return sl;
-                                      const ids = [...sl.trackIds];
-                                      [ids[tIdx], ids[tIdx+1]] = [ids[tIdx+1], ids[tIdx]];
-                                      return {...sl, trackIds: ids};
-                                    }));
-                                  }
-                                }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><ChevronDown className="w-3 h-3" /></button>
-                                <button onClick={() => {
-                                  setSetLists(prev => prev.map((sl, i) => i === activeSetList ? {...sl, trackIds: sl.trackIds.filter(id => id !== tid)} : sl));
-                                }} className="text-[var(--text-muted)] hover:text-red-400"><X className="w-3 h-3" /></button>
-                              </div>
-                            </div>
-                          {tIdx < setLists[activeSetList].trackIds.length - 1 && (
-                            <div className="flex items-center gap-1 px-3 py-0.5">
-                              <div className="flex-1 border-t border-dashed border-[var(--border-subtle)]" />
-                              <input type="text" placeholder="transition..." value={transitionNotes[activeSetList + '-' + tIdx] || ''}
-                                onChange={e => setTransitionNotes(prev => ({...prev, [activeSetList + '-' + tIdx]: e.target.value}))}
-                                className="bg-transparent text-[9px] text-[var(--text-secondary)] placeholder-[var(--text-muted)] border-none outline-none w-24 text-center italic" />
-                              <div className="flex-1 border-t border-dashed border-[var(--border-subtle)]" />
-                            </div>
-                          )}
-                          </>);
-                        })}
-                        {setLists[activeSetList].trackIds.length === 0 && (
-                          <div className="text-center py-4 text-[var(--text-muted)] text-xs">Select a track and click "+ Add Selected" to build your set</div>
-                        )}
-                        {/* Smart Sort */}
-                        {setLists[activeSetList].trackIds.length > 1 && (
-                          <button onClick={() => {
-                            const sl = setLists[activeSetList];
-                            const sorted = [...sl.trackIds].sort((a, b) => {
-                              const ta = tracks.find(t => t.id === a);
-                              const tb = tracks.find(t => t.id === b);
-                              if (!ta || !tb) return 0;
-                              const ca = CAMELOT_WHEEL[ta.key] || '';
-                              const cb = CAMELOT_WHEEL[tb.key] || '';
-                              const na = parseInt(ca) || 0;
-                              const nb = parseInt(cb) || 0;
-                              if (na !== nb) return na - nb;
-                              return (ta.bpm || 0) - (tb.bpm || 0);
-                            });
-                            setSetLists(prev => prev.map((s, i) => i === activeSetList ? {...s, trackIds: sorted} : s));
-                          }} className="w-full text-[9px] bg-purple-600/30 text-purple-300 py-1.5 rounded hover:bg-purple-600/50 transition-colors flex items-center justify-center gap-1 mb-1">
-                            <Sparkles className="w-3 h-3" /> Auto-Sort by Key & BPM
-                          </button>
-                        )}
-                        {/* Energy Flow Chart */}
-                {setLists[activeSetList].trackIds.length >= 2 && (() => {
-                  const setTracks = setLists[activeSetList].trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean);
-                  const energies = setTracks.map(t => Math.round((t.analysis?.energy || 0) * 100));
-                  const maxE = Math.max(...energies, 1);
-                  return (
-                    <div className="mt-2 mb-1 p-2 bg-[var(--bg-card)]/30 rounded-lg border border-[var(--border-subtle)]/30">
-                      <div className="text-[9px] text-[var(--text-muted)] mb-1 font-medium uppercase tracking-wider">{t("flux_energie")}</div>
-                      <div className="flex items-end gap-px h-8">
-                        {energies.map((e, i) => {
-                          const h = Math.max((e / maxE) * 100, 5);
-                          const color = e < 30 ? 'bg-blue-500' : e < 60 ? 'bg-green-500' : e < 80 ? 'bg-yellow-500' : 'bg-red-500';
-                          return <div key={i} className={"rounded-t-sm transition-all " + color} style={{height: h + '%', flex: 1, minWidth: 3, opacity: 0.7}} title={setTracks[i]?.title + ': ' + e + '% energy'} />;
-                        })}
-                      </div>
-                      <div className="flex justify-between mt-0.5">
-                        <span className="text-[7px] text-[var(--text-muted)]">{t("debut")}</span>
-                        <span className="text-[7px] text-[var(--text-muted)]">{t("fin")}</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-                {/* Export Set List */}
-                        {setLists[activeSetList].trackIds.length > 0 && (
-                          <div className="flex gap-2 mt-2 pt-2 border-t border-[var(--border-subtle)]/50">
-                            <button onClick={() => {
-                              const sl = setLists[activeSetList];
-                              const lines = sl.trackIds.map((tid, i) => {
-                                const tr = tracks.find(t => t.id === tid);
-                                if (!tr) return '';
-                                const note = transitionNotes[activeSetList + '-' + i] || '';
-                                return (i+1) + '. ' + tr.title + ' - ' + (tr.bpm?.toFixed(1) || '?') + ' BPM - ' + (tr.key || '?') + (note ? ' [' + note + ']' : '');
-                              }).filter(Boolean);
-                              const text = 'Set List: ' + sl.name + '\n' + lines.join('\n');
-                              navigator.clipboard.writeText(text);
-                            }} className="flex-1 text-[9px] bg-blue-600/30 text-blue-300 py-1 rounded hover:bg-blue-600/50 transition-colors flex items-center justify-center gap-1">
-                              <Copy className="w-3 h-3" /> Copy as Text
-                            </button>
-                            <button onClick={() => {
-                              const sl = setLists[activeSetList];
-                              const header = 'No,Title,BPM,Key,Note';
-                              const rows = sl.trackIds.map((tid, i) => {
-                                const tr = tracks.find(t => t.id === tid);
-                                if (!tr) return '';
-                                return (i+1) + ',' + (tr.title || '').replace(/,/g, ' ') + ',' + (tr.bpm?.toFixed(1) || '') + ',' + (tr.key || '') + ',' + (transitionNotes[activeSetList + '-' + i] || '');
-                              }).filter(Boolean);
-                              const csv = header + '\n' + rows.join('\n');
-                              const blob = new Blob([csv], {type: 'text/csv'});
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url; a.download = sl.name + '.csv'; a.click();
-                              URL.revokeObjectURL(url);
-                            }} className="flex-1 text-[9px] bg-green-600/30 text-green-300 py-1 rounded hover:bg-green-600/50 transition-colors flex items-center justify-center gap-1">
-                              <Download className="w-3 h-3" /> {t('export_csv')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-[var(--text-muted)] text-xs">
-                  <ListMusic className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  Create a set list to organize your DJ sets
-                </div>
-              )}
-            </div>
-            {/* Smart Playlists - Auto-generated */}
-            <div className="bg-[var(--bg-secondary)]/50 rounded-xl p-4 border border-[var(--border-subtle)]/50 mt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={18} className="text-yellow-400" />
-                <h3 className="text-sm font-bold text-[var(--text-primary)]">{t("playlists_intelligentes")}</h3>
-                <span className="text-[10px] text-[var(--text-muted)] ml-auto">{t("auto_generees")}</span>
-              </div>
-              {tracks.length === 0 ? (
-                <p className="text-[var(--text-muted)] text-xs text-center py-4">{t("ajoutez_playlists")}sts</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {/* By Energy Level */}
-                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-1">{t("par_energie")}</p>
-                  {[
-                    { name: "Warm-Up", icon: "sun", min: 0, max: 40 },
-                    { name: "Peak Time", icon: "flame", min: 40, max: 75 },
-                    { name: "Closing", icon: "moon", min: 75, max: 101 },
-                  ].map(smart => {
-                    const matched = tracks.filter(t => (((t.analysis?.energy ?? 0) * 100) || 0) >= smart.min && (((t.analysis?.energy ?? 0) * 100) || 0) < smart.max);
-                    if (matched.length === 0) return null;
-                    return (
-                      <div key={smart.name} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all" onClick={() => { setSelectedGenre(null); }}>
-                        <span className="text-sm">{smart.icon === "sun" ? "\u2600\uFE0F" : smart.icon === "flame" ? "\uD83D\uDD25" : "\uD83C\uDF19"}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{smart.name}</p>
-                        </div>
-                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
-                      </div>
-                    );
-                  })}
-                  {/* By BPM Range */}
-                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-2">{t("par_bpm")}</p>
-                  {[
-                    { name: "Slow (80-110)", min: 80, max: 110 },
-                    { name: "Mid (110-125)", min: 110, max: 125 },
-                    { name: "House (125-132)", min: 125, max: 132 },
-                    { name: "Fast (132-150)", min: 132, max: 150 },
-                  ].map(bpm => {
-                    const matched = tracks.filter(t => ((t.analysis?.bpm ?? 0) || 0) >= bpm.min && ((t.analysis?.bpm ?? 0) || 0) < bpm.max);
-                    if (matched.length === 0) return null;
-                    return (
-                      <div key={bpm.name} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all">
-                        <Activity size={14} className="text-green-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{bpm.name}</p>
-                        </div>
-                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
-                      </div>
-                    );
-                  })}
-                  {/* By Genre */}
-                  <p className="text-[10px] text-[var(--text-muted)] font-medium uppercase tracking-wider mt-2">{t("par_genre")}</p>
-                  {Array.from(new Set(tracks.map(t => t.genre).filter(Boolean))).map(genre => {
-                    const matched = tracks.filter(t => t.genre === genre);
-                    return (
-                      <div key={String(genre)} className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-card)]/40 hover:bg-[var(--bg-elevated)]/40 cursor-pointer transition-all">
-                        <ListMusic size={14} className="text-purple-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-[var(--text-primary)] truncate">{String(genre)}</p>
-                        </div>
-                        <span className="text-[10px] text-cyan-400 font-mono">{matched.length}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-</div>
-          )}
-          {activeBottomTab === 'history' && (
-            <div>
-{/* DJ History */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <Clock className="w-4 h-4 text-pink-400" /> DJ History
-          </h3>
-          <button onClick={() => setShowHistory(!showHistory)} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{showHistory ? "Hide" : "Show"}</button>
-        </div>
-        {showHistory ? (
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {djHistory.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)] text-center py-2">{t("aucun_joue")}</p>
-            ) : djHistory.map(function(item, idx) {
-              return (
-                <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-[var(--bg-elevated)] rounded text-xs">
-                  <span className="text-pink-400">{idx + 1}.</span>
-                  <span className="text-[var(--text-primary)] truncate flex-1">{String(item)}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-            </div>
-          )}
-          {activeBottomTab === 'stats' && (
-            <div>
-      {/* Collection Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* Key Distribution */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-            <Hash className="w-4 h-4 text-cyan-400" /> Key Distribution
-          </h3>
-          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
-            {(() => {
-              const keyCounts: Record<string, number> = {};
-              tracks.filter(t => t.analysis?.key).forEach(t => {
-                const cam = CAMELOT_WHEEL[t.analysis.key] || t.analysis.key;
-                keyCounts[cam] = (keyCounts[cam] || 0) + 1;
-              });
-              const sorted = Object.entries(keyCounts).sort((a, b) => b[1] - a[1]);
-              const max = sorted[0]?.[1] || 1;
-              return sorted.map(([key, count]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-secondary)] w-8 font-mono">{key}</span>
-                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
-                    <div className="bg-cyan-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
-                  </div>
-                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{count}</span>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
-
-        {/* BPM Range */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-            <Activity className="w-4 h-4 text-blue-400" /> BPM Ranges
-          </h3>
-          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
-            {(() => {
-              const ranges = [
-                { label: '< 100', min: 0, max: 100 },
-                { label: '100-115', min: 100, max: 115 },
-                { label: '115-125', min: 115, max: 125 },
-                { label: '125-135', min: 125, max: 135 },
-                { label: '135-145', min: 135, max: 145 },
-                { label: '145-160', min: 145, max: 160 },
-                { label: '> 160', min: 160, max: 999 },
-              ];
-              const bpmCounts = ranges.map(r => ({
-                ...r,
-                count: tracks.filter(t => t.analysis?.bpm && t.analysis.bpm >= r.min && t.analysis.bpm < r.max).length
-              }));
-              const max = Math.max(...bpmCounts.map(r => r.count), 1);
-              return bpmCounts.map(r => (
-                <div key={r.label} className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-secondary)] w-12 font-mono">{r.label}</span>
-                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
-                    <div className="bg-blue-500/60 h-3 rounded-full transition-all" style={{ width: `${(r.count / max) * 100}%` }} />
-                  </div>
-                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{r.count}</span>
-                </div>
-              ));
-            })()}
-          </div>
-        </div>
-
-        {/* Genre Distribution */}
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)]">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-            <Disc3 className="w-4 h-4 text-pink-400" /> Genre Distribution
-          </h3>
-          <div className="space-y-1 max-h-[160px] overflow-y-auto scrollbar-thin">
-            {(() => {
-              const genreCounts: Record<string, number> = {};
-              tracks.filter(t => t.genre).forEach(t => {
-                genreCounts[t.genre] = (genreCounts[t.genre] || 0) + 1;
-              });
-              const sorted = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]);
-              const max = sorted[0]?.[1] || 1;
-              return sorted.length > 0 ? sorted.map(([genre, count]) => (
-                <div key={genre} className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-secondary)] w-16 truncate">{genre}</span>
-                  <div className="flex-1 bg-[var(--bg-elevated)]/30 rounded-full h-3">
-                    <div className="bg-pink-500/60 h-3 rounded-full transition-all" style={{ width: `${(count / max) * 100}%` }} />
-                  </div>
-                  <span className="text-[10px] text-[var(--text-secondary)] w-5 text-right">{count}</span>
-                </div>
-              )) : (
-                <div className="text-center py-4 text-[var(--text-muted)] text-xs">{t("aucune_donnee_genre")}</div>
-              );
-            })()}
-          </div>
-        </div>
-      </div>
-
-      {/* Energy Flow - Playlist Visualization */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
-        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-          <Zap className="w-4 h-4 text-yellow-400" /> Energy Flow
-        </h3>
-        {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (
-          <div className="flex items-end gap-[2px] h-[80px]">
-            {tracks
-              .filter(t => t.status === 'analyzed' && t.analysis?.energy !== undefined)
-              .sort((a, b) => (a.analysis?.bpm || 0) - (b.analysis?.bpm || 0))
-              .map((t, i) => {
-                const energy = t.analysis?.energy || 0;
-                const heightPct = Math.max(5, energy);
-                const hue = energy < 30 ? 200 : energy < 60 ? 150 : energy < 80 ? 50 : 0;
-                return (
-                  <div key={t.id} className="flex-1 min-w-[4px] max-w-[20px] group relative cursor-pointer" onClick={() => setSelectedTrack(t)}>
-                    <div className="w-full rounded-t transition-all hover:opacity-80" style={{ height: `${heightPct}%`, background: `hsl(${hue}, 80%, 55%)` }} />
-                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[9px] text-[var(--text-primary)] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                      {t.title?.substring(0, 20)} - {t.analysis?.bpm?.toFixed(0)} BPM - E:{energy}%
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        ) : (
-          <div className="text-center py-4 text-[var(--text-muted)] text-xs">{t("analysez_flux")}</div>
-        )}
-        <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-[var(--text-muted)]">{t("bpm_bas")}</span>
-          <span className="text-[9px] text-[var(--text-muted)]">{t("bpm_eleve")}</span>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-2 mt-3">
-        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
-          <div className="text-lg font-bold text-[var(--text-primary)]">{tracks.length}</div>
-          <div className="text-[10px] text-[var(--text-secondary)]">{t("total_morceaux")}</div>
-        </div>
-        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
-          <div className="text-lg font-bold text-green-400">{tracks.filter(t => t.status === 'analyzed').length}</div>
-          <div className="text-[10px] text-[var(--text-secondary)]">{t("analyses")}</div>
-        </div>
-        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
-          <div className="text-lg font-bold text-blue-400">
-            {tracks.filter(t => t.analysis?.bpm).length > 0 ? (tracks.filter(t => t.analysis?.bpm).reduce((sum, t) => sum + t.analysis.bpm, 0) / tracks.filter(t => t.analysis?.bpm).length).toFixed(0) : '-'}
-          </div>
-          <div className="text-[10px] text-[var(--text-secondary)]">{t("bpm_moyen")}</div>
-        </div>
-        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
-          <div className="text-lg font-bold text-purple-400">
-            {(() => {
-              const keyCounts: Record<string, number> = {};
-              tracks.filter(t => t.analysis?.key).forEach(t => {
-                const cam = CAMELOT_WHEEL[t.analysis.key] || t.analysis.key;
-                keyCounts[cam] = (keyCounts[cam] || 0) + 1;
-              });
-              const sorted = Object.entries(keyCounts).sort((a, b) => b[1] - a[1]);
-              return sorted[0]?.[0] || '-';
-            })()}
-          </div>
-          <div className="text-[10px] text-[var(--text-secondary)]">{t("cle_principale")}</div>
-        </div>
-        <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center border border-[var(--border-subtle)]/50">
-          <div className="text-lg font-bold text-orange-400">
-            {tracks.filter(t => t.analysis?.energy !== undefined).length > 0 ? (tracks.filter(t => t.analysis?.energy !== undefined).reduce((sum, t) => sum + (t.analysis.energy || 0), 0) / tracks.filter(t => t.analysis?.energy !== undefined).length).toFixed(0) : '-'}
-          </div>
-          <div className="text-[10px] text-[var(--text-secondary)]">{t("energie_moyenne")}</div>
-        </div>
-      </div>
-            </div>
-          )}
-
-              {/* ── Keyboard Shortcuts Hint ── */}
-              <div className="flex items-center gap-4 px-3 py-1.5 border-t border-white/[0.04] bg-[var(--bg-secondary)]/30">
-                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">↑↓</kbd> Naviguer</span>
-                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Espace</kbd> Play/Pause</span>
-                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Clic droit</kbd> Menu</span>
-                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Suppr</kbd> Supprimer</span>
-        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Ctrl+F</kbd> Rechercher</span>
-        <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Esc</kbd> Effacer</span>
-              <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1"><kbd className="px-1 py-0.5 rounded bg-[var(--bg-elevated)]/50 text-[var(--text-secondary)] font-mono text-[9px]">Shift+Clic</kbd> Sélection plage</span>
-              </div>
-              {/* ── Favorites Toggle ── */}
-              <button
-                onClick={() => setShowFavoritesOnly(p => !p)}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-[var(--text-muted)] hover:text-yellow-400'}`}
-                title={showFavoritesOnly ? 'Afficher tous les morceaux' : 'Afficher uniquement les favoris'}
-              >
-                <Star size={10} className={showFavoritesOnly ? 'fill-yellow-400 text-yellow-400' : ''} />
-                Favoris{favoriteIds.size > 0 ? ` (${favoriteIds.size})` : ''}
+              <button onClick={() => setGridView(!gridView)} className={`px-2 py-1.5 rounded-lg text-[11px] transition-colors ${gridView ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'}`} title="Toggle view">
+                {gridView ? <ListIcon size={12} /> : <Grid3X3 size={12} />}
               </button>
-              {/* ── Status Bar ── */}
-              <div className="flex items-center gap-3 px-1">
-                <span className="text-[10px] text-[var(--text-muted)]">
-                  {tracks.length} morceau{tracks.length !== 1 ? 'x' : ''}
-                  {searchQuery && ` | ${filteredTracks.length} résultat${filteredTracks.length !== 1 ? 's' : ''}`}
-                </span>
-                {selectedIds.size > 0 && (
-                  <span className="text-[10px] text-cyan-400 flex items-center gap-1.5">
-                    <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-cyan-500/20 text-cyan-400 font-bold text-[9px]">{selectedIds.size}</span>
-                    sélectionné{selectedIds.size !== 1 ? 's' : ''}
-                    <button onClick={() => setSelectedIds(new Set())} className="ml-1 text-[9px] text-[var(--text-muted)] hover:text-red-400 transition-colors underline">Désélect.</button>
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => setShowShortcutsModal(p => !p)}
-                className="ml-auto flex items-center justify-center w-5 h-5 rounded-full bg-[var(--bg-elevated)]/50 text-[var(--text-muted)] hover:text-cyan-400 hover:bg-[var(--bg-elevated)] transition-colors text-[10px] font-bold"
-                title="Raccourcis clavier (?)"
-              >?</button>
+            </div>
+          </div>
 
-              {/* ── Action Buttons ── */}
-              {/* Star Rating */}
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-[10px] text-[var(--text-secondary)]">{t("note")}:</span>
-                <div className="flex gap-0.5">
-                  {[1,2,3,4,5].map(star => (
-                    <button key={star} onClick={() => setTrackRatings(prev => ({...prev, [selectedTrack?.id]: trackRatings[selectedTrack?.id] === star ? 0 : star}))} className="p-0.5 transition-colors">
-                      <Star className={`w-4 h-4 ${(trackRatings[selectedTrack?.id] || 0) >= star ? 'fill-yellow-400 text-yellow-400' : 'text-[var(--text-muted)] hover:text-yellow-400/50'}`} />
-                    </button>
-                  ))}
-                </div>
-                {trackRatings[selectedTrack?.id] > 0 && <span className="text-[10px] text-yellow-400 font-bold">{trackRatings[selectedTrack?.id]}/5</span>}
+          <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(50vh)' }}>
+            {gridView ? (
+              <div className="grid grid-cols-4 gap-3">
+                {tracks.map((track) => (
+                  <div key={track.id} onClick={() => setSelectedTrack(track)} className={`p-3 rounded-lg cursor-pointer transition-colors border ${selectedTrack?.id === track.id ? 'bg-blue-500/10 border-blue-500/30' : 'bg-[var(--bg-hover)] border-[var(--border-subtle)]/40 hover:bg-[var(--bg-elevated)]'}`}>
+                    <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-2">
+                      <Music size={20} className="text-[var(--text-muted)]" />
+                    </div>
+                    <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">{track.title || track.original_filename}</p>
+                    <p className="text-[9px] text-[var(--text-muted)] truncate">{track.artist || 'Unknown'}</p>
+                    <div className="flex gap-1 mt-2">
+                      {track.analysis?.bpm && (
+                        <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">{track.analysis.bpm.toFixed(1)}</span>
+                      )}
+                      {track.analysis?.key && (
+                        <span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{toCamelot(track.analysis.key)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {/* Color Tags */}
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-[10px] text-[var(--text-secondary)]">Tag:</span>
-                <div className="flex gap-1">
-                  {['', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'].map(color => (
-                    <button
-                      key={color || 'none'}
-                      onClick={() => setTrackColors(prev => ({...prev, [selectedTrack?.id || 0]: color}))}
-                      className={`w-5 h-5 rounded-full border-2 transition-all ${trackColors[selectedTrack?.id || 0] === color ? 'border-white scale-110' : 'border-[var(--border-default)] hover:border-gray-400'}`}
-                      style={color ? {backgroundColor: color} : {background: 'linear-gradient(135deg, #374151, #1f2937)'}}
-                      title={color ? color : 'No tag'}
-                    >
-                      {!color && trackColors[selectedTrack?.id || 0] === '' && <X className="w-3 h-3 text-[var(--text-secondary)] mx-auto" />}
-                    </button>
-                  ))}
+            ) : (
+              <div className="space-y-0">
+                {/* List header */}
+                <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border-subtle)]/40 mb-1">
+                  <div className="col-span-1"></div>
+                  <div className="col-span-5">Title</div>
+                  <div className="col-span-2 text-center">BPM</div>
+                  <div className="col-span-2 text-center">Key</div>
+                  <div className="col-span-2 text-center">Energy</div>
                 </div>
-              </div>
-              <div className="mt-4 space-y-2 border-t border-[var(--border-subtle)] pt-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={openEditMeta}
-                    className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
+                {/* List rows */}
+                {tracks.map((track) => (
+                  <div
+                    key={track.id}
+                    onClick={() => setSelectedTrack(track)}
+                    className={`grid grid-cols-12 gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border mb-1 ${
+                      selectedTrack?.id === track.id
+                        ? 'bg-blue-500/10 border-blue-500/30'
+                        : 'bg-[var(--bg-hover)]/50 border-[var(--border-subtle)]/40 hover:bg-[var(--bg-elevated)]'
+                    }`}
                   >
-                    ✏️ {t("modifier_metadata")}
-                  </button>
-                  <button
-                    onClick={() => selectedTrack && exportRekordbox(selectedTrack.id)}
-                    className="flex-1 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
-                  >
-                    🎵 {t("exporter_xml")}
-                  </button>
-                </div>
-              {/* Tap Tempo */}
-              <div className="mt-3 p-2 bg-[var(--bg-card)]/50 rounded-lg">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1"><Activity className="w-3 h-3" /> Tap Tempo</span>
-                  {tapBpm > 0 && <span className="text-sm font-bold text-cyan-400">{tapBpm.toFixed(1)} BPM</span>}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const now = Date.now();
-                      const newTaps = [...tapTimes, now].filter(t => now - t < 5000);
-                      setTapTimes(newTaps);
-                      if (newTaps.length >= 2) {
-                        const intervals = [];
-                        for (let i = 1; i < newTaps.length; i++) intervals.push(newTaps[i] - newTaps[i-1]);
-                        const avgMs = intervals.reduce((a,b) => a+b, 0) / intervals.length;
-                        setTapBpm(60000 / avgMs);
-                      }
-                    }}
-                    className="flex-1 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] text-xs font-bold rounded-lg transition-all active:scale-95"
-                  >TAP</button>
-                  <button
-                    onClick={() => { setTapTimes([]); setTapBpm(0); }}
-                    className="px-3 py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-xs rounded-lg transition-colors"
-                  >{t("reinitialiser")}</button>
-                </div>
-              </div>
-                <button
-                  onClick={exportAllRekordbox}
-                  className="w-full px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors"
-                >
-                  📦 {t("exporter_rekordbox")}
-                </button>
-              <button
-                onClick={() => {
-                  const toCamelot = (key) => {
-                    const map = {'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A', 'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A', 'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A', 'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A'};
-                    return map[key] || key || '';
-                  };
-                  const rows = tracks.map(t => {
-                    const a = t.analysis;
-                    const dur = a?.duration_ms ? Math.round(a.duration_ms / 1000) : 0;
-                    const mins = Math.floor(dur / 60);
-                    const secs = String(dur % 60).padStart(2, '0');
-                    return [
-                      t.title || t.original_filename || '',
-                      t.artist || '',
-                      t.album || '',
-                      t.genre || '',
-                      a?.bpm ? a.bpm.toFixed(1) : '',
-                      a?.key ? toCamelot(a.key) : '',
-                      a?.key || '',
-                      a?.energy ? (a.energy * 100).toFixed(0) : '',
-                      mins + ':' + secs,
-                      t.year || '',
-                      t.remix_artist || '',
-                      t.feat_artist || '',
-                      t.original_filename || ''
-                    ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
-                  });
-                  const header = '"Name","Artist","Album","Genre","BPM","Key (Camelot)","Key (Musical)","Energy","Duration","Year","Remixer","Feat. Artist","Filename"';
-                  const csv = header + '\n' + rows.join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = 'cueforge-serato-export.csv';
-                  link.click();
-                  URL.revokeObjectURL(url);
-                  showToast('Serato CSV exported');
-                }}
-                className="w-full py-3 rounded-xl font-semibold text-[var(--text-primary)] bg-orange-600 hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
-              >
-                <Download size={18} /> {t("exporter_serato")} CSV
-              </button>
-              <button
-                onClick={() => {
-                  const nmlTracks = tracks.map((t, i) => {
-                    const a = t.analysis;
-                    const bpm = a?.bpm ? a.bpm.toFixed(6) : '0';
-                    const key = a?.key || '';
-                    const dur = a?.duration_ms ? (a.duration_ms / 1000).toFixed(3) : '0';
-                    const title = (t.title || t.original_filename || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                    const artist = (t.artist || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                    const album = (t.album || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                    const genre = (t.genre || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                    return '  <ENTRY TITLE="' + title + '" ARTIST="' + artist + '">\n' +
-                      '    <ALBUM TITLE="' + album + '"/>\n' +
-                      '    <INFO GENRE="' + genre + '" KEY="' + key + '" PLAYTIME="' + dur + '"/>\n' +
-                      '    <TEMPO BPM="' + bpm + '" BPM_QUALITY="100"/>\n' +
-                      '    <LOCATION FILE="' + (t.original_filename || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"/>\n' +
-                      '  </ENTRY>';
-                  }).join('\n');
-                  const nml = '<?xml version="1.0" encoding="UTF-8"?>\n<NML VERSION="19">\n<HEAD COMPANY="CueForge" PROGRAM="CueForge DJ"/>\n<COLLECTION ENTRIES="' + tracks.length + '">\n' + nmlTracks + '\n</COLLECTION>\n</NML>';
-                  const blob = new Blob([nml], { type: 'application/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = 'cueforge-traktor-export.nml';
-                  link.click();
-                  URL.revokeObjectURL(url);
-                  showToast('Traktor NML exported');
-                }}
-                className="w-full py-3 rounded-xl font-semibold text-[var(--text-primary)] bg-purple-600 hover:bg-purple-500 transition-colors flex items-center justify-center gap-2"
-              >
-                <Download size={18} /> {t("exporter_traktor")} NML
-              </button>
-              <button
-                onClick={() => {
-                  const xmlLines = ['<?xml version="1.0" encoding="UTF-8"?>', '<VirtualFolder>'];
-                  tracks.forEach((t: any) => {
-                    const fname = t.original_filename || t.filename;
-                    xmlLines.push('  <Song FilePath="' + fname + '">');
-                    xmlLines.push('    <Tags Author="' + (t.artist || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Title="' + (t.title || fname).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Genre="' + (t.genre || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Album="' + (t.album || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Year="' + (t.year || '') + '" />');
-                    const bpm = t.analysis?.bpm ? Number(t.analysis.bpm).toFixed(2) : '';
-                    const key = t.analysis?.key || '';
-                    xmlLines.push('    <Scan Bpm="' + bpm + '" Key="' + key + '" />');
-                    if (t.cue_points?.length > 0) {
-                      t.cue_points.forEach((cp: any, idx: number) => {
-                        xmlLines.push('    <Poi Type="cue" Num="' + (idx + 1) + '" Name="' + (cp.label || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" Pos="' + Number(cp.position).toFixed(3) + '" />');
-                      });
-                    }
-                    xmlLines.push('  </Song>');
-                  });
-                  xmlLines.push('</VirtualFolder>');
-                  const blob = new Blob([xmlLines.join('\n')], { type: 'text/xml' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a'); a.href = url; a.download = 'cueforge_virtualdj.xml'; a.click(); URL.revokeObjectURL(url);
-                  showToast('VirtualDJ XML exported');
-                }}
-                className="w-full py-3 rounded-lg font-medium text-[var(--text-primary)] flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500"
-              >
-                <Download size={18} /> {t("exporter_virtualdj")}
-              </button>
-                <button
-                  onClick={() => {
-                    const tracksToExport = selectedIds.size > 0 ? filteredTracks.filter(t => selectedIds.has(t.id)) : filteredTracks;
-                    const headers = ['Titre', 'Artiste', 'Genre', 'BPM', 'Tonalité', 'Camelot', 'Énergie', 'Durée (s)', 'Fichier'];
-                    const rows = tracksToExport.map(t => {
-                      const a = t.analysis;
-                      return [
-                        t.title || t.original_filename,
-                        t.artist || '',
-                        t.genre || '',
-                        a?.bpm ? a.bpm.toFixed(1) : '',
-                        a?.key || '',
-                        a?.key ? toCamelot(a.key) : '',
-                        a?.energy != null ? Math.round(a.energy * 100) + '%' : '',
-                        a?.duration_ms ? Math.round(a.duration_ms / 1000) : '',
-                        t.original_filename || ''
-                      ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
-                    });
-                    const csv = [headers.join(','), ...rows].join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `cueforge-library-${new Date().toISOString().slice(0,10)}.csv`;
-                    link.click();
-                    URL.revokeObjectURL(url);
-                    showToast(`${tracksToExport.length} morceau${tracksToExport.length > 1 ? 'x' : ''} exporté${tracksToExport.length > 1 ? 's' : ''} en CSV`, 'success');
-                  }}
-                  className="w-full px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors flex items-center justify-center gap-1"
-                >
-                  <Download size={14} /> {t('export_csv')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
-                </button>
-                  {selectedIds.size > 0 && (
-                    <div className="w-full space-y-2">
-                      <div className="border-t border-[var(--border-subtle)]/50 pt-2" />
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">Actions groupées ({selectedIds.size})</p>
-                      {!showBulkGenre ? (
-                        <button
-                          onClick={() => setShowBulkGenre(true)}
-                          className="w-full px-3 py-2 bg-purple-600/80 hover:bg-purple-500 rounded text-xs font-bold text-[var(--text-primary)] transition-colors flex items-center justify-center gap-1"
-                        >
-                          <Tag size={14} /> Modifier le genre
-                        </button>
+                    <div className="col-span-1 flex items-center">
+                      {track.analysis?.bpm ? (
+                        <CheckCircle2 size={12} className="text-green-400" />
                       ) : (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={bulkGenreValue}
-                            onChange={e => setBulkGenreValue(e.target.value)}
-                            placeholder="Ex: Tech House, Melodic Techno..."
-                            className="w-full px-2 py-1.5 bg-[var(--bg-elevated)]/50 border border-[var(--border-default)] rounded text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-purple-500 focus:outline-none"
-                            autoFocus
-                            onKeyDown={e => { if (e.key === 'Enter') bulkUpdateGenre(); if (e.key === 'Escape') setShowBulkGenre(false); }}
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              onClick={bulkUpdateGenre}
-                              disabled={bulkUpdating || !bulkGenreValue.trim()}
-                              className="flex-1 px-2 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-[var(--bg-elevated)] disabled:text-[var(--text-muted)] rounded text-[10px] font-bold text-[var(--text-primary)] transition-colors"
-                            >
-                              {bulkUpdating ? 'Mise à jour...' : 'Appliquer'}
-                            </button>
-                            <button
-                              onClick={() => { setShowBulkGenre(false); setBulkGenreValue(''); }}
-                              className="px-2 py-1.5 bg-[var(--bg-elevated)] hover:bg-slate-600 rounded text-[10px] text-[var(--text-secondary)] transition-colors"
-                            >
-                              Annuler
-                            </button>
-                          </div>
+                        <div className="w-3 h-3 rounded-full border border-[var(--border-default)]" />
+                      )}
+                    </div>
+                    <div className="col-span-5 min-w-0">
+                      <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">{track.title || track.original_filename}</p>
+                      <p className="text-[9px] text-[var(--text-muted)] truncate">{track.artist || 'Unknown'}</p>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <p className="text-[11px] font-mono text-[var(--text-primary)]">{track.analysis?.bpm?.toFixed(1) || '—'}</p>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <p className="text-[10px] font-mono text-[var(--text-secondary)]">{toCamelot(track.analysis?.key)}</p>
+                    </div>
+                    <div className="col-span-2 flex justify-center">
+                      {track.analysis?.energy != null && (
+                        <div className="w-8 h-2 rounded-full bg-[var(--bg-primary)] overflow-hidden">
+                          <div className="h-full" style={{ width: `${Math.min(100, (track.analysis.energy / 10) * 100)}%`, backgroundColor: energyToColor(track.analysis.energy) }} />
                         </div>
                       )}
                     </div>
-                  )}
-              </div>
-
-        </div>
-      </div>
-      </div>
-
-      {/* ── Smart Playlist Builder ── */}
-      {showSmartPlaylist && (
-        <div className="bg-gradient-to-r from-purple-900/40 via-gray-900 to-purple-900/40 border-t border-purple-500/30 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-cyan-400/80 flex items-center gap-2"><Sparkles size={18}/> Smart Playlist Builder</h3>
-              <button onClick={() => setShowSmartPlaylist(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-              {smartRules.map((rule, i) => (
-                <div key={i} className="bg-[var(--bg-card)]/80 rounded-lg p-3 border border-purple-500/20 flex items-center gap-2">
-                  <select value={rule.field} onChange={(e) => {const r = [...smartRules]; r[i].field = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm">
-                    <option value="genre">{t("genre")}</option>
-                    <option value="bpm">BPM</option>
-                    <option value="key">{t("annee").slice(0,0)}Key</option>
-                    <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
-                    <option value="artist">{t("artiste")}</option>
-                    <option value="year">{t("annee")}</option>
-                  </select>
-                  <select value={rule.op} onChange={(e) => {const r = [...smartRules]; r[i].op = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm">
-                    <option value="equals">equals</option>
-                    <option value="contains">contains</option>
-                    <option value="gt">greater than</option>
-                    <option value="lt">less than</option>
-                    <option value="between">between</option>
-                  </select>
-                  <input value={rule.value} onChange={(e) => {const r = [...smartRules]; r[i].value = e.target.value; setSmartRules(r);}} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-2 py-1 text-sm flex-1" placeholder="Value..."/>
-                  <button onClick={() => setSmartRules(smartRules.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300"><X size={14}/></button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setSmartRules([...smartRules, {field: 'genre', op: 'equals', value: ''}])} className="bg-gradient-to-b from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Sparkles size={14}/> Add Rule</button>
-              <button onClick={() => {
-                const filtered = tracks.filter((t) => smartRules.every((rule) => {
-                  const val = (t[rule.field] || '').toString().toLowerCase();
-                  const target = rule.value.toLowerCase();
-                  if (rule.op === 'equals') return val === target;
-                  if (rule.op === 'contains') return val.includes(target);
-                  if (rule.op === 'gt') return parseFloat(val) > parseFloat(target);
-                  if (rule.op === 'lt') return parseFloat(val) < parseFloat(target);
-                  return true;
-                }));
-                const name = 'Smart ' + new Date().toLocaleTimeString();
-                setPlaylists({...playlists, [name]: filtered.map(t => t.id)});
-                setCurrentPlaylist(name);
-              }} className="bg-green-600 hover:bg-green-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Generate Playlist</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Duplicate Detection Panel ── */}
-      {showDuplicates && (
-        <div className="bg-gradient-to-r from-orange-900/30 via-gray-900 to-orange-900/30 border-t border-orange-500/30 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-orange-300 flex items-center gap-2"><AlertTriangle size={18}/> Duplicate Detection</h3>
-              <button onClick={() => setShowDuplicates(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
-            </div>
-            <button onClick={() => {
-              const groups = [];
-              const seen = {};
-              tracks.forEach((t) => {
-                const key = (t.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
-                if (seen[key]) { seen[key].push(t); } else { seen[key] = [t]; }
-              });
-              Object.values(seen).forEach((g) => { if (g.length > 1) groups.push(g); });
-              setDuplicateGroups(groups);
-            }} className="bg-orange-600 hover:bg-orange-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm mb-4 flex items-center gap-1"><Search size={14}/> Scan for Duplicates</button>
-            {duplicateGroups.length === 0 && <p className="text-[var(--text-secondary)] text-sm">{t("aucun_doublon")} analyze your library.</p>}
-            {duplicateGroups.map((group, gi) => (
-              <div key={gi} className="bg-[var(--bg-card)]/60 rounded-lg p-3 mb-2 border border-orange-500/20">
-                <p className="text-orange-300 text-sm font-semibold mb-2">Group {gi + 1} - {group.length} copies</p>
-                {group.map((t, ti) => (
-                  <div key={ti} className="flex items-center justify-between py-1 text-sm">
-                    <span className="text-[var(--text-primary)]">{t.title} - {t.artist}</span>
-                    <span className="text-[var(--text-secondary)]">{t.genre} | {t.bpm} BPM</span>
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Export Panel (Rekordbox / Serato / Traktor) ── */}
-      {showExport && (
-        <div className="bg-gradient-to-r from-cyan-900/30 via-gray-900 to-cyan-900/30 border-t border-cyan-500/30 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-cyan-300 flex items-center gap-2"><Download size={18}/> DJ App Export</h3>
-              <button onClick={() => setShowExport(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              {['rekordbox', 'serato', 'traktor', 'virtualdj'].map((fmt) => (
-                <button key={fmt} onClick={() => setExportFormat(fmt)} className={`rounded-xl p-4 border text-center transition-all ${exportFormat === fmt ? 'bg-cyan-600/30 border-cyan-400 text-cyan-200' : 'bg-[var(--bg-card)]/60 border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-cyan-600'}`}>
-                  <Disc size={24} className="mx-auto mb-2"/>
-                  <p className="font-bold capitalize">{fmt}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">{fmt === 'rekordbox' ? 'XML Collection' : fmt === 'serato' ? 'Crates V2' : fmt === 'traktor' ? 'NML Collection' : 'VDJ Database'}</p>
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 flex gap-3">
-              <button onClick={() => {
-                const xmlTracks = tracks.map((t) => `  <TRACK Title="${t.title || ''}" Artist="${t.artist || ''}" Genre="${t.genre || ''}" BPM="${t.bpm || ''}" Key="${t.key || ''}" Energy="${t.energy || ''}"/>`).join('\n');
-                const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0">\n<COLLECTION Entries="${tracks.length}">\n${xmlTracks}\n</COLLECTION>\n</DJ_PLAYLISTS>`;
-                const blob = new Blob([xml], {type: 'application/xml'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `cueforge-${exportFormat}-export.xml`; a.click();
-                URL.revokeObjectURL(url);
-              }} className="bg-cyan-600 hover:bg-cyan-500 text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Download size={14}/> Export {tracks.length} Tracks</button>
-              <button onClick={() => {
-                if (!currentPlaylist || !playlists[currentPlaylist]) return;
-                const ids = playlists[currentPlaylist];
-                const playlistTracks = tracks.filter((t) => ids.includes(t.id));
-                const xmlTracks = playlistTracks.map((t) => `  <TRACK Title="${t.title || ''}" Artist="${t.artist || ''}" Genre="${t.genre || ''}" BPM="${t.bpm || ''}"/>`).join('\n');
-                const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<DJ_PLAYLISTS Version="1.0">\n<COLLECTION Entries="${playlistTracks.length}">\n${xmlTracks}\n</COLLECTION>\n</DJ_PLAYLISTS>`;
-                const blob = new Blob([xml], {type: 'application/xml'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `cueforge-playlist-${currentPlaylist}.xml`; a.click();
-                URL.revokeObjectURL(url);
-              }} className="bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-2"><Folder size={14}/> Export Playlist Only</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Stats Dashboard ── */}
-      {showStats && (
-        <div className="bg-gradient-to-r from-green-900/30 via-gray-900 to-green-900/30 border-t border-green-500/30 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-green-300 flex items-center gap-2"><Activity size={18}/> Library Stats</h3>
-              <button onClick={() => setShowStats(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-green-500/20">
-                <p className="text-3xl font-bold text-green-400">{tracks.length}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("total_morceaux")}</p>
-              </div>
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-blue-500/20">
-                <p className="text-3xl font-bold text-blue-400">{new Set(tracks.map(t => t.genre).filter(Boolean)).size}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">Genres</p>
-              </div>
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-purple-500/20">
-                <p className="text-3xl font-bold text-cyan-500/70">{new Set(tracks.map(t => t.artist).filter(Boolean)).size}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("artistes")}</p>
-              </div>
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-yellow-500/20">
-                <p className="text-3xl font-bold text-yellow-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.bpm) || 0), 0) / tracks.filter(t => t.bpm).length) : 0}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("bpm_moyen")}</p>
-              </div>
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-pink-500/20">
-                <p className="text-3xl font-bold text-pink-400">{tracks.length > 0 ? Math.round(tracks.reduce((s,t) => s + (parseFloat(t.energy) || 0), 0) / tracks.filter(t => t.energy).length) || 0 : 0}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("energie_moyenne")}</p>
-              </div>
-              <div className="bg-[var(--bg-card)]/60 rounded-xl p-4 text-center border border-cyan-500/20">
-                <p className="text-3xl font-bold text-cyan-400">{Object.keys(playlists).length}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">{t("playlists")}</p>
-              </div>
-            </div>
-            {/* Genre Distribution */}
-            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)]">
-              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_genres")}</h4>
-              <div className="space-y-2">
-                {Object.entries(tracks.reduce((acc, t) => { const g = t.genre || 'Unknown'; acc[g] = (acc[g] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([genre, count]) => (
-                  <div key={genre} className="flex items-center gap-3">
-                    <span className="text-xs text-[var(--text-secondary)] w-24 truncate">{genre}</span>
-                    <div className="flex-1 bg-[var(--bg-elevated)] rounded-full h-3">
-                      <div className="bg-gradient-to-r from-green-500 to-emerald-400 h-3 rounded-full transition-all" style={{width: `${(count / tracks.length) * 100}%`}}/>
-                    </div>
-                    <span className="text-xs text-[var(--text-secondary)] w-8 text-right">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* BPM Histogram */}
-            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
-              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_bpm")}</h4>
-              <div className="flex items-end gap-1 h-32">
-                {Array.from({length: 20}, (_, i) => {
-                  const min = 60 + i * 10;
-                  const max = min + 10;
-                  const count = tracks.filter(t => {const b = parseFloat(t.bpm); return b >= min && b < max;}).length;
-                  const maxCount = Math.max(...Array.from({length: 20}, (_, j) => tracks.filter(t => {const b = parseFloat(t.bpm); return b >= 60 + j * 10 && b < 70 + j * 10;}).length), 1);
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all" style={{height: `${(count / maxCount) * 100}%`}} title={`${min}-${max} BPM: ${count} tracks`}/>
-                      {i % 4 === 0 && <span className="text-[9px] text-[var(--text-muted)]">{min}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Key Distribution (Camelot Wheel) */}
-            <div className="bg-[var(--bg-card)]/40 rounded-xl p-4 border border-[var(--border-subtle)] mt-3">
-              <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">{t("distribution_cles")}</h4>
-              <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
-                {Object.entries(CAMELOT_WHEEL).map(([key, camelot]) => {
-                  const count = tracks.filter(t => t.key === key || t.key === camelot).length;
-                  return (
-                    <div key={key} className={`rounded-lg p-2 text-center border transition-all ${count > 0 ? 'bg-purple-600/30 border-purple-400/50' : 'bg-[var(--bg-card)]/30 border-[var(--border-subtle)]/30'}`}>
-                      <p className="text-xs font-bold text-[var(--text-primary)]">{camelot}</p>
-                      <p className="text-[10px] text-[var(--text-secondary)]">{key}</p>
-                      <p className={`text-xs font-bold ${count > 0 ? 'text-cyan-400/80' : 'text-[var(--text-muted)]'}`}>{count}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Collection Statistics */}
-          <div style={{marginTop: '16px', padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px'}}>
-            <h3 style={{color: '#22d3ee', fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px'}}>
-              <BarChart3 size={16}/> Collection Statistics
-            </h3>
-            {/* Summary Cards */}
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px'}}>
-              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
-                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.length}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("total_morceaux")}</div>
-              </div>
-              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
-                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis).length}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("analyses")}</div>
-              </div>
-              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
-                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.bpm).length > 0 ? Math.round(tracks.filter(t => t.analysis?.bpm).reduce((s, t) => s + (t.analysis?.bpm || 0), 0) / tracks.filter(t => t.analysis?.bpm).length) : '-'}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("bpm_moyen")}</div>
-              </div>
-              <div style={{background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)', borderRadius: '6px', padding: '10px', textAlign: 'center'}}>
-                <div style={{color: '#22d3ee', fontSize: '20px', fontWeight: 700}}>{tracks.filter(t => t.analysis?.energy != null).length > 0 ? Math.round(tracks.filter(t => t.analysis?.energy != null).reduce((s, t) => s + ((t.analysis?.energy || 0) * 100), 0) / tracks.filter(t => t.analysis?.energy != null).length) : '-'}</div>
-                <div style={{color: '#94a3b8', fontSize: '11px'}}>{t("energie_moyenne")}</div>
-              </div>
-            </div>
-
-            {/* BPM Distribution */}
-            <div style={{marginBottom: '16px'}}>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("distribution_bpm")}</div>
-              {(() => {
-                const ranges = [{label: '80-110', min: 80, max: 110}, {label: '110-125', min: 110, max: 125}, {label: '125-132', min: 125, max: 132}, {label: '132-150', min: 132, max: 150}, {label: '150+', min: 150, max: 999}];
-                const analyzed = tracks.filter(t => t.analysis?.bpm);
-                const maxCount = Math.max(1, ...ranges.map(r => analyzed.filter(t => (t.analysis?.bpm || 0) >= r.min && (t.analysis?.bpm || 0) < r.max).length));
-                return ranges.map(r => {
-                  const count = analyzed.filter(t => (t.analysis?.bpm || 0) >= r.min && (t.analysis?.bpm || 0) < r.max).length;
-                  return (<div key={r.label} style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
-                    <span style={{color: '#94a3b8', fontSize: '11px', width: '50px', textAlign: 'right'}}>{r.label}</span>
-                    <div style={{flex: 1, height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden'}}>
-                      <div style={{height: '100%', width: (count / maxCount * 100) + '%', background: 'linear-gradient(90deg, #06b6d4, #22d3ee)', borderRadius: '3px', transition: 'width 0.3s'}}/>
-                    </div>
-                    <span style={{color: '#22d3ee', fontSize: '11px', width: '20px'}}>{count}</span>
-                  </div>);
-                });
-              })()}
-            </div>
-
-            {/* Genre Breakdown */}
-            <div style={{marginBottom: '16px'}}>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("repartition_genres")}</div>
-              {(() => {
-                const genres = {};
-                tracks.forEach(t => { if (t.genre) genres[t.genre] = (genres[t.genre] || 0) + 1; });
-                const sorted = Object.entries(genres).sort((a, b) => b[1] - a[1]);
-                const maxG = Math.max(1, ...sorted.map(e => e[1]));
-                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>{t("aucune_donnee_genre2")}</div>;
-                return sorted.map(([genre, count]) => (
-                  <div key={genre} style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
-                    <span style={{color: '#94a3b8', fontSize: '11px', width: '70px', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{genre}</span>
-                    <div style={{flex: 1, height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden'}}>
-                      <div style={{height: '100%', width: (count / maxG * 100) + '%', background: 'linear-gradient(90deg, #a855f7, #c084fc)', borderRadius: '3px'}}/>
-                    </div>
-                    <span style={{color: '#c084fc', fontSize: '11px', width: '20px'}}>{count}</span>
-                  </div>
-                ));
-              })()}
-            </div>
-            {/* Key Distribution */}
-            <div>
-              <div style={{color: '#e2e8f0', fontSize: '12px', fontWeight: 600, marginBottom: '8px'}}>{t("distribution_cles2")}</div>
-              {(() => {
-                const keys = {};
-                tracks.forEach(t => { if (t.analysis?.key) keys[t.analysis.key] = (keys[t.analysis.key] || 0) + 1; });
-                const sorted = Object.entries(keys).sort((a, b) => b[1] - a[1]);
-                if (sorted.length === 0) return <div style={{color: '#64748b', fontSize: '11px', fontStyle: 'italic'}}>{t("aucune_donnee_cle")}</div>;
-                return <div style={{display: 'flex', flexWrap: 'wrap', gap: '4px'}}>{sorted.map(([key, count]) => (
-                  <span key={key} style={{background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', color: '#22d3ee'}}>{key} ({count})</span>
-                ))}</div>;
-              })()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Batch Edit Panel ── */}
-      {showBatchEdit && batchSelected.length > 0 && (
-        <div className="bg-gradient-to-r from-yellow-900/30 via-gray-900 to-yellow-900/30 border-t border-yellow-500/30 p-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-yellow-300 flex items-center gap-2"><Tag size={18}/> Batch Edit - {batchSelected.length} tracks selected</h3>
-              <button onClick={() => {setShowBatchEdit(false); setBatchSelected([]);}} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={18}/></button>
-            </div>
-            <div className="flex gap-3 items-end">
-              <div>
-                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("champ")}</label>
-                <select value={batchField} onChange={(e) => setBatchField(e.target.value)} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-3 py-2 text-sm">
-                  <option value="genre">{t("genre")}</option>
-                  <option value="artist">{t("artiste")}</option>
-                  <option value="energy">{t("energie_moyenne").split(" ")[0]}</option>
-                  <option value="key">{t("annee").slice(0,0)}Key</option>
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-[var(--text-secondary)] block mb-1">{t("nouvelle_valeur")}</label>
-                <input value={batchValue} onChange={(e) => setBatchValue(e.target.value)} className="bg-[var(--bg-elevated)] text-[var(--text-primary)] rounded px-3 py-2 text-sm w-full" placeholder="Enter new value..."/>
-              </div>
-              <button onClick={() => {
-                batchSelected.forEach((id) => {
-                  const idx = tracks.findIndex(t => t.id === id);
-                  if (idx > -1) { tracks[idx][batchField] = batchValue; }
-                });
-                setTracks([...tracks]);
-                setBatchSelected([]);
-                setShowBatchEdit(false);
-              }} className="bg-yellow-600 hover:bg-yellow-500 text-[var(--text-primary)] px-6 py-2 rounded-lg text-sm flex items-center gap-1"><Check size={14}/> Apply to All</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Interactive Camelot Wheel ── */}
-            {showCamelotWheel && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) { setShowCamelotWheel(false); setSelectedWheelKey(null); } }}>
-            <div className="bg-gradient-to-b from-gray-900 to-gray-950 border border-purple-500/30 rounded-xl p-6 max-w-2xl max-h-[90vh] overflow-y-auto w-full mx-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-cyan-500/70 flex items-center gap-2">🎵 Camelot Wheel - Harmonic Mixing Guide</h3>
-                  <button onClick={() => { setShowCamelotWheel(false); setSelectedWheelKey(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
-                </div>
-                <div className="flex gap-8">
-                <div className="relative w-80 h-80 mx-auto">
-                  <svg viewBox="0 0 400 400" className="w-full h-full">
-                    {/* Background rings */}
-                    <circle cx="200" cy="200" r="190" fill="none" stroke="#333" strokeWidth="1" opacity="0.3" />
-                    <circle cx="200" cy="200" r="140" fill="none" stroke="#333" strokeWidth="1" opacity="0.3" />
-                    {/* Connection lines for selected key */}
-                    {selectedWheelKey && (() => {
-                      const selMatch = selectedWheelKey.match(/(\d+)([AB])/);
-                      if (!selMatch) return null;
-                      const selNum = parseInt(selMatch[1]);
-                      const selLetter = selMatch[2];
-                      const selIsMinor = selLetter === 'A';
-                      const selAngle = ((selNum - 1) * 30 - 90) * Math.PI / 180;
-                      const selR = selIsMinor ? 120 : 170;
-                      const selX = 200 + selR * Math.cos(selAngle);
-                      const selY = 200 + selR * Math.sin(selAngle);
-                      const compatKeys = getCompatibleKeys(selectedWheelKey);
-                      return compatKeys.filter(k => k !== selectedWheelKey).map(ck => {
-                        const m = ck.match(/(\d+)([AB])/);
-                        if (!m) return null;
-                        const cn = parseInt(m[1]);
-                        const cMinor = m[2] === 'A';
-                        const cAngle = ((cn - 1) * 30 - 90) * Math.PI / 180;
-                        const cR = cMinor ? 120 : 170;
-                        const cX = 200 + cR * Math.cos(cAngle);
-                        const cY = 200 + cR * Math.sin(cAngle);
-                        return <line key={ck} x1={selX} y1={selY} x2={cX} y2={cY} stroke="#06b6d4" strokeWidth="2" opacity="0.5" strokeDasharray="4,4" />;
-                      });
-                    })()}
-                    {Object.entries(CAMELOT_WHEEL).map(([key, val], i) => {
-                      const isMinor = val.endsWith('A');
-                      const num = parseInt(val);
-                      const angle = ((num - 1) * 30 - 90) * Math.PI / 180;
-                      const r = isMinor ? 120 : 170;
-                      const x = 200 + r * Math.cos(angle);
-                      const y = 200 + r * Math.sin(angle);
-                      const isSelected = selectedWheelKey === val;
-                      const compatKeys = selectedWheelKey ? getCompatibleKeys(selectedWheelKey) : [];
-                      const isCompat = compatKeys.includes(val);
-                      const trackCount = tracks.filter(t => t.camelotKey === val).length;
-                      const colors = ['#ff6b6b','#ff9f43','#feca57','#48dbfb','#0abde3','#10ac84','#1dd1a1','#54a0ff','#5f27cd','#c44569','#f78fb3','#3dc1d3'];
-                      const color = colors[(num - 1) % 12];
-                      return (
-                        <g key={key} onClick={() => setSelectedWheelKey(prev => prev === val ? null : val)} style={{cursor: 'pointer'}}>
-                          {/* Glow effect for selected */}
-                          {isSelected && <circle cx={x} cy={y} r={32} fill={color} opacity="0.2" />}
-                          <circle
-                            cx={x} cy={y}
-                            r={isSelected ? 28 : isCompat ? 25 : trackCount > 0 ? 22 : 18}
-                            fill={isSelected ? color : isCompat ? color + '99' : trackCount > 0 ? '#1e293b' : '#0f172a'}
-                            stroke={isSelected ? '#fff' : isCompat ? color : trackCount > 0 ? color : '#333'}
-                            strokeWidth={isSelected ? 3 : isCompat ? 2.5 : trackCount > 0 ? 1.5 : 0.5}
-                            opacity={selectedWheelKey ? (isSelected || isCompat ? 1 : 0.25) : 1}
-                            className="transition-all duration-200 hover:opacity-100"
-                          />
-                          <text x={x} y={y - 4} textAnchor="middle" fill={isSelected ? '#fff' : isCompat ? '#fff' : '#ccc'} fontSize={isSelected ? "13" : "11"} fontWeight={isSelected ? "bold" : "normal"} style={{pointerEvents: 'none'}}>{val}</text>
-                          <text x={x} y={y + 10} textAnchor="middle" fill={isSelected ? '#fff' : '#888'} fontSize="8" style={{pointerEvents: 'none'}}>{trackCount > 0 ? trackCount + ' trk' : ''}</text>
-                        </g>
-                      );
-                    })}
-                    <text x="200" y="195" textAnchor="middle" fill="#666" fontSize="12">{lang === "fr" ? "Intérieur: Mineur" : "Inner: Minor"}</text>
-                    <text x="200" y="210" textAnchor="middle" fill="#666" fontSize="12">{lang === "fr" ? "Extérieur: Majeur" : "Outer: Major"}</text>
-                  </svg>
-                </div>
-                <div className="flex-1 space-y-3">
-                  <h4 className="text-sm font-semibold text-[var(--text-secondary)]">{t("regles_harmonic")}</h4>
-                  <div className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-400"></span> Same key = Perfect match</div>
-                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-400"></span> +1/-1 = Energy shift</div>
-                    <div className="bg-[var(--bg-card)]/50 rounded p-2 flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-purple-400"></span> A↔B = Mode change (minor/major)</div>
-                  </div>
-                  <div className="mt-3 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400">
-                    💡 Click any key on the wheel to see compatible keys and matching tracks. Click again to deselect.
-                  </div>
-                  {/* Selected key info */}
-                  {selectedWheelKey && (() => {
-                    const compatKeys = getCompatibleKeys(selectedWheelKey);
-                    const matchingTracks = tracks.filter(t => compatKeys.includes(t.camelotKey));
-                    return (
-                      <div className="mt-3">
-                        <h4 className="text-sm font-semibold text-cyan-400 mb-2">Selected: <span className="text-[var(--text-primary)]">{selectedWheelKey}</span> — {compatKeys.length} compatible keys</h4>
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {compatKeys.map(ck => (
-                            <span key={ck} onClick={() => setSelectedWheelKey(ck)} className={"px-2 py-0.5 rounded text-xs cursor-pointer transition-colors " + (ck === selectedWheelKey ? "bg-cyan-500 text-black font-bold" : "bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]")}>{ck}</span>
-                          ))}
-                        </div>
-                        <div className="max-h-40 overflow-y-auto space-y-1">
-                          <h4 className="text-sm font-semibold text-green-400">{matchingTracks.length} matching tracks:</h4>
-                          {matchingTracks.length === 0 && <p className="text-xs text-[var(--text-muted)]">{t("aucun_match_cles")}ys</p>}
-                          {matchingTracks.map(t => (
-                            <div key={t.id} onClick={() => { if (currentTrack?.id !== t.id) { setCurrentTrack(t); } }} className="text-xs text-[var(--text-secondary)] py-1.5 px-2 bg-[var(--bg-card)]/40 rounded flex justify-between items-center cursor-pointer hover:bg-[var(--bg-elevated)]/60 transition-colors">
-                              <span className="truncate mr-2">{t.title} - {t.artist}</span>
-                              <span className="text-cyan-500/70 font-mono whitespace-nowrap">{t.camelotKey} | {t.bpm} BPM</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {/* Track selector for wheel focus */}
-                  {!selectedWheelKey && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-[var(--text-secondary)] mb-2">Or select a track:</h4>
-                      <select className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 w-full text-sm border border-[var(--border-subtle)]" onChange={(e) => { const trackId = e.target.value ? Number(e.target.value) : null; if (trackId) { const t = tracks.find(tr => tr.id === trackId); if (t?.camelotKey) setSelectedWheelKey(t.camelotKey); } else { setSelectedWheelKey(null); } }} value="">
-                        <option value="">-- Choose a track --</option>
-                        {tracks.filter(t => t.camelotKey).map(t => (
-                          <option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.camelotKey})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-                </div>
-              </div>
-            </div>
-            )}
-            {/* ── Watch Folder Panel ── */}
-      {showWatchFolder && (
-        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-yellow-500/30 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-yellow-400 flex items-center gap-2">ð Watch Folder - Auto Import</h3>
-            <button onClick={() => setShowWatchFolder(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-[var(--text-secondary)] block mb-1">{t("chemin_dossier")}</label>
-                <div className="flex gap-2">
-                  <input type="text" value={watchFolderPath} onChange={(e) => setWatchFolderPath(e.target.value)} placeholder="/Users/music/incoming" className="flex-1 bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 text-sm border border-[var(--border-subtle)] focus:border-yellow-500 outline-none" />
-                  <button className="bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded text-sm font-semibold">{t("parcourir")}</button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-yellow-400">0</div>
-                  <div className="text-xs text-[var(--text-secondary)]">{t("fichiers_surveilles")}</div>
-                </div>
-                <div className="bg-[var(--bg-card)]/50 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-green-400">0</div>
-                  <div className="text-xs text-[var(--text-secondary)]">{t("auto_importes")}</div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { if (watchFolderPath) { alert('Watch folder activated: ' + watchFolderPath); } }} className="flex-1 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-semibold">▶ Start Watching</button>
-                <button className="flex-1 bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm">⏸ Stop</button>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-[var(--text-secondary)]">{t("parametres")}</h4>
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-analyze new files (BPM, Key, Energy)</label>
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Auto-detect duplicates</label>
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" className="accent-yellow-500" /> Auto-add to playlist</label>
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><input type="checkbox" defaultChecked className="accent-yellow-500" /> Watch subfolders</label>
-              <div>
-                <label className="text-sm text-[var(--text-secondary)] block mb-1">{t("formats_supportes")}</label>
-                <div className="flex flex-wrap gap-1">{['MP3','WAV','FLAC','AIFF','AAC','OGG','M4A','WMA'].map(f => (<span key={f} className="bg-[var(--bg-card)] text-yellow-400 text-xs px-2 py-1 rounded font-mono">{f}</span>))}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── AI Mix Suggestions ── */}
-      {showMixSuggestions && (
-        <div className="bg-gradient-to-b from-gray-900 to-gray-950 border-t border-pink-500/30 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-pink-400 flex items-center gap-2">ð¤ AI Mix Suggestions</h3>
-            <button onClick={() => setShowMixSuggestions(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">×</button>
-          </div>
-          <div className="space-y-4">
-            <div className="flex gap-3 items-center">
-              <select className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded px-3 py-2 text-sm border border-[var(--border-subtle)] flex-1" onChange={(e) => setSelectedForMix(e.target.value ? Number(e.target.value) : null)} value={selectedForMix || ''}>
-                <option value="">-- Select starting track --</option>
-                {tracks.map(t => (<option key={t.id} value={t.id}>{t.title} - {t.artist} ({t.bpm} BPM, {t.camelotKey || 'N/A'})</option>))}
-              </select>
-              <button onClick={() => { if (selectedForMix) setShowMixSuggestions(true); }} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-[var(--text-primary)] px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">✨ Generate Mix</button>
-            </div>
-            {selectedForMix && (() => {
-              const start = tracks.find(t => t.id === selectedForMix);
-              if (!start) return null;
-              const suggestions = tracks.filter(t => {
-                if (t.id === selectedForMix) return false;
-                let score = 0;
-                if (t.bpm && start.bpm) { const diff = Math.abs(t.bpm - start.bpm); if (diff <= 3) score += 3; else if (diff <= 8) score += 2; else if (diff <= 15) score += 1; }
-                if (t.camelotKey && start.camelotKey) { const sNum = parseInt(start.camelotKey); const tNum = parseInt(t.camelotKey); const sMin = start.camelotKey.includes('A'); const tMin = t.camelotKey.includes('A'); if (tNum === sNum && tMin === sMin) score += 3; else if (tNum === sNum && tMin !== sMin) score += 2; else if (tMin === sMin && (tNum === (sNum % 12) + 1 || tNum === ((sNum + 10) % 12) + 1)) score += 2; }
-                if (t.energy && start.energy) { const diff = Math.abs(t.energy - start.energy); if (diff <= 10) score += 2; else if (diff <= 20) score += 1; }
-                t._mixScore = score;
-                return score >= 3;
-              }).sort((a, b) => (b._mixScore || 0) - (a._mixScore || 0)).slice(0, 10);
-              return (
-                <div className="space-y-2">
-                  <div className="text-sm text-[var(--text-secondary)]">Starting from: <span className="text-[var(--text-primary)] font-semibold">{start.title}</span> ({start.bpm} BPM, {start.camelotKey}, Energy: {start.energy})</div>
-                  {suggestions.length === 0 ? (<div className="text-[var(--text-muted)] text-sm py-4 text-center">{t("ajouter_morceaux")} with BPM/Key data to get suggestions</div>) : suggestions.map((t, i) => (
-                    <div key={t.id} className="flex items-center gap-3 bg-[var(--bg-card)]/50 rounded-lg p-3 hover:bg-[var(--bg-card)] transition-colors">
-                      <span className="text-pink-400 font-bold text-lg w-6">{i + 1}</span>
-                      <div className="flex-1">
-                        <div className="text-[var(--text-primary)] text-sm font-medium">{t.title}</div>
-                        <div className="text-[var(--text-secondary)] text-xs">{t.artist}</div>
-                      </div>
-                      <div className="flex gap-4 text-xs">
-                        <span className="text-blue-400">{t.bpm} BPM</span>
-                        <span className="text-cyan-500/70 font-mono">{t.camelotKey || '?'}</span>
-                        <span className="text-green-400">E:{t.energy || '?'}</span>
-                      </div>
-                      <div className="flex gap-1">{Array.from({length: 5}, (_, j) => (<span key={j} className={j < (t._mixScore || 0) ? 'text-pink-400' : 'text-[var(--text-muted)]'}>★</span>))}</div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* ── Mixable Tracks Panel ── */}
-      {showMixPanel && selectedTrack && (
-        <div className="fixed right-0 top-14 bottom-12 w-80 bg-[var(--bg-primary)]/98 backdrop-blur-md border-l border-cyan-500/20 z-50 flex flex-col shadow-2xl shadow-black/60">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-subtle)]/60 bg-[var(--bg-secondary)]/80">
-            <span className="text-[10px] font-bold text-cyan-400/80 tracking-[0.2em]">MIXABLE TRACKS</span>
-            <button onClick={() => setShowMixPanel(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><X size={14}/></button>
-          </div>
-          <div className="px-3 py-2 border-b border-[var(--border-subtle)]/40 bg-[var(--bg-secondary)]/40">
-            <div className="text-[10px] text-[var(--text-secondary)]">Playing: <span className="text-[var(--text-primary)] font-medium">{selectedTrack.title?.substring(0, 30)}</span></div>
-            <div className="flex gap-2 mt-0.5">
-              <span className="text-[10px] text-cyan-400 font-medium">{selectedTrack.analysis?.key || '?'}</span>
-              <span className="text-[10px] text-purple-400">{selectedTrack.analysis?.bpm ? (Math.round(selectedTrack.analysis.bpm * 10) / 10) + ' BPM' : '?'}</span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {filteredTracks
-              .filter((t) => t.id !== selectedTrack.id && t.analysis?.key)
-              .map((t) => ({track: t, score: mixScore(selectedTrack.analysis?.key || '', selectedTrack.analysis?.bpm || 0, t.analysis?.key || '', t.analysis?.bpm || 0)}))
-              .sort((a, b) => b.score.total - a.score.total)
-              .map(({track: t, score}) => (
-                <div key={t.id}
-                  onClick={() => setSelectedTrack(t)}
-                  className={"flex items-center gap-2 px-3 py-2 border-b border-[var(--border-subtle)]/20 cursor-pointer hover:bg-[var(--bg-card)]/50 transition-colors" + (selectedTrack.id === t.id ? " bg-cyan-500/10" : "")}>
-                  <div className={"w-8 h-8 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0 " + (score.total >= 80 ? "bg-green-500/20 text-green-400" : score.total >= 60 ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400")}>
-                    {score.total}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[11px] text-[var(--text-primary)] truncate">{t.title}</div>
-                    <div className="text-[9px] text-[var(--text-muted)] truncate">{t.artist || 'Unknown'}</div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-[10px] text-cyan-400">{t.analysis?.key || '?'}</div>
-                    <div className="text-[9px] text-[var(--text-muted)]">{t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : '?'}</div>
-                  </div>
-                  <div className={"text-[8px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 " + (score.verdict === 'Perfect' ? "bg-green-500/20 text-green-400" : score.verdict === 'Great' ? "bg-emerald-500/20 text-emerald-400" : score.verdict === 'Good' ? "bg-yellow-500/20 text-yellow-400" : score.verdict === 'OK' ? "bg-orange-500/20 text-orange-400" : "bg-red-500/20 text-red-400")}>
-                    {score.verdict}
-                  </div>
-                </div>
-              ))
-            }
-            {filteredTracks.filter((t) => t.id !== selectedTrack.id && t.analysis?.key).length === 0 && (
-              <div className="text-center py-8 text-[var(--text-muted)] text-xs">No analyzed tracks to compare</div>
             )}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── Analyzed Tracks Panel ── */}
-      {showAnalyzed && (
-        <div className="bg-[var(--bg-secondary)]/95 border border-[var(--border-subtle)]/50 rounded-xl p-4 mb-3 mx-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2"><CheckSquare size={14} className="text-green-400" /> Analyzed Tracks</h3>
-            <button onClick={() => { setShowAnalyzed(false); setActiveModule(null); }} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><X size={14} /></button>
-          </div>
-          <div className="space-y-1 max-h-64 overflow-y-auto">
-            {tracks.filter((t) => t.bpm && t.key).length === 0 ? (
-              <p className="text-[var(--text-muted)] text-xs text-center py-4">No analyzed tracks yet</p>
-            ) : (
-              tracks.filter((t) => t.bpm && t.key).map((t) => (
-                <div key={t.id} onClick={() => setSelectedTrack(t)} className={`flex items-center gap-2 p-1.5 rounded cursor-pointer text-xs ${selectedTrack?.id === t.id ? 'bg-blue-600/30 text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
-                  <CheckSquare size={10} className="text-green-400 flex-shrink-0" />
-                  <span className="truncate flex-1">{t.title || t.filename}</span>
-                  <span className="text-[var(--text-muted)] flex-shrink-0">{t.bpm} BPM</span>
-                  <span className="text-[var(--text-muted)] flex-shrink-0">{t.key}</span>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="mt-2 pt-2 border-t border-[var(--border-subtle)]/50 text-xs text-[var(--text-muted)]">{tracks.filter((t) => t.bpm && t.key).length} / {tracks.length} tracks analyzed</div>
-        </div>
-      )}
-      
-      {/* DJ Set Timer Panel */}
-      {showSetTimer && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-96 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Clock size={20} /> DJ Set Timer</h3>
-              <button onClick={() => setShowSetTimer(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
-            </div>
-            {!setTimerRunning && setTimerRemaining === 0 && (
-              <div className="space-y-3">
-                <p className="text-[var(--text-secondary)] text-sm">Select set duration:</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[1800, 3600, 5400, 7200, 10800, 14400].map(function(sec) { return (
-                    <button key={sec} onClick={() => setSetTimerDuration(sec)} className={'rounded-lg py-2 text-sm font-medium transition-all ' + (setTimerDuration === sec ? 'bg-cyan-600 text-[var(--text-primary)]' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]')}>{sec < 3600 ? (sec / 60) + 'min' : (sec / 3600) + 'h'}</button>
-                  ); })}
-                </div>
-                <button onClick={() => { setSetTimerRemaining(setTimerDuration); setSetTimerRunning(true); }} className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] font-bold text-lg transition-all">Start Timer</button>
-              </div>
-            )}
-            {(setTimerRunning || setTimerRemaining > 0) && (
-              <div className="text-center space-y-4">
-                <div className="text-6xl font-mono font-bold text-[var(--text-primary)] tabular-nums">{String(Math.floor(setTimerRemaining / 3600)).padStart(2, '0')}:{String(Math.floor((setTimerRemaining % 3600) / 60)).padStart(2, '0')}:{String(setTimerRemaining % 60).padStart(2, '0')}</div>
-                <div className="w-full bg-[var(--bg-card)] rounded-full h-3 overflow-hidden">
-                  <div className={'h-full rounded-full transition-all duration-1000 ' + (setTimerRemaining < 300 ? 'bg-red-500' : setTimerRemaining < 600 ? 'bg-yellow-500' : 'bg-cyan-500')} style={{width: (setTimerDuration > 0 ? (setTimerRemaining / setTimerDuration) * 100 : 0) + '%'}}></div>
-                </div>
-                <p className="text-[var(--text-secondary)] text-sm">{setTimerRemaining < 300 ? 'Less than 5 minutes!' : setTimerRemaining < 600 ? 'Wrapping up soon...' : 'Set in progress'}</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setSetTimerRunning(function(p) { return !p; })} className={'flex-1 py-2 rounded-lg font-medium ' + (setTimerRunning ? 'bg-yellow-600 hover:bg-yellow-500 text-[var(--text-primary)]' : 'bg-green-600 hover:bg-green-500 text-[var(--text-primary)]')}>{setTimerRunning ? 'Pause' : 'Resume'}</button>
-                  <button onClick={() => { setSetTimerRunning(false); setSetTimerRemaining(0); }} className="flex-1 py-2 rounded-lg font-medium bg-red-700 hover:bg-red-600 text-[var(--text-primary)]">{t("reinitialiser")}</button>
-                </div>
-              <p className="text-[var(--text-muted)] text-xs mt-2">Press Space or T to tap | R to reset | Esc to close</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-            {/* Tap Tempo BPM Counter */}
-      {showTapTempo && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-96 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><Activity size={20} /> Tap Tempo</h3>
-              <button onClick={() => setShowTapTempo(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
-            </div>
-            <div className="text-center space-y-4">
-              <div className="text-6xl font-mono font-bold text-cyan-400">
-                {tapTimes.length < 2 ? '---' : Math.round(60000 * Math.min(tapTimes.length - 1, 7) / (tapTimes[tapTimes.length - 1] - tapTimes[Math.max(0, tapTimes.length - 8)]))}
-              </div>
-              <p className="text-[var(--text-secondary)] text-sm">BPM</p>
-              <button
-                onClick={() => { var now = Date.now(); setTapTimes(function(prev) { if(prev.length > 0 && now - prev[prev.length-1] > 3000) return [now]; return prev.concat([now]).slice(-8); }); }}
-                className="w-48 h-48 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[var(--text-primary)] text-2xl font-bold shadow-lg shadow-cyan-500/30 transition-all active:scale-95 mx-auto flex items-center justify-center"
-              >TAP</button>
-              <div className="flex gap-2 justify-center">
-                <span className="text-[var(--text-muted)] text-xs">{tapTimes.length} taps</span>
-                <button onClick={() => setTapTimes([])} className="text-xs text-red-400 hover:text-red-300">{t("reinitialiser")}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Session Notes */}
-      {showSessionNotes && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-2xl p-6 w-[500px] shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><PenSquare size={20} /> Session Notes</h3>
-              <button onClick={() => setShowSessionNotes(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">X</button>
-            </div>
-            <textarea
-              value={sessionNotes}
-              onChange={(e) => setSessionNotes(e.target.value)}
-              placeholder="Write your set notes here... Track order, transitions, energy flow..."
-              className="w-full h-64 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg p-3 text-[var(--text-primary)] text-sm resize-none focus:outline-none focus:border-cyan-500"
-            />
-            <div className="flex justify-between items-center mt-3">
-              <span className="text-[var(--text-muted)] text-xs">{sessionNotes.length} characters</span>
-              <button onClick={() => { navigator.clipboard.writeText(sessionNotes); }} className="text-xs text-cyan-400 hover:text-cyan-300">Copy to clipboard</button>
-            </div>
-          </div>
-        </div>
-      )}
-{/* Keyboard Shortcuts Help Panel */}
+      {/* File input */}
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.aif"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {/* Shortcuts modal */}
       {showShortcuts && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-[var(--bg-secondary)] border border-cyan-500/30 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2"><span className="text-cyan-400">⌨</span> Raccourcis Clavier</h2>
-              <button onClick={() => setShowShortcuts(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">✕</button>
-            </div>
-            <div className="space-y-1.5 text-sm">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-default)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">Keyboard Shortcuts</h2>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
               {[
-                ['Space', 'Play / Pause'],
-                    ['\u2190 / \u2192', 'Reculer / Avancer de 5s'],
-                    ['M', lang === 'fr' ? 'Mute / Unmute' : 'Mute / Unmute'],
-                ['L', lang === 'fr' ? 'Loop intelligent (IN \u2192 OUT \u2192 Toggle)' : 'Smart Loop (IN \u2192 OUT \u2192 Toggle)'],
-                ['[', lang === 'fr' ? 'D\u00e9finir Loop IN' : 'Set Loop IN'],
-                [']', lang === 'fr' ? 'D\u00e9finir Loop OUT' : 'Set Loop OUT'],
-                ['Escape', lang === 'fr' ? 'D\u00e9sactiver le loop' : 'Disable loop'],
-                ['1-8', lang === 'fr' ? 'Aller au Cue Point' : 'Jump to Cue Point'],
-                ['?', lang === 'fr' ? 'Afficher / Masquer cette aide' : 'Show / Hide shortcuts'],
-                ['+ / -', lang === 'fr' ? 'Vitesse de lecture +/- 5%' : 'Playback speed +/- 5%'],
-                ['0', lang === 'fr' ? 'Reset vitesse (1.00x)' : 'Reset speed (1.00x)'],
-                ['← / →', 'Seek -5s / +5s'],
-              ].map(([key, desc]) => (
-                <div key={key} className="flex items-center justify-between py-1.5 border-b border-[var(--border-subtle)]/50 last:border-0">
-                  <kbd className="px-2.5 py-1 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-md text-cyan-400 font-mono text-xs min-w-[40px] text-center">{key}</kbd>
-                  <span className="text-[var(--text-secondary)] text-right">{desc}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">Appuie sur ? pour fermer</p>
-          </div>
-        </div>
-      )}
-</div>
-      {/* Language Toggle */}
-      <button
-        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
-        title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
-        style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', border: '2px solid rgba(139, 92, 246, 0.5)', cursor: 'pointer' }}
-        className="bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-lg"
-      >
-        {lang === 'fr' ? 'EN' : 'FR'}
-      </button>
-    </div>
-  );
-}
-
-// ── Small helpers ────────────────────────────────────────────────────────
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-[var(--bg-primary)]/50">
-      <span className="text-[var(--text-muted)] text-xs">{label}</span>
-      <span className="text-[var(--text-primary)] text-xs font-medium truncate max-w-[200px] text-right">{value}</span>
-    
-
-      {/* ── Metadata Edit Modal ── */}
-      
-
-
-
-
-      {/* ── Toast Notifications ── */}
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
-        {toasts.map(t => (
-          <div key={t.id} className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl backdrop-blur-sm border text-sm font-medium animate-[slideIn_0.3s_ease-out] ${
-            t.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/50 text-[var(--text-primary)]' :
-            t.type === 'error' ? 'bg-red-500/90 border-red-400/50 text-[var(--text-primary)]' :
-            'bg-[var(--bg-elevated)]/90 border-slate-500/50 text-[var(--text-primary)]'
-          }`}>
-            {t.type === 'success' && <CheckCircle2 size={16} />}
-            {t.type === 'error' && <XCircle size={16} />}
-            {t.type === 'info' && <Activity size={16} />}
-            <span>{t.msg}</span>
-            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} className="ml-1 opacity-60 hover:opacity-100">
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-            {/* ── Keyboard Shortcuts Modal ── */}
-      {showShortcutsModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
-          <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Raccourcis clavier</h3>
-              <button onClick={() => setShowShortcutsModal(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"><XCircle size={20} /></button>
-            </div>
-            <div className="space-y-2">
-              {[
-                ['Ctrl+F', 'Rechercher'],
-                ['Ctrl+A', 'Tout sélectionner'],
-                ['Shift+Clic', 'Sélection par plage'],
-                ['Ctrl+Clic', 'Sélection multiple'],
-                ['\u2191 / \u2193', 'Naviguer entre morceaux'],
-                ['Suppr / Retour', 'Supprimer sélection'],
-                ['Esc', 'Fermer / Désélectionner'],
-                ['?', 'Afficher ce menu'],
-                ['Q', 'Quick Mix - Prochain morceau compatible'],
-                ['T', 'Ouvrir le Tap BPM'],
-                ['C', 'Filtrer morceaux compatibles'],
+                ['Space', 'Play/Pause'],
+                ['Left/Right', 'Seek ±5s'],
+                ['[/]', 'Loop In/Out'],
+                ['M', 'Mute'],
+                ['L', 'Toggle Loop'],
+                ['0', 'Go to Start'],
+                ['+/-', 'Zoom'],
+                ['?', 'Show This Menu'],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-[var(--bg-elevated)]/50">
                   <kbd className="px-2 py-0.5 rounded bg-[var(--bg-elevated)] text-cyan-400 font-mono text-xs border border-[var(--border-default)]">{key}</kbd>
@@ -5294,11 +2429,9 @@ function MetaRow({ label, value }: { label: string; value: string }) {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-[10px] text-[var(--text-muted)] text-center">Appuyez sur ? pour afficher/masquer</p>
           </div>
         </div>
       )}
-<style>{`@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
-</div>
+    </div>
   );
 }
