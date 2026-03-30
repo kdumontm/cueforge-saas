@@ -19,6 +19,7 @@ import PlaylistsTab from '@/components/tabs/PlaylistsTab';
 import StatsTab from '@/components/tabs/StatsTab';
 import HistoryTab from '@/components/tabs/HistoryTab';
 import InfoEditTab from '@/components/tabs/InfoEditTab';
+import BatchActionBar from '@/components/tracks/BatchActionBar';
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -100,6 +101,9 @@ export default function DashboardV2() {
   const toastIdRef = useRef(0);
   const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -505,6 +509,106 @@ export default function DashboardV2() {
     addToast(`Analyzed ${unanalyzed.length} tracks!`, 'success');
   }
 
+  // ── Multi-select batch operations ────────────────────────────────────
+  function handleMultiSelect(trackId: number, e?: React.MouseEvent) {
+    if (e?.shiftKey || e?.ctrlKey || e?.metaKey) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(trackId)) next.delete(trackId);
+        else next.add(trackId);
+        return next;
+      });
+    } else {
+      // Normal click — find display track and select it
+      const dt = displayTracks.find((t: any) => t.id === trackId);
+      if (dt) setSelectedTrack(dt);
+    }
+  }
+
+  async function handleBatchTag(tag: string) {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        const track = tracks.find(t => t.id === id);
+        const currentTags = track?.tags ? String(track.tags).split(',').map(t => t.trim()).filter(Boolean) : [];
+        if (!currentTags.includes(tag)) {
+          currentTags.push(tag);
+          await updateTrack(id, { tags: currentTags.join(',') });
+        }
+      } catch {}
+    }
+    await loadTracks();
+    addToast(`Tag "${tag}" ajouté à ${ids.length} tracks`, 'success');
+  }
+
+  async function handleBatchCategory(category: string) {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try { await updateTrack(id, { category }); } catch {}
+    }
+    await loadTracks();
+    addToast(`Catégorie "${category}" appliquée`, 'success');
+  }
+
+  async function handleBatchRating(rating: number) {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try { await updateTrack(id, { rating }); } catch {}
+    }
+    await loadTracks();
+    addToast(`${ids.length} tracks notées ${rating}⭐`, 'success');
+  }
+
+  async function handleBatchColor(color: string) {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try { await updateTrack(id, { color_code: color }); } catch {}
+    }
+    await loadTracks();
+    addToast(`Couleur appliquée à ${ids.length} tracks`, 'success');
+  }
+
+  async function handleBatchAnalyzeSelected() {
+    const ids = Array.from(selectedIds);
+    addToast(`Analyse de ${ids.length} tracks...`, 'info');
+    for (const id of ids) {
+      try {
+        await analyzeTrack(id);
+        await pollTrackUntilDone(id);
+      } catch {}
+    }
+    await loadTracks();
+    addToast(`${ids.length} tracks analysées!`, 'success');
+  }
+
+  async function handleBatchExportSelected() {
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        const blob = await exportRekordbox(id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `track_${id}.xml`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
+    addToast(`${ids.length} tracks exportées`, 'success');
+  }
+
+  async function handleBatchDeleteSelected() {
+    const ids = Array.from(selectedIds);
+    if (!window.confirm(`Supprimer ${ids.length} tracks ?`)) return;
+    for (const id of ids) {
+      try { await deleteTrack(id); } catch {}
+    }
+    setSelectedIds(new Set());
+    setSelectedTrack(null);
+    await loadTracks();
+    addToast(`${ids.length} tracks supprimées`, 'success');
+  }
+
   return (
     <div
       className="p-4 space-y-3"
@@ -640,18 +744,45 @@ export default function DashboardV2() {
         </div>
       </div>
 
+      {/* Batch Action Bar (multi-select) */}
+      <BatchActionBar
+        selectedCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBatchTag={handleBatchTag}
+        onBatchCategory={handleBatchCategory}
+        onBatchRating={handleBatchRating}
+        onBatchColor={handleBatchColor}
+        onBatchAnalyze={handleBatchAnalyzeSelected}
+        onBatchExport={handleBatchExportSelected}
+        onBatchDelete={handleBatchDeleteSelected}
+        onSelectAll={() => setSelectedIds(new Set(displayTracks.map((t: any) => t.id)))}
+      />
+
       {/* Track List */}
       <TrackList
         tracks={displayTracks}
         selectedTrack={selectedTrack}
         playingTrackId={null}
         favoriteIds={favoriteIds}
+        selectedIds={selectedIds}
         searchQuery={effectiveSearch}
         gridView={gridView}
         sortBy={sortBy}
         filters={filters}
         genres={genres}
-        onSelect={handleSelectTrack}
+        onSelect={(track: any, e?: React.MouseEvent) => {
+          if (e?.shiftKey || e?.ctrlKey || e?.metaKey) {
+            setSelectedIds(prev => {
+              const next = new Set(prev);
+              if (next.has(track.id)) next.delete(track.id);
+              else next.add(track.id);
+              return next;
+            });
+          } else {
+            handleSelectTrack(track);
+            setSelectedIds(new Set());
+          }
+        }}
         onDoubleClick={handleSelectTrack}
         onContextMenu={handleContextMenu}
         onFavoriteToggle={(id: number) => setFavoriteIds(prev => {

@@ -12,6 +12,7 @@ interface TrackListProps {
   selectedTrack: Track | null;
   playingTrackId: number | null;
   favoriteIds: Set<number>;
+  selectedIds?: Set<number>;
   searchQuery: string;
   gridView: boolean;
   sortBy: string;
@@ -26,7 +27,7 @@ interface TrackListProps {
     showFavoritesOnly: boolean;
   };
   genres: string[];
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, e?: React.MouseEvent) => void;
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
@@ -87,6 +88,7 @@ export function TrackList({
   onSortChange,
   onGridToggle,
   onFilterChange,
+  selectedIds = new Set(),
   onFilterReset,
   isLoading = false,
 }: TrackListProps) {
@@ -321,6 +323,7 @@ export function TrackList({
                 track={track}
                 index={index}
                 isSelected={selectedTrack?.id === track.id}
+                isMultiSelected={selectedIds.has(track.id)}
                 isPlaying={playingTrackId === track.id}
                 isFavorite={favoriteIds.has(track.id)}
                 onSelect={onSelect}

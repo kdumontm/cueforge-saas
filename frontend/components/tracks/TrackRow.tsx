@@ -8,9 +8,10 @@ interface TrackRowProps {
   track: Track;
   index: number;
   isSelected: boolean;
+  isMultiSelected?: boolean;
   isPlaying: boolean;
   isFavorite: boolean;
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, e?: React.MouseEvent) => void;
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
@@ -48,6 +49,7 @@ export function TrackRow({
   index,
   isSelected,
   isPlaying,
+  isMultiSelected = false,
   isFavorite,
   onSelect,
   onDoubleClick,
@@ -66,7 +68,7 @@ export function TrackRow({
 
   return (
     <div
-      onClick={() => onSelect(track)}
+      onClick={(e) => onSelect(track, e)}
       onDoubleClick={() => onDoubleClick(track)}
       onContextMenu={handleContextMenu}
       className={`
@@ -74,6 +76,7 @@ export function TrackRow({
         items-center border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)]
         transition-colors cursor-pointer
         ${isSelected ? 'bg-[var(--bg-secondary)] border-l-4 border-l-[var(--accent)]' : ''}
+        ${isMultiSelected ? 'bg-blue-500/10 border-l-4 border-l-blue-500' : ''}
       `}
     >
       {/* Index */}
