@@ -6,6 +6,7 @@ import { Wrench } from 'lucide-react';
 import BpmTapTempo from '@/components/tools/BpmTapTempo';
 import CrateDigger from '@/components/tools/CrateDigger';
 import EnergyFlow from '@/components/tools/EnergyFlow';
+import QuickNotes from '@/components/tools/QuickNotes';
 import { listTracks, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
 
@@ -39,6 +40,7 @@ export default function ToolsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <BpmTapTempo />
         <CrateDigger tracks={tracks} />
+        <QuickNotes />
       </div>
 
       {/* Energy Flow - full width */}
