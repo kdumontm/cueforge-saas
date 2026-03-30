@@ -683,7 +683,7 @@ export default function DashboardV2() {
       {/* Player + Tabs — flex row */}
       <div className="flex gap-3 items-stretch">
 
-        {/* Left: Player (waveform) + Beatgrid sous le waveform */}
+        {/* Left: Player (waveform) + TrackList directement dessous */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           <PlayerCard
             track={selectedTrack}
@@ -694,15 +694,54 @@ export default function DashboardV2() {
             onWaveformClick={handleWaveformClick}
             playerRef={playerRef}
           />
-          {/* Beatgrid affiché sous le waveform, pas dans les tabs */}
-          {selectedTrack && (
-            <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden">
-              <BeatgridTab
-                track={selectedTrack}
-                beatgrid={selectedTrack?.analysis ? { bpm: selectedTrack.analysis?.bpm, downbeat_ms: 0, locked: false } : undefined}
-              />
-            </div>
-          )}
+          {/* TrackList sous le waveform */}
+          <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ minHeight: 220 }}>
+            <BatchActionBar
+              selectedCount={selectedIds.size}
+              onClearSelection={() => setSelectedIds(new Set())}
+              onBatchTag={handleBatchTag}
+              onBatchCategory={handleBatchCategory}
+              onBatchRating={handleBatchRating}
+              onBatchColor={handleBatchColor}
+              onBatchAnalyze={handleBatchAnalyzeSelected}
+              onBatchExport={handleBatchExportSelected}
+              onBatchDelete={handleBatchDeleteSelected}
+              onSelectAll={() => setSelectedIds(new Set(displayTracks.map((t: any) => t.id)))}
+            />
+            <TrackList
+              tracks={displayTracks}
+              selectedTrack={selectedTrack}
+              playingTrackId={null}
+              favoriteIds={favoriteIds}
+              selectedIds={selectedIds}
+              searchQuery={effectiveSearch}
+              gridView={gridView}
+              sortBy={sortBy}
+              filters={filters}
+              genres={genres}
+              onSelect={(track: any, e?: React.MouseEvent) => {
+                if (e?.shiftKey || e?.ctrlKey || e?.metaKey) {
+                  setSelectedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(track.id)) next.delete(track.id);
+                    else next.add(track.id);
+                    return next;
+                  });
+                } else {
+                  handleSelectTrack(track);
+                }
+              }}
+              onContextMenu={handleContextMenu}
+              onFavorite={handleFavorite}
+              onGridToggle={setGridView}
+              onSearchChange={setSearch}
+              onSortChange={setSortBy}
+              onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+              onFilterReset={() => setFilters({ bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false })}
+              isLoading={loading}
+              onImportClick={() => fileRef.current?.click()}
+            />
+          </div>
         </div>
 
         {/* Right: Tab panel vertical */}
@@ -765,67 +804,6 @@ export default function DashboardV2() {
 
       </div>
 
-      {/* Batch Action Bar (multi-select) */}
-      <BatchActionBar
-        selectedCount={selectedIds.size}
-        onClearSelection={() => setSelectedIds(new Set())}
-        onBatchTag={handleBatchTag}
-        onBatchCategory={handleBatchCategory}
-        onBatchRating={handleBatchRating}
-        onBatchColor={handleBatchColor}
-        onBatchAnalyze={handleBatchAnalyzeSelected}
-        onBatchExport={handleBatchExportSelected}
-        onBatchDelete={handleBatchDeleteSelected}
-        onSelectAll={() => setSelectedIds(new Set(displayTracks.map((t: any) => t.id)))}
-      />
-
-      {/* Track List */}
-      <TrackList
-        tracks={displayTracks}
-        selectedTrack={selectedTrack}
-        playingTrackId={null}
-        favoriteIds={favoriteIds}
-        selectedIds={selectedIds}
-        searchQuery={effectiveSearch}
-        gridView={gridView}
-        sortBy={sortBy}
-        filters={filters}
-        genres={genres}
-        onSelect={(track: any, e?: React.MouseEvent) => {
-          if (e?.shiftKey || e?.ctrlKey || e?.metaKey) {
-            setSelectedIds(prev => {
-              const next = new Set(prev);
-              if (next.has(track.id)) next.delete(track.id);
-              else next.add(track.id);
-              return next;
-            });
-          } else {
-            handleSelectTrack(track);
-            setSelectedIds(new Set());
-          }
-        }}
-        onDoubleClick={handleSelectTrack}
-        onContextMenu={handleContextMenu}
-        onFavoriteToggle={(id: number) => setFavoriteIds(prev => {
-          const next = new Set(prev);
-          next.has(id) ? next.delete(id) : next.add(id);
-          return next;
-        })}
-        onRatingChange={(trackId: number, rating: number) => {
-          updateTrack(trackId, {rating})
-            .then(() => {
-              addToast(`Rated ${rating}⭐`, 'success');
-              loadTracks();
-            })
-            .catch(() => addToast('Rating failed', 'error'));
-        }}
-        onSearchChange={setSearchQuery}
-        onSortChange={setSortBy}
-        onGridToggle={setGridView}
-        onFilterChange={(key: string, value: any) => setFilters(prev => ({ ...prev, [key]: value }))}
-        onFilterReset={() => setFilters(DEFAULT_FILTERS)}
-        isLoading={loading}
-      />
 
       {/* Hidden file input */}
       <input

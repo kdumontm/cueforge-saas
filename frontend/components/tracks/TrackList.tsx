@@ -174,64 +174,48 @@ export function TrackList({
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 p-4 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
-        {/* Search and Controls */}
-        <div className="flex items-center gap-3">
-          {/* Search Input */}
-          <div className="flex-1 relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
-            />
-            <input
-              type="text"
-              placeholder="Rechercher des morceaux..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-
-          {/* Sort Dropdown */}
-          <select
-            value={sortBy}
-            onChange={(e) => onSortChange(e.target.value)}
-            className="px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          {/* View Toggle */}
-          <div className="flex gap-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg p-1">
-            <button
-              onClick={() => onGridToggle(false)}
-              className={`p-2 rounded transition-colors ${
-                !gridView
-                  ? 'bg-[var(--accent)] text-white'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <List size={16} />
-            </button>
-            <button
-              onClick={() => onGridToggle(true)}
-              className={`p-2 rounded transition-colors ${
-                gridView
-                  ? 'bg-[var(--accent)] text-white'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <Grid3x3 size={16} />
-            </button>
-          </div>
+      {/* Toolbar compact */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        {/* Search Input */}
+        <div className="flex-1 relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
+          />
         </div>
 
-        {/* Filter Panel */}
+        {/* Sort Dropdown compact */}
+        <select
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value)}
+          className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+
+        {/* View Toggle compact */}
+        <div className="flex gap-0.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md p-0.5">
+          <button
+            onClick={() => onGridToggle(false)}
+            className={`p-1 rounded transition-colors ${!gridView ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+          >
+            <List size={13} />
+          </button>
+          <button
+            onClick={() => onGridToggle(true)}
+            className={`p-1 rounded transition-colors ${gridView ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+          >
+            <Grid3x3 size={13} />
+          </button>
+        </div>
+
+        {/* Filter Panel inline */}
         <FilterPanel
           filters={filters}
           genres={genres}

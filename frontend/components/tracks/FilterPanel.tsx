@@ -38,27 +38,20 @@ export function FilterPanel({
   };
 
   return (
-    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg">
-      {/* Header */}
+    <div className="relative">
+      {/* Header compact */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-[var(--bg-tertiary)] transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-hover)] transition-colors text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
       >
-        <div className="flex items-center gap-2">
-          <Filter size={18} className="text-[var(--text-secondary)]" />
-          <span className="font-medium text-[var(--text-primary)]">Filtres</span>
-        </div>
-        <X
-          size={18}
-          className={`text-[var(--text-secondary)] transition-transform ${
-            isExpanded ? 'rotate-45' : ''
-          }`}
-        />
+        <Filter size={12} />
+        <span>Filtres</span>
+        <X size={11} className={`transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
       </button>
 
-      {/* Expanded Content */}
+      {/* Expanded Content — dropdown absolu */}
       {isExpanded && (
-        <div className="border-t border-[var(--border-color)] p-4 space-y-4">
+        <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-xl p-3 space-y-3">
           {/* BPM Range */}
           <div className="grid grid-cols-2 gap-3">
             <div>
