@@ -29,29 +29,6 @@ PENDING_MIGRATIONS = {
         "avatar_url": "VARCHAR(500)",
         "last_login_at": "TIMESTAMP",
     },
-    "tracks": {
-        # Existing metadata columns
-        "artist": "VARCHAR(255)",
-        "title": "VARCHAR(255)",
-        "album": "VARCHAR(255)",
-        "genre": "VARCHAR(255)",
-        "year": "INTEGER",
-        "artwork_url": "TEXT",
-        "remix_artist": "VARCHAR(255)",
-        "remix_type": "VARCHAR(100)",
-        "feat_artist": "VARCHAR(255)",
-        "spotify_id": "VARCHAR(255)",
-        "spotify_url": "TEXT",
-        "musicbrainz_id": "VARCHAR(255)",
-        # DJ organization columns (Rekordbox/Lexicon style)
-        "category": "VARCHAR(100)",
-        "tags": "TEXT",
-        "rating": "INTEGER",
-        "color_code": "VARCHAR(20)",
-        "comment": "TEXT",
-        "energy_level": "INTEGER",
-        "played_count": "INTEGER DEFAULT 0",
-    },
     "cue_points": {
         # Cue customization columns
         "cue_mode": "VARCHAR(20) DEFAULT 'memory'",
@@ -83,6 +60,8 @@ PENDING_MIGRATIONS = {
         "label": "VARCHAR(255)",
         "camelot_code": "VARCHAR(5)",
         "last_played_at": "TIMESTAMP",
+        # Multi-tenant
+        "org_id": "INTEGER",
     },
     "track_analyses": {
         # Waveform and spectral data columns
