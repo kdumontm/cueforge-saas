@@ -342,19 +342,72 @@ async def analyze_track(
 def list_tracks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    # v2: Advanced filters
+    genre: Optional[str] = Query(None),
+    artist: Optional[str] = Query(None),
+    bpm_min: Optional[float] = Query(None),
+    bpm_max: Optional[float] = Query(None),
+    key: Optional[str] = Query(None),
+    energy_min: Optional[float] = Query(None),
+    energy_max: Optional[float] = Query(None),
+    rating_min: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_dir: str = Query("desc"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    q = db.query(Track).filter(Track.user_id == current_user.id)
+
+    # v2: Apply filters
+    if genre:
+        q = q.filter(Track.genre.ilike(f"%{genre}%"))
+    if artist:
+        q = q.filter(Track.artist.ilike(f"%{artist}%"))
+    if rating_min is not None:
+        q = q.filter(Track.rating >= rating_min)
+    if search:
+        q = q.filter(
+            (Track.title.ilike(f"%{search}%")) |
+            (Track.artist.ilike(f"%{search}%")) |
+            (Track.original_filename.ilike(f"%{search}%"))
+        )
+
+    # BPM/Key/Energy filters require join with analysis
+    if any([bpm_min, bpm_max, key, energy_min, energy_max]):
+        q = q.outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+        if bpm_min is not None:
+            q = q.filter(TrackAnalysis.bpm >= bpm_min)
+        if bpm_max is not None:
+            q = q.filter(TrackAnalysis.bpm <= bpm_max)
+        if key:
+            from app.services.camelot import key_to_camelot
+            camelot = key_to_camelot(key)
+            if camelot:
+                q = q.filter(
+                    (TrackAnalysis.key == key) | (Track.camelot_code == camelot)
+                )
+            else:
+                q = q.filter(TrackAnalysis.key == key)
+        if energy_min is not None:
+            q = q.filter(TrackAnalysis.energy >= energy_min)
+        if energy_max is not None:
+            q = q.filter(TrackAnalysis.energy <= energy_max)
+
+    total = q.count()
+
+    # Sorting
+    sort_col = getattr(Track, sort_by, None)
+    if sort_col is None:
+        sort_col = Track.created_at
+    if sort_dir == "asc":
+        q = q.order_by(sort_col.asc())
+    else:
+        q = q.order_by(sort_col.desc())
+
     offset = (page - 1) * limit
-    total = db.query(Track).filter(Track.user_id == current_user.id).count()
-    tracks = (
-        db.query(Track)
-        .filter(Track.user_id == current_user.id)
-        .order_by(Track.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    tracks = q.offset(offset).limit(limit).all()
+
     return TrackListResponse(
         tracks=[TrackResponse.model_validate(t) for t in tracks],
         total=total,
@@ -661,3 +714,203 @@ def fix_tags(
         raise HTTPException(status_code=500, detail=result['error'])
 
     return {"status": "ok", "written": result.get('written', {})}
+
+
+# ── v2: Compatible tracks (Camelot + BPM) ──────────────────────────────────
+
+@router.get("/{track_id}/compatible")
+def get_compatible_tracks(
+    track_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    bpm_tolerance: float = Query(6.0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Find tracks compatible for mixing (harmonic + BPM match)."""
+    from app.services.camelot import transition_score, key_to_camelot
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis or not analysis.bpm:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    ref_bpm = analysis.bpm
+    ref_key = analysis.key or ""
+
+    # Get all other tracks with analysis
+    candidates = (
+        db.query(Track, TrackAnalysis)
+        .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+        .filter(Track.user_id == current_user.id, Track.id != track_id)
+        .all()
+    )
+
+    scored = []
+    for t, a in candidates:
+        if not a.bpm:
+            continue
+        ts = transition_score(ref_bpm, ref_key, a.bpm or 0, a.key or "", bpm_tolerance)
+        if ts["overall_score"] > 0:
+            scored.append({
+                "track_id": t.id,
+                "title": t.title,
+                "artist": t.artist,
+                "bpm": a.bpm,
+                "key": a.key,
+                "camelot": key_to_camelot(a.key) if a.key else None,
+                **ts,
+            })
+
+    scored.sort(key=lambda x: x["overall_score"], reverse=True)
+    return {"reference": {"track_id": track_id, "bpm": ref_bpm, "key": ref_key,
+                          "camelot": key_to_camelot(ref_key)},
+            "compatible": scored[:limit]}
+
+
+# ── v2: Play history ───────────────────────────────────────────────────────
+
+@router.post("/{track_id}/play")
+def record_play(
+    track_id: int,
+    context: Optional[str] = Query("preview"),
+    duration_played_ms: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Record a play event for a track."""
+    from datetime import datetime
+    from app.models.library import PlayHistory
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Update play count and last played
+    track.played_count = (track.played_count or 0) + 1
+    track.last_played_at = datetime.utcnow()
+
+    # Record in history
+    entry = PlayHistory(
+        user_id=current_user.id,
+        track_id=track_id,
+        context=context,
+        duration_played_ms=duration_played_ms,
+    )
+    db.add(entry)
+    db.commit()
+
+    return {"status": "ok", "played_count": track.played_count}
+
+
+@router.get("/{track_id}/history")
+def get_play_history(
+    track_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get play history for a track."""
+    from app.models.library import PlayHistory
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    history = (
+        db.query(PlayHistory)
+        .filter(PlayHistory.track_id == track_id, PlayHistory.user_id == current_user.id)
+        .order_by(PlayHistory.played_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "track_id": track_id,
+        "total_plays": track.played_count or 0,
+        "history": [
+            {
+                "id": h.id,
+                "played_at": h.played_at.isoformat() if h.played_at else None,
+                "context": h.context,
+                "duration_played_ms": h.duration_played_ms,
+            }
+            for h in history
+        ],
+    }
+
+
+# ── v2: Beatgrid ───────────────────────────────────────────────────────────
+
+@router.get("/{track_id}/beatgrid")
+def get_beatgrid(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get beatgrid data for a track."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    return {
+        "track_id": track_id,
+        "bpm": analysis.bpm,
+        "time_signature": analysis.time_signature or "4/4",
+        "downbeat_ms": analysis.downbeat_ms,
+        "beatgrid": analysis.beatgrid or [],
+        "beat_positions": analysis.beat_positions or [],
+    }
+
+
+class BeatgridUpdate(BaseModel):
+    downbeat_ms: Optional[int] = None
+    bpm: Optional[float] = None
+    beatgrid: Optional[list] = None
+    time_signature: Optional[str] = None
+
+
+@router.patch("/{track_id}/beatgrid")
+def update_beatgrid(
+    track_id: int,
+    body: BeatgridUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually adjust beatgrid (downbeat, BPM override)."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(analysis, field, value)
+
+    db.commit()
+    db.refresh(analysis)
+
+    return {
+        "status": "ok",
+        "bpm": analysis.bpm,
+        "downbeat_ms": analysis.downbeat_ms,
+        "time_signature": analysis.time_signature,
+    }

@@ -7,6 +7,7 @@ from app.database import engine, SessionLocal
 from app.models import user, track  # noqa: F401 — registers models with Base
 from app.models import site_settings  # noqa: F401 — registers PageConfig with Base
 from app.models import organization as org_model  # noqa: F401 — registers Organization with Base
+from app.models import library as library_model  # noqa: F401 — registers v2 library models
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -96,6 +97,8 @@ app.add_middleware(RateLimitMiddleware)
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402
 from app.routers import org_management  # noqa: E402
+# v2 routers
+from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -107,3 +110,10 @@ app.include_router(admin.public_router, prefix="/api/v1", tags=["site"])
 app.include_router(waveforms.router)
 app.include_router(organization.router)
 app.include_router(org_management.router, prefix="/api/v1/org", tags=["organization-management"])
+# v2 routers
+app.include_router(hot_cues.router, prefix="/api/v1", tags=["hot-cues"])
+app.include_router(playlists.router, prefix="/api/v1", tags=["playlists"])
+app.include_router(crates.router, prefix="/api/v1", tags=["smart-crates"])
+app.include_router(sets.router, prefix="/api/v1", tags=["dj-sets"])
+app.include_router(import_dj.router, prefix="/api/v1", tags=["import"])
+app.include_router(advanced.router, prefix="/api/v1", tags=["advanced"])

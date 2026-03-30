@@ -57,10 +57,44 @@ PENDING_MIGRATIONS = {
         "cue_mode": "VARCHAR(20) DEFAULT 'memory'",
         "color_rgb": "VARCHAR(30)",
     },
+    "tracks": {
+        # Existing metadata columns
+        "artist": "VARCHAR(255)",
+        "title": "VARCHAR(255)",
+        "album": "VARCHAR(255)",
+        "genre": "VARCHAR(255)",
+        "year": "INTEGER",
+        "artwork_url": "TEXT",
+        "remix_artist": "VARCHAR(255)",
+        "remix_type": "VARCHAR(100)",
+        "feat_artist": "VARCHAR(255)",
+        "spotify_id": "VARCHAR(255)",
+        "spotify_url": "TEXT",
+        "musicbrainz_id": "VARCHAR(255)",
+        # DJ organization columns (Rekordbox/Lexicon style)
+        "category": "VARCHAR(100)",
+        "tags": "TEXT",
+        "rating": "INTEGER",
+        "color_code": "VARCHAR(20)",
+        "comment": "TEXT",
+        "energy_level": "INTEGER",
+        "played_count": "INTEGER DEFAULT 0",
+        # v2: New DJ columns
+        "label": "VARCHAR(255)",
+        "camelot_code": "VARCHAR(5)",
+        "last_played_at": "TIMESTAMP",
+    },
     "track_analyses": {
         # Waveform and spectral data columns
         "waveform_peaks": "JSON",
         "spectral_energy": "JSON",
+        # v2: Beatgrid & advanced analysis
+        "beatgrid": "JSON",
+        "downbeat_ms": "INTEGER",
+        "time_signature": "VARCHAR(10) DEFAULT '4/4'",
+        "key_confidence": "FLOAT",
+        "loudness_db": "FLOAT",
+        "vocal_percentage": "FLOAT",
     },
     "site_settings": {
         # Theme config — full CSS variable overrides for dark/light modes

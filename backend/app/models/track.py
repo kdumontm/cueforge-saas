@@ -78,6 +78,11 @@ class Track(Base):
     energy_level = Column(Integer, nullable=True)
     played_count = Column(Integer, default=0)
 
+    # v2: New DJ columns
+    label = Column(String(255), nullable=True)          # Record label
+    camelot_code = Column(String(5), nullable=True)     # e.g. "8A", "11B"
+    last_played_at = Column(DateTime, nullable=True)
+
     # Relationships
     user = relationship("User", back_populates="tracks")
     analysis = relationship(
@@ -110,6 +115,13 @@ class TrackAnalysis(Base):
     section_labels = Column(JSON, default=list)
     waveform_peaks = Column(JSON, nullable=True)
     spectral_energy = Column(JSON, nullable=True)
+    # v2: Beatgrid & advanced analysis
+    beatgrid = Column(JSON, nullable=True)              # [{position_ms, beat_number}]
+    downbeat_ms = Column(Integer, nullable=True)        # First downbeat position
+    time_signature = Column(String(10), default="4/4")
+    key_confidence = Column(Float, nullable=True)
+    loudness_db = Column(Float, nullable=True)
+    vocal_percentage = Column(Float, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

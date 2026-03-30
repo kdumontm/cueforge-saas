@@ -129,3 +129,129 @@ async def export_track_json(track_id: int, db: Session = Depends(get_db)):
     del result["xml"]  # Don't send full XML in JSON response
     result["track"] = track_dict
     return result
+
+
+# ── v2: M3U Playlist Export ─────────────────────────────────────────────────
+
+@router.get("/playlist/{playlist_id}/m3u")
+async def export_playlist_m3u(
+    playlist_id: int,
+    db: Session = Depends(get_db),
+):
+    """Export a playlist as M3U file."""
+    from app.models.library import Playlist, PlaylistTrack
+    from app.models.track import TrackAnalysis
+
+    pl = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+    if not pl:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+
+    entries = (
+        db.query(PlaylistTrack)
+        .filter(PlaylistTrack.playlist_id == playlist_id)
+        .order_by(PlaylistTrack.position.asc())
+        .all()
+    )
+
+    lines = ["#EXTM3U", f"# Playlist: {pl.name}", f"# Exported by CueForge"]
+    for entry in entries:
+        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        if not track:
+            continue
+        analysis = db.query(TrackAnalysis).filter(
+            TrackAnalysis.track_id == track.id
+        ).first()
+        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis else -1
+        display = f"{track.artist or 'Unknown'} - {track.title or track.original_filename}"
+        lines.append(f"#EXTINF:{duration_s},{display}")
+        lines.append(track.original_filename or track.filename)
+
+    content = "\n".join(lines) + "\n"
+    return Response(
+        content=content,
+        media_type="audio/x-mpegurl",
+        headers={
+            "Content-Disposition": f'attachment; filename="{pl.name}.m3u"'
+        },
+    )
+
+
+# ── v2: DJ Set Export ───────────────────────────────────────────────────────
+
+@router.get("/set/{set_id}/rekordbox")
+async def export_set_rekordbox(
+    set_id: int,
+    db: Session = Depends(get_db),
+):
+    """Export a DJ set as Rekordbox XML."""
+    from app.models.library import DJSet, DJSetTrack
+
+    dj_set = db.query(DJSet).filter(DJSet.id == set_id).first()
+    if not dj_set:
+        raise HTTPException(status_code=404, detail="DJ set not found")
+
+    entries = (
+        db.query(DJSetTrack)
+        .filter(DJSetTrack.set_id == set_id)
+        .order_by(DJSetTrack.position.asc())
+        .all()
+    )
+
+    tracks_data = []
+    for entry in entries:
+        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        if track:
+            tracks_data.append(track_to_dict(track))
+
+    result = export_tracks_to_rekordbox(tracks_data, playlist_name=dj_set.name)
+
+    return Response(
+        content=result["xml"],
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{dj_set.name}_rekordbox.xml"'
+        },
+    )
+
+
+@router.get("/set/{set_id}/m3u")
+async def export_set_m3u(
+    set_id: int,
+    db: Session = Depends(get_db),
+):
+    """Export a DJ set as M3U file."""
+    from app.models.library import DJSet, DJSetTrack
+    from app.models.track import TrackAnalysis
+
+    dj_set = db.query(DJSet).filter(DJSet.id == set_id).first()
+    if not dj_set:
+        raise HTTPException(status_code=404, detail="DJ set not found")
+
+    entries = (
+        db.query(DJSetTrack)
+        .filter(DJSetTrack.set_id == set_id)
+        .order_by(DJSetTrack.position.asc())
+        .all()
+    )
+
+    lines = ["#EXTM3U", f"# DJ Set: {dj_set.name}", f"# Exported by CueForge"]
+    for entry in entries:
+        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        if not track:
+            continue
+        analysis = db.query(TrackAnalysis).filter(
+            TrackAnalysis.track_id == track.id
+        ).first()
+        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis else -1
+        display = f"{track.artist or 'Unknown'} - {track.title or track.original_filename}"
+        lines.append(f"#EXTINF:{duration_s},{display}")
+        lines.append(track.original_filename or track.filename)
+
+    content = "\n".join(lines) + "\n"
+    return Response(
+        content=content,
+        media_type="audio/x-mpegurl",
+        headers={
+            "Content-Disposition": f'attachment; filename="{dj_set.name}.m3u"'
+        },
+    )
