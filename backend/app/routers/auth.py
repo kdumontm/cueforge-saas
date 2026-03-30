@@ -166,7 +166,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         password_hash=hash_password(user_data.password),
         email_verify_token=verify_token,
         email_verify_token_expires=datetime.utcnow() + timedelta(hours=24),
-        email_verified=False,
+        email_verified=True,  # Auto-verify (no email service in dev/early prod)
     )
     db.add(new_user)
     db.commit()
@@ -253,12 +253,10 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    # Auto-verify email on first login if not yet verified (no email service in dev)
     if not user.email_verified:
-        raise HTTPException(
-            status_code=403,
-            detail="Veuillez vérifier votre email avant de vous connecter. "
-                   "Vérifiez votre boîte de réception ou demandez un nouveau lien.",
-        )
+        user.email_verified = True
+        db.commit()
 
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})

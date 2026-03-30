@@ -98,14 +98,8 @@ export async function login(username: string, password: string): Promise<AuthRes
     body: JSON.stringify({ username, password }),
   });
   if (!response.ok) {
-    let detail = 'Identifiant ou mot de passe invalide';
-    try {
-      const err = await response.json();
-      if (err.detail) detail = err.detail;
-    } catch {}
-    const error = new Error(detail) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.detail || 'Connexion échouée');
   }
   const data: AuthResponse = await response.json();
   setToken(data.access_token);
