@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
 
@@ -31,7 +32,9 @@ export default function LoginPage() {
       const e = err as Error & { status?: number };
       if (e.status === 403) {
         setNeedsVerification(true);
-        setError('Email non vérifié. Vérifie ta boîte de réception ou renvoie le lien ci-dessous.');
+        // Pré-remplir l'email si le user a saisi directement son email
+        if (username.includes('@')) setResendEmail(username);
+        setError('Email non vérifié. Entre ton email ci-dessous pour recevoir un nouveau lien.');
       } else {
         setError(e.message || 'Connexion échouée');
       }
@@ -40,13 +43,14 @@ export default function LoginPage() {
     }
   }
 
-  async function handleResendVerification() {
+  async function handleResendVerification(e: FormEvent) {
+    e.preventDefault();
     setResendLoading(true);
     try {
       await fetch(`${API_URL}/auth/resend-verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: username }),
+        body: JSON.stringify({ email: resendEmail }),
       });
     } catch {
       // silencieux — l'API ne révèle pas si l'email existe
@@ -80,36 +84,49 @@ export default function LoginPage() {
               {error}
             </div>
           )}
+
+          {/* Panneau renvoi email de vérification */}
           {needsVerification && !resendDone && (
-            <div className="mb-4">
+            <form onSubmit={handleResendVerification} className="mb-4 p-4 bg-slate-800/50 border border-slate-700/60 rounded-xl space-y-3">
+              <p className="text-slate-300 text-sm font-medium flex items-center gap-2">
+                <Mail size={15} className="text-accent-purple-light" />
+                Renvoyer le lien de vérification
+              </p>
+              <input
+                type="email"
+                value={resendEmail}
+                onChange={e => setResendEmail(e.target.value)}
+                placeholder="ton@email.com"
+                required
+                className="w-full px-3 py-2.5 bg-bg-primary border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 text-sm transition-colors"
+              />
               <button
-                onClick={handleResendVerification}
+                type="submit"
                 disabled={resendLoading}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 text-sm font-medium rounded-xl transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2"
               >
                 {resendLoading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Envoi en cours...</>
-                ) : (
-                  <><Mail size={16} /> Renvoyer l&apos;email de vérification</>
-                )}
+                  <><Loader2 size={15} className="animate-spin" /> Envoi...</>
+                ) : 'Envoyer le lien'}
               </button>
-            </div>
+            </form>
           )}
           {resendDone && (
             <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm">
-              Email de vérification renvoyé ! Vérifie ta boîte de réception.
+              Lien envoyé ! Vérifie ta boîte de réception (et les spams).
             </div>
           )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Nom d&apos;utilisateur ou email
+                Pseudo
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="ton pseudo ou email"
+                placeholder="ton pseudo"
                 required
                 autoComplete="username"
                 className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
