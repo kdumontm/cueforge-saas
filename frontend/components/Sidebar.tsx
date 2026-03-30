@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
-  Music, Clock, Zap, LayoutGrid, X, Trash2,
+  Music, Clock, Zap, LayoutGrid, X, Trash2, Wrench,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
@@ -22,6 +22,7 @@ const navItems = [
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, label: 'Set Builder' },
   { href: '/dashboard/gig-prep', icon: Zap, label: 'Prépa Gig' },
+  { href: '/dashboard/tools', icon: Wrench, label: 'Outils DJ' },
   { href: '/dashboard/upload', icon: Upload, label: 'Importer' },
   { href: '/dashboard/export', icon: Download, label: 'Exporter' },
 ];
