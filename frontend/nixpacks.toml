@@ -1,6 +1,8 @@
 [variables]
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 CI = "true"
+# Empêche Railway de passer --production à npm ci (cause EUSAGE sur Node 22 / npm 10)
+NPM_CONFIG_PRODUCTION = "false"
 
 [phases.install]
 cmds = ["npm ci"]
