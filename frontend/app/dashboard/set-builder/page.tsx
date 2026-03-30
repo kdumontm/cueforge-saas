@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Wand2, Download, Trash2, GripVertical, Music, ChevronDown, Loader2, Disc3, Clock, Zap, ArrowRight } from 'lucide-react';
+import { Plus, Wand2, Download, Trash2, GripVertical, Music, ChevronDown, Loader2, Disc3, Clock, Zap, ArrowRight, AlertTriangle, CheckCircle2, ArrowUpDown } from 'lucide-react';
 import KeyBadge from '@/components/ui/KeyBadge';
 import {
   listSets, createSet, deleteSet, getSet, addTrackToSet, removeTrackFromSet,
@@ -30,6 +30,65 @@ const CAMELOT: Record<string, string> = {
   'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A',
   'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A',
 };
+
+// Key compatibility scoring for harmonic mixing
+function getKeyCompatibility(key1: string | null | undefined, key2: string | null | undefined): { score: number; label: string; color: string } {
+  if (!key1 || !key2) return { score: 0, label: '?', color: 'text-[var(--text-muted)]' };
+
+  const cam1 = CAMELOT[key1] || key1;
+  const cam2 = CAMELOT[key2] || key2;
+
+  // Parse Camelot notation
+  const num1 = parseInt(cam1);
+  const letter1 = cam1.replace(/\d+/, '');
+  const num2 = parseInt(cam2);
+  const letter2 = cam2.replace(/\d+/, '');
+
+  if (isNaN(num1) || isNaN(num2)) return { score: 0, label: '?', color: 'text-[var(--text-muted)]' };
+
+  // Same key = perfect
+  if (cam1 === cam2) return { score: 100, label: 'Parfait', color: 'text-emerald-400' };
+
+  // Adjacent number, same letter = great
+  const diff = Math.abs(num1 - num2);
+  const circularDiff = Math.min(diff, 12 - diff);
+
+  if (circularDiff === 1 && letter1 === letter2) return { score: 90, label: 'Harmonique', color: 'text-emerald-400' };
+
+  // Same number, different letter (major/minor switch)
+  if (num1 === num2 && letter1 !== letter2) return { score: 85, label: 'Relatif', color: 'text-green-400' };
+
+  // 2 steps away = ok
+  if (circularDiff === 2 && letter1 === letter2) return { score: 60, label: 'Compatible', color: 'text-yellow-400' };
+
+  // Energy boost (+7 semitones)
+  if (circularDiff === 7) return { score: 55, label: 'Boost', color: 'text-yellow-400' };
+
+  // Far away = risky
+  if (circularDiff <= 3) return { score: 40, label: 'Risqué', color: 'text-orange-400' };
+
+  return { score: 20, label: 'Clash', color: 'text-red-400' };
+}
+
+function getMixScore(bpm1: number | null, bpm2: number | null, key1: string | null, key2: string | null): { score: number; label: string; color: string } {
+  const keyCompat = getKeyCompatibility(key1, key2);
+
+  let bpmScore = 100;
+  if (bpm1 && bpm2) {
+    const diff = Math.abs(bpm1 - bpm2);
+    if (diff <= 2) bpmScore = 100;
+    else if (diff <= 5) bpmScore = 80;
+    else if (diff <= 10) bpmScore = 50;
+    else bpmScore = 20;
+  }
+
+  const combined = Math.round(keyCompat.score * 0.6 + bpmScore * 0.4);
+
+  if (combined >= 80) return { score: combined, label: 'Excellent', color: 'text-emerald-400' };
+  if (combined >= 60) return { score: combined, label: 'Bon', color: 'text-green-400' };
+  if (combined >= 40) return { score: combined, label: 'Moyen', color: 'text-yellow-400' };
+  return { score: combined, label: 'Difficile', color: 'text-red-400' };
+}
 
 export default function SetBuilderPage() {
   const [sets, setSets] = useState<DJSet[]>([]);
@@ -131,6 +190,22 @@ export default function SetBuilderPage() {
     ? `${Math.min(...setTracks.map(st => st.track?.analysis?.bpm || 999).filter(b => b < 999))}→${Math.max(...setTracks.map(st => st.track?.analysis?.bpm || 0))}`
     : '—';
 
+  // Calculate overall set harmonic score
+  const setHarmonicScore = setTracks.length > 1
+    ? Math.round(
+        setTracks.slice(0, -1).reduce((sum, st, i) => {
+          const nextSt = setTracks[i + 1];
+          const score = getMixScore(
+            st.track?.analysis?.bpm || null,
+            nextSt?.track?.analysis?.bpm || null,
+            st.track?.analysis?.key || null,
+            nextSt?.track?.analysis?.key || null,
+          );
+          return sum + score.score;
+        }, 0) / (setTracks.length - 1)
+      )
+    : null;
+
   const filteredLibrary = allTracks.filter(t => {
     if (!trackSearch) return true;
     const q = trackSearch.toLowerCase();
@@ -201,6 +276,13 @@ export default function SetBuilderPage() {
                 <span className="flex items-center gap-1"><Music size={11} /> {setTracks.length} tracks</span>
                 <span className="flex items-center gap-1"><Clock size={11} /> ~{totalMin} min</span>
                 <span className="flex items-center gap-1"><Zap size={11} /> {bpmRange} BPM</span>
+                {setHarmonicScore !== null && (
+                  <span className={`flex items-center gap-1 font-semibold ${
+                    setHarmonicScore >= 75 ? 'text-emerald-400' : setHarmonicScore >= 50 ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    <CheckCircle2 size={11} /> Mix: {setHarmonicScore}%
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
@@ -339,21 +421,48 @@ export default function SetBuilderPage() {
                         <Trash2 size={13} />
                       </button>
                     </div>
-                    {/* Transition indicator */}
-                    {i < setTracks.length - 1 && bpmDiff !== null && (
-                      <div className="flex items-center justify-center gap-2 py-1 bg-[var(--bg-elevated)]/50">
-                        <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-                        <div className="flex items-center gap-1.5 px-2">
-                          <ArrowRight size={10} className="text-[var(--text-muted)]" />
-                          <span className={`text-[10px] font-mono font-medium ${
-                            Math.abs(bpmDiff) <= 3 ? 'text-emerald-400' : Math.abs(bpmDiff) <= 6 ? 'text-yellow-400' : 'text-red-400'
-                          }`}>
-                            {bpmDiff > 0 ? '+' : ''}{bpmDiff} BPM
-                          </span>
+                    {/* Transition indicator with compatibility scoring */}
+                    {i < setTracks.length - 1 && (() => {
+                      const nextT = setTracks[i + 1]?.track;
+                      const nextBpm = nextT?.analysis?.bpm ? Math.round(nextT.analysis.bpm * 10) / 10 : null;
+                      const nextKey = nextT?.analysis?.key || null;
+                      const currentKey = t?.analysis?.key || null;
+                      const bDiff = nextBpm && bpm ? Math.round((nextBpm - bpm) * 10) / 10 : null;
+                      const keyCompat = getKeyCompatibility(currentKey, nextKey);
+                      const mixScore = getMixScore(bpm, nextBpm, currentKey, nextKey);
+                      const nextCamelot = nextKey ? (CAMELOT[nextKey] || nextKey) : null;
+
+                      return (
+                        <div className="flex items-center justify-center gap-2 py-1.5 bg-[var(--bg-elevated)]/50 px-4">
+                          <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+                          <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[var(--bg-primary)] border border-[var(--border-subtle)]">
+                            {/* BPM diff */}
+                            {bDiff !== null && (
+                              <span className={`text-[10px] font-mono font-medium ${
+                                Math.abs(bDiff) <= 3 ? 'text-emerald-400' : Math.abs(bDiff) <= 6 ? 'text-yellow-400' : 'text-red-400'
+                              }`}>
+                                {bDiff > 0 ? '+' : ''}{bDiff} BPM
+                              </span>
+                            )}
+                            {/* Key compatibility */}
+                            {key && nextCamelot && (
+                              <>
+                                <span className="text-[var(--text-muted)]">|</span>
+                                <span className={`text-[10px] font-medium ${keyCompat.color}`}>
+                                  {key} → {nextCamelot} ({keyCompat.label})
+                                </span>
+                              </>
+                            )}
+                            {/* Mix score */}
+                            <span className="text-[var(--text-muted)]">|</span>
+                            <span className={`text-[10px] font-bold ${mixScore.color}`}>
+                              {mixScore.score > 0 ? `${mixScore.score}%` : '—'}
+                            </span>
+                          </div>
+                          <div className="h-px flex-1 bg-[var(--border-subtle)]" />
                         </div>
-                        <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 );
               })

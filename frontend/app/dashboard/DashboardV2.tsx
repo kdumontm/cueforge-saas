@@ -18,6 +18,7 @@ import MixTab from '@/components/tabs/MixTab';
 import PlaylistsTab from '@/components/tabs/PlaylistsTab';
 import StatsTab from '@/components/tabs/StatsTab';
 import HistoryTab from '@/components/tabs/HistoryTab';
+import InfoEditTab from '@/components/tabs/InfoEditTab';
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -42,6 +43,7 @@ function formatDuration(seconds: number | null | undefined): string {
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
+  { id: 'info', label: 'Info', icon: '📝' },
   { id: 'cues', label: 'Cues', icon: '🎯' },
   { id: 'beatgrid', label: 'Beatgrid', icon: '⊞' },
   { id: 'stems', label: 'Stems', icon: '🎸' },
@@ -584,6 +586,16 @@ export default function DashboardV2() {
 
         {/* Tab content */}
         <div className="p-4 min-h-[160px]">
+          {activeTab === 'info' && (
+            <InfoEditTab
+              track={selectedRawTrack}
+              onSave={async (trackId, data) => {
+                await updateTrack(trackId, data);
+                addToast('Infos sauvegardées', 'success');
+                await loadTracks();
+              }}
+            />
+          )}
           {activeTab === 'cues' && (
             <CuesTab
               track={selectedTrack}

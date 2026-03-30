@@ -81,10 +81,23 @@ class TrackResponse(BaseModel):
     remix_type: Optional[str] = None
     feat_artist: Optional[str] = None
 
+    # Label
+    label: Optional[str] = None
+
     # External IDs
     spotify_id: Optional[str] = None
     spotify_url: Optional[str] = None
     musicbrainz_id: Optional[str] = None
+
+    # DJ Organization
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    rating: Optional[int] = None
+    color_code: Optional[str] = None
+    comment: Optional[str] = None
+    energy_level: Optional[int] = None
+    played_count: Optional[int] = 0
+    camelot_code: Optional[str] = None
 
     created_at: Optional[datetime] = None
     analysis: Optional[TrackAnalysisResponse] = None

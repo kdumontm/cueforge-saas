@@ -464,6 +464,7 @@ class TrackMetadataUpdate(BaseModel):
     album: Optional[str] = None
     genre: Optional[str] = None
     year: Optional[int] = None
+    label: Optional[str] = None
     remix_artist: Optional[str] = None
     remix_type: Optional[str] = None
     feat_artist: Optional[str] = None
