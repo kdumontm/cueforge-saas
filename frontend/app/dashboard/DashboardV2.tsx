@@ -158,12 +158,6 @@ export default function DashboardV2() {
     return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
   }, [selectedTrack, rawTracksForTabs]);
 
-  // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
-  const effectiveCuePoints = useMemo(() => {
-    if (isDemo && selectedRawTrack) return (selectedRawTrack.cue_points as any[]) || [];
-    return cuePoints;
-  }, [isDemo, selectedRawTrack, cuePoints]);
-
   // Auto-select first track when loaded (real or demo)
   useEffect(() => {
     if (!selectedTrack && displayTracks.length > 0 && !loading) {
@@ -292,6 +286,13 @@ export default function DashboardV2() {
   // ── Cue points ────────────────────────────────────────────────────────
   const [cuePoints, setCuePoints] = useState<any[]>([]);
   const [cuePositionMs, setCuePositionMs] = useState<number | null>(null); // position cliquée sur la waveform
+
+  // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
+  // IMPORTANT: doit être déclaré APRÈS cuePoints (évite TDZ dans la dep array)
+  const effectiveCuePoints = useMemo(() => {
+    if (isDemo && selectedRawTrack) return (selectedRawTrack.cue_points as any[]) || [];
+    return cuePoints;
+  }, [isDemo, selectedRawTrack, cuePoints]);
 
   // Charger les cue points quand le track change (pas pour les démo tracks)
   useEffect(() => {
