@@ -79,8 +79,13 @@ export function TrackRow({
         ${isMultiSelected ? 'bg-blue-500/10 border-l-4 border-l-blue-500' : ''}
       `}
     >
-      {/* Index */}
-      <div className="text-xs font-medium text-[var(--text-secondary)]">{index + 1}</div>
+      {/* Index + Color indicator */}
+      <div className="text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1">
+        {(track as any).color_code && (
+          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: (track as any).color_code }} />
+        )}
+        {index + 1}
+      </div>
 
       {/* Play Indicator */}
       <div className="flex justify-center">
