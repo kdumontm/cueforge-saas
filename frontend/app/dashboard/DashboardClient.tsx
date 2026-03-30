@@ -294,6 +294,23 @@ const TR: Record<string, Record<string, string>> = {
     no_cue_points: 'Pas encore de cue points. Analysez le morceau ou ajoutez manuellement.',
     copy_txt: 'Copier TXT',
     analyzing: 'Analyse en cours...',
+    upload: 'Importer',
+    export_btn: 'Exporter',
+    export_csv: 'Exporter CSV',
+    all: 'Tous',
+    filters: 'Filtres',
+    auto_analyze_on: 'Auto-Analyse ON',
+    auto_analyze_off: 'Auto-Analyse OFF',
+    search_placeholder: 'Rechercher...',
+    no_tracks: 'Aucun morceau',
+    select_all: 'Tout sélectionner',
+    deselect_all: 'Tout désélectionner',
+    delete_selected: 'Supprimer la sélection',
+    tracks_selected: 'morceaux sélectionnés',
+    loading: 'Chargement...',
+    keyboard_shortcuts: 'Raccourcis clavier',
+    close: 'Fermer',
+    stats: 'Statistiques',
   },
   en: {
     titre: 'Title', artiste: 'Artist', album: 'Album', genre: 'Genre', annee: 'Year', commentaire: 'Comment',
@@ -361,6 +378,23 @@ const TR: Record<string, Record<string, string>> = {
     no_cue_points: 'No cue points yet. Analyze the track',
     copy_txt: 'Copy TXT',
     analyzing: 'Analyzing...',
+    upload: 'Upload',
+    export_btn: 'Export',
+    export_csv: 'Export CSV',
+    all: 'All',
+    filters: 'Filters',
+    auto_analyze_on: 'Auto-Analyze ON',
+    auto_analyze_off: 'Auto-Analyze OFF',
+    search_placeholder: 'Search...',
+    no_tracks: 'No tracks',
+    select_all: 'Select all',
+    deselect_all: 'Deselect all',
+    delete_selected: 'Delete selected',
+    tracks_selected: 'tracks selected',
+    loading: 'Loading...',
+    keyboard_shortcuts: 'Keyboard shortcuts',
+    close: 'Close',
+    stats: 'Stats',
   },
 };
 
@@ -2464,7 +2498,7 @@ export default function DashboardPage() {
                 </div>                {/* EXPORT BUTTONS */}
                 <div style={{display: 'flex', gap: '6px', marginBottom: '6px'}}>
                   <button onClick={function() { handleExportTracklist('txt'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Copy size={10} /> {t('copy_txt')}</button>
-                  <button onClick={function() { handleExportTracklist('csv'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Download size={10} /> Export CSV</button>
+                  <button onClick={function() { handleExportTracklist('csv'); }} style={{flex: 1, padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid #374151', background: '#1f2937', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'}}><Download size={10} /> {t('export_csv')}</button>
                 </div>
 
                 {/* FILTER BAR */}
@@ -2559,7 +2593,7 @@ export default function DashboardPage() {
           <div className="mx-4 mb-2">
             <div className="flex items-center gap-2 text-xs text-cyan-400 mb-1">
               <Upload size={12} className="animate-bounce" />
-              <span>Upload {uploadProgress.current}/{uploadProgress.total}</span>
+              <span>{t('upload')} {uploadProgress.current}/{uploadProgress.total}</span>
               <span className="text-slate-500">({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
             </div>
             <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -2617,13 +2651,13 @@ export default function DashboardPage() {
             <SlidersHorizontal size={12} /> Colonnes
           </button>
           <button onClick={() => setShowColumnFilters(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showColumnFilters ? "bg-purple-500/30 text-purple-300 border border-purple-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
-            <Filter className="w-3 h-3" /> Filters {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
+            <Filter className="w-3 h-3" /> {t('filters')} {(colFilterTitle || colFilterArtist || colFilterGenre || colFilterKey || colFilterBpmMin || colFilterBpmMax || colFilterEnergyMin || colFilterEnergyMax) ? '*' : ''}
           </button>
               <button onClick={() => setAutoAnalyze(prev => !prev)} title={autoAnalyze ? 'Auto-analyse activée : les tracks sont analysées automatiquement après upload' : 'Auto-analyse désactivée'} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (autoAnalyze ? "bg-green-500/30 text-green-300 border border-green-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
-                <Zap className="w-3 h-3" /> Auto-Analyze {autoAnalyze ? 'ON' : 'OFF'}
+                <Zap className="w-3 h-3" /> {autoAnalyze ? t('auto_analyze_on') : t('auto_analyze_off')}
               </button>
               <button onClick={() => setShowStats(prev => !prev)} className={"flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors " + (showStats ? "bg-blue-500/30 text-blue-300 border border-blue-500/50" : "bg-slate-700/50 text-slate-400 hover:text-white border border-slate-600/50")}>
-                <BarChart3 className="w-3 h-3" /> Stats
+                <BarChart3 className="w-3 h-3" /> {t('stats')}
               </button>
           {showColSettings && (
             <div className="absolute top-full left-0 z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2 min-w-[140px]" onClick={e => e.stopPropagation()}>
@@ -3868,7 +3902,7 @@ export default function DashboardPage() {
                               a.href = url; a.download = sl.name + '.csv'; a.click();
                               URL.revokeObjectURL(url);
                             }} className="flex-1 text-[9px] bg-green-600/30 text-green-300 py-1 rounded hover:bg-green-600/50 transition-colors flex items-center justify-center gap-1">
-                              <Download className="w-3 h-3" /> Export CSV
+                              <Download className="w-3 h-3" /> {t('export_csv')}
                             </button>
                           </div>
                         )}
@@ -4394,7 +4428,7 @@ export default function DashboardPage() {
                   }}
                   className="w-full px-3 py-2 bg-emerald-600/80 hover:bg-emerald-500 rounded text-xs font-bold text-white transition-colors flex items-center justify-center gap-1"
                 >
-                  <Download size={14} /> Export CSV {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                  <Download size={14} /> {t('export_csv')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
                 </button>
                   {selectedIds.size > 0 && (
                     <div className="w-full space-y-2">
@@ -5187,7 +5221,15 @@ export default function DashboardPage() {
         </div>
       )}
 </div>
-    
+      {/* Language Toggle */}
+      <button
+        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+        title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
+        style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', border: '2px solid rgba(139, 92, 246, 0.5)', cursor: 'pointer' }}
+        className="bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
+      >
+        {lang === 'fr' ? 'EN' : 'FR'}
+      </button>
     </div>
   );
 }
@@ -5225,16 +5267,6 @@ function MetaRow({ label, value }: { label: string; value: string }) {
         ))}
       </div>
             {/* ── Keyboard Shortcuts Modal ── */}
-      {/* Language Toggle */}
-      <button
-        onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
-        title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
-        style={{ position: 'fixed', bottom: '16px', right: '16px', zIndex: 50, width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)', transition: 'all 0.2s' }}
-        className="bg-gray-800 hover:bg-gray-700 text-white shadow-lg"
-      >
-        {lang === 'fr' ? 'EN' : 'FR'}
-      </button>
-
       {showShortcutsModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowShortcutsModal(false)}>
           <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
