@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { MoreVertical, Star, Volume2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag } from 'lucide-react';
 import type { Track } from '@/types';
 
 interface TrackRowProps {
@@ -156,7 +156,7 @@ export function TrackRow({
       </div>
 
       {/* Actions Menu */}
-      <div className="flex justify-end">
+      <div className="flex justify-end relative">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -166,6 +166,31 @@ export function TrackRow({
         >
           <MoreVertical size={16} className="text-[var(--text-secondary)]" />
         </button>
+        {showContextMenu && (
+          <div
+            className="absolute right-0 top-8 w-44 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg shadow-2xl z-50 py-1 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {[
+              { icon: Zap, label: 'Re-analyser', action: () => {} },
+              { icon: Copy, label: 'Copier le titre', action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
+              { icon: Tag, label: 'Ajouter un tag', action: () => {} },
+              { icon: Star, label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris', action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
+              { icon: Trash2, label: 'Supprimer', action: () => {}, danger: true },
+            ].map(({ icon: Icon, label, action, danger }) => (
+              <button
+                key={label}
+                onClick={action}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors bg-transparent border-none cursor-pointer ${
+                  danger ? 'text-red-400 hover:bg-red-500/10' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

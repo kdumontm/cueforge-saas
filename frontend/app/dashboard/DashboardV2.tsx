@@ -5,6 +5,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
+import { useDashboardContext } from './DashboardContext';
 
 import PlayerCard from '@/components/player/PlayerCard';
 import TrackList from '@/components/tracks/TrackList';
@@ -56,12 +57,18 @@ const GLOBAL_TABS = ['stats', 'history', 'playlists'];
 
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
+  const { activeSection, globalSearch, registerImportHandler } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState('cues');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Register import handler so Sidebar/TopBar can trigger file upload
+  useEffect(() => {
+    registerImportHandler(() => fileRef.current?.click());
+  }, [registerImportHandler]);
 
   // TrackList state
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +86,32 @@ export default function DashboardV2() {
     return Array.from(g) as string[];
   }, [tracks]);
 
-  const displayTracks = useMemo(() => tracks.map(toDisplayTrack), [tracks]);
+  // Combine global search with track list search
+  const effectiveSearch = globalSearch || searchQuery;
+
+  // Filter tracks based on sidebar section
+  const sectionFilteredTracks = useMemo(() => {
+    let result = tracks;
+    if (activeSection === 'recent') {
+      result = [...tracks].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
+    } else if (activeSection === 'unanalyzed') {
+      result = tracks.filter(t => t.status !== 'analyzed');
+    } else if (activeSection === 'crate_peak') {
+      result = tracks.filter(t => (t.analysis?.energy || 0) >= 0.7);
+    } else if (activeSection === 'crate_warmup') {
+      result = tracks.filter(t => {
+        const e = t.analysis?.energy || 0;
+        return e >= 0.3 && e < 0.7;
+      });
+    } else if (activeSection === 'crate_vocal') {
+      // Placeholder — filter by tags containing 'vocal' if available
+      result = tracks.filter(t => t.tags?.toLowerCase().includes('vocal'));
+    }
+    // 'all' and playlist IDs show all tracks (playlists will use API later)
+    return result;
+  }, [tracks, activeSection]);
+
+  const displayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
 
   // Load tracks from API
   useEffect(() => {
@@ -236,7 +268,7 @@ export default function DashboardV2() {
         selectedTrack={selectedTrack}
         playingTrackId={null}
         favoriteIds={favoriteIds}
-        searchQuery={searchQuery}
+        searchQuery={effectiveSearch}
         gridView={gridView}
         sortBy={sortBy}
         filters={filters}

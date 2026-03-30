@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  BarChart3, ListMusic, Upload, Download, Settings, Shield,
+  BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
-  Music, Clock, Zap, Flame, Sunset, Mic, LayoutGrid,
+  Music, Clock, Zap, LayoutGrid, X,
 } from 'lucide-react';
+import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -16,19 +17,6 @@ interface SidebarProps {
   onLogout?: () => void;
 }
 
-// Mock smart crates — sera remplacé par l'API
-const SMART_CRATES = [
-  { id: 'peak', label: 'Peak Hour', color: '#ef4444', count: 3 },
-  { id: 'warmup', label: 'Warm-Up', color: '#f97316', count: 2 },
-  { id: 'vocal', label: 'Avec voix', color: '#8b5cf6', count: 3 },
-];
-
-// Mock playlists — sera remplacé par l'API
-const PLAYLISTS = [
-  { id: 'playlist1', label: 'Set Berghain 2024', count: 12 },
-  { id: 'playlist2', label: 'Outdoor Summer', count: 8 },
-];
-
 const navItems = [
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, label: 'Set Builder' },
@@ -36,19 +24,34 @@ const navItems = [
   { href: '/dashboard/export', icon: Download, label: 'Exporter' },
 ];
 
-const libraryItems = [
-  { id: 'all', icon: Music, label: 'Toutes les tracks', count: 8 },
-  { id: 'recent', icon: Clock, label: 'Récemment ajoutés', count: 3 },
-  { id: 'unanalyzed', icon: Zap, label: 'Non analysés', count: 2 },
+const SMART_CRATES = [
+  { id: 'crate_peak', label: 'Peak Hour', color: '#ef4444' },
+  { id: 'crate_warmup', label: 'Warm-Up', color: '#f97316' },
+  { id: 'crate_vocal', label: 'Avec voix', color: '#8b5cf6' },
 ];
 
 export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [activeCrate, setActiveCrate] = useState<string | null>(null);
+  const { collapsed, toggleCollapsed, activeSection, setActiveSection } = useDashboardContext();
+  const [showNewPlaylist, setShowNewPlaylist] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [playlists, setPlaylists] = useState([
+    { id: 'playlist1', label: 'Set Berghain 2024', count: 12 },
+    { id: 'playlist2', label: 'Outdoor Summer', count: 8 },
+  ]);
 
   const W = collapsed ? 56 : 220;
   const initials = username.slice(0, 2).toUpperCase();
+
+  function handleCreatePlaylist() {
+    if (newPlaylistName.trim()) {
+      const id = 'playlist_' + Date.now();
+      setPlaylists(prev => [...prev, { id, label: newPlaylistName.trim(), count: 0 }]);
+      setNewPlaylistName('');
+      setShowNewPlaylist(false);
+      setActiveSection(id);
+    }
+  }
 
   const NavLink = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
     const isActive = pathname === href;
@@ -64,42 +67,18 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
         }`}
         title={collapsed ? label : undefined}
       >
-        <Icon
-          size={15}
-          className={isActive ? 'text-blue-500' : 'text-[var(--text-muted)]'}
-        />
+        <Icon size={15} className={isActive ? 'text-blue-500' : 'text-[var(--text-muted)]'} />
         {!collapsed && <span>{label}</span>}
-        {!collapsed && isActive && (
-          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
-        )}
+        {!collapsed && isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
       </Link>
     );
   };
 
-  const LibraryItem = ({ id, icon: Icon, label, count }: { id: string; icon: any; label: string; count: number }) => {
-    const isActive = activeCrate === id;
-    return (
-      <button
-        onClick={() => setActiveCrate(isActive ? null : id)}
-        className={`w-full flex items-center gap-2.5 rounded-lg text-[13px] transition-all ${
-          collapsed ? 'px-0 py-2 justify-center' : 'px-2.5 py-[7px]'
-        } ${
-          isActive
-            ? 'font-semibold text-[var(--text-primary)] bg-[var(--bg-hover)]'
-            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-        }`}
-        title={collapsed ? label : undefined}
-      >
-        <Icon size={14} className={isActive ? 'text-blue-400' : 'text-[var(--text-muted)]'} />
-        {!collapsed && (
-          <>
-            <span className="flex-1 text-left truncate">{label}</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-mono">{count}</span>
-          </>
-        )}
-      </button>
-    );
-  };
+  const libraryItems = [
+    { id: 'all', icon: Music, label: 'Toutes les tracks' },
+    { id: 'recent', icon: Clock, label: 'Récemment ajoutés' },
+    { id: 'unanalyzed', icon: Zap, label: 'Non analysés' },
+  ];
 
   return (
     <aside
@@ -112,17 +91,10 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-pink-500 flex items-center justify-center flex-shrink-0">
             <Disc3 size={14} className="text-white" />
           </div>
-          {!collapsed && (
-            <span className="text-base font-bold text-[var(--text-primary)]">CueForge</span>
-          )}
-          {!collapsed && plan === 'pro' && (
-            <span className="text-[9px] font-semibold font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
-              PRO
-            </span>
-          )}
+          {!collapsed && <span className="text-base font-bold text-[var(--text-primary)]">CueForge</span>}
         </div>
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0.5"
           title={collapsed ? 'Déplier' : 'Replier'}
         >
@@ -130,66 +102,48 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="px-1.5 py-2 flex-1 overflow-y-auto custom-scrollbar">
-        {/* Main nav */}
-        {!collapsed && (
-          <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">
-            Navigation
-          </div>
-        )}
-        {navItems.map((item) => (
-          <NavLink key={item.href} {...item} />
-        ))}
+        {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Navigation</div>}
+        {navItems.map((item) => <NavLink key={item.href} {...item} />)}
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
 
-        {/* Library */}
-        {!collapsed && (
-          <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">
-            Bibliothèque
-          </div>
-        )}
-        {libraryItems.map((item) => (
-          <LibraryItem key={item.id} {...item} />
-        ))}
+        {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Bibliothèque</div>}
+        {libraryItems.map(({ id, icon: Icon, label }) => {
+          const isActive = activeSection === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setActiveSection(isActive && id !== 'all' ? 'all' : id)}
+              className={`w-full flex items-center gap-2.5 rounded-lg text-[13px] transition-all bg-transparent border-none cursor-pointer ${
+                collapsed ? 'px-0 py-2 justify-center' : 'px-2.5 py-[7px]'
+              } ${isActive ? 'font-semibold text-[var(--text-primary)] bg-[var(--bg-hover)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
+              title={collapsed ? label : undefined}
+            >
+              <Icon size={14} className={isActive ? 'text-blue-400' : 'text-[var(--text-muted)]'} />
+              {!collapsed && <span className="flex-1 text-left truncate">{label}</span>}
+            </button>
+          );
+        })}
 
         {/* Smart Crates */}
         {!collapsed && (
           <>
             <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
-            <div className="flex items-center justify-between px-2.5 py-1">
-              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                Smart Crates
-              </span>
-              <button className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0" title="Nouveau crate">
-                <Plus size={13} />
-              </button>
-            </div>
+            <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Smart Crates</div>
             {SMART_CRATES.map((crate) => {
-              const isActive = activeCrate === crate.id;
+              const isActive = activeSection === crate.id;
               return (
                 <button
                   key={crate.id}
-                  onClick={() => setActiveCrate(isActive ? null : crate.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px ${
-                    isActive ? 'font-semibold' : ''
-                  }`}
+                  onClick={() => setActiveSection(isActive ? 'all' : crate.id)}
+                  className="w-full flex items-center px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px"
                   style={isActive ? { background: crate.color + '18' } : {}}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-[7px] h-[7px] rounded-full inline-block flex-shrink-0"
-                      style={{ background: crate.color }}
-                    />
-                    <span
-                      className="text-[13px]"
-                      style={{ color: isActive ? crate.color : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}
-                    >
-                      {crate.label}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono">{crate.count}</span>
+                  <span className="w-[7px] h-[7px] rounded-full inline-block flex-shrink-0 mr-2" style={{ background: crate.color }} />
+                  <span className="text-[13px]" style={{ color: isActive ? crate.color : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}>
+                    {crate.label}
+                  </span>
                 </button>
               );
             })}
@@ -201,31 +155,36 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           <>
             <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
             <div className="flex items-center justify-between px-2.5 py-1">
-              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
-                Playlists
-              </span>
-              <button className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0" title="Nouvelle playlist">
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Playlists</span>
+              <button onClick={() => setShowNewPlaylist(true)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0" title="Nouvelle playlist">
                 <Plus size={13} />
               </button>
             </div>
-            {PLAYLISTS.map((pl) => {
-              const isActive = activeCrate === pl.id;
+            {showNewPlaylist && (
+              <div className="flex items-center gap-1 px-2.5 py-1">
+                <input
+                  autoFocus
+                  value={newPlaylistName}
+                  onChange={(e) => setNewPlaylistName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreatePlaylist(); if (e.key === 'Escape') setShowNewPlaylist(false); }}
+                  placeholder="Nom…"
+                  className="flex-1 px-2 py-1 rounded text-xs bg-[var(--bg-primary)] border border-[var(--border-default)] text-[var(--text-primary)] outline-none"
+                />
+                <button onClick={handleCreatePlaylist} className="text-blue-400 text-xs bg-transparent border-none cursor-pointer">OK</button>
+                <button onClick={() => setShowNewPlaylist(false)} className="text-[var(--text-muted)] bg-transparent border-none cursor-pointer"><X size={12} /></button>
+              </div>
+            )}
+            {playlists.map((pl) => {
+              const isActive = activeSection === pl.id;
               return (
                 <button
                   key={pl.id}
-                  onClick={() => setActiveCrate(isActive ? null : pl.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px ${
-                    isActive ? 'font-semibold bg-blue-600/10' : 'hover:bg-[var(--bg-hover)]'
-                  }`}
+                  onClick={() => setActiveSection(isActive ? 'all' : pl.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-[6px] rounded-lg cursor-pointer transition-all bg-transparent border-none mb-px ${isActive ? 'font-semibold bg-blue-600/10' : 'hover:bg-[var(--bg-hover)]'}`}
                 >
                   <div className="flex items-center gap-2">
                     <Disc3 size={12} className={isActive ? 'text-blue-400' : 'text-[var(--text-muted)]'} />
-                    <span
-                      className="text-[13px]"
-                      style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}
-                    >
-                      {pl.label}
-                    </span>
+                    <span className="text-[13px]" style={{ color: isActive ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}>{pl.label}</span>
                   </div>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono">{pl.count}</span>
                 </button>
@@ -235,13 +194,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
         )}
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
-
-        {/* Compte */}
-        {!collapsed && (
-          <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">
-            Compte
-          </div>
-        )}
+        {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Compte</div>}
         <NavLink href="/settings" icon={Settings} label="Paramètres" />
         {isAdmin && <NavLink href="/admin" icon={Shield} label="Admin" />}
       </nav>
@@ -249,9 +202,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
       {/* User section */}
       <div className="px-1.5 py-2 border-t border-[var(--border-subtle)]">
         <div className={`flex items-center gap-2 ${collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5'}`}>
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-            {initials}
-          </div>
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">{initials}</div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{username}</div>
@@ -262,11 +213,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
             </div>
           )}
           {!collapsed && onLogout && (
-            <button
-              onClick={onLogout}
-              className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none"
-              title="Déconnexion"
-            >
+            <button onClick={onLogout} className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none" title="Déconnexion">
               <LogOut size={13} />
             </button>
           )}

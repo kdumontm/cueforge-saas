@@ -5,10 +5,12 @@ import { isAuthenticated, clearToken, getCurrentUser } from '@/lib/api';
 import type { User } from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import { DashboardProvider, useDashboardContext } from './DashboardContext';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const { collapsed } = useDashboardContext();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -19,7 +21,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then(setUser)
       .catch((err) => {
         console.warn('getCurrentUser failed:', err?.message);
-        // If session expired, redirect to login gracefully
         if (err?.message === 'Session expired' || err?.message === 'Not authenticated') {
           clearToken();
           router.push('/login');
@@ -32,6 +33,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/');
   }
 
+  const sidebarWidth = collapsed ? 56 : 210;
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] flex transition-colors duration-300">
       <Sidebar
@@ -40,8 +43,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         plan={(user as any)?.subscription_plan || 'free'}
         onLogout={handleLogout}
       />
-      {/* ml-[210px] quand sidebar ouverte, ml-[56px] quand collapsed — géré par CSS peer ou JS */}
-      <div className="ml-[210px] flex-1 min-h-screen bg-[var(--bg-primary)] transition-all duration-250">
+      <div
+        className="flex-1 min-h-screen bg-[var(--bg-primary)] transition-all duration-250"
+        style={{ marginLeft: sidebarWidth }}
+      >
         <TopBar
           title="Dashboard"
           subtitle="Analyse et prépare tes sets"
@@ -51,5 +56,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <DashboardProvider>
+      <DashboardInner>{children}</DashboardInner>
+    </DashboardProvider>
   );
 }
