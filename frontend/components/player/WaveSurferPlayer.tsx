@@ -45,7 +45,7 @@ const ZOOM_PX_PER_SEC: Record<string, number> = {
 };
 
 // RGB spectral analysis
-async function filterBand(buf: AudioBuffer, type: BiquadFilterType, freq: number, freq2?: number): Promise<Float32Array> {
+async function filterBand(buf: AudioBuffer, type: 'highpass' | 'lowpass' | 'bandpass', freq: number, freq2?: number): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, buf.length, buf.sampleRate);
   const src = ctx.createBufferSource();
   src.buffer = buf;
