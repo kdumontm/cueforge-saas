@@ -7,6 +7,7 @@ import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
   Music, Clock, Zap, LayoutGrid, X, Trash2, Wrench,
+  ListMusic, Layers, GitBranch,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
@@ -21,6 +22,9 @@ interface SidebarProps {
 const navItems = [
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, label: 'Set Builder' },
+  { href: '/dashboard/compatible', icon: GitBranch, label: 'Mix compatible' },
+  { href: '/dashboard/playlists', icon: ListMusic, label: 'Playlists' },
+  { href: '/dashboard/crates', icon: Layers, label: 'Smart Crates' },
   { href: '/dashboard/gig-prep', icon: Zap, label: 'Prépa Gig' },
   { href: '/dashboard/tools', icon: Wrench, label: 'Outils DJ' },
   { href: '/dashboard/upload', icon: Upload, label: 'Importer' },
@@ -71,7 +75,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   async function handleCreatePlaylist() {
     if (newPlaylistName.trim()) {
       try {
-        const pl = await createPlaylist(newPlaylistName.trim());
+        const pl = await createPlaylist({ name: newPlaylistName.trim() });
         const id = `playlist_${pl.id}`;
         setPlaylists(prev => [...prev, { id, label: pl.name, count: 0 }]);
         setNewPlaylistName('');
