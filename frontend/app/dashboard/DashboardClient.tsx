@@ -399,6 +399,11 @@ const TR: Record<string, Record<string, string>> = {
 };
 
 export default function DashboardPage() {
+  // ── Component-level API config ──
+  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : null;
+  const token = getToken();
+
   // ── State ─────────────────────────────────────────────────────────────
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
