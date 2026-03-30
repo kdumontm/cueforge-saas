@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime,
-    ForeignKey, Text, JSON
+    ForeignKey, Text, JSON, Index
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
@@ -72,7 +72,7 @@ class Track(Base):
 
     # DJ organization (Rekordbox/Lexicon style)
     category = Column(String(100), nullable=True)
-    tags = Column(Text, nullable=True)
+    tags = Column(JSON, nullable=True, default=list)  # ["house", "dark", "peak-time"]
     rating = Column(Integer, nullable=True)
     color_code = Column(String(20), nullable=True)
     comment = Column(Text, nullable=True)
@@ -87,6 +87,16 @@ class Track(Base):
     # Relationships
     user = relationship("User", back_populates="tracks")
     organization = relationship("Organization", back_populates="tracks", foreign_keys=[org_id])
+
+    # ── Indexes (performance) ─────────────────────────────────────────────
+    __table_args__ = (
+        Index("ix_tracks_user_id",       "user_id"),
+        Index("ix_tracks_status",        "status"),
+        Index("ix_tracks_user_status",   "user_id", "status"),
+        Index("ix_tracks_user_created",  "user_id", "created_at"),
+        Index("ix_tracks_org_id",        "org_id"),
+        Index("ix_tracks_camelot",       "camelot_code"),
+    )
     analysis = relationship(
         "TrackAnalysis", back_populates="track",
         uselist=False, cascade="all, delete-orphan",
@@ -105,7 +115,7 @@ class TrackAnalysis(Base):
     __tablename__ = "track_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
     bpm = Column(Float, nullable=True)
     bpm_confidence = Column(Float, nullable=True)
     key = Column(String(10), nullable=True)
@@ -115,7 +125,8 @@ class TrackAnalysis(Base):
     phrase_positions = Column(JSON, default=list)
     beat_positions = Column(JSON, default=list)
     section_labels = Column(JSON, default=list)
-    waveform_peaks = Column(JSON, nullable=True)
+    waveform_peaks = Column(JSON, nullable=True)   # Deprecated: use waveform_url
+    waveform_url = Column(String(512), nullable=True)  # URL vers fichier JSON (S3/local)
     spectral_energy = Column(JSON, nullable=True)
     # v2: Beatgrid & advanced analysis
     beatgrid = Column(JSON, nullable=True)              # [{position_ms, beat_number}]

@@ -16,6 +16,7 @@ Enhanced:
 from typing import Optional
 from datetime import datetime, timedelta
 import secrets
+import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
@@ -41,6 +42,11 @@ from app.services.email_service import (
 from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _hash_token(token: str) -> str:
+    """SHA-256 hash d'un token avant stockage en BDD (one-way)."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # ─── Pydantic schemas ────────────────────────────────────────────
@@ -164,7 +170,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         email=user_data.email,
         name=user_data.name,
         password_hash=hash_password(user_data.password),
-        email_verify_token=verify_token,
+        email_verify_token=_hash_token(verify_token),
         email_verify_token_expires=datetime.utcnow() + timedelta(hours=24),
         email_verified=True,  # Auto-verify (no email service in dev/early prod)
     )
@@ -181,8 +187,8 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     access = create_access_token({"sub": str(new_user.id)})
     refresh = create_refresh_token({"sub": str(new_user.id)})
 
-    # Store refresh token
-    new_user.refresh_token = refresh
+    # Store hashed refresh token (only hash in DB, plaintext returned to client)
+    new_user.refresh_token = _hash_token(refresh)
     db.commit()
 
     return TokenResponse(
@@ -198,7 +204,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/verify-email")
 async def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email_verify_token == req.token).first()
+    user = db.query(User).filter(User.email_verify_token == _hash_token(req.token)).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid verification token")
     if user.email_verified:
@@ -230,11 +236,11 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
     user = db.query(User).filter(User.email == req.email).first()
     if user and not user.email_verified:
         token = generate_email_verify_token()
-        user.email_verify_token = token
+        user.email_verify_token = _hash_token(token)
         user.email_verify_token_expires = datetime.utcnow() + timedelta(hours=24)
         db.commit()
         try:
-            send_verification_email(user.email, token)
+            send_verification_email(user.email, token)  # send plaintext to user
         except Exception:
             pass
     # Always return success (don't reveal if email exists)
@@ -261,7 +267,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})
 
-    user.refresh_token = refresh
+    user.refresh_token = _hash_token(refresh)
     user.last_login_at = datetime.utcnow()
     db.commit()
 
@@ -288,8 +294,8 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # Verify the refresh token matches what's stored (prevents reuse)
-    if user.refresh_token != req.refresh_token:
+    # Verify the refresh token matches what's stored — compare hashes
+    if user.refresh_token != _hash_token(req.refresh_token):
         # Possible token theft — invalidate all tokens
         user.refresh_token = None
         db.commit()
@@ -298,7 +304,7 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     # Rotate tokens
     new_access = create_access_token({"sub": str(user.id)})
     new_refresh = create_refresh_token({"sub": str(user.id)})
-    user.refresh_token = new_refresh
+    user.refresh_token = _hash_token(new_refresh)
     db.commit()
 
     return TokenResponse(
@@ -345,10 +351,10 @@ async def update_me(
         # Re-verify email on change
         user.email_verified = False
         token = generate_email_verify_token()
-        user.email_verify_token = token
+        user.email_verify_token = _hash_token(token)
         user.email_verify_token_expires = datetime.utcnow() + timedelta(hours=24)
         try:
-            send_verification_email(user.email, token)
+            send_verification_email(user.email, token)  # send plaintext to user
         except Exception:
             pass
     db.commit()
@@ -364,11 +370,11 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
     user = db.query(User).filter(User.email == req.email).first()
     if user:
         token = secrets.token_urlsafe(32)
-        user.reset_token = token
+        user.reset_token = _hash_token(token)
         user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
         db.commit()
         try:
-            send_reset_email(user.email, token)
+            send_reset_email(user.email, token)  # send plaintext to user
         except Exception:
             pass
     return {"message": "If this email exists, a reset link has been sent."}
@@ -376,7 +382,7 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.reset_token == req.token).first()
+    user = db.query(User).filter(User.reset_token == _hash_token(req.token)).first()
     if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     user.password_hash = hash_password(req.new_password)

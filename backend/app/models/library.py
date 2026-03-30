@@ -7,7 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime,
-    ForeignKey, Text, JSON,
+    ForeignKey, Text, JSON, Index,
 )
 from sqlalchemy.orm import relationship
 
@@ -39,6 +39,10 @@ class HotCue(Base):
     # Relationships
     track = relationship("Track", backref="hot_cues")
     user = relationship("User", backref="hot_cues")
+
+    __table_args__ = (
+        Index("ix_hot_cues_track_user", "track_id", "user_id"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -171,3 +175,7 @@ class PlayHistory(Base):
     # Relationships
     user = relationship("User", backref="play_history")
     track = relationship("Track", backref="play_history")
+
+    __table_args__ = (
+        Index("ix_play_history_user_played", "user_id", "played_at"),
+    )

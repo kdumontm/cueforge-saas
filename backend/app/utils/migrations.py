@@ -74,6 +74,19 @@ PENDING_MIGRATIONS = {
         "key_confidence": "FLOAT",
         "loudness_db": "FLOAT",
         "vocal_percentage": "FLOAT",
+        # v2: Waveform URL (replaces waveform_peaks inline storage)
+        "waveform_url": "VARCHAR(512)",
+    },
+    "subscriptions": {
+        # Stripe price ID
+        "stripe_price_id": "VARCHAR(255)",
+        # Billing periods
+        "current_period_start": "TIMESTAMP",
+        "current_period_end": "TIMESTAMP",
+        "trial_end": "TIMESTAMP",
+        "cancel_at_period_end": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "canceled_at": "TIMESTAMP",
+        "updated_at": "TIMESTAMP",
     },
     "site_settings": {
         # Theme config — full CSS variable overrides for dark/light modes
@@ -108,6 +121,28 @@ def run_migrations(engine: Engine) -> None:
                             logger.warning(f"Failed to add {table_name}.{col_name}: {e}")
 
             conn.commit()
+
+            # ── Indexes (CREATE INDEX IF NOT EXISTS) ─────────────────────────
+            INDEXES = [
+                # Tracks — performance indexes
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_status   ON tracks (user_id, status)",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_created  ON tracks (user_id, created_at)",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_org_id        ON tracks (org_id)",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_camelot       ON tracks (camelot_code)",
+                # HotCues — lookup by track + user
+                "CREATE INDEX IF NOT EXISTS ix_hot_cues_track_user  ON hot_cues (track_id, user_id)",
+                # PlayHistory — time-range queries per user
+                "CREATE INDEX IF NOT EXISTS ix_play_history_user_played ON play_history (user_id, played_at)",
+                # Subscriptions — Stripe ID lookup
+                "CREATE INDEX IF NOT EXISTS ix_subscriptions_stripe ON subscriptions (stripe_subscription_id)",
+            ]
+            for sql in INDEXES:
+                try:
+                    conn.execute(text(sql))
+                except Exception as e:
+                    logger.warning(f"Index creation skipped: {e}")
+            conn.commit()
+
         logger.info("Migrations completed successfully")
     except Exception as e:
         logger.error(f"Migration error (non-fatal): {e}")

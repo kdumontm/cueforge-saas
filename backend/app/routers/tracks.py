@@ -62,22 +62,34 @@ async def upload_track(
     if not is_unlimited:
         daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
         today = date.today()
-        last = current_user.last_track_date
-        if last and last.date() == today:
-            if (current_user.tracks_today or 0) >= daily_limit:
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Limite atteinte : {daily_limit} morceaux/jour sur le plan {plan}."
-                )
-        else:
-            current_user.tracks_today = 0
-        current_user.tracks_today = (current_user.tracks_today or 0) + 1
+
+        # ── Comptage atomique via usage_logs (évite la race condition) ──────
+        from sqlalchemy import func
+        from app.models.organization import UsageLog
+        today_start = dt.combine(today, dt.min.time())
+        tracks_today = db.query(func.count(UsageLog.id)).filter(
+            UsageLog.user_id == current_user.id,
+            UsageLog.action == "upload",
+            UsageLog.created_at >= today_start,
+        ).scalar() or 0
+
+        if tracks_today >= daily_limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Limite atteinte : {daily_limit} morceaux/jour sur le plan {plan}."
+            )
+
+        # Enregistre l'usage (source de vérité unique)
+        db.add(UsageLog(user_id=current_user.id, action="upload"))
+        # Mise à jour legacy pour compatibilité (admin panel, export RGPD)
+        current_user.tracks_today = tracks_today + 1
         current_user.last_track_date = dt.utcnow()
         db.commit()
+        tracks_today += 1  # valeur locale post-insert
 
         # Notify user when approaching daily limit (80%+)
-        usage_pct = current_user.tracks_today / daily_limit
-        if usage_pct >= 0.8 and current_user.tracks_today < daily_limit:
+        usage_pct = tracks_today / daily_limit
+        if usage_pct >= 0.8 and tracks_today < daily_limit:
             try:
                 from app.services.email_service import _send_email, _wrap_template
                 html = _wrap_template(f"""
