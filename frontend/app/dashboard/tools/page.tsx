@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Wrench } from 'lucide-react';
 import BpmTapTempo from '@/components/tools/BpmTapTempo';
 import CrateDigger from '@/components/tools/CrateDigger';
+import EnergyFlow from '@/components/tools/EnergyFlow';
 import { listTracks, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
 
@@ -39,6 +40,11 @@ export default function ToolsPage() {
         <BpmTapTempo />
         <CrateDigger tracks={tracks} />
       </div>
+
+      {/* Energy Flow - full width */}
+      {tracks.length > 0 && (
+        <EnergyFlow tracks={tracks} title="Energy Flow de ta collection" />
+      )}
     </div>
   );
 }

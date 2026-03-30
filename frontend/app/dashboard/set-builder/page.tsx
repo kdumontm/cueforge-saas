@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Wand2, Download, Trash2, GripVertical, Music, ChevronDown, Loader2, Disc3, Clock, Zap, ArrowRight, AlertTriangle, CheckCircle2, ArrowUpDown } from 'lucide-react';
 import KeyBadge from '@/components/ui/KeyBadge';
+import EnergyFlow from '@/components/tools/EnergyFlow';
 import {
   listSets, createSet, deleteSet, getSet, addTrackToSet, removeTrackFromSet,
   suggestNextTrack, listTracks, exportSetRekordbox, exportSetM3U, downloadBlob,
@@ -493,6 +494,11 @@ export default function SetBuilderPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Energy Flow for current set */}
+          {setTracks.length >= 2 && (
+            <EnergyFlow tracks={setTracks} title="Energy Flow du set" />
           )}
         </>
       )}
