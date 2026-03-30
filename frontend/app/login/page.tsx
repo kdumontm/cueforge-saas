@@ -2,8 +2,10 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Music2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Music2, Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { login } from '@/lib/api';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,18 +14,45 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNeedsVerification(false);
+    setResendDone(false);
     try {
       await login(username, password);
       router.push('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Connexion échouée');
+      const e = err as Error & { status?: number };
+      if (e.status === 403) {
+        setNeedsVerification(true);
+        setError('Email non vérifié. Vérifie ta boîte de réception ou renvoie le lien ci-dessous.');
+      } else {
+        setError(e.message || 'Connexion échouée');
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    setResendLoading(true);
+    try {
+      await fetch(`${API_URL}/auth/resend-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: username }),
+      });
+    } catch {
+      // silencieux — l'API ne révèle pas si l'email existe
+    } finally {
+      setResendLoading(false);
+      setResendDone(true);
     }
   }
 
@@ -41,7 +70,7 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold text-white">CueForge</span>
           </Link>
-          <p className="text-slate-400 mt-3 text-sm">Bienvenue ! Connecte-toi pour continuer.</p>
+          <p className="text-slate-400 mt-3 text-sm">Bienvenue ! Connecte-toi pour continuer.</p>
         </div>
         {/* Card */}
         <div className="bg-bg-secondary border border-slate-800/60 rounded-2xl p-8">
@@ -51,16 +80,36 @@ export default function LoginPage() {
               {error}
             </div>
           )}
+          {needsVerification && !resendDone && (
+            <div className="mb-4">
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-slate-200 text-sm font-medium rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {resendLoading ? (
+                  <><Loader2 size={16} className="animate-spin" /> Envoi en cours...</>
+                ) : (
+                  <><Mail size={16} /> Renvoyer l&apos;email de vérification</>
+                )}
+              </button>
+            </div>
+          )}
+          {resendDone && (
+            <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm">
+              Email de vérification renvoyé ! Vérifie ta boîte de réception.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Nom d&apos;utilisateur
+                Nom d&apos;utilisateur ou email
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="ton pseudo"
+                placeholder="ton pseudo ou email"
                 required
                 autoComplete="username"
                 className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
