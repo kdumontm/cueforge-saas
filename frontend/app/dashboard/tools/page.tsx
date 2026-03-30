@@ -7,6 +7,7 @@ import BpmTapTempo from '@/components/tools/BpmTapTempo';
 import CrateDigger from '@/components/tools/CrateDigger';
 import EnergyFlow from '@/components/tools/EnergyFlow';
 import QuickNotes from '@/components/tools/QuickNotes';
+import HarmonicWheel from '@/components/tools/HarmonicWheel';
 import { listTracks, isAuthenticated } from '@/lib/api';
 import type { Track } from '@/types';
 
@@ -43,10 +44,13 @@ export default function ToolsPage() {
         <QuickNotes />
       </div>
 
-      {/* Energy Flow - full width */}
-      {tracks.length > 0 && (
-        <EnergyFlow tracks={tracks} title="Energy Flow de ta collection" />
-      )}
+      {/* Harmonic Wheel + Energy Flow - full width */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <HarmonicWheel tracks={tracks} />
+        {tracks.length > 0 && (
+          <EnergyFlow tracks={tracks} title="Energy Flow de ta collection" />
+        )}
+      </div>
     </div>
   );
 }
