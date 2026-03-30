@@ -1,14 +1,14 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class CuePointBase(BaseModel):
     position_ms: int
     end_position_ms: Optional[int] = None
-    cue_type: str
-    name: str
-    color: str = "red"
+    cue_type: str = "hot_cue"
+    name: str = ""
+    color: Optional[str] = "red"
     number: Optional[int] = None
 
 
@@ -39,11 +39,25 @@ class TrackAnalysisResponse(BaseModel):
     key: Optional[str] = None
     energy: Optional[float] = None
     duration_ms: Optional[int] = None
-    drop_positions: Optional[List[int]] = []
-    phrase_positions: Optional[List[int]] = []
-    beat_positions: Optional[List[int]] = []
-    section_labels: Optional[List[Dict[str, Any]]] = []
+    drop_positions: Optional[List[int]] = None
+    phrase_positions: Optional[List[int]] = None
+    beat_positions: Optional[List[int]] = None
+    section_labels: Optional[List[Dict[str, Any]]] = None
     analyzed_at: Optional[datetime] = None
+
+    @field_validator('drop_positions', 'phrase_positions', 'beat_positions', mode='before')
+    @classmethod
+    def coerce_int_list(cls, v):
+        if v is None:
+            return []
+        return v
+
+    @field_validator('section_labels', mode='before')
+    @classmethod
+    def coerce_dict_list(cls, v):
+        if v is None:
+            return []
+        return v
 
 
 class TrackResponse(BaseModel):
@@ -72,9 +86,16 @@ class TrackResponse(BaseModel):
     spotify_url: Optional[str] = None
     musicbrainz_id: Optional[str] = None
 
-    created_at: datetime
+    created_at: Optional[datetime] = None
     analysis: Optional[TrackAnalysisResponse] = None
-    cue_points: List[CuePointResponse] = []
+    cue_points: Optional[List[CuePointResponse]] = []
+
+    @field_validator('cue_points', mode='before')
+    @classmethod
+    def coerce_cue_points(cls, v):
+        if v is None:
+            return []
+        return v
 
 
 class TrackListResponse(BaseModel):
