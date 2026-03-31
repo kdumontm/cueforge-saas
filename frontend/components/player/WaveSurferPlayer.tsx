@@ -394,12 +394,12 @@ export default function WaveSurferPlayer({
   // ── Animation loop — FAST: just drawImage + lightweight overlays ──
   const renderFrame = useCallback(() => {
     const strip = waveformStripRef.current;
-    if (!strip) {
+    const dur = durationRef.current;
+    if (!strip || dur <= 0) {
       rafRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
-    const dur = durationRef.current;
     let time = currentTimeRef.current;
     const audio = audioRef.current;
     if (audio && !audio.paused) {
@@ -811,6 +811,13 @@ export default function WaveSurferPlayer({
         const decoded = await audioCtx.decodeAudioData(arrayBuffer);
         audioCtx.close().catch(() => {});
         if (abort.signal.aborted) return;
+        // Fallback: set duration from decoded buffer if not yet available
+        if (!durationRef.current || durationRef.current <= 0) {
+          durationRef.current = decoded.duration;
+          setDuration(decoded.duration);
+          console.log(`[CueForge] Duration set from decoded buffer: ${decoded.duration}s`);
+        }
+
         const rgbColors = computeRGBWaveform(decoded);
         spectralColorsRef.current = rgbColors;
 
