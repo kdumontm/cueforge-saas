@@ -143,6 +143,7 @@ interface WaveSurferPlayerProps {
   trackId: number;
   trackDuration?: number;
   cuePoints?: CuePoint[];
+  beatPositions?: number[]; // timestamps en ms
   onTimeUpdate?: (positionMs: number) => void;
   onSeek?: (positionMs: number) => void;
   onWaveformClick?: (positionMs: number) => void;
@@ -261,6 +262,7 @@ export default function WaveSurferPlayer({
   trackId,
   trackDuration,
   cuePoints = [],
+  beatPositions = [],
   onTimeUpdate,
   onSeek,
   onWaveformClick,
@@ -424,6 +426,20 @@ export default function WaveSurferPlayer({
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(progress * w, 0, w - progress * w, h);
 
+      // Beat grid — downbeats every 4 beats are brighter
+      if (beatPositions.length > 0 && dur > 0) {
+        beatPositions.forEach((bMs, idx) => {
+          const xPos = (bMs / 1000 / dur) * w;
+          const isDownbeat = idx % 4 === 0;
+          ctx.strokeStyle = isDownbeat ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
+          ctx.lineWidth = isDownbeat ? 1 : 0.5;
+          ctx.beginPath();
+          ctx.moveTo(xPos, isDownbeat ? 0 : h * 0.6);
+          ctx.lineTo(xPos, h);
+          ctx.stroke();
+        });
+      }
+
       // Cue points
       cuePoints.forEach((c) => {
         const xPos = dur > 0 ? (c.position_ms / 1000 / dur) * w : 0;
@@ -561,6 +577,22 @@ export default function WaveSurferPlayer({
         }
       }
 
+      // Beat grid — visible dans la vue détaillée
+      if (beatPositions.length > 0) {
+        beatPositions.forEach((bMs, idx) => {
+          const bT = bMs / 1000;
+          const x = (bT - startTime) / secPerPx;
+          if (x < -2 || x >= w + 2) return;
+          const isDownbeat = idx % 4 === 0;
+          ctx.strokeStyle = isDownbeat ? 'rgba(255,255,255,0.40)' : 'rgba(255,255,255,0.15)';
+          ctx.lineWidth = isDownbeat ? 1 : 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x, isDownbeat ? 0 : h * 0.55);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        });
+      }
+
       // Cue points
       cuePoints.forEach((c) => {
         const cueT = c.position_ms / 1000;
@@ -580,7 +612,7 @@ export default function WaveSurferPlayer({
     }
 
     rafRef.current = requestAnimationFrame(renderFrame);
-  }, [cuePoints]);
+  }, [cuePoints, beatPositions]);
 
   // ── Start/stop animation ──
   useEffect(() => {

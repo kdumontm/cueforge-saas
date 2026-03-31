@@ -16,12 +16,24 @@ Cue Strategy (priority order):
   7. PHRASE — significant structural boundaries
   8. Fill remaining with drops/phrases
 
-Color scheme (Rekordbox-compatible):
-  red    = DROP      | orange = BUILD
-  blue   = INTRO     | purple = OUTRO
-  yellow = BREAKDOWN | green  = PHRASE
-  cyan   = VOCAL     | pink   = LOOP
+Color scheme (Rekordbox-compatible hex):
+  #E13535 = DROP      | #FF8C00 = BUILD
+  #2B7FFF = INTRO     | #A855F7 = OUTRO
+  #E2D420 = BREAKDOWN | #1DB954 = PHRASE
+  #21C8DE = VOCAL     | #FF69B4 = LOOP
 """
+
+# Couleurs hex Rekordbox-compatibles pour chaque type de cue
+CUE_COLORS = {
+    "red":    "#E13535",
+    "orange": "#FF8C00",
+    "yellow": "#E2D420",
+    "green":  "#1DB954",
+    "cyan":   "#21C8DE",
+    "blue":   "#2B7FFF",
+    "purple": "#A855F7",
+    "pink":   "#FF69B4",
+}
 from typing import Dict, List, Tuple
 from sqlalchemy.orm import Session
 
@@ -326,7 +338,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     if intro_sections:
         intro_pos = intro_sections[0].get("time_ms", 0)
         intro_end = intro_pos + intro_sections[0].get("duration_ms", 0)
-        _add_cue(intro_pos, "section", "INTRO", "blue", snap_4bar=True, end_ms=intro_end)
+        _add_cue(intro_pos, "section", "INTRO", CUE_COLORS["blue"], snap_4bar=True, end_ms=intro_end)
     elif beats and len(beats) > 0:
         # Find first beat that's not silence — skip beats where energy < 0.1
         intro_beat = beats[0]
@@ -334,15 +346,15 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             if _energy_at(b) > 0.08:
                 intro_beat = b
                 break
-        _add_cue(intro_beat, "section", "INTRO", "blue", snap_4bar=True)
+        _add_cue(intro_beat, "section", "INTRO", CUE_COLORS["blue"], snap_4bar=True)
     else:
-        _add_cue(0, "section", "INTRO", "blue")
+        _add_cue(0, "section", "INTRO", CUE_COLORS["blue"])
 
     # ── 2. DROP — highest energy-contrast drop ──
     first_drop_ms = scored_drops[0][0] if scored_drops else duration_ms
     if scored_drops:
         main_drop = scored_drops[0][0]
-        if _add_cue(main_drop, "drop", "DROP", "red", snap_4bar=True):
+        if _add_cue(main_drop, "drop", "DROP", CUE_COLORS["red"], snap_4bar=True):
             first_drop_ms = main_drop
 
     # ── 3. BUILD — steepest energy rise before main drop ──
@@ -380,13 +392,13 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                 best_gradient = gradient
                 best_gradient_pos = t
         if best_gradient_pos and best_gradient > 0.15:
-            _add_cue(best_gradient_pos, "section", "BUILD", "orange", snap_4bar=True)
+            _add_cue(best_gradient_pos, "section", "BUILD", CUE_COLORS["orange"], snap_4bar=True)
             best_build = {"_synthetic": True}
 
     if best_build and not best_build.get("_synthetic") and len(cue_points) < 8:
         build_pos = best_build.get("time_ms", 0)
         build_end = build_pos + best_build.get("duration_ms", 0)
-        _add_cue(build_pos, "section", "BUILD", "orange", snap_4bar=True, end_ms=build_end)
+        _add_cue(build_pos, "section", "BUILD", CUE_COLORS["orange"], snap_4bar=True, end_ms=build_end)
 
     # ── 4. BREAKDOWN — deepest energy valley after first drop ──
     breakdown_sections = _find_section_by_label(sections, "BREAKDOWN")
@@ -403,7 +415,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
         bd_pos = best_bd.get("time_ms", 0)
         bd_end = bd_pos + best_bd.get("duration_ms", 0)
-        _add_cue(bd_pos, "section", "BREAKDOWN", "yellow", snap_4bar=True, end_ms=bd_end)
+        _add_cue(bd_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"], snap_4bar=True, end_ms=bd_end)
     elif len(cue_points) < 8 and first_drop_ms < duration_ms * 0.7:
         # Synthesize: find lowest energy point between drop and 70% mark
         search_end = min(duration_ms, int(first_drop_ms + phrase_16bar_ms * 4))
@@ -416,20 +428,20 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                 lowest_energy = e
                 lowest_pos = t
         if lowest_pos and lowest_energy < 0.5:
-            _add_cue(lowest_pos, "section", "BREAKDOWN", "yellow", snap_4bar=True)
+            _add_cue(lowest_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"], snap_4bar=True)
 
     # ── 5. DROP 2 — second drop with significant energy contrast ──
     if len(scored_drops) > 1 and len(cue_points) < 8:
         second_drop = scored_drops[1]
         # Only add if it has meaningful energy contrast (>0.15)
         if second_drop[1] > 0.15:
-            _add_cue(second_drop[0], "drop", "DROP 2", "red", snap_4bar=True)
+            _add_cue(second_drop[0], "drop", "DROP 2", CUE_COLORS["red"], snap_4bar=True)
 
     # ── 6. OUTRO — sustained energy decline in last ~20% ──
     outro_sections = _find_section_by_label(sections, "OUTRO")
     if outro_sections and len(cue_points) < 8:
         outro_pos = outro_sections[0].get("time_ms", 0)
-        _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
+        _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"], snap_4bar=True)
     elif duration_ms > 30000 and len(cue_points) < 8:
         # Find where energy starts its final sustained decline
         search_start = int(duration_ms * 0.7)
@@ -447,7 +459,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             else:
                 decline_count = 0
             prev_energy = e
-        _add_cue(outro_pos, "section", "OUTRO", "purple", snap_4bar=True)
+        _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"], snap_4bar=True)
 
     # ── 7. PHRASE markers — structurally significant boundaries ──
     if phrases and len(cue_points) < 8:
@@ -465,7 +477,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         for ph_ms, _ in scored_phrases:
             if len(cue_points) >= 8:
                 break
-            _add_cue(ph_ms, "phrase", "PHRASE", "green", snap_4bar=True)
+            _add_cue(ph_ms, "phrase", "PHRASE", CUE_COLORS["green"], snap_4bar=True)
 
     # ── 8. VERSE/CHORUS — fill remaining with extra section markers ──
     verse_sections = _find_section_by_label(sections, "VERSE")
@@ -473,8 +485,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
     # Interleave verse/chorus by chronological order
     extra_sections = (
-        [(vs.get("time_ms", 0), "VERSE", "cyan") for vs in verse_sections] +
-        [(ch.get("time_ms", 0), "CHORUS", "pink") for ch in chorus_sections]
+        [(vs.get("time_ms", 0), "VERSE", CUE_COLORS["cyan"]) for vs in verse_sections] +
+        [(ch.get("time_ms", 0), "CHORUS", CUE_COLORS["pink"]) for ch in chorus_sections]
     )
     extra_sections.sort(key=lambda x: x[0])
 

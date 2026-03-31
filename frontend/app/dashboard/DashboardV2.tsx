@@ -927,6 +927,7 @@ export default function DashboardV2() {
           <PlayerCard
             track={selectedTrack}
             cuePoints={effectiveCuePoints}
+            beatPositions={(selectedTrack as any)?.analysis?.beat_positions ?? []}
             onImportClick={() => fileRef.current?.click()}
             onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
             onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}

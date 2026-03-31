@@ -82,6 +82,7 @@ interface Track {
 interface PlayerCardProps {
   track: Track | null;
   cuePoints?: CuePoint[];
+  beatPositions?: number[]; // timestamps beats en ms
   onImportClick?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -112,6 +113,7 @@ function fmt(s: number): string {
 export default function PlayerCard({
   track,
   cuePoints = [],
+  beatPositions = [],
   onImportClick,
   onPrev,
   onNext,
@@ -283,6 +285,7 @@ export default function PlayerCard({
             trackId={track.id}
             trackDuration={parseDuration(track.duration)}
             cuePoints={cuePoints}
+            beatPositions={beatPositions}
             zoom={zoom}
             height={90}
             overviewHeight={56}

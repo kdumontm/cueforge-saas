@@ -108,7 +108,9 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             pos_ms = cue.get("position_ms") or cue.get("time") or 0
             end_ms = cue.get("end_position_ms") or 0
             label = cue.get("label") or cue.get("name") or f"Cue {cue_idx + 1}"
-            is_loop = bool(end_ms and end_ms > pos_ms)
+            cue_type = cue.get("type") or cue.get("cue_type") or "cue"
+            # Only treat as loop if explicitly tagged as loop type — not just because end_ms exists
+            is_loop = cue_type == "loop" and bool(end_ms and end_ms > pos_ms)
 
             mark_attrs = {
                 "Name": label,
@@ -119,8 +121,13 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             if is_loop:
                 mark_attrs["End"] = format_time_mmss(end_ms)
 
-            color_idx = cue_idx % 8
-            color_hex = REKORDBOX_COLORS.get(color_idx, "#E13535")
+            # Use the actual color stored in DB (hex string); fall back to palette by index
+            raw_color = cue.get("color") or ""
+            if raw_color and raw_color.startswith("#") and len(raw_color) >= 7:
+                color_hex = raw_color[:7]
+            else:
+                color_idx = cue_idx % 8
+                color_hex = REKORDBOX_COLORS.get(color_idx, "#E13535")
             r = int(color_hex[1:3], 16)
             g = int(color_hex[3:5], 16)
             b = int(color_hex[5:7], 16)
