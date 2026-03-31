@@ -468,7 +468,11 @@ export default function WaveSurferPlayer({
 
     try {
       const token = getToken();
-      const res = await fetch(`${API_URL}/tracks/${id}/audio`, {
+      // Pass token both as query param AND header for full compatibility
+      const audioUrl = token
+        ? `${API_URL}/tracks/${id}/audio?token=${encodeURIComponent(token)}`
+        : `${API_URL}/tracks/${id}/audio`;
+      const res = await fetch(audioUrl, {
         signal: abort.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

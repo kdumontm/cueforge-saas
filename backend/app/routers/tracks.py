@@ -3,7 +3,7 @@ import uuid
 import logging
 import mimetypes
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -153,23 +153,31 @@ async def upload_track(
 @router.get("/{track_id}/audio")
 async def stream_audio(
     track_id: int,
+    request: Request,
     token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Stream audio file for waveform visualization.
-    Accepts auth via ?token= query param (used by WaveSurfer.js).
+    """Stream audio file with byte-range support.
+    Accepts auth via Authorization header OR ?token= query param.
     """
     from app.services.auth_service import decode_access_token
     from jose import JWTError
 
+    # Resolve token from query param OR Authorization header
+    raw_token = token
+    if not raw_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:]
+
     user = None
-    if token:
+    if raw_token:
         try:
-            payload = decode_access_token(token)
+            payload = decode_access_token(raw_token)
             if payload:
                 user_id = payload.get("sub")
                 if user_id:
-                    user = db.query(User).filter(User.id == user_id).first()
+                    user = db.query(User).filter(User.id == int(user_id)).first()
         except (JWTError, Exception):
             pass
 
@@ -190,15 +198,53 @@ async def stream_audio(
 
     ext = os.path.splitext(safe)[1].lower()
     content_type = MIME_TYPES.get(ext, "application/octet-stream")
+    file_size = os.path.getsize(track.file_path)
+
+    # Handle Range requests (for seek/progressive loading)
+    range_header = request.headers.get("Range")
+    if range_header:
+        try:
+            range_val = range_header.strip().replace("bytes=", "")
+            start_str, end_str = range_val.split("-")
+            start = int(start_str) if start_str else 0
+            end = int(end_str) if end_str else file_size - 1
+            end = min(end, file_size - 1)
+            chunk_size = end - start + 1
+
+            def iter_file(path: str, s: int, length: int):
+                with open(path, "rb") as f:
+                    f.seek(s)
+                    remaining = length
+                    while remaining > 0:
+                        data = f.read(min(65536, remaining))
+                        if not data:
+                            break
+                        remaining -= len(data)
+                        yield data
+
+            return StreamingResponse(
+                iter_file(track.file_path, start, chunk_size),
+                status_code=206,
+                media_type=content_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Content-Length": str(chunk_size),
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "public, max-age=3600",
+                },
+            )
+        except Exception:
+            pass  # Fall through to full file response
 
     return FileResponse(
         path=safe,
         media_type=content_type,
-        filename=track.original_filename,
+        filename=getattr(track, "original_filename", None),
         headers={
             "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
             "Cache-Control": "public, max-age=3600",
-        }
+        },
     )
 
 
