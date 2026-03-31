@@ -860,6 +860,21 @@ export default function DashboardV2() {
     addToast(`${ids.length} tracks supprimées`, 'success');
   }
 
+  async function handleDeleteAllTracks() {
+    const realTracks = tracks.filter(t => t.id > 0);
+    if (realTracks.length === 0) { addToast('Bibliothèque déjà vide', 'info'); return; }
+    if (!window.confirm(`⚠️ Supprimer les ${realTracks.length} tracks de ta bibliothèque ?\n\nCette action est irréversible.`)) return;
+    addToast(`Suppression de ${realTracks.length} tracks…`, 'info');
+    let done = 0;
+    for (const t of realTracks) {
+      try { await deleteTrack(t.id); done++; } catch {}
+    }
+    setSelectedIds(new Set());
+    setSelectedTrack(null);
+    await loadTracks();
+    addToast(`✓ ${done} tracks supprimées`, 'success');
+  }
+
   return (
     <div
       className="p-4 space-y-3"
@@ -915,6 +930,18 @@ export default function DashboardV2() {
           />
           {/* TrackList sous le waveform */}
           <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ minHeight: 220 }}>
+            {/* Barre outils bibliothèque */}
+            {!isDemo && tracks.length > 0 && selectedIds.size === 0 && (
+              <div className="flex items-center justify-end px-3 py-1.5 border-b border-[var(--border-subtle)]">
+                <button
+                  onClick={handleDeleteAllTracks}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-red-500/30 text-red-400/70 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/50 transition-all cursor-pointer bg-transparent"
+                  title="Supprimer tous les tracks du compte"
+                >
+                  <Trash2 size={12} /> Vider la bibliothèque
+                </button>
+              </div>
+            )}
             <BatchActionBar
               selectedCount={selectedIds.size}
               onClearSelection={() => setSelectedIds(new Set())}
