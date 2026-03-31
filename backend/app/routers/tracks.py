@@ -2,6 +2,8 @@ import os
 import uuid
 import logging
 import mimetypes
+import subprocess
+import shutil
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -150,15 +152,102 @@ async def upload_track(
 
 # ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
 
+# Lossless formats that should be transcoded for web playback
+LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
+
+# Transcoding strategies — try in order until one works.
+# OGG/Vorbis is best for Web Audio API decoding in browsers.
+# AAC/M4A is EXCLUDED because Chrome's decodeAudioData() hangs on large M4A blobs.
+# MP3 is the universal fallback — every browser decodes it perfectly.
+# NOTE: each strategy's extra_args must include its own bitrate/quality flag.
+_TRANSCODE_STRATEGIES = [
+    # (codec, ext, mime_type, extra_args)
+    ("libvorbis", ".ogg", "audio/ogg", ["-q:a", "6"]),            # best Web Audio compat
+    ("libopus", ".ogg", "audio/ogg", ["-b:a", "128k"]),           # good alternative
+    ("libmp3lame", ".mp3", "audio/mpeg", ["-q:a", "2"]),          # universal fallback
+]
+
+
+def _get_cache_path(original_path: str, ext: str) -> str:
+    """Return the path where the cached transcoded file should be stored.
+    Extension must come LAST so ffmpeg can detect the output format.
+    e.g. /app/uploads/uuid.transcoded.m4a (not uuid.m4a.cache)
+    """
+    base, _ = os.path.splitext(original_path)
+    return base + ".transcoded" + ext
+
+
+def _transcode_audio(src_path: str):
+    """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
+    src_exists = os.path.exists(src_path)
+    src_size = os.path.getsize(src_path) if src_exists else 0
+    logger.info("Transcode requested: %s (exists=%s, size=%dKB)", src_path, src_exists, src_size // 1024)
+
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        logger.error("ffmpeg not found in PATH!")
+        return None, ""
+
+    for codec, ext, mime_type, extra_args in _TRANSCODE_STRATEGIES:
+        dst_path = _get_cache_path(src_path, ext)
+        # If a cached version already exists, use it
+        if os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+            logger.info("Transcode cache hit: %s (%dKB)", dst_path, os.path.getsize(dst_path) // 1024)
+            return dst_path, mime_type
+        try:
+            dst_dir = os.path.dirname(dst_path)
+            if not os.access(dst_dir, os.W_OK):
+                logger.warning("Directory not writable: %s", dst_dir)
+                continue
+
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", src_path,
+                "-vn",              # no video
+                "-acodec", codec,
+                *extra_args,        # bitrate/quality per strategy
+                "-ar", "44100",     # standard sample rate
+                "-ac", "2",         # stereo
+                dst_path,
+            ]
+            logger.info("Running ffmpeg: %s → %s (codec=%s)", os.path.basename(src_path), ext, codec)
+            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            if result.returncode == 0 and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+                dst_size = os.path.getsize(dst_path)
+                logger.info("Transcoded OK with %s: %dKB → %dKB (%.0f%% reduction)",
+                            codec, src_size // 1024, dst_size // 1024,
+                            (1 - dst_size / max(src_size, 1)) * 100)
+                return dst_path, mime_type
+            else:
+                err_tail = result.stderr[-500:] if result.stderr else b""
+                logger.warning("Codec %s failed (rc=%d): %s", codec, result.returncode, err_tail)
+                if os.path.exists(dst_path):
+                    os.remove(dst_path)
+        except subprocess.TimeoutExpired:
+            logger.warning("Codec %s timed out (300s)", codec)
+            if os.path.exists(dst_path):
+                os.remove(dst_path)
+        except Exception as e:
+            logger.error("Transcode error with %s: %s", codec, e)
+
+    logger.error("All transcode strategies failed for %s", src_path)
+    return None, ""
+
+
 @router.get("/{track_id}/audio")
-async def stream_audio(
+def stream_audio(
     track_id: int,
     request: Request,
     token: Optional[str] = Query(None),
+    format: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """Stream audio file with byte-range support.
     Accepts auth via Authorization header OR ?token= query param.
+    ?format=ogg → transcode lossless files (FLAC/WAV/AIFF) to OGG for fast web playback.
+
+    NOTE: sync def (not async) so subprocess.run doesn't block the event loop.
+    FastAPI runs sync endpoints in a threadpool automatically.
     """
     from app.services.auth_service import decode_access_token
     from jose import JWTError
@@ -197,8 +286,25 @@ async def stream_audio(
         raise HTTPException(status_code=404, detail="Audio file not found on disk")
 
     ext = os.path.splitext(safe)[1].lower()
-    content_type = MIME_TYPES.get(ext, "application/octet-stream")
-    file_size = os.path.getsize(track.file_path)
+    serve_path = safe  # default: serve the original file
+
+    # ── Transcoding for lossless formats (FLAC/WAV/AIFF → AAC/OGG) ──
+    # Reduces download from ~50-100 MB to ~5-10 MB for web playback
+    logger.info("Audio request: track=%d, format=%s, ext=%s", track_id, format, ext)
+    if format == "ogg" and ext in LOSSLESS_EXTENSIONS:
+        logger.info("Transcoding lossless → compressed for track %d (%s)", track_id, ext)
+        transcode_path, transcode_mime = _transcode_audio(safe)
+        if transcode_path:
+            serve_path = transcode_path
+            content_type = transcode_mime
+            file_size = os.path.getsize(serve_path)
+        else:
+            logger.warning(f"All transcodes failed for track {track_id}, serving original {ext}")
+            content_type = MIME_TYPES.get(ext, "application/octet-stream")
+            file_size = os.path.getsize(safe)
+    else:
+        content_type = MIME_TYPES.get(ext, "application/octet-stream")
+        file_size = os.path.getsize(safe)
 
     # Handle Range requests (for seek/progressive loading)
     range_header = request.headers.get("Range")
@@ -223,7 +329,7 @@ async def stream_audio(
                         yield data
 
             return StreamingResponse(
-                iter_file(track.file_path, start, chunk_size),
+                iter_file(serve_path, start, chunk_size),
                 status_code=206,
                 media_type=content_type,
                 headers={
@@ -237,7 +343,7 @@ async def stream_audio(
             pass  # Fall through to full file response
 
     return FileResponse(
-        path=safe,
+        path=serve_path,
         media_type=content_type,
         filename=getattr(track, "original_filename", None),
         headers={

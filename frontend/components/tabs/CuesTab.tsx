@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown } from 'lucide-react';
@@ -54,9 +54,9 @@ export function CuesTab({
 
   const cues = indices.map(i => cuePoints[i]);
 
-  if (localOrder.length !== cuePoints.length) {
+  useEffect(() => {
     setLocalOrder(cuePoints.map((_, i) => i));
-  }
+  }, [cuePoints.length]);
 
   const handleAddCue = () => {
     const posMs = initialPositionMs ?? 0;

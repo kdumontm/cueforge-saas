@@ -102,6 +102,7 @@ interface WaveSurferPlayerProps {
   onWaveformClick?: (positionMs: number) => void;
   zoom?: number;
   height?: number;
+  overviewHeight?: number; // hauteur de la vue overview (défaut 48)
   waveformTheme?: string;
   playerRef?: React.MutableRefObject<{
     playPause: () => void;
@@ -116,6 +117,7 @@ interface WaveSurferPlayerProps {
     setEQ?: (low: number, mid: number, high: number) => void;
   } | null>;
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
+  onZoomChange?: (pxPerSec: number) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -130,7 +132,7 @@ const ZOOM_PX_PER_SEC: Record<string, number> = {
 // Principle: d0=RMS signal → bass content  |  d1=RMS 1st derivative → mids
 //            d2=RMS 2nd derivative → highs (transients, cymbals, hats)
 // Each band normalized independently → colors are always vivid regardless of volume
-function computeRGBWaveform(buf: AudioBuffer, numBars = 2000): {r:number,g:number,b:number}[] {
+function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:number,b:number}[] {
   const data = buf.getChannelData(0);
   const segLen = Math.max(1, Math.floor(data.length / numBars));
 
@@ -169,14 +171,27 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 2000): {r:number,g:numbe
     const mi = c.mi / maxMi;  // 0-1 — mids  (synths, vocals)
     const hi = c.hi / maxHi;  // 0-1 — highs (hats, transients)
 
-    // Rekordbox color palette:
-    //   bass only  → orange-red  rgb(255, 80, 10)
-    //   mids only  → yellow-green rgb(120, 220, 40)
-    //   highs only → cyan        rgb(20, 200, 255)
-    //   all        → white
-    const r = Math.min(255, Math.round(lo * 255 + mi * 80));
-    const g = Math.min(255, Math.round(mi * 210 + hi * 90 + lo * 40));
-    const b = Math.min(255, Math.round(hi * 255 + mi * 60));
+    // Rekordbox color mapping:
+    //   bass → red/pink (like kick drums in Rekordbox)
+    //   mids → green/yellow (synths, vocals)
+    //   highs → cyan/blue (hats, cymbals)
+    //   mix of all → white/pink
+    const loP = Math.pow(lo, 0.65);
+    const miP = Math.pow(mi, 0.65);
+    const hiP = Math.pow(hi, 0.65);
+    const total = loP + miP + hiP + 0.001;
+
+    // Weighted color: bass=red, mids=green, highs=cyan
+    // When bass dominates → red/pink, when highs dominate → cyan
+    const r = Math.min(255, Math.round(
+      loP * 255 + miP * 60 + hiP * 30
+    ));
+    const g = Math.min(255, Math.round(
+      miP * 200 + hiP * 120 + loP * 20
+    ));
+    const b = Math.min(255, Math.round(
+      hiP * 255 + loP * 60 + miP * 40
+    ));
 
     return { r, g, b };
   });
@@ -191,11 +206,14 @@ export default function WaveSurferPlayer({
   onWaveformClick,
   zoom = 1,
   height = 96,
+  overviewHeight = 48,
   waveformTheme = 'spectral',
   playerRef,
   onLoopChange,
+  onZoomChange,
 }: WaveSurferPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<any>(null);
   const regionsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -251,10 +269,89 @@ export default function WaveSurferPlayer({
       try {
         const WaveSurfer = (await import('wavesurfer.js')).default;
         const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.esm.js')).default;
+        const MinimapPlugin = (await import('wavesurfer.js/dist/plugins/minimap.esm.js')).default;
         if (destroyed) return;
 
         const regions = RegionsPlugin.create();
         regionsRef.current = regions;
+
+        // ── Shared spectral renderFunction for both overview & detail ──
+        const spectralRender = (peaks: any, ctx: CanvasRenderingContext2D) => {
+            try {
+            const colors = spectralColorsRef.current;
+            const { width, height: h } = ctx.canvas;
+            const ch = peaks?.[0] as Float32Array;
+            if (!ch || ch.length === 0) return;
+            const mid = Math.round(h / 2);
+
+            // ── Pure black background (Rekordbox style) ──
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, h);
+
+            // ── Thin center line ──
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillRect(0, mid, width, 1);
+
+            const samplesPerPx = ch.length / width;
+
+            // ── CONTINUOUS FILLED WAVEFORM — pixel by pixel like Rekordbox ──
+            for (let x = 0; x < width; x++) {
+              // Get peak amplitude for this pixel column
+              const s0 = Math.floor(x * samplesPerPx);
+              const s1 = Math.min(Math.ceil((x + 1) * samplesPerPx), ch.length - 1);
+              let amp = 0;
+              for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
+              amp = Math.min(1, amp);
+              if (amp < 0.003) continue;
+
+              // Get spectral color for this position
+              let rr: number, gg: number, bb: number;
+              if (colors) {
+                const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
+                const { r, g, b } = colors[ci];
+                // Rekordbox brightness: louder = more vivid
+                const bright = 0.5 + amp * 0.5;
+                rr = Math.min(255, Math.round(r * bright));
+                gg = Math.min(255, Math.round(g * bright));
+                bb = Math.min(255, Math.round(b * bright));
+              } else {
+                // Fallback: pink/red monochrome
+                const lum = 0.5 + amp * 0.5;
+                rr = Math.round(255 * lum);
+                gg = Math.round(50 * lum);
+                bb = Math.round(100 * lum);
+              }
+
+              const barH = Math.max(1, amp * mid * 0.95);
+
+              // ── TOP HALF — full brightness ──
+              ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+              ctx.fillRect(x, mid - barH, 1, barH);
+
+              // ── BOTTOM MIRROR — same height, lower opacity ──
+              ctx.fillStyle = `rgba(${rr},${gg},${bb},0.45)`;
+              ctx.fillRect(x, mid + 1, 1, barH * 0.9);
+            }
+            } catch (e) {
+              console.error('[CueForge] renderFunction crash:', e);
+            }
+          };
+
+        // ── Overview minimap (full track, always visible) ──
+        const minimap = MinimapPlugin.create({
+          container: overviewRef.current!,
+          height: overviewHeight,
+          waveColor: 'transparent',
+          progressColor: 'transparent',
+          cursorColor: 'rgba(255,255,255,0.7)',
+          cursorWidth: 1,
+          barWidth: 0,
+          barGap: 0,
+          normalize: true,
+          // Overlay style: viewport indicator shows current zoomed position
+          overlayColor: 'rgba(255,255,255,0.05)',
+          renderFunction: spectralRender,
+        });
 
         const ws = WaveSurfer.create({
           container: containerRef.current!,
@@ -268,88 +365,26 @@ export default function WaveSurferPlayer({
           dragToSeek: true,
           cursorColor: 'rgba(255,255,255,0.9)',
           cursorWidth: 2,
-          barWidth: 2,
-          barGap: 1,
-          barRadius: 3,
+          barWidth: 0,
+          barGap: 0,
           waveColor: 'transparent',
           progressColor: 'transparent',
-          renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
-            const colors = spectralColorsRef.current;
-            const { width, height: h } = ctx.canvas;
-            const ch = peaks[0] as Float32Array;
-            if (!ch || ch.length === 0) return;
-            const mid = h / 2;
-
-            // ── Rekordbox-style background ──────────────────────────────
-            ctx.fillStyle = '#08080e';
-            ctx.fillRect(0, 0, width, h);
-
-            // Subtle horizontal center axis
-            ctx.fillStyle = 'rgba(255,255,255,0.07)';
-            ctx.fillRect(0, mid - 0.5, width, 1);
-
-            if (!colors) {
-              // ── Skeleton while loading (monochrome, still good-looking) ──
-              for (let x = 0; x < width; x += 2) {
-                const si = Math.min(Math.floor((x / width) * ch.length), ch.length - 1);
-                const amp = Math.abs(ch[si] || 0);
-                if (amp < 0.003) continue;
-                const bH = Math.max(2, amp * mid * 0.9);
-                const lum = Math.round(40 + amp * 100);
-                ctx.fillStyle = `rgb(${lum},${Math.round(lum * 1.3)},${Math.round(lum * 2.2)})`;
-                ctx.fillRect(x, mid - bH, 2, bH * 2);
-              }
-              return;
-            }
-
-            // ── Full RGB Rekordbox render ────────────────────────────────
-            // Each bar: symmetric (top+bottom), 1px wide, no gap → packed like Rekordbox
-            // Color = frequency content of that time slice:
-            //   orange-red = bass (kick, sub)
-            //   yellow-green = mids (synths, pads)
-            //   cyan = highs (hats, transients)
-            //   white = full spectrum (drop, complex)
-            const samplesPerPx = ch.length / width;
-
-            for (let x = 0; x < width; x += 2) {
-              // Peak amplitude over this pixel's sample range
-              const s0 = Math.floor(x * samplesPerPx);
-              const s1 = Math.min(Math.floor((x + 2) * samplesPerPx), ch.length - 1);
-              let amp = 0;
-              for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
-              amp = Math.min(1, amp);
-              if (amp < 0.003) continue;
-
-              // Spectral color for this time position
-              const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
-              const { r, g, b } = colors[ci];
-
-              // Brightness driven by amplitude: quiet = 30%, loud = 100%
-              const bright = 0.28 + amp * 0.72;
-              const rr = Math.min(255, Math.round(r * bright));
-              const gg = Math.min(255, Math.round(g * bright));
-              const bb = Math.min(255, Math.round(b * bright));
-
-              const barH = Math.max(2, amp * mid * 0.96);
-
-              // Upper half (full brightness)
-              ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-              ctx.fillRect(x, mid - barH, 2, barH);
-
-              // Lower half (mirror, slightly dimmer for Rekordbox depth effect)
-              ctx.fillStyle = `rgb(${Math.round(rr * 0.65)},${Math.round(gg * 0.65)},${Math.round(bb * 0.65)})`;
-              ctx.fillRect(x, mid, 2, barH);
-            }
-          },
-          plugins: [regions],
+          renderFunction: spectralRender,
+          plugins: [regions, minimap],
         });
 
         ws.on('ready', (dur: number) => {
           if (destroyed) return;
+          console.log(`[CueForge] WaveSurfer ready — duration: ${dur}s`);
           setDuration(dur);
           setIsReady(true);
           setLoading(false);
           setError(null);
+          // Clear any ready timeout
+          if ((ws as any).__readyTimeout) {
+            clearTimeout((ws as any).__readyTimeout);
+            (ws as any).__readyTimeout = null;
+          }
 
           // Setup EQ via MediaElementSource
           try {
@@ -494,6 +529,7 @@ export default function WaveSurferPlayer({
       destroyed = true;
       abortRef.current?.abort();
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (wsRef.current?.__readyTimeout) clearTimeout(wsRef.current.__readyTimeout);
       wsRef.current?.destroy();
       wsRef.current = null;
       if (playerRef) playerRef.current = null;
@@ -532,36 +568,82 @@ export default function WaveSurferPlayer({
 
     try {
       const token = getToken();
-      // Pass token both as query param AND header for full compatibility
+      // Request OGG format for lossless files — server transcodes FLAC/WAV/AIFF to OGG (~5MB vs ~50MB)
       const audioUrl = token
-        ? `${API_URL}/tracks/${id}/audio?token=${encodeURIComponent(token)}`
-        : `${API_URL}/tracks/${id}/audio`;
+        ? `${API_URL}/tracks/${id}/audio?format=ogg&token=${encodeURIComponent(token)}`
+        : `${API_URL}/tracks/${id}/audio?format=ogg`;
+
+      // Timeout: abort if download takes more than 45 seconds
+      const downloadTimeout = setTimeout(() => {
+        if (!abort.signal.aborted) {
+          console.warn('[CueForge] Audio download timeout (45s) — aborting');
+          abort.abort();
+          setError('Chargement trop long — réessayez');
+          setLoading(false);
+        }
+      }, 45000);
+
       const res = await fetch(audioUrl, {
         signal: abort.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
+      clearTimeout(downloadTimeout);
       if (abort.signal.aborted) return;
+
+      console.log(`[CueForge] Audio loaded: ${(blob.size / 1024 / 1024).toFixed(1)} MB (${blob.type})`);
+
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
-      ws.load(url);
 
-      // RGB waveform computation — derivative approach, synchronous, works on any track
+      // Pre-decode audio to get peaks — avoids WaveSurfer's internal decoding
+      // which can hang on certain OGG/Vorbis files in Chrome.
+      const arrayBuffer = await blob.arrayBuffer();
+      if (abort.signal.aborted) return;
+
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      await audioCtx.resume();
+      let decoded: AudioBuffer;
       try {
-        const arrayBuffer = await blob.arrayBuffer();
-        if (abort.signal.aborted) return;
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const decoded = await audioContext.decodeAudioData(arrayBuffer);
-        audioContext.close().catch(() => {});
-        if (abort.signal.aborted) return;
-        // computeRGBWaveform is now synchronous — no await, no OfflineAudioContext crash
+        decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch (decErr) {
+        console.error('[CueForge] decodeAudioData failed:', decErr);
+        audioCtx.close().catch(() => {});
+        setError('Impossible de décoder l\'audio');
+        setLoading(false);
+        return;
+      }
+      if (abort.signal.aborted) { audioCtx.close().catch(() => {}); return; }
+
+      console.log(`[CueForge] Audio decoded: ${decoded.duration.toFixed(1)}s, ${decoded.numberOfChannels}ch, ${decoded.sampleRate}Hz`);
+
+      const ch0 = decoded.getChannelData(0);
+      const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : ch0;
+
+      // Compute RGB spectral waveform from the same decoded buffer (no double decode)
+      try {
         const rgbColors = computeRGBWaveform(decoded);
         spectralColorsRef.current = rgbColors;
         setSpectralReady(true);
       } catch (e) {
-        console.warn('RGB waveform computation failed:', e);
+        console.warn('[CueForge] RGB waveform computation failed:', e);
       }
+
+      audioCtx.close().catch(() => {});
+      if (abort.signal.aborted) return;
+
+      // Load with pre-decoded peaks — WaveSurfer skips internal decoding
+      ws.load(url, [ch0, ch1], decoded.duration);
+
+      // Safety: if WaveSurfer doesn't fire 'ready' within 15s, show error
+      (ws as any).__readyTimeout = setTimeout(() => {
+        if (!abort.signal.aborted && !ws.isReady?.()) {
+          console.warn('[CueForge] WaveSurfer ready timeout (15s)');
+          setError('Décodage audio trop long — format non supporté ?');
+          setLoading(false);
+        }
+      }, 15000);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       console.warn('Audio load error (demo mode?):', e);
@@ -652,17 +734,22 @@ export default function WaveSurferPlayer({
   }, [loopIn, loopOut, loopActive, isReady]);
 
   // --- Ctrl+Scroll zoom ---
+  const onZoomChangeRef = useRef(onZoomChange);
+  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let currentPxPerSec = ZOOM_PX_PER_SEC[String(zoom)] ?? 30;
     const handler = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const ws = wsRef.current;
       if (!ws) return;
-      const current = ZOOM_PX_PER_SEC[String(zoom)] ?? 30;
-      const next = e.deltaY < 0 ? Math.min(current * 1.4, 250) : Math.max(current / 1.4, 8);
+      const next = e.deltaY < 0 ? Math.min(currentPxPerSec * 1.4, 250) : Math.max(currentPxPerSec / 1.4, 8);
+      currentPxPerSec = next;
       try { ws.zoom(next); } catch {}
+      onZoomChangeRef.current?.(next);
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
@@ -690,9 +777,25 @@ export default function WaveSurferPlayer({
 
   return (
     <div className="w-full">
-      {/* Waveform */}
+      {/* ── OVERVIEW — full track (Rekordbox-style top strip) ── */}
       <div
-        className="relative bg-black/30 rounded-lg overflow-hidden cursor-crosshair"
+        className="relative bg-black rounded-t-lg overflow-hidden cursor-pointer"
+        style={{ height: overviewHeight, minHeight: overviewHeight }}
+        title="Vue d'ensemble — clic = naviguer"
+      >
+        <div ref={overviewRef} className="w-full h-full" />
+        {/* Label */}
+        <div className="absolute top-0.5 left-1.5 text-[8px] text-white/25 pointer-events-none select-none font-mono uppercase tracking-wider">
+          Overview
+        </div>
+      </div>
+
+      {/* ── Séparateur subtil ── */}
+      <div className="h-[1px] bg-white/10" />
+
+      {/* ── DETAIL — zoomed waveform ── */}
+      <div
+        className="relative bg-black/30 rounded-b-lg overflow-hidden cursor-crosshair"
         style={{ height, minHeight: height }}
         title="Clic = placer un cue · Ctrl+Scroll = zoom"
       >
@@ -708,8 +811,19 @@ export default function WaveSurferPlayer({
         )}
 
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
-            <span className="text-xs text-red-400">{error}</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-400">{error}</span>
+              <button
+                onClick={() => {
+                  setError(null);
+                  if (wsRef.current) loadAudio(trackId, wsRef.current);
+                }}
+                className="text-[10px] px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              >
+                Réessayer
+              </button>
+            </div>
           </div>
         )}
 

@@ -34,6 +34,10 @@ interface DashboardContextValue {
   // Stable callback — does NOT change on every tracks update, no re-render storm
   triggerAnalyzeAll: () => void;
   registerAnalyzeAllHandler: (fn: () => void) => void;
+
+  // Selected track ID — lives in context so it survives DashboardV2 remounts
+  persistedTrackId: number | null;
+  setPersistedTrackId: (id: number | null) => void;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -47,6 +51,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [importHandler, setImportHandler] = useState<(() => void) | null>(null);
   const [unanalyzedCount, setUnanalyzedCount] = useState(0);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const [persistedTrackId, setPersistedTrackId] = useState<number | null>(null);
 
   // Use a ref to store the handler — updating it never triggers a re-render
   const analyzeAllHandlerRef = useRef<(() => void) | null>(null);
@@ -80,6 +85,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       unanalyzedCount, setUnanalyzedCount,
       autoAnalyze, setAutoAnalyze,
       triggerAnalyzeAll, registerAnalyzeAllHandler,
+      persistedTrackId, setPersistedTrackId,
     }}>
       {children}
     </DashboardContext.Provider>

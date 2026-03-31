@@ -14,14 +14,19 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const { collapsed } = useDashboardContext();
 
   useEffect(() => {
+    console.log('[CueForge] DashboardInner useEffect — checking auth');
     if (!isAuthenticated()) {
+      console.warn('[CueForge] DashboardInner: not authenticated, redirecting to /login');
       router.push('/login');
       return;
     }
     getCurrentUser()
-      .then(setUser)
+      .then((u) => {
+        console.log('[CueForge] DashboardInner: getCurrentUser OK', u?.username);
+        setUser(u);
+      })
       .catch((err) => {
-        console.warn('getCurrentUser failed:', err?.message);
+        console.warn('[CueForge] DashboardInner: getCurrentUser failed:', err?.message);
         if (err?.message === 'Session expired' || err?.message === 'Not authenticated') {
           clearToken();
           router.push('/login');

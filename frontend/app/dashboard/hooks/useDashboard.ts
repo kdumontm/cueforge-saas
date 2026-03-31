@@ -1405,7 +1405,7 @@ export function useDashboard() {
       (process.env.NEXT_PUBLIC_API_URL || '').endsWith('/api/v1') ? '' : '/api/v1'
     );
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
-    const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?token=${authToken}`;
+    const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?format=ogg&token=${authToken}`;
     const trackId = selectedTrack.id;
 
     (async () => {
