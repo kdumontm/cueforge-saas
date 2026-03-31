@@ -12,6 +12,7 @@ interface TrackGridProps {
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
+  onRatingChange?: (trackId: number, rating: number) => void;
 }
 
 const EqBars = ({ isAnimating }: { isAnimating: boolean }) => {

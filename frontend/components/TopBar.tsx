@@ -21,7 +21,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
   const {
     globalSearch, setGlobalSearch,
     showNotifications, setShowNotifications,
-    unanalyzedCount, autoAnalyze, setAutoAnalyze, analyzeAllHandler,
+    unanalyzedCount, autoAnalyze, setAutoAnalyze, triggerAnalyzeAll,
   } = useDashboardContext();
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -74,7 +74,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {/* Tracks à analyser */}
         {unanalyzedCount > 0 && (
           <button
-            onClick={() => analyzeAllHandler?.()}
+            onClick={triggerAnalyzeAll}
             className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
             title={`${unanalyzedCount} tracks non analysés — cliquer pour lancer l'analyse`}
           >
