@@ -916,6 +916,28 @@ def get_play_history(
     }
 
 
+@router.delete("/history")
+def clear_all_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete all play history entries for the current user and reset play counts."""
+    from app.models.library import PlayHistory
+
+    deleted = (
+        db.query(PlayHistory)
+        .filter(PlayHistory.user_id == current_user.id)
+        .delete(synchronize_session=False)
+    )
+    # Reset played_count on all user tracks
+    db.query(Track).filter(Track.user_id == current_user.id).update(
+        {"played_count": 0, "last_played_at": None},
+        synchronize_session=False,
+    )
+    db.commit()
+    return {"status": "ok", "deleted": deleted}
+
+
 # ── v2: Beatgrid ───────────────────────────────────────────────────────────
 
 @router.get("/{track_id}/beatgrid")

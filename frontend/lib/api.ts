@@ -916,3 +916,10 @@ export async function recordPlay(trackId: number, context = 'preview'): Promise<
     method: 'POST', headers: authHeaders(),
   });
 }
+
+export async function clearAllHistory(): Promise<{ deleted: number }> {
+  const res = await authFetch(`${API_URL}/tracks/history`, {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  return res.json();
+}
