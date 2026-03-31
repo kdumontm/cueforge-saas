@@ -6,7 +6,7 @@ import subprocess
 import shutil
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -894,7 +894,7 @@ def fix_tags(
 # ── Audio fingerprint identification (AcoustID → MusicBrainz → Spotify) ────
 
 @router.post("/{track_id}/identify")
-def identify_track(
+async def identify_track(
     track_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -910,12 +910,19 @@ def identify_track(
 
     Returns suggested metadata WITHOUT saving anything.
     """
+    import asyncio
+    import json as _json
     from app.services.metadata_service import (
         fingerprint_file,
         lookup_acoustid,
         lookup_musicbrainz,
         search_spotify,
     )
+
+    def _json_response(data: dict) -> JSONResponse:
+        """Build JSONResponse with ensure_ascii=False to avoid Content-Length mismatch on non-ASCII chars."""
+        content = _json.dumps(data, ensure_ascii=False)
+        return JSONResponse(content=_json.loads(content))
 
     track = db.query(Track).filter(
         Track.id == track_id,
@@ -928,23 +935,25 @@ def identify_track(
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Audio file not found on server")
 
-    # Step 1 — Fingerprint
-    fingerprint, duration = fingerprint_file(file_path)
+    loop = asyncio.get_event_loop()
+
+    # Step 1 — Fingerprint (blocking subprocess → thread pool)
+    fingerprint, duration = await loop.run_in_executor(None, fingerprint_file, file_path)
     if not fingerprint or not duration:
-        return {
+        return _json_response({
             "status": "no_fingerprint",
             "message": "fpcalc not available or file too short",
             "result": None,
-        }
+        })
 
-    # Step 2 — AcoustID
-    acoustid_result = lookup_acoustid(fingerprint, duration)
+    # Step 2 — AcoustID (blocking network → thread pool)
+    acoustid_result = await loop.run_in_executor(None, lookup_acoustid, fingerprint, duration)
     if not acoustid_result:
-        return {
+        return _json_response({
             "status": "not_found",
             "message": "No AcoustID match (score too low or unknown track)",
             "result": None,
-        }
+        })
 
     artist: str = acoustid_result.get("artist") or ""
     title: str = acoustid_result.get("title") or ""
@@ -964,10 +973,10 @@ def identify_track(
         "source": "acoustid+musicbrainz",
     }
 
-    # Step 3 — MusicBrainz enrichment
+    # Step 3 — MusicBrainz enrichment (blocking network → thread pool)
     recording_id = acoustid_result.get("recording_id")
     if recording_id:
-        mb = lookup_musicbrainz(recording_id)
+        mb = await loop.run_in_executor(None, lookup_musicbrainz, recording_id)
         if mb:
             if mb.get("title"):    result["title"]   = mb["title"]
             if mb.get("artist"):   result["artist"]  = mb["artist"]
@@ -975,9 +984,9 @@ def identify_track(
             if mb.get("year"):     result["year"]    = mb["year"]
             if mb.get("genre"):    result["genre"]   = mb["genre"]
 
-    # Step 4 — Spotify (artwork + genre)
+    # Step 4 — Spotify (artwork + genre, blocking network → thread pool)
     if result["artist"] and result["title"]:
-        sp = search_spotify(result["artist"], result["title"])
+        sp = await loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
         if sp:
             if sp.get("artwork_url"): result["artwork_url"] = sp["artwork_url"]
             if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
@@ -985,10 +994,10 @@ def identify_track(
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
             result["source"] = "acoustid+musicbrainz+spotify"
 
-    return {
+    return _json_response({
         "status": "found",
         "result": result,
-    }
+    })
 
 
 # ── v2: Compatible tracks (Camelot + BPM) ──────────────────────────────────
