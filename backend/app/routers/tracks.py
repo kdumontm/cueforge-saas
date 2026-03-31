@@ -2,6 +2,8 @@ import os
 import uuid
 import logging
 import mimetypes
+import subprocess
+import shutil
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -150,15 +152,55 @@ async def upload_track(
 
 # ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
 
+# Lossless formats that should be transcoded to OGG for web playback
+LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
+
+
+def _get_ogg_cache_path(original_path: str) -> str:
+    """Return the path where the OGG cache file should be stored, next to the original."""
+    base, _ = os.path.splitext(original_path)
+    return base + ".ogg.cache"
+
+
+def _transcode_to_ogg(src_path: str, dst_path: str, bitrate: str = "192k") -> bool:
+    """Transcode audio to OGG Vorbis using ffmpeg. Returns True on success."""
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", src_path,
+                "-vn",                    # no video
+                "-acodec", "libvorbis",
+                "-b:a", bitrate,
+                "-ar", "44100",           # standard sample rate
+                "-ac", "2",               # stereo
+                dst_path,
+            ],
+            capture_output=True,
+            timeout=120,  # max 2 min per track
+        )
+        if result.returncode == 0 and os.path.exists(dst_path):
+            logger.info(f"Transcoded {src_path} → {dst_path} ({os.path.getsize(dst_path)} bytes)")
+            return True
+        else:
+            logger.error(f"ffmpeg failed: {result.stderr[:500]}")
+            return False
+    except Exception as e:
+        logger.error(f"Transcode error: {e}")
+        return False
+
+
 @router.get("/{track_id}/audio")
 async def stream_audio(
     track_id: int,
     request: Request,
     token: Optional[str] = Query(None),
+    format: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """Stream audio file with byte-range support.
     Accepts auth via Authorization header OR ?token= query param.
+    ?format=ogg → transcode lossless files (FLAC/WAV/AIFF) to OGG for fast web playback.
     """
     from app.services.auth_service import decode_access_token
     from jose import JWTError
@@ -197,8 +239,33 @@ async def stream_audio(
         raise HTTPException(status_code=404, detail="Audio file not found on disk")
 
     ext = os.path.splitext(safe)[1].lower()
-    content_type = MIME_TYPES.get(ext, "application/octet-stream")
-    file_size = os.path.getsize(track.file_path)
+    serve_path = safe  # default: serve the original file
+
+    # ── OGG transcoding for lossless formats (FLAC/WAV/AIFF → OGG 192k) ──
+    # This reduces download size from ~50-100 MB to ~5-10 MB for web playback
+    if format == "ogg" and ext in LOSSLESS_EXTENSIONS:
+        ogg_cache = _get_ogg_cache_path(safe)
+        if not os.path.exists(ogg_cache):
+            logger.info(f"Transcoding track {track_id} ({ext}) → OGG for web playback...")
+            success = _transcode_to_ogg(safe, ogg_cache)
+            if not success:
+                # Fallback: serve original file if transcoding fails
+                logger.warning(f"Transcode failed for track {track_id}, serving original")
+            else:
+                serve_path = ogg_cache
+        else:
+            serve_path = ogg_cache
+
+        if serve_path != safe:
+            # Serve the cached OGG file
+            content_type = "audio/ogg"
+            file_size = os.path.getsize(serve_path)
+        else:
+            content_type = MIME_TYPES.get(ext, "application/octet-stream")
+            file_size = os.path.getsize(safe)
+    else:
+        content_type = MIME_TYPES.get(ext, "application/octet-stream")
+        file_size = os.path.getsize(safe)
 
     # Handle Range requests (for seek/progressive loading)
     range_header = request.headers.get("Range")
@@ -223,7 +290,7 @@ async def stream_audio(
                         yield data
 
             return StreamingResponse(
-                iter_file(track.file_path, start, chunk_size),
+                iter_file(serve_path, start, chunk_size),
                 status_code=206,
                 media_type=content_type,
                 headers={
@@ -237,7 +304,7 @@ async def stream_audio(
             pass  # Fall through to full file response
 
     return FileResponse(
-        path=safe,
+        path=serve_path,
         media_type=content_type,
         filename=getattr(track, "original_filename", None),
         headers={

@@ -330,10 +330,16 @@ export default function WaveSurferPlayer({
 
         ws.on('ready', (dur: number) => {
           if (destroyed) return;
+          console.log(`[CueForge] WaveSurfer ready — duration: ${dur}s`);
           setDuration(dur);
           setIsReady(true);
           setLoading(false);
           setError(null);
+          // Clear any ready timeout
+          if ((ws as any).__readyTimeout) {
+            clearTimeout((ws as any).__readyTimeout);
+            (ws as any).__readyTimeout = null;
+          }
 
           // Setup EQ via MediaElementSource
           try {
@@ -478,6 +484,7 @@ export default function WaveSurferPlayer({
       destroyed = true;
       abortRef.current?.abort();
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (wsRef.current?.__readyTimeout) clearTimeout(wsRef.current.__readyTimeout);
       wsRef.current?.destroy();
       wsRef.current = null;
       if (playerRef) playerRef.current = null;
@@ -516,35 +523,67 @@ export default function WaveSurferPlayer({
 
     try {
       const token = getToken();
-      // Pass token both as query param AND header for full compatibility
+      // Request OGG format for lossless files — server transcodes FLAC/WAV/AIFF to OGG (~5MB vs ~50MB)
       const audioUrl = token
-        ? `${API_URL}/tracks/${id}/audio?token=${encodeURIComponent(token)}`
-        : `${API_URL}/tracks/${id}/audio`;
+        ? `${API_URL}/tracks/${id}/audio?format=ogg&token=${encodeURIComponent(token)}`
+        : `${API_URL}/tracks/${id}/audio?format=ogg`;
+
+      // Timeout: abort if download takes more than 45 seconds
+      const downloadTimeout = setTimeout(() => {
+        if (!abort.signal.aborted) {
+          console.warn('[CueForge] Audio download timeout (45s) — aborting');
+          abort.abort();
+          setError('Chargement trop long — réessayez');
+          setLoading(false);
+        }
+      }, 45000);
+
       const res = await fetch(audioUrl, {
         signal: abort.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
+      clearTimeout(downloadTimeout);
       if (abort.signal.aborted) return;
+
+      console.log(`[CueForge] Audio loaded: ${(blob.size / 1024 / 1024).toFixed(1)} MB (${blob.type})`);
+
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
       ws.load(url);
 
-      // RGB waveform computation — derivative approach, synchronous, works on any track
-      try {
-        const arrayBuffer = await blob.arrayBuffer();
-        if (abort.signal.aborted) return;
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const decoded = await audioContext.decodeAudioData(arrayBuffer);
-        audioContext.close().catch(() => {});
-        if (abort.signal.aborted) return;
-        // computeRGBWaveform is now synchronous — no await, no OfflineAudioContext crash
-        const rgbColors = computeRGBWaveform(decoded);
-        spectralColorsRef.current = rgbColors;
-        setSpectralReady(true);
-      } catch (e) {
-        console.warn('RGB waveform computation failed:', e);
+      // Safety: if WaveSurfer doesn't fire 'ready' within 30s, show error
+      (ws as any).__readyTimeout = setTimeout(() => {
+        if (!abort.signal.aborted && !ws.isReady?.()) {
+          console.warn('[CueForge] WaveSurfer ready timeout (30s)');
+          setError('Décodage audio trop long — format non supporté ?');
+          setLoading(false);
+        }
+      }, 30000);
+
+      // RGB waveform computation — runs AFTER ws.load so waveform appears quickly
+      // Uses requestIdleCallback to not block the main thread
+      const computeSpectral = async () => {
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          if (abort.signal.aborted) return;
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const decoded = await audioContext.decodeAudioData(arrayBuffer);
+          audioContext.close().catch(() => {});
+          if (abort.signal.aborted) return;
+          const rgbColors = computeRGBWaveform(decoded);
+          spectralColorsRef.current = rgbColors;
+          setSpectralReady(true);
+        } catch (e) {
+          console.warn('[CueForge] RGB waveform computation failed:', e);
+        }
+      };
+      // Defer spectral computation to not block waveform display
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => computeSpectral());
+      } else {
+        setTimeout(() => computeSpectral(), 100);
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
@@ -692,8 +731,19 @@ export default function WaveSurferPlayer({
         )}
 
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
-            <span className="text-xs text-red-400">{error}</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-400">{error}</span>
+              <button
+                onClick={() => {
+                  setError(null);
+                  if (wsRef.current) loadAudio(trackId, wsRef.current);
+                }}
+                className="text-[10px] px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              >
+                Réessayer
+              </button>
+            </div>
           </div>
         )}
 
