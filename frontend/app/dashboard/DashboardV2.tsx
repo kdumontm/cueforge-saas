@@ -94,6 +94,8 @@ export default function DashboardV2() {
   } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<any | null>(null);
+  // Ref to remember the last selected track ID — used to restore selection after loadTracks
+  const selectedTrackIdRef = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState('cues');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -216,9 +218,20 @@ export default function DashboardV2() {
     return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
   }, [selectedTrack, rawTracksForTabs]);
 
-  // Auto-select first track when loaded (real or demo)
+  // Keep ref in sync with selectedTrack so we can restore after any reset
+  useEffect(() => {
+    if (selectedTrack?.id) selectedTrackIdRef.current = selectedTrack.id;
+  }, [selectedTrack]);
+
+  // Auto-select track when loaded — restores previously selected track by ID first
   useEffect(() => {
     if (!selectedTrack && displayTracks.length > 0 && !loading) {
+      // If we had a track selected before, try to restore it from the fresh list
+      if (selectedTrackIdRef.current) {
+        const prev = displayTracks.find((t: any) => t.id === selectedTrackIdRef.current);
+        if (prev) { setSelectedTrack(prev); return; }
+      }
+      // Otherwise fall back to first track
       setSelectedTrack(displayTracks[0]);
     }
   }, [displayTracks, loading]);
@@ -249,9 +262,10 @@ export default function DashboardV2() {
         playerRef.current?.skip?.(5);
         return;
       }
-      // Escape = deselect
+      // Escape = ferme les menus (ne déselectionne plus le track pour éviter les accidents)
       if (e.code === 'Escape') {
-        setSelectedTrack(null);
+        setContextMenu(null);
+        setShowShortcuts(false);
         return;
       }
       // Ctrl+A = select all
@@ -319,6 +333,11 @@ export default function DashboardV2() {
       // Handle both array and {tracks: [...]} response formats
       const trackList = Array.isArray(data) ? data : (data?.tracks || []);
       setTracks(trackList);
+      // Refresh selectedTrack with the new object from the fresh list (prevents stale reference)
+      if (selectedTrackIdRef.current) {
+        const freshRaw = trackList.find((t: Track) => t.id === selectedTrackIdRef.current);
+        if (freshRaw) setSelectedTrack(toDisplayTrack(freshRaw));
+      }
     } catch (e: any) {
       console.error('Failed to load tracks:', e);
       // If session expired, don't crash — just show empty state
