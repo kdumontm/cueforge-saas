@@ -166,9 +166,12 @@ _TRANSCODE_STRATEGIES = [
 
 
 def _get_cache_path(original_path: str, ext: str) -> str:
-    """Return the path where the cached transcoded file should be stored."""
+    """Return the path where the cached transcoded file should be stored.
+    Extension must come LAST so ffmpeg can detect the output format.
+    e.g. /app/uploads/uuid.transcoded.m4a (not uuid.m4a.cache)
+    """
     base, _ = os.path.splitext(original_path)
-    return base + ext + ".cache"
+    return base + ".transcoded" + ext
 
 
 def _transcode_audio(src_path: str, bitrate: str = "192k"):
