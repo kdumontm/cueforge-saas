@@ -22,7 +22,7 @@ const SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 interface CuesTabProps {
   track: Track | null;
   cuePoints?: CuePoint[];
-  onCreateCue?: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) => void;
+  onCreateCue?: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number; end_position_ms?: number }) => void;
   onDeleteCue?: (cueId: number) => void;
   onCueClick?: (cue: CuePoint) => void;
   initialPositionMs?: number | null;
@@ -44,6 +44,8 @@ export function CuesTab({
   const [newCueType, setNewCueType] = useState('hot_cue');
   const [newCueSlot, setNewCueSlot] = useState<number>(0);
   const [newCueColor, setNewCueColor] = useState(HOT_CUE_COLORS[0]);
+  // Loop duration in seconds (for loop cue type)
+  const [loopDurationSec, setLoopDurationSec] = useState<number>(4);
 
   const indices = localOrder.length === cuePoints.length
     && localOrder.every(i => i < cuePoints.length)
@@ -66,6 +68,8 @@ export function CuesTab({
       color: newCueColor || selectedType.color,
       cue_type: newCueType,
       number: newCueSlot,
+      // For loop type: set end position based on duration
+      ...(newCueType === 'loop' ? { end_position_ms: posMs + loopDurationSec * 1000 } : {}),
     });
     setNewCueName('');
     setShowAddForm(false);
@@ -179,6 +183,38 @@ export function CuesTab({
                 {SLOTS.map(s => <option key={s} value={s}>#{s}</option>)}
               </select>
             </div>
+            {/* Loop duration — visible only when type = loop */}
+            {newCueType === 'loop' && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/25">
+                <span className="text-[10px] text-blue-400 font-semibold whitespace-nowrap">🔁 Durée loop</span>
+                <div className="flex gap-1 flex-wrap">
+                  {[1, 2, 4, 8, 16, 32].map(bars => (
+                    <button
+                      key={bars}
+                      onClick={() => setLoopDurationSec(bars)}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono cursor-pointer border transition-all ${
+                        loopDurationSec === bars
+                          ? 'bg-blue-500 border-blue-400 text-white font-bold'
+                          : 'bg-transparent border-[var(--border-default)] text-[var(--text-muted)] hover:border-blue-400'
+                      }`}
+                    >
+                      {bars}s
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  min={0.5}
+                  max={120}
+                  step={0.5}
+                  value={loopDurationSec}
+                  onChange={e => setLoopDurationSec(parseFloat(e.target.value) || 1)}
+                  className="w-14 px-1.5 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 text-right"
+                  title="Durée en secondes"
+                />
+                <span className="text-[10px] text-[var(--text-muted)]">sec</span>
+              </div>
+            )}
             {/* Color swatches */}
             <div className="flex gap-1 flex-wrap">
               {HOT_CUE_COLORS.map(c => (
@@ -246,8 +282,16 @@ export function CuesTab({
                     <div className="text-xs font-medium text-[var(--text-primary)] truncate leading-tight">
                       {cue.name || `${typeInfo.label} ${idx + 1}`}
                     </div>
-                    <div className="text-[10px] text-[var(--text-muted)] font-mono">
-                      {formatTimeMs(cue.position_ms ?? cue.time_ms ?? 0)}
+                    <div className="text-[10px] text-[var(--text-muted)] font-mono flex items-center gap-1">
+                      <span>{formatTimeMs(cue.position_ms ?? cue.time_ms ?? 0)}</span>
+                      {(cue.cue_type === 'loop' || cue.cue_mode === 'loop') && cue.end_position_ms != null && (
+                        <span className="text-blue-400">
+                          → {formatTimeMs(cue.end_position_ms)}
+                          <span className="ml-1 opacity-70">
+                            ({((cue.end_position_ms - (cue.position_ms ?? 0)) / 1000).toFixed(1)}s)
+                          </span>
+                        </span>
+                      )}
                     </div>
                   </div>
 

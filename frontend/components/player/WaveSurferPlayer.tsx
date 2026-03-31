@@ -401,6 +401,19 @@ export default function WaveSurferPlayer({
                 setLoopActive(prev => !prev);
               }
             },
+            // Set loop from cue point (inMs + outMs in milliseconds), seek to start and activate
+            setLoop: (inMs: number, outMs: number) => {
+              const inSec = inMs / 1000;
+              const outSec = outMs / 1000;
+              setLoopIn(inSec);
+              setLoopOut(outSec);
+              loopInRef.current = inSec;
+              loopOutRef.current = outSec;
+              setLoopActive(true);
+              loopActiveRef.current = true;
+              const dur = ws.getDuration();
+              if (dur > 0) ws.seekTo(Math.max(0, Math.min(1, inSec / dur)));
+            },
             setPlaybackRate: (rate: number) => {
               try {
                 const mediaEl = ws.getMediaElement?.();

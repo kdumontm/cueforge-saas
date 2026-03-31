@@ -148,7 +148,21 @@ export default function PlayerCard({
       ? `${Math.floor(c.position_ms / 60000)}:${String(Math.floor((c.position_ms % 60000) / 1000)).padStart(2, '0')}`
       : (c.time || '0:00'),
     label: c.name || c.label || `Cue ${i + 1}`,
+    positionMs: c.position_ms,
+    cueType: c.cue_type || c.cueType,
+    endPositionMs: c.end_position_ms ?? c.endPositionMs ?? null,
   }));
+
+  const handleHotCueClick = (cue: typeof hotCues[0]) => {
+    if (!cue.positionMs && cue.positionMs !== 0) return;
+    if (cue.cueType === 'loop' && cue.endPositionMs != null) {
+      // Activate loop between position_ms and end_position_ms
+      wsPlayerRef.current?.setLoop?.(cue.positionMs, cue.endPositionMs);
+    } else {
+      // Simple seek
+      wsPlayerRef.current?.seekTo?.(cue.positionMs);
+    }
+  };
 
   if (!track) {
     return (
@@ -240,6 +254,11 @@ export default function PlayerCard({
           }}
         />
       </div>
+
+      {/* Hot Cues bar — cliquable pour seeker */}
+      {hotCues.length > 0 && (
+        <HotCuesBar hotCues={hotCues} onCueClick={handleHotCueClick} />
+      )}
 
       {/* Loop / Zoom / Rate / Theme row */}
       <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)] flex-wrap">

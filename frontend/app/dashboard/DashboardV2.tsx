@@ -954,6 +954,15 @@ export default function DashboardV2() {
                     onCreateCue={handleCreateCue}
                     onDeleteCue={handleDeleteCue}
                     initialPositionMs={cuePositionMs}
+                    onCueClick={(cue) => {
+                      if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
+                        // Activate loop and seek to start
+                        playerRef.current?.setLoop?.(cue.position_ms, cue.end_position_ms);
+                      } else {
+                        // Simple seek to cue position
+                        playerRef.current?.seekTo?.(cue.position_ms);
+                      }
+                    }}
                   />
                 </div>
               </div>
