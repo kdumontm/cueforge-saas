@@ -21,31 +21,31 @@ export interface WaveformTheme {
   getBarColor: (r: number, g: number, b: number, brightness: number) => string;
 }
 
+// colors = [bass, mids, highs] — used for stacked bar rendering
 export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'spectral',
-    label: 'Spectral',
-    colors: ['#ef4444', '#22c55e', '#3b82f6'],
+    label: 'RGB Pro',
+    colors: ['#ef4444', '#22c55e', '#3b82f6'], // Red bass, Green mids, Blue highs
     getBarColor: (r, g, b, bright) =>
-      `rgb(${Math.min(255, Math.round(r * bright))},${Math.min(255, Math.round(g * bright))},${Math.min(255, Math.round(b * bright))})`,
+      `rgb(${Math.min(255, Math.round(r * 255 * bright))},${Math.min(255, Math.round(g * 255 * bright))},${Math.min(255, Math.round(b * 255 * bright))})`,
   },
   {
     id: 'classic',
-    label: 'Classic RGB',
-    colors: ['#ef4444', '#22c55e', '#3b82f6'],
+    label: 'Rekordbox',
+    colors: ['#ff2222', '#00cc00', '#4488ff'], // Classic Rekordbox RGB
     getBarColor: (r, g, b, bright) => {
-      // Pure red/green/blue based on dominant band
       const max = Math.max(r, g, b);
-      if (max < 1) return 'rgb(40,40,40)';
-      if (r === max) return `rgb(${Math.round(255 * bright)},${Math.round(30 * bright)},${Math.round(30 * bright)})`;
-      if (g === max) return `rgb(${Math.round(30 * bright)},${Math.round(255 * bright)},${Math.round(30 * bright)})`;
-      return `rgb(${Math.round(60 * bright)},${Math.round(60 * bright)},${Math.round(255 * bright)})`;
+      if (max < 0.01) return 'rgb(30,30,30)';
+      if (r === max) return `rgb(${Math.round(255 * bright)},0,0)`;
+      if (g === max) return `rgb(0,${Math.round(200 * bright)},0)`;
+      return `rgb(${Math.round(68 * bright)},${Math.round(136 * bright)},${Math.round(255 * bright)})`;
     },
   },
   {
     id: 'neon',
     label: 'Neon',
-    colors: ['#ff00ff', '#00ffff', '#ffff00'],
+    colors: ['#ff00ff', '#00ffff', '#ffff00'], // Magenta bass, Cyan mids, Yellow highs
     getBarColor: (r, g, b, bright) => {
       const hue = (r * 0.33 + g * 0.5 + b * 0.17) * 360;
       return `hsl(${hue % 360},100%,${40 + bright * 30}%)`;
@@ -54,7 +54,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'sunset',
     label: 'Sunset',
-    colors: ['#ff4500', '#ff8c00', '#ffd700'],
+    colors: ['#ff4500', '#ff8c00', '#ffd700'], // Deep orange bass, Orange mids, Gold highs
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round((r * 0.8 + g * 0.2) * bright * 255));
       const gg = Math.min(255, Math.round((g * 0.5 + b * 0.1) * bright * 180));
@@ -64,7 +64,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'ocean',
     label: 'Ocean',
-    colors: ['#0ea5e9', '#22d3ee', '#6366f1'],
+    colors: ['#0077cc', '#00bbee', '#6366f1'], // Deep blue bass, Cyan mids, Indigo highs
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round(g * 40 * bright));
       const gg = Math.min(255, Math.round((g * 0.5 + b * 0.5) * 200 * bright));
@@ -75,7 +75,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'fire',
     label: 'Fire',
-    colors: ['#ef4444', '#f97316', '#fbbf24'],
+    colors: ['#ff1111', '#ff6600', '#ffcc00'], // Red bass, Orange mids, Yellow highs
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round((r * 0.7 + g * 0.3) * 255 * bright));
       const gg = Math.min(255, Math.round(g * 150 * bright));
@@ -85,7 +85,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'aurora',
     label: 'Aurora',
-    colors: ['#8b5cf6', '#06b6d4', '#10b981'],
+    colors: ['#8b5cf6', '#06b6d4', '#10b981'], // Purple bass, Cyan mids, Emerald highs
     getBarColor: (r, g, b, bright) => {
       const t = (r + g * 2 + b * 3) / 6;
       const rr = Math.min(255, Math.round((1 - t) * 139 * bright));
@@ -97,7 +97,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'mono',
     label: 'Mono',
-    colors: ['#ffffff', '#ffffff', '#ffffff'],
+    colors: ['#aaaaaa', '#cccccc', '#ffffff'], // Light grey to white
     getBarColor: (_r, _g, _b, bright) => {
       const v = Math.round(255 * bright);
       return `rgb(${v},${v},${v})`;
@@ -135,9 +135,12 @@ interface WaveSurferPlayerProps {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-// ── RGB spectral analysis — derivative approach ──
-function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): { r: number; g: number; b: number; amp: number }[] {
+// ── RGB spectral analysis — derivative approach (Rekordbox-style stacked bands) ──
+// High resolution: ~700 data points per second for pixel-perfect zoom
+function computeRGBWaveform(buf: AudioBuffer, numBars?: number): { r: number; g: number; b: number; amp: number }[] {
   const data = buf.getChannelData(0);
+  // Auto-compute: ~1 point per 64 samples ≈ 689/sec at 44.1kHz
+  if (!numBars) numBars = Math.min(200000, Math.max(8000, Math.ceil(data.length / 64)));
   const segLen = Math.max(1, Math.floor(data.length / numBars));
 
   const bands: { lo: number; mi: number; hi: number; amp: number }[] = new Array(numBars);
@@ -176,22 +179,57 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): { r: number; g: n
     bands[i] = { lo: loR, mi: miR, hi: hiR, amp: peak };
   }
 
+  // Return SEPARATE band energies (not mixed) — r=bass, g=mids, b=highs
   return bands.map((c) => {
-    const lo = c.lo / maxLo;
-    const mi = c.mi / maxMi;
-    const hi = c.hi / maxHi;
-
-    const loP = Math.pow(lo, 0.65);
-    const miP = Math.pow(mi, 0.65);
-    const hiP = Math.pow(hi, 0.65);
-
-    // Raw normalized 0-1 for each band
-    const r = Math.min(1, loP + miP * 0.23 + hiP * 0.12);
-    const g = Math.min(1, miP + hiP * 0.47 + loP * 0.08);
-    const b = Math.min(1, hiP + loP * 0.23 + miP * 0.16);
-
+    const r = Math.pow(c.lo / maxLo, 0.55); // bass
+    const g = Math.pow(c.mi / maxMi, 0.55); // mids
+    const b = Math.pow(c.hi / maxHi, 0.55); // highs
     return { r, g, b, amp: c.amp };
   });
+}
+
+// ── Draw stacked RGB bar (Rekordbox-style: red=bass bottom, green=mids middle, blue=highs top) ──
+function drawStackedBar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  mid: number,
+  bass: number,
+  mids: number,
+  highs: number,
+  totalH: number,
+  alpha: number,
+  theme: WaveformTheme,
+  bright: number,
+) {
+  const total = bass + mids + highs;
+  if (total < 0.001) return;
+
+  // Each band gets proportional height
+  const bassH = (bass / total) * totalH;
+  const midsH = (mids / total) * totalH;
+  const highsH = (highs / total) * totalH;
+
+  const colors = theme.colors;
+  ctx.globalAlpha = alpha;
+
+  // Draw from bottom of bar going up: bass (red), mids (green), highs (blue)
+  let y = mid - totalH; // top of bar
+
+  // Highs (blue) — top
+  ctx.fillStyle = colors[2];
+  ctx.fillRect(x, y, 1, highsH);
+  y += highsH;
+
+  // Mids (green) — middle
+  ctx.fillStyle = colors[1];
+  ctx.fillRect(x, y, 1, midsH);
+  y += midsH;
+
+  // Bass (red) — bottom (closest to center line)
+  ctx.fillStyle = colors[0];
+  ctx.fillRect(x, y, 1, bassH);
+
+  ctx.globalAlpha = 1;
 }
 
 // ── Draw overview waveform ──
@@ -217,17 +255,31 @@ function drawOverview(
 
     const barH = Math.max(1, amp * mid * 0.92);
     const bright = 0.6 + amp * 0.4;
+    const played = x / width < progress;
 
-    const color = theme.getBarColor(r, g, b, bright);
+    // Top half — stacked RGB
+    drawStackedBar(ctx, x, mid, r, g, b, barH, played ? 0.95 : 0.7, theme, bright);
 
-    // Top half
-    ctx.fillStyle = color;
-    ctx.fillRect(x, mid - barH, 1, barH);
-
-    // Bottom mirror
-    ctx.globalAlpha = 0.4;
-    ctx.fillRect(x, mid + 1, 1, barH * 0.85);
-    ctx.globalAlpha = 1;
+    // Bottom mirror — stacked RGB dimmer
+    ctx.save();
+    ctx.translate(0, mid + 1);
+    ctx.scale(1, 1);
+    const mirrorH = barH * 0.85;
+    const mirrorAlpha = played ? 0.35 : 0.2;
+    const total = r + g + b;
+    if (total > 0.001) {
+      const bassH = (r / total) * mirrorH;
+      const midsH = (g / total) * mirrorH;
+      const highsH = (b / total) * mirrorH;
+      ctx.globalAlpha = mirrorAlpha;
+      // Mirror: bass on top (closest to center), highs at bottom
+      let y = 0;
+      ctx.fillStyle = theme.colors[0]; ctx.fillRect(x, y, 1, bassH); y += bassH;
+      ctx.fillStyle = theme.colors[1]; ctx.fillRect(x, y, 1, midsH); y += midsH;
+      ctx.fillStyle = theme.colors[2]; ctx.fillRect(x, y, 1, highsH);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
   }
 
   // Cue point markers
@@ -339,7 +391,7 @@ function drawDetail(
     }
   }
 
-  // Waveform
+  // Waveform — stacked RGB bars (Rekordbox style)
   for (let x = 0; x < width; x++) {
     const t = startTime + x * secPerPx;
     if (t < 0 || t > duration) continue;
@@ -352,13 +404,23 @@ function drawDetail(
     const barH = Math.max(1, amp * mid * 0.92);
     const bright = 0.55 + amp * 0.45;
 
-    const color = theme.getBarColor(r, g, b, bright);
+    // Top half — stacked RGB
+    drawStackedBar(ctx, x, mid, r, g, b, barH, 0.9, theme, bright);
 
-    ctx.fillStyle = color;
-    ctx.fillRect(x, mid - barH, 1, barH);
-    ctx.globalAlpha = 0.4;
-    ctx.fillRect(x, mid + 1, 1, barH * 0.85);
-    ctx.globalAlpha = 1;
+    // Bottom mirror
+    const mirrorH = barH * 0.85;
+    const total = r + g + b;
+    if (total > 0.001) {
+      const bassH = (r / total) * mirrorH;
+      const midsH = (g / total) * mirrorH;
+      const highsH = (b / total) * mirrorH;
+      ctx.globalAlpha = 0.3;
+      let y = mid + 1;
+      ctx.fillStyle = theme.colors[0]; ctx.fillRect(x, y, 1, bassH); y += bassH;
+      ctx.fillStyle = theme.colors[1]; ctx.fillRect(x, y, 1, midsH); y += midsH;
+      ctx.fillStyle = theme.colors[2]; ctx.fillRect(x, y, 1, highsH);
+      ctx.globalAlpha = 1;
+    }
   }
 
   // Cue point markers
@@ -802,22 +864,46 @@ export default function WaveSurferPlayer({
     loadAudio(trackId, audioRef.current);
   }, [trackId, loadAudio]);
 
-  // ── Click on overview → seek ──
-  const handleOverviewClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current;
-    if (!audio || !isReady) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    audio.currentTime = progress * durationRef.current;
-    onSeek?.(progress * durationRef.current * 1000);
-  }, [isReady, onSeek]);
+  // ── Drag-to-scrub state ──
+  const isDraggingOverview = useRef(false);
+  const isDraggingDetail = useRef(false);
 
-  // ── Click on detail → seek ──
-  const handleDetailClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  // ── Overview: mousedown starts drag, mousemove scrubs, mouseup ends ──
+  const seekOverviewAt = useCallback((clientX: number, container: HTMLDivElement) => {
     const audio = audioRef.current;
-    if (!audio || !isReady) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    if (!audio) return;
+    const rect = container.getBoundingClientRect();
+    const progress = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    audio.currentTime = progress * durationRef.current;
+    currentTimeRef.current = audio.currentTime;
+    onSeek?.(audio.currentTime * 1000);
+  }, [onSeek]);
+
+  const handleOverviewMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isReady) return;
+    e.preventDefault();
+    isDraggingOverview.current = true;
+    const container = e.currentTarget;
+    seekOverviewAt(e.clientX, container);
+
+    const onMove = (ev: MouseEvent) => {
+      if (isDraggingOverview.current) seekOverviewAt(ev.clientX, container);
+    };
+    const onUp = () => {
+      isDraggingOverview.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [isReady, seekOverviewAt]);
+
+  // ── Detail: mousedown starts drag, mousemove scrubs, mouseup ends ──
+  const seekDetailAt = useCallback((clientX: number, container: HTMLDivElement) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const rect = container.getBoundingClientRect();
+    const x = clientX - rect.left;
     const secPerPx = visibleSecondsRef.current / rect.width;
     const startTime = currentTimeRef.current - visibleSecondsRef.current / 2;
     const clickTime = startTime + x * secPerPx;
@@ -825,10 +911,30 @@ export default function WaveSurferPlayer({
     if (dur > 0) {
       const seekTime = Math.max(0, Math.min(dur, clickTime));
       audio.currentTime = seekTime;
+      currentTimeRef.current = seekTime;
       onSeek?.(seekTime * 1000);
       onWaveformClick?.(seekTime * 1000);
     }
-  }, [isReady, onSeek, onWaveformClick]);
+  }, [onSeek, onWaveformClick]);
+
+  const handleDetailMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isReady) return;
+    e.preventDefault();
+    isDraggingDetail.current = true;
+    const container = e.currentTarget;
+    seekDetailAt(e.clientX, container);
+
+    const onMove = (ev: MouseEvent) => {
+      if (isDraggingDetail.current) seekDetailAt(ev.clientX, container);
+    };
+    const onUp = () => {
+      isDraggingDetail.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [isReady, seekDetailAt]);
 
   // ── Zoom: Ctrl+Scroll OR Mac trackpad pinch-to-zoom ──
   // On Mac, pinch-to-zoom fires wheel events with ctrlKey=true (synthetic)
@@ -919,8 +1025,8 @@ export default function WaveSurferPlayer({
         ref={overviewContainerRef}
         className="relative bg-black rounded-t-lg overflow-hidden cursor-pointer"
         style={{ height: overviewHeight, minHeight: overviewHeight }}
-        title="Vue d'ensemble — clic = naviguer"
-        onClick={handleOverviewClick}
+        title="Vue d'ensemble — clic/drag = naviguer"
+        onMouseDown={handleOverviewMouseDown}
       >
         <canvas ref={overviewCanvasRef} className="absolute inset-0 w-full h-full" />
         <div className="absolute top-0.5 left-1.5 text-[8px] text-white/20 pointer-events-none select-none font-mono uppercase tracking-wider">
@@ -935,8 +1041,8 @@ export default function WaveSurferPlayer({
         ref={detailContainerRef}
         className="relative bg-black rounded-b-lg overflow-hidden cursor-crosshair"
         style={{ height, minHeight: height }}
-        title="Clic = seek · Ctrl+Scroll = zoom"
-        onClick={handleDetailClick}
+        title="Clic/drag = seek · Ctrl+Scroll = zoom"
+        onMouseDown={handleDetailMouseDown}
       >
         <canvas ref={detailCanvasRef} className="absolute inset-0 w-full h-full" />
 

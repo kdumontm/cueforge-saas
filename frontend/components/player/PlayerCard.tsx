@@ -400,14 +400,14 @@ export default function PlayerCard({
         <div className="relative">
           <button
             onClick={() => { setShowThemePicker(p => !p); setShowRatePicker(false); }}
-            className={`px-2 py-[3px] rounded-md border text-[10px] cursor-pointer transition-colors ${
+            className={`px-2.5 py-[3px] rounded-md border text-[11px] cursor-pointer transition-colors font-medium ${
               waveformTheme !== 'spectral'
                 ? 'border-blue-500/50 bg-blue-500/15 text-blue-400'
                 : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
             }`}
-            title="Waveform Theme"
+            title="Couleur du waveform"
           >
-            {currentTheme.label}
+            🎨 {currentTheme.label}
           </button>
           {showThemePicker && (
             <div className="absolute bottom-full right-0 mb-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 overflow-hidden min-w-[120px]">
