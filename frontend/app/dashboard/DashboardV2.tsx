@@ -91,24 +91,28 @@ export default function DashboardV2() {
     activeSection, globalSearch, registerImportHandler,
     autoAnalyze, setAutoAnalyze,
     setUnanalyzedCount, registerAnalyzeAllHandler,
+    persistedTrackId, setPersistedTrackId,
   } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, _setSelectedTrack] = useState<any | null>(null);
   // Ref to remember the last selected track ID — used to restore selection after loadTracks
-  const selectedTrackIdRef = useRef<number | null>(null);
+  // Initialize from context (survives remounts) if available
+  const selectedTrackIdRef = useRef<number | null>(persistedTrackId);
   const mountedRef = useRef(true);
   const mountIdRef = useRef(Math.random().toString(36).slice(2, 6));
 
-  // ── Guarded setSelectedTrack: logs every call + prevents accidental null ──
+  // ── Guarded setSelectedTrack: logs every call + syncs to context for remount survival ──
   const setSelectedTrack = useCallback((track: any | null, reason?: string) => {
     const src = reason || new Error().stack?.split('\n')[2]?.trim() || '?';
     if (track === null) {
       console.warn(`[CueForge] setSelectedTrack(null) — reason: ${src} — prev: ${selectedTrackIdRef.current}`);
     } else {
       console.log(`[CueForge] setSelectedTrack(${track?.id}) — reason: ${src}`);
+      // Persist to context so it survives component remounts
+      setPersistedTrackId(track.id);
     }
     _setSelectedTrack(track);
-  }, []);
+  }, [setPersistedTrackId]);
 
   const [activeTab, setActiveTab] = useState('cues');
   const [loading, setLoading] = useState(true);
@@ -140,7 +144,7 @@ export default function DashboardV2() {
 
   // ── Mount/Unmount tracking ──
   useEffect(() => {
-    console.log(`[CueForge] DashboardV2 MOUNTED (id=${mountIdRef.current})`);
+    console.log(`[CueForge] DashboardV2 MOUNTED (id=${mountIdRef.current}, persistedTrackId=${persistedTrackId})`);
     mountedRef.current = true;
     return () => {
       console.log(`[CueForge] DashboardV2 UNMOUNTED (id=${mountIdRef.current})`);

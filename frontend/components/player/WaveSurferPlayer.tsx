@@ -274,22 +274,19 @@ export default function WaveSurferPlayer({
           waveColor: ['#ef4444cc', '#22c55ecc', '#3b82f6cc'],
           progressColor: ['#ef4444', '#22c55e', '#3b82f6'],
           renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
+            try {
             const colors = spectralColorsRef.current;
             const { width, height: h } = ctx.canvas;
-            const ch = peaks[0] as Float32Array;
+            const ch = peaks?.[0] as Float32Array;
             if (!ch || ch.length === 0) return;
             const mid = h / 2;
 
-            // ── Rekordbox-style background ──────────────────────────────
             ctx.fillStyle = '#08080e';
             ctx.fillRect(0, 0, width, h);
-
-            // Subtle horizontal center axis
             ctx.fillStyle = 'rgba(255,255,255,0.07)';
             ctx.fillRect(0, mid - 0.5, width, 1);
 
             if (!colors) {
-              // ── Skeleton while loading (monochrome, still good-looking) ──
               for (let x = 0; x < width; x += 2) {
                 const si = Math.min(Math.floor((x / width) * ch.length), ch.length - 1);
                 const amp = Math.abs(ch[si] || 0);
@@ -302,17 +299,8 @@ export default function WaveSurferPlayer({
               return;
             }
 
-            // ── Full RGB Rekordbox render ────────────────────────────────
-            // Each bar: symmetric (top+bottom), 1px wide, no gap → packed like Rekordbox
-            // Color = frequency content of that time slice:
-            //   orange-red = bass (kick, sub)
-            //   yellow-green = mids (synths, pads)
-            //   cyan = highs (hats, transients)
-            //   white = full spectrum (drop, complex)
             const samplesPerPx = ch.length / width;
-
             for (let x = 0; x < width; x += 2) {
-              // Peak amplitude over this pixel's sample range
               const s0 = Math.floor(x * samplesPerPx);
               const s1 = Math.min(Math.floor((x + 2) * samplesPerPx), ch.length - 1);
               let amp = 0;
@@ -320,25 +308,21 @@ export default function WaveSurferPlayer({
               amp = Math.min(1, amp);
               if (amp < 0.003) continue;
 
-              // Spectral color for this time position
               const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
               const { r, g, b } = colors[ci];
-
-              // Brightness driven by amplitude: quiet = 30%, loud = 100%
               const bright = 0.28 + amp * 0.72;
               const rr = Math.min(255, Math.round(r * bright));
               const gg = Math.min(255, Math.round(g * bright));
               const bb = Math.min(255, Math.round(b * bright));
-
               const barH = Math.max(2, amp * mid * 0.96);
 
-              // Upper half (full brightness)
               ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
               ctx.fillRect(x, mid - barH, 2, barH);
-
-              // Lower half (mirror, slightly dimmer for Rekordbox depth effect)
               ctx.fillStyle = `rgb(${Math.round(rr * 0.65)},${Math.round(gg * 0.65)},${Math.round(bb * 0.65)})`;
               ctx.fillRect(x, mid, 2, barH);
+            }
+            } catch (e) {
+              console.error('[CueForge] renderFunction crash:', e);
             }
           },
           plugins: [regions],

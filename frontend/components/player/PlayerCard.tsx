@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { SkipBack, SkipForward } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -8,6 +9,49 @@ import EnergyBar from '@/components/ui/EnergyBar';
 import { WAVEFORM_THEMES } from './WaveSurferPlayer';
 
 const WaveSurferPlayer = dynamic(() => import('./WaveSurferPlayer'), { ssr: false });
+
+// ── ErrorBoundary local pour WaveSurfer — empêche un crash audio de tuer la page ──
+class WaveSurferErrorBoundary extends React.Component<
+  { children: React.ReactNode; trackId: number },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[CueForge][WaveSurfer] 🔴 CRASH attrapé :', error?.message);
+    console.error('[CueForge][WaveSurfer] Stack:', info.componentStack);
+  }
+  componentDidUpdate(prevProps: any) {
+    // Reset l'erreur quand on change de track
+    if (prevProps.trackId !== this.props.trackId && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="relative bg-black/30 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: 88, minHeight: 88 }}>
+          <div className="text-center">
+            <div className="text-sm text-red-400 mb-1">⚠️ Erreur audio</div>
+            <div className="text-[10px] text-gray-500">{this.state.error?.message || 'Le lecteur a crashé'}</div>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="mt-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500"
+            >
+              Réessayer
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface CuePoint {
   id: number;
@@ -231,28 +275,30 @@ export default function PlayerCard({
         </div>
       </div>
 
-      {/* WaveSurfer */}
+      {/* WaveSurfer — wrapped in ErrorBoundary pour ne pas crasher la page */}
       <div className="px-[18px] pb-2">
-        <WaveSurferPlayer
-          key={`ws-${track.id}-${playerKey}`}
-          trackId={track.id}
-          trackDuration={parseDuration(track.duration)}
-          cuePoints={cuePoints}
-          zoom={zoom}
-          height={88}
-          waveformTheme={waveformTheme}
-          onTimeUpdate={(ms) => {
-            setCurrentTime(ms / 1000);
-            onTimeUpdate?.(ms);
-          }}
-          onWaveformClick={onWaveformClick}
-          playerRef={wsPlayerRef}
-          onLoopChange={(loopInVal, loopOutVal, loopActiveVal) => {
-            setLoopIn(loopInVal);
-            setLoopOut(loopOutVal);
-            setLoopActive(loopActiveVal);
-          }}
-        />
+        <WaveSurferErrorBoundary trackId={track.id}>
+          <WaveSurferPlayer
+            key={`ws-${track.id}-${playerKey}`}
+            trackId={track.id}
+            trackDuration={parseDuration(track.duration)}
+            cuePoints={cuePoints}
+            zoom={zoom}
+            height={88}
+            waveformTheme={waveformTheme}
+            onTimeUpdate={(ms) => {
+              setCurrentTime(ms / 1000);
+              onTimeUpdate?.(ms);
+            }}
+            onWaveformClick={onWaveformClick}
+            playerRef={wsPlayerRef}
+            onLoopChange={(loopInVal, loopOutVal, loopActiveVal) => {
+              setLoopIn(loopInVal);
+              setLoopOut(loopOutVal);
+              setLoopActive(loopActiveVal);
+            }}
+          />
+        </WaveSurferErrorBoundary>
       </div>
 
       {/* Loop / Zoom / Rate / Theme row */}
