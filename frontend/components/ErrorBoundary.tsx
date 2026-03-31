@@ -26,7 +26,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Erreur capturée :', error, info.componentStack);
+    console.error('[CueForge][ErrorBoundary] 🔴 ERREUR CAPTURÉE :', error?.message);
+    console.error('[CueForge][ErrorBoundary] Stack:', error?.stack);
+    console.error('[CueForge][ErrorBoundary] Component stack:', info.componentStack);
   }
 
   handleReload = () => {

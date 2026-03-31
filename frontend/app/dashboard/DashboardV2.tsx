@@ -93,9 +93,23 @@ export default function DashboardV2() {
     setUnanalyzedCount, registerAnalyzeAllHandler,
   } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [selectedTrack, setSelectedTrack] = useState<any | null>(null);
+  const [selectedTrack, _setSelectedTrack] = useState<any | null>(null);
   // Ref to remember the last selected track ID — used to restore selection after loadTracks
   const selectedTrackIdRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+  const mountIdRef = useRef(Math.random().toString(36).slice(2, 6));
+
+  // ── Guarded setSelectedTrack: logs every call + prevents accidental null ──
+  const setSelectedTrack = useCallback((track: any | null, reason?: string) => {
+    const src = reason || new Error().stack?.split('\n')[2]?.trim() || '?';
+    if (track === null) {
+      console.warn(`[CueForge] setSelectedTrack(null) — reason: ${src} — prev: ${selectedTrackIdRef.current}`);
+    } else {
+      console.log(`[CueForge] setSelectedTrack(${track?.id}) — reason: ${src}`);
+    }
+    _setSelectedTrack(track);
+  }, []);
+
   const [activeTab, setActiveTab] = useState('cues');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -123,6 +137,16 @@ export default function DashboardV2() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
   const [crateTracks, setCrateTracks] = useState<Track[]>([]);
+
+  // ── Mount/Unmount tracking ──
+  useEffect(() => {
+    console.log(`[CueForge] DashboardV2 MOUNTED (id=${mountIdRef.current})`);
+    mountedRef.current = true;
+    return () => {
+      console.log(`[CueForge] DashboardV2 UNMOUNTED (id=${mountIdRef.current})`);
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Register import handler so Sidebar/TopBar can trigger file upload
   useEffect(() => {
@@ -225,16 +249,39 @@ export default function DashboardV2() {
 
   // Auto-select track when loaded — restores previously selected track by ID first
   useEffect(() => {
+    console.log(`[CueForge] auto-select check: selectedTrack=${selectedTrack?.id ?? 'null'}, displayTracks=${displayTracks.length}, loading=${loading}, isDemo=${isDemo}`);
     if (!selectedTrack && displayTracks.length > 0 && !loading) {
       // If we had a track selected before, try to restore it from the fresh list
       if (selectedTrackIdRef.current) {
         const prev = displayTracks.find((t: any) => t.id === selectedTrackIdRef.current);
-        if (prev) { setSelectedTrack(prev); return; }
+        if (prev) { setSelectedTrack(prev, 'auto-select:restore-prev'); return; }
       }
       // Otherwise fall back to first track
-      setSelectedTrack(displayTracks[0]);
+      setSelectedTrack(displayTracks[0], 'auto-select:first-track');
     }
   }, [displayTracks, loading]);
+
+  // ── SAFETY NET: if selectedTrack becomes null while we have tracks, restore immediately ──
+  // This catches ANY unexpected null (component remount, unknown setState, React concurrent quirk)
+  useEffect(() => {
+    if (selectedTrack) return; // all good
+    if (loading) return; // still loading, wait
+    if (displayTracks.length === 0) return; // no tracks to select
+
+    console.warn('[CueForge] SAFETY NET: selectedTrack is null but tracks exist! Restoring...');
+    // Try to restore the last known track
+    if (selectedTrackIdRef.current) {
+      const prev = displayTracks.find((t: any) => t.id === selectedTrackIdRef.current);
+      if (prev) {
+        _setSelectedTrack(prev); // use raw setter to avoid infinite loop
+        console.log(`[CueForge] SAFETY NET: restored track ${prev.id}`);
+        return;
+      }
+    }
+    // Fallback to first track
+    _setSelectedTrack(displayTracks[0]);
+    console.log(`[CueForge] SAFETY NET: fell back to first track ${displayTracks[0]?.id}`);
+  }, [selectedTrack, displayTracks, loading]);
 
   // Load tracks from API
   useEffect(() => {
@@ -286,7 +333,7 @@ export default function DashboardV2() {
         if (window.confirm('Delete this track?')) {
           deleteTrack(selectedTrack.id).then(() => {
             loadTracks();
-            setSelectedTrack(null);
+            setSelectedTrack(null, 'keyboard:Delete');
           }).catch(console.error);
         }
         return;
@@ -327,19 +374,31 @@ export default function DashboardV2() {
 
   async function loadTracks() {
     try {
+      console.log('[CueForge] loadTracks START — current selectedTrack:', selectedTrackIdRef.current);
       setLoading(true);
-      if (!isAuthenticated()) return;
+      if (!isAuthenticated()) {
+        console.warn('[CueForge] loadTracks: not authenticated, aborting');
+        return;
+      }
       const data = await listTracks();
       // Handle both array and {tracks: [...]} response formats
       const trackList = Array.isArray(data) ? data : (data?.tracks || []);
+      console.log(`[CueForge] loadTracks: got ${trackList.length} tracks`);
       setTracks(trackList);
       // Refresh selectedTrack with the new object from the fresh list (prevents stale reference)
       if (selectedTrackIdRef.current) {
         const freshRaw = trackList.find((t: Track) => t.id === selectedTrackIdRef.current);
-        if (freshRaw) setSelectedTrack(toDisplayTrack(freshRaw));
+        if (freshRaw) {
+          setSelectedTrack(toDisplayTrack(freshRaw), 'loadTracks:refresh');
+        } else {
+          console.warn(`[CueForge] loadTracks: previously selected track ${selectedTrackIdRef.current} NOT found in fresh list — selecting first`);
+          if (trackList.length > 0) {
+            setSelectedTrack(toDisplayTrack(trackList[0]), 'loadTracks:fallback-first');
+          }
+        }
       }
     } catch (e: any) {
-      console.error('Failed to load tracks:', e);
+      console.error('[CueForge] loadTracks FAILED:', e?.message || e);
       // If session expired, don't crash — just show empty state
       if (e?.message === 'Session expired' || e?.message === 'Not authenticated') {
         setTracks([]);
@@ -347,6 +406,7 @@ export default function DashboardV2() {
       }
     } finally {
       setLoading(false);
+      console.log('[CueForge] loadTracks END');
     }
   }
 
@@ -430,7 +490,7 @@ export default function DashboardV2() {
   }
 
   function handleSelectTrack(track: any) {
-    setSelectedTrack(track);
+    setSelectedTrack(track, 'user:click');
   }
 
   function handleFavorite(trackId: number) {
@@ -478,7 +538,7 @@ export default function DashboardV2() {
     try {
       await deleteTrack(trackId);
       await loadTracks();
-      setSelectedTrack(null);
+      setSelectedTrack(null, 'contextMenu:delete');
       addToast('Track deleted', 'success');
       setContextMenu(null);
     } catch (e) {
@@ -617,13 +677,13 @@ export default function DashboardV2() {
   function handlePrev() {
     if (!selectedTrack || displayTracks.length === 0) return;
     const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
-    if (idx > 0) setSelectedTrack(displayTracks[idx - 1]);
+    if (idx > 0) setSelectedTrack(displayTracks[idx - 1], 'nav:prev');
   }
 
   function handleNext() {
     if (!selectedTrack || displayTracks.length === 0) return;
     const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
-    if (idx < displayTracks.length - 1) setSelectedTrack(displayTracks[idx + 1]);
+    if (idx < displayTracks.length - 1) setSelectedTrack(displayTracks[idx + 1], 'nav:next');
   }
 
   // File upload
@@ -704,7 +764,7 @@ export default function DashboardV2() {
     } else {
       // Normal click — find display track and select it
       const dt = displayTracks.find((t: any) => t.id === trackId);
-      if (dt) setSelectedTrack(dt);
+      if (dt) setSelectedTrack(dt, 'multiSelect:click');
     }
   }
 
@@ -787,7 +847,7 @@ export default function DashboardV2() {
       try { await deleteTrack(id); } catch {}
     }
     setSelectedIds(new Set());
-    setSelectedTrack(null);
+    setSelectedTrack(null, 'batchDelete');
     await loadTracks();
     addToast(`${ids.length} tracks supprimées`, 'success');
   }
@@ -825,7 +885,7 @@ export default function DashboardV2() {
           }}
           onSelectTrack={(track) => {
             const dt = toDisplayTrack(track);
-            setSelectedTrack(dt);
+            setSelectedTrack(dt, 'duplicateDetector:select');
           }}
         />
       )}
