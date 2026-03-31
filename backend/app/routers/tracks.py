@@ -171,7 +171,7 @@ def _get_cache_path(original_path: str, ext: str) -> str:
     return base + ext + ".cache"
 
 
-def _transcode_audio(src_path: str, bitrate: str = "192k") -> tuple[str | None, str]:
+def _transcode_audio(src_path: str, bitrate: str = "192k"):
     """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
     for codec, ext, mime_type, extra_args in _TRANSCODE_STRATEGIES:
         dst_path = _get_cache_path(src_path, ext)
