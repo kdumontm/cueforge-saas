@@ -203,15 +203,6 @@ export default function PlayerCard({
         />
       </div>
 
-      {/* Hot Cues row */}
-      {hotCues.length > 0 && <HotCuesBar hotCues={hotCues} />}
-
-      {/* Hint si pas de cues */}
-      {hotCues.length === 0 && (
-        <div className="px-[18px] py-[4px] text-[11px] text-[var(--text-muted)]">
-          Clique sur la waveform pour poser un point de cue ↑
-        </div>
-      )}
 
       {/* Loop / Zoom row */}
       <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">

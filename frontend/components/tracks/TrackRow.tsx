@@ -57,13 +57,11 @@ export function TrackRow({
   onFavoriteToggle,
   onRatingChange,
 }: TrackRowProps) {
-  const [showContextMenu, setShowContextMenu] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     onContextMenu(track, e);
-    setShowContextMenu(true);
   };
 
   return (

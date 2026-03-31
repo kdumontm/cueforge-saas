@@ -348,7 +348,7 @@ export default function DashboardV2() {
 
   // ── Cue points ────────────────────────────────────────────────────────
   const [cuePoints, setCuePoints] = useState<any[]>([]);
-  const [cuePositionMs, setCuePositionMs] = useState<number | null>(null); // position cliquée sur la waveform
+  const [cuePositionMs, setCuePositionMs] = useState<number | null>(null); // position courante du playhead (ms)
 
   // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
   // IMPORTANT: doit être déclaré APRÈS cuePoints (évite TDZ dans la dep array)
@@ -701,6 +701,7 @@ export default function DashboardV2() {
             onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
             onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
             onWaveformClick={handleWaveformClick}
+            onTimeUpdate={(ms) => setCuePositionMs(ms)}
             playerRef={playerRef}
           />
           {/* TrackList sous le waveform */}
