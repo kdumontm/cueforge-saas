@@ -311,6 +311,10 @@ export default function WaveSurferPlayer({
   const spectralColorsRef = useRef<{ r: number; g: number; b: number; amp: number }[] | null>(null);
   const [spectralReady, setSpectralReady] = useState(false);
 
+  // Raw audio samples (downsampled for smooth waveform at high zoom)
+  const rawSamplesRef = useRef<Float32Array | null>(null);
+  const rawSampleRateRef = useRef(0); // samples per second in downsampled data
+
   // Pre-rendered waveform strip (rendered ONCE, blitted every frame)
   const waveformStripRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -485,19 +489,74 @@ export default function WaveSurferPlayer({
         }
       }
 
-      // Blit waveform strip — crop the section around current time
-      // Map time range [startTime, startTime+visSec] to strip pixel range
-      const srcX = Math.max(0, (startTime / dur) * numBars);
-      const srcW = (visSec / dur) * numBars;
-      const clampedSrcX = Math.max(0, srcX);
-      const clampedSrcEnd = Math.min(numBars, srcX + srcW);
-      const clampedSrcW = clampedSrcEnd - clampedSrcX;
+      // ── Waveform rendering: bars (zoomed out) vs smooth wave (zoomed in) ──
+      const rawSamples = rawSamplesRef.current;
+      const rawRate = rawSampleRateRef.current;
+      const samplesPerPixel = rawRate * secPerPx;
+      const colors = spectralColorsRef.current;
+      const theme = WAVEFORM_THEMES.find((t) => t.id === themeRef.current) || WAVEFORM_THEMES[0];
+      const mid = h / 2;
 
-      if (clampedSrcW > 0) {
-        // Map to destination
-        const dstX = ((clampedSrcX - srcX) / srcW) * w;
-        const dstW = (clampedSrcW / srcW) * w;
-        ctx.drawImage(strip, clampedSrcX, 0, clampedSrcW, 256, dstX, 0, dstW, h);
+      // Threshold: if we have fewer than ~4 raw samples per pixel, draw smooth wave
+      const useSmooth = rawSamples && rawRate > 0 && samplesPerPixel < 4;
+
+      if (useSmooth && rawSamples && colors) {
+        // ── SMOOTH WAVEFORM (zoomed in) — draw filled path with spectral colors ──
+        // Draw per-pixel: get sample value, draw as filled column with spectral color
+        for (let x = 0; x < w; x++) {
+          const t = startTime + x * secPerPx;
+          if (t < 0 || t > dur) continue;
+
+          // Get raw sample value at this time
+          const sampleIdx = Math.floor(t * rawRate);
+          if (sampleIdx < 0 || sampleIdx >= rawSamples.length) continue;
+
+          // Interpolate between adjacent samples for smoothness
+          const frac = (t * rawRate) - sampleIdx;
+          const s0 = rawSamples[sampleIdx];
+          const s1 = sampleIdx + 1 < rawSamples.length ? rawSamples[sampleIdx + 1] : s0;
+          const sample = s0 + (s1 - s0) * frac;
+
+          // Get spectral color at this position
+          const ci = Math.min(Math.floor((t / dur) * colors.length), colors.length - 1);
+          if (ci < 0) continue;
+          const { r, g, b } = colors[ci];
+          const bright = 0.6 + Math.abs(sample) * 0.4;
+          const color = theme.getBarColor(r, g, b, bright);
+
+          // Draw as filled column from center
+          const barH = Math.abs(sample) * mid * 0.92;
+          if (barH < 0.5) continue;
+
+          ctx.fillStyle = color;
+          if (sample >= 0) {
+            ctx.fillRect(x, mid - barH, 1, barH);
+          } else {
+            ctx.fillRect(x, mid, 1, barH);
+          }
+
+          // Mirror (dimmer)
+          ctx.globalAlpha = 0.3;
+          if (sample >= 0) {
+            ctx.fillRect(x, mid + 1, 1, barH * 0.6);
+          } else {
+            ctx.fillRect(x, mid - barH * 0.6, 1, barH * 0.6);
+          }
+          ctx.globalAlpha = 1;
+        }
+      } else {
+        // ── BARS (zoomed out) — blit from pre-rendered strip ──
+        const srcX = Math.max(0, (startTime / dur) * numBars);
+        const srcW = (visSec / dur) * numBars;
+        const clampedSrcX = Math.max(0, srcX);
+        const clampedSrcEnd = Math.min(numBars, srcX + srcW);
+        const clampedSrcW = clampedSrcEnd - clampedSrcX;
+
+        if (clampedSrcW > 0) {
+          const dstX = ((clampedSrcX - srcX) / srcW) * w;
+          const dstW = (clampedSrcW / srcW) * w;
+          ctx.drawImage(strip, clampedSrcX, 0, clampedSrcW, 256, dstX, 0, dstW, h);
+        }
       }
 
       // Cue points
@@ -752,8 +811,29 @@ export default function WaveSurferPlayer({
         if (abort.signal.aborted) return;
         const rgbColors = computeRGBWaveform(decoded);
         spectralColorsRef.current = rgbColors;
+
+        // Downsample raw audio for smooth waveform at high zoom (~4000 samples/sec)
+        const rawData = decoded.getChannelData(0);
+        const targetRate = 4000; // samples per second
+        const factor = Math.max(1, Math.floor(decoded.sampleRate / targetRate));
+        const dsLen = Math.ceil(rawData.length / factor);
+        const downsampled = new Float32Array(dsLen);
+        for (let i = 0; i < dsLen; i++) {
+          // Peak value in each chunk (preserves waveform shape)
+          const start = i * factor;
+          const end = Math.min(start + factor, rawData.length);
+          let peak = 0;
+          for (let j = start; j < end; j++) {
+            const v = rawData[j];
+            if (Math.abs(v) > Math.abs(peak)) peak = v;
+          }
+          downsampled[i] = peak;
+        }
+        rawSamplesRef.current = downsampled;
+        rawSampleRateRef.current = decoded.sampleRate / factor;
+
         setSpectralReady(true);
-        console.log(`[CueForge] Spectral waveform computed: ${rgbColors.length} bars`);
+        console.log(`[CueForge] Spectral: ${rgbColors.length} bars, Raw: ${dsLen} samples (${Math.round(rawSampleRateRef.current)}/s)`);
       } catch (e) {
         console.warn('[CueForge] Spectral computation failed (audio still plays):', e);
       }
