@@ -65,8 +65,8 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           }`}
           title={autoAnalyze ? 'Auto-analyse activée — cliquer pour désactiver' : 'Auto-analyse désactivée — cliquer pour activer'}
         >
-          <span className={`w-6 h-3 rounded-full relative flex-shrink-0 transition-colors ${autoAnalyze ? 'bg-emerald-500' : 'bg-[var(--bg-elevated)]'}`}>
-            <span className={`absolute top-0.5 w-2 h-2 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-3' : 'translate-x-0.5'}`} />
+          <span className={`w-6 h-3 rounded-full relative inline-block flex-shrink-0 transition-colors ${autoAnalyze ? 'bg-emerald-500' : 'bg-[var(--bg-elevated)]'}`}>
+            <span className={`absolute top-0.5 left-0.5 w-2 h-2 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-3' : 'translate-x-0'}`} />
           </span>
           Auto
         </button>
