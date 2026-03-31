@@ -647,6 +647,7 @@ class TrackMetadataUpdate(BaseModel):
     rating: Optional[int] = None
     color_code: Optional[str] = None
     energy_level: Optional[int] = None
+    artwork_url: Optional[str] = None
 
 
 @router.patch("/{track_id}", response_model=TrackResponse)

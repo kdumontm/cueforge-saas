@@ -424,6 +424,7 @@ export interface MetadataUpdate {
   album?: string;
   genre?: string;
   year?: number;
+  artwork_url?: string;
 }
 
 export interface TrackWithMetadata extends TrackResponse {

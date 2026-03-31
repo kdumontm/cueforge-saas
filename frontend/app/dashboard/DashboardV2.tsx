@@ -22,6 +22,7 @@ import InfoEditTab from '@/components/tabs/InfoEditTab';
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
 import DuplicateDetector from '@/components/DuplicateDetector';
+import MetadataEnrichModal from '@/components/MetadataEnrichModal';
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -140,6 +141,9 @@ export default function DashboardV2() {
   });
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Metadata Enrich modal
+  const [enrichTracks, setEnrichTracks] = useState<any[]>([]);
 
   // Stems state
   const [stemsStatus, setStemsStatus] = useState<{
@@ -954,6 +958,10 @@ export default function DashboardV2() {
               onBatchAnalyze={handleBatchAnalyzeSelected}
               onBatchExport={handleBatchExportSelected}
               onBatchDelete={handleBatchDeleteSelected}
+              onBatchEnrich={() => {
+                const selected = rawTracksForTabs.filter((t: any) => selectedIds.has(t.id));
+                if (selected.length > 0) setEnrichTracks(selected);
+              }}
               onSelectAll={() => setSelectedIds(new Set(displayTracks.map((t: any) => t.id)))}
             />
             <TrackList
@@ -1198,6 +1206,19 @@ export default function DashboardV2() {
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
+      {/* Metadata Enrich Modal */}
+      {enrichTracks.length > 0 && (
+        <MetadataEnrichModal
+          tracks={enrichTracks}
+          onClose={() => setEnrichTracks([])}
+          onTrackUpdated={(trackId, data) => {
+            setTracks((prev: any[]) =>
+              prev.map((t: any) => t.id === trackId ? { ...t, ...data } : t)
+            );
+          }}
+        />
+      )}
+
       {/* Context Menu */}
       {contextMenu && (
         <div
@@ -1212,6 +1233,16 @@ export default function DashboardV2() {
             className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
           >
             <RefreshCw size={14} /> Analyze
+          </button>
+          <button
+            onClick={() => {
+              const t = rawTracksForTabs.find(t => t.id === contextMenu.trackId);
+              if (t) setEnrichTracks([t]);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+          >
+            🔍 Enrichir les métadonnées
           </button>
           <button
             onClick={() => handleExportRekordbox(contextMenu.trackId)}

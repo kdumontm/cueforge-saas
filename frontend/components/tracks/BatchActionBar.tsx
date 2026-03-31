@@ -15,6 +15,7 @@ interface BatchActionBarProps {
   onBatchAnalyze: () => void;
   onBatchExport: () => void;
   onBatchDelete: () => void;
+  onBatchEnrich?: () => void;
   onSelectAll: () => void;
 }
 
@@ -39,6 +40,7 @@ export default function BatchActionBar({
   onBatchAnalyze,
   onBatchExport,
   onBatchDelete,
+  onBatchEnrich,
   onSelectAll,
 }: BatchActionBarProps) {
   const [showTagMenu, setShowTagMenu] = useState(false);
@@ -190,6 +192,16 @@ export default function BatchActionBar({
         >
           <Zap size={12} /> Analyser
         </button>
+
+        {/* Enrich metadata */}
+        {onBatchEnrich && (
+          <button
+            onClick={onBatchEnrich}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all cursor-pointer"
+          >
+            🔍 Enrichir
+          </button>
+        )}
 
         {/* Export */}
         <button
