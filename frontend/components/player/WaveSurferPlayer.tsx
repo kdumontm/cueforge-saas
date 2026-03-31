@@ -131,7 +131,7 @@ const ZOOM_PX_PER_SEC: Record<string, number> = {
 // Principle: d0=RMS signal → bass content  |  d1=RMS 1st derivative → mids
 //            d2=RMS 2nd derivative → highs (transients, cymbals, hats)
 // Each band normalized independently → colors are always vivid regardless of volume
-function computeRGBWaveform(buf: AudioBuffer, numBars = 2000): {r:number,g:number,b:number}[] {
+function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:number,b:number}[] {
   const data = buf.getChannelData(0);
   const segLen = Math.max(1, Math.floor(data.length / numBars));
 
@@ -170,25 +170,26 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 2000): {r:number,g:numbe
     const mi = c.mi / maxMi;  // 0-1 — mids  (synths, vocals)
     const hi = c.hi / maxHi;  // 0-1 — highs (hats, transients)
 
-    // Rekordbox-inspired color palette (more saturated):
-    //   bass dominant  → deep red-orange   rgb(255, 60, 0)
-    //   mids dominant  → vivid green       rgb(50, 230, 20)
-    //   highs dominant → electric blue     rgb(0, 160, 255)
-    //   kick hits      → bright red
-    //   cymbals        → cyan-blue
-    //   vocals/synths  → green-yellow
-    const r = Math.min(255, Math.round(lo * 255 + mi * 50 + hi * 5));
-    const g = Math.min(255, Math.round(mi * 230 + hi * 80 + lo * 20));
-    const b = Math.min(255, Math.round(hi * 255 + mi * 40));
+    // Rekordbox-style: dominant band determines the hue
+    // bass → red/orange, mids → green/yellow, highs → blue/cyan
+    // Power-curve for more contrast between bands
+    const loP = Math.pow(lo, 0.7);
+    const miP = Math.pow(mi, 0.7);
+    const hiP = Math.pow(hi, 0.7);
 
-    // Boost saturation: push toward the dominant channel
-    const maxC = Math.max(r, g, b, 1);
-    const sat = 1.3; // saturation multiplier
-    const rr = Math.min(255, Math.round(((r / maxC - 0.33) * sat + 0.33) * maxC));
-    const gg = Math.min(255, Math.round(((g / maxC - 0.33) * sat + 0.33) * maxC));
-    const bb = Math.min(255, Math.round(((b / maxC - 0.33) * sat + 0.33) * maxC));
+    // Direct spectral mapping with high saturation
+    const r = Math.min(255, Math.round(loP * 255 + miP * 40));
+    const g = Math.min(255, Math.round(miP * 240 + hiP * 60 + loP * 15));
+    const b = Math.min(255, Math.round(hiP * 255 + miP * 30));
 
-    return { r: Math.max(0, rr), g: Math.max(0, gg), b: Math.max(0, bb) };
+    // Ensure minimum brightness so quiet sections still show color
+    const maxC = Math.max(r, g, b);
+    if (maxC < 60) {
+      const boost = 60 / Math.max(maxC, 1);
+      return { r: Math.round(r * boost), g: Math.round(g * boost), b: Math.round(b * boost) };
+    }
+
+    return { r, g, b };
   });
 }
 
@@ -290,43 +291,38 @@ export default function WaveSurferPlayer({
             const { width, height: h } = ctx.canvas;
             const ch = peaks?.[0] as Float32Array;
             if (!ch || ch.length === 0) return;
-            const mid = h / 2;
-            const BAR_W = 2;     // bar width in px
-            const BAR_GAP = 1;   // gap between bars
-            const STEP = BAR_W + BAR_GAP;
+            const mid = Math.round(h * 0.48); // slight offset — top half bigger like Rekordbox
+            const BW = 3;        // bar width — wider = more visible
+            const GAP = 1;       // gap between bars
+            const STEP = BW + GAP;
+            const TOP_H = mid;
+            const BOT_H = h - mid;
 
-            // Background — near-black with subtle gradient
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-            bgGrad.addColorStop(0, '#0a0a14');
-            bgGrad.addColorStop(0.5, '#080810');
-            bgGrad.addColorStop(1, '#0a0a14');
-            ctx.fillStyle = bgGrad;
+            // ── Background ──
+            ctx.fillStyle = '#06060c';
             ctx.fillRect(0, 0, width, h);
 
-            // Center line — subtle
-            ctx.fillStyle = 'rgba(255,255,255,0.04)';
-            ctx.fillRect(0, mid - 0.5, width, 1);
+            // ── Center line — thin bright line ──
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(0, mid, width, 1);
 
             if (!colors) {
-              // Fallback: blue-ish monochrome bars
+              // Fallback: blue gradient bars
               for (let x = 0; x < width; x += STEP) {
                 const si = Math.min(Math.floor((x / width) * ch.length), ch.length - 1);
                 const amp = Math.abs(ch[si] || 0);
-                if (amp < 0.005) continue;
-                const bH = Math.max(1, amp * mid * 0.92);
-                const lum = Math.round(50 + amp * 120);
-                ctx.fillStyle = `rgb(${Math.round(lum * 0.4)},${Math.round(lum * 0.7)},${lum})`;
-                ctx.beginPath();
-                ctx.roundRect(x, mid - bH, BAR_W, bH, [1, 1, 0, 0]);
-                ctx.fill();
-                ctx.fillStyle = `rgb(${Math.round(lum * 0.25)},${Math.round(lum * 0.45)},${Math.round(lum * 0.65)})`;
-                ctx.beginPath();
-                ctx.roundRect(x, mid, BAR_W, bH, [0, 0, 1, 1]);
-                ctx.fill();
+                if (amp < 0.004) continue;
+                const bH = Math.max(1, amp * TOP_H * 0.94);
+                const lum = Math.round(60 + amp * 140);
+                ctx.fillStyle = `rgb(${Math.round(lum*0.3)},${Math.round(lum*0.6)},${lum})`;
+                ctx.fillRect(x, mid - bH, BW, bH);
+                ctx.fillStyle = `rgb(${Math.round(lum*0.15)},${Math.round(lum*0.3)},${Math.round(lum*0.5)})`;
+                ctx.fillRect(x, mid + 1, BW, bH * 0.7);
               }
               return;
             }
 
+            // ── Main spectral waveform ──
             const samplesPerPx = ch.length / width;
             for (let x = 0; x < width; x += STEP) {
               const s0 = Math.floor(x * samplesPerPx);
@@ -334,36 +330,33 @@ export default function WaveSurferPlayer({
               let amp = 0;
               for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
               amp = Math.min(1, amp);
-              if (amp < 0.005) continue;
+              if (amp < 0.004) continue;
 
               const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
               const { r, g, b } = colors[ci];
 
-              // Brightness curve: louder = brighter, with a gentle floor
-              const bright = 0.35 + amp * 0.65;
+              // ── Brightness: quiet bars dim, loud bars POP ──
+              const bright = 0.4 + amp * 0.6;
               const rr = Math.min(255, Math.round(r * bright));
               const gg = Math.min(255, Math.round(g * bright));
               const bb = Math.min(255, Math.round(b * bright));
-              const barH = Math.max(1, amp * mid * 0.94);
 
-              // Top half — full color with rounded top
-              ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-              ctx.beginPath();
-              ctx.roundRect(x, mid - barH, BAR_W, barH, [1, 1, 0, 0]);
-              ctx.fill();
+              // ── TOP BAR — gradient from bright at tip to darker at base ──
+              const barH = Math.max(1, amp * TOP_H * 0.95);
+              const topGrad = ctx.createLinearGradient(0, mid - barH, 0, mid);
+              topGrad.addColorStop(0, `rgba(${Math.min(255, rr + 40)},${Math.min(255, gg + 40)},${Math.min(255, bb + 40)},1)`);
+              topGrad.addColorStop(0.4, `rgb(${rr},${gg},${bb})`);
+              topGrad.addColorStop(1, `rgb(${Math.round(rr*0.7)},${Math.round(gg*0.7)},${Math.round(bb*0.7)})`);
+              ctx.fillStyle = topGrad;
+              ctx.fillRect(x, mid - barH, BW, barH);
 
-              // Bottom half — darker mirror with rounded bottom
-              ctx.fillStyle = `rgb(${Math.round(rr * 0.55)},${Math.round(gg * 0.55)},${Math.round(bb * 0.55)})`;
-              ctx.beginPath();
-              ctx.roundRect(x, mid, BAR_W, barH * 0.85, [0, 0, 1, 1]);
-              ctx.fill();
-
-              // Glow for loud bars — subtle additive highlight
-              if (amp > 0.6) {
-                const glowAlpha = (amp - 0.6) * 0.4;
-                ctx.fillStyle = `rgba(${rr},${gg},${bb},${glowAlpha.toFixed(2)})`;
-                ctx.fillRect(x - 1, mid - barH - 1, BAR_W + 2, barH + 2);
-              }
+              // ── BOTTOM MIRROR — shorter + much darker + fade out ──
+              const mirrorH = Math.max(1, barH * 0.65);
+              const botGrad = ctx.createLinearGradient(0, mid + 1, 0, mid + 1 + mirrorH);
+              botGrad.addColorStop(0, `rgba(${Math.round(rr*0.45)},${Math.round(gg*0.45)},${Math.round(bb*0.45)},0.8)`);
+              botGrad.addColorStop(1, `rgba(${Math.round(rr*0.15)},${Math.round(gg*0.15)},${Math.round(bb*0.15)},0.1)`);
+              ctx.fillStyle = botGrad;
+              ctx.fillRect(x, mid + 1, BW, mirrorH);
             }
             } catch (e) {
               console.error('[CueForge] renderFunction crash:', e);
