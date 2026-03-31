@@ -3,6 +3,8 @@ PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 CI = "true"
 # Empêche Railway de passer --production à npm ci (cause EUSAGE sur Node 22 / npm 10)
 NPM_CONFIG_PRODUCTION = "false"
+# Augmente la mémoire Node.js pour le build Next.js (évite OOM sur Railway)
+NODE_OPTIONS = "--max-old-space-size=4096"
 
 [phases.install]
 cmds = ["npm ci"]
