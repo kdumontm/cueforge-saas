@@ -22,6 +22,12 @@ Color scheme (Rekordbox-compatible hex):
   #E2D420 = BREAKDOWN | #1DB954 = PHRASE
   #21C8DE = VOCAL     | #FF69B4 = LOOP
 """
+from typing import Dict, List, Tuple
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
+)
 
 # Couleurs hex Rekordbox-compatibles pour chaque type de cue
 CUE_COLORS = {
@@ -34,12 +40,6 @@ CUE_COLORS = {
     "purple": "#A855F7",
     "pink":   "#FF69B4",
 }
-from typing import Dict, List, Tuple
-from sqlalchemy.orm import Session
-
-from app.models import (
-    Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
-)
 
 
 CAMELOT_MAP = {
