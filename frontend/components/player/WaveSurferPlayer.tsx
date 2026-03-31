@@ -348,8 +348,8 @@ export default function WaveSurferPlayer({
           barWidth: 0,
           barGap: 0,
           normalize: true,
-          // Overlay style: viewport indicator shows current zoomed position
-          overlayColor: 'rgba(255,255,255,0.05)',
+          // Viewport indicator — montre la zone zoomée dans le détail
+          overlayColor: 'rgba(255,255,255,0.18)',
           renderFunction: spectralRender,
         });
 
@@ -449,6 +449,44 @@ export default function WaveSurferPlayer({
         });
 
         wsRef.current = ws;
+
+        // ── Masquer le div .progress dans le shadow DOM ──────────────────────────────
+        // WaveSurfer v7 crée un canvas "progress" (source-in avec progressColor) qui
+        // écrase visuellement la partie jouée. On cache complètement ce div pour que
+        // le waveform reste identique avant/après le curseur (Rekordbox style).
+        try {
+          const injectHideProgress = (el: HTMLElement | null) => {
+            if (!el) return;
+            const shadow = el.getRootNode?.() as ShadowRoot;
+            if (shadow?.host) {
+              const s = document.createElement('style');
+              s.textContent = ':host .progress { display: none !important; }';
+              shadow.appendChild(s);
+            }
+          };
+          // Main waveform
+          injectHideProgress(ws.getWrapper() as HTMLElement);
+          // Minimap (shadow host = premier enfant de overviewRef)
+          if (overviewRef.current) {
+            Array.from(overviewRef.current.children).forEach((child) => {
+              const childShadow = (child as HTMLElement).shadowRoot;
+              if (childShadow) {
+                const s = document.createElement('style');
+                s.textContent = ':host .progress { display: none !important; }';
+                childShadow.appendChild(s);
+              }
+              // Parfois le shadow host est un enfant imbriqué
+              Array.from(child.children).forEach((grand) => {
+                const grandShadow = (grand as HTMLElement).shadowRoot;
+                if (grandShadow) {
+                  const s = document.createElement('style');
+                  s.textContent = ':host .progress { display: none !important; }';
+                  grandShadow.appendChild(s);
+                }
+              });
+            });
+          }
+        } catch {}
 
         // Expose controls to parent
         if (playerRef) {
