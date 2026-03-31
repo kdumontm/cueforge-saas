@@ -284,11 +284,9 @@ export default function WaveSurferPlayer({
             if (!ch || ch.length === 0) return;
             const mid = Math.round(h / 2);
 
-            // ── Pure black background (Rekordbox style) ──
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, width, h);
-
-            // ── Thin center line ──
+            // ── Centre axis (pas de fond — le fond noir vient du CSS du container) ──
+            // Ne PAS remplir le fond ici : si le fond est opaque, WaveSurfer source-in
+            // efface tout dans la zone jouée. On laisse le CSS bg-black du container.
             ctx.fillStyle = 'rgba(255,255,255,0.08)';
             ctx.fillRect(0, mid, width, 1);
 
@@ -833,7 +831,7 @@ export default function WaveSurferPlayer({
 
       {/* ── DETAIL — zoomed waveform ── */}
       <div
-        className="relative bg-black/30 rounded-b-lg overflow-hidden cursor-crosshair"
+        className="relative bg-black rounded-b-lg overflow-hidden cursor-crosshair"
         style={{ height, minHeight: height }}
         title="Clic = placer un cue · Ctrl+Scroll = zoom"
       >

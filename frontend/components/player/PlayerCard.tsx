@@ -119,7 +119,7 @@ export default function PlayerCard({
   onWaveformClick,
   playerRef,
 }: PlayerCardProps) {
-  const [zoom, setZoom] = useState<ZoomLevel>(1);
+  const [zoom, setZoom] = useState<ZoomLevel>(2);
   const [playerKey, setPlayerKey] = useState(0);
   const prevTrackId = useRef<number | null>(null);
   const wsPlayerRef = useRef<any>(null);
@@ -285,7 +285,7 @@ export default function PlayerCard({
             cuePoints={cuePoints}
             zoom={zoom}
             height={90}
-            overviewHeight={48}
+            overviewHeight={56}
             waveformTheme={waveformTheme}
             onTimeUpdate={(ms) => {
               setCurrentTime(ms / 1000);
