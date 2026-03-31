@@ -144,11 +144,12 @@ async function filterBand(buf: AudioBuffer, type: 'highpass' | 'lowpass' | 'band
   return rendered.getChannelData(0);
 }
 
-async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:number,g:number,b:number}[]> {
+async function computeRGBWaveform(buf: AudioBuffer, numBars = 1800): Promise<{r:number,g:number,b:number}[]> {
+  // Serato/Rekordbox style: bass=red, mids=green, highs=blue — well separated bands
   const [lowBand, midBand, highBand] = await Promise.all([
-    filterBand(buf, 'lowpass', 200),
-    filterBand(buf, 'bandpass', 200, 4000),
-    filterBand(buf, 'highpass', 4000),
+    filterBand(buf, 'lowpass', 250),          // Bass: <250 Hz
+    filterBand(buf, 'bandpass', 250, 3500),   // Mids: 250-3500 Hz
+    filterBand(buf, 'highpass', 3500),        // Highs: >3500 Hz
   ]);
   const segLen = Math.floor(buf.length / numBars);
   const rawColors: {lo:number,mi:number,hi:number}[] = [];
@@ -156,20 +157,30 @@ async function computeRGBWaveform(buf: AudioBuffer, numBars = 1200): Promise<{r:
   for (let i = 0; i < numBars; i++) {
     const s = i * segLen, e = Math.min(s + segLen, buf.length);
     let le = 0, me = 0, he = 0;
-    for (let j = s; j < e; j++) { le += lowBand[j]*lowBand[j]; me += midBand[j]*midBand[j]; he += highBand[j]*highBand[j]; }
+    for (let j = s; j < e; j++) {
+      le += lowBand[j] * lowBand[j];
+      me += midBand[j] * midBand[j];
+      he += highBand[j] * highBand[j];
+    }
     const n = e - s || 1;
-    le = Math.sqrt(le/n); me = Math.sqrt(me/n); he = Math.sqrt(he/n);
+    le = Math.sqrt(le / n); me = Math.sqrt(me / n); he = Math.sqrt(he / n);
     maxLo = Math.max(maxLo, le); maxMi = Math.max(maxMi, me); maxHi = Math.max(maxHi, he);
     rawColors.push({ lo: le, mi: me, hi: he });
   }
   return rawColors.map(c => {
+    // Normalize each band independently (per-band normalization = vivid colors even in quiet passages)
     const lo = c.lo / (maxLo || 1);
     const mi = c.mi / (maxMi || 1);
     const hi = c.hi / (maxHi || 1);
-    const r = Math.min(255, Math.floor(lo * 220 + mi * 60));
-    const g = Math.min(255, Math.floor(mi * 200 + hi * 50 + lo * 25));
-    const b = Math.min(255, Math.floor(hi * 240 + mi * 30));
-    return { r: Math.max(25, r), g: Math.max(15, g), b: Math.max(35, b) };
+
+    // Serato-style color mix: keep bands as pure as possible
+    // Bass: red-orange, Mids: green-yellow, Highs: cyan-blue
+    const r = Math.min(255, Math.round(lo * 255 + mi * 40));
+    const g = Math.min(255, Math.round(mi * 220 + hi * 60));
+    const b = Math.min(255, Math.round(hi * 255 + mi * 30));
+
+    // Minimum brightness floor to avoid invisible bars
+    return { r: Math.max(20, r), g: Math.max(12, g), b: Math.max(20, b) };
   });
 }
 
@@ -212,6 +223,7 @@ export default function WaveSurferPlayer({
   const loopActiveRef = useRef(false);
   const spectralColorsRef = useRef<{r:number,g:number,b:number}[] | null>(null);
   const themeRef = useRef<string>(waveformTheme);
+  const [spectralReady, setSpectralReady] = useState(false);
 
   // EQ nodes
   const eqLowRef = useRef<BiquadFilterNode | null>(null);
@@ -270,25 +282,62 @@ export default function WaveSurferPlayer({
             const ch = peaks[0] as Float32Array;
             if (!ch || ch.length === 0) return;
             const mid = h / 2;
-            ctx.clearRect(0, 0, width, h);
-            const barCount = Math.max(1, Math.min(Math.floor(width / 3), ch.length / 2));
-            for (let x = 0; x < width; x += 2) {
-              const idx = Math.floor((x / width) * barCount);
-              const sampleIdx = Math.floor((idx / barCount) * ch.length);
-              let amp = Math.abs(ch[sampleIdx] || 0);
-              for (let s = -1; s <= 1; s++) {
-                const si = Math.max(0, Math.min(ch.length - 2, sampleIdx + s * 2));
-                amp = Math.max(amp, Math.abs(ch[si] || 0), Math.abs(ch[si + 1] || 0));
+
+            // Dark background like Serato/Rekordbox
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(0, 0, width, h);
+
+            // Center line (subtle)
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(0, mid - 0.5, width, 1);
+
+            const BAR_W = 2;
+            const BAR_GAP = 1;
+            const STEP = BAR_W + BAR_GAP;
+
+            for (let x = 0; x < width; x += STEP) {
+              // Map screen x to sample index
+              const sampleIdx = Math.floor((x / width) * ch.length);
+              // Take max amplitude in a small window for smoother look
+              let amp = 0;
+              const window = Math.max(1, Math.floor(ch.length / width * STEP));
+              for (let k = 0; k < window; k++) {
+                const si = Math.min(sampleIdx + k, ch.length - 1);
+                amp = Math.max(amp, Math.abs(ch[si] || 0));
               }
-              const barH = Math.max(1, amp * mid * 0.92);
+              amp = Math.min(1, amp);
+
+              // Map to spectral color
               const ci = colors ? Math.min(Math.floor((x / width) * colors.length), colors.length - 1) : -1;
-              const c = ci >= 0 && colors ? colors[ci] : { r: 0.49, g: 0.23, b: 0.93 };
-              const r = ci >= 0 && colors ? c.r / 255 : 0.49;
-              const g = ci >= 0 && colors ? c.g / 255 : 0.23;
-              const b = ci >= 0 && colors ? c.b / 255 : 0.93;
-              const brightness = 0.55 + amp * 0.45;
-              ctx.fillStyle = theme.getBarColor(r, g, b, brightness);
-              ctx.fillRect(x, mid - barH / 2, 2, barH);
+
+              let r: number, g: number, b: number;
+              if (ci >= 0 && colors) {
+                r = colors[ci].r / 255;
+                g = colors[ci].g / 255;
+                b = colors[ci].b / 255;
+              } else {
+                // Fallback: blue-ish while loading
+                r = 0.15; g = 0.35; b = 0.85;
+              }
+
+              // Brightness is tied to amplitude — quiet passages are darker
+              const brightness = 0.3 + amp * 0.7;
+              const color = theme.getBarColor(r, g, b, brightness);
+
+              const barH = Math.max(2, amp * mid * 0.95);
+              const topY = mid - barH;
+              const botY = mid;
+
+              // Draw upper half
+              ctx.fillStyle = color;
+              ctx.fillRect(x, topY, BAR_W, barH);
+
+              // Draw lower half (mirror) — slightly dimmer for depth
+              const dimR = Math.round(r * brightness * 180);
+              const dimG = Math.round(g * brightness * 180);
+              const dimB = Math.round(b * brightness * 180);
+              ctx.fillStyle = `rgb(${dimR},${dimG},${dimB})`;
+              ctx.fillRect(x, botY, BAR_W, barH);
             }
           },
           plugins: [regions],
@@ -474,6 +523,7 @@ export default function WaveSurferPlayer({
     currentTimeRef.current = 0;
     setIsPlaying(false);
     spectralColorsRef.current = null;
+    setSpectralReady(false);
     // Reset loop state on track change
     setLoopIn(null);
     setLoopOut(null);
@@ -505,6 +555,7 @@ export default function WaveSurferPlayer({
           const rgbColors = await computeRGBWaveform(decoded);
           if (!abort.signal.aborted) {
             spectralColorsRef.current = rgbColors;
+            setSpectralReady(true);
           }
         } catch (e) {
           console.warn('RGB waveform computation failed:', e);
@@ -530,13 +581,13 @@ export default function WaveSurferPlayer({
     loadAudio(trackId, wsRef.current);
   }, [trackId, loadAudio]);
 
-  // --- Zoom change ---
+  // --- Zoom change + re-render when spectral colors arrive ---
   useEffect(() => {
     if (!wsRef.current || !isReady) return;
     try {
       wsRef.current.zoom(ZOOM_PX_PER_SEC[String(zoom)] ?? 30);
     } catch {}
-  }, [zoom, isReady]);
+  }, [zoom, isReady, spectralReady]);
 
   // --- Cue points → RegionsPlugin markers ---
   useEffect(() => {
