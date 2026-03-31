@@ -344,6 +344,24 @@ async def update_site_settings(
 
 
 # ═══════════════════════════════════════════════
+# PUBLIC SETTINGS (no auth required)
+# ═══════════════════════════════════════════════
+
+@router.get("/public/demo-mode")
+async def get_demo_mode(db: Session = Depends(get_db)):
+    """Renvoie l'état du mode démo — endpoint public, pas d'auth requise."""
+    from app.models.site_settings import PageConfig, DEFAULT_PAGES
+    cfg = db.query(PageConfig).filter(PageConfig.page_name == "demo_mode").first()
+    if cfg is None:
+        # Seed si absent
+        cfg = PageConfig(page_name="demo_mode", label="Mode Démo", is_enabled=False)
+        db.add(cfg)
+        db.commit()
+        db.refresh(cfg)
+    return {"demo_mode": cfg.is_enabled}
+
+
+# ═══════════════════════════════════════════════
 # PAGE CONFIGS (toggle pages on/off)
 # ═══════════════════════════════════════════════
 

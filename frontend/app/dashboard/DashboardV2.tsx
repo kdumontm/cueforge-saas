@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
@@ -120,6 +120,7 @@ export default function DashboardV2() {
   const [activeTab, setActiveTab] = useState('cues');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [demoModeEnabled, setDemoModeEnabled] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const playerRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -250,8 +251,8 @@ export default function DashboardV2() {
 
   const realDisplayTracks = useMemo(() => sectionFilteredTracks.map(toDisplayTrack), [sectionFilteredTracks]);
 
-  // Use demo tracks when no real tracks exist
-  const isDemo = realDisplayTracks.length === 0 && !loading;
+  // Mode démo : uniquement si activé en admin ET bibliothèque vide
+  const isDemo = demoModeEnabled && realDisplayTracks.length === 0 && !loading;
   const displayTracks = isDemo ? DEMO_DISPLAY_TRACKS : realDisplayTracks;
   const rawTracksForTabs = isDemo ? DEMO_RAW_TRACKS : sectionFilteredTracks;
 
@@ -302,9 +303,10 @@ export default function DashboardV2() {
     console.log(`[CueForge] SAFETY NET: fell back to first track ${displayTracks[0]?.id}`);
   }, [selectedTrack, displayTracks, loading]);
 
-  // Load tracks from API
+  // Load tracks + demo mode setting
   useEffect(() => {
     loadTracks();
+    getDemoMode().then(setDemoModeEnabled).catch(() => setDemoModeEnabled(false));
   }, []);
 
   // Keyboard shortcuts

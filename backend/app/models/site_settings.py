@@ -16,8 +16,9 @@ class PageConfig(Base):
 
 # Default pages that can be toggled
 DEFAULT_PAGES = [
-    {"page_name": "pricing", "label": "Page Tarification", "is_enabled": True},
-    {"page_name": "cgu", "label": "Conditions Générales d'Utilisation", "is_enabled": True},
+    {"page_name": "pricing",   "label": "Page Tarification",                    "is_enabled": True},
+    {"page_name": "cgu",       "label": "Conditions Générales d'Utilisation",   "is_enabled": True},
+    {"page_name": "demo_mode", "label": "Mode Démo (dashboard vide = tracks fictifs)", "is_enabled": False},
 ]
 
 

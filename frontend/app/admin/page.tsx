@@ -391,6 +391,8 @@ function PageTogglesView({ showToast }) {
     } catch { showToast("Erreur suppression", "error"); }
   };
 
+  const demoConfig = configs.find(c => c.page_name === "demo_mode");
+
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: DS.colors.text.muted }}><Loader size={20} style={{ animation: "spin 1s linear infinite" }} /> Chargement...</div>;
 
   return (
@@ -399,6 +401,30 @@ function PageTogglesView({ showToast }) {
         <h2 style={{ fontSize: 20, fontWeight: 700, color: DS.colors.text.primary, margin: 0 }}>Pages Actives</h2>
         <Btn icon={Plus} onClick={() => setShowAdd(true)}>Ajouter</Btn>
       </div>
+
+      {/* Mode Démo — section dédiée */}
+      <Card style={{ border: `1px solid ${demoConfig?.is_enabled ? "#f59e0b55" : DS.colors.border.subtle}` }}>
+        <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 22 }}>🎧</span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: DS.colors.text.primary }}>Mode Démo</div>
+              <div style={{ fontSize: 12, color: DS.colors.text.muted, marginTop: 2 }}>
+                Quand activé : un utilisateur sans track voit 6 tracks fictifs dans le dashboard.<br />
+                Quand désactivé : dashboard vide jusqu'au premier import.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: demoConfig?.is_enabled ? "#f59e0b" : DS.colors.text.muted }}>
+              {demoConfig?.is_enabled ? "✓ Activé" : "Désactivé"}
+            </span>
+            {demoConfig && (
+              <Toggle on={demoConfig.is_enabled} onToggle={() => handleToggle("demo_mode", demoConfig.is_enabled)} label="" />
+            )}
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <SectionHeader title="Toutes les pages" count={configs.length} icon={Globe} />

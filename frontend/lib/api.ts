@@ -923,3 +923,17 @@ export async function clearAllHistory(): Promise<{ deleted: number }> {
   });
   return res.json();
 }
+
+
+// ── Demo mode setting (public, no auth) ──────────────────────────────────────
+
+export async function getDemoMode(): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_URL}/admin/public/demo-mode`);
+    if (!r.ok) return false;
+    const data = await r.json();
+    return data.demo_mode === true;
+  } catch {
+    return false;
+  }
+}
