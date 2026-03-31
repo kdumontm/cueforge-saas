@@ -136,11 +136,8 @@ interface WaveSurferPlayerProps {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 // ── RGB spectral analysis — derivative approach (Rekordbox-style stacked bands) ──
-// High resolution: ~700 data points per second for pixel-perfect zoom
-function computeRGBWaveform(buf: AudioBuffer, numBars?: number): { r: number; g: number; b: number; amp: number }[] {
+function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: number; b: number; amp: number }[] {
   const data = buf.getChannelData(0);
-  // Auto-compute: ~1 point per 64 samples ≈ 689/sec at 44.1kHz
-  if (!numBars) numBars = Math.min(200000, Math.max(8000, Math.ceil(data.length / 64)));
   const segLen = Math.max(1, Math.floor(data.length / numBars));
 
   const bands: { lo: number; mi: number; hi: number; amp: number }[] = new Array(numBars);
@@ -188,271 +185,49 @@ function computeRGBWaveform(buf: AudioBuffer, numBars?: number): { r: number; g:
   });
 }
 
-// ── Draw stacked RGB bar (Rekordbox-style: red=bass bottom, green=mids middle, blue=highs top) ──
-function drawStackedBar(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  mid: number,
-  bass: number,
-  mids: number,
-  highs: number,
-  totalH: number,
-  alpha: number,
-  theme: WaveformTheme,
-  bright: number,
-) {
-  const total = bass + mids + highs;
-  if (total < 0.001) return;
-
-  // Each band gets proportional height
-  const bassH = (bass / total) * totalH;
-  const midsH = (mids / total) * totalH;
-  const highsH = (highs / total) * totalH;
-
-  const colors = theme.colors;
-  ctx.globalAlpha = alpha;
-
-  // Draw from bottom of bar going up: bass (red), mids (green), highs (blue)
-  let y = mid - totalH; // top of bar
-
-  // Highs (blue) — top
-  ctx.fillStyle = colors[2];
-  ctx.fillRect(x, y, 1, highsH);
-  y += highsH;
-
-  // Mids (green) — middle
-  ctx.fillStyle = colors[1];
-  ctx.fillRect(x, y, 1, midsH);
-  y += midsH;
-
-  // Bass (red) — bottom (closest to center line)
-  ctx.fillStyle = colors[0];
-  ctx.fillRect(x, y, 1, bassH);
-
-  ctx.globalAlpha = 1;
-}
-
-// ── Draw overview waveform ──
-function drawOverview(
-  ctx: CanvasRenderingContext2D,
+// ── Pre-render full waveform strip to an offscreen canvas (called ONCE) ──
+// Returns a canvas of width=numBars, height=stripHeight with stacked RGB bars
+function preRenderWaveformStrip(
   colors: { r: number; g: number; b: number; amp: number }[],
-  width: number,
-  height: number,
-  progress: number,
-  cuePoints: CuePoint[],
-  duration: number,
+  stripHeight: number,
   theme: WaveformTheme,
-) {
-  ctx.clearRect(0, 0, width, height);
-
-  const mid = height / 2;
+): HTMLCanvasElement {
   const numBars = colors.length;
+  const canvas = document.createElement('canvas');
+  canvas.width = numBars;
+  canvas.height = stripHeight;
+  const ctx = canvas.getContext('2d')!;
 
-  for (let x = 0; x < width; x++) {
-    const ci = Math.min(Math.floor((x / width) * numBars), numBars - 1);
-    const { r, g, b, amp } = colors[ci];
+  const mid = stripHeight / 2;
+
+  for (let i = 0; i < numBars; i++) {
+    const { r, g, b, amp } = colors[i];
     if (amp < 0.003) continue;
 
     const barH = Math.max(1, amp * mid * 0.92);
-    const bright = 0.6 + amp * 0.4;
-    const played = x / width < progress;
-
-    // Top half — stacked RGB
-    drawStackedBar(ctx, x, mid, r, g, b, barH, played ? 0.95 : 0.7, theme, bright);
-
-    // Bottom mirror — stacked RGB dimmer
-    ctx.save();
-    ctx.translate(0, mid + 1);
-    ctx.scale(1, 1);
-    const mirrorH = barH * 0.85;
-    const mirrorAlpha = played ? 0.35 : 0.2;
     const total = r + g + b;
-    if (total > 0.001) {
-      const bassH = (r / total) * mirrorH;
-      const midsH = (g / total) * mirrorH;
-      const highsH = (b / total) * mirrorH;
-      ctx.globalAlpha = mirrorAlpha;
-      // Mirror: bass on top (closest to center), highs at bottom
-      let y = 0;
-      ctx.fillStyle = theme.colors[0]; ctx.fillRect(x, y, 1, bassH); y += bassH;
-      ctx.fillStyle = theme.colors[1]; ctx.fillRect(x, y, 1, midsH); y += midsH;
-      ctx.fillStyle = theme.colors[2]; ctx.fillRect(x, y, 1, highsH);
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
+    if (total < 0.001) continue;
+
+    const bassH = (r / total) * barH;
+    const midsH = (g / total) * barH;
+    const highsH = (b / total) * barH;
+
+    // Top half: stacked (highs top, mids middle, bass bottom near center)
+    let y = mid - barH;
+    ctx.fillStyle = theme.colors[2]; ctx.fillRect(i, y, 1, highsH); y += highsH;
+    ctx.fillStyle = theme.colors[1]; ctx.fillRect(i, y, 1, midsH); y += midsH;
+    ctx.fillStyle = theme.colors[0]; ctx.fillRect(i, y, 1, bassH);
+
+    // Bottom mirror (bass near center, highs far)
+    ctx.globalAlpha = 0.35;
+    y = mid + 1;
+    ctx.fillStyle = theme.colors[0]; ctx.fillRect(i, y, 1, bassH * 0.85); y += bassH * 0.85;
+    ctx.fillStyle = theme.colors[1]; ctx.fillRect(i, y, 1, midsH * 0.85); y += midsH * 0.85;
+    ctx.fillStyle = theme.colors[2]; ctx.fillRect(i, y, 1, highsH * 0.85);
+    ctx.globalAlpha = 1;
   }
 
-  // Cue point markers
-  cuePoints.forEach((c) => {
-    const xPos = duration > 0 ? (c.position_ms / 1000 / duration) * width : 0;
-    const color = c.color || c.color_rgb || '#f59e0b';
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(xPos - 3, 0);
-    ctx.lineTo(xPos + 3, 0);
-    ctx.lineTo(xPos, 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = color + '66';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(xPos, 5);
-    ctx.lineTo(xPos, height);
-    ctx.stroke();
-  });
-
-  // Dim unplayed section
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillRect(progress * width, 0, width - progress * width, height);
-
-  // RED playback position line
-  const posX = progress * width;
-  ctx.strokeStyle = '#ff3333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(posX, 0);
-  ctx.lineTo(posX, height);
-  ctx.stroke();
-}
-
-// ── Draw zoomed detail waveform ──
-function drawDetail(
-  ctx: CanvasRenderingContext2D,
-  colors: { r: number; g: number; b: number; amp: number }[],
-  width: number,
-  height: number,
-  progress: number,
-  duration: number,
-  visibleSeconds: number,
-  cuePoints: CuePoint[],
-  theme: WaveformTheme,
-  loopIn: number | null,
-  loopOut: number | null,
-  loopActive: boolean,
-  bpm?: number,
-) {
-  ctx.clearRect(0, 0, width, height);
-
-  const mid = height / 2;
-  const numBars = colors.length;
-  const currentTime = progress * duration;
-  const secPerPx = visibleSeconds / width;
-  const startTime = currentTime - visibleSeconds / 2;
-
-  // Centre axis
-  ctx.fillStyle = 'rgba(255,255,255,0.05)';
-  ctx.fillRect(0, mid, width, 1);
-
-  // Beat grid
-  if (bpm && bpm > 0) {
-    const beatInterval = 60 / bpm;
-    const barInterval = beatInterval * 4;
-    const firstBeat = Math.floor(Math.max(0, startTime) / beatInterval) * beatInterval;
-
-    for (let t = firstBeat; t < startTime + visibleSeconds; t += beatInterval) {
-      if (t < 0) continue;
-      const x = (t - startTime) / secPerPx;
-      if (x < 0 || x >= width) continue;
-
-      const isBar = Math.abs((t / barInterval) - Math.round(t / barInterval)) < 0.01;
-      ctx.strokeStyle = isBar ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
-      ctx.lineWidth = isBar ? 1 : 0.5;
-      ctx.beginPath();
-      ctx.moveTo(Math.round(x) + 0.5, 0);
-      ctx.lineTo(Math.round(x) + 0.5, height);
-      ctx.stroke();
-    }
-  }
-
-  // Loop region overlay
-  if (loopIn !== null && loopOut !== null && loopIn < loopOut) {
-    const loopStartX = (loopIn - startTime) / secPerPx;
-    const loopEndX = (loopOut - startTime) / secPerPx;
-    const x1 = Math.max(0, loopStartX);
-    const x2 = Math.min(width, loopEndX);
-    if (x2 > x1) {
-      ctx.fillStyle = loopActive ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.08)';
-      ctx.fillRect(x1, 0, x2 - x1, height);
-      // Loop boundary lines
-      ctx.strokeStyle = loopActive ? '#10b981' : '#3b82f6';
-      ctx.lineWidth = 1.5;
-      if (loopStartX >= 0 && loopStartX < width) {
-        ctx.beginPath();
-        ctx.moveTo(loopStartX, 0);
-        ctx.lineTo(loopStartX, height);
-        ctx.stroke();
-      }
-      if (loopEndX >= 0 && loopEndX < width) {
-        ctx.beginPath();
-        ctx.moveTo(loopEndX, 0);
-        ctx.lineTo(loopEndX, height);
-        ctx.stroke();
-      }
-    }
-  }
-
-  // Waveform — stacked RGB bars (Rekordbox style)
-  for (let x = 0; x < width; x++) {
-    const t = startTime + x * secPerPx;
-    if (t < 0 || t > duration) continue;
-
-    const ci = Math.min(Math.floor((t / duration) * numBars), numBars - 1);
-    if (ci < 0 || ci >= numBars) continue;
-    const { r, g, b, amp } = colors[ci];
-    if (amp < 0.003) continue;
-
-    const barH = Math.max(1, amp * mid * 0.92);
-    const bright = 0.55 + amp * 0.45;
-
-    // Top half — stacked RGB
-    drawStackedBar(ctx, x, mid, r, g, b, barH, 0.9, theme, bright);
-
-    // Bottom mirror
-    const mirrorH = barH * 0.85;
-    const total = r + g + b;
-    if (total > 0.001) {
-      const bassH = (r / total) * mirrorH;
-      const midsH = (g / total) * mirrorH;
-      const highsH = (b / total) * mirrorH;
-      ctx.globalAlpha = 0.3;
-      let y = mid + 1;
-      ctx.fillStyle = theme.colors[0]; ctx.fillRect(x, y, 1, bassH); y += bassH;
-      ctx.fillStyle = theme.colors[1]; ctx.fillRect(x, y, 1, midsH); y += midsH;
-      ctx.fillStyle = theme.colors[2]; ctx.fillRect(x, y, 1, highsH);
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  // Cue point markers
-  cuePoints.forEach((c) => {
-    const cueTime = c.position_ms / 1000;
-    const x = (cueTime - startTime) / secPerPx;
-    if (x < -5 || x >= width + 5) return;
-
-    const color = c.color || c.color_rgb || '#f59e0b';
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x - 4, 0);
-    ctx.lineTo(x + 4, 0);
-    ctx.lineTo(x, 6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = color + '55';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, 6);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  });
-
-  // Fixed RED cursor at center
-  const centerX = Math.round(width / 2);
-  ctx.strokeStyle = '#ff3333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(centerX, 0);
-  ctx.lineTo(centerX, height);
-  ctx.stroke();
+  return canvas;
 }
 
 export default function WaveSurferPlayer({
@@ -509,6 +284,9 @@ export default function WaveSurferPlayer({
   const spectralColorsRef = useRef<{ r: number; g: number; b: number; amp: number }[] | null>(null);
   const [spectralReady, setSpectralReady] = useState(false);
 
+  // Pre-rendered waveform strip (rendered ONCE, blitted every frame)
+  const waveformStripRef = useRef<HTMLCanvasElement | null>(null);
+
   // EQ
   const eqLowRef = useRef<BiquadFilterNode | null>(null);
   const eqMidRef = useRef<BiquadFilterNode | null>(null);
@@ -551,8 +329,8 @@ export default function WaveSurferPlayer({
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  // ── Setup canvas sizes ──
-  const setupCanvasSize = useCallback((canvas: HTMLCanvasElement, container: HTMLDivElement) => {
+  // ── Setup canvas sizes + cache dimensions ──
+  const setupCanvasSize = useCallback((canvas: HTMLCanvasElement, container: HTMLDivElement, sizeRef: React.MutableRefObject<{ w: number; h: number }>) => {
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     canvas.width = Math.round(rect.width * dpr);
@@ -561,54 +339,156 @@ export default function WaveSurferPlayer({
     canvas.style.height = `${rect.height}px`;
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(dpr, dpr);
+    sizeRef.current = { w: rect.width, h: rect.height };
     return { width: rect.width, height: rect.height };
   }, []);
 
-  // ── Animation loop ──
-  const renderFrame = useCallback(() => {
+  // ── Cached canvas dimensions (avoid getBoundingClientRect every frame) ──
+  const overviewSizeRef = useRef({ w: 0, h: 0 });
+  const detailSizeRef = useRef({ w: 0, h: 0 });
+
+  // ── Build/rebuild the pre-rendered waveform strip when data or theme changes ──
+  const buildStrip = useCallback(() => {
     const colors = spectralColorsRef.current;
-    if (!colors) {
+    if (!colors) return;
+    const theme = WAVEFORM_THEMES.find((t) => t.id === themeRef.current) || WAVEFORM_THEMES[0];
+    waveformStripRef.current = preRenderWaveformStrip(colors, 256, theme);
+  }, []);
+
+  // Rebuild strip when theme changes
+  useEffect(() => {
+    if (spectralReady) buildStrip();
+  }, [waveformTheme, spectralReady, buildStrip]);
+
+  // ── Animation loop — FAST: just drawImage + lightweight overlays ──
+  const renderFrame = useCallback(() => {
+    const strip = waveformStripRef.current;
+    if (!strip) {
       rafRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
     const dur = durationRef.current;
     let time = currentTimeRef.current;
-
     const audio = audioRef.current;
     if (audio && !audio.paused) {
       time = audio.currentTime;
       currentTimeRef.current = time;
     }
-
     const progress = dur > 0 ? time / dur : 0;
-    const theme = WAVEFORM_THEMES.find((t) => t.id === themeRef.current) || WAVEFORM_THEMES[0];
+    const numBars = strip.width;
 
-    // Draw overview
-    const overviewCanvas = overviewCanvasRef.current;
-    const overviewContainer = overviewContainerRef.current;
-    if (overviewCanvas && overviewContainer) {
-      const ctx = overviewCanvas.getContext('2d');
-      if (ctx) {
-        const rect = overviewContainer.getBoundingClientRect();
-        drawOverview(ctx, colors, rect.width, rect.height, progress, cuePoints, dur, theme);
-      }
+    // ── OVERVIEW: drawImage from strip + overlays ──
+    const oc = overviewCanvasRef.current;
+    const ocSize = overviewSizeRef.current;
+    if (oc && ocSize.w > 0) {
+      const ctx = oc.getContext('2d')!;
+      const w = ocSize.w, h = ocSize.h;
+      ctx.clearRect(0, 0, w, h);
+
+      // Blit the pre-rendered strip scaled to overview size
+      ctx.drawImage(strip, 0, 0, numBars, 256, 0, 0, w, h);
+
+      // Dim unplayed
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(progress * w, 0, w - progress * w, h);
+
+      // Cue points
+      cuePoints.forEach((c) => {
+        const xPos = dur > 0 ? (c.position_ms / 1000 / dur) * w : 0;
+        const color = c.color || c.color_rgb || '#f59e0b';
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.moveTo(xPos - 3, 0); ctx.lineTo(xPos + 3, 0); ctx.lineTo(xPos, 5); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = color + '66'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xPos, 5); ctx.lineTo(xPos, h); ctx.stroke();
+      });
+
+      // Red cursor
+      const posX = progress * w;
+      ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(posX, 0); ctx.lineTo(posX, h); ctx.stroke();
     }
 
-    // Draw detail
-    const detailCanvas = detailCanvasRef.current;
-    const detailContainer = detailContainerRef.current;
-    if (detailCanvas && detailContainer) {
-      const ctx = detailCanvas.getContext('2d');
-      if (ctx) {
-        const rect = detailContainer.getBoundingClientRect();
-        drawDetail(
-          ctx, colors, rect.width, rect.height, progress, dur,
-          visibleSecondsRef.current, cuePoints, theme,
-          loopInRef.current, loopOutRef.current, loopActiveRef.current,
-          bpmRef.current,
-        );
+    // ── DETAIL: crop strip around current time + overlays ──
+    const dc = detailCanvasRef.current;
+    const dcSize = detailSizeRef.current;
+    if (dc && dcSize.w > 0) {
+      const ctx = dc.getContext('2d')!;
+      const w = dcSize.w, h = dcSize.h;
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.fillRect(0, h / 2, w, 1);
+
+      const visSec = visibleSecondsRef.current;
+      const currentT = progress * dur;
+      const startTime = currentT - visSec / 2;
+      const secPerPx = visSec / w;
+
+      // Beat grid
+      const bpm = bpmRef.current;
+      if (bpm && bpm > 0) {
+        const beatInt = 60 / bpm;
+        const barInt = beatInt * 4;
+        const firstBeat = Math.floor(Math.max(0, startTime) / beatInt) * beatInt;
+        for (let t = firstBeat; t < startTime + visSec; t += beatInt) {
+          if (t < 0) continue;
+          const x = (t - startTime) / secPerPx;
+          if (x < 0 || x >= w) continue;
+          const isBar = Math.abs((t / barInt) - Math.round(t / barInt)) < 0.01;
+          ctx.strokeStyle = isBar ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+          ctx.lineWidth = isBar ? 1 : 0.5;
+          ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, h); ctx.stroke();
+        }
       }
+
+      // Loop region
+      const lIn = loopInRef.current, lOut = loopOutRef.current, lAct = loopActiveRef.current;
+      if (lIn !== null && lOut !== null && lIn < lOut) {
+        const lsx = (lIn - startTime) / secPerPx;
+        const lex = (lOut - startTime) / secPerPx;
+        const x1 = Math.max(0, lsx), x2 = Math.min(w, lex);
+        if (x2 > x1) {
+          ctx.fillStyle = lAct ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.08)';
+          ctx.fillRect(x1, 0, x2 - x1, h);
+          ctx.strokeStyle = lAct ? '#10b981' : '#3b82f6'; ctx.lineWidth = 1.5;
+          if (lsx >= 0 && lsx < w) { ctx.beginPath(); ctx.moveTo(lsx, 0); ctx.lineTo(lsx, h); ctx.stroke(); }
+          if (lex >= 0 && lex < w) { ctx.beginPath(); ctx.moveTo(lex, 0); ctx.lineTo(lex, h); ctx.stroke(); }
+        }
+      }
+
+      // Blit waveform strip — crop the section around current time
+      // Map time range [startTime, startTime+visSec] to strip pixel range
+      const srcX = Math.max(0, (startTime / dur) * numBars);
+      const srcW = (visSec / dur) * numBars;
+      const clampedSrcX = Math.max(0, srcX);
+      const clampedSrcEnd = Math.min(numBars, srcX + srcW);
+      const clampedSrcW = clampedSrcEnd - clampedSrcX;
+
+      if (clampedSrcW > 0) {
+        // Map to destination
+        const dstX = ((clampedSrcX - srcX) / srcW) * w;
+        const dstW = (clampedSrcW / srcW) * w;
+        ctx.drawImage(strip, clampedSrcX, 0, clampedSrcW, 256, dstX, 0, dstW, h);
+      }
+
+      // Cue points
+      cuePoints.forEach((c) => {
+        const cueT = c.position_ms / 1000;
+        const x = (cueT - startTime) / secPerPx;
+        if (x < -5 || x >= w + 5) return;
+        const color = c.color || c.color_rgb || '#f59e0b';
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.moveTo(x - 4, 0); ctx.lineTo(x + 4, 0); ctx.lineTo(x, 6); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = color + '55'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, 6); ctx.lineTo(x, h); ctx.stroke();
+      });
+
+      // Fixed red cursor at center
+      const cx = Math.round(w / 2);
+      ctx.strokeStyle = '#ff3333'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
     }
 
     rafRef.current = requestAnimationFrame(renderFrame);
@@ -617,26 +497,27 @@ export default function WaveSurferPlayer({
   // ── Start/stop animation ──
   useEffect(() => {
     if (spectralReady) {
+      buildStrip();
       if (overviewCanvasRef.current && overviewContainerRef.current) {
-        setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current);
+        setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
       }
       if (detailCanvasRef.current && detailContainerRef.current) {
-        setupCanvasSize(detailCanvasRef.current, detailContainerRef.current);
+        setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
       }
       rafRef.current = requestAnimationFrame(renderFrame);
     }
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [spectralReady, renderFrame, setupCanvasSize]);
+  }, [spectralReady, renderFrame, setupCanvasSize, buildStrip]);
 
   // Resize handler
   useEffect(() => {
     const handleResize = () => {
       if (overviewCanvasRef.current && overviewContainerRef.current)
-        setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current);
+        setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
       if (detailCanvasRef.current && detailContainerRef.current)
-        setupCanvasSize(detailCanvasRef.current, detailContainerRef.current);
+        setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
