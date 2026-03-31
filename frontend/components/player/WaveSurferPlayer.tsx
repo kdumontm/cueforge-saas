@@ -551,40 +551,54 @@ export default function WaveSurferPlayer({
 
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
-      ws.load(url);
 
-      // Safety: if WaveSurfer doesn't fire 'ready' within 30s, show error
+      // Pre-decode audio to get peaks — avoids WaveSurfer's internal decoding
+      // which can hang on certain OGG/Vorbis files in Chrome.
+      const arrayBuffer = await blob.arrayBuffer();
+      if (abort.signal.aborted) return;
+
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      await audioCtx.resume();
+      let decoded: AudioBuffer;
+      try {
+        decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch (decErr) {
+        console.error('[CueForge] decodeAudioData failed:', decErr);
+        audioCtx.close().catch(() => {});
+        setError('Impossible de décoder l\'audio');
+        setLoading(false);
+        return;
+      }
+      if (abort.signal.aborted) { audioCtx.close().catch(() => {}); return; }
+
+      console.log(`[CueForge] Audio decoded: ${decoded.duration.toFixed(1)}s, ${decoded.numberOfChannels}ch, ${decoded.sampleRate}Hz`);
+
+      const ch0 = decoded.getChannelData(0);
+      const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : ch0;
+
+      // Compute RGB spectral waveform from the same decoded buffer (no double decode)
+      try {
+        const rgbColors = computeRGBWaveform(decoded);
+        spectralColorsRef.current = rgbColors;
+        setSpectralReady(true);
+      } catch (e) {
+        console.warn('[CueForge] RGB waveform computation failed:', e);
+      }
+
+      audioCtx.close().catch(() => {});
+      if (abort.signal.aborted) return;
+
+      // Load with pre-decoded peaks — WaveSurfer skips internal decoding
+      ws.load(url, [ch0, ch1], decoded.duration);
+
+      // Safety: if WaveSurfer doesn't fire 'ready' within 15s, show error
       (ws as any).__readyTimeout = setTimeout(() => {
         if (!abort.signal.aborted && !ws.isReady?.()) {
-          console.warn('[CueForge] WaveSurfer ready timeout (30s)');
+          console.warn('[CueForge] WaveSurfer ready timeout (15s)');
           setError('Décodage audio trop long — format non supporté ?');
           setLoading(false);
         }
-      }, 30000);
-
-      // RGB waveform computation — runs AFTER ws.load so waveform appears quickly
-      // Uses requestIdleCallback to not block the main thread
-      const computeSpectral = async () => {
-        try {
-          const arrayBuffer = await blob.arrayBuffer();
-          if (abort.signal.aborted) return;
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const decoded = await audioContext.decodeAudioData(arrayBuffer);
-          audioContext.close().catch(() => {});
-          if (abort.signal.aborted) return;
-          const rgbColors = computeRGBWaveform(decoded);
-          spectralColorsRef.current = rgbColors;
-          setSpectralReady(true);
-        } catch (e) {
-          console.warn('[CueForge] RGB waveform computation failed:', e);
-        }
-      };
-      // Defer spectral computation to not block waveform display
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(() => computeSpectral());
-      } else {
-        setTimeout(() => computeSpectral(), 100);
-      }
+      }, 15000);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       console.warn('Audio load error (demo mode?):', e);
