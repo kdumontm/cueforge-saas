@@ -271,8 +271,8 @@ export default function WaveSurferPlayer({
           barWidth: 2,
           barGap: 1,
           barRadius: 3,
-          waveColor: ['#ef4444cc', '#22c55ecc', '#3b82f6cc'],
-          progressColor: ['#ef4444', '#22c55e', '#3b82f6'],
+          waveColor: 'transparent',
+          progressColor: 'transparent',
           renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
             const colors = spectralColorsRef.current;
             const { width, height: h } = ctx.canvas;
