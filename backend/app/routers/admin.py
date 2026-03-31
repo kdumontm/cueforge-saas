@@ -1164,3 +1164,73 @@ async def get_public_features(db: Session = Depends(get_db)):
     """Liste des features par plan pour la page pricing."""
     features = db.query(PlanFeature).filter(PlanFeature.is_enabled == True).all()
     return [_serialize_feature(f) for f in features]
+
+
+# ═══════════════════════════════════════════════
+# Maintenance / Test utilities
+# ═══════════════════════════════════════════════
+
+class ClearTracksRequest(BaseModel):
+    confirm: str  # doit valoir "CONFIRMER" pour éviter les fausses manœuvres
+
+
+@router.delete("/maintenance/clear-tracks")
+async def clear_all_tracks(
+    req: ClearTracksRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    ⚠️  SUPPRIME toutes les pistes de la BDD (tests seulement).
+    Nécessite is_admin == True + body {"confirm": "CONFIRMER"}.
+    Supprime dans l'ordre : track_analyses, cue_points, cue_rules, hot_cues, play_history, tracks.
+    """
+    if req.confirm != "CONFIRMER":
+        raise HTTPException(
+            status_code=400,
+            detail='Passe {"confirm": "CONFIRMER"} pour valider la suppression.',
+        )
+
+    from sqlalchemy import text as sql_text
+    from app.models.track import Track, TrackAnalysis, CuePoint, CueRule
+    from app.models.library import HotCue, PlayHistory
+    from app.models.organization import UsageLog
+
+    # Supprimer dans l'ordre des dépendances FK
+    deleted_analyses   = db.query(TrackAnalysis).delete(synchronize_session=False)
+    deleted_cue_points = db.query(CuePoint).delete(synchronize_session=False)
+    deleted_cue_rules  = db.query(CueRule).delete(synchronize_session=False)
+
+    # HotCue et PlayHistory ont ondelete CASCADE mais on les supprime explicitement
+    try:
+        deleted_hot_cues = db.query(HotCue).delete(synchronize_session=False)
+    except Exception:
+        deleted_hot_cues = 0
+    try:
+        deleted_play_history = db.query(PlayHistory).delete(synchronize_session=False)
+    except Exception:
+        deleted_play_history = 0
+
+    # Usage logs liés aux uploads (optionnel — on remet le compteur à zéro)
+    db.query(UsageLog).filter(UsageLog.action == "upload").delete(synchronize_session=False)
+
+    # Remettre tracks_today à 0 sur tous les users
+    from app.models.user import User as UserModel
+    db.query(UserModel).update({"tracks_today": 0}, synchronize_session=False)
+
+    # Enfin les tracks
+    deleted_tracks = db.query(Track).delete(synchronize_session=False)
+
+    db.commit()
+
+    return {
+        "message": "✅ Base de données nettoyée pour les tests.",
+        "deleted": {
+            "tracks": deleted_tracks,
+            "analyses": deleted_analyses,
+            "cue_points": deleted_cue_points,
+            "cue_rules": deleted_cue_rules,
+            "hot_cues": deleted_hot_cues,
+            "play_history": deleted_play_history,
+        },
+    }
