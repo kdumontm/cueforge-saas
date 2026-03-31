@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, Bell, X } from 'lucide-react';
+import { Search, Sun, Moon, Bell, X, Upload, Download } from 'lucide-react';
+import Link from 'next/link';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 
@@ -55,6 +56,24 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
+        {/* Import / Export — accès rapide */}
+        <Link
+          href="/dashboard/upload"
+          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
+          title="Importer des tracks"
+        >
+          <Upload size={12} />
+          Import
+        </Link>
+        <Link
+          href="/dashboard/export"
+          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
+          title="Exporter"
+        >
+          <Download size={12} />
+          Export
+        </Link>
+
         {/* Auto-analyse toggle */}
         <button
           onClick={() => setAutoAnalyze(p => !p)}
