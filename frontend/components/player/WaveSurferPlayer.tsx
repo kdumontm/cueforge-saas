@@ -510,18 +510,13 @@ export default function WaveSurferPlayer({
       return;
     }
 
-    const ws = wsRef.current;
     const dur = durationRef.current;
     let time = currentTimeRef.current;
 
-    if (ws) {
-      try {
-        const t = ws.getCurrentTime?.();
-        if (typeof t === 'number' && t >= 0) {
-          time = t;
-          currentTimeRef.current = t;
-        }
-      } catch {}
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      time = audio.currentTime;
+      currentTimeRef.current = time;
     }
 
     const progress = dur > 0 ? time / dur : 0;
@@ -585,181 +580,146 @@ export default function WaveSurferPlayer({
     return () => window.removeEventListener('resize', handleResize);
   }, [setupCanvasSize]);
 
-  // ── Init WaveSurfer (audio engine only) ──
+  // ── Audio element ref (replaces wavesurfer) ──
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ── Init audio engine (native <audio> — no wavesurfer, no timeout) ──
   useEffect(() => {
     let destroyed = false;
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.volume = volumeRef.current;
+    audioRef.current = audio;
+    wsRef.current = audio; // keep wsRef for compat
 
-    (async () => {
+    const onLoadedMetadata = () => {
+      if (destroyed) return;
+      const dur = audio.duration || 0;
+      console.log(`[CueForge] Audio ready — duration: ${dur}s`);
+      setDuration(dur);
+      durationRef.current = dur;
+      setIsReady(true);
+      setLoading(false);
+      setError(null);
+
+      // Setup EQ
       try {
-        const WaveSurfer = (await import('wavesurfer.js')).default;
-        if (destroyed) return;
-
-        // Create a tiny but visible container so WaveSurfer fires 'ready'
-        const hiddenDiv = document.createElement('div');
-        hiddenDiv.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
-        document.body.appendChild(hiddenDiv);
-
-        const ws = WaveSurfer.create({
-          container: hiddenDiv,
-          height: 1,
-          normalize: true,
-          interact: false,
-          cursorWidth: 0,
-          waveColor: 'transparent',
-          progressColor: 'transparent',
-          barWidth: 0,
-        });
-
-        ws.on('ready', (dur: number) => {
-          if (destroyed) return;
-          console.log(`[CueForge] WaveSurfer ready — duration: ${dur}s`);
-          setDuration(dur);
-          durationRef.current = dur;
-          setIsReady(true);
-          setLoading(false);
-          setError(null);
-          if ((ws as any).__readyTimeout) {
-            clearTimeout((ws as any).__readyTimeout);
-            (ws as any).__readyTimeout = null;
-          }
-
-          // Setup EQ
-          try {
-            const mediaEl = ws.getMediaElement?.();
-            if (mediaEl && !eqContextRef.current) {
-              const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              const source = audioCtx.createMediaElementSource(mediaEl);
-              const lowFilter = audioCtx.createBiquadFilter();
-              lowFilter.type = 'lowshelf'; lowFilter.frequency.value = 250; lowFilter.gain.value = 0;
-              const midFilter = audioCtx.createBiquadFilter();
-              midFilter.type = 'peaking'; midFilter.frequency.value = 1000; midFilter.Q.value = 1; midFilter.gain.value = 0;
-              const highFilter = audioCtx.createBiquadFilter();
-              highFilter.type = 'highshelf'; highFilter.frequency.value = 4000; highFilter.gain.value = 0;
-              source.connect(lowFilter).connect(midFilter).connect(highFilter).connect(audioCtx.destination);
-              eqLowRef.current = lowFilter;
-              eqMidRef.current = midFilter;
-              eqHighRef.current = highFilter;
-              eqContextRef.current = audioCtx;
-            }
-          } catch {}
-        });
-
-        ws.on('play', () => {
-          if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); }
-        });
-        ws.on('pause', () => !destroyed && setIsPlaying(false));
-        ws.on('finish', () => !destroyed && setIsPlaying(false));
-        ws.on('timeupdate', (t: number) => {
-          if (destroyed) return;
-          currentTimeRef.current = t;
-          setCurrentTime(t);
-          onTimeUpdate?.(t * 1000);
-          // Loop enforcement
-          if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
-            const dur = ws.getDuration();
-            if (dur > 0) ws.seekTo(loopInRef.current / dur);
-          }
-        });
-        ws.on('error', (err: any) => {
-          if (!destroyed) {
-            console.warn('WaveSurfer error:', err);
-            setError('Audio non disponible');
-            setLoading(false);
-          }
-        });
-
-        wsRef.current = ws;
-        (wsRef.current as any).__hiddenDiv = hiddenDiv;
-
-        // Expose controls
-        if (playerRef) {
-          playerRef.current = {
-            playPause: () => ws.playPause(),
-            skip: (s: number) => ws.skip(s),
-            seekTo: (ms: number) => {
-              const dur = ws.getDuration();
-              if (dur > 0) ws.seekTo(Math.max(0, Math.min(1, ms / 1000 / dur)));
-            },
-            setVolume: (v: number) => {
-              const vol = Math.max(0, Math.min(1, v));
-              setVolumeState(vol);
-              volumeRef.current = vol;
-              ws.setVolume(vol);
-            },
-            toggleMute: () => {
-              setMuted((prev) => {
-                const next = !prev;
-                ws.setVolume(next ? 0 : volumeRef.current || 0.8);
-                return next;
-              });
-            },
-            setLoopIn: () => {
-              const t = currentTimeRef.current;
-              setLoopIn(t);
-              loopInRef.current = t;
-            },
-            setLoopOut: () => {
-              const t = currentTimeRef.current;
-              setLoopOut(t);
-              loopOutRef.current = t;
-              if (loopInRef.current !== null && t > loopInRef.current) {
-                setLoopActive(true);
-                loopActiveRef.current = true;
-              }
-            },
-            toggleLoop: () => {
-              if (loopInRef.current !== null && loopOutRef.current !== null && loopInRef.current < loopOutRef.current) {
-                setLoopActive((prev) => {
-                  const next = !prev;
-                  loopActiveRef.current = next;
-                  return next;
-                });
-              }
-            },
-            setLoop: (inMs: number, outMs: number) => {
-              const inSec = inMs / 1000;
-              const outSec = outMs / 1000;
-              setLoopIn(inSec); setLoopOut(outSec);
-              loopInRef.current = inSec; loopOutRef.current = outSec;
-              setLoopActive(true); loopActiveRef.current = true;
-              const dur = ws.getDuration();
-              if (dur > 0) ws.seekTo(Math.max(0, Math.min(1, inSec / dur)));
-            },
-            setPlaybackRate: (rate: number) => {
-              try {
-                const mediaEl = ws.getMediaElement?.();
-                if (mediaEl) mediaEl.playbackRate = rate;
-              } catch {}
-            },
-            setEQ: (low: number, mid: number, high: number) => {
-              if (eqLowRef.current) eqLowRef.current.gain.value = low;
-              if (eqMidRef.current) eqMidRef.current.gain.value = mid;
-              if (eqHighRef.current) eqHighRef.current.gain.value = high;
-              eqContextRef.current?.resume().catch(() => {});
-            },
-          };
+        if (!eqContextRef.current) {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const source = audioCtx.createMediaElementSource(audio);
+          const lowFilter = audioCtx.createBiquadFilter();
+          lowFilter.type = 'lowshelf'; lowFilter.frequency.value = 250; lowFilter.gain.value = 0;
+          const midFilter = audioCtx.createBiquadFilter();
+          midFilter.type = 'peaking'; midFilter.frequency.value = 1000; midFilter.Q.value = 1; midFilter.gain.value = 0;
+          const highFilter = audioCtx.createBiquadFilter();
+          highFilter.type = 'highshelf'; highFilter.frequency.value = 4000; highFilter.gain.value = 0;
+          source.connect(lowFilter).connect(midFilter).connect(highFilter).connect(audioCtx.destination);
+          eqLowRef.current = lowFilter;
+          eqMidRef.current = midFilter;
+          eqHighRef.current = highFilter;
+          eqContextRef.current = audioCtx;
         }
+      } catch {}
+    };
 
-        await loadAudio(trackId, ws);
-        prevTrackIdRef.current = trackId;
-      } catch (e) {
-        if (!destroyed) {
-          console.error('WaveSurfer init error:', e);
-          setError('Impossible de charger le lecteur');
-          setLoading(false);
-        }
+    const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); } };
+    const onPause = () => { if (!destroyed) setIsPlaying(false); };
+    const onEnded = () => { if (!destroyed) setIsPlaying(false); };
+    const onTimeUpdate = () => {
+      if (destroyed) return;
+      const t = audio.currentTime;
+      currentTimeRef.current = t;
+      setCurrentTime(t);
+      onTimeUpdate?.(t * 1000);
+      // Loop enforcement
+      if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
+        audio.currentTime = loopInRef.current;
       }
-    })();
+    };
+    const onError = () => {
+      if (!destroyed) {
+        console.warn('Audio error:', audio.error);
+        setError('Audio non disponible');
+        setLoading(false);
+      }
+    };
+
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('error', onError);
+
+    // Expose controls to parent
+    if (playerRef) {
+      playerRef.current = {
+        playPause: () => { audio.paused ? audio.play().catch(() => {}) : audio.pause(); },
+        skip: (s: number) => { audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + s)); },
+        seekTo: (ms: number) => { audio.currentTime = Math.max(0, Math.min(audio.duration || 0, ms / 1000)); },
+        setVolume: (v: number) => {
+          const vol = Math.max(0, Math.min(1, v));
+          setVolumeState(vol);
+          volumeRef.current = vol;
+          audio.volume = vol;
+        },
+        toggleMute: () => {
+          setMuted((prev) => {
+            const next = !prev;
+            audio.volume = next ? 0 : volumeRef.current || 0.8;
+            return next;
+          });
+        },
+        setLoopIn: () => {
+          const t = currentTimeRef.current;
+          setLoopIn(t); loopInRef.current = t;
+        },
+        setLoopOut: () => {
+          const t = currentTimeRef.current;
+          setLoopOut(t); loopOutRef.current = t;
+          if (loopInRef.current !== null && t > loopInRef.current) {
+            setLoopActive(true); loopActiveRef.current = true;
+          }
+        },
+        toggleLoop: () => {
+          if (loopInRef.current !== null && loopOutRef.current !== null && loopInRef.current < loopOutRef.current) {
+            setLoopActive((prev) => { const next = !prev; loopActiveRef.current = next; return next; });
+          }
+        },
+        setLoop: (inMs: number, outMs: number) => {
+          const inSec = inMs / 1000; const outSec = outMs / 1000;
+          setLoopIn(inSec); setLoopOut(outSec);
+          loopInRef.current = inSec; loopOutRef.current = outSec;
+          setLoopActive(true); loopActiveRef.current = true;
+          audio.currentTime = inSec;
+        },
+        setPlaybackRate: (rate: number) => { audio.playbackRate = rate; },
+        setEQ: (low: number, mid: number, high: number) => {
+          if (eqLowRef.current) eqLowRef.current.gain.value = low;
+          if (eqMidRef.current) eqMidRef.current.gain.value = mid;
+          if (eqHighRef.current) eqHighRef.current.gain.value = high;
+          eqContextRef.current?.resume().catch(() => {});
+        },
+      };
+    }
+
+    loadAudio(trackId, audio);
+    prevTrackIdRef.current = trackId;
 
     return () => {
       destroyed = true;
       abortRef.current?.abort();
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      if ((wsRef.current as any)?.__readyTimeout) clearTimeout((wsRef.current as any).__readyTimeout);
-      const hiddenDiv = (wsRef.current as any)?.__hiddenDiv;
-      wsRef.current?.destroy();
+      audio.pause();
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('error', onError);
+      audio.src = '';
+      audioRef.current = null;
       wsRef.current = null;
-      if (hiddenDiv?.parentNode) hiddenDiv.parentNode.removeChild(hiddenDiv);
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
       if (playerRef) playerRef.current = null;
       try { eqContextRef.current?.close(); } catch {}
       eqContextRef.current = null;
@@ -768,25 +728,17 @@ export default function WaveSurferPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load audio ──
-  const loadAudio = useCallback(async (id: number, ws: any) => {
+  // ── Load audio (native) ──
+  const loadAudio = useCallback(async (id: number, audio: HTMLAudioElement) => {
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
 
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
 
-    setIsReady(false);
-    setLoading(true);
-    setError(null);
-    setCurrentTime(0);
-    currentTimeRef.current = 0;
-    setIsPlaying(false);
-    spectralColorsRef.current = null;
-    setSpectralReady(false);
+    setIsReady(false); setLoading(true); setError(null);
+    setCurrentTime(0); currentTimeRef.current = 0; setIsPlaying(false);
+    spectralColorsRef.current = null; setSpectralReady(false);
     setLoopIn(null); setLoopOut(null); setLoopActive(false);
     loopInRef.current = null; loopOutRef.current = null; loopActiveRef.current = false;
 
@@ -798,11 +750,9 @@ export default function WaveSurferPlayer({
 
       const downloadTimeout = setTimeout(() => {
         if (!abort.signal.aborted) {
-          abort.abort();
-          setError('Chargement trop long — réessayez');
-          setLoading(false);
+          abort.abort(); setError('Chargement trop long — réessayez'); setLoading(false);
         }
-      }, 45000);
+      }, 60000);
 
       const res = await fetch(audioUrl, {
         signal: abort.signal,
@@ -813,92 +763,59 @@ export default function WaveSurferPlayer({
       clearTimeout(downloadTimeout);
       if (abort.signal.aborted) return;
 
+      console.log(`[CueForge] Audio loaded: ${(blob.size / 1024 / 1024).toFixed(1)} MB (${blob.type})`);
+
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
 
-      // Decode for spectral analysis
-      const arrayBuffer = await blob.arrayBuffer();
-      if (abort.signal.aborted) return;
+      // Set audio source — this triggers loadedmetadata when ready
+      audio.src = url;
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      await audioCtx.resume();
-      let decoded: AudioBuffer;
+      // Decode for spectral waveform (in parallel, doesn't block playback)
       try {
-        decoded = await audioCtx.decodeAudioData(arrayBuffer);
-      } catch (decErr) {
-        console.error('[CueForge] decodeAudioData failed:', decErr);
+        const arrayBuffer = await blob.arrayBuffer();
+        if (abort.signal.aborted) return;
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        await audioCtx.resume();
+        const decoded = await audioCtx.decodeAudioData(arrayBuffer);
         audioCtx.close().catch(() => {});
-        setError("Impossible de décoder l'audio");
-        setLoading(false);
-        return;
-      }
-      if (abort.signal.aborted) { audioCtx.close().catch(() => {}); return; }
-
-      // Compute spectral colors
-      try {
+        if (abort.signal.aborted) return;
         const rgbColors = computeRGBWaveform(decoded);
         spectralColorsRef.current = rgbColors;
         setSpectralReady(true);
+        console.log(`[CueForge] Spectral waveform computed: ${rgbColors.length} bars`);
       } catch (e) {
-        console.warn('[CueForge] RGB waveform computation failed:', e);
+        console.warn('[CueForge] Spectral computation failed (audio still plays):', e);
       }
-
-      const ch0 = decoded.getChannelData(0);
-      const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : ch0;
-      audioCtx.close().catch(() => {});
-      if (abort.signal.aborted) return;
-
-      ws.load(url, [ch0, ch1], decoded.duration);
-
-      // Safety timeout — 30s instead of 15s
-      (ws as any).__readyTimeout = setTimeout(() => {
-        if (!abort.signal.aborted) {
-          // If spectral is ready, audio works — just mark as ready
-          if (spectralColorsRef.current) {
-            console.warn('[CueForge] WaveSurfer ready timeout — forcing ready (spectral OK)');
-            setIsReady(true);
-            setLoading(false);
-            durationRef.current = decoded.duration;
-            setDuration(decoded.duration);
-          } else {
-            setError('Décodage audio trop long');
-            setLoading(false);
-          }
-        }
-      }, 30000);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       console.warn('Audio load error:', e);
-      if (id < 0) {
-        setLoading(false); setIsReady(true);
-      } else {
-        setError('Fichier audio introuvable');
-        setLoading(false);
-      }
+      if (id < 0) { setLoading(false); setIsReady(true); }
+      else { setError('Fichier audio introuvable'); setLoading(false); }
     }
   }, []);
 
   // Track change
   useEffect(() => {
-    if (!wsRef.current || prevTrackIdRef.current === trackId) return;
+    if (!audioRef.current || prevTrackIdRef.current === trackId) return;
     prevTrackIdRef.current = trackId;
-    loadAudio(trackId, wsRef.current);
+    loadAudio(trackId, audioRef.current);
   }, [trackId, loadAudio]);
 
   // ── Click on overview → seek ──
   const handleOverviewClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const ws = wsRef.current;
-    if (!ws || !isReady) return;
+    const audio = audioRef.current;
+    if (!audio || !isReady) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    ws.seekTo(progress);
+    audio.currentTime = progress * durationRef.current;
     onSeek?.(progress * durationRef.current * 1000);
   }, [isReady, onSeek]);
 
   // ── Click on detail → seek ──
   const handleDetailClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const ws = wsRef.current;
-    if (!ws || !isReady) return;
+    const audio = audioRef.current;
+    if (!audio || !isReady) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const secPerPx = visibleSecondsRef.current / rect.width;
@@ -906,29 +823,56 @@ export default function WaveSurferPlayer({
     const clickTime = startTime + x * secPerPx;
     const dur = durationRef.current;
     if (dur > 0) {
-      const seekPos = Math.max(0, Math.min(1, clickTime / dur));
-      ws.seekTo(seekPos);
-      onSeek?.(seekPos * dur * 1000);
-      onWaveformClick?.(seekPos * dur * 1000);
+      const seekTime = Math.max(0, Math.min(dur, clickTime));
+      audio.currentTime = seekTime;
+      onSeek?.(seekTime * 1000);
+      onWaveformClick?.(seekTime * 1000);
     }
   }, [isReady, onSeek, onWaveformClick]);
 
-  // ── Ctrl+Scroll zoom on detail ──
+  // ── Zoom: Ctrl+Scroll OR Mac trackpad pinch-to-zoom ──
+  // On Mac, pinch-to-zoom fires wheel events with ctrlKey=true (synthetic)
+  // We also listen for gesturestart/gesturechange for Safari
   useEffect(() => {
     const el = detailContainerRef.current;
     if (!el) return;
-    const handler = (e: WheelEvent) => {
+
+    // Wheel handler (works for Ctrl+Scroll AND Mac trackpad pinch in Chrome)
+    const wheelHandler = (e: WheelEvent) => {
+      // Mac trackpad pinch sends ctrlKey=true with fractional deltaY
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
+      e.stopPropagation();
       setVisibleSeconds((prev) => {
+        const factor = Math.abs(e.deltaY) < 10 ? 1.08 : 1.25; // smaller steps for trackpad
         const next = e.deltaY > 0
-          ? Math.min(prev * 1.3, 120) // zoom out
-          : Math.max(prev / 1.3, 3);  // zoom in
+          ? Math.min(prev * factor, 120)  // zoom out
+          : Math.max(prev / factor, 3);   // zoom in
         return next;
       });
     };
-    el.addEventListener('wheel', handler, { passive: false });
-    return () => el.removeEventListener('wheel', handler);
+
+    // Gesture handler for Safari trackpad
+    let lastScale = 1;
+    const gestureStart = (e: any) => { e.preventDefault(); lastScale = 1; };
+    const gestureChange = (e: any) => {
+      e.preventDefault();
+      const scale = e.scale as number;
+      setVisibleSeconds((prev) => {
+        const factor = scale > lastScale ? 0.97 : 1.03;
+        lastScale = scale;
+        return Math.max(3, Math.min(120, prev * factor));
+      });
+    };
+
+    el.addEventListener('wheel', wheelHandler, { passive: false });
+    el.addEventListener('gesturestart', gestureStart as any, { passive: false });
+    el.addEventListener('gesturechange', gestureChange as any, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', wheelHandler);
+      el.removeEventListener('gesturestart', gestureStart as any);
+      el.removeEventListener('gesturechange', gestureChange as any);
+    };
   }, []);
 
   // Loop state sync
@@ -936,9 +880,19 @@ export default function WaveSurferPlayer({
     onLoopChange?.(loopIn, loopOut, loopActive);
   }, [loopIn, loopOut, loopActive, onLoopChange]);
 
-  const togglePlay = useCallback(() => wsRef.current?.playPause(), []);
-  const skipBack = useCallback(() => wsRef.current?.skip(-10), []);
-  const skipFwd = useCallback(() => wsRef.current?.skip(10), []);
+  const togglePlay = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.paused ? a.play().catch(() => {}) : a.pause();
+  }, []);
+  const skipBack = useCallback(() => {
+    const a = audioRef.current;
+    if (a) a.currentTime = Math.max(0, a.currentTime - 10);
+  }, []);
+  const skipFwd = useCallback(() => {
+    const a = audioRef.current;
+    if (a) a.currentTime = Math.min(a.duration || 0, a.currentTime + 10);
+  }, []);
 
   const volumeRef = useRef(0.8);
 
@@ -946,14 +900,14 @@ export default function WaveSurferPlayer({
     const vol = parseFloat(e.target.value) / 100;
     setVolumeState(vol);
     volumeRef.current = vol;
-    if (wsRef.current) wsRef.current.setVolume(vol);
+    if (audioRef.current) audioRef.current.volume = vol;
     setMuted(false);
   }, []);
 
   const handleToggleMute = useCallback(() => {
     setMuted((prev) => {
       const next = !prev;
-      if (wsRef.current) wsRef.current.setVolume(next ? 0 : volumeRef.current || 0.8);
+      if (audioRef.current) audioRef.current.volume = next ? 0 : volumeRef.current || 0.8;
       return next;
     });
   }, []);
@@ -1003,7 +957,7 @@ export default function WaveSurferPlayer({
                 onClick={(e) => {
                   e.stopPropagation();
                   setError(null);
-                  if (wsRef.current) loadAudio(trackId, wsRef.current);
+                  if (audioRef.current) loadAudio(trackId, audioRef.current);
                 }}
                 className="text-[10px] px-2 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
               >
