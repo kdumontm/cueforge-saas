@@ -450,6 +450,20 @@ export async function updateTrackMetadata(
   }
   return response.json();
 }
+// ── Generic updateTrack — wraps PATCH /tracks/{id} (used throughout DashboardV2) ─────
+export async function updateTrack(
+  trackId: number,
+  data: Record<string, any>
+): Promise<any> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update track');
+  return response.json();
+}
+
 // ── DJ Tools API ────────────────────────────────────────────────────────────
 
 export function getAudioUrl(trackId: number): string {

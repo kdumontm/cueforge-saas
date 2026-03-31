@@ -650,6 +650,7 @@ class TrackMetadataUpdate(BaseModel):
     rating: Optional[int] = None
     color_code: Optional[str] = None
     energy_level: Optional[int] = None
+    time_signature: Optional[str] = None
     artwork_url: Optional[str] = None
 
 

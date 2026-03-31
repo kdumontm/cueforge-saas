@@ -1,28 +1,32 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 
 import PlayerCard from '@/components/player/PlayerCard';
 import TrackList from '@/components/tracks/TrackList';
-import CuesTab from '@/components/tabs/CuesTab';
-import BeatgridTab from '@/components/tabs/BeatgridTab';
-import StemsTab from '@/components/tabs/StemsTab';
-import EQTab from '@/components/tabs/EQTab';
-import FXTab from '@/components/tabs/FXTab';
-import MixTab from '@/components/tabs/MixTab';
-import PlaylistsTab from '@/components/tabs/PlaylistsTab';
-import StatsTab from '@/components/tabs/StatsTab';
-import HistoryTab from '@/components/tabs/HistoryTab';
+// Critical tabs — chargés immédiatement
 import InfoEditTab from '@/components/tabs/InfoEditTab';
+import CuesTab from '@/components/tabs/CuesTab';
+// Tabs secondaires — lazy-loaded (code splitting)
+const BeatgridTab   = lazy(() => import('@/components/tabs/BeatgridTab'));
+const StemsTab      = lazy(() => import('@/components/tabs/StemsTab'));
+const EQTab         = lazy(() => import('@/components/tabs/EQTab'));
+const FXTab         = lazy(() => import('@/components/tabs/FXTab'));
+const MixTab        = lazy(() => import('@/components/tabs/MixTab'));
+const PlaylistsTab  = lazy(() => import('@/components/tabs/PlaylistsTab'));
+const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
+const HistoryTab    = lazy(() => import('@/components/tabs/HistoryTab'));
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
 import DuplicateDetector from '@/components/DuplicateDetector';
 import MetadataEnrichModal from '@/components/MetadataEnrichModal';
+
+const TabFallback = () => <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">Chargement…</div>;
 
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
@@ -47,13 +51,17 @@ function formatDuration(seconds: number | null | undefined): string {
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'info',  label: 'Info',  icon: '📝' },
-  { id: 'cues',  label: 'Cues',  icon: '🎯' },
-  { id: 'stems', label: 'Stems', icon: '🎸' },
-  { id: 'eq',    label: 'EQ',    icon: '〰' },
-  { id: 'fx',    label: 'FX',    icon: '✨' },
-  { id: 'mix',   label: 'Mix',   icon: '🎡' },
-  { id: 'notes', label: 'Notes', icon: '📋' },
+  { id: 'info',      label: 'Info',   icon: '📝' },
+  { id: 'cues',      label: 'Cues',   icon: '🎯' },
+  { id: 'beatgrid',  label: 'Grid',   icon: '🥁' },
+  { id: 'mix',       label: 'Mix',    icon: '🎡' },
+  { id: 'eq',        label: 'EQ',     icon: '〰' },
+  { id: 'fx',        label: 'FX',     icon: '✨' },
+  { id: 'stems',     label: 'Stems',  icon: '🎸' },
+  { id: 'playlists', label: 'Lists',  icon: '📂', global: true },
+  { id: 'stats',     label: 'Stats',  icon: '📊', global: true },
+  { id: 'history',   label: 'Hist.',  icon: '🕒', global: true },
+  { id: 'notes',     label: 'Notes',  icon: '📋', global: true },
 ];
 
 const GLOBAL_TABS: string[] = [];
@@ -259,6 +267,12 @@ export default function DashboardV2() {
     return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
   }, [selectedTrack, rawTracksForTabs]);
 
+  // Cache current track index to avoid N findIndex calls per render
+  const selectedTrackIdx = useMemo(() => {
+    if (!selectedTrack) return -1;
+    return displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
+  }, [selectedTrack, displayTracks]);
+
   // Keep ref in sync with selectedTrack so we can restore after any reset
   useEffect(() => {
     if (selectedTrack?.id) selectedTrackIdRef.current = selectedTrack.id;
@@ -386,32 +400,32 @@ export default function DashboardV2() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTrack, displayTracks]);
 
-  async function loadTracks() {
+  async function loadTracks(page = 1, append = false) {
     try {
-      setLoading(true);
+      if (!append) setLoading(true); else setLoadingMore(true);
       if (!isAuthenticated()) return;
-      const data = await listTracks();
-      // Handle both array and {tracks: [...]} response formats
+      const data = await listTracks(page, 100);
       const trackList = Array.isArray(data) ? data : (data?.tracks || []);
-      setTracks(trackList);
-      // Refresh selectedTrack with the new object from the fresh list (prevents stale reference)
-      if (selectedTrackIdRef.current) {
+      setTracks(prev => append ? [...prev, ...trackList] : trackList);
+      setTracksTotal(data?.total ?? trackList.length);
+      setTracksPage(data?.page ?? page);
+      setHasMoreTracks((data?.page ?? 1) < (data?.pages ?? 1));
+      if (!append && selectedTrackIdRef.current) {
         const freshRaw = trackList.find((t: Track) => t.id === selectedTrackIdRef.current);
-        if (freshRaw) {
-          setSelectedTrack(toDisplayTrack(freshRaw), 'loadTracks:refresh');
-        } else if (trackList.length > 0) {
-          setSelectedTrack(toDisplayTrack(trackList[0]), 'loadTracks:fallback-first');
-        }
+        if (freshRaw) setSelectedTrack(toDisplayTrack(freshRaw), 'loadTracks:refresh');
+        else if (trackList.length > 0) setSelectedTrack(toDisplayTrack(trackList[0]), 'loadTracks:fallback-first');
       }
     } catch (e: any) {
-      // If session expired, don't crash — just show empty state
       if (e?.message === 'Session expired' || e?.message === 'Not authenticated') {
-        setTracks([]);
-        return;
+        setTracks([]); return;
       }
     } finally {
-      setLoading(false);
+      if (!append) setLoading(false); else setLoadingMore(false);
     }
+  }
+
+  async function loadMoreTracks() {
+    if (hasMoreTracks && !loadingMore) await loadTracks(tracksPage + 1, true);
   }
 
   // Toast system
@@ -419,6 +433,19 @@ export default function DashboardV2() {
     const id = ++toastIdRef.current;
     setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
+
+  // Record play event — met à jour l'historique local + backend
+  const handleTrackPlay = useCallback(() => {
+    if (!selectedTrackIdRef.current || selectedTrackIdRef.current < 0) return;
+    const trackId = selectedTrackIdRef.current;
+    const entry = { trackId, timestamp: new Date().toISOString() };
+    setPlayHistory(prev => {
+      const next = [entry, ...prev].slice(0, 100);
+      try { localStorage.setItem('cueforge_play_history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    recordPlay(trackId, 'dashboard').catch(() => {});
   }, []);
 
   // Transform API track to display format
@@ -444,6 +471,15 @@ export default function DashboardV2() {
   // ── Cue points ────────────────────────────────────────────────────────
   const [cuePoints, setCuePoints] = useState<any[]>([]);
   const [cuePositionMs, setCuePositionMs] = useState<number | null>(null); // position courante du playhead (ms)
+  // Pagination
+  const [tracksTotal, setTracksTotal] = useState(0);
+  const [tracksPage, setTracksPage] = useState(1);
+  const [hasMoreTracks, setHasMoreTracks] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Historique de lecture (persisté en localStorage)
+  const [playHistory, setPlayHistory] = useState<{trackId: number; timestamp: string}[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cueforge_play_history') || '[]'); } catch { return []; }
+  });
 
   // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
   // IMPORTANT: doit être déclaré APRÈS cuePoints (évite TDZ dans la dep array)
@@ -489,8 +525,9 @@ export default function DashboardV2() {
     }
   }
 
-  // Clic sur la waveform → mémoriser la position pour pré-remplir le formulaire CuesTab
+  // Clic sur la waveform → seeker le player + mémoriser la position pour CuesTab
   function handleWaveformClick(positionMs: number) {
+    playerRef?.current?.seekTo?.(positionMs);
     setCuePositionMs(positionMs);
     setActiveTab('cues'); // ouvrir l'onglet Cues automatiquement
   }
@@ -667,17 +704,14 @@ export default function DashboardV2() {
     }
   }
 
-  // Navigation prev/next dans la liste
+  // Navigation prev/next dans la liste (utilise selectedTrackIdx mis en cache)
   function handlePrev() {
-    if (!selectedTrack || displayTracks.length === 0) return;
-    const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
-    if (idx > 0) setSelectedTrack(displayTracks[idx - 1], 'nav:prev');
+    if (selectedTrackIdx > 0) setSelectedTrack(displayTracks[selectedTrackIdx - 1], 'nav:prev');
   }
 
   function handleNext() {
-    if (!selectedTrack || displayTracks.length === 0) return;
-    const idx = displayTracks.findIndex((t: any) => t.id === selectedTrack.id);
-    if (idx < displayTracks.length - 1) setSelectedTrack(displayTracks[idx + 1], 'nav:next');
+    if (selectedTrackIdx >= 0 && selectedTrackIdx < displayTracks.length - 1)
+      setSelectedTrack(displayTracks[selectedTrackIdx + 1], 'nav:next');
   }
 
   // File upload
@@ -907,10 +941,11 @@ export default function DashboardV2() {
             cuePoints={effectiveCuePoints}
             beatPositions={(selectedTrack as any)?.analysis?.beat_positions ?? []}
             onImportClick={() => fileRef.current?.click()}
-            onPrev={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) > 0 ? handlePrev : undefined}
-            onNext={selectedTrack && displayTracks.findIndex((t: any) => t.id === selectedTrack.id) < displayTracks.length - 1 ? handleNext : undefined}
+            onPrev={selectedTrackIdx > 0 ? handlePrev : undefined}
+            onNext={selectedTrackIdx >= 0 && selectedTrackIdx < displayTracks.length - 1 ? handleNext : undefined}
             onWaveformClick={handleWaveformClick}
             onTimeUpdate={(ms) => setCuePositionMs(ms)}
+            onPlay={handleTrackPlay}
             playerRef={playerRef}
           />
           {/* TrackList sous le waveform */}
@@ -977,6 +1012,18 @@ export default function DashboardV2() {
               isLoading={loading}
               onImportClick={() => fileRef.current?.click()}
             />
+            {/* Charger plus */}
+            {hasMoreTracks && (
+              <div className="px-3 py-2 border-t border-[var(--border-subtle)]">
+                <button
+                  onClick={loadMoreTracks}
+                  disabled={loadingMore}
+                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {loadingMore ? '⏳ Chargement…' : `⬇ Charger plus (${tracksTotal - tracks.length} restantes)`}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -986,7 +1033,7 @@ export default function DashboardV2() {
           {/* Onglets verticaux */}
           <div className="w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
             {TABS.map(t => {
-              const disabled = !selectedTrack;
+              const disabled = !selectedTrack && !(t as any).global;
               return (
                 <button
                   key={t.id}
@@ -1055,6 +1102,7 @@ export default function DashboardV2() {
               </div>
             )}
             {activeTab === 'stems' && (
+              <Suspense fallback={<TabFallback />}>
               <StemsTab
                 track={selectedTrack}
                 stemsStatus={stemsStatus}
@@ -1087,9 +1135,11 @@ export default function DashboardV2() {
                   }
                 }}
               />
+              </Suspense>
             )}
-            {activeTab === 'eq' && <EQTab playerRef={playerRef} />}
+            {activeTab === 'eq' && <Suspense fallback={<TabFallback />}><EQTab playerRef={playerRef} /></Suspense>}
             {activeTab === 'fx' && (
+              <Suspense fallback={<TabFallback />}>
               <FXTab
                 fxParams={fxParams}
                 onFxChange={(effect, value) => {
@@ -1099,8 +1149,72 @@ export default function DashboardV2() {
                   setFxParams({});
                 }}
               />
+              </Suspense>
             )}
-            {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
+            {activeTab === 'mix' && <Suspense fallback={<TabFallback />}><MixTab track={selectedRawTrack} tracks={rawTracksForTabs} /></Suspense>}
+            {activeTab === 'beatgrid' && (
+              <Suspense fallback={<TabFallback />}>
+              <BeatgridTab
+                track={selectedRawTrack}
+                beatgrid={selectedRawTrack?.analysis ? {
+                  bpm: selectedRawTrack.analysis.bpm ?? null,
+                  downbeat_ms: (selectedRawTrack.analysis as any).downbeat_ms ?? 0,
+                  locked: false,
+                } : undefined}
+                onUpdateBeatgrid={async (bg) => {
+                  if (!selectedRawTrack) return;
+                  try {
+                    const token = (await import('@/lib/api')).getToken();
+                    const AURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+                    await fetch(`${AURL}/tracks/${selectedRawTrack.id}/beatgrid`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify(bg),
+                    });
+                    addToast('Beatgrid mis à jour', 'success');
+                  } catch { addToast('Erreur beatgrid', 'error'); }
+                }}
+              />
+              </Suspense>
+            )}
+            {activeTab === 'playlists' && (
+              <Suspense fallback={<TabFallback />}>
+              <PlaylistsTab
+                playlists={playlists}
+                onSelect={(pl) => {
+                  setActiveSection(`playlist_${pl.id}`);
+                  addToast(`Playlist "${pl.name}" chargée`, 'info');
+                }}
+                onCreate={async (name) => {
+                  try {
+                    const pl = await createPlaylist(name);
+                    setPlaylists(prev => [...prev, pl]);
+                    addToast(`"${name}" créée`, 'success');
+                  } catch { addToast('Erreur création playlist', 'error'); }
+                }}
+                onDelete={async (id) => {
+                  try {
+                    await apiDeletePlaylist(id);
+                    setPlaylists(prev => prev.filter(p => p.id !== id));
+                    addToast('Playlist supprimée', 'success');
+                  } catch { addToast('Erreur suppression', 'error'); }
+                }}
+              />
+              </Suspense>
+            )}
+            {activeTab === 'stats' && <Suspense fallback={<TabFallback />}><StatsTab tracks={tracks} /></Suspense>}
+            {activeTab === 'history' && (
+              <Suspense fallback={<TabFallback />}>
+              <HistoryTab
+                tracks={tracks}
+                history={playHistory}
+                onHistoryCleared={() => {
+                  setPlayHistory([]);
+                  try { localStorage.removeItem('cueforge_play_history'); } catch {}
+                }}
+              />
+              </Suspense>
+            )}
             {activeTab === 'notes' && (
               <div className="flex flex-col h-full p-3 gap-2">
                 <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">Notes de session</div>

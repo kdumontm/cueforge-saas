@@ -53,7 +53,7 @@ class Playlist(Base):
     __tablename__ = "playlists"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -75,8 +75,8 @@ class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"
 
     id = Column(Integer, primary_key=True, index=True)
-    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False)
-    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False)
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     position = Column(Integer, nullable=False, default=0)
     added_at = Column(DateTime, default=datetime.utcnow)
 
@@ -178,4 +178,5 @@ class PlayHistory(Base):
 
     __table_args__ = (
         Index("ix_play_history_user_played", "user_id", "played_at"),
+        Index("ix_play_history_track_id", "track_id"),
     )

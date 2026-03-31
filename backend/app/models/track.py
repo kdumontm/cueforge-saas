@@ -143,7 +143,7 @@ class CuePoint(Base):
     __tablename__ = "cue_points"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
     position_ms = Column(Integer, nullable=False)
     end_position_ms = Column(Integer, nullable=True)
     cue_type = Column(String(50), nullable=False)

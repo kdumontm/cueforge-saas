@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Search, Grid3x3, List, Upload } from 'lucide-react';
 import { FilterPanel } from './FilterPanel';
 import { TrackRow } from './TrackRow';
@@ -38,6 +38,7 @@ interface TrackListProps {
   onFilterChange: (key: string, value: any) => void;
   onFilterReset: () => void;
   isLoading?: boolean;
+  onImportClick?: () => void;
   // Auto-analyse controls (displayed in toolbar)
   unanalyzedCount?: number;
   autoAnalyze?: boolean;
@@ -74,7 +75,7 @@ const COLUMN_HEADERS = [
   { key: 'actions', label: '', width: '40px' },
 ];
 
-export function TrackList({
+export const TrackList = React.memo(function TrackList({
   tracks,
   selectedTrack,
   playingTrackId,
@@ -96,12 +97,21 @@ export function TrackList({
   selectedIds = new Set(),
   onFilterReset,
   isLoading = false,
+  onImportClick,
   unanalyzedCount = 0,
   autoAnalyze = false,
   onToggleAutoAnalyze,
   onAnalyzeAll,
 }: TrackListProps) {
   const [showFilters, setShowFilters] = useState(false);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onSearchChange(e.target.value);
+  }, [onSearchChange]);
+
+  const handleSortChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSortChange(e.target.value);
+  }, [onSortChange]);
 
   // Filter and sort tracks
   const filteredTracks = useMemo(() => {
@@ -158,23 +168,15 @@ export function TrackList({
     // Sorting
     result.sort((a, b) => {
       switch (sortBy) {
-        case 'bpm':
-          return (b.bpm || 0) - (a.bpm || 0);
-        case 'key':
-          return (a.key || '').localeCompare(b.key || '');
-        case 'title':
-          return a.title.localeCompare(b.title);
-        case 'energy':
-          return (b.energy || 0) - (a.energy || 0);
-        case 'genre':
-          return (a.genre || '').localeCompare(b.genre || '');
-        case 'duration':
-          return (b.duration || 0) - (a.duration || 0);
-        case 'rating':
-          return (favoriteIds.has(b.id) ? 1 : 0) - (favoriteIds.has(a.id) ? 1 : 0);
+        case 'bpm':    return (b.bpm || 0) - (a.bpm || 0);
+        case 'key':    return (a.key || '').localeCompare(b.key || '');
+        case 'title':  return a.title.localeCompare(b.title);
+        case 'energy': return (b.energy || 0) - (a.energy || 0);
+        case 'genre':  return (a.genre || '').localeCompare(b.genre || '');
+        case 'duration': return (b.duration || 0) - (a.duration || 0);
+        case 'rating': return (favoriteIds.has(b.id) ? 1 : 0) - (favoriteIds.has(a.id) ? 1 : 0);
         case 'date':
-        default:
-          return (b.id || 0) - (a.id || 0);
+        default:       return (b.id || 0) - (a.id || 0);
       }
     });
 
@@ -192,7 +194,7 @@ export function TrackList({
             type="text"
             placeholder="Rechercher..."
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
           />
         </div>
@@ -200,7 +202,7 @@ export function TrackList({
         {/* Sort Dropdown compact */}
         <select
           value={sortBy}
-          onChange={(e) => onSortChange(e.target.value)}
+          onChange={handleSortChange}
           className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
         >
           {SORT_OPTIONS.map((option) => (
@@ -236,8 +238,7 @@ export function TrackList({
       {/* Track Count */}
       <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
         {filteredTracks.length} morceau{filteredTracks.length !== 1 ? 'x' : ''}
-        {tracks.length !== filteredTracks.length &&
-          ` (${tracks.length} total)`}
+        {tracks.length !== filteredTracks.length && ` (${tracks.length} total)`}
       </div>
 
       {/* Content */}
@@ -246,10 +247,7 @@ export function TrackList({
           // Loading Skeleton
           <div className="p-4 space-y-2">
             {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="h-10 bg-[var(--bg-secondary)] rounded animate-pulse"
-              />
+              <div key={i} className="h-10 bg-[var(--bg-secondary)] rounded animate-pulse" />
             ))}
           </div>
         ) : filteredTracks.length === 0 ? (
@@ -257,13 +255,17 @@ export function TrackList({
           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
             <Upload size={48} className="text-[var(--text-secondary)] opacity-50" />
             <div>
-              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">
-                Aucun morceau
-              </h3>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Commencez par importer vos pistes audio
-              </p>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">Aucun morceau</h3>
+              <p className="text-sm text-[var(--text-secondary)]">Commencez par importer vos pistes audio</p>
             </div>
+            {onImportClick && (
+              <button
+                onClick={onImportClick}
+                className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--accent-hover)] transition-colors cursor-pointer"
+              >
+                Importer des tracks
+              </button>
+            )}
           </div>
         ) : gridView ? (
           // Grid View
@@ -285,9 +287,7 @@ export function TrackList({
             <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 py-2">
               <div
                 className="grid gap-3 text-xs font-medium text-[var(--text-secondary)]"
-                style={{
-                  gridTemplateColumns: COLUMN_HEADERS.map((h) => h.width).join(' '),
-                }}
+                style={{ gridTemplateColumns: COLUMN_HEADERS.map((h) => h.width).join(' ') }}
               >
                 {COLUMN_HEADERS.map((header) => (
                   <button
@@ -298,9 +298,7 @@ export function TrackList({
                       }
                     }}
                     className={`text-left hover:text-[var(--text-primary)] transition-colors ${
-                      header.key === 'index' || header.key === 'play'
-                        ? 'cursor-default'
-                        : 'cursor-pointer'
+                      header.key === 'index' || header.key === 'play' ? 'cursor-default' : 'cursor-pointer'
                     }`}
                   >
                     {header.label}
@@ -331,6 +329,8 @@ export function TrackList({
       </div>
     </div>
   );
-}
+});
+
+TrackList.displayName = 'TrackList';
 
 export default TrackList;

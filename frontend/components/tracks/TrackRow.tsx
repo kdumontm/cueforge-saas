@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag } from 'lucide-react';
 import type { Track } from '@/types';
 
@@ -23,28 +23,23 @@ const formatTime = (seconds: number): string => {
   return m + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
 };
 
-const EqBars = ({ isAnimating }: { isAnimating: boolean }) => {
-  return (
-    <div className="flex items-center gap-0.5 h-4">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className={`w-1 bg-[var(--accent)] rounded-sm ${
-            isAnimating ? 'animate-pulse' : ''
-          }`}
-          style={{
-            height: isAnimating ? `${12 + (i % 2) * 4}px` : '4px',
-            animation: isAnimating
-              ? `pulse ${0.6 + i * 0.1}s ease-in-out infinite`
-              : 'none',
-          }}
-        />
-      ))}
-    </div>
-  );
-};
+const EqBars = React.memo(({ isAnimating }: { isAnimating: boolean }) => (
+  <div className="flex items-center gap-0.5 h-4">
+    {[0, 1, 2].map((i) => (
+      <div
+        key={i}
+        className={`w-1 bg-[var(--accent)] rounded-sm ${isAnimating ? 'animate-pulse' : ''}`}
+        style={{
+          height: isAnimating ? `${12 + (i % 2) * 4}px` : '4px',
+          animation: isAnimating ? `pulse ${0.6 + i * 0.1}s ease-in-out infinite` : 'none',
+        }}
+      />
+    ))}
+  </div>
+));
+EqBars.displayName = 'EqBars';
 
-export function TrackRow({
+export const TrackRow = React.memo(function TrackRow({
   track,
   index,
   isSelected,
@@ -60,15 +55,23 @@ export function TrackRow({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
 
-  const handleContextMenu = (e: React.MouseEvent) => {
+  const handleClick = useCallback((e: React.MouseEvent) => onSelect(track, e), [track, onSelect]);
+  const handleDblClick = useCallback(() => onDoubleClick(track), [track, onDoubleClick]);
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     onContextMenu(track, e);
-  };
+  }, [track, onContextMenu]);
+
+  const handleRatingLeave = useCallback(() => setHoverRating(0), []);
+  const handleMenuToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowContextMenu(v => !v);
+  }, []);
 
   return (
     <div
-      onClick={(e) => onSelect(track, e)}
-      onDoubleClick={() => onDoubleClick(track)}
+      onClick={handleClick}
+      onDoubleClick={handleDblClick}
       onContextMenu={handleContextMenu}
       className={`
         grid grid-cols-[40px_40px_2fr_80px_80px_120px_100px_80px_40px_40px] gap-3 px-4 py-2
@@ -97,9 +100,7 @@ export function TrackRow({
 
       {/* Title + Artist */}
       <div className="min-w-0">
-        <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-          {track.title}
-        </p>
+        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
         <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
       </div>
 
@@ -146,10 +147,7 @@ export function TrackRow({
       </div>
 
       {/* Rating — Stars */}
-      <div
-        className="flex justify-center gap-0.5"
-        onMouseLeave={() => setHoverRating(0)}
-      >
+      <div className="flex justify-center gap-0.5" onMouseLeave={handleRatingLeave}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -175,10 +173,7 @@ export function TrackRow({
       {/* Actions Menu */}
       <div className="flex justify-end relative">
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowContextMenu(!showContextMenu);
-          }}
+          onClick={handleMenuToggle}
           className="p-1 hover:bg-[var(--bg-primary)] rounded transition-colors"
         >
           <MoreVertical size={16} className="text-[var(--text-secondary)]" />
@@ -211,4 +206,6 @@ export function TrackRow({
       </div>
     </div>
   );
-}
+});
+
+TrackRow.displayName = 'TrackRow';

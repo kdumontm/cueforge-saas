@@ -10,6 +10,7 @@ logging.basicConfig(
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.database import engine, SessionLocal
 from app.models import user, track  # noqa: F401 — registers models with Base
@@ -142,6 +143,7 @@ def health_check():
         db_status = "degraded"
     return {"status": "ok", "version": "0.5.0", "db": db_status}
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),

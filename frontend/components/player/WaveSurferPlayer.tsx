@@ -166,6 +166,7 @@ interface WaveSurferPlayerProps {
   } | null>;
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
   onZoomChange?: (pxPerSec: number) => void;
+  onPlay?: () => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -273,6 +274,7 @@ export default function WaveSurferPlayer({
   playerRef,
   onLoopChange,
   onZoomChange,
+  onPlay: onPlayCallback,
 }: WaveSurferPlayerProps) {
   const wsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -631,16 +633,20 @@ export default function WaveSurferPlayer({
     };
   }, [spectralReady, renderFrame, setupCanvasSize, buildStrip]);
 
-  // Resize handler
+  // Resize handler (debounced 150ms to avoid thrashing canvas on every pixel)
   useEffect(() => {
+    let rafId = 0;
     const handleResize = () => {
-      if (overviewCanvasRef.current && overviewContainerRef.current)
-        setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
-      if (detailCanvasRef.current && detailContainerRef.current)
-        setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (overviewCanvasRef.current && overviewContainerRef.current)
+          setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
+        if (detailCanvasRef.current && detailContainerRef.current)
+          setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
+      });
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => { window.removeEventListener('resize', handleResize); cancelAnimationFrame(rafId); };
   }, [setupCanvasSize]);
 
   // ── Audio element ref (replaces wavesurfer) ──
@@ -684,15 +690,18 @@ export default function WaveSurferPlayer({
       } catch {}
     };
 
-    const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); } };
+    const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); onPlayCallback?.(); } };
     const onPause = () => { if (!destroyed) setIsPlaying(false); };
     const onEnded = () => { if (!destroyed) setIsPlaying(false); };
+    let lastExternalUpdate = 0;
     const onTimeUpdate = () => {
       if (destroyed) return;
       const t = audio.currentTime;
       currentTimeRef.current = t;
       setCurrentTime(t);
-      onTimeUpdate?.(t * 1000);
+      // Throttle external callback to 100ms to avoid excessive parent re-renders
+      const now = performance.now();
+      if (now - lastExternalUpdate > 100) { lastExternalUpdate = now; onTimeUpdate?.(t * 1000); }
       // Loop enforcement
       if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
         audio.currentTime = loopInRef.current;
