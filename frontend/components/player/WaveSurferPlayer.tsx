@@ -116,6 +116,7 @@ interface WaveSurferPlayerProps {
     setEQ?: (low: number, mid: number, high: number) => void;
   } | null>;
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
+  onZoomChange?: (pxPerSec: number) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -169,16 +170,25 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 2000): {r:number,g:numbe
     const mi = c.mi / maxMi;  // 0-1 — mids  (synths, vocals)
     const hi = c.hi / maxHi;  // 0-1 — highs (hats, transients)
 
-    // Rekordbox color palette:
-    //   bass only  → orange-red  rgb(255, 80, 10)
-    //   mids only  → yellow-green rgb(120, 220, 40)
-    //   highs only → cyan        rgb(20, 200, 255)
-    //   all        → white
-    const r = Math.min(255, Math.round(lo * 255 + mi * 80));
-    const g = Math.min(255, Math.round(mi * 210 + hi * 90 + lo * 40));
-    const b = Math.min(255, Math.round(hi * 255 + mi * 60));
+    // Rekordbox-inspired color palette (more saturated):
+    //   bass dominant  → deep red-orange   rgb(255, 60, 0)
+    //   mids dominant  → vivid green       rgb(50, 230, 20)
+    //   highs dominant → electric blue     rgb(0, 160, 255)
+    //   kick hits      → bright red
+    //   cymbals        → cyan-blue
+    //   vocals/synths  → green-yellow
+    const r = Math.min(255, Math.round(lo * 255 + mi * 50 + hi * 5));
+    const g = Math.min(255, Math.round(mi * 230 + hi * 80 + lo * 20));
+    const b = Math.min(255, Math.round(hi * 255 + mi * 40));
 
-    return { r, g, b };
+    // Boost saturation: push toward the dominant channel
+    const maxC = Math.max(r, g, b, 1);
+    const sat = 1.3; // saturation multiplier
+    const rr = Math.min(255, Math.round(((r / maxC - 0.33) * sat + 0.33) * maxC));
+    const gg = Math.min(255, Math.round(((g / maxC - 0.33) * sat + 0.33) * maxC));
+    const bb = Math.min(255, Math.round(((b / maxC - 0.33) * sat + 0.33) * maxC));
+
+    return { r: Math.max(0, rr), g: Math.max(0, gg), b: Math.max(0, bb) };
   });
 }
 
@@ -194,6 +204,7 @@ export default function WaveSurferPlayer({
   waveformTheme = 'spectral',
   playerRef,
   onLoopChange,
+  onZoomChange,
 }: WaveSurferPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<any>(null);
@@ -280,46 +291,79 @@ export default function WaveSurferPlayer({
             const ch = peaks?.[0] as Float32Array;
             if (!ch || ch.length === 0) return;
             const mid = h / 2;
+            const BAR_W = 2;     // bar width in px
+            const BAR_GAP = 1;   // gap between bars
+            const STEP = BAR_W + BAR_GAP;
 
-            ctx.fillStyle = '#08080e';
+            // Background — near-black with subtle gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+            bgGrad.addColorStop(0, '#0a0a14');
+            bgGrad.addColorStop(0.5, '#080810');
+            bgGrad.addColorStop(1, '#0a0a14');
+            ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, width, h);
-            ctx.fillStyle = 'rgba(255,255,255,0.07)';
+
+            // Center line — subtle
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
             ctx.fillRect(0, mid - 0.5, width, 1);
 
             if (!colors) {
-              for (let x = 0; x < width; x += 2) {
+              // Fallback: blue-ish monochrome bars
+              for (let x = 0; x < width; x += STEP) {
                 const si = Math.min(Math.floor((x / width) * ch.length), ch.length - 1);
                 const amp = Math.abs(ch[si] || 0);
-                if (amp < 0.003) continue;
-                const bH = Math.max(2, amp * mid * 0.9);
-                const lum = Math.round(40 + amp * 100);
-                ctx.fillStyle = `rgb(${lum},${Math.round(lum * 1.3)},${Math.round(lum * 2.2)})`;
-                ctx.fillRect(x, mid - bH, 2, bH * 2);
+                if (amp < 0.005) continue;
+                const bH = Math.max(1, amp * mid * 0.92);
+                const lum = Math.round(50 + amp * 120);
+                ctx.fillStyle = `rgb(${Math.round(lum * 0.4)},${Math.round(lum * 0.7)},${lum})`;
+                ctx.beginPath();
+                ctx.roundRect(x, mid - bH, BAR_W, bH, [1, 1, 0, 0]);
+                ctx.fill();
+                ctx.fillStyle = `rgb(${Math.round(lum * 0.25)},${Math.round(lum * 0.45)},${Math.round(lum * 0.65)})`;
+                ctx.beginPath();
+                ctx.roundRect(x, mid, BAR_W, bH, [0, 0, 1, 1]);
+                ctx.fill();
               }
               return;
             }
 
             const samplesPerPx = ch.length / width;
-            for (let x = 0; x < width; x += 2) {
+            for (let x = 0; x < width; x += STEP) {
               const s0 = Math.floor(x * samplesPerPx);
-              const s1 = Math.min(Math.floor((x + 2) * samplesPerPx), ch.length - 1);
+              const s1 = Math.min(Math.floor((x + STEP) * samplesPerPx), ch.length - 1);
               let amp = 0;
               for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
               amp = Math.min(1, amp);
-              if (amp < 0.003) continue;
+              if (amp < 0.005) continue;
 
               const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
               const { r, g, b } = colors[ci];
-              const bright = 0.28 + amp * 0.72;
+
+              // Brightness curve: louder = brighter, with a gentle floor
+              const bright = 0.35 + amp * 0.65;
               const rr = Math.min(255, Math.round(r * bright));
               const gg = Math.min(255, Math.round(g * bright));
               const bb = Math.min(255, Math.round(b * bright));
-              const barH = Math.max(2, amp * mid * 0.96);
+              const barH = Math.max(1, amp * mid * 0.94);
 
+              // Top half — full color with rounded top
               ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-              ctx.fillRect(x, mid - barH, 2, barH);
-              ctx.fillStyle = `rgb(${Math.round(rr * 0.65)},${Math.round(gg * 0.65)},${Math.round(bb * 0.65)})`;
-              ctx.fillRect(x, mid, 2, barH);
+              ctx.beginPath();
+              ctx.roundRect(x, mid - barH, BAR_W, barH, [1, 1, 0, 0]);
+              ctx.fill();
+
+              // Bottom half — darker mirror with rounded bottom
+              ctx.fillStyle = `rgb(${Math.round(rr * 0.55)},${Math.round(gg * 0.55)},${Math.round(bb * 0.55)})`;
+              ctx.beginPath();
+              ctx.roundRect(x, mid, BAR_W, barH * 0.85, [0, 0, 1, 1]);
+              ctx.fill();
+
+              // Glow for loud bars — subtle additive highlight
+              if (amp > 0.6) {
+                const glowAlpha = (amp - 0.6) * 0.4;
+                ctx.fillStyle = `rgba(${rr},${gg},${bb},${glowAlpha.toFixed(2)})`;
+                ctx.fillRect(x - 1, mid - barH - 1, BAR_W + 2, barH + 2);
+              }
             }
             } catch (e) {
               console.error('[CueForge] renderFunction crash:', e);
@@ -689,17 +733,22 @@ export default function WaveSurferPlayer({
   }, [loopIn, loopOut, loopActive, isReady]);
 
   // --- Ctrl+Scroll zoom ---
+  const onZoomChangeRef = useRef(onZoomChange);
+  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let currentPxPerSec = ZOOM_PX_PER_SEC[String(zoom)] ?? 30;
     const handler = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const ws = wsRef.current;
       if (!ws) return;
-      const current = ZOOM_PX_PER_SEC[String(zoom)] ?? 30;
-      const next = e.deltaY < 0 ? Math.min(current * 1.4, 250) : Math.max(current / 1.4, 8);
+      const next = e.deltaY < 0 ? Math.min(currentPxPerSec * 1.4, 250) : Math.max(currentPxPerSec / 1.4, 8);
+      currentPxPerSec = next;
       try { ws.zoom(next); } catch {}
+      onZoomChangeRef.current?.(next);
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);

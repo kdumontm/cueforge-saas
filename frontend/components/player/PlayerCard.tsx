@@ -35,7 +35,7 @@ class WaveSurferErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="relative bg-black/30 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: 88, minHeight: 88 }}>
+        <div className="relative bg-black/30 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: 100, minHeight: 100 }}>
           <div className="text-center">
             <div className="text-sm text-red-400 mb-1">⚠️ Erreur audio</div>
             <div className="text-[10px] text-gray-500">{this.state.error?.message || 'Le lecteur a crashé'}</div>
@@ -284,7 +284,7 @@ export default function PlayerCard({
             trackDuration={parseDuration(track.duration)}
             cuePoints={cuePoints}
             zoom={zoom}
-            height={88}
+            height={100}
             waveformTheme={waveformTheme}
             onTimeUpdate={(ms) => {
               setCurrentTime(ms / 1000);
@@ -296,6 +296,14 @@ export default function PlayerCard({
               setLoopIn(loopInVal);
               setLoopOut(loopOutVal);
               setLoopActive(loopActiveVal);
+            }}
+            onZoomChange={(pxPerSec) => {
+              // Find closest zoom level for button highlight
+              const closest = ZOOM_LEVELS.reduce((best, z) => {
+                const px = { 0.5: 12, 1: 30, 2: 70, 4: 160 }[z] ?? 30;
+                return Math.abs(px - pxPerSec) < Math.abs(({ 0.5: 12, 1: 30, 2: 70, 4: 160 }[best] ?? 30) - pxPerSec) ? z : best;
+              }, zoom);
+              if (closest !== zoom) setZoom(closest);
             }}
           />
         </WaveSurferErrorBoundary>
