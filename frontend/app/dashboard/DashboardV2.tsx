@@ -258,7 +258,7 @@ export default function DashboardV2() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA') {
         e.preventDefault();
         const allIds = new Set(displayTracks.map((t: any) => t.id));
-        setFavoriteIds(allIds);
+        setSelectedIds(allIds);
         return;
       }
       // Ctrl+F = focus search
