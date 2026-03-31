@@ -741,8 +741,9 @@ export default function DashboardV2() {
                   handleSelectTrack(track);
                 }
               }}
+              onDoubleClick={handleSelectTrack}
               onContextMenu={handleContextMenu}
-              onFavorite={handleFavorite}
+              onFavoriteToggle={handleFavorite}
               onGridToggle={setGridView}
               onSearchChange={setSearchQuery}
               onSortChange={setSortBy}
