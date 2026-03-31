@@ -35,7 +35,7 @@ class WaveSurferErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="relative bg-black/30 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: 100, minHeight: 100 }}>
+        <div className="relative bg-black/30 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: 150, minHeight: 150 }}>
           <div className="text-center">
             <div className="text-sm text-red-400 mb-1">⚠️ Erreur audio</div>
             <div className="text-[10px] text-gray-500">{this.state.error?.message || 'Le lecteur a crashé'}</div>
@@ -284,7 +284,8 @@ export default function PlayerCard({
             trackDuration={parseDuration(track.duration)}
             cuePoints={cuePoints}
             zoom={zoom}
-            height={100}
+            height={90}
+            overviewHeight={48}
             waveformTheme={waveformTheme}
             onTimeUpdate={(ms) => {
               setCurrentTime(ms / 1000);

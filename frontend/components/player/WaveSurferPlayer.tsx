@@ -102,6 +102,7 @@ interface WaveSurferPlayerProps {
   onWaveformClick?: (positionMs: number) => void;
   zoom?: number;
   height?: number;
+  overviewHeight?: number; // hauteur de la vue overview (défaut 48)
   waveformTheme?: string;
   playerRef?: React.MutableRefObject<{
     playPause: () => void;
@@ -170,24 +171,27 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:numbe
     const mi = c.mi / maxMi;  // 0-1 — mids  (synths, vocals)
     const hi = c.hi / maxHi;  // 0-1 — highs (hats, transients)
 
-    // Rekordbox-style: dominant band determines the hue
-    // bass → red/orange, mids → green/yellow, highs → blue/cyan
-    // Power-curve for more contrast between bands
-    const loP = Math.pow(lo, 0.7);
-    const miP = Math.pow(mi, 0.7);
-    const hiP = Math.pow(hi, 0.7);
+    // Rekordbox color mapping:
+    //   bass → red/pink (like kick drums in Rekordbox)
+    //   mids → green/yellow (synths, vocals)
+    //   highs → cyan/blue (hats, cymbals)
+    //   mix of all → white/pink
+    const loP = Math.pow(lo, 0.65);
+    const miP = Math.pow(mi, 0.65);
+    const hiP = Math.pow(hi, 0.65);
+    const total = loP + miP + hiP + 0.001;
 
-    // Direct spectral mapping with high saturation
-    const r = Math.min(255, Math.round(loP * 255 + miP * 40));
-    const g = Math.min(255, Math.round(miP * 240 + hiP * 60 + loP * 15));
-    const b = Math.min(255, Math.round(hiP * 255 + miP * 30));
-
-    // Ensure minimum brightness so quiet sections still show color
-    const maxC = Math.max(r, g, b);
-    if (maxC < 60) {
-      const boost = 60 / Math.max(maxC, 1);
-      return { r: Math.round(r * boost), g: Math.round(g * boost), b: Math.round(b * boost) };
-    }
+    // Weighted color: bass=red, mids=green, highs=cyan
+    // When bass dominates → red/pink, when highs dominate → cyan
+    const r = Math.min(255, Math.round(
+      loP * 255 + miP * 60 + hiP * 30
+    ));
+    const g = Math.min(255, Math.round(
+      miP * 200 + hiP * 120 + loP * 20
+    ));
+    const b = Math.min(255, Math.round(
+      hiP * 255 + loP * 60 + miP * 40
+    ));
 
     return { r, g, b };
   });
@@ -202,12 +206,14 @@ export default function WaveSurferPlayer({
   onWaveformClick,
   zoom = 1,
   height = 96,
+  overviewHeight = 48,
   waveformTheme = 'spectral',
   playerRef,
   onLoopChange,
   onZoomChange,
 }: WaveSurferPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<any>(null);
   const regionsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -263,10 +269,89 @@ export default function WaveSurferPlayer({
       try {
         const WaveSurfer = (await import('wavesurfer.js')).default;
         const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.esm.js')).default;
+        const MinimapPlugin = (await import('wavesurfer.js/dist/plugins/minimap.esm.js')).default;
         if (destroyed) return;
 
         const regions = RegionsPlugin.create();
         regionsRef.current = regions;
+
+        // ── Shared spectral renderFunction for both overview & detail ──
+        const spectralRender = (peaks: any, ctx: CanvasRenderingContext2D) => {
+            try {
+            const colors = spectralColorsRef.current;
+            const { width, height: h } = ctx.canvas;
+            const ch = peaks?.[0] as Float32Array;
+            if (!ch || ch.length === 0) return;
+            const mid = Math.round(h / 2);
+
+            // ── Pure black background (Rekordbox style) ──
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, h);
+
+            // ── Thin center line ──
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillRect(0, mid, width, 1);
+
+            const samplesPerPx = ch.length / width;
+
+            // ── CONTINUOUS FILLED WAVEFORM — pixel by pixel like Rekordbox ──
+            for (let x = 0; x < width; x++) {
+              // Get peak amplitude for this pixel column
+              const s0 = Math.floor(x * samplesPerPx);
+              const s1 = Math.min(Math.ceil((x + 1) * samplesPerPx), ch.length - 1);
+              let amp = 0;
+              for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
+              amp = Math.min(1, amp);
+              if (amp < 0.003) continue;
+
+              // Get spectral color for this position
+              let rr: number, gg: number, bb: number;
+              if (colors) {
+                const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
+                const { r, g, b } = colors[ci];
+                // Rekordbox brightness: louder = more vivid
+                const bright = 0.5 + amp * 0.5;
+                rr = Math.min(255, Math.round(r * bright));
+                gg = Math.min(255, Math.round(g * bright));
+                bb = Math.min(255, Math.round(b * bright));
+              } else {
+                // Fallback: pink/red monochrome
+                const lum = 0.5 + amp * 0.5;
+                rr = Math.round(255 * lum);
+                gg = Math.round(50 * lum);
+                bb = Math.round(100 * lum);
+              }
+
+              const barH = Math.max(1, amp * mid * 0.95);
+
+              // ── TOP HALF — full brightness ──
+              ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+              ctx.fillRect(x, mid - barH, 1, barH);
+
+              // ── BOTTOM MIRROR — same height, lower opacity ──
+              ctx.fillStyle = `rgba(${rr},${gg},${bb},0.45)`;
+              ctx.fillRect(x, mid + 1, 1, barH * 0.9);
+            }
+            } catch (e) {
+              console.error('[CueForge] renderFunction crash:', e);
+            }
+          };
+
+        // ── Overview minimap (full track, always visible) ──
+        const minimap = MinimapPlugin.create({
+          container: overviewRef.current!,
+          height: overviewHeight,
+          waveColor: '#ff3366',
+          progressColor: '#ff3366',
+          cursorColor: 'rgba(255,255,255,0.7)',
+          cursorWidth: 1,
+          barWidth: 0,
+          barGap: 0,
+          normalize: true,
+          // Overlay style: viewport indicator shows current zoomed position
+          overlayColor: 'rgba(255,255,255,0.05)',
+          renderFunction: spectralRender,
+        });
 
         const ws = WaveSurfer.create({
           container: containerRef.current!,
@@ -280,89 +365,12 @@ export default function WaveSurferPlayer({
           dragToSeek: true,
           cursorColor: 'rgba(255,255,255,0.9)',
           cursorWidth: 2,
-          barWidth: 2,
-          barGap: 1,
-          barRadius: 3,
-          waveColor: ['#ef4444cc', '#22c55ecc', '#3b82f6cc'],
-          progressColor: ['#ef4444', '#22c55e', '#3b82f6'],
-          renderFunction: (peaks: any, ctx: CanvasRenderingContext2D) => {
-            try {
-            const colors = spectralColorsRef.current;
-            const { width, height: h } = ctx.canvas;
-            const ch = peaks?.[0] as Float32Array;
-            if (!ch || ch.length === 0) return;
-            const mid = Math.round(h * 0.48); // slight offset — top half bigger like Rekordbox
-            const BW = 3;        // bar width — wider = more visible
-            const GAP = 1;       // gap between bars
-            const STEP = BW + GAP;
-            const TOP_H = mid;
-            const BOT_H = h - mid;
-
-            // ── Background ──
-            ctx.fillStyle = '#06060c';
-            ctx.fillRect(0, 0, width, h);
-
-            // ── Center line — thin bright line ──
-            ctx.fillStyle = 'rgba(255,255,255,0.06)';
-            ctx.fillRect(0, mid, width, 1);
-
-            if (!colors) {
-              // Fallback: blue gradient bars
-              for (let x = 0; x < width; x += STEP) {
-                const si = Math.min(Math.floor((x / width) * ch.length), ch.length - 1);
-                const amp = Math.abs(ch[si] || 0);
-                if (amp < 0.004) continue;
-                const bH = Math.max(1, amp * TOP_H * 0.94);
-                const lum = Math.round(60 + amp * 140);
-                ctx.fillStyle = `rgb(${Math.round(lum*0.3)},${Math.round(lum*0.6)},${lum})`;
-                ctx.fillRect(x, mid - bH, BW, bH);
-                ctx.fillStyle = `rgb(${Math.round(lum*0.15)},${Math.round(lum*0.3)},${Math.round(lum*0.5)})`;
-                ctx.fillRect(x, mid + 1, BW, bH * 0.7);
-              }
-              return;
-            }
-
-            // ── Main spectral waveform ──
-            const samplesPerPx = ch.length / width;
-            for (let x = 0; x < width; x += STEP) {
-              const s0 = Math.floor(x * samplesPerPx);
-              const s1 = Math.min(Math.floor((x + STEP) * samplesPerPx), ch.length - 1);
-              let amp = 0;
-              for (let s = s0; s <= s1; s++) amp = Math.max(amp, Math.abs(ch[s] || 0));
-              amp = Math.min(1, amp);
-              if (amp < 0.004) continue;
-
-              const ci = Math.min(Math.floor((x / width) * colors.length), colors.length - 1);
-              const { r, g, b } = colors[ci];
-
-              // ── Brightness: quiet bars dim, loud bars POP ──
-              const bright = 0.4 + amp * 0.6;
-              const rr = Math.min(255, Math.round(r * bright));
-              const gg = Math.min(255, Math.round(g * bright));
-              const bb = Math.min(255, Math.round(b * bright));
-
-              // ── TOP BAR — gradient from bright at tip to darker at base ──
-              const barH = Math.max(1, amp * TOP_H * 0.95);
-              const topGrad = ctx.createLinearGradient(0, mid - barH, 0, mid);
-              topGrad.addColorStop(0, `rgba(${Math.min(255, rr + 40)},${Math.min(255, gg + 40)},${Math.min(255, bb + 40)},1)`);
-              topGrad.addColorStop(0.4, `rgb(${rr},${gg},${bb})`);
-              topGrad.addColorStop(1, `rgb(${Math.round(rr*0.7)},${Math.round(gg*0.7)},${Math.round(bb*0.7)})`);
-              ctx.fillStyle = topGrad;
-              ctx.fillRect(x, mid - barH, BW, barH);
-
-              // ── BOTTOM MIRROR — shorter + much darker + fade out ──
-              const mirrorH = Math.max(1, barH * 0.65);
-              const botGrad = ctx.createLinearGradient(0, mid + 1, 0, mid + 1 + mirrorH);
-              botGrad.addColorStop(0, `rgba(${Math.round(rr*0.45)},${Math.round(gg*0.45)},${Math.round(bb*0.45)},0.8)`);
-              botGrad.addColorStop(1, `rgba(${Math.round(rr*0.15)},${Math.round(gg*0.15)},${Math.round(bb*0.15)},0.1)`);
-              ctx.fillStyle = botGrad;
-              ctx.fillRect(x, mid + 1, BW, mirrorH);
-            }
-            } catch (e) {
-              console.error('[CueForge] renderFunction crash:', e);
-            }
-          },
-          plugins: [regions],
+          barWidth: 0,
+          barGap: 0,
+          waveColor: '#ff3366',
+          progressColor: '#ff3366',
+          renderFunction: spectralRender,
+          plugins: [regions, minimap],
         });
 
         ws.on('ready', (dur: number) => {
@@ -769,9 +777,25 @@ export default function WaveSurferPlayer({
 
   return (
     <div className="w-full">
-      {/* Waveform */}
+      {/* ── OVERVIEW — full track (Rekordbox-style top strip) ── */}
       <div
-        className="relative bg-black/30 rounded-lg overflow-hidden cursor-crosshair"
+        className="relative bg-black rounded-t-lg overflow-hidden cursor-pointer"
+        style={{ height: overviewHeight, minHeight: overviewHeight }}
+        title="Vue d'ensemble — clic = naviguer"
+      >
+        <div ref={overviewRef} className="w-full h-full" />
+        {/* Label */}
+        <div className="absolute top-0.5 left-1.5 text-[8px] text-white/25 pointer-events-none select-none font-mono uppercase tracking-wider">
+          Overview
+        </div>
+      </div>
+
+      {/* ── Séparateur subtil ── */}
+      <div className="h-[1px] bg-white/10" />
+
+      {/* ── DETAIL — zoomed waveform ── */}
+      <div
+        className="relative bg-black/30 rounded-b-lg overflow-hidden cursor-crosshair"
         style={{ height, minHeight: height }}
         title="Clic = placer un cue · Ctrl+Scroll = zoom"
       >
