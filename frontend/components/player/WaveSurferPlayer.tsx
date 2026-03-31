@@ -21,85 +21,119 @@ export interface WaveformTheme {
   getBarColor: (r: number, g: number, b: number, brightness: number) => string;
 }
 
-// colors = [bass, mids, highs] — used for stacked bar rendering
+// colors = [bass, mids, highs] — getBarColor receives (bass, mids, highs, brightness)
+// Rekordbox style: each bar = ONE blended color based on dominant frequency
 export const WAVEFORM_THEMES: WaveformTheme[] = [
   {
     id: 'spectral',
-    label: 'RGB Pro',
-    colors: ['#ef4444', '#22c55e', '#3b82f6'], // Red bass, Green mids, Blue highs
-    getBarColor: (r, g, b, bright) =>
-      `rgb(${Math.min(255, Math.round(r * 255 * bright))},${Math.min(255, Math.round(g * 255 * bright))},${Math.min(255, Math.round(b * 255 * bright))})`,
+    label: 'Rekordbox',
+    colors: ['#ef4444', '#22c55e', '#3b82f6'],
+    getBarColor: (bass, mids, highs, bright) => {
+      // Rekordbox-style: vibrant color blend. Dominant band wins, smooth transitions.
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      // Normalize so they sum to 1
+      const bN = bass / total;
+      const mN = mids / total;
+      const hN = highs / total;
+      // Red=bass, Green=mids, Blue=highs — weighted color mix with saturation boost
+      const rr = Math.min(255, Math.round((bN * 255 + mN * 60 + hN * 40) * bright));
+      const gg = Math.min(255, Math.round((bN * 20 + mN * 220 + hN * 60) * bright));
+      const bb = Math.min(255, Math.round((bN * 20 + mN * 40 + hN * 255) * bright));
+      return `rgb(${rr},${gg},${bb})`;
+    },
   },
   {
     id: 'classic',
-    label: 'Rekordbox',
-    colors: ['#ff2222', '#00cc00', '#4488ff'], // Classic Rekordbox RGB
-    getBarColor: (r, g, b, bright) => {
-      const max = Math.max(r, g, b);
-      if (max < 0.01) return 'rgb(30,30,30)';
-      if (r === max) return `rgb(${Math.round(255 * bright)},0,0)`;
-      if (g === max) return `rgb(0,${Math.round(200 * bright)},0)`;
-      return `rgb(${Math.round(68 * bright)},${Math.round(136 * bright)},${Math.round(255 * bright)})`;
+    label: 'Classic RGB',
+    colors: ['#ff0000', '#00ff00', '#0066ff'],
+    getBarColor: (bass, mids, highs, bright) => {
+      // Pure hard RGB: dominant band gets full color
+      const max = Math.max(bass, mids, highs);
+      if (max < 0.01) return 'rgb(20,20,20)';
+      if (bass >= mids && bass >= highs) return `rgb(${Math.round(255 * bright)},${Math.round(20 * bright)},${Math.round(20 * bright)})`;
+      if (mids >= bass && mids >= highs) return `rgb(${Math.round(20 * bright)},${Math.round(220 * bright)},${Math.round(20 * bright)})`;
+      return `rgb(${Math.round(30 * bright)},${Math.round(60 * bright)},${Math.round(255 * bright)})`;
     },
   },
   {
     id: 'neon',
     label: 'Neon',
-    colors: ['#ff00ff', '#00ffff', '#ffff00'], // Magenta bass, Cyan mids, Yellow highs
-    getBarColor: (r, g, b, bright) => {
-      const hue = (r * 0.33 + g * 0.5 + b * 0.17) * 360;
-      return `hsl(${hue % 360},100%,${40 + bright * 30}%)`;
+    colors: ['#ff00ff', '#00ffff', '#ffff00'],
+    getBarColor: (bass, mids, highs, bright) => {
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      const bN = bass / total, mN = mids / total, hN = highs / total;
+      // Magenta=bass, Cyan=mids, Yellow=highs
+      const rr = Math.min(255, Math.round((bN * 255 + hN * 255) * bright));
+      const gg = Math.min(255, Math.round((mN * 255 + hN * 255) * bright));
+      const bb = Math.min(255, Math.round((bN * 255 + mN * 255) * bright));
+      return `rgb(${rr},${gg},${bb})`;
     },
   },
   {
     id: 'sunset',
     label: 'Sunset',
-    colors: ['#ff4500', '#ff8c00', '#ffd700'], // Deep orange bass, Orange mids, Gold highs
-    getBarColor: (r, g, b, bright) => {
-      const rr = Math.min(255, Math.round((r * 0.8 + g * 0.2) * bright * 255));
-      const gg = Math.min(255, Math.round((g * 0.5 + b * 0.1) * bright * 180));
-      return `rgb(${rr},${gg},30)`;
+    colors: ['#ff4500', '#ff8c00', '#ffd700'],
+    getBarColor: (bass, mids, highs, bright) => {
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      const bN = bass / total, mN = mids / total, hN = highs / total;
+      const rr = Math.min(255, Math.round((bN * 255 + mN * 255 + hN * 255) * bright));
+      const gg = Math.min(255, Math.round((bN * 30 + mN * 140 + hN * 215) * bright));
+      const bb = Math.min(255, Math.round((bN * 0 + mN * 0 + hN * 30) * bright));
+      return `rgb(${rr},${gg},${bb})`;
     },
   },
   {
     id: 'ocean',
     label: 'Ocean',
-    colors: ['#0077cc', '#00bbee', '#6366f1'], // Deep blue bass, Cyan mids, Indigo highs
-    getBarColor: (r, g, b, bright) => {
-      const rr = Math.min(255, Math.round(g * 40 * bright));
-      const gg = Math.min(255, Math.round((g * 0.5 + b * 0.5) * 200 * bright));
-      const bb = Math.min(255, Math.round((b * 0.7 + r * 0.3) * 255 * bright));
+    colors: ['#0077cc', '#00bbee', '#6366f1'],
+    getBarColor: (bass, mids, highs, bright) => {
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      const bN = bass / total, mN = mids / total, hN = highs / total;
+      const rr = Math.min(255, Math.round((bN * 0 + mN * 30 + hN * 99) * bright));
+      const gg = Math.min(255, Math.round((bN * 119 + mN * 187 + hN * 102) * bright));
+      const bb = Math.min(255, Math.round((bN * 204 + mN * 238 + hN * 241) * bright));
       return `rgb(${rr},${gg},${bb})`;
     },
   },
   {
     id: 'fire',
     label: 'Fire',
-    colors: ['#ff1111', '#ff6600', '#ffcc00'], // Red bass, Orange mids, Yellow highs
-    getBarColor: (r, g, b, bright) => {
-      const rr = Math.min(255, Math.round((r * 0.7 + g * 0.3) * 255 * bright));
-      const gg = Math.min(255, Math.round(g * 150 * bright));
-      return `rgb(${rr},${gg},0)`;
+    colors: ['#ff1111', '#ff6600', '#ffcc00'],
+    getBarColor: (bass, mids, highs, bright) => {
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      const bN = bass / total, mN = mids / total, hN = highs / total;
+      const rr = Math.min(255, Math.round(255 * bright));
+      const gg = Math.min(255, Math.round((bN * 17 + mN * 102 + hN * 204) * bright));
+      const bb = Math.min(255, Math.round((bN * 17 + mN * 0 + hN * 0) * bright));
+      return `rgb(${rr},${gg},${bb})`;
     },
   },
   {
     id: 'aurora',
     label: 'Aurora',
-    colors: ['#8b5cf6', '#06b6d4', '#10b981'], // Purple bass, Cyan mids, Emerald highs
-    getBarColor: (r, g, b, bright) => {
-      const t = (r + g * 2 + b * 3) / 6;
-      const rr = Math.min(255, Math.round((1 - t) * 139 * bright));
-      const gg = Math.min(255, Math.round(t * 200 * bright));
-      const bb = Math.min(255, Math.round((0.5 + t * 0.5) * 200 * bright));
+    colors: ['#8b5cf6', '#06b6d4', '#10b981'],
+    getBarColor: (bass, mids, highs, bright) => {
+      const total = bass + mids + highs;
+      if (total < 0.01) return 'rgb(20,20,20)';
+      const bN = bass / total, mN = mids / total, hN = highs / total;
+      // Purple=bass, Cyan=mids, Green=highs
+      const rr = Math.min(255, Math.round((bN * 139 + mN * 6 + hN * 16) * bright));
+      const gg = Math.min(255, Math.round((bN * 92 + mN * 182 + hN * 185) * bright));
+      const bb = Math.min(255, Math.round((bN * 246 + mN * 212 + hN * 129) * bright));
       return `rgb(${rr},${gg},${bb})`;
     },
   },
   {
     id: 'mono',
     label: 'Mono',
-    colors: ['#aaaaaa', '#cccccc', '#ffffff'], // Light grey to white
-    getBarColor: (_r, _g, _b, bright) => {
-      const v = Math.round(255 * bright);
+    colors: ['#aaaaaa', '#cccccc', '#ffffff'],
+    getBarColor: (_bass, _mids, _highs, bright) => {
+      const v = Math.round(240 * bright);
       return `rgb(${v},${v},${v})`;
     },
   },
@@ -186,7 +220,7 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: n
 }
 
 // ── Pre-render full waveform strip to an offscreen canvas (called ONCE) ──
-// Returns a canvas of width=numBars, height=stripHeight with stacked RGB bars
+// Each bar = ONE blended color based on frequency content (like Rekordbox)
 function preRenderWaveformStrip(
   colors: { r: number; g: number; b: number; amp: number }[],
   stripHeight: number,
@@ -205,25 +239,18 @@ function preRenderWaveformStrip(
     if (amp < 0.003) continue;
 
     const barH = Math.max(1, amp * mid * 0.92);
-    const total = r + g + b;
-    if (total < 0.001) continue;
+    const bright = 0.55 + amp * 0.45;
 
-    const bassH = (r / total) * barH;
-    const midsH = (g / total) * barH;
-    const highsH = (b / total) * barH;
+    // Single blended color per bar (Rekordbox style)
+    const color = theme.getBarColor(r, g, b, bright);
 
-    // Top half: stacked (highs top, mids middle, bass bottom near center)
-    let y = mid - barH;
-    ctx.fillStyle = theme.colors[2]; ctx.fillRect(i, y, 1, highsH); y += highsH;
-    ctx.fillStyle = theme.colors[1]; ctx.fillRect(i, y, 1, midsH); y += midsH;
-    ctx.fillStyle = theme.colors[0]; ctx.fillRect(i, y, 1, bassH);
+    // Top half
+    ctx.fillStyle = color;
+    ctx.fillRect(i, mid - barH, 1, barH);
 
-    // Bottom mirror (bass near center, highs far)
+    // Bottom mirror (dimmed)
     ctx.globalAlpha = 0.35;
-    y = mid + 1;
-    ctx.fillStyle = theme.colors[0]; ctx.fillRect(i, y, 1, bassH * 0.85); y += bassH * 0.85;
-    ctx.fillStyle = theme.colors[1]; ctx.fillRect(i, y, 1, midsH * 0.85); y += midsH * 0.85;
-    ctx.fillStyle = theme.colors[2]; ctx.fillRect(i, y, 1, highsH * 0.85);
+    ctx.fillRect(i, mid + 1, 1, barH * 0.85);
     ctx.globalAlpha = 1;
   }
 
