@@ -6,7 +6,7 @@ import {
   ChevronUp, ChevronRight, Layers, LayoutGrid, Globe, Palette,
   Upload, Search, RefreshCw, Crown, Lock, Unlock, GripVertical,
   AlertTriangle, CheckCircle, Loader, ExternalLink, Copy,
-  Sun, Moon, Disc3, ArrowUpDown, MoreHorizontal, type LucideIcon,
+  Sun, Moon, Disc3, ArrowUpDown, MoreHorizontal, LayoutDashboard, type LucideIcon,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════
@@ -281,6 +281,25 @@ function AdminSidebar({ active, onNavigate, theme, onThemeToggle, onLogout }: an
             </button>
           );
         })}
+
+        {/* ── Interface ───────────────────────────── */}
+        <div style={{ fontSize: 10, fontWeight: 600, color: DS.colors.text.muted, textTransform: "uppercase", letterSpacing: "0.08em", padding: "12px 10px 4px" }}>Interface</div>
+        <a
+          href="/admin/modules"
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 10px", borderRadius: 7, border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 400, color: DS.colors.text.secondary,
+            background: "transparent", textAlign: "left", marginBottom: 1,
+            transition: "all 0.15s", textDecoration: "none",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = DS.colors.accent.primary + "12"; (e.currentTarget as HTMLAnchorElement).style.color = DS.colors.text.primary; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = DS.colors.text.secondary; }}
+        >
+          <LayoutDashboard size={15} color={DS.colors.text.muted} />
+          Disposition modules
+          <ExternalLink size={10} style={{ marginLeft: "auto" }} color={DS.colors.text.muted} />
+        </a>
       </nav>
 
       {/* Footer */}
