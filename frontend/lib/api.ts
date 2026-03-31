@@ -489,6 +489,33 @@ export async function detectGenre(trackId: number): Promise<{
   return response.json();
 }
 
+export interface IdentifyResult {
+  title?: string;
+  artist?: string;
+  album?: string;
+  year?: number;
+  genre?: string;
+  artwork_url?: string;
+  spotify_id?: string;
+  spotify_url?: string;
+  musicbrainz_id?: string;
+  acoustid_score?: number;
+  source?: string;
+}
+
+export async function identifyTrack(trackId: number): Promise<{
+  status: 'found' | 'not_found' | 'no_fingerprint';
+  message?: string;
+  result: IdentifyResult | null;
+}> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/identify`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Identification failed');
+  return response.json();
+}
+
 export async function spotifyLookup(
   trackId: number,
   query?: string,

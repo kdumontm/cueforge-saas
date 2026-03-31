@@ -891,6 +891,106 @@ def fix_tags(
     return {"status": "ok", "written": result.get('written', {})}
 
 
+# ── Audio fingerprint identification (AcoustID → MusicBrainz → Spotify) ────
+
+@router.post("/{track_id}/identify")
+def identify_track(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Identify a track by audio fingerprint (Shazam-style).
+
+    Pipeline:
+      1. fpcalc → generate audio fingerprint
+      2. AcoustID → match fingerprint to recording
+      3. MusicBrainz → fetch full metadata (title, artist, album, year, genre)
+      4. Spotify → artwork + genre (if configured)
+
+    Returns suggested metadata WITHOUT saving anything.
+    """
+    from app.services.metadata_service import (
+        fingerprint_file,
+        lookup_acoustid,
+        lookup_musicbrainz,
+        search_spotify,
+    )
+
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    file_path = track.file_path
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found on server")
+
+    # Step 1 — Fingerprint
+    fingerprint, duration = fingerprint_file(file_path)
+    if not fingerprint or not duration:
+        return {
+            "status": "no_fingerprint",
+            "message": "fpcalc not available or file too short",
+            "result": None,
+        }
+
+    # Step 2 — AcoustID
+    acoustid_result = lookup_acoustid(fingerprint, duration)
+    if not acoustid_result:
+        return {
+            "status": "not_found",
+            "message": "No AcoustID match (score too low or unknown track)",
+            "result": None,
+        }
+
+    artist: str = acoustid_result.get("artist") or ""
+    title: str = acoustid_result.get("title") or ""
+    score: float = acoustid_result.get("score", 0.0)
+
+    result = {
+        "title":      title,
+        "artist":     artist,
+        "album":      None,
+        "year":       None,
+        "genre":      None,
+        "artwork_url": None,
+        "spotify_id":  None,
+        "spotify_url": None,
+        "musicbrainz_id": acoustid_result.get("recording_id"),
+        "acoustid_score": score,
+        "source": "acoustid+musicbrainz",
+    }
+
+    # Step 3 — MusicBrainz enrichment
+    recording_id = acoustid_result.get("recording_id")
+    if recording_id:
+        mb = lookup_musicbrainz(recording_id)
+        if mb:
+            if mb.get("title"):    result["title"]   = mb["title"]
+            if mb.get("artist"):   result["artist"]  = mb["artist"]
+            if mb.get("album"):    result["album"]   = mb["album"]
+            if mb.get("year"):     result["year"]    = mb["year"]
+            if mb.get("genre"):    result["genre"]   = mb["genre"]
+
+    # Step 4 — Spotify (artwork + genre)
+    if result["artist"] and result["title"]:
+        sp = search_spotify(result["artist"], result["title"])
+        if sp:
+            if sp.get("artwork_url"): result["artwork_url"] = sp["artwork_url"]
+            if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
+            if sp.get("spotify_url"): result["spotify_url"] = sp["spotify_url"]
+            if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
+            result["source"] = "acoustid+musicbrainz+spotify"
+
+    return {
+        "status": "found",
+        "result": result,
+    }
+
+
 # ── v2: Compatible tracks (Camelot + BPM) ──────────────────────────────────
 
 @router.get("/{track_id}/compatible")
