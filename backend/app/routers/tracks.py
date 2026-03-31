@@ -155,14 +155,16 @@ async def upload_track(
 # Lossless formats that should be transcoded for web playback
 LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
 
-# Transcoding strategies — try in order until one works
+# Transcoding strategies — try in order until one works.
 # OGG/Vorbis is best for Web Audio API decoding in browsers.
-# AAC/M4A can hang during decodeAudioData on large files.
+# AAC/M4A is EXCLUDED because Chrome's decodeAudioData() hangs on large M4A blobs.
+# MP3 is the universal fallback — every browser decodes it perfectly.
+# NOTE: each strategy's extra_args must include its own bitrate/quality flag.
 _TRANSCODE_STRATEGIES = [
     # (codec, ext, mime_type, extra_args)
-    ("libvorbis", ".ogg", "audio/ogg", ["-q:a", "6"]),           # best Web Audio compat
-    ("libopus", ".ogg", "audio/ogg", []),                         # good alternative
-    ("aac", ".m4a", "audio/mp4", ["-movflags", "+faststart"]),    # fallback
+    ("libvorbis", ".ogg", "audio/ogg", ["-q:a", "6"]),            # best Web Audio compat
+    ("libopus", ".ogg", "audio/ogg", ["-b:a", "128k"]),           # good alternative
+    ("libmp3lame", ".mp3", "audio/mpeg", ["-q:a", "2"]),          # universal fallback
 ]
 
 
@@ -175,7 +177,7 @@ def _get_cache_path(original_path: str, ext: str) -> str:
     return base + ".transcoded" + ext
 
 
-def _transcode_audio(src_path: str, bitrate: str = "192k"):
+def _transcode_audio(src_path: str):
     """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
     src_exists = os.path.exists(src_path)
     src_size = os.path.getsize(src_path) if src_exists else 0
@@ -203,10 +205,9 @@ def _transcode_audio(src_path: str, bitrate: str = "192k"):
                 "-i", src_path,
                 "-vn",              # no video
                 "-acodec", codec,
-                "-b:a", bitrate,
+                *extra_args,        # bitrate/quality per strategy
                 "-ar", "44100",     # standard sample rate
                 "-ac", "2",         # stereo
-                *extra_args,
                 dst_path,
             ]
             logger.info("Running ffmpeg: %s → %s (codec=%s)", os.path.basename(src_path), ext, codec)
