@@ -152,42 +152,67 @@ async def upload_track(
 
 # ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
 
-# Lossless formats that should be transcoded to OGG for web playback
+# Lossless formats that should be transcoded for web playback
 LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
 
+# Transcoding strategies — try in order until one works
+# AAC is built-in to ffmpeg (always available), opus/vorbis need external libs
+_TRANSCODE_STRATEGIES = [
+    # (codec, ext, mime_type, extra_args)
+    ("aac", ".m4a", "audio/mp4", ["-movflags", "+faststart"]),  # built-in, always works
+    ("libopus", ".ogg", "audio/ogg", []),                        # needs libopus
+    ("libvorbis", ".ogg", "audio/ogg", []),                      # needs libvorbis
+]
 
-def _get_ogg_cache_path(original_path: str) -> str:
-    """Return the path where the OGG cache file should be stored, next to the original."""
+
+def _get_cache_path(original_path: str, ext: str) -> str:
+    """Return the path where the cached transcoded file should be stored."""
     base, _ = os.path.splitext(original_path)
-    return base + ".ogg.cache"
+    return base + ext + ".cache"
 
 
-def _transcode_to_ogg(src_path: str, dst_path: str, bitrate: str = "192k") -> bool:
-    """Transcode audio to OGG Vorbis using ffmpeg. Returns True on success."""
-    try:
-        result = subprocess.run(
-            [
+def _transcode_audio(src_path: str, bitrate: str = "192k") -> tuple[str | None, str]:
+    """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
+    for codec, ext, mime_type, extra_args in _TRANSCODE_STRATEGIES:
+        dst_path = _get_cache_path(src_path, ext)
+        # If a cached version already exists, use it
+        if os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+            logger.info(f"Using cached transcode: {dst_path}")
+            return dst_path, mime_type
+        try:
+            cmd = [
                 "ffmpeg", "-y",
                 "-i", src_path,
-                "-vn",                    # no video
-                "-acodec", "libvorbis",
+                "-vn",              # no video
+                "-acodec", codec,
                 "-b:a", bitrate,
-                "-ar", "44100",           # standard sample rate
-                "-ac", "2",               # stereo
+                "-ar", "44100",     # standard sample rate
+                "-ac", "2",         # stereo
+                *extra_args,
                 dst_path,
-            ],
-            capture_output=True,
-            timeout=120,  # max 2 min per track
-        )
-        if result.returncode == 0 and os.path.exists(dst_path):
-            logger.info(f"Transcoded {src_path} → {dst_path} ({os.path.getsize(dst_path)} bytes)")
-            return True
-        else:
-            logger.error(f"ffmpeg failed: {result.stderr[:500]}")
-            return False
-    except Exception as e:
-        logger.error(f"Transcode error: {e}")
-        return False
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=120)
+            if result.returncode == 0 and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+                src_size = os.path.getsize(src_path)
+                dst_size = os.path.getsize(dst_path)
+                logger.info(f"Transcoded with {codec}: {src_path} ({src_size//1024}KB) → {dst_path} ({dst_size//1024}KB)")
+                return dst_path, mime_type
+            else:
+                # Show last 300 chars of stderr (actual error, not version banner)
+                err_tail = result.stderr[-300:] if result.stderr else b""
+                logger.warning(f"Codec {codec} failed: {err_tail}")
+                # Clean up failed output
+                if os.path.exists(dst_path):
+                    os.remove(dst_path)
+        except subprocess.TimeoutExpired:
+            logger.warning(f"Codec {codec} timed out")
+            if os.path.exists(dst_path):
+                os.remove(dst_path)
+        except Exception as e:
+            logger.error(f"Transcode error with {codec}: {e}")
+
+    logger.error(f"All transcode strategies failed for {src_path}")
+    return None, ""
 
 
 @router.get("/{track_id}/audio")
@@ -241,26 +266,17 @@ async def stream_audio(
     ext = os.path.splitext(safe)[1].lower()
     serve_path = safe  # default: serve the original file
 
-    # ── OGG transcoding for lossless formats (FLAC/WAV/AIFF → OGG 192k) ──
-    # This reduces download size from ~50-100 MB to ~5-10 MB for web playback
+    # ── Transcoding for lossless formats (FLAC/WAV/AIFF → AAC/OGG) ──
+    # Reduces download from ~50-100 MB to ~5-10 MB for web playback
     if format == "ogg" and ext in LOSSLESS_EXTENSIONS:
-        ogg_cache = _get_ogg_cache_path(safe)
-        if not os.path.exists(ogg_cache):
-            logger.info(f"Transcoding track {track_id} ({ext}) → OGG for web playback...")
-            success = _transcode_to_ogg(safe, ogg_cache)
-            if not success:
-                # Fallback: serve original file if transcoding fails
-                logger.warning(f"Transcode failed for track {track_id}, serving original")
-            else:
-                serve_path = ogg_cache
-        else:
-            serve_path = ogg_cache
-
-        if serve_path != safe:
-            # Serve the cached OGG file
-            content_type = "audio/ogg"
+        logger.info(f"Transcoding requested for track {track_id} ({ext})")
+        transcode_path, transcode_mime = _transcode_audio(safe)
+        if transcode_path:
+            serve_path = transcode_path
+            content_type = transcode_mime
             file_size = os.path.getsize(serve_path)
         else:
+            logger.warning(f"All transcodes failed for track {track_id}, serving original {ext}")
             content_type = MIME_TYPES.get(ext, "application/octet-stream")
             file_size = os.path.getsize(safe)
     else:
