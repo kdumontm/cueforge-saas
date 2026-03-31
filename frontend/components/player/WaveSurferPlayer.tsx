@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { getToken } from '@/lib/api';
 
 interface CuePoint {
@@ -26,11 +26,25 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
     id: 'spectral',
     label: 'Spectral',
     colors: ['#ef4444', '#22c55e', '#3b82f6'],
-    getBarColor: (r, g, b, bright) => `rgb(${Math.min(255,Math.round(r*bright))},${Math.min(255,Math.round(g*bright))},${Math.min(255,Math.round(b*bright))})`,
+    getBarColor: (r, g, b, bright) =>
+      `rgb(${Math.min(255, Math.round(r * bright))},${Math.min(255, Math.round(g * bright))},${Math.min(255, Math.round(b * bright))})`,
+  },
+  {
+    id: 'classic',
+    label: 'Classic RGB',
+    colors: ['#ef4444', '#22c55e', '#3b82f6'],
+    getBarColor: (r, g, b, bright) => {
+      // Pure red/green/blue based on dominant band
+      const max = Math.max(r, g, b);
+      if (max < 1) return 'rgb(40,40,40)';
+      if (r === max) return `rgb(${Math.round(255 * bright)},${Math.round(30 * bright)},${Math.round(30 * bright)})`;
+      if (g === max) return `rgb(${Math.round(30 * bright)},${Math.round(255 * bright)},${Math.round(30 * bright)})`;
+      return `rgb(${Math.round(60 * bright)},${Math.round(60 * bright)},${Math.round(255 * bright)})`;
+    },
   },
   {
     id: 'neon',
-    label: '🌆 Neon',
+    label: 'Neon',
     colors: ['#ff00ff', '#00ffff', '#ffff00'],
     getBarColor: (r, g, b, bright) => {
       const hue = (r * 0.33 + g * 0.5 + b * 0.17) * 360;
@@ -39,7 +53,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   },
   {
     id: 'sunset',
-    label: '🌅 Sunset',
+    label: 'Sunset',
     colors: ['#ff4500', '#ff8c00', '#ffd700'],
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round((r * 0.8 + g * 0.2) * bright * 255));
@@ -49,7 +63,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   },
   {
     id: 'ocean',
-    label: '🌊 Ocean',
+    label: 'Ocean',
     colors: ['#0ea5e9', '#22d3ee', '#6366f1'],
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round(g * 40 * bright));
@@ -59,19 +73,8 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
     },
   },
   {
-    id: 'forest',
-    label: '🌿 Forest',
-    colors: ['#22c55e', '#84cc16', '#10b981'],
-    getBarColor: (r, g, b, bright) => {
-      const rr = Math.min(255, Math.round(r * 60 * bright));
-      const gg = Math.min(255, Math.round((g * 0.7 + b * 0.3) * 255 * bright));
-      const bb = Math.min(255, Math.round(b * 80 * bright));
-      return `rgb(${rr},${gg},${bb})`;
-    },
-  },
-  {
     id: 'fire',
-    label: '🔥 Fire',
+    label: 'Fire',
     colors: ['#ef4444', '#f97316', '#fbbf24'],
     getBarColor: (r, g, b, bright) => {
       const rr = Math.min(255, Math.round((r * 0.7 + g * 0.3) * 255 * bright));
@@ -81,7 +84,7 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
   },
   {
     id: 'aurora',
-    label: '🌌 Aurora',
+    label: 'Aurora',
     colors: ['#8b5cf6', '#06b6d4', '#10b981'],
     getBarColor: (r, g, b, bright) => {
       const t = (r + g * 2 + b * 3) / 6;
@@ -89,6 +92,15 @@ export const WAVEFORM_THEMES: WaveformTheme[] = [
       const gg = Math.min(255, Math.round(t * 200 * bright));
       const bb = Math.min(255, Math.round((0.5 + t * 0.5) * 200 * bright));
       return `rgb(${rr},${gg},${bb})`;
+    },
+  },
+  {
+    id: 'mono',
+    label: 'Mono',
+    colors: ['#ffffff', '#ffffff', '#ffffff'],
+    getBarColor: (_r, _g, _b, bright) => {
+      const v = Math.round(255 * bright);
+      return `rgb(${v},${v},${v})`;
     },
   },
 ];
@@ -113,6 +125,7 @@ interface WaveSurferPlayerProps {
     setLoopIn?: () => void;
     setLoopOut?: () => void;
     toggleLoop?: () => void;
+    setLoop?: (inMs: number, outMs: number) => void;
     setPlaybackRate?: (rate: number) => void;
     setEQ?: (low: number, mid: number, high: number) => void;
   } | null>;
@@ -122,40 +135,37 @@ interface WaveSurferPlayerProps {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-// Zoom levels: how many seconds of audio are visible in the detail waveform
-const ZOOM_SECONDS: Record<string, number> = {
-  '0.5': 60,
-  '1':   30,
-  '2':   15,
-  '4':   8,
-};
-
 // ── RGB spectral analysis — derivative approach ──
-function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:number,b:number,amp:number}[] {
+function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): { r: number; g: number; b: number; amp: number }[] {
   const data = buf.getChannelData(0);
   const segLen = Math.max(1, Math.floor(data.length / numBars));
 
-  const bands: {lo:number,mi:number,hi:number,amp:number}[] = new Array(numBars);
-  let maxLo = 1e-9, maxMi = 1e-9, maxHi = 1e-9;
+  const bands: { lo: number; mi: number; hi: number; amp: number }[] = new Array(numBars);
+  let maxLo = 1e-9,
+    maxMi = 1e-9,
+    maxHi = 1e-9;
 
   for (let i = 0; i < numBars; i++) {
     const s = i * segLen;
     const e = Math.min(s + segLen, data.length);
-    let lo = 0, mi = 0, hi = 0, peak = 0;
+    let lo = 0,
+      mi = 0,
+      hi = 0,
+      peak = 0;
     let prev = s > 0 ? data[s - 1] : 0;
     let prev2 = s > 1 ? data[s - 2] : 0;
     const n = e - s || 1;
 
     for (let j = s; j < e; j++) {
-      const v  = data[j];
+      const v = data[j];
       const d1 = v - prev;
       const d2 = v - 2 * prev + prev2;
-      lo += v  * v;
+      lo += v * v;
       mi += d1 * d1;
       hi += d2 * d2;
       peak = Math.max(peak, Math.abs(v));
       prev2 = prev;
-      prev  = v;
+      prev = v;
     }
     const loR = Math.sqrt(lo / n);
     const miR = Math.sqrt(mi / n);
@@ -166,7 +176,7 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:numbe
     bands[i] = { lo: loR, mi: miR, hi: hiR, amp: peak };
   }
 
-  return bands.map(c => {
+  return bands.map((c) => {
     const lo = c.lo / maxLo;
     const mi = c.mi / maxMi;
     const hi = c.hi / maxHi;
@@ -175,30 +185,31 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 4000): {r:number,g:numbe
     const miP = Math.pow(mi, 0.65);
     const hiP = Math.pow(hi, 0.65);
 
-    const r = Math.min(255, Math.round(loP * 255 + miP * 60 + hiP * 30));
-    const g = Math.min(255, Math.round(miP * 200 + hiP * 120 + loP * 20));
-    const b = Math.min(255, Math.round(hiP * 255 + loP * 60 + miP * 40));
+    // Raw normalized 0-1 for each band
+    const r = Math.min(1, loP + miP * 0.23 + hiP * 0.12);
+    const g = Math.min(1, miP + hiP * 0.47 + loP * 0.08);
+    const b = Math.min(1, hiP + loP * 0.23 + miP * 0.16);
 
     return { r, g, b, amp: c.amp };
   });
 }
 
-// ── Draw overview waveform (full track, thin bar) ──
+// ── Draw overview waveform ──
 function drawOverview(
   ctx: CanvasRenderingContext2D,
-  colors: {r:number,g:number,b:number,amp:number}[],
+  colors: { r: number; g: number; b: number; amp: number }[],
   width: number,
   height: number,
-  progress: number, // 0-1
+  progress: number,
   cuePoints: CuePoint[],
   duration: number,
+  theme: WaveformTheme,
 ) {
   ctx.clearRect(0, 0, width, height);
 
   const mid = height / 2;
   const numBars = colors.length;
 
-  // Draw waveform bars
   for (let x = 0; x < width; x++) {
     const ci = Math.min(Math.floor((x / width) * numBars), numBars - 1);
     const { r, g, b, amp } = colors[ci];
@@ -207,32 +218,29 @@ function drawOverview(
     const barH = Math.max(1, amp * mid * 0.92);
     const bright = 0.6 + amp * 0.4;
 
-    const rr = Math.min(255, Math.round(r * bright));
-    const gg = Math.min(255, Math.round(g * bright));
-    const bb = Math.min(255, Math.round(b * bright));
+    const color = theme.getBarColor(r, g, b, bright);
 
     // Top half
-    ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+    ctx.fillStyle = color;
     ctx.fillRect(x, mid - barH, 1, barH);
 
-    // Bottom mirror (lower opacity)
-    ctx.fillStyle = `rgba(${rr},${gg},${bb},0.4)`;
+    // Bottom mirror
+    ctx.globalAlpha = 0.4;
     ctx.fillRect(x, mid + 1, 1, barH * 0.85);
+    ctx.globalAlpha = 1;
   }
 
-  // Draw cue point markers
+  // Cue point markers
   cuePoints.forEach((c) => {
     const xPos = duration > 0 ? (c.position_ms / 1000 / duration) * width : 0;
     const color = c.color || c.color_rgb || '#f59e0b';
     ctx.fillStyle = color;
-    // Small triangle at top
     ctx.beginPath();
     ctx.moveTo(xPos - 3, 0);
     ctx.lineTo(xPos + 3, 0);
     ctx.lineTo(xPos, 5);
     ctx.closePath();
     ctx.fill();
-    // Thin vertical line
     ctx.strokeStyle = color + '66';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -241,30 +249,34 @@ function drawOverview(
     ctx.stroke();
   });
 
-  // Playback position line
+  // Dim unplayed section
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(progress * width, 0, width - progress * width, height);
+
+  // RED playback position line
   const posX = progress * width;
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#ff3333';
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(posX, 0);
   ctx.lineTo(posX, height);
   ctx.stroke();
-
-  // Played section overlay (subtle dimming of unplayed area)
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(posX, 0, width - posX, height);
 }
 
-// ── Draw zoomed detail waveform (cursor fixed at center, waveform scrolls) ──
+// ── Draw zoomed detail waveform ──
 function drawDetail(
   ctx: CanvasRenderingContext2D,
-  colors: {r:number,g:number,b:number,amp:number}[],
+  colors: { r: number; g: number; b: number; amp: number }[],
   width: number,
   height: number,
-  progress: number, // 0-1
+  progress: number,
   duration: number,
   visibleSeconds: number,
   cuePoints: CuePoint[],
+  theme: WaveformTheme,
+  loopIn: number | null,
+  loopOut: number | null,
+  loopActive: boolean,
   bpm?: number,
 ) {
   ctx.clearRect(0, 0, width, height);
@@ -272,37 +284,27 @@ function drawDetail(
   const mid = height / 2;
   const numBars = colors.length;
   const currentTime = progress * duration;
-
-  // How many seconds each pixel represents
   const secPerPx = visibleSeconds / width;
   const startTime = currentTime - visibleSeconds / 2;
 
-  // Centre axis line
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  // Centre axis
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
   ctx.fillRect(0, mid, width, 1);
 
-  // Draw beat grid lines if BPM is known
+  // Beat grid
   if (bpm && bpm > 0) {
-    const beatInterval = 60 / bpm; // seconds per beat
-    const barInterval = beatInterval * 4; // seconds per bar (4 beats)
-    const firstBar = Math.floor(startTime / barInterval) * barInterval;
+    const beatInterval = 60 / bpm;
+    const barInterval = beatInterval * 4;
+    const firstBeat = Math.floor(Math.max(0, startTime) / beatInterval) * beatInterval;
 
-    ctx.lineWidth = 1;
-    for (let t = firstBar; t < startTime + visibleSeconds; t += beatInterval) {
+    for (let t = firstBeat; t < startTime + visibleSeconds; t += beatInterval) {
       if (t < 0) continue;
       const x = (t - startTime) / secPerPx;
       if (x < 0 || x >= width) continue;
 
-      const isBar = Math.abs(t / barInterval - Math.round(t / barInterval)) < 0.01;
-      if (isBar) {
-        // Bar line — brighter
-        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-        ctx.lineWidth = 1;
-      } else {
-        // Beat line — subtle
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 0.5;
-      }
+      const isBar = Math.abs((t / barInterval) - Math.round(t / barInterval)) < 0.01;
+      ctx.strokeStyle = isBar ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = isBar ? 1 : 0.5;
       ctx.beginPath();
       ctx.moveTo(Math.round(x) + 0.5, 0);
       ctx.lineTo(Math.round(x) + 0.5, height);
@@ -310,7 +312,34 @@ function drawDetail(
     }
   }
 
-  // Draw waveform
+  // Loop region overlay
+  if (loopIn !== null && loopOut !== null && loopIn < loopOut) {
+    const loopStartX = (loopIn - startTime) / secPerPx;
+    const loopEndX = (loopOut - startTime) / secPerPx;
+    const x1 = Math.max(0, loopStartX);
+    const x2 = Math.min(width, loopEndX);
+    if (x2 > x1) {
+      ctx.fillStyle = loopActive ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.08)';
+      ctx.fillRect(x1, 0, x2 - x1, height);
+      // Loop boundary lines
+      ctx.strokeStyle = loopActive ? '#10b981' : '#3b82f6';
+      ctx.lineWidth = 1.5;
+      if (loopStartX >= 0 && loopStartX < width) {
+        ctx.beginPath();
+        ctx.moveTo(loopStartX, 0);
+        ctx.lineTo(loopStartX, height);
+        ctx.stroke();
+      }
+      if (loopEndX >= 0 && loopEndX < width) {
+        ctx.beginPath();
+        ctx.moveTo(loopEndX, 0);
+        ctx.lineTo(loopEndX, height);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Waveform
   for (let x = 0; x < width; x++) {
     const t = startTime + x * secPerPx;
     if (t < 0 || t > duration) continue;
@@ -323,27 +352,22 @@ function drawDetail(
     const barH = Math.max(1, amp * mid * 0.92);
     const bright = 0.55 + amp * 0.45;
 
-    const rr = Math.min(255, Math.round(r * bright));
-    const gg = Math.min(255, Math.round(g * bright));
-    const bb = Math.min(255, Math.round(b * bright));
+    const color = theme.getBarColor(r, g, b, bright);
 
-    // Top half
-    ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+    ctx.fillStyle = color;
     ctx.fillRect(x, mid - barH, 1, barH);
-
-    // Bottom mirror
-    ctx.fillStyle = `rgba(${rr},${gg},${bb},0.4)`;
+    ctx.globalAlpha = 0.4;
     ctx.fillRect(x, mid + 1, 1, barH * 0.85);
+    ctx.globalAlpha = 1;
   }
 
-  // Draw cue point markers on detail
+  // Cue point markers
   cuePoints.forEach((c) => {
     const cueTime = c.position_ms / 1000;
     const x = (cueTime - startTime) / secPerPx;
-    if (x < 0 || x >= width) return;
+    if (x < -5 || x >= width + 5) return;
 
     const color = c.color || c.color_rgb || '#f59e0b';
-    // Triangle marker at top
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(x - 4, 0);
@@ -351,7 +375,6 @@ function drawDetail(
     ctx.lineTo(x, 6);
     ctx.closePath();
     ctx.fill();
-    // Vertical line
     ctx.strokeStyle = color + '55';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -360,7 +383,7 @@ function drawDetail(
     ctx.stroke();
   });
 
-  // Fixed cursor at center (red line like Rekordbox)
+  // Fixed RED cursor at center
   const centerX = Math.round(width / 2);
   ctx.strokeStyle = '#ff3333';
   ctx.lineWidth = 2;
@@ -368,17 +391,7 @@ function drawDetail(
   ctx.moveTo(centerX, 0);
   ctx.lineTo(centerX, height);
   ctx.stroke();
-
-  // Small time indicator near cursor
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  const mins = Math.floor(currentTime / 60);
-  const secs = Math.floor(currentTime % 60);
-  const ms = Math.floor((currentTime % 1) * 10);
-  ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}.${ms}`, centerX, height - 3);
 }
-
 
 export default function WaveSurferPlayer({
   trackId,
@@ -395,19 +408,16 @@ export default function WaveSurferPlayer({
   onLoopChange,
   onZoomChange,
 }: WaveSurferPlayerProps) {
-  // Audio engine ref (wavesurfer for audio only)
   const wsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const prevTrackIdRef = useRef<number | null>(null);
 
-  // Canvas refs
   const overviewCanvasRef = useRef<HTMLCanvasElement>(null);
   const detailCanvasRef = useRef<HTMLCanvasElement>(null);
   const overviewContainerRef = useRef<HTMLDivElement>(null);
   const detailContainerRef = useRef<HTMLDivElement>(null);
 
-  // State
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -422,8 +432,10 @@ export default function WaveSurferPlayer({
   }, [trackDuration]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [volume, setVolume] = useState(0.8);
+  const [volume, setVolumeState] = useState(0.8);
   const [muted, setMuted] = useState(false);
+
+  // Loop state
   const [loopIn, setLoopIn] = useState<number | null>(null);
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
@@ -432,10 +444,10 @@ export default function WaveSurferPlayer({
   const loopActiveRef = useRef(false);
 
   // Spectral data
-  const spectralColorsRef = useRef<{r:number,g:number,b:number,amp:number}[] | null>(null);
+  const spectralColorsRef = useRef<{ r: number; g: number; b: number; amp: number }[] | null>(null);
   const [spectralReady, setSpectralReady] = useState(false);
 
-  // EQ nodes
+  // EQ
   const eqLowRef = useRef<BiquadFilterNode | null>(null);
   const eqMidRef = useRef<BiquadFilterNode | null>(null);
   const eqHighRef = useRef<BiquadFilterNode | null>(null);
@@ -443,16 +455,33 @@ export default function WaveSurferPlayer({
 
   // Animation
   const rafRef = useRef<number>(0);
-  const zoomRef = useRef(zoom);
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // Zoom: internal visible seconds state (driven by prop + scroll)
+  const ZOOM_SEC_MAP: Record<string, number> = { '0.5': 60, '1': 30, '2': 15, '4': 8 };
+  const [visibleSeconds, setVisibleSeconds] = useState(ZOOM_SEC_MAP[String(zoom)] ?? 30);
+  const visibleSecondsRef = useRef(visibleSeconds);
+  useEffect(() => {
+    const sec = ZOOM_SEC_MAP[String(zoom)] ?? 30;
+    setVisibleSeconds(sec);
+    visibleSecondsRef.current = sec;
+  }, [zoom]);
+  useEffect(() => {
+    visibleSecondsRef.current = visibleSeconds;
+  }, [visibleSeconds]);
+
+  // Theme ref
+  const themeRef = useRef(waveformTheme);
+  useEffect(() => {
+    themeRef.current = waveformTheme;
+  }, [waveformTheme]);
+
+  // BPM
+  const bpmRef = useRef<number>(0);
 
   // Sync refs
   useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);
   useEffect(() => { loopOutRef.current = loopOut; }, [loopOut]);
   useEffect(() => { loopActiveRef.current = loopActive; }, [loopActive]);
-
-  // Track BPM from metadata (could be passed as prop later)
-  const bpmRef = useRef<number>(0);
 
   const fmt = (s: number) => {
     const m = Math.floor(s / 60);
@@ -473,7 +502,7 @@ export default function WaveSurferPlayer({
     return { width: rect.width, height: rect.height };
   }, []);
 
-  // ── Animation loop — redraws both canvases ──
+  // ── Animation loop ──
   const renderFrame = useCallback(() => {
     const colors = spectralColorsRef.current;
     if (!colors) {
@@ -485,7 +514,6 @@ export default function WaveSurferPlayer({
     const dur = durationRef.current;
     let time = currentTimeRef.current;
 
-    // Get real-time position from wavesurfer
     if (ws) {
       try {
         const t = ws.getCurrentTime?.();
@@ -497,6 +525,7 @@ export default function WaveSurferPlayer({
     }
 
     const progress = dur > 0 ? time / dur : 0;
+    const theme = WAVEFORM_THEMES.find((t) => t.id === themeRef.current) || WAVEFORM_THEMES[0];
 
     // Draw overview
     const overviewCanvas = overviewCanvasRef.current;
@@ -505,7 +534,7 @@ export default function WaveSurferPlayer({
       const ctx = overviewCanvas.getContext('2d');
       if (ctx) {
         const rect = overviewContainer.getBoundingClientRect();
-        drawOverview(ctx, colors, rect.width, rect.height, progress, cuePoints, dur);
+        drawOverview(ctx, colors, rect.width, rect.height, progress, cuePoints, dur, theme);
       }
     }
 
@@ -516,18 +545,21 @@ export default function WaveSurferPlayer({
       const ctx = detailCanvas.getContext('2d');
       if (ctx) {
         const rect = detailContainer.getBoundingClientRect();
-        const visibleSec = ZOOM_SECONDS[String(zoomRef.current)] ?? 30;
-        drawDetail(ctx, colors, rect.width, rect.height, progress, dur, visibleSec, cuePoints, bpmRef.current);
+        drawDetail(
+          ctx, colors, rect.width, rect.height, progress, dur,
+          visibleSecondsRef.current, cuePoints, theme,
+          loopInRef.current, loopOutRef.current, loopActiveRef.current,
+          bpmRef.current,
+        );
       }
     }
 
     rafRef.current = requestAnimationFrame(renderFrame);
   }, [cuePoints]);
 
-  // ── Start/stop animation loop ──
+  // ── Start/stop animation ──
   useEffect(() => {
     if (spectralReady) {
-      // Setup canvas sizes
       if (overviewCanvasRef.current && overviewContainerRef.current) {
         setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current);
       }
@@ -541,21 +573,19 @@ export default function WaveSurferPlayer({
     };
   }, [spectralReady, renderFrame, setupCanvasSize]);
 
-  // ── Handle window resize ──
+  // Resize handler
   useEffect(() => {
     const handleResize = () => {
-      if (overviewCanvasRef.current && overviewContainerRef.current) {
+      if (overviewCanvasRef.current && overviewContainerRef.current)
         setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current);
-      }
-      if (detailCanvasRef.current && detailContainerRef.current) {
+      if (detailCanvasRef.current && detailContainerRef.current)
         setupCanvasSize(detailCanvasRef.current, detailContainerRef.current);
-      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [setupCanvasSize]);
 
-  // ── Init WaveSurfer (audio engine only, no rendering) ──
+  // ── Init WaveSurfer (audio engine only) ──
   useEffect(() => {
     let destroyed = false;
 
@@ -564,16 +594,20 @@ export default function WaveSurferPlayer({
         const WaveSurfer = (await import('wavesurfer.js')).default;
         if (destroyed) return;
 
+        // Create a tiny but visible container so WaveSurfer fires 'ready'
+        const hiddenDiv = document.createElement('div');
+        hiddenDiv.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;';
+        document.body.appendChild(hiddenDiv);
+
         const ws = WaveSurfer.create({
-          container: document.createElement('div'), // hidden — no visual
-          height: 0,
+          container: hiddenDiv,
+          height: 1,
           normalize: true,
           interact: false,
           cursorWidth: 0,
           waveColor: 'transparent',
           progressColor: 'transparent',
           barWidth: 0,
-          backend: 'MediaElement',
         });
 
         ws.on('ready', (dur: number) => {
@@ -584,6 +618,10 @@ export default function WaveSurferPlayer({
           setIsReady(true);
           setLoading(false);
           setError(null);
+          if ((ws as any).__readyTimeout) {
+            clearTimeout((ws as any).__readyTimeout);
+            (ws as any).__readyTimeout = null;
+          }
 
           // Setup EQ
           try {
@@ -607,10 +645,7 @@ export default function WaveSurferPlayer({
         });
 
         ws.on('play', () => {
-          if (!destroyed) {
-            setIsPlaying(true);
-            eqContextRef.current?.resume().catch(() => {});
-          }
+          if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); }
         });
         ws.on('pause', () => !destroyed && setIsPlaying(false));
         ws.on('finish', () => !destroyed && setIsPlaying(false));
@@ -619,6 +654,7 @@ export default function WaveSurferPlayer({
           currentTimeRef.current = t;
           setCurrentTime(t);
           onTimeUpdate?.(t * 1000);
+          // Loop enforcement
           if (loopActiveRef.current && typeof loopInRef.current === 'number' && typeof loopOutRef.current === 'number' && loopInRef.current < loopOutRef.current && t >= loopOutRef.current) {
             const dur = ws.getDuration();
             if (dur > 0) ws.seekTo(loopInRef.current / dur);
@@ -633,8 +669,9 @@ export default function WaveSurferPlayer({
         });
 
         wsRef.current = ws;
+        (wsRef.current as any).__hiddenDiv = hiddenDiv;
 
-        // Expose controls to parent
+        // Expose controls
         if (playerRef) {
           playerRef.current = {
             playPause: () => ws.playPause(),
@@ -645,24 +682,38 @@ export default function WaveSurferPlayer({
             },
             setVolume: (v: number) => {
               const vol = Math.max(0, Math.min(1, v));
-              setVolume(vol);
+              setVolumeState(vol);
+              volumeRef.current = vol;
               ws.setVolume(vol);
-              if (vol > 0 && muted) setMuted(false);
             },
             toggleMute: () => {
-              const next = !muted;
-              setMuted(next);
-              ws.setVolume(next ? 0 : volume);
+              setMuted((prev) => {
+                const next = !prev;
+                ws.setVolume(next ? 0 : volumeRef.current || 0.8);
+                return next;
+              });
             },
-            setLoopIn: () => { setLoopIn(currentTimeRef.current); },
+            setLoopIn: () => {
+              const t = currentTimeRef.current;
+              setLoopIn(t);
+              loopInRef.current = t;
+            },
             setLoopOut: () => {
               const t = currentTimeRef.current;
               setLoopOut(t);
-              if (loopInRef.current !== null && t > loopInRef.current) setLoopActive(true);
+              loopOutRef.current = t;
+              if (loopInRef.current !== null && t > loopInRef.current) {
+                setLoopActive(true);
+                loopActiveRef.current = true;
+              }
             },
             toggleLoop: () => {
               if (loopInRef.current !== null && loopOutRef.current !== null && loopInRef.current < loopOutRef.current) {
-                setLoopActive(prev => !prev);
+                setLoopActive((prev) => {
+                  const next = !prev;
+                  loopActiveRef.current = next;
+                  return next;
+                });
               }
             },
             setLoop: (inMs: number, outMs: number) => {
@@ -704,8 +755,11 @@ export default function WaveSurferPlayer({
       destroyed = true;
       abortRef.current?.abort();
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if ((wsRef.current as any)?.__readyTimeout) clearTimeout((wsRef.current as any).__readyTimeout);
+      const hiddenDiv = (wsRef.current as any)?.__hiddenDiv;
       wsRef.current?.destroy();
       wsRef.current = null;
+      if (hiddenDiv?.parentNode) hiddenDiv.parentNode.removeChild(hiddenDiv);
       if (playerRef) playerRef.current = null;
       try { eqContextRef.current?.close(); } catch {}
       eqContextRef.current = null;
@@ -734,6 +788,7 @@ export default function WaveSurferPlayer({
     spectralColorsRef.current = null;
     setSpectralReady(false);
     setLoopIn(null); setLoopOut(null); setLoopActive(false);
+    loopInRef.current = null; loopOutRef.current = null; loopActiveRef.current = false;
 
     try {
       const token = getToken();
@@ -758,8 +813,6 @@ export default function WaveSurferPlayer({
       clearTimeout(downloadTimeout);
       if (abort.signal.aborted) return;
 
-      console.log(`[CueForge] Audio loaded: ${(blob.size / 1024 / 1024).toFixed(1)} MB (${blob.type})`);
-
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
 
@@ -781,8 +834,6 @@ export default function WaveSurferPlayer({
       }
       if (abort.signal.aborted) { audioCtx.close().catch(() => {}); return; }
 
-      console.log(`[CueForge] Audio decoded: ${decoded.duration.toFixed(1)}s, ${decoded.numberOfChannels}ch, ${decoded.sampleRate}Hz`);
-
       // Compute spectral colors
       try {
         const rgbColors = computeRGBWaveform(decoded);
@@ -797,22 +848,29 @@ export default function WaveSurferPlayer({
       audioCtx.close().catch(() => {});
       if (abort.signal.aborted) return;
 
-      // Load audio in wavesurfer
       ws.load(url, [ch0, ch1], decoded.duration);
 
+      // Safety timeout — 30s instead of 15s
       (ws as any).__readyTimeout = setTimeout(() => {
         if (!abort.signal.aborted) {
-          console.warn('[CueForge] WaveSurfer ready timeout (15s)');
-          setError('Décodage audio trop long — format non supporté ?');
-          setLoading(false);
+          // If spectral is ready, audio works — just mark as ready
+          if (spectralColorsRef.current) {
+            console.warn('[CueForge] WaveSurfer ready timeout — forcing ready (spectral OK)');
+            setIsReady(true);
+            setLoading(false);
+            durationRef.current = decoded.duration;
+            setDuration(decoded.duration);
+          } else {
+            setError('Décodage audio trop long');
+            setLoading(false);
+          }
         }
-      }, 15000);
+      }, 30000);
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       console.warn('Audio load error:', e);
       if (id < 0) {
-        setLoading(false);
-        setIsReady(true);
+        setLoading(false); setIsReady(true);
       } else {
         setError('Fichier audio introuvable');
         setLoading(false);
@@ -820,7 +878,7 @@ export default function WaveSurferPlayer({
     }
   }, []);
 
-  // ── Track change ──
+  // Track change
   useEffect(() => {
     if (!wsRef.current || prevTrackIdRef.current === trackId) return;
     prevTrackIdRef.current = trackId;
@@ -832,8 +890,7 @@ export default function WaveSurferPlayer({
     const ws = wsRef.current;
     if (!ws || !isReady) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const progress = Math.max(0, Math.min(1, x / rect.width));
+    const progress = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     ws.seekTo(progress);
     onSeek?.(progress * durationRef.current * 1000);
   }, [isReady, onSeek]);
@@ -844,9 +901,8 @@ export default function WaveSurferPlayer({
     if (!ws || !isReady) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const visibleSec = ZOOM_SECONDS[String(zoomRef.current)] ?? 30;
-    const secPerPx = visibleSec / rect.width;
-    const startTime = currentTimeRef.current - visibleSec / 2;
+    const secPerPx = visibleSecondsRef.current / rect.width;
+    const startTime = currentTimeRef.current - visibleSecondsRef.current / 2;
     const clickTime = startTime + x * secPerPx;
     const dur = durationRef.current;
     if (dur > 0) {
@@ -858,48 +914,53 @@ export default function WaveSurferPlayer({
   }, [isReady, onSeek, onWaveformClick]);
 
   // ── Ctrl+Scroll zoom on detail ──
-  const onZoomChangeRef = useRef(onZoomChange);
-  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
-
   useEffect(() => {
     const el = detailContainerRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      // Adjust visible seconds
-      const currentSec = ZOOM_SECONDS[String(zoomRef.current)] ?? 30;
-      const next = e.deltaY > 0 ? Math.min(currentSec * 1.4, 120) : Math.max(currentSec / 1.4, 4);
-      // Find closest zoom level or emit raw
-      onZoomChangeRef.current?.(next);
+      setVisibleSeconds((prev) => {
+        const next = e.deltaY > 0
+          ? Math.min(prev * 1.3, 120) // zoom out
+          : Math.max(prev / 1.3, 3);  // zoom in
+        return next;
+      });
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
 
-  // ── Loop state sync ──
+  // Loop state sync
   useEffect(() => {
     onLoopChange?.(loopIn, loopOut, loopActive);
   }, [loopIn, loopOut, loopActive, onLoopChange]);
 
   const togglePlay = useCallback(() => wsRef.current?.playPause(), []);
-  const skipBack = useCallback(() => wsRef.current?.skip(-5), []);
-  const skipFwd = useCallback(() => wsRef.current?.skip(5), []);
+  const skipBack = useCallback(() => wsRef.current?.skip(-10), []);
+  const skipFwd = useCallback(() => wsRef.current?.skip(10), []);
+
+  const volumeRef = useRef(0.8);
+
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const vol = parseFloat(e.target.value) / 100;
-    setVolume(vol);
+    setVolumeState(vol);
+    volumeRef.current = vol;
     if (wsRef.current) wsRef.current.setVolume(vol);
-    if (muted) setMuted(false);
-  }, [muted]);
+    setMuted(false);
+  }, []);
+
   const handleToggleMute = useCallback(() => {
-    const next = !muted;
-    setMuted(next);
-    if (wsRef.current) wsRef.current.setVolume(next ? 0 : volume);
-  }, [muted, volume]);
+    setMuted((prev) => {
+      const next = !prev;
+      if (wsRef.current) wsRef.current.setVolume(next ? 0 : volumeRef.current || 0.8);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="w-full">
-      {/* ── OVERVIEW — full track (Rekordbox-style top strip) ── */}
+      {/* ── OVERVIEW ── */}
       <div
         ref={overviewContainerRef}
         className="relative bg-black rounded-t-lg overflow-hidden cursor-pointer"
@@ -907,20 +968,15 @@ export default function WaveSurferPlayer({
         title="Vue d'ensemble — clic = naviguer"
         onClick={handleOverviewClick}
       >
-        <canvas
-          ref={overviewCanvasRef}
-          className="absolute inset-0 w-full h-full"
-        />
-        {/* Label */}
-        <div className="absolute top-0.5 left-1.5 text-[8px] text-white/25 pointer-events-none select-none font-mono uppercase tracking-wider">
+        <canvas ref={overviewCanvasRef} className="absolute inset-0 w-full h-full" />
+        <div className="absolute top-0.5 left-1.5 text-[8px] text-white/20 pointer-events-none select-none font-mono uppercase tracking-wider">
           Overview
         </div>
       </div>
 
-      {/* ── Separator ── */}
       <div className="h-[1px] bg-white/10" />
 
-      {/* ── DETAIL — zoomed waveform with fixed center cursor ── */}
+      {/* ── DETAIL ── */}
       <div
         ref={detailContainerRef}
         className="relative bg-black rounded-b-lg overflow-hidden cursor-crosshair"
@@ -928,10 +984,7 @@ export default function WaveSurferPlayer({
         title="Clic = seek · Ctrl+Scroll = zoom"
         onClick={handleDetailClick}
       >
-        <canvas
-          ref={detailCanvasRef}
-          className="absolute inset-0 w-full h-full"
-        />
+        <canvas ref={detailCanvasRef} className="absolute inset-0 w-full h-full" />
 
         {loading && !isReady && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 pointer-events-none">
@@ -943,7 +996,7 @@ export default function WaveSurferPlayer({
         )}
 
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <div className="flex items-center gap-2">
               <span className="text-xs text-red-400">{error}</span>
               <button
@@ -960,13 +1013,6 @@ export default function WaveSurferPlayer({
           </div>
         )}
 
-        {isReady && cuePoints.length === 0 && (
-          <div className="absolute bottom-1 right-2 text-[10px] text-white/30 pointer-events-none select-none">
-            clic = seek · ctrl+scroll = zoom
-          </div>
-        )}
-
-        {/* Loop indicator */}
         {loopActive && (
           <div className="absolute top-1 left-2 flex items-center gap-1 pointer-events-none">
             <span className="text-[9px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold">LOOP</span>
@@ -974,41 +1020,43 @@ export default function WaveSurferPlayer({
         )}
       </div>
 
-      {/* Controls bar */}
-      <div className="flex items-center gap-2 mt-[5px] px-1">
+      {/* ── Controls bar ── */}
+      <div className="flex items-center gap-3 mt-2 px-1">
+        {/* Time display */}
         <span className="text-[11px] text-[var(--text-primary)] font-mono tabular-nums w-9 text-right">
           {fmt(currentTime)}
         </span>
-        <span className="text-[11px] text-[var(--text-muted)] font-mono">
-          / {fmt(duration)}
-        </span>
+        <span className="text-[11px] text-[var(--text-muted)] font-mono">/ {fmt(duration)}</span>
 
-        <div className="flex items-center gap-1 ml-1">
+        {/* Transport buttons */}
+        <div className="flex items-center gap-1.5 ml-1">
           <button
             onClick={skipBack}
             disabled={!isReady}
-            title="-5s"
-            className="px-[5px] py-[2px] rounded text-[10px] border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer disabled:opacity-40"
+            title="-10s"
+            className="w-8 h-8 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors cursor-pointer flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ↩ 5s
+            <SkipBack size={14} />
           </button>
           <button
             onClick={togglePlay}
             disabled={!isReady}
             title={isPlaying ? 'Pause' : 'Play'}
-            className={`w-[30px] h-[30px] rounded-full text-white text-sm border-none cursor-pointer flex items-center justify-center transition-colors disabled:opacity-40 ${
-              isPlaying ? 'bg-orange-500 hover:bg-orange-400' : 'bg-blue-600 hover:bg-blue-500'
+            className={`w-9 h-9 rounded-full text-white text-sm border-none cursor-pointer flex items-center justify-center transition-all disabled:opacity-40 shadow-lg ${
+              isPlaying
+                ? 'bg-orange-500 hover:bg-orange-400'
+                : 'bg-blue-600 hover:bg-blue-500'
             }`}
           >
-            {isPlaying ? '⏸' : '▶'}
+            {isPlaying ? <Pause size={16} fill="white" /> : <Play size={16} fill="white" />}
           </button>
           <button
             onClick={skipFwd}
             disabled={!isReady}
-            title="+5s"
-            className="px-[5px] py-[2px] rounded text-[10px] border border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer disabled:opacity-40"
+            title="+10s"
+            className="w-8 h-8 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors cursor-pointer flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            5s ↪
+            <SkipForward size={14} />
           </button>
         </div>
 
@@ -1028,20 +1076,12 @@ export default function WaveSurferPlayer({
             type="range"
             min="0"
             max="100"
-            value={muted ? 0 : Math.round(volume * 100)}
+            defaultValue={80}
             onChange={handleVolumeChange}
             disabled={!isReady}
-            className="w-20 h-1.5 rounded-full bg-[var(--bg-hover)] appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, #2563eb 0%, #2563eb ${
-                muted ? 0 : volume * 100
-              }%, var(--bg-hover) ${muted ? 0 : volume * 100}%, var(--bg-hover) 100%)`,
-            }}
+            className="w-20 h-1.5 rounded-full appearance-none cursor-pointer"
             title="Volume"
           />
-          <span className="text-[10px] text-[var(--text-muted)] w-8 text-right">
-            {muted ? '0%' : `${Math.round(volume * 100)}%`}
-          </span>
         </div>
       </div>
     </div>
