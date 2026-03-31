@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 export type LibraryFilter = 'all' | 'recent' | 'unanalyzed';
-export type SidebarSection = LibraryFilter | string; // string pour smart crates / playlists
+export type SidebarSection = LibraryFilter | string;
 
 interface DashboardContextValue {
   // Sidebar
@@ -25,6 +25,14 @@ interface DashboardContextValue {
   // File import trigger
   triggerImport: () => void;
   registerImportHandler: (fn: () => void) => void;
+
+  // Analyse state — DashboardV2 registers these, TopBar reads them
+  unanalyzedCount: number;
+  setUnanalyzedCount: (n: number) => void;
+  autoAnalyze: boolean;
+  setAutoAnalyze: (v: boolean | ((prev: boolean) => boolean)) => void;
+  analyzeAllHandler: (() => void) | null;
+  registerAnalyzeAllHandler: (fn: () => void) => void;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -36,6 +44,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [importHandler, setImportHandler] = useState<(() => void) | null>(null);
+  const [unanalyzedCount, setUnanalyzedCount] = useState(0);
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const [analyzeAllHandler, setAnalyzeAllHandler] = useState<(() => void) | null>(null);
 
   const toggleCollapsed = useCallback(() => setCollapsed(p => !p), []);
   const registerImportHandler = useCallback((fn: () => void) => {
@@ -44,6 +55,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const triggerImport = useCallback(() => {
     importHandler?.();
   }, [importHandler]);
+  const registerAnalyzeAllHandler = useCallback((fn: () => void) => {
+    setAnalyzeAllHandler(() => fn);
+  }, []);
 
   return (
     <DashboardContext.Provider value={{
@@ -53,6 +67,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       showSearchModal, setShowSearchModal,
       showNotifications, setShowNotifications,
       triggerImport, registerImportHandler,
+      unanalyzedCount, setUnanalyzedCount,
+      autoAnalyze, setAutoAnalyze,
+      analyzeAllHandler, registerAnalyzeAllHandler,
     }}>
       {children}
     </DashboardContext.Provider>

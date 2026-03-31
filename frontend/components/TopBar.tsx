@@ -18,7 +18,11 @@ const MOCK_NOTIFICATIONS = [
 
 export default function TopBar({ title, subtitle }: TopBarProps) {
   const { mode, toggle, isDark } = useTheme();
-  const { globalSearch, setGlobalSearch, showNotifications, setShowNotifications } = useDashboardContext();
+  const {
+    globalSearch, setGlobalSearch,
+    showNotifications, setShowNotifications,
+    unanalyzedCount, autoAnalyze, setAutoAnalyze, analyzeAllHandler,
+  } = useDashboardContext();
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -51,6 +55,34 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
+        {/* Auto-analyse toggle */}
+        <button
+          onClick={() => setAutoAnalyze(p => !p)}
+          className={`flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border text-[11px] whitespace-nowrap cursor-pointer transition-all flex-shrink-0 ${
+            autoAnalyze
+              ? 'bg-emerald-600/15 border-emerald-500/40 text-emerald-400 font-semibold'
+              : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
+          }`}
+          title={autoAnalyze ? 'Auto-analyse activée — cliquer pour désactiver' : 'Auto-analyse désactivée — cliquer pour activer'}
+        >
+          <span className={`w-6 h-3 rounded-full relative flex-shrink-0 transition-colors ${autoAnalyze ? 'bg-emerald-500' : 'bg-[var(--bg-elevated)]'}`}>
+            <span className={`absolute top-0.5 w-2 h-2 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-3' : 'translate-x-0.5'}`} />
+          </span>
+          Auto
+        </button>
+
+        {/* Tracks à analyser */}
+        {unanalyzedCount > 0 && (
+          <button
+            onClick={() => analyzeAllHandler?.()}
+            className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
+            title={`${unanalyzedCount} tracks non analysés — cliquer pour lancer l'analyse`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            {unanalyzedCount} à analyser
+          </button>
+        )}
+
         <div className={`flex items-center gap-1.5 bg-[var(--bg-card)] border rounded-lg px-2.5 py-[5px] min-w-[200px] transition-colors ${searchFocused ? 'border-blue-500' : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'}`}>
           <Search size={13} className="text-[var(--text-muted)]" />
           <input

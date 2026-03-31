@@ -87,7 +87,11 @@ const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
 
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
-  const { activeSection, globalSearch, registerImportHandler } = useDashboardContext();
+  const {
+    activeSection, globalSearch, registerImportHandler,
+    autoAnalyze, setAutoAnalyze,
+    setUnanalyzedCount, registerAnalyzeAllHandler,
+  } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState('cues');
@@ -104,8 +108,7 @@ export default function DashboardV2() {
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // Auto-analyze on upload toggle
-  const [autoAnalyze, setAutoAnalyze] = useState(true);
+  // autoAnalyze and setAutoAnalyze come from DashboardContext (shared with TopBar)
 
   // Session notes
   const [sessionNotes, setSessionNotes] = useState<string>(() => {
@@ -640,6 +643,11 @@ export default function DashboardV2() {
 
   const unanalyzedCount = tracks.filter(t => t.status !== 'analyzed').length;
 
+  // Sync unanalyzedCount to context so TopBar can read it
+  useEffect(() => {
+    setUnanalyzedCount(isDemo ? 0 : unanalyzedCount);
+  }, [unanalyzedCount, isDemo, setUnanalyzedCount]);
+
   async function handleBatchAnalyze() {
     const unanalyzed = tracks.filter(t => t.status !== 'analyzed');
     if (unanalyzed.length === 0) {
@@ -658,6 +666,12 @@ export default function DashboardV2() {
     await loadTracks();
     addToast(`Analyzed ${unanalyzed.length} tracks!`, 'success');
   }
+
+  // Register handleBatchAnalyze in context so TopBar can call it
+  useEffect(() => {
+    registerAnalyzeAllHandler(handleBatchAnalyze);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks]);
 
   // ── Multi-select batch operations ────────────────────────────────────
   function handleMultiSelect(trackId: number, e?: React.MouseEvent) {
@@ -859,10 +873,6 @@ export default function DashboardV2() {
               onFilterReset={() => setFilters({ bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false })}
               isLoading={loading}
               onImportClick={() => fileRef.current?.click()}
-              unanalyzedCount={isDemo ? 0 : unanalyzedCount}
-              autoAnalyze={autoAnalyze}
-              onToggleAutoAnalyze={() => setAutoAnalyze(p => !p)}
-              onAnalyzeAll={handleBatchAnalyze}
             />
           </div>
         </div>
