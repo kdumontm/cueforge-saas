@@ -1,474 +1,519 @@
 "use client";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   ToggleLeft, Upload, Download, Search, Bell, Sun, ZoomIn,
   Music, Hash, Disc3, Sliders, ListMusic, BarChart2, Settings,
-  Check, RotateCcw, ChevronLeft, LayoutDashboard,
+  Check, RotateCcw, ChevronLeft, LayoutDashboard, MonitorPlay,
   Play, SkipBack, SkipForward, Repeat, Clock, Gauge, Wand2,
   Piano, Waves, Sparkles, ScanLine, AlignJustify, Grid2x2,
-  Filter, CheckSquare, FolderOpen, NotebookPen,
-  Cpu, Flame, FlaskConical, History, BookOpen,
-  Library, BrainCircuit, AlertCircle, Keyboard, Star,
-  Mic2, Volume2, RefreshCw, X, EyeOff, Crosshair, Radio,
-  GripVertical, Maximize2, Minimize2, MonitorPlay, Eye,
-  Moon, GitBranch,
+  Filter, CheckSquare, FolderOpen, NotebookPen, Cpu, Flame,
+  FlaskConical, History, BookOpen, Library, BrainCircuit,
+  AlertCircle, Keyboard, Star, Mic2, Volume2, RefreshCw,
+  X, EyeOff, Crosshair, Radio, Maximize2, Minimize2, GitBranch,
+  GripVertical, Eye, Plus,
 } from "lucide-react";
 import Link from "next/link";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-type Zone = "topbar" | "sidebar" | "right-panel" | "float-br" | "float-bl" | "hidden";
-type ModSize = "sm" | "md" | "lg";
+// ─── Constants ────────────────────────────────────────────────────────────────
+const GRID = 8;          // px snap grid
+const MIN_W = 100;       // px
+const MIN_H = 36;        // px
+const HANDLE_SZ = 8;     // px resize handle size
+const STORAGE_KEY = "cueforge_layout_v3";
 
-interface ModDef {
-  id: string; label: string; icon: React.ElementType;
-  color: string; category: string; defaultZone: Zone;
-}
-interface ModConfig {
-  id: string; zone: Zone; order: number;
-  size: ModSize; expanded: boolean;
+// ─── Types ────────────────────────────────────────────────────────────────────
+type ResizeEdge = "n"|"ne"|"e"|"se"|"s"|"sw"|"w"|"nw";
+interface ModDef { id:string; label:string; icon:React.ElementType; color:string; }
+interface Mod {
+  id:string; x:number; y:number; w:number; h:number;
+  z:number; open:boolean; onCanvas:boolean;
 }
 interface DragState {
-  id: string; ghostX: number; ghostY: number;
-  offsetX: number; offsetY: number;
-  targetZone: Zone | null; targetIndex: number;
+  id:string; mode:"move"|ResizeEdge;
+  startPx:number; startPy:number;   // pointer at start
+  origX:number; origY:number; origW:number; origH:number;
 }
 
-// ── Module definitions ─────────────────────────────────────────────────────────
-const MODS: ModDef[] = [
-  { id: "auto-analyse",     label: "Auto-analyse",       icon: ToggleLeft,   color: "#22c55e", category: "topbar",          defaultZone: "topbar" },
-  { id: "import",           label: "Import",              icon: Upload,       color: "#3b82f6", category: "topbar",          defaultZone: "topbar" },
-  { id: "export",           label: "Export",              icon: Download,     color: "#06b6d4", category: "topbar",          defaultZone: "topbar" },
-  { id: "search",           label: "Recherche",           icon: Search,       color: "#a855f7", category: "topbar",          defaultZone: "topbar" },
-  { id: "notifications",    label: "Notifications",       icon: Bell,         color: "#f59e0b", category: "topbar",          defaultZone: "topbar" },
-  { id: "theme",            label: "Thème",               icon: Sun,          color: "#eab308", category: "topbar",          defaultZone: "topbar" },
-  { id: "analyze-badge",    label: "Badge analyser",      icon: AlertCircle,  color: "#f97316", category: "topbar",          defaultZone: "topbar" },
-  { id: "keyboard-shortcuts",label: "Raccourcis",         icon: Keyboard,     color: "#64748b", category: "topbar",          defaultZone: "hidden" },
-  { id: "play-pause",       label: "Lecture/Pause",       icon: Play,         color: "#22c55e", category: "player-controls", defaultZone: "right-panel" },
-  { id: "prev-track",       label: "Préc.",               icon: SkipBack,     color: "#6366f1", category: "player-controls", defaultZone: "right-panel" },
-  { id: "next-track",       label: "Suiv.",               icon: SkipForward,  color: "#6366f1", category: "player-controls", defaultZone: "right-panel" },
-  { id: "loop-in",          label: "Loop IN",             icon: Crosshair,    color: "#ec4899", category: "player-controls", defaultZone: "right-panel" },
-  { id: "loop-out",         label: "Loop OUT",            icon: Crosshair,    color: "#ec4899", category: "player-controls", defaultZone: "right-panel" },
-  { id: "loop-toggle",      label: "Loop actif",          icon: Repeat,       color: "#f43f5e", category: "player-controls", defaultZone: "right-panel" },
-  { id: "tap-tempo",        label: "Tap Tempo",           icon: Clock,        color: "#f97316", category: "player-controls", defaultZone: "right-panel" },
-  { id: "playback-rate",    label: "Vitesse",             icon: Gauge,        color: "#8b5cf6", category: "player-controls", defaultZone: "right-panel" },
-  { id: "zoom-waveform",    label: "Zoom wave",           icon: ZoomIn,       color: "#06b6d4", category: "player-controls", defaultZone: "right-panel" },
-  { id: "volume",           label: "Volume",              icon: Volume2,      color: "#10b981", category: "player-controls", defaultZone: "right-panel" },
-  { id: "tab-info",         label: "Info/Edit",           icon: NotebookPen,  color: "#3b82f6", category: "player-tabs",     defaultZone: "right-panel" },
-  { id: "tab-cues",         label: "Cue Points",          icon: ListMusic,    color: "#14b8a6", category: "player-tabs",     defaultZone: "right-panel" },
-  { id: "tab-eq",           label: "EQ",                  icon: Sliders,      color: "#8b5cf6", category: "player-tabs",     defaultZone: "right-panel" },
-  { id: "tab-beatgrid",     label: "BeatGrid",            icon: ScanLine,     color: "#f59e0b", category: "player-tabs",     defaultZone: "right-panel" },
-  { id: "tab-mix",          label: "Mix",                 icon: Waves,        color: "#06b6d4", category: "player-tabs",     defaultZone: "right-panel" },
-  { id: "tab-stems",        label: "Stems",               icon: Mic2,         color: "#ec4899", category: "player-tabs",     defaultZone: "hidden" },
-  { id: "tab-fx",           label: "FX",                  icon: Sparkles,     color: "#f43f5e", category: "player-tabs",     defaultZone: "hidden" },
-  { id: "tab-history",      label: "Historique",          icon: History,      color: "#64748b", category: "player-tabs",     defaultZone: "hidden" },
-  { id: "tab-playlists",    label: "Playlists",           icon: BookOpen,     color: "#a855f7", category: "player-tabs",     defaultZone: "hidden" },
-  { id: "tab-stats",        label: "Stats track",         icon: BarChart2,    color: "#94a3b8", category: "player-tabs",     defaultZone: "hidden" },
-  { id: "filter-panel",     label: "Filtres",             icon: Filter,       color: "#3b82f6", category: "track-list",      defaultZone: "sidebar" },
-  { id: "batch-actions",    label: "Actions groupées",    icon: CheckSquare,  color: "#f59e0b", category: "track-list",      defaultZone: "topbar" },
-  { id: "view-list",        label: "Vue Liste",           icon: AlignJustify, color: "#6366f1", category: "track-list",      defaultZone: "topbar" },
-  { id: "view-grid",        label: "Vue Grille",          icon: Grid2x2,      color: "#6366f1", category: "track-list",      defaultZone: "topbar" },
-  { id: "refresh-library",  label: "Rafraîchir",          icon: RefreshCw,    color: "#22c55e", category: "track-list",      defaultZone: "topbar" },
-  { id: "crate-digger",     label: "Crate Digger",        icon: FolderOpen,   color: "#f97316", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "harmonic-wheel",   label: "Roue harmo.",         icon: Piano,        color: "#22c55e", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "energy-flow",      label: "Energy Flow",         icon: Flame,        color: "#ef4444", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "quick-notes",      label: "Notes rapides",       icon: NotebookPen,  color: "#a855f7", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "bpm-tap",          label: "BPM Tap",             icon: Clock,        color: "#06b6d4", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "set-builder",      label: "Set Builder",         icon: Library,      color: "#14b8a6", category: "sidebar-tools",   defaultZone: "sidebar" },
-  { id: "duplicate-finder", label: "Doublons",            icon: GitBranch,    color: "#f59e0b", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "metadata-enrich",  label: "Enrichir méta",       icon: Wand2,        color: "#8b5cf6", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "ai-analysis",      label: "Analyse IA",          icon: BrainCircuit, color: "#ec4899", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "stems-separator",  label: "Séparer Stems",       icon: FlaskConical, color: "#f43f5e", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "radio-mode",       label: "Mode Radio",          icon: Radio,        color: "#3b82f6", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "cpu-monitor",      label: "Monitor CPU",         icon: Cpu,          color: "#64748b", category: "sidebar-tools",   defaultZone: "hidden" },
-  { id: "bpm-display",      label: "BPM",                 icon: Music,        color: "#f97316", category: "info-panel",      defaultZone: "right-panel" },
-  { id: "key-display",      label: "Tonalité",            icon: Hash,         color: "#10b981", category: "info-panel",      defaultZone: "right-panel" },
-  { id: "track-player",     label: "Lecteur wave",        icon: Disc3,        color: "#6366f1", category: "info-panel",      defaultZone: "right-panel" },
-  { id: "stats-library",    label: "Stats lib.",          icon: BarChart2,    color: "#64748b", category: "info-panel",      defaultZone: "sidebar" },
-  { id: "favorites",        label: "Favoris",             icon: Star,         color: "#eab308", category: "info-panel",      defaultZone: "sidebar" },
-  { id: "gig-prep",         label: "Gig Prep",            icon: Sparkles,     color: "#06b6d4", category: "info-panel",      defaultZone: "hidden" },
-  { id: "settings-link",    label: "Réglages",            icon: Settings,     color: "#94a3b8", category: "info-panel",      defaultZone: "sidebar" },
+// ─── Module definitions ───────────────────────────────────────────────────────
+const DEFS: ModDef[] = [
+  { id:"auto-analyse",    label:"Auto-analyse",    icon:ToggleLeft,   color:"#22c55e" },
+  { id:"import",          label:"Import",           icon:Upload,       color:"#3b82f6" },
+  { id:"export",          label:"Export",           icon:Download,     color:"#06b6d4" },
+  { id:"search",          label:"Recherche",        icon:Search,       color:"#a855f7" },
+  { id:"notifications",   label:"Notifs",           icon:Bell,         color:"#f59e0b" },
+  { id:"theme",           label:"Thème",            icon:Sun,          color:"#eab308" },
+  { id:"analyze-badge",   label:"Badge analyser",   icon:AlertCircle,  color:"#f97316" },
+  { id:"play-pause",      label:"Lecture / Pause",  icon:Play,         color:"#22c55e" },
+  { id:"prev-track",      label:"Track préc.",      icon:SkipBack,     color:"#6366f1" },
+  { id:"next-track",      label:"Track suiv.",      icon:SkipForward,  color:"#6366f1" },
+  { id:"loop-in",         label:"Loop IN",          icon:Crosshair,    color:"#ec4899" },
+  { id:"loop-out",        label:"Loop OUT",         icon:Crosshair,    color:"#ec4899" },
+  { id:"loop-toggle",     label:"Loop actif",       icon:Repeat,       color:"#f43f5e" },
+  { id:"tap-tempo",       label:"Tap Tempo",        icon:Clock,        color:"#f97316" },
+  { id:"playback-rate",   label:"Vitesse",          icon:Gauge,        color:"#8b5cf6" },
+  { id:"zoom-waveform",   label:"Zoom wave",        icon:ZoomIn,       color:"#06b6d4" },
+  { id:"volume",          label:"Volume",           icon:Volume2,      color:"#10b981" },
+  { id:"tab-info",        label:"Info/Edit",        icon:NotebookPen,  color:"#3b82f6" },
+  { id:"tab-cues",        label:"Cue Points",       icon:ListMusic,    color:"#14b8a6" },
+  { id:"tab-eq",          label:"EQ",               icon:Sliders,      color:"#8b5cf6" },
+  { id:"tab-beatgrid",    label:"BeatGrid",         icon:ScanLine,     color:"#f59e0b" },
+  { id:"tab-mix",         label:"Mix",              icon:Waves,        color:"#06b6d4" },
+  { id:"tab-stems",       label:"Stems",            icon:Mic2,         color:"#ec4899" },
+  { id:"tab-fx",          label:"FX",               icon:Sparkles,     color:"#f43f5e" },
+  { id:"tab-history",     label:"Historique",       icon:History,      color:"#64748b" },
+  { id:"tab-playlists",   label:"Playlists",        icon:BookOpen,     color:"#a855f7" },
+  { id:"filter-panel",    label:"Filtres",          icon:Filter,       color:"#3b82f6" },
+  { id:"batch-actions",   label:"Actions groupées", icon:CheckSquare,  color:"#f59e0b" },
+  { id:"view-list",       label:"Vue Liste",        icon:AlignJustify, color:"#6366f1" },
+  { id:"view-grid",       label:"Vue Grille",       icon:Grid2x2,      color:"#6366f1" },
+  { id:"refresh-library", label:"Rafraîchir",       icon:RefreshCw,    color:"#22c55e" },
+  { id:"crate-digger",    label:"Crate Digger",     icon:FolderOpen,   color:"#f97316" },
+  { id:"harmonic-wheel",  label:"Roue harmo.",      icon:Piano,        color:"#22c55e" },
+  { id:"energy-flow",     label:"Energy Flow",      icon:Flame,        color:"#ef4444" },
+  { id:"quick-notes",     label:"Notes rapides",    icon:NotebookPen,  color:"#a855f7" },
+  { id:"bpm-tap",         label:"BPM Tap",          icon:Clock,        color:"#06b6d4" },
+  { id:"set-builder",     label:"Set Builder",      icon:Library,      color:"#14b8a6" },
+  { id:"duplicate-finder",label:"Doublons",         icon:GitBranch,    color:"#f59e0b" },
+  { id:"ai-analysis",     label:"Analyse IA",       icon:BrainCircuit, color:"#ec4899" },
+  { id:"bpm-display",     label:"BPM",              icon:Music,        color:"#f97316" },
+  { id:"key-display",     label:"Tonalité",         icon:Hash,         color:"#10b981" },
+  { id:"track-player",    label:"Waveform",         icon:Disc3,        color:"#6366f1" },
+  { id:"stats-library",   label:"Stats lib.",       icon:BarChart2,    color:"#64748b" },
+  { id:"favorites",       label:"Favoris",          icon:Star,         color:"#eab308" },
+  { id:"settings-link",   label:"Réglages",         icon:Settings,     color:"#94a3b8" },
+  { id:"track-list",      label:"Liste des tracks", icon:AlignJustify, color:"#475569" },
+  { id:"gig-prep",        label:"Gig Prep",         icon:Sparkles,     color:"#06b6d4" },
+  { id:"controls-bar",    label:"Contrôles player", icon:Play,         color:"#22c55e" },
 ];
+const DEF_MAP = Object.fromEntries(DEFS.map(d => [d.id, d]));
 
-const MOD_MAP = Object.fromEntries(MODS.map(m => [m.id, m]));
-
-// ── Persistence ────────────────────────────────────────────────────────────────
-const STORAGE_KEY = "cueforge_module_layout_v2";
-
-function buildDefault(): ModConfig[] {
-  return MODS.map((m, i) => ({
-    id: m.id, zone: m.defaultZone, order: i,
-    size: "md" as ModSize, expanded: false,
-  }));
+// ─── Default layout ───────────────────────────────────────────────────────────
+function makeDefault(): Mod[] {
+  return [
+    // ── Topbar row ──────────────────────────────────────────
+    { id:"auto-analyse",   x:216, y:8,   w:120, h:34, z:10, open:true,  onCanvas:true  },
+    { id:"import",         x:344, y:8,   w:88,  h:34, z:10, open:true,  onCanvas:true  },
+    { id:"export",         x:440, y:8,   w:88,  h:34, z:10, open:true,  onCanvas:true  },
+    { id:"search",         x:580, y:8,   w:220, h:34, z:10, open:true,  onCanvas:true  },
+    { id:"notifications",  x:812, y:8,   w:44,  h:34, z:10, open:true,  onCanvas:true  },
+    { id:"theme",          x:864, y:8,   w:44,  h:34, z:10, open:true,  onCanvas:true  },
+    { id:"batch-actions",  x:920, y:8,   w:130, h:34, z:10, open:true,  onCanvas:true  },
+    // ── Left sidebar ────────────────────────────────────────
+    { id:"filter-panel",   x:0,   y:56,  w:190, h:220, z:5, open:true,  onCanvas:true  },
+    { id:"crate-digger",   x:0,   y:284, w:190, h:120, z:5, open:true,  onCanvas:true  },
+    { id:"harmonic-wheel", x:0,   y:412, w:190, h:160, z:5, open:true,  onCanvas:true  },
+    { id:"settings-link",  x:0,   y:580, w:190, h:44,  z:5, open:true,  onCanvas:true  },
+    // ── Waveform ─────────────────────────────────────────────
+    { id:"track-player",   x:196, y:56,  w:870, h:180, z:5, open:true,  onCanvas:true  },
+    // ── Controls bar ─────────────────────────────────────────
+    { id:"controls-bar",   x:196, y:244, w:870, h:52,  z:5, open:true,  onCanvas:true  },
+    // ── Track list ───────────────────────────────────────────
+    { id:"track-list",     x:196, y:304, w:870, h:330, z:5, open:true,  onCanvas:true  },
+    // ── Right panel ──────────────────────────────────────────
+    { id:"bpm-display",    x:1074,y:56,  w:130, h:90,  z:5, open:true,  onCanvas:true  },
+    { id:"key-display",    x:1074,y:154, w:130, h:90,  z:5, open:true,  onCanvas:true  },
+    { id:"tab-cues",       x:1074,y:252, w:130, h:180, z:5, open:true,  onCanvas:true  },
+    { id:"tab-eq",         x:1074,y:440, w:130, h:120, z:5, open:true,  onCanvas:true  },
+    { id:"tab-info",       x:1074,y:568, w:130, h:66,  z:5, open:true,  onCanvas:true  },
+    // ── Off-canvas (palette) ─────────────────────────────────
+    ...DEFS.filter(d => !["auto-analyse","import","export","search","notifications","theme","batch-actions",
+      "filter-panel","crate-digger","harmonic-wheel","settings-link","track-player","controls-bar",
+      "track-list","bpm-display","key-display","tab-cues","tab-eq","tab-info"].includes(d.id))
+      .map((d, i): Mod => ({ id:d.id, x:0, y:0, w:140, h:44, z:1, open:false, onCanvas:false })),
+  ];
 }
 
-function loadConfigs(): ModConfig[] {
-  if (typeof window === "undefined") return buildDefault();
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : buildDefault();
-  } catch { return buildDefault(); }
+// ─── Persistence ──────────────────────────────────────────────────────────────
+function loadMods(): Mod[] {
+  if (typeof window === "undefined") return makeDefault();
+  try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : makeDefault(); }
+  catch { return makeDefault(); }
+}
+function saveMods(mods: Mod[]) {
+  if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, JSON.stringify(mods));
 }
 
-function saveConfigs(configs: ModConfig[]) {
-  if (typeof window !== "undefined")
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
-}
+// ─── Snap to grid ─────────────────────────────────────────────────────────────
+function sg(v: number) { return Math.round(v / GRID) * GRID; }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function getZoneMods(configs: ModConfig[], zone: Zone) {
-  return configs.filter(c => c.zone === zone).sort((a, b) => a.order - b.order);
-}
+// ─── Module content ───────────────────────────────────────────────────────────
+function ModContent({ id, h }: { id:string; h:number }) {
+  const contentH = Math.max(0, h - 36);
 
-function applyDragPreview(configs: ModConfig[], drag: DragState): ModConfig[] {
-  if (!drag.targetZone) return configs;
-  const dragged = configs.find(c => c.id === drag.id);
-  if (!dragged) return configs;
-
-  // Build new zone without dragged item
-  const zoneItems = configs
-    .filter(c => c.zone === drag.targetZone && c.id !== drag.id)
-    .sort((a, b) => a.order - b.order);
-
-  const inserted = [
-    ...zoneItems.slice(0, drag.targetIndex),
-    { ...dragged, zone: drag.targetZone },
-    ...zoneItems.slice(drag.targetIndex),
-  ].map((c, i) => ({ ...c, order: i }));
-
-  return configs.map(c => {
-    const found = inserted.find(x => x.id === c.id);
-    if (found) return found;
-    if (c.id === drag.id && drag.targetZone !== c.zone) return { ...c, zone: drag.targetZone! };
-    return c;
-  });
-}
-
-// ── Constants ──────────────────────────────────────────────────────────────────
-const ZONE_COLORS: Record<Zone, string> = {
-  topbar: "#3b82f6", sidebar: "#a855f7",
-  "right-panel": "#06b6d4", "float-br": "#22c55e",
-  "float-bl": "#f59e0b", hidden: "#64748b",
-};
-const ZONE_LABELS: Record<Zone, string> = {
-  topbar: "Topbar", sidebar: "Sidebar",
-  "right-panel": "Droite", "float-br": "Float ↘",
-  "float-bl": "Float ↙", hidden: "Masqué",
-};
-
-// ── MiniContent (expanded previews) ───────────────────────────────────────────
-function MiniContent({ id, expanded }: { id: string; expanded: boolean }) {
-  if (!expanded) return null;
-  const base: React.CSSProperties = { marginTop: 8, fontSize: 10, color: "#64748b" };
-
-  if (id === "bpm-display") return (
-    <div style={base}>
-      <div style={{ fontSize: 26, fontWeight: 800, color: "#f97316", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>128</div>
-      <div style={{ fontSize: 9 }}>BPM analysé</div>
-    </div>
-  );
-  if (id === "key-display") return (
-    <div style={base}>
-      <div style={{ fontSize: 26, fontWeight: 800, color: "#10b981", lineHeight: 1 }}>8A</div>
-      <div style={{ fontSize: 9 }}>Do mineur</div>
-    </div>
-  );
-  if (id === "tab-eq") return (
-    <div style={{ ...base, display: "flex", gap: 7, alignItems: "flex-end", height: 30 }}>
-      {[0.45, 0.75, 0.55].map((v, i) => (
-        <div key={i} style={{ width: 14, borderRadius: 3, background: `linear-gradient(to top, #8b5cf6, #8b5cf688)`, height: `${v * 100}%`, flexShrink: 0 }} />
-      ))}
-    </div>
-  );
-  if (id === "tab-cues") return (
-    <div style={{ ...base, display: "flex", flexDirection: "column", gap: 4 }}>
-      {[{ t: "0:12", c: "#f43f5e" }, { t: "1:04", c: "#3b82f6" }, { t: "2:16", c: "#22c55e" }].map((cue, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ width: 7, height: 7, borderRadius: "50%", background: cue.c }} />
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{cue.t}</span>
-        </div>
-      ))}
-    </div>
-  );
-  if (id === "harmonic-wheel") return (
-    <div style={{ ...base, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
-      <div style={{ width: 46, height: 46, borderRadius: "50%", border: "2px solid #22c55e44", background: "conic-gradient(#22c55e22, #3b82f622, #a855f722, #22c55e22)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#08080f", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#22c55e", fontWeight: 700 }}>8A</div>
-      </div>
-    </div>
-  );
   if (id === "track-player") return (
-    <div style={base}>
-      <div style={{ height: 24, background: "linear-gradient(90deg, #6366f120, #6366f140)", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 9, color: "#6366f1" }}>▶ waveform</span>
+    <div style={{ height: contentH, overflow:"hidden", padding:"4px 8px" }}>
+      {/* Overview */}
+      <div style={{ height: Math.max(24, contentH * 0.35), borderRadius:5, background:"rgba(0,0,0,0.3)", border:"1px solid rgba(255,255,255,0.05)", overflow:"hidden", position:"relative", marginBottom:4 }}>
+        {Array.from({length:80}).map((_,i) => {
+          const bh = 14 + Math.abs(Math.sin(i*0.6)*14 + Math.sin(i*0.2)*8);
+          return <div key={i} style={{ position:"absolute", left:`${i/80*100}%`, bottom:"50%", width:"1.1%", height:`${bh}%`, background:i<24?"rgba(99,102,241,0.6)":"rgba(168,85,247,0.42)", transform:"translateY(50%)", borderRadius:1 }} />;
+        })}
+        <div style={{ position:"absolute", left:"30%", top:0, bottom:0, width:2, background:"#ec4899", opacity:0.9 }} />
       </div>
-    </div>
-  );
-  return null;
-}
-
-// ── Module card (in sidebar / right panel) ─────────────────────────────────────
-function ModCard({
-  config, isDragging, isSelected, zone,
-  onPointerDown, onSelect, onToggleExpand, onRemove, onSizeChange,
-}: {
-  config: ModConfig; isDragging: boolean; isSelected: boolean; zone: Zone;
-  onPointerDown: (e: React.PointerEvent, id: string) => void;
-  onSelect: (id: string) => void;
-  onToggleExpand: (id: string) => void;
-  onRemove: (id: string) => void;
-  onSizeChange: (id: string, size: ModSize) => void;
-}) {
-  const def = MOD_MAP[config.id];
-  if (!def) return null;
-  const Icon = def.icon;
-
-  if (zone === "topbar") {
-    return (
-      <div
-        data-mod-id={config.id}
-        onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, config.id); }}
-        onClick={(e) => { e.stopPropagation(); onSelect(config.id); }}
-        style={{
-          display: "flex", alignItems: "center", gap: 5, padding: "4px 9px",
-          borderRadius: 7, flexShrink: 0, cursor: "grab",
-          background: isSelected ? `${def.color}22` : "rgba(255,255,255,0.06)",
-          border: `1.5px solid ${isSelected ? def.color + "77" : "rgba(255,255,255,0.1)"}`,
-          opacity: isDragging ? 0.35 : 1, transition: "all 0.12s", userSelect: "none",
-          boxShadow: isSelected ? `0 0 0 2px ${def.color}33` : "none",
-        }}
-      >
-        <Icon size={12} color={def.color} />
-        <span style={{ fontSize: 11, color: "#e2e8f0", fontWeight: 500 }}>{def.label}</span>
-        {isSelected && (
-          <button onClick={(e) => { e.stopPropagation(); onRemove(config.id); }}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: "0 0 0 2px", lineHeight: 0 }}>
-            <X size={9} />
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-mod-id={config.id}
-      onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, config.id); }}
-      onClick={(e) => { e.stopPropagation(); onSelect(config.id); }}
-      style={{
-        background: isSelected ? `${def.color}12` : "rgba(255,255,255,0.04)",
-        border: `1.5px solid ${isSelected ? def.color + "66" : "rgba(255,255,255,0.08)"}`,
-        borderRadius: 9, padding: "7px 9px",
-        cursor: "grab", opacity: isDragging ? 0.35 : 1,
-        transition: "all 0.12s", userSelect: "none",
-        boxShadow: isSelected ? `0 0 0 2px ${def.color}33` : "none",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <div style={{ width: 24, height: 24, borderRadius: 6, background: `${def.color}22`, border: `1.5px solid ${def.color}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icon size={12} color={def.color} />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0", flex: 1 }}>{def.label}</span>
-        {isSelected ? (
-          <div style={{ display: "flex", gap: 3 }}>
-            <button onClick={(e) => { e.stopPropagation(); onToggleExpand(config.id); }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: config.expanded ? def.color : "#64748b", lineHeight: 0 }}>
-              {config.expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onRemove(config.id); }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", lineHeight: 0 }}>
-              <X size={11} />
-            </button>
-          </div>
-        ) : (
-          <GripVertical size={10} color="rgba(255,255,255,0.15)" />
-        )}
-      </div>
-      {isSelected && (
-        <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-          {(["sm", "md", "lg"] as ModSize[]).map(s => (
-            <button key={s} onClick={(e) => { e.stopPropagation(); onSizeChange(config.id, s); }}
-              style={{
-                padding: "1px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
-                background: config.size === s ? `${def.color}30` : "rgba(255,255,255,0.04)",
-                border: `1px solid ${config.size === s ? def.color + "66" : "rgba(255,255,255,0.1)"}`,
-                color: config.size === s ? def.color : "#475569",
-              }}>{s.toUpperCase()}</button>
-          ))}
+      {/* Detail */}
+      {contentH > 80 && (
+        <div style={{ height: Math.max(24, contentH * 0.55), borderRadius:5, background:"rgba(0,0,0,0.3)", border:"1px solid rgba(255,255,255,0.05)", overflow:"hidden", position:"relative" }}>
+          {Array.from({length:100}).map((_,i) => {
+            const bh = 10 + Math.abs(Math.sin(i*0.38)*24 + Math.sin(i*1.1)*14);
+            return <div key={i} style={{ position:"absolute", left:`${i}%`, bottom:"50%", width:"0.85%", height:`${bh}%`, background:i<30?"rgba(99,102,241,0.65)":"rgba(168,85,247,0.45)", transform:"translateY(50%)", borderRadius:1 }} />;
+          })}
+          <div style={{ position:"absolute", left:"30%", top:0, bottom:0, width:2, background:"#ec4899", opacity:0.8 }} />
         </div>
       )}
-      <MiniContent id={config.id} expanded={config.expanded} />
     </div>
   );
-}
 
-// ── Drop placeholder ───────────────────────────────────────────────────────────
-function DropPlaceholder({ zone }: { zone: Zone }) {
-  const color = ZONE_COLORS[zone];
-  const isTop = zone === "topbar";
-  return (
-    <div style={{
-      background: `${color}10`, border: `2px dashed ${color}88`, borderRadius: 8,
-      ...(isTop ? { width: 80, height: 30, flexShrink: 0 } : { height: 36 }),
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <div style={{ width: 16, height: 2, background: `${color}88`, borderRadius: 1 }} />
+  if (id === "controls-bar") return (
+    <div style={{ height:contentH, display:"flex", alignItems:"center", justifyContent:"center", gap:10, padding:"0 12px" }}>
+      {[{Icon:SkipBack,c:"#6366f1"},{Icon:Play,c:"#22c55e"},{Icon:SkipForward,c:"#6366f1"}].map(({Icon,c},i)=>(
+        <div key={i} style={{ width:34,height:34,borderRadius:10,background:`${c}22`,border:`1.5px solid ${c}55`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
+          <Icon size={15} color={c} />
+        </div>
+      ))}
+      <div style={{ width:1,height:20,background:"rgba(255,255,255,0.1)" }} />
+      {[{Icon:Crosshair,c:"#ec4899",l:"IN"},{Icon:Repeat,c:"#f43f5e",l:"LOOP"},{Icon:Crosshair,c:"#ec4899",l:"OUT"}].map(({Icon,c,l},i)=>(
+        <div key={i} style={{ display:"flex",alignItems:"center",gap:4,padding:"4px 8px",borderRadius:7,background:`${c}15`,border:`1px solid ${c}33`,cursor:"pointer" }}>
+          <Icon size={11} color={c} />
+          <span style={{ fontSize:9,color:c,fontWeight:700 }}>{l}</span>
+        </div>
+      ))}
+      <div style={{ width:1,height:20,background:"rgba(255,255,255,0.1)" }} />
+      {[0.5,1,1.5,2].map(r=>(
+        <div key={r} style={{ padding:"2px 6px",borderRadius:5,background:r===1?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${r===1?"rgba(99,102,241,0.4)":"rgba(255,255,255,0.07)"}`,fontSize:9,color:r===1?"#818cf8":"#475569",cursor:"pointer" }}>{r}×</div>
+      ))}
     </div>
   );
-}
 
-// ── Floating panel ─────────────────────────────────────────────────────────────
-function FloatPanel({ config, isDragging, isSelected, onPointerDown, onSelect, onToggleExpand, onRemove }: {
-  config: ModConfig; isDragging: boolean; isSelected: boolean;
-  onPointerDown: (e: React.PointerEvent, id: string) => void;
-  onSelect: (id: string) => void;
-  onToggleExpand: (id: string) => void;
-  onRemove: (id: string) => void;
-}) {
-  const def = MOD_MAP[config.id];
+  if (id === "track-list") return (
+    <div style={{ height:contentH, overflow:"hidden", padding:"4px 8px" }}>
+      {[{n:"Acid Rain",bpm:128,key:"8A",d:"6:42",active:true},{n:"Solar Drift",bpm:132,key:"6B",d:"7:15"},{n:"Midnight Echo",bpm:124,key:"11A",d:"5:58"},{n:"Deep Signal",bpm:136,key:"3B",d:"8:02"},{n:"Phantom Bass",bpm:140,key:"1A",d:"6:28"},{n:"Techno Loop",bpm:138,key:"5A",d:"7:11"},{n:"Dark Matter",bpm:145,key:"2B",d:"5:44"},{n:"Resonance",bpm:126,key:"9A",d:"6:55"}].map((t,i)=>(
+        <div key={i} style={{ display:"flex",alignItems:"center",gap:8,padding:"4px 6px",borderRadius:5,marginBottom:2,background:t.active?"rgba(99,102,241,0.1)":"transparent",border:t.active?"1px solid rgba(99,102,241,0.2)":"1px solid transparent" }}>
+          <Disc3 size={10} color={t.active?"#6366f1":"#334155"} style={{ flexShrink:0 }} />
+          <span style={{ flex:1,fontSize:10,color:t.active?"#e2e8f0":"#64748b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{t.n}</span>
+          <span style={{ fontSize:9,color:"#f97316",fontVariantNumeric:"tabular-nums",flexShrink:0 }}>{t.bpm}</span>
+          <span style={{ fontSize:9,color:"#10b981",width:22,textAlign:"right",flexShrink:0 }}>{t.key}</span>
+          <span style={{ fontSize:9,color:"#334155",fontVariantNumeric:"tabular-nums",flexShrink:0 }}>{t.d}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (id === "filter-panel") return (
+    <div style={{ height:contentH, overflow:"hidden", padding:"6px 10px", display:"flex", flexDirection:"column", gap:10 }}>
+      <div>
+        <div style={{ fontSize:9,color:"#64748b",fontWeight:600,marginBottom:4 }}>BPM</div>
+        <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+          <span style={{ fontSize:10,color:"#94a3b8" }}>110</span>
+          <div style={{ flex:1,height:3,background:"rgba(255,255,255,0.08)",borderRadius:2,position:"relative" }}>
+            <div style={{ position:"absolute",left:"15%",right:"20%",height:"100%",background:"#3b82f6",borderRadius:2 }} />
+          </div>
+          <span style={{ fontSize:10,color:"#94a3b8" }}>150</span>
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize:9,color:"#64748b",fontWeight:600,marginBottom:5 }}>Tonalité</div>
+        <div style={{ display:"flex",gap:3,flexWrap:"wrap" }}>
+          {["1A","2A","8A","8B","9A","9B"].map(k=>(
+            <div key={k} style={{ padding:"2px 6px",borderRadius:4,background:k==="8A"?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${k==="8A"?"#10b98155":"rgba(255,255,255,0.08)"}`,fontSize:9,color:k==="8A"?"#10b981":"#475569",cursor:"pointer" }}>{k}</div>
+          ))}
+        </div>
+      </div>
+      {contentH > 130 && (
+        <div>
+          <div style={{ fontSize:9,color:"#64748b",fontWeight:600,marginBottom:4 }}>Énergie</div>
+          <div style={{ display:"flex",gap:3 }}>
+            {[1,2,3,4,5].map(e=>(
+              <div key={e} style={{ width:20,height:20,borderRadius:5,background:e<=3?"rgba(239,68,68,0.25)":"rgba(255,255,255,0.04)",border:`1px solid ${e<=3?"rgba(239,68,68,0.4)":"rgba(255,255,255,0.08)"}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer" }}>
+                <Flame size={10} color={e<=3?"#ef4444":"#334155"} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (id === "bpm-display") return (
+    <div style={{ height:contentH,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ fontSize:Math.min(44,contentH-16),fontWeight:800,color:"#f97316",lineHeight:1,fontVariantNumeric:"tabular-nums" }}>128</div>
+      <div style={{ fontSize:10,color:"#64748b",marginTop:2 }}>BPM</div>
+    </div>
+  );
+
+  if (id === "key-display") return (
+    <div style={{ height:contentH,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ fontSize:Math.min(40,contentH-16),fontWeight:800,color:"#10b981",lineHeight:1 }}>8A</div>
+      <div style={{ fontSize:10,color:"#64748b",marginTop:2 }}>Do mineur</div>
+    </div>
+  );
+
+  if (id === "tab-cues") return (
+    <div style={{ height:contentH,overflow:"hidden",padding:"4px 8px",display:"flex",flexDirection:"column",gap:5 }}>
+      {[{t:"0:12",c:"#f43f5e",n:"Intro"},{t:"1:04",c:"#3b82f6",n:"Drop 1"},{t:"2:16",c:"#22c55e",n:"Break"},{t:"3:30",c:"#f59e0b",n:"Drop 2"},{t:"4:45",c:"#a855f7",n:"Outro"}].map((cue,i)=>(
+        <div key={i} style={{ display:"flex",alignItems:"center",gap:7,padding:"4px 6px",borderRadius:6,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ width:10,height:10,borderRadius:3,background:cue.c,flexShrink:0 }} />
+          <span style={{ fontSize:10,color:"#e2e8f0",fontVariantNumeric:"tabular-nums",width:32,flexShrink:0 }}>{cue.t}</span>
+          <span style={{ fontSize:10,color:"#64748b",flex:1 }}>{cue.n}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (id === "tab-eq") return (
+    <div style={{ height:contentH,padding:"6px 8px",display:"flex",flexDirection:"column",gap:8 }}>
+      {[{l:"LOW",v:0.6,c:"#3b82f6"},{l:"MID",v:0.75,c:"#10b981"},{l:"HIGH",v:0.45,c:"#f97316"}].map(({l,v,c})=>(
+        <div key={l} style={{ display:"flex",alignItems:"center",gap:8 }}>
+          <span style={{ fontSize:9,fontWeight:700,color:"#64748b",width:28 }}>{l}</span>
+          <div style={{ flex:1,height:4,background:"rgba(255,255,255,0.07)",borderRadius:2,position:"relative" }}>
+            <div style={{ position:"absolute",left:0,width:`${v*100}%`,height:"100%",background:c,borderRadius:2 }} />
+          </div>
+          <span style={{ fontSize:9,color:c,width:26,textAlign:"right",fontVariantNumeric:"tabular-nums" }}>{Math.round(v*24-12)}dB</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (id === "harmonic-wheel") return (
+    <div style={{ height:contentH,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ width:Math.min(120,contentH-12),height:Math.min(120,contentH-12),borderRadius:"50%",border:"2px solid rgba(34,197,94,0.3)",background:"conic-gradient(from 0deg, rgba(34,197,94,0.15),rgba(59,130,246,0.15),rgba(168,85,247,0.15),rgba(249,115,22,0.15),rgba(34,197,94,0.15))",display:"flex",alignItems:"center",justifyContent:"center" }}>
+        <div style={{ width:"55%",height:"55%",borderRadius:"50%",background:"#07070f",border:"1.5px solid rgba(34,197,94,0.4)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" }}>
+          <span style={{ fontSize:11,fontWeight:800,color:"#22c55e" }}>8A</span>
+          <span style={{ fontSize:8,color:"#64748b" }}>Do min</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (id === "auto-analyse") return (
+    <div style={{ height:contentH,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+      <div style={{ width:36,height:20,borderRadius:10,background:"rgba(34,197,94,0.25)",border:"1.5px solid rgba(34,197,94,0.5)",position:"relative",cursor:"pointer" }}>
+        <div style={{ position:"absolute",right:3,top:3,width:14,height:14,borderRadius:"50%",background:"#22c55e" }} />
+      </div>
+      <span style={{ fontSize:10,color:"#22c55e",fontWeight:600 }}>ON</span>
+    </div>
+  );
+
+  if (id === "search") return (
+    <div style={{ height:contentH,display:"flex",alignItems:"center",padding:"0 8px" }}>
+      <div style={{ flex:1,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",gap:6,padding:"0 8px" }}>
+        <Search size={11} color="#64748b" />
+        <span style={{ fontSize:10,color:"#475569" }}>Rechercher…</span>
+        <span style={{ marginLeft:"auto",fontSize:9,color:"#334155",background:"rgba(255,255,255,0.06)",padding:"1px 4px",borderRadius:4 }}>⌘K</span>
+      </div>
+    </div>
+  );
+
+  if (id === "crate-digger") return (
+    <div style={{ height:contentH,overflow:"hidden",padding:"4px 8px",display:"flex",flexDirection:"column",gap:3 }}>
+      {["📁 Mes tracks","📁 Achats récents","📁 Mix sets","📁 Samples"].map((f,i)=>(
+        <div key={i} style={{ fontSize:10,color:i===0?"#f97316":"#64748b",padding:"3px 4px",borderRadius:4,background:i===0?"rgba(249,115,22,0.1)":"transparent" }}>{f}</div>
+      ))}
+    </div>
+  );
+
+  if (id === "tab-info") return (
+    <div style={{ height:contentH,overflow:"hidden",padding:"4px 8px",display:"flex",flexDirection:"column",gap:5 }}>
+      {[{k:"Titre",v:"Acid Rain"},{k:"Artiste",v:"Unknown Artist"},{k:"Album",v:"—"},{k:"Genre",v:"Techno"}].map(({k,v})=>(
+        <div key={k} style={{ display:"flex",gap:6 }}>
+          <span style={{ fontSize:9,color:"#475569",width:40,flexShrink:0 }}>{k}</span>
+          <span style={{ fontSize:10,color:"#94a3b8" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const def = DEF_MAP[id];
   if (!def) return null;
   const Icon = def.icon;
+  return (
+    <div style={{ height:contentH,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:6 }}>
+      <Icon size={20} color={def.color+"88"} />
+      <span style={{ fontSize:9,color:"#334155" }}>{def.label}</span>
+    </div>
+  );
+}
+
+// ─── Resize handles ───────────────────────────────────────────────────────────
+const RESIZE_HANDLES: { dir: ResizeEdge; style: React.CSSProperties; cursor: string }[] = [
+  { dir:"n",  cursor:"ns-resize",   style:{ top:-4,    left:12,    right:12,   height:HANDLE_SZ } },
+  { dir:"s",  cursor:"ns-resize",   style:{ bottom:-4, left:12,    right:12,   height:HANDLE_SZ } },
+  { dir:"e",  cursor:"ew-resize",   style:{ right:-4,  top:12,     bottom:12,  width:HANDLE_SZ  } },
+  { dir:"w",  cursor:"ew-resize",   style:{ left:-4,   top:12,     bottom:12,  width:HANDLE_SZ  } },
+  { dir:"nw", cursor:"nwse-resize", style:{ top:-4,    left:-4,    width:12,   height:12 } },
+  { dir:"ne", cursor:"nesw-resize", style:{ top:-4,    right:-4,   width:12,   height:12 } },
+  { dir:"se", cursor:"nwse-resize", style:{ bottom:-4, right:-4,   width:12,   height:12 } },
+  { dir:"sw", cursor:"nesw-resize", style:{ bottom:-4, left:-4,    width:12,   height:12 } },
+];
+
+// ─── Single module card ────────────────────────────────────────────────────────
+function ModCard({
+  mod, isSelected, onPointerDownMove, onPointerDownResize, onSelect, onToggleOpen, onRemove, maxZ,
+}: {
+  mod: Mod; isSelected: boolean; maxZ: number;
+  onPointerDownMove: (e: React.PointerEvent, id:string) => void;
+  onPointerDownResize: (e: React.PointerEvent, id:string, dir:ResizeEdge) => void;
+  onSelect: (id:string) => void;
+  onToggleOpen: (id:string) => void;
+  onRemove: (id:string) => void;
+}) {
+  const def = DEF_MAP[mod.id];
+  if (!def) return null;
+  const Icon = def.icon;
+
   return (
     <div
-      data-mod-id={config.id}
       style={{
-        background: "#0d0d1e", border: `1.5px solid ${isSelected ? def.color + "88" : "rgba(255,255,255,0.12)"}`,
-        borderRadius: 11, padding: 10, minWidth: 130,
-        boxShadow: `0 8px 28px rgba(0,0,0,0.7)${isSelected ? `, 0 0 0 2px ${def.color}33` : ""}`,
-        opacity: isDragging ? 0.4 : 1, transition: "all 0.12s", userSelect: "none",
+        position:"absolute", left:mod.x, top:mod.y, width:mod.w, height:mod.h,
+        zIndex: isSelected ? maxZ + 1 : mod.z,
+        outline: isSelected ? `2px solid ${def.color}88` : "2px solid transparent",
+        outlineOffset: 2,
+        borderRadius: 10,
+        transition: "outline 0.1s",
       }}
-      onClick={(e) => { e.stopPropagation(); onSelect(config.id); }}
+      onPointerDown={(e) => { e.stopPropagation(); onSelect(mod.id); }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}
-        onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, config.id); }}
-        style={{ display: "flex", alignItems: "center", gap: 7, cursor: "grab" } as React.CSSProperties}>
-        <div style={{ width: 26, height: 26, borderRadius: 7, background: `${def.color}22`, border: `1.5px solid ${def.color}55`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icon size={13} color={def.color} />
+      {/* Glass card body */}
+      <div style={{
+        width:"100%", height:"100%", borderRadius:10,
+        background: "rgba(10,10,22,0.88)",
+        border: `1.5px solid ${isSelected ? def.color+"44" : "rgba(255,255,255,0.08)"}`,
+        backdropFilter:"blur(8px)",
+        overflow:"hidden",
+        display:"flex", flexDirection:"column",
+        boxShadow: isSelected
+          ? `0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px ${def.color}22`
+          : "0 4px 16px rgba(0,0,0,0.4)",
+      }}>
+        {/* ── Header (drag handle) ── */}
+        <div
+          onPointerDown={(e) => { e.stopPropagation(); onPointerDownMove(e, mod.id); }}
+          style={{
+            height:32, flexShrink:0,
+            background: isSelected ? `${def.color}12` : "rgba(255,255,255,0.04)",
+            borderBottom:"1px solid rgba(255,255,255,0.06)",
+            display:"flex", alignItems:"center", gap:7, padding:"0 8px",
+            cursor:"grab", userSelect:"none",
+          }}
+        >
+          <GripVertical size={11} color="rgba(255,255,255,0.2)" style={{ flexShrink:0 }} />
+          <div style={{ width:20,height:20,borderRadius:5,background:`${def.color}22`,border:`1.5px solid ${def.color}44`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <Icon size={11} color={def.color} />
+          </div>
+          <span style={{ fontSize:10,fontWeight:700,color:"#e2e8f0",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{def.label}</span>
+          {isSelected && (
+            <div style={{ display:"flex",gap:3,flexShrink:0 }}>
+              <button
+                onPointerDown={(e)=>e.stopPropagation()}
+                onClick={(e)=>{ e.stopPropagation(); onToggleOpen(mod.id); }}
+                style={{ background:"none",border:"none",cursor:"pointer",color:mod.open?def.color:"#475569",lineHeight:0,padding:2 }}
+              >
+                {mod.open ? <Minimize2 size={11}/> : <Maximize2 size={11}/>}
+              </button>
+              <button
+                onPointerDown={(e)=>e.stopPropagation()}
+                onClick={(e)=>{ e.stopPropagation(); onRemove(mod.id); }}
+                style={{ background:"none",border:"none",cursor:"pointer",color:"#475569",lineHeight:0,padding:2 }}
+              >
+                <X size={11}/>
+              </button>
+            </div>
+          )}
         </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#f1f5f9", flex: 1 }}>{def.label}</span>
-        <button onClick={(e) => { e.stopPropagation(); onToggleExpand(config.id); }}
-          style={{ background: "none", border: "none", cursor: "pointer", color: config.expanded ? def.color : "#475569", lineHeight: 0, padding: 1 }}>
-          {config.expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); onRemove(config.id); }}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", lineHeight: 0, padding: 1 }}>
-          <X size={11} />
-        </button>
+
+        {/* ── Content ── */}
+        {mod.open && mod.h > 36 && (
+          <div style={{ flex:1,overflow:"hidden" }}>
+            <ModContent id={mod.id} h={mod.h} />
+          </div>
+        )}
       </div>
-      <MiniContent id={config.id} expanded={config.expanded} />
+
+      {/* ── Resize handles (shown when selected) ── */}
+      {isSelected && RESIZE_HANDLES.map(({ dir, style, cursor }) => (
+        <div
+          key={dir}
+          onPointerDown={(e) => { e.stopPropagation(); onPointerDownResize(e, mod.id, dir); }}
+          style={{
+            position:"absolute", ...style, cursor,
+            background: dir.length === 1
+              ? `${def.color}cc`
+              : def.color,
+            borderRadius: dir.length === 1 ? 3 : 3,
+            border: `1px solid ${def.color}`,
+            zIndex: 20,
+          }}
+        />
+      ))}
     </div>
   );
 }
 
-// ── Ghost cursor element ───────────────────────────────────────────────────────
-function CursorGhost({ drag }: { drag: DragState }) {
-  const def = MOD_MAP[drag.id];
-  if (!def) return null;
-  const Icon = def.icon;
+// ─── Background reference grid ────────────────────────────────────────────────
+function BgGrid() {
   return (
-    <div style={{
-      position: "fixed", left: drag.ghostX, top: drag.ghostY, zIndex: 9999,
-      pointerEvents: "none", transform: "rotate(1.5deg) scale(0.94)",
-      background: "#1a1a2e", border: `2px solid ${def.color}88`,
-      borderRadius: 10, padding: "6px 11px",
-      display: "flex", alignItems: "center", gap: 8,
-      boxShadow: `0 14px 44px rgba(0,0,0,0.8), 0 0 0 1px ${def.color}33`,
-      minWidth: 110, userSelect: "none",
-    }}>
-      <div style={{ width: 24, height: 24, borderRadius: 6, background: `${def.color}22`, border: `1.5px solid ${def.color}55`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={12} color={def.color} />
-      </div>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#f1f5f9" }}>{def.label}</span>
-    </div>
+    <svg style={{ position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:0,opacity:0.25 }}>
+      <defs>
+        <pattern id="grid8" width={GRID*4} height={GRID*4} patternUnits="userSpaceOnUse">
+          <path d={`M ${GRID*4} 0 L 0 0 0 ${GRID*4}`} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
+        </pattern>
+        <pattern id="grid64" width={GRID*8} height={GRID*8} patternUnits="userSpaceOnUse">
+          <rect width={GRID*8} height={GRID*8} fill="url(#grid8)"/>
+          <path d={`M ${GRID*8} 0 L 0 0 0 ${GRID*8}`} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid64)"/>
+    </svg>
   );
 }
 
-// ── Zone render helper ─────────────────────────────────────────────────────────
-function ZoneItems({
-  zone, configs, dragState, selected,
-  onPointerDown, onSelect, onToggleExpand, onRemove, onSizeChange,
-}: {
-  zone: Zone; configs: ModConfig[]; dragState: DragState | null; selected: string | null;
-  onPointerDown: (e: React.PointerEvent, id: string) => void;
-  onSelect: (id: string) => void;
-  onToggleExpand: (id: string) => void;
-  onRemove: (id: string) => void;
-  onSizeChange: (id: string, size: ModSize) => void;
-}) {
-  const items = getZoneMods(configs, zone);
-  const placeholderIdx = dragState?.targetZone === zone ? dragState.targetIndex : -1;
-  const color = ZONE_COLORS[zone];
-  const result: React.ReactNode[] = [];
-
-  items.forEach((c, i) => {
-    if (i === placeholderIdx) result.push(<DropPlaceholder key={`ph-${i}`} zone={zone} />);
-    result.push(
-      <ModCard
-        key={c.id} config={c} zone={zone}
-        isDragging={dragState?.id === c.id}
-        isSelected={selected === c.id}
-        onPointerDown={onPointerDown} onSelect={onSelect}
-        onToggleExpand={onToggleExpand} onRemove={onRemove} onSizeChange={onSizeChange}
-      />
-    );
-  });
-  if (items.length === placeholderIdx) result.push(<DropPlaceholder key="ph-end" zone={zone} />);
-  return <>{result}</>;
-}
-
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function LayoutBuilderPage() {
-  const [configs, setConfigs] = useState<ModConfig[]>(loadConfigs);
-  const [dragState, setDragState] = useState<DragState | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [mods, setMods] = useState<Mod[]>(loadMods);
   const [selected, setSelected] = useState<string | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
   const [savedBanner, setSavedBanner] = useState(false);
+  const [showPalette, setShowPalette] = useState(true);
+  const modsRef = useRef(mods);
+  useEffect(() => { modsRef.current = mods; }, [mods]);
 
-  // Live preview during drag
-  const liveConfigs = dragState ? applyDragPreview(configs, dragState) : configs;
+  const maxZ = Math.max(...mods.map(m => m.z), 1);
 
-  // Pointer move / up listeners
+  // ── Drag effect ──
   useEffect(() => {
-    if (!dragState) return;
+    if (!drag) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const onMove = (e: PointerEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const zoneEl = el?.closest("[data-zone]") as HTMLElement | null;
-      const targetZone = (zoneEl?.dataset.zone as Zone) ?? null;
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const dx = px - drag.startPx;
+      const dy = py - drag.startPy;
 
-      let targetIndex = 0;
-      if (targetZone && zoneEl) {
-        const children = Array.from(zoneEl.querySelectorAll("[data-mod-id]")) as HTMLElement[];
-        for (let i = 0; i < children.length; i++) {
-          const r = children[i].getBoundingClientRect();
-          const isTop = targetZone === "topbar";
-          const mid = isTop ? (r.left + r.right) / 2 : (r.top + r.bottom) / 2;
-          if ((isTop ? e.clientX : e.clientY) > mid) targetIndex = i + 1;
+      setMods(prev => prev.map(m => {
+        if (m.id !== drag.id) return m;
+        const { origX:ox, origY:oy, origW:ow, origH:oh } = drag;
+        let nx=ox, ny=oy, nw=ow, nh=oh;
+
+        if (drag.mode === "move") {
+          nx = sg(ox + dx); ny = sg(oy + dy);
+          // no clamping — free positioning, can go beyond canvas edges
+        } else {
+          const d = drag.mode;
+          if (d.includes("e")) { nw = Math.max(MIN_W, sg(ow + dx)); }
+          if (d.includes("w")) { const nw2=Math.max(MIN_W,sg(ow-dx)); nx=sg(ox+ow-nw2); nw=nw2; }
+          if (d.includes("s")) { nh = Math.max(MIN_H, sg(oh + dy)); }
+          if (d.includes("n")) { const nh2=Math.max(MIN_H,sg(oh-dy)); ny=sg(oy+oh-nh2); nh=nh2; }
         }
-      }
-
-      setDragState(prev => prev ? {
-        ...prev,
-        ghostX: e.clientX - prev.offsetX,
-        ghostY: e.clientY - prev.offsetY,
-        targetZone,
-        targetIndex,
-      } : null);
+        return { ...m, x:nx, y:ny, w:nw, h:nh };
+      }));
     };
 
     const onUp = () => {
-      setDragState(prev => {
-        if (prev?.targetZone) {
-          const preview = applyDragPreview(configs, { ...prev, targetZone: prev.targetZone });
-          // Rebuild proper orders per zone
-          const zones: Zone[] = ["topbar", "sidebar", "right-panel", "float-br", "float-bl", "hidden"];
-          const result: ModConfig[] = [];
-          for (const z of zones) {
-            getZoneMods(preview, z).forEach((c, i) => result.push({ ...c, zone: z, order: i }));
-          }
-          setConfigs(result);
-          saveConfigs(result);
-        }
-        return null;
-      });
+      saveMods(modsRef.current);
+      setDrag(null);
     };
 
     window.addEventListener("pointermove", onMove);
@@ -477,357 +522,206 @@ export default function LayoutBuilderPage() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [dragState, configs]);
+  }, [drag]);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent, id: string) => {
+  // ── Handlers ──
+  const handleMove = useCallback((e: React.PointerEvent, id: string) => {
     e.preventDefault();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const m = modsRef.current.find(x => x.id === id)!;
+    // Bring to front
+    setMods(prev => prev.map(x => x.id===id ? {...x, z: maxZ+1} : x));
+    setDrag({ id, mode:"move", startPx:e.clientX, startPy:e.clientY, origX:m.x, origY:m.y, origW:m.w, origH:m.h });
+  }, [maxZ]);
+
+  const handleResize = useCallback((e: React.PointerEvent, id: string, dir: ResizeEdge) => {
+    e.preventDefault();
+    const m = modsRef.current.find(x => x.id === id)!;
+    setDrag({ id, mode:dir, startPx:e.clientX, startPy:e.clientY, origX:m.x, origY:m.y, origW:m.w, origH:m.h });
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
     setSelected(id);
-    setDragState({
-      id, ghostX: rect.left, ghostY: rect.top,
-      offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
-      targetZone: null, targetIndex: 0,
-    });
+    setMods(prev => prev.map(m => m.id===id ? {...m, z:maxZ+1} : m));
+  }, [maxZ]);
+
+  const toggleOpen = useCallback((id: string) => {
+    setMods(prev => { const u=prev.map(m => m.id===id ? {...m, open:!m.open} : m); saveMods(u); return u; });
   }, []);
 
-  const toggleExpand = useCallback((id: string) => {
-    setConfigs(prev => { const u = prev.map(c => c.id === id ? { ...c, expanded: !c.expanded } : c); saveConfigs(u); return u; });
+  const removeFromCanvas = useCallback((id: string) => {
+    setMods(prev => { const u=prev.map(m => m.id===id ? {...m, onCanvas:false} : m); saveMods(u); return u; });
+    setSelected(s => s===id ? null : s);
   }, []);
 
-  const removeModule = useCallback((id: string) => {
-    setConfigs(prev => { const u = prev.map(c => c.id === id ? { ...c, zone: "hidden" as Zone } : c); saveConfigs(u); return u; });
-    setSelected(s => s === id ? null : s);
-  }, []);
-
-  const changeSize = useCallback((id: string, size: ModSize) => {
-    setConfigs(prev => { const u = prev.map(c => c.id === id ? { ...c, size } : c); saveConfigs(u); return u; });
-  }, []);
-
-  const moveToZone = useCallback((id: string, zone: Zone) => {
-    setConfigs(prev => {
-      const existingCount = prev.filter(c => c.zone === zone).length;
-      const u = prev.map(c => c.id === id ? { ...c, zone, order: existingCount } : c);
-      saveConfigs(u);
+  const addToCanvas = useCallback((id: string) => {
+    const canvas = canvasRef.current;
+    const cx = canvas ? canvas.scrollLeft + 200 : 200;
+    const cy = canvas ? canvas.scrollTop + 100 : 100;
+    setMods(prev => {
+      const u = prev.map(m => m.id===id ? {...m, onCanvas:true, x:sg(cx), y:sg(cy), z:maxZ+1, open:true} : m);
+      saveMods(u);
       return u;
     });
-  }, []);
-
-  const handleReset = () => {
-    const d = buildDefault(); setConfigs(d); saveConfigs(d); setSelected(null);
-  };
+    setSelected(id);
+  }, [maxZ]);
 
   const handleSave = () => {
-    saveConfigs(configs);
+    saveMods(mods);
     setSavedBanner(true);
     setTimeout(() => setSavedBanner(false), 2500);
   };
 
-  const selectedCfg = selected ? configs.find(c => c.id === selected) : null;
-  const selectedDef = selected ? MOD_MAP[selected] : null;
-
-  const commonZoneProps = {
-    configs: liveConfigs, dragState,
-    selected, onPointerDown: handlePointerDown, onSelect: setSelected,
-    onToggleExpand: toggleExpand, onRemove: removeModule, onSizeChange: changeSize,
+  const handleReset = () => {
+    const d = makeDefault();
+    setMods(d);
+    saveMods(d);
+    setSelected(null);
   };
 
+  const onCanvas = mods.filter(m => m.onCanvas);
+  const offCanvas = mods.filter(m => !m.onCanvas);
+
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#05050d", color: "#e2e8f0", fontFamily: "system-ui, -apple-system, sans-serif", overflow: "hidden", cursor: dragState ? "grabbing" : "default" }}>
+    <div style={{ height:"100vh", display:"flex", flexDirection:"column", background:"#04040b", color:"#e2e8f0", fontFamily:"system-ui,-apple-system,sans-serif", overflow:"hidden", cursor: drag?.mode==="move" ? "grabbing" : "default" }}>
 
       {/* ─── Header ─── */}
-      <div style={{ padding: "9px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, backdropFilter: "blur(10px)", zIndex: 20 }}>
-        <Link href="/admin" style={{ display: "flex", alignItems: "center", gap: 5, color: "#64748b", textDecoration: "none", fontSize: 11 }}>
-          <ChevronLeft size={13} /> Admin
+      <div style={{ padding:"8px 16px", borderBottom:"1px solid rgba(255,255,255,0.07)", background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10, flexShrink:0, backdropFilter:"blur(12px)", zIndex:100 }}>
+        <Link href="/admin" style={{ display:"flex",alignItems:"center",gap:4,color:"#64748b",textDecoration:"none",fontSize:11 }}>
+          <ChevronLeft size={12}/> Admin
         </Link>
-        <div style={{ width: 1, height: 13, background: "rgba(255,255,255,0.1)" }} />
-        <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(59,130,246,0.15)", border: "1.5px solid rgba(59,130,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <LayoutDashboard size={13} color="#3b82f6" />
-        </div>
+        <div style={{ width:1,height:12,background:"rgba(255,255,255,0.1)" }}/>
+        <LayoutDashboard size={14} color="#3b82f6"/>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9", lineHeight: 1.2 }}>Layout Builder</div>
-          <div style={{ fontSize: 10, color: "#475569" }}>Click-hold pour déplacer · Clic pour options</div>
+          <div style={{ fontSize:13,fontWeight:700,color:"#f1f5f9",lineHeight:1.2 }}>Layout Builder</div>
+          <div style={{ fontSize:9,color:"#334155" }}>Glisse les modules · Resize par les bords/coins · Clic pour sélectionner</div>
         </div>
 
-        {/* Zone legend */}
-        <div style={{ display: "flex", gap: 10, marginLeft: 18, flexWrap: "wrap" }}>
-          {(Object.entries(ZONE_COLORS) as [Zone, string][]).filter(([z]) => z !== "hidden").map(([zone, color]) => (
-            <div key={zone} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#475569" }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-              {ZONE_LABELS[zone]}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginLeft: "auto", display: "flex", gap: 7, alignItems: "center" }}>
-          <button onClick={handleReset} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 7, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#94a3b8", fontSize: 11, cursor: "pointer" }}>
-            <RotateCcw size={11} /> Reset
+        <div style={{ display:"flex",gap:6,marginLeft:14 }}>
+          <button onClick={()=>setShowPalette(p=>!p)} style={{ display:"flex",alignItems:"center",gap:4,padding:"4px 9px",borderRadius:6,background:showPalette?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.04)",border:`1px solid ${showPalette?"rgba(59,130,246,0.3)":"rgba(255,255,255,0.1)"}`,color:showPalette?"#3b82f6":"#64748b",fontSize:10,cursor:"pointer" }}>
+            <Eye size={11}/> Palette ({offCanvas.length})
           </button>
-          <button onClick={handleSave} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 7, fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.2s", background: savedBanner ? "rgba(34,197,94,0.2)" : "linear-gradient(135deg, #2563eb, #7c3aed)", border: savedBanner ? "1px solid #22c55e66" : "1px solid transparent", color: savedBanner ? "#22c55e" : "white", boxShadow: savedBanner ? "none" : "0 2px 14px rgba(37,99,235,0.4)" }}>
-            {savedBanner ? <><Check size={13} /> Sauvegardé !</> : <><MonitorPlay size={13} /> Mettre en prod</>}
+        </div>
+
+        <div style={{ marginLeft:"auto",display:"flex",gap:7 }}>
+          <button onClick={handleReset} style={{ display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",color:"#94a3b8",fontSize:11,cursor:"pointer" }}>
+            <RotateCcw size={11}/> Reset
+          </button>
+          <button onClick={handleSave} style={{ display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:7,fontWeight:700,fontSize:11,cursor:"pointer",transition:"all 0.2s",background:savedBanner?"rgba(34,197,94,0.2)":"linear-gradient(135deg,#2563eb,#7c3aed)",border:savedBanner?"1px solid #22c55e66":"1px solid transparent",color:savedBanner?"#22c55e":"white",boxShadow:savedBanner?"none":"0 2px 12px rgba(37,99,235,0.4)" }}>
+            {savedBanner ? <><Check size={12}/> Sauvegardé !</> : <><MonitorPlay size={12}/> Mettre en prod</>}
           </button>
         </div>
       </div>
 
-      {/* ─── Canvas : CueForge UI preview ─── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }} onClick={(e) => { if ((e.target as HTMLElement).hasAttribute("data-canvas")) setSelected(null); }}>
+      {/* ─── Canvas + Palette ─── */}
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
 
-        {/* ── TopBar zone ── */}
+        {/* ─── Free canvas ─── */}
         <div
-          data-zone="topbar"
-          style={{
-            background: "rgba(8,8,20,0.98)", borderBottom: "1px solid rgba(255,255,255,0.08)",
-            padding: "0 14px", height: 46,
-            display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
-            outline: dragState?.targetZone === "topbar" ? `2px solid ${ZONE_COLORS.topbar}55` : "2px solid transparent",
-            transition: "outline 0.1s",
-          }}
+          ref={canvasRef}
+          style={{ flex:1,overflow:"auto",position:"relative",background:"#05050e" }}
+          onPointerDown={(e) => { if (e.target === canvasRef.current || (e.target as HTMLElement).hasAttribute("data-canvas")) setSelected(null); }}
+          data-canvas="1"
         >
-          {/* CueForge logo (static) */}
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, marginRight: 6 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg, #2563eb, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Disc3 size={12} color="white" />
+          <div style={{ position:"relative",minWidth:1440,minHeight:760 }} data-canvas="1">
+            <BgGrid/>
+            {/* Zone hints (faint reference) */}
+            <div style={{ position:"absolute",left:0,top:0,width:"100%",height:50,borderBottom:"1px dashed rgba(59,130,246,0.12)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",left:8,top:16,fontSize:8,color:"rgba(59,130,246,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Topbar</span>
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>CueForge</span>
-          </div>
-          <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
-
-          {/* TopBar modules */}
-          <ZoneItems zone="topbar" {...commonZoneProps} />
-
-          {getZoneMods(liveConfigs, "topbar").length === 0 && !dragState && (
-            <span style={{ fontSize: 10, color: "#1e293b", fontStyle: "italic" }}>Glisse des modules ici</span>
-          )}
-        </div>
-
-        {/* ── Body ── */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }} data-canvas="1">
-
-          {/* ── Sidebar ── */}
-          <div
-            data-zone="sidebar"
-            style={{
-              width: 188, flexShrink: 0, background: "rgba(9,9,22,0.98)",
-              borderRight: "1px solid rgba(255,255,255,0.07)",
-              display: "flex", flexDirection: "column", overflowY: "auto",
-              outline: dragState?.targetZone === "sidebar" ? `2px solid ${ZONE_COLORS.sidebar}55` : "2px solid transparent",
-              transition: "outline 0.1s",
-            }}
-          >
-            <div style={{ padding: "10px 7px", display: "flex", flexDirection: "column", gap: 5 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.08em", padding: "2px 4px 5px" }}>Sidebar</div>
-              <ZoneItems zone="sidebar" {...commonZoneProps} />
-              {getZoneMods(liveConfigs, "sidebar").length === 0 && !dragState && (
-                <div style={{ fontSize: 10, color: "#1e293b", fontStyle: "italic", textAlign: "center", paddingTop: 10 }}>Glisse ici</div>
-              )}
+            <div style={{ position:"absolute",left:0,top:50,width:196,bottom:0,borderRight:"1px dashed rgba(168,85,247,0.1)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",left:8,top:8,fontSize:8,color:"rgba(168,85,247,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Sidebar</span>
             </div>
-          </div>
+            <div style={{ position:"absolute",right:0,top:50,width:210,bottom:0,borderLeft:"1px dashed rgba(6,182,212,0.1)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",right:8,top:8,fontSize:8,color:"rgba(6,182,212,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Right panel</span>
+            </div>
 
-          {/* ── Main content (static mock) ── */}
-          <div data-canvas="1" style={{ flex: 1, background: "#07070f", overflow: "hidden", position: "relative" }}>
-            {/* Overview waveform */}
-            <div style={{ margin: "10px 12px 5px", height: 44, background: "rgba(255,255,255,0.02)", borderRadius: 7, border: "1px solid rgba(255,255,255,0.05)", overflow: "hidden", position: "relative", flexShrink: 0 }}>
-              {Array.from({ length: 72 }).map((_, i) => {
-                const h = 18 + Math.abs(Math.sin(i * 0.62) * 18 + Math.sin(i * 0.2) * 8);
-                return <div key={i} style={{ position: "absolute", left: `${i / 72 * 100}%`, bottom: "50%", width: "1.1%", height: `${h}%`, background: i < 22 ? "rgba(99,102,241,0.55)" : "rgba(168,85,247,0.4)", transform: "translateY(50%)", borderRadius: 1 }} />;
-              })}
-              <div style={{ position: "absolute", left: "30%", top: 0, bottom: 0, width: 2, background: "#ec4899", opacity: 0.9 }} />
-            </div>
-            {/* Detail waveform */}
-            <div style={{ margin: "0 12px 8px", height: 64, background: "rgba(255,255,255,0.02)", borderRadius: 7, border: "1px solid rgba(255,255,255,0.05)", overflow: "hidden", position: "relative", flexShrink: 0 }}>
-              {Array.from({ length: 96 }).map((_, i) => {
-                const h = 12 + Math.abs(Math.sin(i * 0.38) * 24 + Math.sin(i * 1.1) * 14);
-                return <div key={i} style={{ position: "absolute", left: `${i / 96 * 100}%`, bottom: "50%", width: "0.85%", height: `${h}%`, background: i < 29 ? "rgba(99,102,241,0.6)" : "rgba(168,85,247,0.45)", transform: "translateY(50%)", borderRadius: 1 }} />;
-              })}
-              <div style={{ position: "absolute", left: "30%", top: 0, bottom: 0, width: 2, background: "#ec4899", opacity: 0.75 }} />
-            </div>
-            {/* Track list mock */}
-            <div style={{ padding: "0 12px" }} data-canvas="1">
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: "#1e293b", fontWeight: 600 }}>Bibliothèque</span>
-                <span style={{ fontSize: 9, color: "#1a2535" }}>247 tracks</span>
+            {/* CueForge logo watermark */}
+            <div style={{ position:"absolute",left:8,top:10,display:"flex",alignItems:"center",gap:7,pointerEvents:"none",zIndex:1 }}>
+              <div style={{ width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#2563eb,#ec4899)",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <Disc3 size={13} color="white"/>
               </div>
-              {[
-                { n: "Acid Rain",       bpm: 128, key: "8A",  d: "6:42" },
-                { n: "Solar Drift",     bpm: 132, key: "6B",  d: "7:15" },
-                { n: "Midnight Echo",   bpm: 124, key: "11A", d: "5:58" },
-                { n: "Deep Signal",     bpm: 136, key: "3B",  d: "8:02" },
-                { n: "Phantom Bass",    bpm: 140, key: "1A",  d: "6:28" },
-              ].map((t, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "5px 7px", borderRadius: 6, marginBottom: 2, background: i === 0 ? "rgba(99,102,241,0.08)" : "transparent", border: i === 0 ? "1px solid rgba(99,102,241,0.15)" : "1px solid transparent" }}>
-                  <Disc3 size={11} color={i === 0 ? "#6366f1" : "#334155"} />
-                  <span style={{ flex: 1, fontSize: 11, color: i === 0 ? "#e2e8f0" : "#64748b" }}>{t.n}</span>
-                  <span style={{ fontSize: 10, color: "#f97316", fontVariantNumeric: "tabular-nums" }}>{t.bpm}</span>
-                  <span style={{ fontSize: 10, color: "#10b981", width: 22, textAlign: "right" }}>{t.key}</span>
-                  <span style={{ fontSize: 10, color: "#334155", fontVariantNumeric: "tabular-nums" }}>{t.d}</span>
-                </div>
-              ))}
+              <span style={{ fontSize:14,fontWeight:700,color:"rgba(255,255,255,0.5)" }}>CueForge</span>
             </div>
 
-            {/* Float BR zone */}
-            <div
-              data-zone="float-br"
-              style={{
-                position: "absolute", bottom: 12, right: 12,
-                display: "flex", flexDirection: "column", gap: 7, zIndex: 10,
-                outline: dragState?.targetZone === "float-br" ? `2px dashed ${ZONE_COLORS["float-br"]}77` : "2px dashed transparent",
-                borderRadius: 12, padding: 6, minWidth: 120, minHeight: 40,
-                background: dragState?.targetZone === "float-br" ? `${ZONE_COLORS["float-br"]}08` : "transparent",
-                transition: "all 0.1s",
-              }}
-            >
-              {getZoneMods(liveConfigs, "float-br").length === 0 && dragState && (
-                <div style={{ fontSize: 9, color: ZONE_COLORS["float-br"], textAlign: "center" }}>Float ↘</div>
-              )}
-              <ZoneItems zone="float-br" {...commonZoneProps} />
-            </div>
-
-            {/* Float BL zone */}
-            <div
-              data-zone="float-bl"
-              style={{
-                position: "absolute", bottom: 12, left: 12,
-                display: "flex", flexDirection: "column", gap: 7, zIndex: 10,
-                outline: dragState?.targetZone === "float-bl" ? `2px dashed ${ZONE_COLORS["float-bl"]}77` : "2px dashed transparent",
-                borderRadius: 12, padding: 6, minWidth: 120, minHeight: 40,
-                background: dragState?.targetZone === "float-bl" ? `${ZONE_COLORS["float-bl"]}08` : "transparent",
-                transition: "all 0.1s",
-              }}
-            >
-              {getZoneMods(liveConfigs, "float-bl").length === 0 && dragState && (
-                <div style={{ fontSize: 9, color: ZONE_COLORS["float-bl"], textAlign: "center" }}>Float ↙</div>
-              )}
-              <ZoneItems zone="float-bl" {...commonZoneProps} />
-            </div>
-          </div>
-
-          {/* ── Right Panel ── */}
-          <div
-            data-zone="right-panel"
-            style={{
-              width: 214, flexShrink: 0, background: "rgba(9,9,22,0.98)",
-              borderLeft: "1px solid rgba(255,255,255,0.07)",
-              display: "flex", flexDirection: "column", overflowY: "auto",
-              outline: dragState?.targetZone === "right-panel" ? `2px solid ${ZONE_COLORS["right-panel"]}55` : "2px solid transparent",
-              transition: "outline 0.1s",
-            }}
-          >
-            <div style={{ padding: "10px 7px", display: "flex", flexDirection: "column", gap: 5 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.08em", padding: "2px 4px 5px" }}>Panneau droit</div>
-              <ZoneItems zone="right-panel" {...commonZoneProps} />
-              {getZoneMods(liveConfigs, "right-panel").length === 0 && !dragState && (
-                <div style={{ fontSize: 10, color: "#1e293b", fontStyle: "italic", textAlign: "center", paddingTop: 10 }}>Glisse ici</div>
-              )}
-            </div>
+            {/* All canvas modules */}
+            {onCanvas.map(mod => (
+              <ModCard
+                key={mod.id} mod={mod}
+                isSelected={selected === mod.id}
+                maxZ={maxZ}
+                onPointerDownMove={handleMove}
+                onPointerDownResize={handleResize}
+                onSelect={handleSelect}
+                onToggleOpen={toggleOpen}
+                onRemove={removeFromCanvas}
+              />
+            ))}
           </div>
         </div>
 
-        {/* ── Hidden palette ── */}
-        <div
-          data-zone="hidden"
-          style={{
-            background: "rgba(255,255,255,0.02)",
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            padding: "7px 14px 8px", flexShrink: 0,
-            outline: dragState?.targetZone === "hidden" ? `2px solid ${ZONE_COLORS.hidden}44` : "2px solid transparent",
-            transition: "outline 0.1s",
-          }}
-        >
-          <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-            <EyeOff size={10} /> Masqués — glisse ici pour désactiver
-          </div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {getZoneMods(liveConfigs, "hidden").map(c => {
-              const def = MOD_MAP[c.id];
-              if (!def) return null;
-              const Icon = def.icon;
-              return (
-                <div key={c.id} data-mod-id={c.id}
-                  onPointerDown={(e) => handlePointerDown(e, c.id)}
-                  onClick={(e) => { e.stopPropagation(); setSelected(c.id); }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 4, padding: "3px 8px",
-                    borderRadius: 5, background: "rgba(255,255,255,0.03)",
-                    border: `1px solid ${selected === c.id ? def.color + "55" : "rgba(255,255,255,0.07)"}`,
-                    cursor: "grab", fontSize: 10, color: "#475569",
-                    opacity: dragState?.id === c.id ? 0.35 : 1, userSelect: "none",
-                  }}
-                >
-                  <Icon size={9} color={def.color} />
-                  {def.label}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Ghost ── */}
-        {dragState && <CursorGhost drag={dragState} />}
-
-        {/* ── Selection action bar ── */}
-        {selected && !dragState && selectedCfg && selectedDef && (() => {
-          const Icon = selectedDef.icon;
-          return (
-            <div style={{
-              position: "absolute", bottom: 72, left: "50%", transform: "translateX(-50%)",
-              background: "rgba(10,10,24,0.96)", border: `1.5px solid ${selectedDef.color}66`,
-              borderRadius: 12, padding: "8px 14px",
-              display: "flex", alignItems: "center", gap: 10,
-              boxShadow: `0 8px 36px rgba(0,0,0,0.7), 0 0 0 1px ${selectedDef.color}18`,
-              zIndex: 50, backdropFilter: "blur(16px)", whiteSpace: "nowrap",
-            }}>
-              <div style={{ width: 26, height: 26, borderRadius: 7, background: `${selectedDef.color}22`, border: `1.5px solid ${selectedDef.color}55`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Icon size={13} color={selectedDef.color} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9" }}>{selectedDef.label}</span>
-              <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-
-              {/* Move to zone */}
-              <div style={{ display: "flex", gap: 4 }}>
-                {(["topbar", "sidebar", "right-panel", "float-br", "float-bl", "hidden"] as Zone[]).map(z => (
-                  <button key={z} onClick={() => moveToZone(selected, z)} style={{
-                    padding: "3px 9px", borderRadius: 6, fontSize: 9.5, fontWeight: 600, cursor: "pointer",
-                    background: selectedCfg.zone === z ? `${ZONE_COLORS[z]}28` : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${selectedCfg.zone === z ? ZONE_COLORS[z] + "77" : "rgba(255,255,255,0.08)"}`,
-                    color: selectedCfg.zone === z ? ZONE_COLORS[z] : "#475569",
-                    transition: "all 0.12s",
-                  }}>
-                    {ZONE_LABELS[z]}
+        {/* ─── Palette ─── */}
+        {showPalette && offCanvas.length > 0 && (
+          <div style={{ borderTop:"1px solid rgba(255,255,255,0.07)", background:"rgba(0,0,0,0.4)", padding:"8px 14px", flexShrink:0, backdropFilter:"blur(8px)" }}>
+            <div style={{ fontSize:9,fontWeight:700,color:"#334155",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:7,display:"flex",alignItems:"center",gap:5 }}>
+              <EyeOff size={10}/> Modules hors canvas — clique + pour ajouter
+            </div>
+            <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
+              {offCanvas.map(m => {
+                const def = DEF_MAP[m.id];
+                if (!def) return null;
+                const Icon = def.icon;
+                return (
+                  <button key={m.id} onClick={() => addToCanvas(m.id)} style={{ display:"flex",alignItems:"center",gap:5,padding:"4px 9px",borderRadius:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer",fontSize:10,color:"#64748b",userSelect:"none",transition:"all 0.12s" }}
+                    onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.08)";(e.currentTarget as HTMLElement).style.color="#94a3b8"}}
+                    onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.04)";(e.currentTarget as HTMLElement).style.color="#64748b"}}
+                  >
+                    <Icon size={10} color={def.color}/>
+                    {def.label}
+                    <Plus size={9} style={{ marginLeft:2 }}/>
                   </button>
-                ))}
-              </div>
-              <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-
-              {/* Expand toggle */}
-              <button onClick={() => toggleExpand(selected)} style={{
-                display: "flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 6,
-                background: selectedCfg.expanded ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${selectedCfg.expanded ? "#22c55e55" : "rgba(255,255,255,0.1)"}`,
-                color: selectedCfg.expanded ? "#22c55e" : "#64748b",
-                fontSize: 10, fontWeight: 600, cursor: "pointer",
-              }}>
-                {selectedCfg.expanded ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
-                {selectedCfg.expanded ? "Ouvert" : "Compact"}
-              </button>
-
-              {/* Size */}
-              <div style={{ display: "flex", gap: 3 }}>
-                {(["sm", "md", "lg"] as ModSize[]).map(s => (
-                  <button key={s} onClick={() => changeSize(selected, s)} style={{
-                    padding: "3px 7px", borderRadius: 5, fontSize: 9, fontWeight: 700, cursor: "pointer",
-                    background: selectedCfg.size === s ? `${selectedDef.color}28` : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${selectedCfg.size === s ? selectedDef.color + "66" : "rgba(255,255,255,0.08)"}`,
-                    color: selectedCfg.size === s ? selectedDef.color : "#475569",
-                  }}>{s.toUpperCase()}</button>
-                ))}
-              </div>
-
-              <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", padding: 2, marginLeft: 2, lineHeight: 0 }}>
-                <X size={13} />
-              </button>
+                );
+              })}
             </div>
-          );
-        })()}
+          </div>
+        )}
       </div>
+
+      {/* ─── Selection info bar ─── */}
+      {selected && !drag && (() => {
+        const mod = mods.find(m => m.id === selected);
+        const def = DEF_MAP[selected];
+        if (!mod || !def) return null;
+        const Icon = def.icon;
+        return (
+          <div style={{
+            position:"fixed", bottom:showPalette && offCanvas.length>0 ? 74 : 16, left:"50%", transform:"translateX(-50%)",
+            background:"rgba(8,8,20,0.96)", border:`1.5px solid ${def.color}66`,
+            borderRadius:12, padding:"7px 12px",
+            display:"flex", alignItems:"center", gap:10,
+            boxShadow:`0 8px 36px rgba(0,0,0,0.8), 0 0 0 1px ${def.color}18`,
+            zIndex:200, backdropFilter:"blur(20px)", whiteSpace:"nowrap",
+          }}>
+            <div style={{ width:24,height:24,borderRadius:6,background:`${def.color}22`,border:`1.5px solid ${def.color}55`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+              <Icon size={12} color={def.color}/>
+            </div>
+            <span style={{ fontSize:11,fontWeight:700,color:"#f1f5f9" }}>{def.label}</span>
+            <div style={{ width:1,height:14,background:"rgba(255,255,255,0.1)" }}/>
+            <span style={{ fontSize:9,color:"#475569",fontVariantNumeric:"tabular-nums" }}>
+              x:{mod.x} y:{mod.y}  {mod.w}×{mod.h}px
+            </span>
+            <div style={{ width:1,height:14,background:"rgba(255,255,255,0.1)" }}/>
+            <button onClick={()=>toggleOpen(selected)} style={{ display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:5,background:mod.open?"rgba(34,197,94,0.15)":"rgba(255,255,255,0.05)",border:`1px solid ${mod.open?"#22c55e55":"rgba(255,255,255,0.1)"}`,color:mod.open?"#22c55e":"#64748b",fontSize:10,fontWeight:600,cursor:"pointer" }}>
+              {mod.open ? <><Minimize2 size={10}/> Ouvert</> : <><Maximize2 size={10}/> Compact</>}
+            </button>
+            <button onClick={()=>removeFromCanvas(selected)} style={{ display:"flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:5,background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#ef4444",fontSize:10,fontWeight:600,cursor:"pointer" }}>
+              <EyeOff size={10}/> Retirer
+            </button>
+            <button onClick={()=>setSelected(null)} style={{ background:"none",border:"none",cursor:"pointer",color:"#475569",lineHeight:0,padding:2 }}>
+              <X size={12}/>
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
