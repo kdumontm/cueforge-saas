@@ -173,13 +173,30 @@ def _get_cache_path(original_path: str, ext: str) -> str:
 
 def _transcode_audio(src_path: str, bitrate: str = "192k"):
     """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
+    print(f"[TRANSCODE] Starting transcode for: {src_path}", flush=True)
+    print(f"[TRANSCODE] File exists: {os.path.exists(src_path)}, size: {os.path.getsize(src_path) if os.path.exists(src_path) else 'N/A'}", flush=True)
+
+    # Check ffmpeg availability
+    ffmpeg_path = shutil.which("ffmpeg")
+    print(f"[TRANSCODE] ffmpeg path: {ffmpeg_path}", flush=True)
+    if not ffmpeg_path:
+        print("[TRANSCODE] ERROR: ffmpeg not found in PATH!", flush=True)
+        return None, ""
+
     for codec, ext, mime_type, extra_args in _TRANSCODE_STRATEGIES:
         dst_path = _get_cache_path(src_path, ext)
+        print(f"[TRANSCODE] Trying codec {codec} → {dst_path}", flush=True)
         # If a cached version already exists, use it
         if os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
-            logger.info(f"Using cached transcode: {dst_path}")
+            print(f"[TRANSCODE] Cache hit: {dst_path} ({os.path.getsize(dst_path)} bytes)", flush=True)
             return dst_path, mime_type
         try:
+            # Check directory is writable
+            dst_dir = os.path.dirname(dst_path)
+            if not os.access(dst_dir, os.W_OK):
+                print(f"[TRANSCODE] ERROR: directory not writable: {dst_dir}", flush=True)
+                continue
+
             cmd = [
                 "ffmpeg", "-y",
                 "-i", src_path,
@@ -191,26 +208,31 @@ def _transcode_audio(src_path: str, bitrate: str = "192k"):
                 *extra_args,
                 dst_path,
             ]
+            print(f"[TRANSCODE] Running: {' '.join(cmd)}", flush=True)
             result = subprocess.run(cmd, capture_output=True, timeout=120)
+            print(f"[TRANSCODE] Return code: {result.returncode}", flush=True)
             if result.returncode == 0 and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
                 src_size = os.path.getsize(src_path)
                 dst_size = os.path.getsize(dst_path)
+                print(f"[TRANSCODE] SUCCESS with {codec}: {src_size//1024}KB → {dst_size//1024}KB", flush=True)
                 logger.info(f"Transcoded with {codec}: {src_path} ({src_size//1024}KB) → {dst_path} ({dst_size//1024}KB)")
                 return dst_path, mime_type
             else:
-                # Show last 300 chars of stderr (actual error, not version banner)
-                err_tail = result.stderr[-300:] if result.stderr else b""
+                err_tail = result.stderr[-500:] if result.stderr else b""
+                print(f"[TRANSCODE] Codec {codec} failed (rc={result.returncode}): {err_tail}", flush=True)
                 logger.warning(f"Codec {codec} failed: {err_tail}")
-                # Clean up failed output
                 if os.path.exists(dst_path):
                     os.remove(dst_path)
         except subprocess.TimeoutExpired:
+            print(f"[TRANSCODE] Codec {codec} TIMEOUT", flush=True)
             logger.warning(f"Codec {codec} timed out")
             if os.path.exists(dst_path):
                 os.remove(dst_path)
         except Exception as e:
+            print(f"[TRANSCODE] Codec {codec} EXCEPTION: {e}", flush=True)
             logger.error(f"Transcode error with {codec}: {e}")
 
+    print(f"[TRANSCODE] ALL STRATEGIES FAILED for {src_path}", flush=True)
     logger.error(f"All transcode strategies failed for {src_path}")
     return None, ""
 
@@ -268,7 +290,9 @@ async def stream_audio(
 
     # ── Transcoding for lossless formats (FLAC/WAV/AIFF → AAC/OGG) ──
     # Reduces download from ~50-100 MB to ~5-10 MB for web playback
+    print(f"[AUDIO] track={track_id}, format={format!r}, ext={ext!r}, path={safe}", flush=True)
     if format == "ogg" and ext in LOSSLESS_EXTENSIONS:
+        print(f"[AUDIO] Transcoding branch entered for track {track_id}", flush=True)
         logger.info(f"Transcoding requested for track {track_id} ({ext})")
         transcode_path, transcode_mime = _transcode_audio(safe)
         if transcode_path:
