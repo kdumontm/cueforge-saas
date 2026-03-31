@@ -103,6 +103,16 @@ class TrackResponse(BaseModel):
     analysis: Optional[TrackAnalysisResponse] = None
     cue_points: Optional[List[CuePointResponse]] = []
 
+    @field_validator('tags', mode='before')
+    @classmethod
+    def coerce_tags(cls, v):
+        """Tags stored as JSON list in DB — convert to comma-separated string for API."""
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return ", ".join(str(t) for t in v) if v else None
+        return v
+
     @field_validator('cue_points', mode='before')
     @classmethod
     def coerce_cue_points(cls, v):

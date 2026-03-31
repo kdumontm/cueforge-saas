@@ -179,7 +179,7 @@ export default function DashboardPage() {
         <div id="library-section" className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] overflow-hidden">
           <div className="p-4 border-b border-[var(--border-default)] bg-[var(--bg-surface)]">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-base font-bold text-[var(--text-primary)]">Tracks ({d.tracks.length})</h2>
+              <h2 className="text-base font-bold text-[var(--text-primary)]">Tracks ({d.filteredTracks?.length ?? d.tracks.length})</h2>
               <div className="flex gap-2">
                 <button onClick={() => d.setShowExport(true)} className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-cyan-500/50 text-[var(--text-secondary)] hover:text-cyan-400 text-[11px] font-medium transition-colors flex items-center gap-1">
                   <Download size={12} /> Export
@@ -202,9 +202,19 @@ export default function DashboardPage() {
           </div>
 
           <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(50vh)' }}>
+            {(d.filteredTracks ?? d.tracks).length === 0 && d.tracks.length > 0 && (
+              <div className="text-center py-8 text-[var(--text-muted)] text-sm">
+                Aucun morceau ne correspond à la recherche.
+              </div>
+            )}
+            {d.tracks.length === 0 && !d.isLoading && (
+              <div className="text-center py-8 text-[var(--text-muted)] text-sm">
+                Aucun morceau. Ajoutez vos premiers tracks via Upload.
+              </div>
+            )}
             {d.gridView ? (
               <div className="grid grid-cols-4 gap-3">
-                {d.tracks.map(track => (
+                {(d.filteredTracks ?? d.tracks).map(track => (
                   <div key={track.id} onClick={() => d.setSelectedTrack(track)} className={`p-3 rounded-lg cursor-pointer transition-colors border ${d.selectedTrack?.id === track.id ? 'bg-blue-500/10 border-blue-500/30' : 'bg-[var(--bg-hover)] border-[var(--border-subtle)]/40 hover:bg-[var(--bg-elevated)]'}`}>
                     <div className="w-full aspect-square rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center mb-2">
                       <Music size={20} className="text-[var(--text-muted)]" />
@@ -227,7 +237,7 @@ export default function DashboardPage() {
                   <div className="col-span-2 text-center">Key</div>
                   <div className="col-span-2 text-center">Energy</div>
                 </div>
-                {d.tracks.map(track => (
+                {(d.filteredTracks ?? d.tracks).map(track => (
                   <div key={track.id} data-track-id={track.id} onClick={() => d.setSelectedTrack(track)}
                     className={`grid grid-cols-12 gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border mb-1 ${d.selectedTrack?.id === track.id ? 'bg-blue-500/10 border-blue-500/30' : 'bg-[var(--bg-hover)]/50 border-[var(--border-subtle)]/40 hover:bg-[var(--bg-elevated)]'}`}>
                     <div className="col-span-1 flex items-center">
@@ -280,7 +290,7 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">{d.tracks.length} morceaux dans la bibliothèque</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">{d.filteredTracks?.length ?? d.tracks.length} morceaux dans la bibliothèque</p>
           </div>
         </div>
       )}

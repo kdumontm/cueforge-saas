@@ -76,13 +76,15 @@ describe('Settings — Dashboard button', () => {
   });
 });
 
-describe('Settings — Voir les plans button', () => {
+describe('Settings — Changer de plan button', () => {
   test('pricing button navigates to /pricing', async () => {
     render(<SettingsPage />);
     await waitFor(() => expect(mockGetMyProfile).toHaveBeenCalled());
 
     const user = userEvent.setup();
-    const pricingBtn = screen.getByText('Voir les plans');
+    // Aller sur l'onglet Abonnement
+    await user.click(screen.getByText('Abonnement'));
+    const pricingBtn = screen.getByText(/Changer de plan/);
     await user.click(pricingBtn);
     expect(mockPush).toHaveBeenCalledWith('/pricing');
   });
@@ -155,13 +157,22 @@ describe('Settings — Save profile button', () => {
 });
 
 describe('Settings — Change password button', () => {
+  // Helper: navigate to security tab and get password inputs
+  async function goToSecurityTab(user: ReturnType<typeof userEvent.setup>) {
+    await waitFor(() => expect(screen.getByDisplayValue('DJ Test')).toBeInTheDocument());
+    // Cliquer sur l'onglet "Sécurité"
+    await user.click(screen.getByText('Sécurité'));
+    await waitFor(() => {
+      const inputs = document.querySelectorAll('input[type="password"]');
+      expect(inputs.length).toBe(3);
+    });
+    return document.querySelectorAll('input[type="password"]');
+  }
+
   test('shows error when passwords do not match', async () => {
     render(<SettingsPage />);
-    await waitFor(() => expect(screen.getByDisplayValue('DJ Test')).toBeInTheDocument());
-
     const user = userEvent.setup();
-    const passwordInputs = document.querySelectorAll('input[type="password"]');
-    expect(passwordInputs.length).toBe(3);
+    const passwordInputs = await goToSecurityTab(user);
 
     await user.type(passwordInputs[0], 'oldpass');
     await user.type(passwordInputs[1], 'newpass123');
@@ -176,10 +187,8 @@ describe('Settings — Change password button', () => {
 
   test('shows error when password too short', async () => {
     render(<SettingsPage />);
-    await waitFor(() => expect(screen.getByDisplayValue('DJ Test')).toBeInTheDocument());
-
     const user = userEvent.setup();
-    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    const passwordInputs = await goToSecurityTab(user);
 
     await user.type(passwordInputs[0], 'oldpass');
     await user.type(passwordInputs[1], 'ab');
@@ -188,7 +197,8 @@ describe('Settings — Change password button', () => {
     await user.click(screen.getByRole('button', { name: /Changer le mot de passe/ }));
 
     await waitFor(() => {
-      expect(screen.getByText(/au moins 6/)).toBeInTheDocument();
+      // Message: "Minimum 6 caractères"
+      expect(screen.getByText(/Minimum 6/)).toBeInTheDocument();
     });
   });
 
@@ -196,10 +206,8 @@ describe('Settings — Change password button', () => {
     mockUpdateMyProfile.mockResolvedValueOnce(mockProfile);
 
     render(<SettingsPage />);
-    await waitFor(() => expect(screen.getByDisplayValue('DJ Test')).toBeInTheDocument());
-
     const user = userEvent.setup();
-    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    const passwordInputs = await goToSecurityTab(user);
 
     await user.type(passwordInputs[0], 'oldpassword');
     await user.type(passwordInputs[1], 'newpass123');

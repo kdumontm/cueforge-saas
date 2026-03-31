@@ -39,7 +39,8 @@ describe('LoginPage', () => {
   test('renders the login form with French labels', () => {
     render(<LoginPage />);
     expect(screen.getByText('Connexion')).toBeInTheDocument();
-    expect(screen.getByText("Nom d'utilisateur")).toBeInTheDocument();
+    // Le label affiché est "Pseudo"
+    expect(screen.getByText('Pseudo')).toBeInTheDocument();
     expect(screen.getByText('Mot de passe')).toBeInTheDocument();
     expect(screen.getByText('Se connecter')).toBeInTheDocument();
   });

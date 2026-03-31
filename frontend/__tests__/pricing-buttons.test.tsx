@@ -41,23 +41,26 @@ describe('PricingPage — plan buttons', () => {
     await waitFor(() => {
       expect(screen.getByText('Free')).toBeInTheDocument();
       expect(screen.getByText('Pro')).toBeInTheDocument();
-      expect(screen.getByText('App Desktop')).toBeInTheDocument();
+      // Plan Unlimited (anciennement "App Desktop")
+      expect(screen.getByText('Unlimited')).toBeInTheDocument();
     });
   });
 
   test('renders Pro plan with Popular badge', async () => {
     render(<PricingPage />);
     await waitFor(() => {
-      expect(screen.getByText('Populaire')).toBeInTheDocument();
+      // Badge = "Le plus populaire"
+      expect(screen.getByText('Le plus populaire')).toBeInTheDocument();
     });
   });
 
-  test('back to dashboard link exists', async () => {
+  test('back link to accueil exists', async () => {
     render(<PricingPage />);
     await waitFor(() => {
       const links = screen.getAllByRole('link');
-      const dashLink = links.find(l => l.getAttribute('href') === '/dashboard');
-      expect(dashLink).toBeTruthy();
+      // Le pricing page a un lien "Accueil" → / et un lien "Connexion" → /login
+      const accueilLink = links.find(l => l.getAttribute('href') === '/');
+      expect(accueilLink).toBeTruthy();
     });
   });
 

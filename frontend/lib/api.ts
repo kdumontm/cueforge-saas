@@ -581,7 +581,7 @@ export interface UserProfile {
 }
 
 export async function getMyProfile(): Promise<UserProfile> {
-  const response = await authFetch(`${API_URL}/admin/me`, {
+  const response = await authFetch(`${API_URL}/auth/me`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error("Failed to fetch profile");
@@ -596,8 +596,8 @@ export interface UpdateProfileData {
 }
 
 export async function updateMyProfile(data: UpdateProfileData): Promise<UserProfile> {
-  const response = await authFetch(`${API_URL}/admin/me`, {
-    method: "PATCH",
+  const response = await authFetch(`${API_URL}/auth/me`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(data),
   });

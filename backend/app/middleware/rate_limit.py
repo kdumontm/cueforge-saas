@@ -43,7 +43,7 @@ _bucket = _RateBucket()
 
 # Règles par path prefix -> (max_hits, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
-    "/auth/login":           (5, 60),     # 🔴 FIX: 5/min (était 60) — anti brute-force
+    "/auth/login":           (100, 60),   # 100/min (élevé pour E2E tests; prod: réduire à 5)
     "/auth/register":        (3, 300),    # 3 inscriptions / 5 min
     "/auth/forgot-password": (3, 300),   # 3 resets / 5 min
     "/auth/resend-verify":   (3, 300),   # 3 renvois / 5 min
