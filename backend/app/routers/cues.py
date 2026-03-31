@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import User, Track, CuePoint, TrackAnalysis, CueRule
 from app.middleware.auth import get_current_user
-from app.services.cue_generator import apply_rules_to_track
+from app.services.cue_generator import apply_rules_to_track, generate_cue_points
 
 router = APIRouter(prefix="/cues", tags=["cues"])
 
@@ -313,7 +313,11 @@ async def generate_cues(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Dict:
-    """Lance la génération de cue points à partir des règles du track."""
+    """
+    Génère des cue points intelligents à partir de l'analyse audio.
+    Utilise l'algorithme pro v3.0 (4-bar grid, energy scoring, downbeat snapping).
+    Si aucune analyse n'est disponible, tombe en fallback sur les règles manuelles.
+    """
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == user.id,
@@ -321,8 +325,66 @@ async def generate_cues(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    analysis = db.query(TrackAnalysis).filter(
+        TrackAnalysis.track_id == track_id
+    ).first()
+
+    if not analysis:
+        # Fallback: try rule-based system
+        try:
+            apply_rules_to_track(track_id, user.id, db)
+            return {"message": "Cues generated via rules (no analysis available)"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating cues: {str(e)}")
+
     try:
-        apply_rules_to_track(track_id, user.id, db)
-        return {"message": "Cues generated successfully"}
+        # Build analysis_data dict from the TrackAnalysis model
+        analysis_data = {
+            "bpm": analysis.bpm,
+            "key": analysis.key,
+            "energy": analysis.energy,
+            "duration_ms": analysis.duration_ms or 0,
+            "drop_positions": analysis.drop_positions or [],
+            "phrase_positions": analysis.phrase_positions or [],
+            "beat_positions": analysis.beat_positions or [],
+            "section_labels": analysis.section_labels or [],
+        }
+
+        # Generate smart cue points using the pro algorithm
+        generated = generate_cue_points(analysis_data)
+
+        if not generated:
+            return {"message": "No cue points could be generated", "cues": []}
+
+        # Delete existing auto-generated cue points (keep manually created ones)
+        existing_auto = db.query(CuePoint).filter(
+            CuePoint.track_id == track_id,
+            CuePoint.cue_type.in_(["section", "drop", "phrase", "hot_cue"])
+        ).all()
+        for cue in existing_auto:
+            db.delete(cue)
+        db.flush()
+
+        # Save new cue points
+        created_cues = []
+        for cp in generated:
+            cue = CuePoint(
+                track_id=track_id,
+                position_ms=cp["position_ms"],
+                name=cp["name"],
+                number=cp.get("number"),
+                color=cp.get("color", "blue"),
+                cue_type=cp.get("cue_type", "hot_cue"),
+            )
+            db.add(cue)
+            created_cues.append(cp)
+
+        db.commit()
+
+        return {
+            "message": f"{len(created_cues)} cue points generated",
+            "cues": created_cues,
+        }
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Error generating cues: {str(e)}")

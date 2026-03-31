@@ -131,13 +131,7 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-
-      {/* Zone vide gauche */}
-      <div className="flex-1" />
-
-      {/* Panneau compact droit */}
-      <div className="w-[270px] flex-shrink-0 flex flex-col h-full border-l border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
+    <div className="flex flex-col h-full overflow-hidden bg-[var(--bg-secondary)]">
 
         {/* Header sticky */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-subtle)] flex-shrink-0">
@@ -270,7 +264,6 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
           </div>
 
         </div>
-      </div>
     </div>
   );
 }

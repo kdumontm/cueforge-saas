@@ -112,6 +112,9 @@ export default function DashboardV2() {
       setPersistedTrackId(track.id);
     }
     _setSelectedTrack(track);
+    // Reset per-track state
+    setStemsStatus(null);
+    setFxParams({});
   }, [setPersistedTrackId]);
 
   const [activeTab, setActiveTab] = useState('cues');
@@ -136,6 +139,18 @@ export default function DashboardV2() {
   });
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Stems state
+  const [stemsStatus, setStemsStatus] = useState<{
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    vocals_url?: string | null;
+    drums_url?: string | null;
+    bass_url?: string | null;
+    other_url?: string | null;
+  } | null>(null);
+
+  // FX state (local — will integrate with Web Audio when backend supports it)
+  const [fxParams, setFxParams] = useState<Record<string, number>>({});
 
   // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -638,43 +653,32 @@ export default function DashboardV2() {
       addToast('Sélectionne un vrai track', 'info');
       return;
     }
-    const raw = rawTracksForTabs.find(t => t.id === selectedTrack.id);
-    const analysis = (raw as any)?.analysis;
-    if (!analysis) {
-      addToast('Analyse le track d\'abord', 'info');
-      return;
-    }
-    const autoColors = ['#22c55e', '#ef4444', '#3b82f6', '#f97316', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899'];
-    const points: Array<{ name: string; position_ms: number; color: string; cue_type: string; number?: number }> = [];
-
-    // From drop_positions
-    if (analysis.drop_positions?.length > 0) {
-      analysis.drop_positions.slice(0, 2).forEach((ms: number, i: number) => {
-        points.push({ name: `Drop ${i + 1}`, position_ms: ms, color: '#ef4444', cue_type: 'drop', number: points.length });
+    addToast('Génération des cue points (algo pro v4)...', 'info');
+    try {
+      const token = (await import('@/lib/api')).getToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const res = await fetch(`${API_URL}/cues/${selectedTrack.id}/generate`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Content-Type': 'application/json',
+        },
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const result = await res.json();
+      // Refresh cue points from backend
+      try {
+        const cues = await getTrackCuePoints(selectedTrack.id);
+        setCuePoints(cues);
+      } catch {}
+      addToast(result.message || 'Cue points générés !', 'success');
+    } catch (e: any) {
+      console.error('Auto-cue generation failed:', e);
+      addToast(e.message || 'Erreur génération cues', 'error');
     }
-    // From phrase_positions
-    if (analysis.phrase_positions?.length > 0) {
-      analysis.phrase_positions.slice(0, 4).forEach((ms: number, i: number) => {
-        points.push({ name: `Phrase ${i + 1}`, position_ms: ms, color: autoColors[i % autoColors.length], cue_type: 'phrase', number: points.length });
-      });
-    }
-    // From section_labels
-    if (analysis.section_labels?.length > 0) {
-      analysis.section_labels.slice(0, 4).forEach((section: any, i: number) => {
-        points.push({ name: section.label || `Section ${i + 1}`, position_ms: section.start_ms || section.position_ms || 0, color: autoColors[(i + 3) % autoColors.length], cue_type: 'section', number: points.length });
-      });
-    }
-
-    if (points.length === 0) {
-      addToast('Pas de données pour auto-cues', 'info');
-      return;
-    }
-    addToast(`Génération de ${points.length} cues...`, 'info');
-    for (const p of points) {
-      try { await handleCreateCue(p); } catch {}
-    }
-    addToast(`${points.length} cues générés !`, 'success');
   }
 
   // Navigation prev/next dans la liste
@@ -1034,9 +1038,52 @@ export default function DashboardV2() {
                 </div>
               </div>
             )}
-            {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
+            {activeTab === 'stems' && (
+              <StemsTab
+                track={selectedTrack}
+                stemsStatus={stemsStatus}
+                onRequestStems={async () => {
+                  if (!selectedTrack || selectedTrack.id < 0) return;
+                  setStemsStatus({ status: 'processing' });
+                  try {
+                    const token = (await import('@/lib/api')).getToken();
+                    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+                    const res = await fetch(`${API_URL}/advanced/stems/${selectedTrack.id}`, {
+                      method: 'POST',
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    });
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}));
+                      throw new Error(err.detail || `HTTP ${res.status}`);
+                    }
+                    const data = await res.json();
+                    setStemsStatus({
+                      status: 'completed',
+                      vocals_url: data.vocals_url,
+                      drums_url: data.drums_url,
+                      bass_url: data.bass_url,
+                      other_url: data.other_url,
+                    });
+                    addToast('Stems séparés !', 'success');
+                  } catch (e: any) {
+                    setStemsStatus({ status: 'failed' });
+                    addToast(e.message || 'Erreur stems', 'error');
+                  }
+                }}
+              />
+            )}
             {activeTab === 'eq' && <EQTab playerRef={playerRef} />}
-            {activeTab === 'fx' && <FXTab />}
+            {activeTab === 'fx' && (
+              <FXTab
+                fxParams={fxParams}
+                onFxChange={(effect, value) => {
+                  setFxParams(prev => ({ ...prev, [effect]: value }));
+                }}
+                onResetAll={() => {
+                  setFxParams({});
+                }}
+              />
+            )}
             {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
             {activeTab === 'notes' && (
               <div className="flex flex-col h-full p-3 gap-2">
