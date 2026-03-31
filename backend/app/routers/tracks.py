@@ -7,7 +7,7 @@ import shutil
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -530,7 +530,10 @@ def list_tracks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Track).filter(Track.user_id == current_user.id)
+    q = db.query(Track).filter(Track.user_id == current_user.id).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+    )
 
     # v2: Apply filters
     if genre:

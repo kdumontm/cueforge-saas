@@ -105,10 +105,7 @@ export default function DashboardV2() {
   // ── Guarded setSelectedTrack: logs every call + syncs to context for remount survival ──
   const setSelectedTrack = useCallback((track: any | null, reason?: string) => {
     const src = reason || new Error().stack?.split('\n')[2]?.trim() || '?';
-    if (track === null) {
-      console.warn(`[CueForge] setSelectedTrack(null) — reason: ${src} — prev: ${selectedTrackIdRef.current}`);
-    } else {
-      console.log(`[CueForge] setSelectedTrack(${track?.id}) — reason: ${src}`);
+    if (track !== null) {
       // Persist to context so it survives component remounts
       setPersistedTrackId(track.id);
     }
@@ -164,12 +161,8 @@ export default function DashboardV2() {
 
   // ── Mount/Unmount tracking ──
   useEffect(() => {
-    console.log(`[CueForge] DashboardV2 MOUNTED (id=${mountIdRef.current}, persistedTrackId=${persistedTrackId})`);
     mountedRef.current = true;
-    return () => {
-      console.log(`[CueForge] DashboardV2 UNMOUNTED (id=${mountIdRef.current})`);
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   // Register import handler so Sidebar/TopBar can trigger file upload
@@ -273,7 +266,6 @@ export default function DashboardV2() {
 
   // Auto-select track when loaded — restores previously selected track by ID first
   useEffect(() => {
-    console.log(`[CueForge] auto-select check: selectedTrack=${selectedTrack?.id ?? 'null'}, displayTracks=${displayTracks.length}, loading=${loading}, isDemo=${isDemo}`);
     if (!selectedTrack && displayTracks.length > 0 && !loading) {
       // If we had a track selected before, try to restore it from the fresh list
       if (selectedTrackIdRef.current) {
@@ -292,19 +284,16 @@ export default function DashboardV2() {
     if (loading) return; // still loading, wait
     if (displayTracks.length === 0) return; // no tracks to select
 
-    console.warn('[CueForge] SAFETY NET: selectedTrack is null but tracks exist! Restoring...');
     // Try to restore the last known track
     if (selectedTrackIdRef.current) {
       const prev = displayTracks.find((t: any) => t.id === selectedTrackIdRef.current);
       if (prev) {
         _setSelectedTrack(prev); // use raw setter to avoid infinite loop
-        console.log(`[CueForge] SAFETY NET: restored track ${prev.id}`);
         return;
       }
     }
     // Fallback to first track
     _setSelectedTrack(displayTracks[0]);
-    console.log(`[CueForge] SAFETY NET: fell back to first track ${displayTracks[0]?.id}`);
   }, [selectedTrack, displayTracks, loading]);
 
   // Load tracks + demo mode setting
@@ -359,7 +348,7 @@ export default function DashboardV2() {
           deleteTrack(selectedTrack.id).then(() => {
             loadTracks();
             setSelectedTrack(null, 'keyboard:Delete');
-          }).catch(console.error);
+          }).catch(() => addToast('Erreur suppression track', 'error'));
         }
         return;
       }
@@ -399,31 +388,22 @@ export default function DashboardV2() {
 
   async function loadTracks() {
     try {
-      console.log('[CueForge] loadTracks START — current selectedTrack:', selectedTrackIdRef.current);
       setLoading(true);
-      if (!isAuthenticated()) {
-        console.warn('[CueForge] loadTracks: not authenticated, aborting');
-        return;
-      }
+      if (!isAuthenticated()) return;
       const data = await listTracks();
       // Handle both array and {tracks: [...]} response formats
       const trackList = Array.isArray(data) ? data : (data?.tracks || []);
-      console.log(`[CueForge] loadTracks: got ${trackList.length} tracks`);
       setTracks(trackList);
       // Refresh selectedTrack with the new object from the fresh list (prevents stale reference)
       if (selectedTrackIdRef.current) {
         const freshRaw = trackList.find((t: Track) => t.id === selectedTrackIdRef.current);
         if (freshRaw) {
           setSelectedTrack(toDisplayTrack(freshRaw), 'loadTracks:refresh');
-        } else {
-          console.warn(`[CueForge] loadTracks: previously selected track ${selectedTrackIdRef.current} NOT found in fresh list — selecting first`);
-          if (trackList.length > 0) {
-            setSelectedTrack(toDisplayTrack(trackList[0]), 'loadTracks:fallback-first');
-          }
+        } else if (trackList.length > 0) {
+          setSelectedTrack(toDisplayTrack(trackList[0]), 'loadTracks:fallback-first');
         }
       }
     } catch (e: any) {
-      console.error('[CueForge] loadTracks FAILED:', e?.message || e);
       // If session expired, don't crash — just show empty state
       if (e?.message === 'Session expired' || e?.message === 'Not authenticated') {
         setTracks([]);
@@ -431,7 +411,6 @@ export default function DashboardV2() {
       }
     } finally {
       setLoading(false);
-      console.log('[CueForge] loadTracks END');
     }
   }
 
@@ -494,8 +473,9 @@ export default function DashboardV2() {
       });
       const updated = await getTrackCuePoints(selectedTrack.id);
       setCuePoints(updated);
+      addToast('Cue point créé', 'success');
     } catch (e) {
-      console.error('Failed to create cue point:', e);
+      addToast('Erreur création cue point', 'error');
     }
   }
 
@@ -503,8 +483,9 @@ export default function DashboardV2() {
     try {
       await deleteCuePoint(cueId);
       setCuePoints(prev => prev.filter(c => c.id !== cueId));
+      addToast('Cue point supprimé', 'success');
     } catch (e) {
-      console.error('Failed to delete cue point:', e);
+      addToast('Erreur suppression cue point', 'error');
     }
   }
 
@@ -682,7 +663,6 @@ export default function DashboardV2() {
       } catch {}
       addToast(result.message || 'Cue points générés !', 'success');
     } catch (e: any) {
-      console.error('Auto-cue generation failed:', e);
       addToast(e.message || 'Erreur génération cues', 'error');
     }
   }
@@ -717,7 +697,6 @@ export default function DashboardV2() {
           }
         }
       } catch (e) {
-        console.error('Upload failed:', e);
         addToast(`Failed to upload ${file.name}`, 'error');
       }
     }
@@ -753,7 +732,6 @@ export default function DashboardV2() {
         await analyzeTrack(track.id);
         await pollTrackUntilDone(track.id);
       } catch (e) {
-        console.error(`Failed to analyze track ${track.id}:`, e);
       }
     }
     await loadTracks();

@@ -658,7 +658,6 @@ export default function WaveSurferPlayer({
     const onLoadedMetadata = () => {
       if (destroyed) return;
       const dur = audio.duration || 0;
-      console.log(`[CueForge] Audio ready — duration: ${dur}s`);
       setDuration(dur);
       durationRef.current = dur;
       setIsReady(true);
@@ -701,7 +700,6 @@ export default function WaveSurferPlayer({
     };
     const onError = () => {
       if (!destroyed) {
-        console.warn('Audio error:', audio.error);
         setError('Audio non disponible');
         setLoading(false);
       }
@@ -826,8 +824,6 @@ export default function WaveSurferPlayer({
       clearTimeout(downloadTimeout);
       if (abort.signal.aborted) return;
 
-      console.log(`[CueForge] Audio loaded: ${(blob.size / 1024 / 1024).toFixed(1)} MB (${blob.type})`);
-
       const url = URL.createObjectURL(blob);
       blobUrlRef.current = url;
 
@@ -847,7 +843,6 @@ export default function WaveSurferPlayer({
         if (!durationRef.current || durationRef.current <= 0) {
           durationRef.current = decoded.duration;
           setDuration(decoded.duration);
-          console.log(`[CueForge] Duration set from decoded buffer: ${decoded.duration}s`);
         }
 
         const rgbColors = computeRGBWaveform(decoded);
@@ -874,13 +869,11 @@ export default function WaveSurferPlayer({
         rawSampleRateRef.current = decoded.sampleRate / factor;
 
         setSpectralReady(true);
-        console.log(`[CueForge] Spectral: ${rgbColors.length} bars, Raw: ${dsLen} samples (${Math.round(rawSampleRateRef.current)}/s)`);
       } catch (e) {
-        console.warn('[CueForge] Spectral computation failed (audio still plays):', e);
+        // Spectral computation failed — audio still plays
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
-      console.warn('Audio load error:', e);
       if (id < 0) { setLoading(false); setIsReady(true); }
       else { setError('Fichier audio introuvable'); setLoading(false); }
     }

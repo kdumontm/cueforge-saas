@@ -33,6 +33,7 @@ class CuePointResponse(BaseModel):
     id: int
     track_id: int
     position_ms: int
+    end_position_ms: Optional[int] = None
     name: str
     number: Optional[int] = None
     color: Optional[str] = None

@@ -11,11 +11,7 @@ interface TopBarProps {
   subtitle?: string;
 }
 
-const MOCK_NOTIFICATIONS = [
-  { id: 1, text: 'Analyse terminée: 01 Giving Me.flac', time: 'il y a 5 min', read: false },
-  { id: 2, text: '11 DNA (Loving You) analysé avec succès', time: 'il y a 12 min', read: false },
-  { id: 3, text: 'Bienvenue sur CueForge !', time: 'il y a 1h', read: true },
-];
+const NOTIFICATIONS: { id: number; text: string; time: string; read: boolean }[] = [];
 
 export default function TopBar({ title, subtitle }: TopBarProps) {
   const { mode, toggle, isDark } = useTheme();
@@ -126,7 +122,6 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             className="relative flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer"
           >
             <Bell size={15} />
-            <span className="absolute top-1.5 right-1.5 w-[6px] h-[6px] rounded-full bg-red-500" />
           </button>
           {showNotifications && (
             <div className="absolute right-0 top-10 w-80 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl shadow-2xl z-50 overflow-hidden">
@@ -135,7 +130,10 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
                 <span className="text-[10px] text-blue-400 cursor-pointer">Tout marquer comme lu</span>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {MOCK_NOTIFICATIONS.map(n => (
+                {NOTIFICATIONS.length === 0 && (
+                  <div className="px-4 py-6 text-xs text-[var(--text-muted)] text-center">Aucune notification</div>
+                )}
+                {NOTIFICATIONS.map(n => (
                   <div key={n.id} className={`px-4 py-3 border-b border-[var(--border-subtle)] last:border-b-0 ${!n.read ? 'bg-blue-500/5' : ''} hover:bg-[var(--bg-hover)] cursor-pointer`}>
                     <div className="text-xs text-[var(--text-primary)]">{n.text}</div>
                     <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{n.time}</div>

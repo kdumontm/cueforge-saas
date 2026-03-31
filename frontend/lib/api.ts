@@ -643,7 +643,7 @@ export async function createCuePoint(
   trackId: number,
   data: { position_ms: number; name: string; cue_type?: string; color?: string; number?: number | null }
 ): Promise<any> {
-  const response = await authFetch(`${API_URL}/cues/cues/${trackId}/points`, {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/points`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
@@ -659,7 +659,7 @@ export async function createCuePoint(
 }
 
 export async function deleteCuePoint(cueId: number): Promise<void> {
-  const response = await authFetch(`${API_URL}/cues/cues/points/${cueId}`, {
+  const response = await authFetch(`${API_URL}/cues/points/${cueId}`, {
     method: 'DELETE',
     headers: { ...authHeaders() },
   });
@@ -721,10 +721,12 @@ export async function listTagCounts(): Promise<Record<string, number>> {
 export async function setCueMode(
   cueId: number,
   mode: 'memory' | 'hot'
-): Promise<{ cue_id: number; mode: string; position_ms: number; name: string }> {
-  const response = await authFetch(`${API_URL}/cue-points/${cueId}/mode?mode=${mode}`, {
-    method: 'PUT',
-    headers: { ...authHeaders() },
+): Promise<{ id: number; cue_type: string; position_ms: number; name: string }> {
+  const cue_type = mode === 'memory' ? 'memory' : 'hot_cue';
+  const response = await authFetch(`${API_URL}/cues/points/${cueId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ cue_type }),
   });
   if (!response.ok) throw new Error('Failed to set cue mode');
   return response.json();
@@ -733,10 +735,11 @@ export async function setCueMode(
 export async function setCueColor(
   cueId: number,
   color: string
-): Promise<{ cue_id: number; color: string; color_rgb: string; position_ms: number; name: string }> {
-  const response = await authFetch(`${API_URL}/cue-points/${cueId}/color?color=${encodeURIComponent(color)}`, {
-    method: 'PUT',
-    headers: { ...authHeaders() },
+): Promise<{ id: number; color: string; position_ms: number; name: string }> {
+  const response = await authFetch(`${API_URL}/cues/points/${cueId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ color }),
   });
   if (!response.ok) throw new Error('Failed to set cue color');
   return response.json();
@@ -752,11 +755,9 @@ export async function getTrackCuePoints(
   cue_type: string;
   name: string;
   color: string;
-  color_rgb: string | null;
-  cue_mode: string;
   number: number | null;
 }>> {
-  const response = await authFetch(`${API_URL}/tracks/${trackId}/cue-points`, {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/points`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to fetch cue points');

@@ -46,7 +46,7 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [formData, setFormData] = useState({
     title: '', artist: '', album: '', genre: '', label: '',
     category: '', tags: '', comment: '', color_code: '',
-    energy_level: 0, rating: 0,
+    energy_level: 0, rating: 0, time_signature: '4/4',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -64,8 +64,9 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
       tags:         track.tags || '',
       comment:      track.comment || '',
       color_code:   track.color_code || '',
-      energy_level: track.energy_level || 0,
-      rating:       track.rating || 0,
+      energy_level:   track.energy_level || 0,
+      rating:         track.rating || 0,
+      time_signature: (track as any).time_signature || '4/4',
     });
     setDirty(false);
     setSaved(false);
@@ -85,8 +86,8 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
       setSaved(true);
       setDirty(false);
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      console.error('Save failed:', e);
+    } catch (_e) {
+      // noop — parent handles error toasts
     } finally {
       setSaving(false);
     }
@@ -104,8 +105,9 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
       tags: track.tags || '',
       comment: track.comment || '',
       color_code: track.color_code || '',
-      energy_level: track.energy_level || 0,
-      rating: track.rating || 0,
+      energy_level:   track.energy_level || 0,
+      rating:         track.rating || 0,
+      time_signature: (track as any).time_signature || '4/4',
     });
     setDirty(false);
   };
@@ -183,9 +185,19 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
             </div>
           </div>
 
-          <div>
-            <label className={labelCls}>Album</label>
-            <input className={inputCls} value={formData.album} onChange={e => set('album', e.target.value)} />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Album</label>
+              <input className={inputCls} value={formData.album} onChange={e => set('album', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Signature</label>
+              <select className={inputCls} value={formData.time_signature} onChange={e => set('time_signature', e.target.value)}>
+                {['4/4','3/4','6/8','2/4','5/4','7/8'].map(ts => (
+                  <option key={ts} value={ts}>{ts}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
