@@ -156,12 +156,13 @@ async def upload_track(
 LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
 
 # Transcoding strategies — try in order until one works
-# AAC is built-in to ffmpeg (always available), opus/vorbis need external libs
+# OGG/Vorbis is best for Web Audio API decoding in browsers.
+# AAC/M4A can hang during decodeAudioData on large files.
 _TRANSCODE_STRATEGIES = [
     # (codec, ext, mime_type, extra_args)
-    ("aac", ".m4a", "audio/mp4", ["-movflags", "+faststart"]),  # built-in, always works
-    ("libopus", ".ogg", "audio/ogg", []),                        # needs libopus
-    ("libvorbis", ".ogg", "audio/ogg", []),                      # needs libvorbis
+    ("libvorbis", ".ogg", "audio/ogg", ["-q:a", "6"]),           # best Web Audio compat
+    ("libopus", ".ogg", "audio/ogg", []),                         # good alternative
+    ("aac", ".m4a", "audio/mp4", ["-movflags", "+faststart"]),    # fallback
 ]
 
 
