@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import HotCuesBar from './HotCuesBar';
 import KeyBadge from '@/components/ui/KeyBadge';
 import EnergyBar from '@/components/ui/EnergyBar';
+import { WAVEFORM_THEMES } from './WaveSurferPlayer';
 
-// WaveSurferPlayer chargé côté client uniquement (pas de SSR)
 const WaveSurferPlayer = dynamic(() => import('./WaveSurferPlayer'), { ssr: false });
 
 interface CuePoint {
@@ -42,14 +42,16 @@ interface PlayerCardProps {
   onPrev?: () => void;
   onNext?: () => void;
   onTimeUpdate?: (positionMs: number) => void;
-  onWaveformClick?: (positionMs: number) => void; // clic sur waveform → poser un cue
+  onWaveformClick?: (positionMs: number) => void;
   playerRef?: React.MutableRefObject<any>;
 }
 
 const ZOOM_LEVELS = [0.5, 1, 2, 4] as const;
 type ZoomLevel = typeof ZOOM_LEVELS[number];
 
-// Convertit une durée "m:ss" en secondes
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+type PlaybackRate = typeof PLAYBACK_RATES[number];
+
 function parseDuration(d?: string): number {
   if (!d) return 0;
   const parts = d.split(':');
@@ -57,7 +59,6 @@ function parseDuration(d?: string): number {
   return 0;
 }
 
-// Format seconds to m:ss
 function fmt(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
@@ -75,7 +76,6 @@ export default function PlayerCard({
   playerRef,
 }: PlayerCardProps) {
   const [zoom, setZoom] = useState<ZoomLevel>(1);
-  // Clé pour forcer le remount de WaveSurfer quand le track change
   const [playerKey, setPlayerKey] = useState(0);
   const prevTrackId = useRef<number | null>(null);
   const wsPlayerRef = useRef<any>(null);
@@ -83,6 +83,28 @@ export default function PlayerCard({
   const [loopOut, setLoopOut] = useState<number | null>(null);
   const [loopActive, setLoopActive] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(1);
+  const [waveformTheme, setWaveformTheme] = useState('spectral');
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showRatePicker, setShowRatePicker] = useState(false);
+
+  // Tap tempo state
+  const tapTimesRef = useRef<number[]>([]);
+  const [tappedBpm, setTappedBpm] = useState<number | null>(null);
+
+  // Expose playerRef to parent (DashboardV2)
+  useEffect(() => {
+    if (playerRef) {
+      playerRef.current = {
+        playPause: () => wsPlayerRef.current?.playPause?.(),
+        skip: (s: number) => wsPlayerRef.current?.skip?.(s),
+        seekTo: (ms: number) => wsPlayerRef.current?.seekTo?.(ms),
+        setVolume: (v: number) => wsPlayerRef.current?.setVolume?.(v),
+        toggleMute: () => wsPlayerRef.current?.toggleMute?.(),
+        setEQ: (low: number, mid: number, high: number) => wsPlayerRef.current?.setEQ?.(low, mid, high),
+      };
+    }
+  }, [playerRef]);
 
   useEffect(() => {
     if (track && track.id !== prevTrackId.current) {
@@ -92,10 +114,34 @@ export default function PlayerCard({
       setLoopIn(null);
       setLoopOut(null);
       setLoopActive(false);
+      setPlaybackRate(1);
+      tapTimesRef.current = [];
+      setTappedBpm(null);
     }
   }, [track?.id]);
 
-  // Hot cues bar : transforme les cue points en format HotCuesBar
+  // Apply playback rate to player
+  useEffect(() => {
+    wsPlayerRef.current?.setPlaybackRate?.(playbackRate);
+  }, [playbackRate]);
+
+  const handleTapTempo = useCallback(() => {
+    const now = Date.now();
+    const taps = tapTimesRef.current;
+    // Reset if last tap was > 3 seconds ago
+    if (taps.length > 0 && now - taps[taps.length - 1] > 3000) {
+      tapTimesRef.current = [];
+    }
+    tapTimesRef.current.push(now);
+    const newTaps = tapTimesRef.current;
+    if (newTaps.length >= 2) {
+      const intervals = newTaps.slice(1).map((t, i) => t - newTaps[i]);
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const bpm = Math.round(60000 / avgInterval);
+      if (bpm > 40 && bpm < 300) setTappedBpm(bpm);
+    }
+  }, []);
+
   const hotCues = cuePoints.map((c, i) => ({
     slot: c.number ?? i,
     time: c.position_ms
@@ -120,6 +166,8 @@ export default function PlayerCard({
     );
   }
 
+  const currentTheme = WAVEFORM_THEMES.find(t => t.id === waveformTheme) || WAVEFORM_THEMES[0];
+
   return (
     <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] mb-3 overflow-hidden">
       {/* Track info row */}
@@ -143,6 +191,7 @@ export default function PlayerCard({
           {track.bpm && (
             <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
               {typeof track.bpm === 'number' ? track.bpm.toFixed(1) : track.bpm} BPM
+              {tappedBpm && <span className="ml-1 text-yellow-400">→{tappedBpm}</span>}
             </span>
           )}
           {track.key && <KeyBadge camelotKey={track.key} />}
@@ -168,7 +217,7 @@ export default function PlayerCard({
         </div>
       </div>
 
-      {/* WaveSurfer — vrai player interactif */}
+      {/* WaveSurfer */}
       <div className="px-[18px] pb-2">
         <WaveSurferPlayer
           key={`ws-${track.id}-${playerKey}`}
@@ -177,6 +226,7 @@ export default function PlayerCard({
           cuePoints={cuePoints}
           zoom={zoom}
           height={88}
+          waveformTheme={waveformTheme}
           onTimeUpdate={(ms) => {
             setCurrentTime(ms / 1000);
             onTimeUpdate?.(ms);
@@ -188,24 +238,12 @@ export default function PlayerCard({
             setLoopOut(loopOutVal);
             setLoopActive(loopActiveVal);
           }}
-          onSetLoopIn={() => {
-            setLoopIn(currentTime);
-          }}
-          onSetLoopOut={() => {
-            setLoopOut(currentTime);
-            if (loopIn !== null && currentTime > loopIn) setLoopActive(true);
-          }}
-          onToggleLoop={() => {
-            if (loopIn !== null && loopOut !== null && loopIn < loopOut) {
-              setLoopActive(prev => !prev);
-            }
-          }}
         />
       </div>
 
-
-      {/* Loop / Zoom row */}
-      <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)]">
+      {/* Loop / Zoom / Rate / Theme row */}
+      <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)] flex-wrap">
+        {/* Loop controls */}
         <button
           onClick={() => wsPlayerRef.current?.setLoopIn?.()}
           className={`px-2.5 py-[3px] rounded-md border text-[11px] cursor-pointer transition-colors ${
@@ -213,6 +251,7 @@ export default function PlayerCard({
               ? 'border-blue-500/50 bg-blue-500/15 text-blue-400 font-semibold'
               : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
           }`}
+          title="Set Loop IN"
         >
           IN
         </button>
@@ -224,6 +263,7 @@ export default function PlayerCard({
               ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
               : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
           } disabled:opacity-40 disabled:cursor-not-allowed`}
+          title="Toggle Loop"
         >
           🔁 LOOP
         </button>
@@ -234,6 +274,7 @@ export default function PlayerCard({
               ? 'border-orange-500/50 bg-orange-500/15 text-orange-400 font-semibold'
               : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
           }`}
+          title="Set Loop OUT"
         >
           OUT
         </button>
@@ -242,9 +283,84 @@ export default function PlayerCard({
             {fmt(loopIn)} → {fmt(loopOut)}
           </div>
         )}
+
         <div className="flex-1" />
-        {/* Zoom buttons — fonctionnels */}
-        <span className="text-[10px] text-[var(--text-muted)] mr-1">Zoom:</span>
+
+        {/* Tap Tempo */}
+        <button
+          onClick={handleTapTempo}
+          title="Tap Tempo"
+          className="px-2 py-[3px] rounded-md border border-[var(--border-default)] bg-transparent text-[10px] text-yellow-400 hover:bg-yellow-500/10 transition-colors cursor-pointer"
+        >
+          🥁 TAP
+        </button>
+
+        {/* Playback Rate */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowRatePicker(p => !p); setShowThemePicker(false); }}
+            className={`px-2 py-[3px] rounded-md border text-[10px] cursor-pointer transition-colors ${
+              playbackRate !== 1
+                ? 'border-purple-500/50 bg-purple-500/15 text-purple-400 font-semibold'
+                : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+            }`}
+            title="Playback Rate"
+          >
+            {playbackRate}×
+          </button>
+          {showRatePicker && (
+            <div className="absolute bottom-full right-0 mb-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 overflow-hidden">
+              {PLAYBACK_RATES.map(r => (
+                <button
+                  key={r}
+                  onClick={() => { setPlaybackRate(r); setShowRatePicker(false); }}
+                  className={`block w-full text-left px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+                    r === playbackRate
+                      ? 'bg-purple-500/20 text-purple-400 font-semibold'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                  }`}
+                >
+                  {r}×{r === 1 ? ' (normal)' : ''}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Waveform Theme picker */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowThemePicker(p => !p); setShowRatePicker(false); }}
+            className={`px-2 py-[3px] rounded-md border text-[10px] cursor-pointer transition-colors ${
+              waveformTheme !== 'spectral'
+                ? 'border-blue-500/50 bg-blue-500/15 text-blue-400'
+                : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+            }`}
+            title="Waveform Theme"
+          >
+            {currentTheme.label}
+          </button>
+          {showThemePicker && (
+            <div className="absolute bottom-full right-0 mb-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg z-50 overflow-hidden min-w-[120px]">
+              {WAVEFORM_THEMES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => { setWaveformTheme(t.id); setShowThemePicker(false); }}
+                  className={`block w-full text-left px-3 py-1.5 text-xs cursor-pointer transition-colors ${
+                    t.id === waveformTheme
+                      ? 'bg-blue-500/20 text-blue-400 font-semibold'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Zoom buttons */}
+        <span className="text-[10px] text-[var(--text-muted)]">Zoom:</span>
         {ZOOM_LEVELS.map(z => (
           <button
             key={z}

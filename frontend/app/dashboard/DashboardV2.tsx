@@ -52,6 +52,7 @@ const TABS = [
   { id: 'eq',    label: 'EQ',    icon: '〰' },
   { id: 'fx',    label: 'FX',    icon: '✨' },
   { id: 'mix',   label: 'Mix',   icon: '🎡' },
+  { id: 'notes', label: 'Notes', icon: '📋' },
 ];
 
 const GLOBAL_TABS: string[] = [];
@@ -102,6 +103,14 @@ export default function DashboardV2() {
 
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Auto-analyze on upload toggle
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
+
+  // Session notes
+  const [sessionNotes, setSessionNotes] = useState<string>(() => {
+    try { return localStorage.getItem('cueforge_session_notes') || ''; } catch { return ''; }
+  });
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -471,6 +480,117 @@ export default function DashboardV2() {
     }
   }
 
+  function handleExportCSV(trackId: number) {
+    const track = tracks.find(t => t.id === trackId);
+    if (!track) return;
+    const analysis = (track as any).analysis || {};
+    const cues = cuePoints.filter(() => true); // all loaded cues
+    const rows = [
+      ['Field', 'Value'],
+      ['Title', track.title || track.original_filename || ''],
+      ['Artist', track.artist || ''],
+      ['BPM', analysis.bpm?.toFixed(2) || ''],
+      ['Key', analysis.key || ''],
+      ['Energy', analysis.energy != null ? Math.round(analysis.energy * 100) : ''],
+      ['Duration (ms)', analysis.duration_ms || ''],
+      ['Genre', analysis.genre || ''],
+      ['Rating', track.rating || ''],
+      ['Tags', track.tags || ''],
+      [''],
+      ['#', 'Name', 'Type', 'Position (ms)', 'Color'],
+      ...cues.map((c, i) => [i + 1, c.name || '', c.cue_type || 'hot_cue', c.position_ms, c.color || '']),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${track.title || 'track'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Export CSV OK', 'success');
+    setContextMenu(null);
+  }
+
+  function handleExportTXT(trackId: number) {
+    const track = tracks.find(t => t.id === trackId);
+    if (!track) return;
+    const analysis = (track as any).analysis || {};
+    const cues = cuePoints;
+    const lines = [
+      `=== CueForge — ${track.title || track.original_filename} ===`,
+      `Artist : ${track.artist || '—'}`,
+      `BPM    : ${analysis.bpm?.toFixed(2) || '—'}`,
+      `Key    : ${analysis.key || '—'}`,
+      `Energy : ${analysis.energy != null ? Math.round(analysis.energy * 100) + '%' : '—'}`,
+      `Genre  : ${analysis.genre || '—'}`,
+      `Rating : ${'⭐'.repeat(track.rating || 0)}`,
+      `Tags   : ${track.tags || '—'}`,
+      '',
+      '--- Cue Points ---',
+      ...cues.map((c, i) => {
+        const ms = c.position_ms;
+        const m = Math.floor(ms / 60000);
+        const s = Math.floor((ms % 60000) / 1000);
+        const fmt = `${m}:${String(s).padStart(2, '0')}`;
+        return `[${i + 1}] ${c.name || 'Cue'} @ ${fmt} (${c.cue_type || 'hot_cue'})`;
+      }),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${track.title || 'track'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Export TXT OK', 'success');
+    setContextMenu(null);
+  }
+
+  async function handleAutoCuePoints() {
+    if (!selectedTrack || selectedTrack.id < 0) {
+      addToast('Sélectionne un vrai track', 'info');
+      return;
+    }
+    const raw = rawTracksForTabs.find(t => t.id === selectedTrack.id);
+    const analysis = (raw as any)?.analysis;
+    if (!analysis) {
+      addToast('Analyse le track d\'abord', 'info');
+      return;
+    }
+    const autoColors = ['#22c55e', '#ef4444', '#3b82f6', '#f97316', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899'];
+    const points: Array<{ name: string; position_ms: number; color: string; cue_type: string; number?: number }> = [];
+
+    // From drop_positions
+    if (analysis.drop_positions?.length > 0) {
+      analysis.drop_positions.slice(0, 2).forEach((ms: number, i: number) => {
+        points.push({ name: `Drop ${i + 1}`, position_ms: ms, color: '#ef4444', cue_type: 'drop', number: points.length });
+      });
+    }
+    // From phrase_positions
+    if (analysis.phrase_positions?.length > 0) {
+      analysis.phrase_positions.slice(0, 4).forEach((ms: number, i: number) => {
+        points.push({ name: `Phrase ${i + 1}`, position_ms: ms, color: autoColors[i % autoColors.length], cue_type: 'phrase', number: points.length });
+      });
+    }
+    // From section_labels
+    if (analysis.section_labels?.length > 0) {
+      analysis.section_labels.slice(0, 4).forEach((section: any, i: number) => {
+        points.push({ name: section.label || `Section ${i + 1}`, position_ms: section.start_ms || section.position_ms || 0, color: autoColors[(i + 3) % autoColors.length], cue_type: 'section', number: points.length });
+      });
+    }
+
+    if (points.length === 0) {
+      addToast('Pas de données pour auto-cues', 'info');
+      return;
+    }
+    addToast(`Génération de ${points.length} cues...`, 'info');
+    for (const p of points) {
+      try { await handleCreateCue(p); } catch {}
+    }
+    addToast(`${points.length} cues générés !`, 'success');
+  }
+
   // Navigation prev/next dans la liste
   function handlePrev() {
     if (!selectedTrack || displayTracks.length === 0) return;
@@ -491,10 +611,14 @@ export default function DashboardV2() {
       try {
         const uploaded = await uploadTrack(file);
         if (uploaded?.id) {
-          addToast(`Uploading ${file.name}...`, 'info');
-          await analyzeTrack(uploaded.id);
-          await pollTrackUntilDone(uploaded.id);
-          addToast(`${file.name} analyzed!`, 'success');
+          addToast(`Upload: ${file.name}`, 'info');
+          if (autoAnalyze) {
+            await analyzeTrack(uploaded.id);
+            await pollTrackUntilDone(uploaded.id);
+            addToast(`${file.name} analysé !`, 'success');
+          } else {
+            addToast(`${file.name} importé (analyse manuelle)`, 'info');
+          }
         }
       } catch (e) {
         console.error('Upload failed:', e);
@@ -641,21 +765,35 @@ export default function DashboardV2() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
-      {/* Demo banner */}
-      {isDemo && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
-          <span className="text-sm">🎧</span>
-          <span className="text-sm text-[var(--text-primary)]">
-            <strong>Mode demo</strong> — Importe tes tracks pour commencer l'analyse !
-          </span>
+      {/* Top bar: Demo banner + Auto-analyze toggle */}
+      <div className="flex items-center gap-3">
+        {isDemo ? (
+          <div className="flex-1 flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
+            <span className="text-sm">🎧</span>
+            <span className="text-sm text-[var(--text-primary)]">
+              <strong>Mode demo</strong> — Importe tes tracks pour commencer l'analyse !
+            </span>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="ml-auto px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
+            >
+              Importer
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+        {/* Auto-analyze toggle */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl">
           <button
-            onClick={() => fileRef.current?.click()}
-            className="ml-auto px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
+            onClick={() => setAutoAnalyze(p => !p)}
+            className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer border-none ${autoAnalyze ? 'bg-emerald-600' : 'bg-[var(--bg-elevated)]'}`}
           >
-            Importer
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-4' : 'translate-x-0.5'}`} />
           </button>
+          <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">Auto-analyse</span>
         </div>
-      )}
+      </div>
 
       {/* Batch analyze button */}
       {unanalyzedCount > 0 && !isDemo && (
@@ -798,18 +936,71 @@ export default function DashboardV2() {
               />
             )}
             {activeTab === 'cues' && (
-              <CuesTab
-                track={selectedTrack}
-                cuePoints={effectiveCuePoints}
-                onCreateCue={handleCreateCue}
-                onDeleteCue={handleDeleteCue}
-                initialPositionMs={cuePositionMs}
-              />
+              <div className="flex flex-col h-full">
+                {selectedTrack && selectedTrack.id > 0 && (
+                  <div className="px-3 pt-2 pb-1 border-b border-[var(--border-subtle)] flex-shrink-0">
+                    <button
+                      onClick={handleAutoCuePoints}
+                      className="w-full px-2 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors cursor-pointer"
+                    >
+                      ✨ Auto-générer les cue points
+                    </button>
+                  </div>
+                )}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <CuesTab
+                    track={selectedTrack}
+                    cuePoints={effectiveCuePoints}
+                    onCreateCue={handleCreateCue}
+                    onDeleteCue={handleDeleteCue}
+                    initialPositionMs={cuePositionMs}
+                  />
+                </div>
+              </div>
             )}
             {activeTab === 'stems' && <StemsTab track={selectedTrack} />}
-            {activeTab === 'eq' && <EQTab />}
+            {activeTab === 'eq' && <EQTab playerRef={playerRef} />}
             {activeTab === 'fx' && <FXTab />}
             {activeTab === 'mix' && <MixTab track={selectedRawTrack} tracks={rawTracksForTabs} />}
+            {activeTab === 'notes' && (
+              <div className="flex flex-col h-full p-3 gap-2">
+                <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">Notes de session</div>
+                <textarea
+                  value={sessionNotes}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setSessionNotes(v);
+                    try { localStorage.setItem('cueforge_session_notes', v); } catch {}
+                  }}
+                  placeholder="Tes notes, idées, setlist, observations…"
+                  className="flex-1 min-h-[200px] p-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-blue-500 resize-none leading-relaxed"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setSessionNotes(''); try { localStorage.removeItem('cueforge_session_notes'); } catch {} }}
+                    className="px-2 py-1 rounded border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                  >
+                    Effacer
+                  </button>
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([sessionNotes], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = 'notes-session.txt'; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-2 py-1 rounded border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
+                    title="Exporter les notes"
+                  >
+                    ⬇ Export
+                  </button>
+                  <span className="ml-auto text-[10px] text-[var(--text-muted)] self-end">
+                    {sessionNotes.length} car.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -874,7 +1065,19 @@ export default function DashboardV2() {
             onClick={() => handleExportRekordbox(contextMenu.trackId)}
             className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
           >
-            <Download size={14} /> Export Rekordbox
+            <Download size={14} /> Export Rekordbox XML
+          </button>
+          <button
+            onClick={() => handleExportCSV(contextMenu.trackId)}
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+          >
+            <Download size={14} /> Export CSV
+          </button>
+          <button
+            onClick={() => handleExportTXT(contextMenu.trackId)}
+            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
+          >
+            <Download size={14} /> Export TXT
           </button>
           {playlists.length > 0 && (
             <div className="border-t border-[var(--border-subtle)]">
