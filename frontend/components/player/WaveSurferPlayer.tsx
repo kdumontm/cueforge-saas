@@ -546,14 +546,16 @@ export default function WaveSurferPlayer({
         }
       } else {
         // ── BARS (zoomed out) — blit from pre-rendered strip ──
-        const srcX = Math.max(0, (startTime / dur) * numBars);
+        // rawSrcX can be negative (when near track start, cursor is centered)
+        const rawSrcX = (startTime / dur) * numBars;
         const srcW = (visSec / dur) * numBars;
-        const clampedSrcX = Math.max(0, srcX);
-        const clampedSrcEnd = Math.min(numBars, srcX + srcW);
+        const clampedSrcX = Math.max(0, rawSrcX);
+        const clampedSrcEnd = Math.min(numBars, rawSrcX + srcW);
         const clampedSrcW = clampedSrcEnd - clampedSrcX;
 
         if (clampedSrcW > 0) {
-          const dstX = ((clampedSrcX - srcX) / srcW) * w;
+          // dstX offsets the draw when startTime < 0 (waveform starts mid-screen)
+          const dstX = ((clampedSrcX - rawSrcX) / srcW) * w;
           const dstW = (clampedSrcW / srcW) * w;
           ctx.drawImage(strip, clampedSrcX, 0, clampedSrcW, 256, dstX, 0, dstW, h);
         }
