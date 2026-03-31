@@ -38,6 +38,11 @@ interface TrackListProps {
   onFilterChange: (key: string, value: any) => void;
   onFilterReset: () => void;
   isLoading?: boolean;
+  // Auto-analyse controls (displayed in toolbar)
+  unanalyzedCount?: number;
+  autoAnalyze?: boolean;
+  onToggleAutoAnalyze?: () => void;
+  onAnalyzeAll?: () => void;
 }
 
 const SORT_OPTIONS = [
@@ -91,6 +96,10 @@ export function TrackList({
   selectedIds = new Set(),
   onFilterReset,
   isLoading = false,
+  unanalyzedCount = 0,
+  autoAnalyze = false,
+  onToggleAutoAnalyze,
+  onAnalyzeAll,
 }: TrackListProps) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -176,6 +185,36 @@ export function TrackList({
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
       {/* Toolbar compact */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        {/* Auto-analyse toggle */}
+        {onToggleAutoAnalyze && (
+          <button
+            onClick={onToggleAutoAnalyze}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] whitespace-nowrap cursor-pointer transition-all flex-shrink-0 ${
+              autoAnalyze
+                ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-400 font-semibold'
+                : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
+            }`}
+            title={autoAnalyze ? 'Auto-analyse activée' : 'Auto-analyse désactivée'}
+          >
+            <span className={`w-5 h-2.5 rounded-full relative flex-shrink-0 transition-colors ${autoAnalyze ? 'bg-emerald-500' : 'bg-[var(--bg-elevated)]'}`}>
+              <span className={`absolute top-0.5 w-1.5 h-1.5 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
+            </span>
+            Auto
+          </button>
+        )}
+
+        {/* Unanalyzed badge + Analyser tout */}
+        {unanalyzedCount > 0 && onAnalyzeAll && (
+          <button
+            onClick={onAnalyzeAll}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
+            title={`${unanalyzedCount} tracks à analyser — cliquer pour lancer`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            {unanalyzedCount} à analyser
+          </button>
+        )}
+
         {/* Search Input */}
         <div className="flex-1 relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />

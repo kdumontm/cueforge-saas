@@ -765,48 +765,18 @@ export default function DashboardV2() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
-      {/* Top bar: Demo banner + Auto-analyze toggle */}
-      <div className="flex items-center gap-3">
-        {isDemo ? (
-          <div className="flex-1 flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
-            <span className="text-sm">🎧</span>
-            <span className="text-sm text-[var(--text-primary)]">
-              <strong>Mode demo</strong> — Importe tes tracks pour commencer l'analyse !
-            </span>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="ml-auto px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
-            >
-              Importer
-            </button>
-          </div>
-        ) : (
-          <div className="flex-1" />
-        )}
-        {/* Auto-analyze toggle */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl">
-          <button
-            onClick={() => setAutoAnalyze(p => !p)}
-            className={`relative w-8 h-4 rounded-full transition-colors cursor-pointer border-none ${autoAnalyze ? 'bg-emerald-600' : 'bg-[var(--bg-elevated)]'}`}
-          >
-            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-4' : 'translate-x-0.5'}`} />
-          </button>
-          <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">Auto-analyse</span>
-        </div>
-      </div>
-
-      {/* Batch analyze button */}
-      {unanalyzedCount > 0 && !isDemo && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-600/20 border border-emerald-500/30 rounded-xl">
-          <Zap size={16} className="text-emerald-400" />
+      {/* Demo banner (uniquement en mode demo) */}
+      {isDemo && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
+          <span className="text-sm">🎧</span>
           <span className="text-sm text-[var(--text-primary)]">
-            <strong>{unanalyzedCount} tracks</strong> en attente d'analyse
+            <strong>Mode demo</strong> — Importe tes tracks pour commencer l'analyse !
           </span>
           <button
-            onClick={handleBatchAnalyze}
-            className="ml-auto px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-emerald-500 transition-colors"
+            onClick={() => fileRef.current?.click()}
+            className="ml-auto px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold cursor-pointer border-none hover:bg-blue-500 transition-colors"
           >
-            Analyser tout
+            Importer
           </button>
         </div>
       )}
@@ -889,6 +859,10 @@ export default function DashboardV2() {
               onFilterReset={() => setFilters({ bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false })}
               isLoading={loading}
               onImportClick={() => fileRef.current?.click()}
+              unanalyzedCount={isDemo ? 0 : unanalyzedCount}
+              autoAnalyze={autoAnalyze}
+              onToggleAutoAnalyze={() => setAutoAnalyze(p => !p)}
+              onAnalyzeAll={handleBatchAnalyze}
             />
           </div>
         </div>

@@ -255,11 +255,6 @@ export default function PlayerCard({
         />
       </div>
 
-      {/* Hot Cues bar — cliquable pour seeker */}
-      {hotCues.length > 0 && (
-        <HotCuesBar hotCues={hotCues} onCueClick={handleHotCueClick} />
-      )}
-
       {/* Loop / Zoom / Rate / Theme row */}
       <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)] flex-wrap">
         {/* Loop controls */}
