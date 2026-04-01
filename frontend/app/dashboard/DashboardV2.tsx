@@ -482,7 +482,7 @@ export default function DashboardV2() {
       id: t.id,
       title: t.title || t.original_filename || t.filename || 'Unknown',
       artist: t.artist || 'Unknown',
-      genre: analysis.genre || '—',
+      genre: t.genre || analysis.genre || '—',
       bpm: analysis.bpm ? Math.round(analysis.bpm * 10) / 10 : null,
       key: toCamelot(analysis.key),
       energy: analysis.energy ? Math.round(analysis.energy * 100) : null,
@@ -1464,6 +1464,10 @@ export default function DashboardV2() {
             setTracks((prev: any[]) =>
               prev.map((t: any) => t.id === trackId ? { ...t, ...data } : t)
             );
+            // Sync selectedTrack si c'est la piste courante
+            if (selectedTrack?.id === trackId) {
+              setSelectedTrack((prev: any) => prev ? { ...prev, ...data } : prev, 'onTrackUpdated');
+            }
           }}
         />
       )}

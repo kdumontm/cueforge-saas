@@ -1053,31 +1053,10 @@ async def identify_track(
             if "+itunes" not in result["source"]:
                 result["source"] = result["source"] + "+itunes"
 
-    # Step 7 — Auto-save non-null fields to DB
-    _save_identify_result(track, result, db)
-
     return _json_response({
         "status": "found",
         "result": result,
     })
-
-
-def _save_identify_result(track: Track, result: dict, db: Session) -> None:
-    """Persist identified metadata to the Track record — overwrites existing values."""
-    try:
-        saved = []
-        for field in ("title", "artist", "album", "genre", "year", "artwork_url", "spotify_id", "spotify_url"):
-            if result.get(field):
-                setattr(track, field, result[field])
-                saved.append(field)
-        if saved:
-            db.commit()
-            logger.info(f"Track {track.id} auto-saved after identify: {saved}")
-        else:
-            logger.warning(f"Track {track.id}: identify result had no saveable fields")
-    except Exception as e:
-        logger.warning(f"Auto-save after identify failed for track {track.id}: {e}")
-        db.rollback()
 
 
 # ── Identification par recherche textuelle manuelle ──────────────────────────
@@ -1156,9 +1135,6 @@ async def identify_track_by_search(
             if not result["year"]        and it.get("year"):        result["year"]        = it["year"]
             suffix = "+itunes" if "itunes" not in result["source"] else ""
             result["source"] = result["source"] + suffix
-
-    # Auto-save in DB
-    _save_identify_result(track, result, db)
 
     return _json_response({
         "status": "found",
