@@ -8,7 +8,7 @@ from app.models import User, Track, CuePoint, TrackAnalysis, CueRule
 from app.middleware.auth import get_current_user
 from app.services.cue_generator import apply_rules_to_track, generate_cue_points
 
-router = APIRouter(prefix="/cues", tags=["cues"])
+router = APIRouter(tags=["cues"])
 
 
 # ─── Pydantic Schemas ────────────────────────────────────────────────────────
