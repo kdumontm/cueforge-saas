@@ -6,6 +6,7 @@ import { Track } from '@/types';
 
 interface StemsStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string | null;
   vocals_url?: string | null;
   drums_url?: string | null;
   bass_url?: string | null;
@@ -110,7 +111,7 @@ export function StemsTab({
           <Loader2 size={15} className="animate-spin shrink-0" />
           <div>
             <p className="text-xs font-semibold">Séparation en cours…</p>
-            <p className="text-[10px] text-blue-300/70">HPSS + filtres fréquentiels · ~1–2 min</p>
+            <p className="text-[10px] text-blue-300/70">Demucs AI · qualité DJ · ~3–5 min</p>
           </div>
         </div>
       )}
@@ -120,7 +121,17 @@ export function StemsTab({
           <AlertCircle size={15} className="shrink-0" />
           <div>
             <p className="text-xs font-semibold">Erreur lors de la séparation</p>
-            <p className="text-[10px] text-red-300/70">Vérifie que le fichier audio est présent sur le serveur</p>
+            <p className="text-[10px] text-red-300/70 break-all">
+              {stemsStatus?.error || 'Vérifie que le fichier audio est présent sur le serveur'}
+            </p>
+            {onRequestStems && (
+              <button
+                onClick={onRequestStems}
+                className="mt-1.5 text-[10px] text-red-300 underline hover:text-red-200 cursor-pointer"
+              >
+                Réessayer
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -217,8 +228,8 @@ export function StemsTab({
       {!isCompleted && !isProcessing && (
         <>
           <p className="text-[10px] text-[var(--text-muted)] leading-relaxed px-1">
-            Utilise <strong>HPSS</strong> (Harmonic-Percussive Source Separation) + filtres fréquentiels.<br />
-            Qualité correcte pour DJ use, pas de GPU nécessaire.
+            Utilise <strong>Demucs</strong> (Meta AI) — séparation deep learning qualité DJ.<br />
+            4 stems: voix, drums, basse, instruments · ~3–5 min par track.
           </p>
           <button
             onClick={onRequestStems}

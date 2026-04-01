@@ -33,6 +33,17 @@ router = APIRouter(prefix="/advanced", tags=["advanced"])
 _stems_jobs: dict = {}
 
 
+# ── Stems health check ─────────────────────────────────────────────────────
+
+@router.get("/stems/check")
+def check_stems_health():
+    """Diagnostic: check if Demucs + PyTorch are installed and working."""
+    from app.services.stems_service import check_demucs_available
+    info = check_demucs_available()
+    ok = info["torch"] and info["demucs"] and info["model"] and info["ffmpeg"]
+    return {"ok": ok, **info}
+
+
 # ── Stems separation ───────────────────────────────────────────────────────
 
 @router.post("/stems/{track_id}")
@@ -43,7 +54,7 @@ def separate_stems(
 ):
     """
     Start stem separation for a track (background job).
-    Uses librosa HPSS + frequency-band filters — runs on CPU, no GPU needed.
+    Uses Meta Demucs htdemucs — DJ-grade deep learning model, CPU only.
 
     Returns immediately with status='processing'.
     Poll GET /advanced/stems/{track_id}/status to check progress.
@@ -73,13 +84,16 @@ def separate_stems(
     _stems_jobs[track_id] = {"status": "processing", "error": None}
 
     def run():
+        import traceback
         try:
             do_separate(track_id, file_path)
             _stems_jobs[track_id] = {"status": "completed", "error": None}
             logger.info(f"[stems] Job {track_id} completed")
         except Exception as e:
-            _stems_jobs[track_id] = {"status": "failed", "error": str(e)}
-            logger.error(f"[stems] Job {track_id} failed: {e}")
+            tb = traceback.format_exc()
+            err_short = str(e)[:300]
+            _stems_jobs[track_id] = {"status": "failed", "error": err_short}
+            logger.error(f"[stems] Job {track_id} failed:\n{tb}")
 
     t = threading.Thread(target=run, daemon=True)
     t.start()

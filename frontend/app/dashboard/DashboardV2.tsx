@@ -180,6 +180,7 @@ export default function DashboardV2() {
   // Stems state
   const [stemsStatus, setStemsStatus] = useState<{
     status: 'pending' | 'processing' | 'completed' | 'failed';
+    error?: string | null;
     vocals_url?: string | null;
     drums_url?: string | null;
     bass_url?: string | null;
@@ -1379,7 +1380,7 @@ export default function DashboardV2() {
                       const err = await res.json().catch(() => ({}));
                       throw new Error(err.detail || `HTTP ${res.status}`);
                     }
-                    addToast('Séparation en cours… (~1-2 min)', 'info');
+                    addToast('Séparation Demucs en cours… (~3-5 min)', 'info');
 
                     // Poll status every 5s
                     const poll = async () => {
@@ -1399,7 +1400,7 @@ export default function DashboardV2() {
                         });
                         addToast('Stems prêts !', 'success');
                       } else if (d.status === 'failed') {
-                        setStemsStatus({ status: 'failed' });
+                        setStemsStatus({ status: 'failed', error: d.error || null });
                         addToast(d.error || 'Erreur séparation stems', 'error');
                       } else {
                         setTimeout(poll, 5000);
@@ -1407,7 +1408,7 @@ export default function DashboardV2() {
                     };
                     setTimeout(poll, 5000);
                   } catch (e: any) {
-                    setStemsStatus({ status: 'failed' });
+                    setStemsStatus({ status: 'failed', error: e.message || null });
                     addToast(e.message || 'Erreur stems', 'error');
                   }
                 }}
