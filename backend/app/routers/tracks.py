@@ -912,8 +912,10 @@ async def identify_track(
       3. If AcoustID fails → MusicBrainz text search (title + artist from track metadata / filename)
       4. MusicBrainz → fetch full metadata by recording ID
       5. Spotify → artwork + genre (if configured)
+      6. iTunes → artwork + genre fallback
+      7. Auto-save non-null fields to the Track record in DB
 
-    Returns suggested metadata WITHOUT saving anything.
+    Returns the identified metadata (already saved in DB).
     """
     import asyncio
     import json as _json
@@ -1051,10 +1053,31 @@ async def identify_track(
             if "+itunes" not in result["source"]:
                 result["source"] = result["source"] + "+itunes"
 
+    # Step 7 — Auto-save non-null fields to DB
+    _save_identify_result(track, result, db)
+
     return _json_response({
         "status": "found",
         "result": result,
     })
+
+
+def _save_identify_result(track: Track, result: dict, db: Session) -> None:
+    """Persist identified metadata to the Track record (non-null fields only)."""
+    try:
+        if result.get("title")       and not track.title:       track.title       = result["title"]
+        if result.get("artist")      and not track.artist:      track.artist      = result["artist"]
+        if result.get("album")       and not track.album:       track.album       = result["album"]
+        if result.get("genre")       and not track.genre:       track.genre       = result["genre"]
+        if result.get("year")        and not track.year:        track.year        = result["year"]
+        if result.get("artwork_url") and not track.artwork_url: track.artwork_url = result["artwork_url"]
+        if result.get("spotify_id")  and not track.spotify_id:  track.spotify_id  = result["spotify_id"]
+        if result.get("spotify_url") and not track.spotify_url: track.spotify_url = result["spotify_url"]
+        db.commit()
+        logger.info(f"Track {track.id} auto-saved after identify: {list(k for k,v in result.items() if v)}")
+    except Exception as e:
+        logger.warning(f"Auto-save after identify failed for track {track.id}: {e}")
+        db.rollback()
 
 
 # ── Identification par recherche textuelle manuelle ──────────────────────────
@@ -1133,6 +1156,9 @@ async def identify_track_by_search(
             if not result["year"]        and it.get("year"):        result["year"]        = it["year"]
             suffix = "+itunes" if "itunes" not in result["source"] else ""
             result["source"] = result["source"] + suffix
+
+    # Auto-save in DB
+    _save_identify_result(track, result, db)
 
     return _json_response({
         "status": "found",
