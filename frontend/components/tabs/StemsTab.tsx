@@ -63,6 +63,20 @@ const STEM_CONFIG = [
   },
 ];
 
+function downloadAll(stemsStatus: StemsStatus, mutedStems: Set<string>, trackTitle: string) {
+  STEM_CONFIG.forEach(({ key, name }) => {
+    if (mutedStems.has(key)) return; // skip muted
+    const url = stemsStatus[key as keyof StemsStatus];
+    if (!url || typeof url !== 'string') return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${trackTitle}_${name.toLowerCase()}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+}
+
 export function StemsTab({
   track,
   stemsStatus,
@@ -81,6 +95,11 @@ export function StemsTab({
   const isProcessing = stemsStatus?.status === 'processing';
   const isCompleted  = stemsStatus?.status === 'completed';
   const isFailed     = stemsStatus?.status === 'failed';
+
+  const activeCount = STEM_CONFIG.filter(({ key }) => {
+    const url = stemsStatus?.[key as keyof StemsStatus];
+    return typeof url === 'string' && url.length > 0 && !mutedStems.has(key);
+  }).length;
 
   return (
     <div className="p-4 space-y-3">
@@ -110,7 +129,7 @@ export function StemsTab({
       {isCompleted && (
         <>
           <p className="text-[10px] text-[var(--text-muted)] px-0.5">
-            🎛️ <strong>Clique sur un stem</strong> pour le couper ou le réactiver dans la lecture
+            🎛️ <strong>Clique</strong> pour couper/activer un stem dans la lecture
           </p>
 
           <div className="grid grid-cols-2 gap-2">
@@ -136,30 +155,23 @@ export function StemsTab({
                       ${!avail ? 'opacity-25 cursor-not-allowed grayscale' : ''}
                     `}
                   >
-                    {/* Emoji grande */}
                     <div className="text-3xl mb-2 leading-none">{emoji}</div>
-
-                    {/* Nom + dot */}
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
                       <span className="text-xs font-bold text-[var(--text-primary)]">{name}</span>
                     </div>
                     <p className="text-[9px] text-[var(--text-muted)] leading-tight">{desc}</p>
-
-                    {/* Badge COUPÉ */}
                     {muted && (
                       <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/40">
                         <span className="text-[8px] font-bold text-red-400 tracking-wide">COUPÉ</span>
                       </div>
                     )}
-
-                    {/* Spinner si processing */}
                     {isProcessing && !avail && (
                       <Loader2 size={12} className="mt-1 text-[var(--text-muted)] animate-spin" />
                     )}
                   </button>
 
-                  {/* Download button — overlay en bas à droite */}
+                  {/* Individual download — apparaît au survol */}
                   {avail && (
                     <a
                       href={url as string}
@@ -167,12 +179,10 @@ export function StemsTab({
                       title={`Télécharger ${name}`}
                       onClick={e => e.stopPropagation()}
                       className="
-                        absolute bottom-2 right-2
-                        p-1 rounded-md
+                        absolute bottom-2 right-2 p-1 rounded-md
                         bg-black/40 border border-white/10
                         text-white/50 hover:text-white hover:bg-black/60
-                        transition-all opacity-0 group-hover:opacity-100
-                        z-10
+                        transition-all opacity-0 group-hover:opacity-100 z-10
                       "
                     >
                       <Download size={11} />
@@ -183,12 +193,23 @@ export function StemsTab({
             })}
           </div>
 
-          {/* Status line */}
-          <p className="text-[9px] text-center text-[var(--text-muted)] pt-1">
-            {mutedStems.size === 0
-              ? '✅ Mix complet — tous les stems actifs'
-              : `🔇 ${mutedStems.size} stem${mutedStems.size > 1 ? 's' : ''} coupé${mutedStems.size > 1 ? 's' : ''} · clique pour réactiver`}
-          </p>
+          {/* Status + Download all active */}
+          <div className="flex items-center gap-2 pt-1">
+            <p className="text-[9px] text-[var(--text-muted)] flex-1">
+              {mutedStems.size === 0
+                ? '✅ Mix complet — tous les stems actifs'
+                : `🔇 ${mutedStems.size} stem${mutedStems.size > 1 ? 's' : ''} coupé${mutedStems.size > 1 ? 's' : ''}`}
+            </p>
+            <button
+              onClick={() => stemsStatus && downloadAll(stemsStatus, mutedStems, track?.title ?? 'track')}
+              disabled={activeCount === 0}
+              title={`Télécharger les ${activeCount} stems actifs`}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent-primary)]/15 border border-[var(--accent-primary)]/30 text-[var(--accent-primary)] text-[10px] font-semibold hover:bg-[var(--accent-primary)]/25 transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
+            >
+              <Download size={11} />
+              Télécharger ({activeCount})
+            </button>
+          </div>
         </>
       )}
 

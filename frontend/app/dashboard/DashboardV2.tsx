@@ -495,6 +495,8 @@ export default function DashboardV2() {
   const handleStemPlay = useCallback(() => {
     const audios = Object.values(stemAudioMapRef.current);
     if (!audios.length) return;
+    // CRUCIAL : muter le WaveSurfer pour entendre uniquement les stems
+    playerRef.current?.setVolume?.(0);
     audios.forEach(a => {
       a.currentTime = stemLastTimeRef.current;
       a.play().catch(() => {});
@@ -502,12 +504,16 @@ export default function DashboardV2() {
   }, []);
 
   const handleStemPause = useCallback(() => {
-    Object.values(stemAudioMapRef.current).forEach(a => a.pause());
+    const audios = Object.values(stemAudioMapRef.current);
+    if (!audios.length) return;
+    audios.forEach(a => a.pause());
+    // Restaurer le volume du WaveSurfer
+    playerRef.current?.setVolume?.(1);
   }, []);
 
   const handleStemTimeUpdate = useCallback((ms: number) => {
     stemLastTimeRef.current = ms / 1000;
-    // Re-sync stems si dérive > 0.4s (seek manuel)
+    // Re-sync stems si dérive > 0.4s (seek manuel ou loop)
     Object.values(stemAudioMapRef.current).forEach(a => {
       if (Math.abs(a.currentTime - ms / 1000) > 0.4) a.currentTime = ms / 1000;
     });
