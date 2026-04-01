@@ -1228,26 +1228,45 @@ export default function DashboardV2() {
                 onRequestStems={async () => {
                   if (!selectedTrack || selectedTrack.id < 0) return;
                   setStemsStatus({ status: 'processing' });
+                  const { getToken } = await import('@/lib/api');
+                  const token = getToken();
+                  const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                  const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+                  const trackId = selectedTrack.id;
+
                   try {
-                    const token = (await import('@/lib/api')).getToken();
-                    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-                    const res = await fetch(`${API_URL}/advanced/stems/${selectedTrack.id}`, {
-                      method: 'POST',
-                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    // Start the background job
+                    const res = await fetch(`${BASE}/advanced/stems/${trackId}`, {
+                      method: 'POST', headers,
                     });
                     if (!res.ok) {
                       const err = await res.json().catch(() => ({}));
                       throw new Error(err.detail || `HTTP ${res.status}`);
                     }
-                    const data = await res.json();
-                    setStemsStatus({
-                      status: 'completed',
-                      vocals_url: data.vocals_url,
-                      drums_url: data.drums_url,
-                      bass_url: data.bass_url,
-                      other_url: data.other_url,
-                    });
-                    addToast('Stems séparés !', 'success');
+                    addToast('Séparation en cours… (~1-2 min)', 'info');
+
+                    // Poll status every 5s
+                    const poll = async () => {
+                      const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
+                      if (!r.ok) return;
+                      const d = await r.json();
+                      if (d.status === 'completed') {
+                        setStemsStatus({
+                          status: 'completed',
+                          vocals_url: d.vocals_url,
+                          drums_url:  d.drums_url,
+                          bass_url:   d.bass_url,
+                          other_url:  d.other_url,
+                        });
+                        addToast('Stems prêts !', 'success');
+                      } else if (d.status === 'failed') {
+                        setStemsStatus({ status: 'failed' });
+                        addToast(d.error || 'Erreur séparation stems', 'error');
+                      } else {
+                        setTimeout(poll, 5000);
+                      }
+                    };
+                    setTimeout(poll, 5000);
                   } catch (e: any) {
                     setStemsStatus({ status: 'failed' });
                     addToast(e.message || 'Erreur stems', 'error');

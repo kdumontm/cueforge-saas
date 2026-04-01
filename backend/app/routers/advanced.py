@@ -12,9 +12,12 @@ Endpoints:
   POST /advanced/auto-cues/{track_id}     — AI auto-cue generation
 """
 
+import os
 import logging
+import threading
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -26,32 +29,122 @@ from app.middleware.auth import get_current_user
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/advanced", tags=["advanced"])
 
+# In-memory job status store  {track_id: {'status': ..., 'error': ...}}
+_stems_jobs: dict = {}
 
-# ── Stems separation (Phase 3) ─────────────────────────────────────────────
+
+# ── Stems separation ───────────────────────────────────────────────────────
 
 @router.post("/stems/{track_id}")
 def separate_stems(
     track_id: int,
-    model: str = Query("htdemucs", regex="^(htdemucs|spleeter|htdemucs_ft)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Separate track into stems (vocals, drums, bass, other).
-
-    Requires demucs or spleeter to be installed on the server.
-    Currently a stub — returns 501 until processing backend is ready.
     """
+    Start stem separation for a track (background job).
+    Uses librosa HPSS + frequency-band filters — runs on CPU, no GPU needed.
+
+    Returns immediately with status='processing'.
+    Poll GET /advanced/stems/{track_id}/status to check progress.
+    """
+    from app.services.stems_service import separate_stems as do_separate, stems_already_exist
+
     track = db.query(Track).filter(
         Track.id == track_id, Track.user_id == current_user.id
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # TODO: Implement stem separation with demucs/spleeter
-    # This will be a background task similar to analysis
-    raise HTTPException(
-        status_code=501,
-        detail="Stem separation is coming soon. This feature requires GPU processing."
+    file_path = track.file_path
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found on server")
+
+    # Already processed?
+    if stems_already_exist(track_id):
+        return {"status": "completed", "track_id": track_id}
+
+    # Already running?
+    job = _stems_jobs.get(track_id, {})
+    if job.get("status") == "processing":
+        return {"status": "processing", "track_id": track_id}
+
+    # Launch background thread
+    _stems_jobs[track_id] = {"status": "processing", "error": None}
+
+    def run():
+        try:
+            do_separate(track_id, file_path)
+            _stems_jobs[track_id] = {"status": "completed", "error": None}
+            logger.info(f"[stems] Job {track_id} completed")
+        except Exception as e:
+            _stems_jobs[track_id] = {"status": "failed", "error": str(e)}
+            logger.error(f"[stems] Job {track_id} failed: {e}")
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+
+    return {"status": "processing", "track_id": track_id}
+
+
+@router.get("/stems/{track_id}/status")
+def get_stems_status(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Poll stem separation status. Returns status + URLs when completed."""
+    from app.services.stems_service import stems_already_exist, stems_dir_for_track, STEMS_DIR
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if stems_already_exist(track_id):
+        base = f"/api/v1/advanced/stems/{track_id}/file"
+        return {
+            "status": "completed",
+            "drums_url":  f"{base}/drums",
+            "bass_url":   f"{base}/bass",
+            "vocals_url": f"{base}/vocals",
+            "other_url":  f"{base}/other",
+        }
+
+    job = _stems_jobs.get(track_id, {})
+    status = job.get("status", "pending")
+    return {"status": status, "error": job.get("error")}
+
+
+@router.get("/stems/{track_id}/file/{stem_name}")
+def download_stem(
+    track_id: int,
+    stem_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download a generated stem MP3 file."""
+    from app.services.stems_service import stems_dir_for_track
+
+    if stem_name not in ("drums", "bass", "vocals", "other"):
+        raise HTTPException(status_code=400, detail="Invalid stem name")
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    file_path = os.path.join(stems_dir_for_track(track_id), f"{stem_name}.mp3")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Stem not generated yet")
+
+    return FileResponse(
+        file_path,
+        media_type="audio/mpeg",
+        filename=f"{stem_name}.mp3",
+        headers={"Accept-Ranges": "bytes"},
     )
 
 
