@@ -167,7 +167,6 @@ interface WaveSurferPlayerProps {
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
   onZoomChange?: (pxPerSec: number) => void;
   onPlay?: () => void;
-  onPause?: () => void;
   mutedStems?: Set<string>;
 }
 
@@ -299,7 +298,6 @@ export default function WaveSurferPlayer({
   onLoopChange,
   onZoomChange,
   onPlay: onPlayCallback,
-  onPause: onPauseCallback,
   mutedStems,
 }: WaveSurferPlayerProps) {
   const wsRef = useRef<any>(null);
@@ -723,7 +721,7 @@ export default function WaveSurferPlayer({
     };
 
     const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); onPlayCallback?.(); } };
-    const onPause = () => { if (!destroyed) { setIsPlaying(false); onPauseCallback?.(); } };
+    const onPause = () => { if (!destroyed) setIsPlaying(false); };
     const onEnded = () => { if (!destroyed) setIsPlaying(false); };
     let lastExternalUpdate = 0;
     const onTimeUpdate = () => {

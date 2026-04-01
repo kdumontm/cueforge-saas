@@ -1,66 +1,25 @@
 """
-Stem separation service using librosa HPSS + frequency-band filtering.
+Stem separation service using Meta's Demucs (htdemucs model).
 
 Pipeline:
-  1. Load audio with librosa (mono, sr=22050 for speed)
-  2. HPSS → harmonic (melodic/vocals/bass) + percussive (drums)
-  3. Frequency bandpass filters on the harmonic component:
-     - Bass:   0–200 Hz
-     - Vocals: 200–3500 Hz
-     - Other:  3500+ Hz
-  4. Export each stem as MP3 via soundfile + ffmpeg
+  1. Run `demucs` CLI on the audio file
+  2. Demucs produces 4 high-quality stems: drums, bass, vocals, other
+  3. Convert WAV outputs to MP3 via ffmpeg
 
-No GPU required. Works on Railway CPU instances.
-Processing time: ~30s–2min depending on track length.
+Quality: DJ-grade source separation (deep learning model).
+No GPU required but CPU processing takes ~2–5 min per track.
 """
 
 import os
+import glob
 import logging
-import tempfile
 import subprocess
-from typing import Optional
-
-import numpy as np
-import soundfile as sf
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 STEMS_DIR = os.getenv("STEMS_DIR", "/tmp/cueforge_stems")
 os.makedirs(STEMS_DIR, exist_ok=True)
-
-# Sampling rate — lower = faster processing, still fine for playback
-SR = 22050
-
-
-def _bandpass(y: np.ndarray, sr: int, low: Optional[float], high: Optional[float]) -> np.ndarray:
-    """Apply a butterworth bandpass (or lowpass / highpass) filter."""
-    from scipy.signal import butter, sosfilt
-    nyq = sr / 2.0
-    if low and high:
-        sos = butter(4, [low / nyq, high / nyq], btype="band", output="sos")
-    elif low:
-        sos = butter(4, low / nyq, btype="high", output="sos")
-    elif high:
-        sos = butter(4, high / nyq, btype="low", output="sos")
-    else:
-        return y
-    return sosfilt(sos, y).astype(np.float32)
-
-
-def _save_mp3(y: np.ndarray, sr: int, out_path: str) -> bool:
-    """Write float32 array → WAV temp file → convert to MP3 with ffmpeg."""
-    try:
-        tmp_wav = out_path.replace(".mp3", "_tmp.wav")
-        sf.write(tmp_wav, y, sr, subtype="PCM_16")
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", tmp_wav, "-q:a", "4", out_path],
-            capture_output=True, timeout=120,
-        )
-        os.remove(tmp_wav)
-        return result.returncode == 0
-    except Exception as e:
-        logger.warning(f"ffmpeg encode failed: {e}")
-        return False
 
 
 def stems_dir_for_track(track_id: int) -> str:
@@ -79,51 +38,86 @@ def stems_already_exist(track_id: int) -> bool:
 
 def separate_stems(track_id: int, file_path: str) -> dict:
     """
-    Separate a track into 4 stems.
+    Separate a track into 4 stems using Demucs.
     Returns dict with keys: drums, bass, vocals, other → absolute file paths.
     Raises on failure.
     """
-    import librosa  # lazy import — only at runtime
+    logger.info(f"[stems] Starting Demucs separation for track {track_id}: {file_path}")
 
-    logger.info(f"[stems] Starting separation for track {track_id}: {file_path}")
-
-    # ── 1. Load audio ──────────────────────────────────────────────────
-    y, sr = librosa.load(file_path, sr=SR, mono=True)
-    logger.info(f"[stems] Loaded {len(y)/sr:.1f}s at {sr}Hz")
-
-    # ── 2. HPSS (Harmonic-Percussive Source Separation) ───────────────
-    y_harmonic, y_percussive = librosa.effects.hpss(y, margin=3.0)
-    logger.info("[stems] HPSS done")
-
-    # ── 3. Frequency-band decomposition of harmonic component ─────────
-    y_bass   = _bandpass(y_harmonic, sr, low=None,   high=200.0)
-    y_vocals = _bandpass(y_harmonic, sr, low=200.0,  high=3500.0)
-    y_other  = _bandpass(y_harmonic, sr, low=3500.0, high=None)
-
-    # Normalise each stem to -3 dBFS
-    def norm(sig: np.ndarray) -> np.ndarray:
-        peak = np.max(np.abs(sig))
-        if peak > 0.001:
-            return (sig / peak * 0.708).astype(np.float32)
-        return sig
-
-    stems = {
-        "drums":  norm(y_percussive),
-        "bass":   norm(y_bass),
-        "vocals": norm(y_vocals),
-        "other":  norm(y_other),
-    }
-
-    # ── 4. Export MP3 ─────────────────────────────────────────────────
     out_dir = stems_dir_for_track(track_id)
-    result = {}
-    for name, audio in stems.items():
-        out_path = os.path.join(out_dir, f"{name}.mp3")
-        ok = _save_mp3(audio, sr, out_path)
-        if not ok:
-            raise RuntimeError(f"Failed to encode stem: {name}")
-        result[name] = out_path
-        logger.info(f"[stems] Saved {name}: {out_path}")
+    demucs_tmp = os.path.join(out_dir, "demucs_raw")
+    os.makedirs(demucs_tmp, exist_ok=True)
 
-    logger.info(f"[stems] Done — {track_id}")
+    # ── 1. Run Demucs CLI ─────────────────────────────────────────────
+    try:
+        result = subprocess.run(
+            [
+                "python", "-m", "demucs",
+                "-n", "htdemucs",         # Best quality model
+                "--out", demucs_tmp,       # Output directory
+                "--mp3",                   # Output as MP3 directly
+                "--mp3-bitrate", "192",    # Good quality
+                "--jobs", "2",             # Parallel workers
+                file_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=900,  # 15 min max
+        )
+
+        if result.returncode != 0:
+            logger.error(f"[stems] Demucs failed:\n{result.stderr}")
+            raise RuntimeError(f"Demucs failed: {result.stderr[:500]}")
+
+        logger.info(f"[stems] Demucs finished successfully")
+
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Demucs timed out (>15 min)")
+
+    # ── 2. Find and move output files ─────────────────────────────────
+    # Demucs outputs to: demucs_tmp/htdemucs/<filename_without_ext>/drums.mp3 etc.
+    search_pattern = os.path.join(demucs_tmp, "htdemucs", "*", "*.mp3")
+    found_files = glob.glob(search_pattern)
+
+    if not found_files:
+        # Fallback: try wav output (if --mp3 flag not supported)
+        search_pattern_wav = os.path.join(demucs_tmp, "htdemucs", "*", "*.wav")
+        found_files_wav = glob.glob(search_pattern_wav)
+        if found_files_wav:
+            logger.info("[stems] Found WAV files, converting to MP3...")
+            for wav_path in found_files_wav:
+                stem_name = Path(wav_path).stem  # drums, bass, vocals, other
+                mp3_path = os.path.join(out_dir, f"{stem_name}.mp3")
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", wav_path, "-b:a", "192k", mp3_path],
+                    capture_output=True, timeout=120,
+                )
+                logger.info(f"[stems] Converted {stem_name}.wav → .mp3")
+        else:
+            raise RuntimeError(f"No stems files found in {demucs_tmp}")
+    else:
+        # Move MP3s to final location
+        for mp3_path in found_files:
+            stem_name = Path(mp3_path).stem  # drums, bass, vocals, other
+            final_path = os.path.join(out_dir, f"{stem_name}.mp3")
+            os.rename(mp3_path, final_path)
+            logger.info(f"[stems] Moved {stem_name}.mp3 to {final_path}")
+
+    # ── 3. Cleanup demucs temp dir ────────────────────────────────────
+    try:
+        import shutil
+        shutil.rmtree(demucs_tmp, ignore_errors=True)
+    except Exception:
+        pass
+
+    # ── 4. Verify all 4 stems exist ──────────────────────────────────
+    result = {}
+    for name in ("drums", "bass", "vocals", "other"):
+        out_path = os.path.join(out_dir, f"{name}.mp3")
+        if not os.path.exists(out_path):
+            raise RuntimeError(f"Missing stem after Demucs: {name}")
+        result[name] = out_path
+        logger.info(f"[stems] Ready: {name} ({os.path.getsize(out_path) / 1024:.0f} KB)")
+
+    logger.info(f"[stems] All 4 stems ready for track {track_id}")
     return result

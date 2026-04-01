@@ -89,7 +89,6 @@ interface PlayerCardProps {
   onTimeUpdate?: (positionMs: number) => void;
   onWaveformClick?: (positionMs: number) => void;
   onPlay?: () => void;
-  onPause?: () => void;
   mutedStems?: Set<string>;
   playerRef?: React.MutableRefObject<any>;
 }
@@ -123,7 +122,6 @@ export default function PlayerCard({
   onTimeUpdate,
   onWaveformClick,
   onPlay,
-  onPause,
   mutedStems,
   playerRef,
 }: PlayerCardProps) {
@@ -302,7 +300,6 @@ export default function PlayerCard({
             }}
             onWaveformClick={onWaveformClick}
             onPlay={onPlay}
-            onPause={onPause}
             mutedStems={mutedStems}
             playerRef={wsPlayerRef}
             onLoopChange={(loopInVal, loopOutVal, loopActiveVal) => {

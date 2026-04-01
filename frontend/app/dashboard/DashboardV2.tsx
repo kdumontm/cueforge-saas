@@ -191,6 +191,8 @@ export default function DashboardV2() {
   const [stemMuted, setStemMuted] = useState<Set<string>>(new Set());
   const stemMutedRef = useRef<Set<string>>(new Set());
   const stemLastTimeRef = useRef<number>(0); // seconds
+  const stemPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stemsLoadedRef = useRef(false);
 
   // FX state (local — will integrate with Web Audio when backend supports it)
   const [fxParams, setFxParams] = useState<Record<string, number>>({});
@@ -472,6 +474,7 @@ export default function DashboardV2() {
   // Fetch stems avec le JWT (comme WaveSurfer) puis créer des Blob URLs
   useEffect(() => {
     if (stemsStatus?.status !== 'completed') {
+      stemsLoadedRef.current = false;
       Object.values(stemAudioMapRef.current).forEach(a => {
         a.pause();
         if (a.src.startsWith('blob:')) URL.revokeObjectURL(a.src);
@@ -502,12 +505,17 @@ export default function DashboardV2() {
           blobUrls.push(blobUrl);
           const a = new Audio(blobUrl);
           a.preload = 'auto';
-          a.volume = stemMutedRef.current.has(k) ? 0 : 1;
+          a.volume = 1; // toujours volume max, on coupe via pause()
           stemAudioMapRef.current[k] = a;
         } catch {
           // stem non disponible
         }
       }));
+
+      if (!cancelled && Object.keys(stemAudioMapRef.current).length > 0) {
+        stemsLoadedRef.current = true;
+        console.log('[CueForge] Stems chargés :', Object.keys(stemAudioMapRef.current).length);
+      }
     };
 
     loadStems();
@@ -526,34 +534,40 @@ export default function DashboardV2() {
   }, [stemsStatus?.status]);
 
   const handleStemPlay = useCallback(() => {
+    if (!stemsLoadedRef.current) return;
     const entries = Object.entries(stemAudioMapRef.current);
     if (!entries.length) return;
-    // Muter le WaveSurfer — les stems sont la seule source audio
+    // Muter le WaveSurfer — les stems deviennent la seule source audio
     playerRef.current?.setVolume?.(0);
     const t = stemLastTimeRef.current;
     entries.forEach(([key, a]) => {
       a.currentTime = t;
-      // Ne pas lancer les stems déjà coupés
       if (!stemMutedRef.current.has(key)) {
         a.play().catch(() => {});
       }
     });
   }, []);
 
-  const handleStemPause = useCallback(() => {
-    if (!Object.keys(stemAudioMapRef.current).length) return;
-    Object.values(stemAudioMapRef.current).forEach(a => a.pause());
-    playerRef.current?.setVolume?.(1);
-  }, []);
-
+  // Pas de onPause explicite — on détecte la pause via le timer dans timeUpdate
   const handleStemTimeUpdate = useCallback((ms: number) => {
     stemLastTimeRef.current = ms / 1000;
+
+    // Si pas de stems chargés, ne rien faire
+    if (!stemsLoadedRef.current || !Object.keys(stemAudioMapRef.current).length) return;
+
     // Re-sync si dérive > 0.4s (seek manuel)
     Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
-      if (!stemMutedRef.current.has(key) && Math.abs(a.currentTime - ms / 1000) > 0.4) {
+      if (!stemMutedRef.current.has(key) && !a.paused && Math.abs(a.currentTime - ms / 1000) > 0.4) {
         a.currentTime = ms / 1000;
       }
     });
+
+    // Timer : si pas de timeUpdate pendant 600ms → WaveSurfer est en pause
+    if (stemPauseTimerRef.current) clearTimeout(stemPauseTimerRef.current);
+    stemPauseTimerRef.current = setTimeout(() => {
+      Object.values(stemAudioMapRef.current).forEach(a => a.pause());
+      playerRef.current?.setVolume?.(1);
+    }, 600);
   }, []);
 
   const toggleStemMute = useCallback((key: string) => {
@@ -1177,7 +1191,6 @@ export default function DashboardV2() {
             onWaveformClick={handleWaveformClick}
             onTimeUpdate={(ms) => { setCuePositionMs(ms); handleStemTimeUpdate(ms); }}
             onPlay={() => { handleTrackPlay(); handleStemPlay(); }}
-            onPause={handleStemPause}
             mutedStems={stemsStatus?.status === 'completed' ? stemMuted : undefined}
             playerRef={playerRef}
           />
