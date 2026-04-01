@@ -5,9 +5,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, Search, Check, SkipForward, Loader2, Music, Disc, User,
   Tag, Calendar, Image as ImageIcon, AlertCircle, CheckCircle2,
-  ChevronLeft, Fingerprint, Wand2,
+  ChevronLeft, Fingerprint, Wand2, RefreshCw,
 } from 'lucide-react';
-import { identifyTrack, spotifyApply, updateTrackMetadata } from '@/lib/api';
+import { identifyTrack, identifyTrackBySearch, spotifyApply, updateTrackMetadata } from '@/lib/api';
 import type { IdentifyResult } from '@/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -48,8 +48,10 @@ const FIELDS = [
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
-  'acoustid+musicbrainz':         'AcoustID + MusicBrainz',
-  'acoustid+musicbrainz+spotify': 'AcoustID + MusicBrainz + Spotify',
+  'acoustid+musicbrainz':              'AcoustID + MusicBrainz',
+  'acoustid+musicbrainz+spotify':      'AcoustID + MusicBrainz + Spotify',
+  'musicbrainz_text':                  'MusicBrainz (recherche texte)',
+  'musicbrainz_text+spotify':          'MusicBrainz + Spotify',
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -59,6 +61,10 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
   const [states, setStates] = useState<Map<number, EnrichState>>(new Map());
   const [summary, setSummary] = useState<{ updated: number; skipped: number } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Manual search
+  const [manualQuery, setManualQuery] = useState('');
+  const [manualSearching, setManualSearching] = useState(false);
 
   const currentTrack = tracks[currentIndex];
   const state = currentTrack ? states.get(currentTrack.id) : null;
@@ -80,9 +86,13 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
     if (!s || s.status === 'pending') {
       runIdentify(currentTrack.id);
     }
+    // Pre-fill manual search with track title/artist
+    const q = [currentTrack.title, currentTrack.artist].filter(Boolean).join(' ') ||
+      currentTrack.original_filename?.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || '';
+    setManualQuery(q);
   }, [currentIndex, currentTrack?.id, states.size]);
 
-  // ── Identify via audio fingerprint ──────────────────────────────────────
+  // ── Identify via audio fingerprint (+ text fallback) ─────────────────────
   const runIdentify = useCallback(async (trackId: number) => {
     patchState(trackId, { status: 'identifying', result: null, selectedFields: new Set() });
 
@@ -90,26 +100,12 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
       const resp = await identifyTrack(trackId);
 
       if (resp.status === 'found' && resp.result) {
-        const r = resp.result;
-        const track = tracks.find(t => t.id === trackId);
-        const auto = new Set<string>();
-        if (r.title   && r.title   !== (track?.title   || '')) auto.add('title');
-        if (r.artist  && r.artist  !== (track?.artist  || '')) auto.add('artist');
-        if (r.album   && r.album   !== (track?.album   || '')) auto.add('album');
-        if (r.genre   && r.genre   !== (track?.genre   || '')) auto.add('genre');
-        if (r.year    && r.year    !== (track?.year    ?? null)) auto.add('year');
-        if (r.artwork_url && r.artwork_url !== (track?.artwork_url || '')) auto.add('artwork_url');
-
-        patchState(trackId, { status: 'found', result: r, selectedFields: auto });
+        applyResult(trackId, resp.result);
       } else {
         patchState(trackId, {
           status: 'not_found',
           result: null,
-          message: resp.message || (
-            resp.status === 'no_fingerprint'
-              ? 'Impossible d\'analyser l\'empreinte audio (fpcalc non disponible ou fichier trop court)'
-              : 'Track non identifié dans la base AcoustID'
-          ),
+          message: resp.message || 'Track non identifié. Essaie la recherche manuelle ci-dessous.',
         });
       }
     } catch (e: any) {
@@ -120,6 +116,47 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
       });
     }
   }, [tracks]);
+
+  // ── Manual search (MusicBrainz text) ────────────────────────────────────
+  const runManualSearch = useCallback(async () => {
+    if (!currentTrack || !manualQuery.trim()) return;
+    setManualSearching(true);
+    patchState(currentTrack.id, { status: 'identifying', result: null, selectedFields: new Set() });
+
+    try {
+      const resp = await identifyTrackBySearch(currentTrack.id, manualQuery.trim());
+      if (resp.status === 'found' && resp.result) {
+        applyResult(currentTrack.id, resp.result);
+      } else {
+        patchState(currentTrack.id, {
+          status: 'not_found',
+          result: null,
+          message: resp.message || `Aucun résultat pour « ${manualQuery} »`,
+        });
+      }
+    } catch (e: any) {
+      patchState(currentTrack.id, {
+        status: 'error',
+        result: null,
+        message: e?.message || 'Erreur de recherche',
+      });
+    } finally {
+      setManualSearching(false);
+    }
+  }, [currentTrack, manualQuery]);
+
+  // ── Shared helper: store result + auto-select changed fields ─────────────
+  const applyResult = (trackId: number, r: IdentifyResult) => {
+    const track = tracks.find(t => t.id === trackId);
+    const auto = new Set<string>();
+    if (r.title       && r.title       !== (track?.title        || '')) auto.add('title');
+    if (r.artist      && r.artist      !== (track?.artist       || '')) auto.add('artist');
+    if (r.album       && r.album       !== (track?.album        || '')) auto.add('album');
+    if (r.genre       && r.genre       !== (track?.genre        || '')) auto.add('genre');
+    if (r.year        && r.year        !== (track?.year         ?? null)) auto.add('year');
+    if (r.artwork_url && r.artwork_url !== (track?.artwork_url  || '')) auto.add('artwork_url');
+    patchState(trackId, { status: 'found', result: r, selectedFields: auto });
+  };
 
   const patchState = (trackId: number, patch: Partial<EnrichState>) => {
     setStates(prev => {
@@ -160,7 +197,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
       patchState(currentTrack.id, { status: 'done' });
       goNext('done');
     } catch (e) {
-      console.error('Failed to save', e);
+      // silent
     } finally {
       setSaving(false);
     }
@@ -206,6 +243,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
   const doneCount = Array.from(states.values()).filter(s => s.status === 'done').length;
   const sourceLabel = r?.source ? (SOURCE_LABEL[r.source] || r.source) : '';
   const confidence = r?.acoustid_score ? Math.round(r.acoustid_score * 100) : null;
+  const isSearchable = state.status === 'not_found' || state.status === 'error';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -246,12 +284,12 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
             {currentTrack.artist && <span className="text-[var(--text-secondary)]"> — {currentTrack.artist}</span>}
           </p>
           {/* Retry button */}
-          {(state.status === 'not_found' || state.status === 'error') && (
+          {isSearchable && (
             <button
               onClick={() => runIdentify(currentTrack.id)}
               className="flex items-center gap-1 text-[10px] text-[var(--accent-primary)] hover:underline cursor-pointer bg-transparent border-none"
             >
-              <Wand2 size={10} /> Réessayer
+              <RefreshCw size={10} /> Réessayer l'empreinte
             </button>
           )}
         </div>
@@ -266,21 +304,53 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                 <Fingerprint size={44} className="text-[var(--accent-primary)]/30" />
                 <Loader2 size={20} className="animate-spin text-[var(--accent-primary)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
               </div>
-              <p className="text-sm text-[var(--text-secondary)] font-medium">Analyse de l'empreinte audio…</p>
+              <p className="text-sm text-[var(--text-secondary)] font-medium">
+                {manualSearching ? 'Recherche sur MusicBrainz…' : 'Analyse de l\'empreinte audio…'}
+              </p>
               <p className="text-[11px] text-[var(--text-muted)]">AcoustID · MusicBrainz · Spotify</p>
             </div>
           )}
 
-          {/* Not found / Error */}
-          {(state.status === 'not_found' || state.status === 'error') && (
-            <div className="flex flex-col items-center justify-center py-14 gap-2.5">
-              <AlertCircle size={36} className={state.status === 'error' ? 'text-red-400' : 'text-amber-400'} />
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                {state.status === 'error' ? 'Erreur d\'identification' : 'Track non reconnu'}
-              </p>
-              {state.message && (
-                <p className="text-[11px] text-[var(--text-muted)] text-center max-w-xs px-4">{state.message}</p>
-              )}
+          {/* Not found / Error — with manual search */}
+          {isSearchable && (
+            <div className="flex flex-col items-center py-10 gap-4 px-6">
+              <AlertCircle size={32} className={state.status === 'error' ? 'text-red-400' : 'text-amber-400'} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-[var(--text-secondary)] mb-1">
+                  {state.status === 'error' ? 'Erreur d\'identification' : 'Track non reconnu automatiquement'}
+                </p>
+                {state.message && (
+                  <p className="text-[11px] text-[var(--text-muted)] max-w-sm">{state.message}</p>
+                )}
+              </div>
+
+              {/* Manual search */}
+              <div className="w-full max-w-md">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+                  🔍 Recherche manuelle (titre + artiste)
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualQuery}
+                    onChange={e => setManualQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && runManualSearch()}
+                    placeholder="ex: Les Démons de Minuit Images"
+                    className="flex-1 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  />
+                  <button
+                    onClick={runManualSearch}
+                    disabled={!manualQuery.trim() || manualSearching}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--accent-primary)] text-white border-none cursor-pointer disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  >
+                    {manualSearching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    Chercher
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--text-muted)] mt-1.5">
+                  Recherche dans la base MusicBrainz (4M+ artistes, musique internationale)
+                </p>
+              </div>
             </div>
           )}
 
@@ -302,6 +372,13 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                     Confiance : {confidence}%
                   </span>
                 )}
+                {/* Re-search button if result seems wrong */}
+                <button
+                  onClick={() => patchState(currentTrack.id, { status: 'not_found', result: null, message: 'Lance une nouvelle recherche.' })}
+                  className="ml-auto flex items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer bg-transparent border-none"
+                >
+                  <Wand2 size={10} /> Mauvais résultat ?
+                </button>
               </div>
 
               {/* Two-column layout */}
@@ -312,7 +389,6 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                     Métadonnées actuelles
                   </p>
-                  {/* Artwork */}
                   <div className="w-16 h-16 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] overflow-hidden mb-4 flex items-center justify-center">
                     {currentTrack.artwork_url
                       ? <img src={currentTrack.artwork_url} alt="" className="w-full h-full object-cover" />

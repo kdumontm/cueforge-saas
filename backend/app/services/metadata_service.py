@@ -63,10 +63,10 @@ def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any
                     "artist": artist or "",
                     "score": best_score,
                 }
-        if best and best_score >= 0.4:
+        if best and best_score >= 0.3:   # seuil abaissé de 0.4 → 0.3
             logger.info(f"AcoustID match: {best['artist']} — {best['title']} (score={best_score:.2f})")
             return best
-        logger.info("AcoustID: no confident match")
+        logger.info(f"AcoustID: no confident match (best score={best_score:.2f})")
     except ImportError:
         logger.warning("acoustid package not installed — pip install acoustid")
     except Exception as e:
@@ -125,6 +125,81 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
         logger.warning("musicbrainzngs not installed — pip install musicbrainzngs")
     except Exception as e:
         logger.warning(f"MusicBrainz lookup failed: {e}")
+    return None
+
+
+# ── MusicBrainz text search (fallback when no fingerprint) ────────────────────
+
+def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str, Any]]:
+    """
+    Search MusicBrainz by free-text query (title, artist, or both).
+    Falls back to HTTP API to avoid the musicbrainzngs rate limit complexity.
+    Returns best match dict or None.
+    """
+    try:
+        import urllib.request
+        import urllib.parse
+        import time
+
+        url = (
+            "https://musicbrainz.org/ws/2/recording"
+            f"?query={urllib.parse.quote(query)}&limit={limit}&fmt=json"
+        )
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "CueForge/0.1 (https://github.com/kdumontm/cueforge-saas)",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        recordings = data.get("recordings", [])
+        if not recordings:
+            logger.info(f"MusicBrainz text search: no results for '{query}'")
+            return None
+
+        best = recordings[0]
+        score = int(best.get("score", 0))
+        if score < 60:
+            logger.info(f"MusicBrainz text search: best score {score} too low for '{query}'")
+            return None
+
+        # Extract artist
+        artist_credits = best.get("artist-credit", [])
+        artist_parts = []
+        for a in artist_credits:
+            if isinstance(a, dict) and "artist" in a:
+                artist_parts.append(a["artist"].get("name", ""))
+            elif isinstance(a, str):
+                artist_parts.append(a)
+        artist = "".join(artist_parts).strip()
+
+        title = best.get("title", "")
+
+        # Release info
+        releases = best.get("releases", [])
+        album = releases[0].get("title", "") if releases else ""
+        year_str = (releases[0].get("date", "") or "")[:4] if releases else ""
+        year = int(year_str) if year_str and year_str.isdigit() else None
+
+        # Tags/genres
+        tags = sorted(best.get("tags", []), key=lambda t: -int(t.get("count", 0)))
+        genre = ", ".join(t["name"].capitalize() for t in tags[:3]) if tags else ""
+
+        recording_id = best.get("id")
+        logger.info(f"MusicBrainz text: {artist} — {title} (score={score}, id={recording_id})")
+        return {
+            "artist": artist,
+            "title": title,
+            "album": album,
+            "year": year,
+            "genre": genre,
+            "musicbrainz_id": recording_id,
+            "score": score / 100.0,
+            "source": "musicbrainz_text",
+        }
+
+    except Exception as e:
+        logger.warning(f"MusicBrainz text search failed: {e}")
     return None
 
 

@@ -530,6 +530,20 @@ export async function identifyTrack(trackId: number): Promise<{
   return response.json();
 }
 
+export async function identifyTrackBySearch(trackId: number, query: string): Promise<{
+  status: 'found' | 'not_found';
+  message?: string;
+  result: IdentifyResult | null;
+}> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/identify/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ query }),
+  });
+  if (!response.ok) throw new Error('Search failed');
+  return response.json();
+}
+
 export async function spotifyLookup(
   trackId: number,
   query?: string,

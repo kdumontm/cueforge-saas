@@ -904,27 +904,29 @@ async def identify_track(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Identify a track by audio fingerprint (Shazam-style).
+    Identify a track by audio fingerprint with text-search fallback.
 
     Pipeline:
       1. fpcalc → generate audio fingerprint
-      2. AcoustID → match fingerprint to recording
-      3. MusicBrainz → fetch full metadata (title, artist, album, year, genre)
-      4. Spotify → artwork + genre (if configured)
+      2. AcoustID → match fingerprint (score ≥ 0.3)
+      3. If AcoustID fails → MusicBrainz text search (title + artist from track metadata / filename)
+      4. MusicBrainz → fetch full metadata by recording ID
+      5. Spotify → artwork + genre (if configured)
 
     Returns suggested metadata WITHOUT saving anything.
     """
     import asyncio
     import json as _json
+    import re
     from app.services.metadata_service import (
         fingerprint_file,
         lookup_acoustid,
         lookup_musicbrainz,
         search_spotify,
+        search_musicbrainz_by_text,
     )
 
     def _json_response(data: dict) -> JSONResponse:
-        """Build JSONResponse with ensure_ascii=False to avoid Content-Length mismatch on non-ASCII chars."""
         content = _json.dumps(data, ensure_ascii=False)
         return JSONResponse(content=_json.loads(content))
 
@@ -935,60 +937,99 @@ async def identify_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    file_path = track.file_path
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Audio file not found on server")
-
     loop = asyncio.get_event_loop()
 
-    # Step 1 — Fingerprint (blocking subprocess → thread pool)
-    fingerprint, duration = await loop.run_in_executor(None, fingerprint_file, file_path)
-    if not fingerprint or not duration:
-        return _json_response({
-            "status": "no_fingerprint",
-            "message": "fpcalc not available or file too short",
-            "result": None,
-        })
+    # Helper: build a text query from track metadata / filename
+    def _build_text_query() -> str:
+        parts = []
+        if track.title and track.title.strip():
+            parts.append(track.title.strip())
+        if track.artist and track.artist.strip():
+            parts.append(track.artist.strip())
+        if not parts:
+            # Fallback to filename: strip extension and common separators
+            name = track.original_filename or ""
+            name = re.sub(r'\.[^.]+$', '', name)          # remove extension
+            name = re.sub(r'[-_]', ' ', name)              # dashes/underscores → spaces
+            name = re.sub(r'\s{2,}', ' ', name).strip()
+            if name:
+                parts.append(name)
+        return " ".join(parts)
 
-    # Step 2 — AcoustID (blocking network → thread pool)
-    acoustid_result = await loop.run_in_executor(None, lookup_acoustid, fingerprint, duration)
+    # Step 1 — Check if audio file exists on disk
+    file_path = track.file_path
+    fingerprint, duration = None, None
+    acoustid_result = None
+    fingerprint_error = None
+
+    if file_path and os.path.exists(file_path):
+        # Step 1a — Fingerprint (blocking subprocess → thread pool)
+        fingerprint, duration = await loop.run_in_executor(None, fingerprint_file, file_path)
+        if fingerprint and duration:
+            # Step 2 — AcoustID (lowered threshold: 0.3 instead of 0.4)
+            acoustid_result = await loop.run_in_executor(None, lookup_acoustid, fingerprint, duration)
+        else:
+            fingerprint_error = "fpcalc unavailable or file too short"
+    else:
+        fingerprint_error = "Audio file not available on server (may have been uploaded to cloud)"
+
+    # Step 3 — Fallback: MusicBrainz text search
+    mb_text_result = None
     if not acoustid_result:
+        text_query = _build_text_query()
+        if text_query:
+            logger.info(f"AcoustID failed ({fingerprint_error or 'no match'}), trying MusicBrainz text: '{text_query}'")
+            mb_text_result = await loop.run_in_executor(None, search_musicbrainz_by_text, text_query)
+
+    if not acoustid_result and not mb_text_result:
+        hint = ""
+        if fingerprint_error:
+            hint = f" ({fingerprint_error})"
         return _json_response({
             "status": "not_found",
-            "message": "No AcoustID match (score too low or unknown track)",
+            "message": f"Track non identifié : empreinte audio et recherche texte n'ont rien trouvé{hint}",
             "result": None,
         })
 
-    artist: str = acoustid_result.get("artist") or ""
-    title: str = acoustid_result.get("title") or ""
-    score: float = acoustid_result.get("score", 0.0)
+    # Build result dict from whichever source succeeded
+    if acoustid_result:
+        artist: str = acoustid_result.get("artist") or ""
+        title: str = acoustid_result.get("title") or ""
+        score: float = acoustid_result.get("score", 0.0)
+        recording_id = acoustid_result.get("recording_id")
+        source = "acoustid+musicbrainz"
+    else:
+        artist = mb_text_result.get("artist") or ""
+        title = mb_text_result.get("title") or ""
+        score = mb_text_result.get("score", 0.0)
+        recording_id = mb_text_result.get("musicbrainz_id")
+        source = "musicbrainz_text"
 
     result = {
-        "title":      title,
-        "artist":     artist,
-        "album":      None,
-        "year":       None,
-        "genre":      None,
-        "artwork_url": None,
-        "spotify_id":  None,
-        "spotify_url": None,
-        "musicbrainz_id": acoustid_result.get("recording_id"),
+        "title":          title,
+        "artist":         artist,
+        "album":          mb_text_result.get("album") if mb_text_result else None,
+        "year":           mb_text_result.get("year") if mb_text_result else None,
+        "genre":          mb_text_result.get("genre") if mb_text_result else None,
+        "artwork_url":    None,
+        "spotify_id":     None,
+        "spotify_url":    None,
+        "musicbrainz_id": recording_id,
         "acoustid_score": score,
-        "source": "acoustid+musicbrainz",
+        "source":         source,
     }
 
-    # Step 3 — MusicBrainz enrichment (blocking network → thread pool)
-    recording_id = acoustid_result.get("recording_id")
-    if recording_id:
+    # Step 4 — MusicBrainz enrichment by recording ID (if from AcoustID)
+    if acoustid_result and recording_id:
         mb = await loop.run_in_executor(None, lookup_musicbrainz, recording_id)
         if mb:
-            if mb.get("title"):    result["title"]   = mb["title"]
-            if mb.get("artist"):   result["artist"]  = mb["artist"]
-            if mb.get("album"):    result["album"]   = mb["album"]
-            if mb.get("year"):     result["year"]    = mb["year"]
-            if mb.get("genre"):    result["genre"]   = mb["genre"]
+            if mb.get("title"):  result["title"]  = mb["title"]
+            if mb.get("artist"): result["artist"] = mb["artist"]
+            if mb.get("album"):  result["album"]  = mb["album"]
+            if mb.get("year"):   result["year"]   = mb["year"]
+            if mb.get("genre"):  result["genre"]  = mb["genre"]
 
-    # Step 4 — Spotify (artwork + genre, blocking network → thread pool)
+    # Step 5 — Spotify (artwork + genre, blocking network → thread pool)
     if result["artist"] and result["title"]:
         sp = await loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
         if sp:
@@ -996,7 +1037,79 @@ async def identify_track(
             if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
             if sp.get("spotify_url"): result["spotify_url"] = sp["spotify_url"]
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
-            result["source"] = "acoustid+musicbrainz+spotify"
+            result["source"] = result["source"] + "+spotify"
+
+    return _json_response({
+        "status": "found",
+        "result": result,
+    })
+
+
+# ── Identification par recherche textuelle manuelle ──────────────────────────
+
+@router.post("/{track_id}/identify/search")
+async def identify_track_by_search(
+    track_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Identify a track by free-text search (title + artist typed by the user).
+    Does NOT require the audio file to be present.
+    """
+    import asyncio
+    import json as _json
+    from app.services.metadata_service import search_musicbrainz_by_text, search_spotify
+
+    def _json_response(data: dict) -> JSONResponse:
+        content = _json.dumps(data, ensure_ascii=False)
+        return JSONResponse(content=_json.loads(content))
+
+    query: str = (body.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    loop = asyncio.get_event_loop()
+    mb = await loop.run_in_executor(None, search_musicbrainz_by_text, query)
+
+    if not mb:
+        return _json_response({
+            "status": "not_found",
+            "message": f"Aucun résultat MusicBrainz pour « {query} »",
+            "result": None,
+        })
+
+    result = {
+        "title":          mb.get("title") or "",
+        "artist":         mb.get("artist") or "",
+        "album":          mb.get("album"),
+        "year":           mb.get("year"),
+        "genre":          mb.get("genre"),
+        "artwork_url":    None,
+        "spotify_id":     None,
+        "spotify_url":    None,
+        "musicbrainz_id": mb.get("musicbrainz_id"),
+        "acoustid_score": mb.get("score", 0.0),
+        "source":         "musicbrainz_text",
+    }
+
+    # Spotify enrichment
+    if result["artist"] and result["title"]:
+        sp = await loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
+        if sp:
+            if sp.get("artwork_url"): result["artwork_url"] = sp["artwork_url"]
+            if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
+            if sp.get("spotify_url"): result["spotify_url"] = sp["spotify_url"]
+            if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
+            result["source"] = "musicbrainz_text+spotify"
 
     return _json_response({
         "status": "found",
