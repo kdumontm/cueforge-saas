@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, Search, Check, SkipForward, Loader2, Music, Disc, User,
   Tag, Calendar, Image as ImageIcon, AlertCircle, CheckCircle2,
-  ChevronLeft, Fingerprint, Wand2, RefreshCw,
+  ChevronLeft, Fingerprint, Wand2, RefreshCw, Building2,
 } from 'lucide-react';
 import { identifyTrack, identifyTrackBySearch, spotifyApply, updateTrackMetadata } from '@/lib/api';
 import type { IdentifyResult } from '@/lib/api';
@@ -18,6 +18,7 @@ interface TrackData {
   artist?: string;
   album?: string;
   genre?: string;
+  label?: string;
   year?: number | null;
   artwork_url?: string | null;
   original_filename?: string;
@@ -43,6 +44,7 @@ const FIELDS = [
   { key: 'artist',      label: 'Artiste',  Icon: User       },
   { key: 'album',       label: 'Album',    Icon: Disc       },
   { key: 'genre',       label: 'Genre',    Icon: Tag        },
+  { key: 'label',       label: 'Label',    Icon: Building2  },
   { key: 'year',        label: 'Année',    Icon: Calendar   },
   { key: 'artwork_url', label: 'Pochette', Icon: ImageIcon  },
 ];
@@ -50,8 +52,12 @@ const FIELDS = [
 const SOURCE_LABEL: Record<string, string> = {
   'acoustid+musicbrainz':              'AcoustID + MusicBrainz',
   'acoustid+musicbrainz+spotify':      'AcoustID + MusicBrainz + Spotify',
+  'acoustid+musicbrainz+itunes':       'AcoustID + MusicBrainz + iTunes',
+  'acoustid+musicbrainz+spotify+itunes': 'AcoustID + MusicBrainz + Spotify + iTunes',
   'musicbrainz_text':                  'MusicBrainz (recherche texte)',
   'musicbrainz_text+spotify':          'MusicBrainz + Spotify',
+  'musicbrainz_text+itunes':           'MusicBrainz + iTunes',
+  'musicbrainz_text+spotify+itunes':   'MusicBrainz + Spotify + iTunes',
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -153,6 +159,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
     if (r.artist      && r.artist      !== (track?.artist       || '')) auto.add('artist');
     if (r.album       && r.album       !== (track?.album        || '')) auto.add('album');
     if (r.genre       && r.genre       !== (track?.genre        || '')) auto.add('genre');
+    if (r.label       && r.label       !== (track?.label        || '')) auto.add('label');
     if (r.year        && r.year        !== (track?.year         ?? null)) auto.add('year');
     if (r.artwork_url && r.artwork_url !== (track?.artwork_url  || '')) auto.add('artwork_url');
     patchState(trackId, { status: 'found', result: r, selectedFields: auto });

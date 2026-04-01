@@ -1014,6 +1014,7 @@ async def identify_track(
         "album":          mb_text_result.get("album") if mb_text_result else None,
         "year":           mb_text_result.get("year") if mb_text_result else None,
         "genre":          mb_text_result.get("genre") if mb_text_result else None,
+        "label":          mb_text_result.get("label") if mb_text_result else None,
         "artwork_url":    None,
         "spotify_id":     None,
         "spotify_url":    None,
@@ -1031,6 +1032,7 @@ async def identify_track(
             if mb.get("album"):  result["album"]  = mb["album"]
             if mb.get("year"):   result["year"]   = mb["year"]
             if mb.get("genre"):  result["genre"]  = mb["genre"]
+            if mb.get("label"):  result["label"]  = mb["label"]
 
     # Step 5 — Spotify (artwork + genre, blocking network → thread pool)
     if result["artist"] and result["title"]:
@@ -1107,6 +1109,7 @@ async def identify_track_by_search(
         "album":          mb.get("album"),
         "year":           mb.get("year"),
         "genre":          mb.get("genre"),
+        "label":          mb.get("label"),
         "artwork_url":    None,
         "spotify_id":     None,
         "spotify_url":    None,

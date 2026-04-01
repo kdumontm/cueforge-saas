@@ -509,6 +509,7 @@ export interface IdentifyResult {
   album?: string;
   year?: number;
   genre?: string;
+  label?: string;
   artwork_url?: string;
   spotify_id?: string;
   spotify_url?: string;

@@ -105,6 +105,13 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
         year_str = releases[0].get("date", "")[:4] if releases else ""
         year = int(year_str) if year_str and year_str.isdigit() else None
 
+        # Label (from first release label-info-list)
+        label = None
+        if releases:
+            label_info_list = releases[0].get("label-info-list", [])
+            if label_info_list and isinstance(label_info_list[0], dict):
+                label = label_info_list[0].get("label", {}).get("name")
+
         # Tags as genre
         tags = sorted(
             rec.get("tag-list", []),
@@ -112,13 +119,14 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
         )
         genre = ", ".join(t["name"].capitalize() for t in tags[:3]) if tags else ""
 
-        logger.info(f"MusicBrainz: {artist} — {title} / {album} ({year})")
+        logger.info(f"MusicBrainz: {artist} — {title} / {album} ({year}) [{label}]")
         return {
             "artist": artist,
             "title": title,
             "album": album,
             "year": year,
             "genre": genre,
+            "label": label,
             "musicbrainz_id": recording_id,
         }
     except ImportError:
@@ -181,18 +189,26 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
         year_str = (releases[0].get("date", "") or "")[:4] if releases else ""
         year = int(year_str) if year_str and year_str.isdigit() else None
 
+        # Label (from first release label-info)
+        label = None
+        if releases:
+            label_info = releases[0].get("label-info", [])
+            if label_info and isinstance(label_info[0], dict):
+                label = label_info[0].get("label", {}).get("name")
+
         # Tags/genres
         tags = sorted(best.get("tags", []), key=lambda t: -int(t.get("count", 0)))
         genre = ", ".join(t["name"].capitalize() for t in tags[:3]) if tags else ""
 
         recording_id = best.get("id")
-        logger.info(f"MusicBrainz text: {artist} — {title} (score={score}, id={recording_id})")
+        logger.info(f"MusicBrainz text: {artist} — {title} (score={score}, label={label})")
         return {
             "artist": artist,
             "title": title,
             "album": album,
             "year": year,
             "genre": genre,
+            "label": label,
             "musicbrainz_id": recording_id,
             "score": score / 100.0,
             "source": "musicbrainz_text",
