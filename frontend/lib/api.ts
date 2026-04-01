@@ -439,7 +439,7 @@ export async function updateTrackMetadata(
   trackId: number,
   metadata: MetadataUpdate
 ): Promise<TrackResponse> {
-  const response = await authFetch(`${API_URL}/tracks/${trackId}/metadata`, {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(metadata),
