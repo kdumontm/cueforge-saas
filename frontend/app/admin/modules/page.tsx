@@ -87,40 +87,45 @@ const DEFS: ModDef[] = [
 ];
 const DEF_MAP = Object.fromEntries(DEFS.map(d => [d.id, d]));
 
-// ─── Default layout ───────────────────────────────────────────────────────────
+// ─── Default layout — calqué sur le vrai dashboard CueForge ──────────────────
+// Canvas : 1400×760  |  Grid : 8px  |  Gap entre colonnes : 8px
+// Topbar : y 0→48  |  Sidebar : x 0→200  |  Main : x 208→1152  |  Right : x 1160→1400
 function makeDefault(): Mod[] {
-  return [
-    // ── Topbar row ──────────────────────────────────────────
-    { id:"auto-analyse",   x:216, y:8,   w:120, h:34, z:10, open:true,  onCanvas:true  },
-    { id:"import",         x:344, y:8,   w:88,  h:34, z:10, open:true,  onCanvas:true  },
-    { id:"export",         x:440, y:8,   w:88,  h:34, z:10, open:true,  onCanvas:true  },
-    { id:"search",         x:580, y:8,   w:220, h:34, z:10, open:true,  onCanvas:true  },
-    { id:"notifications",  x:812, y:8,   w:44,  h:34, z:10, open:true,  onCanvas:true  },
-    { id:"theme",          x:864, y:8,   w:44,  h:34, z:10, open:true,  onCanvas:true  },
-    { id:"batch-actions",  x:920, y:8,   w:130, h:34, z:10, open:true,  onCanvas:true  },
-    // ── Left sidebar ────────────────────────────────────────
-    { id:"filter-panel",   x:0,   y:56,  w:190, h:220, z:5, open:true,  onCanvas:true  },
-    { id:"crate-digger",   x:0,   y:284, w:190, h:120, z:5, open:true,  onCanvas:true  },
-    { id:"harmonic-wheel", x:0,   y:412, w:190, h:160, z:5, open:true,  onCanvas:true  },
-    { id:"settings-link",  x:0,   y:580, w:190, h:44,  z:5, open:true,  onCanvas:true  },
-    // ── Waveform ─────────────────────────────────────────────
-    { id:"track-player",   x:196, y:56,  w:870, h:180, z:5, open:true,  onCanvas:true  },
-    // ── Controls bar ─────────────────────────────────────────
-    { id:"controls-bar",   x:196, y:244, w:870, h:52,  z:5, open:true,  onCanvas:true  },
-    // ── Track list ───────────────────────────────────────────
-    { id:"track-list",     x:196, y:304, w:870, h:330, z:5, open:true,  onCanvas:true  },
-    // ── Right panel ──────────────────────────────────────────
-    { id:"bpm-display",    x:1074,y:56,  w:130, h:90,  z:5, open:true,  onCanvas:true  },
-    { id:"key-display",    x:1074,y:154, w:130, h:90,  z:5, open:true,  onCanvas:true  },
-    { id:"tab-cues",       x:1074,y:252, w:130, h:180, z:5, open:true,  onCanvas:true  },
-    { id:"tab-eq",         x:1074,y:440, w:130, h:120, z:5, open:true,  onCanvas:true  },
-    { id:"tab-info",       x:1074,y:568, w:130, h:66,  z:5, open:true,  onCanvas:true  },
-    // ── Off-canvas (palette) ─────────────────────────────────
-    ...DEFS.filter(d => !["auto-analyse","import","export","search","notifications","theme","batch-actions",
-      "filter-panel","crate-digger","harmonic-wheel","settings-link","track-player","controls-bar",
-      "track-list","bpm-display","key-display","tab-cues","tab-eq","tab-info"].includes(d.id))
-      .map((d, i): Mod => ({ id:d.id, x:0, y:0, w:140, h:44, z:1, open:false, onCanvas:false })),
+  const ON: Mod[] = [
+    // ── Topbar (y:8, h:32) ──────────────────────────────────
+    { id:"auto-analyse",   x:200, y:8,   w:128, h:32,  z:10, open:true,  onCanvas:true },
+    { id:"import",         x:336, y:8,   w:80,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"export",         x:424, y:8,   w:80,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"search",         x:536, y:8,   w:240, h:32,  z:10, open:true,  onCanvas:true },
+    { id:"batch-actions",  x:808, y:8,   w:136, h:32,  z:10, open:true,  onCanvas:true },
+    { id:"view-list",      x:952, y:8,   w:40,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"view-grid",      x:1000,y:8,   w:40,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"refresh-library",x:1048,y:8,   w:40,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"notifications",  x:1296,y:8,   w:40,  h:32,  z:10, open:true,  onCanvas:true },
+    { id:"theme",          x:1344,y:8,   w:40,  h:32,  z:10, open:true,  onCanvas:true },
+    // ── Sidebar gauche (x:0, w:200) ─────────────────────────
+    { id:"filter-panel",   x:0,   y:56,  w:200, h:200, z:5,  open:true,  onCanvas:true },
+    { id:"crate-digger",   x:0,   y:264, w:200, h:120, z:5,  open:true,  onCanvas:true },
+    { id:"harmonic-wheel", x:0,   y:392, w:200, h:176, z:5,  open:true,  onCanvas:true },
+    { id:"stats-library",  x:0,   y:576, w:200, h:64,  z:5,  open:true,  onCanvas:true },
+    { id:"favorites",      x:0,   y:648, w:200, h:48,  z:5,  open:true,  onCanvas:true },
+    { id:"settings-link",  x:0,   y:704, w:200, h:48,  z:5,  open:true,  onCanvas:true },
+    // ── Zone centrale (x:208, w:944) ─────────────────────────
+    { id:"track-player",   x:208, y:56,  w:944, h:200, z:5,  open:true,  onCanvas:true },
+    { id:"controls-bar",   x:208, y:264, w:944, h:56,  z:5,  open:true,  onCanvas:true },
+    { id:"track-list",     x:208, y:328, w:944, h:424, z:5,  open:true,  onCanvas:true },
+    // ── Panneau droit (x:1160, w:240) ────────────────────────
+    { id:"bpm-display",    x:1160,y:56,  w:240, h:96,  z:5,  open:true,  onCanvas:true },
+    { id:"key-display",    x:1160,y:160, w:240, h:96,  z:5,  open:true,  onCanvas:true },
+    { id:"tab-cues",       x:1160,y:264, w:240, h:200, z:5,  open:true,  onCanvas:true },
+    { id:"tab-eq",         x:1160,y:472, w:240, h:128, z:5,  open:true,  onCanvas:true },
+    { id:"tab-info",       x:1160,y:608, w:240, h:144, z:5,  open:true,  onCanvas:true },
   ];
+  const onIds = new Set(ON.map(m => m.id));
+  const OFF: Mod[] = DEFS
+    .filter(d => !onIds.has(d.id))
+    .map(d => ({ id:d.id, x:0, y:0, w:160, h:56, z:1, open:false, onCanvas:false }));
+  return [...ON, ...OFF];
 }
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
@@ -622,17 +627,17 @@ export default function LayoutBuilderPage() {
           onPointerDown={(e) => { if (e.target === canvasRef.current || (e.target as HTMLElement).hasAttribute("data-canvas")) setSelected(null); }}
           data-canvas="1"
         >
-          <div style={{ position:"relative",minWidth:1440,minHeight:760 }} data-canvas="1">
+          <div style={{ position:"relative",minWidth:1400,minHeight:760 }} data-canvas="1">
             <BgGrid/>
-            {/* Zone hints (faint reference) */}
-            <div style={{ position:"absolute",left:0,top:0,width:"100%",height:50,borderBottom:"1px dashed rgba(59,130,246,0.12)",pointerEvents:"none",zIndex:0 }}>
-              <span style={{ position:"absolute",left:8,top:16,fontSize:8,color:"rgba(59,130,246,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Topbar</span>
+            {/* Zone hints — guides de référence très discrets */}
+            <div style={{ position:"absolute",left:0,top:0,width:"100%",height:48,background:"rgba(59,130,246,0.03)",borderBottom:"1px dashed rgba(59,130,246,0.1)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",left:8,top:16,fontSize:8,color:"rgba(59,130,246,0.2)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Topbar</span>
             </div>
-            <div style={{ position:"absolute",left:0,top:50,width:196,bottom:0,borderRight:"1px dashed rgba(168,85,247,0.1)",pointerEvents:"none",zIndex:0 }}>
-              <span style={{ position:"absolute",left:8,top:8,fontSize:8,color:"rgba(168,85,247,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Sidebar</span>
+            <div style={{ position:"absolute",left:0,top:48,width:200,bottom:0,background:"rgba(168,85,247,0.02)",borderRight:"1px dashed rgba(168,85,247,0.08)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",left:8,top:12,fontSize:8,color:"rgba(168,85,247,0.2)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Sidebar</span>
             </div>
-            <div style={{ position:"absolute",right:0,top:50,width:210,bottom:0,borderLeft:"1px dashed rgba(6,182,212,0.1)",pointerEvents:"none",zIndex:0 }}>
-              <span style={{ position:"absolute",right:8,top:8,fontSize:8,color:"rgba(6,182,212,0.25)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Right panel</span>
+            <div style={{ position:"absolute",right:0,top:48,width:240,bottom:0,background:"rgba(6,182,212,0.02)",borderLeft:"1px dashed rgba(6,182,212,0.08)",pointerEvents:"none",zIndex:0 }}>
+              <span style={{ position:"absolute",right:8,top:12,fontSize:8,color:"rgba(6,182,212,0.2)",fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase" }}>Panneau droit</span>
             </div>
 
             {/* CueForge logo watermark */}
