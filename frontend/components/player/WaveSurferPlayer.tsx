@@ -168,6 +168,7 @@ interface WaveSurferPlayerProps {
   onZoomChange?: (pxPerSec: number) => void;
   onPlay?: () => void;
   onPause?: () => void;
+  mutedStems?: Set<string>;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -222,12 +223,30 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: n
   });
 }
 
+// ── Stem mask — gray-out frequency bands for muted stems on waveform ──
+// bass_url → r (red/bass), vocals_url → g (green/mids), other_url → b (blue/highs)
+// drums_url → percussive (all bands dimmed)
+function applyStemMask(
+  r: number, g: number, b: number,
+  muted: Set<string>,
+): { r: number; g: number; b: number } {
+  if (!muted.size) return { r, g, b };
+  const GRAY = 0.12;
+  let mr = r, mg = g, mb = b;
+  if (muted.has('bass_url'))   mr = r * GRAY;
+  if (muted.has('vocals_url')) mg = g * GRAY;
+  if (muted.has('other_url'))  mb = b * GRAY;
+  if (muted.has('drums_url'))  { mr *= 0.4; mg *= 0.4; mb *= 0.4; }
+  return { r: mr, g: mg, b: mb };
+}
+
 // ── Pre-render full waveform strip to an offscreen canvas (called ONCE) ──
 // Each bar = ONE blended color based on frequency content (like Rekordbox)
 function preRenderWaveformStrip(
   colors: { r: number; g: number; b: number; amp: number }[],
   stripHeight: number,
   theme: WaveformTheme,
+  mutedStems?: Set<string>,
 ): HTMLCanvasElement {
   const numBars = colors.length;
   const canvas = document.createElement('canvas');
@@ -237,9 +256,13 @@ function preRenderWaveformStrip(
 
   const mid = stripHeight / 2;
 
+  const muted = mutedStems ?? new Set<string>();
+
   for (let i = 0; i < numBars; i++) {
-    const { r, g, b, amp } = colors[i];
-    if (amp < 0.003) continue;
+    const raw = colors[i];
+    if (raw.amp < 0.003) continue;
+    const { r, g, b } = applyStemMask(raw.r, raw.g, raw.b, muted);
+    const amp = raw.amp;
 
     const barH = Math.max(1, amp * mid * 0.92);
     const bright = 0.55 + amp * 0.45;
@@ -277,6 +300,7 @@ export default function WaveSurferPlayer({
   onZoomChange,
   onPlay: onPlayCallback,
   onPause: onPauseCallback,
+  mutedStems,
 }: WaveSurferPlayerProps) {
   const wsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -316,6 +340,12 @@ export default function WaveSurferPlayer({
   // Spectral data
   const spectralColorsRef = useRef<{ r: number; g: number; b: number; amp: number }[] | null>(null);
   const [spectralReady, setSpectralReady] = useState(false);
+
+  // Stems mute → waveform visual dimming
+  const mutedStemsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    mutedStemsRef.current = mutedStems ?? new Set();
+  }, [mutedStems]);
 
   // Raw audio samples (downsampled for smooth waveform at high zoom)
   const rawSamplesRef = useRef<Float32Array | null>(null);
@@ -389,13 +419,13 @@ export default function WaveSurferPlayer({
     const colors = spectralColorsRef.current;
     if (!colors) return;
     const theme = WAVEFORM_THEMES.find((t) => t.id === themeRef.current) || WAVEFORM_THEMES[0];
-    waveformStripRef.current = preRenderWaveformStrip(colors, 256, theme);
+    waveformStripRef.current = preRenderWaveformStrip(colors, 256, theme, mutedStemsRef.current);
   }, []);
 
-  // Rebuild strip when theme changes
+  // Rebuild strip when theme or muted stems change
   useEffect(() => {
     if (spectralReady) buildStrip();
-  }, [waveformTheme, spectralReady, buildStrip]);
+  }, [waveformTheme, spectralReady, mutedStems, buildStrip]);
 
   // ── Animation loop — FAST: just drawImage + lightweight overlays ──
   const renderFrame = useCallback(() => {
@@ -537,12 +567,12 @@ export default function WaveSurferPlayer({
           const s1 = sampleIdx + 1 < rawSamples.length ? rawSamples[sampleIdx + 1] : s0;
           const sample = s0 + (s1 - s0) * frac;
 
-          // Get spectral color at this position
+          // Get spectral color at this position (with stem mask)
           const ci = Math.min(Math.floor((t / dur) * colors.length), colors.length - 1);
           if (ci < 0) continue;
-          const { r, g, b } = colors[ci];
+          const masked = applyStemMask(colors[ci].r, colors[ci].g, colors[ci].b, mutedStemsRef.current);
           const bright = 0.6 + Math.abs(sample) * 0.4;
-          const color = theme.getBarColor(r, g, b, bright);
+          const color = theme.getBarColor(masked.r, masked.g, masked.b, bright);
 
           // Draw as filled column from center
           const barH = Math.abs(sample) * mid * 0.92;

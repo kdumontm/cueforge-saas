@@ -1178,6 +1178,7 @@ export default function DashboardV2() {
             onTimeUpdate={(ms) => { setCuePositionMs(ms); handleStemTimeUpdate(ms); }}
             onPlay={() => { handleTrackPlay(); handleStemPlay(); }}
             onPause={handleStemPause}
+            mutedStems={stemsStatus?.status === 'completed' ? stemMuted : undefined}
             playerRef={playerRef}
           />
           {/* TrackList sous le waveform */}
@@ -1373,12 +1374,15 @@ export default function DashboardV2() {
                       if (!r.ok) return;
                       const d = await r.json();
                       if (d.status === 'completed') {
+                        // Construire les URLs complètes (le backend retourne des chemins relatifs)
+                        const origin = BASE.replace(/\/api\/v1\/?$/, '');
+                        const abs = (u?: string) => u && !u.startsWith('http') ? `${origin}${u}` : u;
                         setStemsStatus({
                           status: 'completed',
-                          vocals_url: d.vocals_url,
-                          drums_url:  d.drums_url,
-                          bass_url:   d.bass_url,
-                          other_url:  d.other_url,
+                          vocals_url: abs(d.vocals_url),
+                          drums_url:  abs(d.drums_url),
+                          bass_url:   abs(d.bass_url),
+                          other_url:  abs(d.other_url),
                         });
                         addToast('Stems prêts !', 'success');
                       } else if (d.status === 'failed') {
