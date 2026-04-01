@@ -923,6 +923,7 @@ async def identify_track(
         lookup_acoustid,
         lookup_musicbrainz,
         search_spotify,
+        search_itunes,
         search_musicbrainz_by_text,
     )
 
@@ -1039,6 +1040,17 @@ async def identify_track(
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
             result["source"] = result["source"] + "+spotify"
 
+    # Step 6 — iTunes fallback (artwork + genre when Spotify not configured or incomplete)
+    if result["artist"] and result["title"] and (not result["artwork_url"] or not result["genre"]):
+        it = await loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
+        if it:
+            if not result["artwork_url"] and it.get("artwork_url"): result["artwork_url"] = it["artwork_url"]
+            if not result["genre"]       and it.get("genre"):       result["genre"]       = it["genre"]
+            if not result["album"]       and it.get("album"):       result["album"]       = it["album"]
+            if not result["year"]        and it.get("year"):        result["year"]        = it["year"]
+            if "+itunes" not in result["source"]:
+                result["source"] = result["source"] + "+itunes"
+
     return _json_response({
         "status": "found",
         "result": result,
@@ -1060,7 +1072,7 @@ async def identify_track_by_search(
     """
     import asyncio
     import json as _json
-    from app.services.metadata_service import search_musicbrainz_by_text, search_spotify
+    from app.services.metadata_service import search_musicbrainz_by_text, search_spotify, search_itunes
 
     def _json_response(data: dict) -> JSONResponse:
         content = _json.dumps(data, ensure_ascii=False)
@@ -1110,6 +1122,17 @@ async def identify_track_by_search(
             if sp.get("spotify_url"): result["spotify_url"] = sp["spotify_url"]
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
             result["source"] = "musicbrainz_text+spotify"
+
+    # iTunes fallback (artwork + genre quand Spotify non configuré ou incomplet)
+    if result["artist"] and result["title"] and (not result["artwork_url"] or not result["genre"]):
+        it = await loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
+        if it:
+            if not result["artwork_url"] and it.get("artwork_url"): result["artwork_url"] = it["artwork_url"]
+            if not result["genre"]       and it.get("genre"):       result["genre"]       = it["genre"]
+            if not result["album"]       and it.get("album"):       result["album"]       = it["album"]
+            if not result["year"]        and it.get("year"):        result["year"]        = it["year"]
+            suffix = "+itunes" if "itunes" not in result["source"] else ""
+            result["source"] = result["source"] + suffix
 
     return _json_response({
         "status": "found",

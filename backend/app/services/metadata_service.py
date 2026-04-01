@@ -259,6 +259,73 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# ── iTunes Search API (Apple Music) — gratuit, sans clé, excellent pour la musique FR ──
+
+def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
+    """
+    Search Apple iTunes/Music catalogue. Free, no API key required.
+    Returns artwork (600x600), album, year, genre.
+    Great coverage of French music.
+    """
+    try:
+        import urllib.request
+        import urllib.parse
+
+        query = f"{artist} {title}".strip()
+        url = (
+            "https://itunes.apple.com/search"
+            f"?term={urllib.parse.quote(query)}&media=music&entity=song&limit=5&lang=fr_FR"
+        )
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "CueForge/0.1 (https://github.com/kdumontm/cueforge-saas)",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        results = data.get("results", [])
+        if not results:
+            # Retry without artist if combined search failed
+            url2 = (
+                "https://itunes.apple.com/search"
+                f"?term={urllib.parse.quote(title)}&media=music&entity=song&limit=5&lang=fr_FR"
+            )
+            req2 = urllib.request.Request(url2, headers={"User-Agent": "CueForge/0.1"})
+            with urllib.request.urlopen(req2, timeout=10) as resp2:
+                data2 = json.loads(resp2.read().decode("utf-8"))
+            results = data2.get("results", [])
+
+        if not results:
+            logger.info(f"iTunes: no result for '{query}'")
+            return None
+
+        track = results[0]
+
+        # Artwork — replace 100x100 with 600x600
+        artwork = track.get("artworkUrl100", "")
+        if artwork:
+            artwork = artwork.replace("100x100bb", "600x600bb")
+
+        genre = track.get("primaryGenreName", "")
+        album = track.get("collectionName", "")
+        year_str = (track.get("releaseDate") or "")[:4]
+        year = int(year_str) if year_str and year_str.isdigit() else None
+        found_artist = track.get("artistName", "")
+        found_title = track.get("trackName", "")
+
+        logger.info(f"iTunes: {found_artist} — {found_title} / {album} ({year}), genre={genre}")
+        return {
+            "artwork_url": artwork or None,
+            "genre": genre or None,
+            "album": album or None,
+            "year": year,
+            "itunes_artist": found_artist,
+            "itunes_title": found_title,
+        }
+    except Exception as e:
+        logger.warning(f"iTunes lookup failed: {e}")
+    return None
+
+
 # ── Last.fm ────────────────────────────────────────────────────────────────────
 
 def get_lastfm_genre(artist: str, title: str) -> Optional[str]:
@@ -336,7 +403,20 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                 if not metadata.get("genre") and sp.get("genre"):
                     metadata["genre"] = sp["genre"]
 
-        # Step 5 — Last.fm genre fallback
+        # Step 5 — iTunes fallback (artwork + genre, gratuit, sans clé, excellent pour FR)
+        if artist and title and (not metadata.get("artwork_url") or not metadata.get("genre")):
+            it = search_itunes(artist, title)
+            if it:
+                if not metadata.get("artwork_url") and it.get("artwork_url"):
+                    metadata["artwork_url"] = it["artwork_url"]
+                if not metadata.get("genre") and it.get("genre"):
+                    metadata["genre"] = it["genre"]
+                if not metadata.get("album") and it.get("album"):
+                    metadata["album"] = it["album"]
+                if not metadata.get("year") and it.get("year"):
+                    metadata["year"] = it["year"]
+
+        # Step 6 — Last.fm genre fallback
         if artist and title and not metadata.get("genre"):
             lastfm_genre = get_lastfm_genre(artist, title)
             if lastfm_genre:
