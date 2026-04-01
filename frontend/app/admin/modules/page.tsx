@@ -252,17 +252,46 @@ function ModContent({ id, h }: { id:string; h:number }) {
     </div>
   );
 
-  if (id === "tab-cues") return (
-    <div style={{ height:contentH,overflow:"hidden",padding:"4px 8px",display:"flex",flexDirection:"column",gap:5 }}>
-      {[{t:"0:12",c:"#f43f5e",n:"Intro"},{t:"1:04",c:"#3b82f6",n:"Drop 1"},{t:"2:16",c:"#22c55e",n:"Break"},{t:"3:30",c:"#f59e0b",n:"Drop 2"},{t:"4:45",c:"#a855f7",n:"Outro"}].map((cue,i)=>(
-        <div key={i} style={{ display:"flex",alignItems:"center",gap:7,padding:"4px 6px",borderRadius:6,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ width:10,height:10,borderRadius:3,background:cue.c,flexShrink:0 }} />
-          <span style={{ fontSize:10,color:"#e2e8f0",fontVariantNumeric:"tabular-nums",width:32,flexShrink:0 }}>{cue.t}</span>
-          <span style={{ fontSize:10,color:"#64748b",flex:1 }}>{cue.n}</span>
+  if (id === "tab-cues") {
+    const cues = [{t:"0:12",p:4,c:"#f43f5e",n:"Intro",k:"I"},{t:"1:04",p:22,c:"#3b82f6",n:"Drop 1",k:"1"},{t:"2:16",p:48,c:"#22c55e",n:"Break",k:"B"},{t:"3:30",p:70,c:"#f59e0b",n:"Drop 2",k:"2"},{t:"4:45",p:92,c:"#a855f7",n:"Outro",k:"O"}];
+    return (
+      <div style={{ height:contentH,overflow:"hidden",padding:"6px 8px",display:"flex",flexDirection:"column",gap:6 }}>
+        {/* ── Mini timeline bar ── */}
+        <div style={{ position:"relative",height:28,background:"rgba(255,255,255,0.03)",borderRadius:6,border:"1px solid rgba(255,255,255,0.06)",overflow:"hidden",flexShrink:0 }}>
+          {/* Waveform hint */}
+          <div style={{ position:"absolute",inset:0,display:"flex",alignItems:"flex-end",padding:"0 4px",gap:1 }}>
+            {Array.from({length:60}).map((_,i)=>{
+              const h2 = 4 + Math.sin(i*0.4)*8 + Math.cos(i*0.7)*4;
+              return <div key={i} style={{ flex:1,height:`${Math.max(3,h2)}px`,background:"rgba(255,255,255,0.06)",borderRadius:1 }} />;
+            })}
+          </div>
+          {/* Cue markers on timeline */}
+          {cues.map((cue,i)=>(
+            <div key={i} style={{ position:"absolute",left:`${cue.p}%`,top:0,bottom:0,width:2,background:cue.c,opacity:0.8 }}>
+              <div style={{ position:"absolute",top:-1,left:-4,width:10,height:10,background:cue.c,borderRadius:"50%",border:"2px solid rgba(0,0,0,0.5)",boxShadow:`0 0 6px ${cue.c}60` }} />
+            </div>
+          ))}
+          {/* Playhead */}
+          <div style={{ position:"absolute",left:"35%",top:0,bottom:0,width:1.5,background:"#fff",opacity:0.6 }} />
         </div>
-      ))}
-    </div>
-  );
+        {/* ── Cue list ── */}
+        <div style={{ flex:1,display:"flex",flexDirection:"column",gap:3,overflow:"hidden" }}>
+          {cues.map((cue,i)=>(
+            <div key={i} style={{ display:"flex",alignItems:"center",gap:6,padding:"3px 5px",borderRadius:6,background:`linear-gradient(90deg, ${cue.c}12, transparent 70%)`,borderLeft:`2px solid ${cue.c}`,transition:"background 0.15s" }}>
+              {/* Hot cue badge */}
+              <div style={{ width:18,height:18,borderRadius:4,background:`${cue.c}25`,border:`1px solid ${cue.c}50`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 8px ${cue.c}30`,flexShrink:0 }}>
+                <span style={{ fontSize:9,fontWeight:800,color:cue.c }}>{cue.k}</span>
+              </div>
+              <span style={{ fontSize:10,color:"#e2e8f0",fontVariantNumeric:"tabular-nums",width:30,flexShrink:0,fontWeight:600 }}>{cue.t}</span>
+              <span style={{ fontSize:9,color:"#94a3b8",flex:1,textTransform:"uppercase",letterSpacing:0.5,fontWeight:500 }}>{cue.n}</span>
+              {/* Glow dot */}
+              <div style={{ width:6,height:6,borderRadius:"50%",background:cue.c,boxShadow:`0 0 4px ${cue.c}`,flexShrink:0 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (id === "tab-eq") return (
     <div style={{ height:contentH,padding:"6px 8px",display:"flex",flexDirection:"column",gap:8 }}>
