@@ -469,25 +469,58 @@ export default function DashboardV2() {
   }, []);
 
   // ── Stems audio sync with WaveSurfer ──────────────────────────────────────
-  // Créer/détruire les audio elements quand stemsStatus.completed change
+  // Fetch stems avec le JWT (comme WaveSurfer) puis créer des Blob URLs
   useEffect(() => {
     if (stemsStatus?.status !== 'completed') {
-      Object.values(stemAudioMapRef.current).forEach(a => { a.pause(); a.src = ''; });
+      Object.values(stemAudioMapRef.current).forEach(a => {
+        a.pause();
+        if (a.src.startsWith('blob:')) URL.revokeObjectURL(a.src);
+        a.src = '';
+      });
       stemAudioMapRef.current = {};
       return;
     }
+
+    let cancelled = false;
+    const blobUrls: string[] = [];
     const STEM_KEYS = ['vocals_url', 'drums_url', 'bass_url', 'other_url'] as const;
-    STEM_KEYS.forEach(k => {
-      const url = stemsStatus[k];
-      if (!url || stemAudioMapRef.current[k]) return;
-      const a = new Audio(url);
-      a.preload = 'auto';
-      a.volume = stemMutedRef.current.has(k) ? 0 : 1;
-      stemAudioMapRef.current[k] = a;
-    });
+
+    const loadStems = async () => {
+      const { getToken } = await import('@/lib/api');
+      const token = getToken();
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+      await Promise.all(STEM_KEYS.map(async (k) => {
+        const url = stemsStatus[k];
+        if (!url || typeof url !== 'string' || stemAudioMapRef.current[k]) return;
+        try {
+          const res = await fetch(url, { headers });
+          if (!res.ok || cancelled) return;
+          const blob = await res.blob();
+          if (cancelled) return;
+          const blobUrl = URL.createObjectURL(blob);
+          blobUrls.push(blobUrl);
+          const a = new Audio(blobUrl);
+          a.preload = 'auto';
+          a.volume = stemMutedRef.current.has(k) ? 0 : 1;
+          stemAudioMapRef.current[k] = a;
+        } catch {
+          // stem non disponible
+        }
+      }));
+    };
+
+    loadStems();
+
     return () => {
-      Object.values(stemAudioMapRef.current).forEach(a => { a.pause(); a.src = ''; });
+      cancelled = true;
+      Object.values(stemAudioMapRef.current).forEach(a => {
+        a.pause();
+        if (a.src.startsWith('blob:')) URL.revokeObjectURL(a.src);
+        a.src = '';
+      });
       stemAudioMapRef.current = {};
+      blobUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stemsStatus?.status]);
