@@ -167,6 +167,7 @@ interface WaveSurferPlayerProps {
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
   onZoomChange?: (pxPerSec: number) => void;
   onPlay?: () => void;
+  onPause?: () => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -275,6 +276,7 @@ export default function WaveSurferPlayer({
   onLoopChange,
   onZoomChange,
   onPlay: onPlayCallback,
+  onPause: onPauseCallback,
 }: WaveSurferPlayerProps) {
   const wsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -691,7 +693,7 @@ export default function WaveSurferPlayer({
     };
 
     const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); onPlayCallback?.(); } };
-    const onPause = () => { if (!destroyed) setIsPlaying(false); };
+    const onPause = () => { if (!destroyed) { setIsPlaying(false); onPauseCallback?.(); } };
     const onEnded = () => { if (!destroyed) setIsPlaying(false); };
     let lastExternalUpdate = 0;
     const onTimeUpdate = () => {

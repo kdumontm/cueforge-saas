@@ -89,6 +89,7 @@ interface PlayerCardProps {
   onTimeUpdate?: (positionMs: number) => void;
   onWaveformClick?: (positionMs: number) => void;
   onPlay?: () => void;
+  onPause?: () => void;
   playerRef?: React.MutableRefObject<any>;
 }
 
@@ -121,6 +122,7 @@ export default function PlayerCard({
   onTimeUpdate,
   onWaveformClick,
   onPlay,
+  onPause,
   playerRef,
 }: PlayerCardProps) {
   const [zoom, setZoom] = useState<ZoomLevel>(2);
@@ -298,6 +300,7 @@ export default function PlayerCard({
             }}
             onWaveformClick={onWaveformClick}
             onPlay={onPlay}
+            onPause={onPause}
             playerRef={wsPlayerRef}
             onLoopChange={(loopInVal, loopOutVal, loopActiveVal) => {
               setLoopIn(loopInVal);

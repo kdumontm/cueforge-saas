@@ -1,9 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { Download, Loader2, AlertCircle, Scissors } from 'lucide-react';
 import { Track } from '@/types';
-import { Play, Pause, Download, Loader2, AlertCircle, Scissors, VolumeX, Volume2 } from 'lucide-react';
 
 interface StemsStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -16,124 +15,61 @@ interface StemsStatus {
 interface StemsTabProps {
   track: Track | null;
   stemsStatus?: StemsStatus | null;
+  mutedStems?: Set<string>;
+  onToggleMute?: (key: string) => void;
   onRequestStems?: () => void;
 }
 
 const STEM_CONFIG = [
-  { key: 'vocals_url', name: 'Vocals', emoji: '🎤', desc: 'Voix / fréquences vocales',       dot: 'bg-red-400',    accent: 'border-red-400/60 bg-red-400/10'    },
-  { key: 'drums_url',  name: 'Drums',  emoji: '🥁', desc: 'Percussions (HPSS)',               dot: 'bg-yellow-400', accent: 'border-yellow-400/60 bg-yellow-400/10' },
-  { key: 'bass_url',   name: 'Bass',   emoji: '🎸', desc: 'Graves (0 – 200 Hz)',              dot: 'bg-purple-400', accent: 'border-purple-400/60 bg-purple-400/10' },
-  { key: 'other_url',  name: 'Other',  emoji: '🎹', desc: 'Harmoniques hautes (> 3,5 kHz)',   dot: 'bg-blue-400',   accent: 'border-blue-400/60 bg-blue-400/10'   },
+  {
+    key: 'vocals_url',
+    name: 'Vocals',
+    emoji: '🎤',
+    desc: 'Voix & fréquences vocales',
+    color: 'from-red-500/30 to-red-500/5',
+    border: 'border-red-400/40',
+    dot: 'bg-red-400',
+    glow: 'shadow-red-500/20',
+  },
+  {
+    key: 'drums_url',
+    name: 'Drums',
+    emoji: '🥁',
+    desc: 'Percussions & batterie',
+    color: 'from-yellow-500/30 to-yellow-500/5',
+    border: 'border-yellow-400/40',
+    dot: 'bg-yellow-400',
+    glow: 'shadow-yellow-500/20',
+  },
+  {
+    key: 'bass_url',
+    name: 'Bass',
+    emoji: '🎸',
+    desc: 'Graves (0 – 200 Hz)',
+    color: 'from-purple-500/30 to-purple-500/5',
+    border: 'border-purple-400/40',
+    dot: 'bg-purple-400',
+    glow: 'shadow-purple-500/20',
+  },
+  {
+    key: 'other_url',
+    name: 'Other',
+    emoji: '🎹',
+    desc: 'Harmoniques & synthés',
+    color: 'from-blue-500/30 to-blue-500/5',
+    border: 'border-blue-400/40',
+    dot: 'bg-blue-400',
+    glow: 'shadow-blue-500/20',
+  },
 ];
 
-function fmt(s: number) {
-  if (!isFinite(s) || isNaN(s)) return '0:00';
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
-
-export function StemsTab({ track, stemsStatus, onRequestStems }: StemsTabProps) {
-  const audioRefs  = useRef<Record<string, HTMLAudioElement>>({});
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const [masterPlaying, setMasterPlaying] = useState(false);
-  const [mutedStems,    setMutedStems]    = useState<Set<string>>(new Set());
-  const [currentTime,   setCurrentTime]   = useState(0);
-  const [duration,      setDuration]      = useState(0);
-  const [ready,         setReady]         = useState(false);
-
-  const isProcessing = stemsStatus?.status === 'processing';
-  const isCompleted  = stemsStatus?.status === 'completed';
-  const isFailed     = stemsStatus?.status === 'failed';
-
-  /* ── Init audio elements when stems arrive ─────────────────────────── */
-  useEffect(() => {
-    if (!isCompleted) return;
-
-    let loadedCount = 0;
-    const total = STEM_CONFIG.length;
-
-    STEM_CONFIG.forEach(({ key }) => {
-      const url = stemsStatus?.[key as keyof StemsStatus];
-      if (!url || typeof url !== 'string') return;
-      if (audioRefs.current[key]) return; // already created
-
-      const a = new Audio(url);
-      a.preload = 'auto';
-      a.volume  = 1;
-
-      a.onloadedmetadata = () => {
-        setDuration(a.duration);
-        loadedCount++;
-        if (loadedCount === total) setReady(true);
-      };
-      a.onended = () => {
-        setMasterPlaying(false);
-        setCurrentTime(0);
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-
-      audioRefs.current[key] = a;
-    });
-
-    return () => {
-      Object.values(audioRefs.current).forEach(a => { a.pause(); a.src = ''; });
-      audioRefs.current = {};
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      setMasterPlaying(false);
-      setCurrentTime(0);
-      setDuration(0);
-      setReady(false);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCompleted]);
-
-  /* ── Master play / pause ────────────────────────────────────────────── */
-  const toggleMaster = useCallback(() => {
-    const audios = Object.values(audioRefs.current);
-    if (!audios.length) return;
-
-    if (masterPlaying) {
-      audios.forEach(a => a.pause());
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      setMasterPlaying(false);
-    } else {
-      // Sync all to the same position
-      const refTime = audioRefs.current[STEM_CONFIG[0].key]?.currentTime ?? 0;
-      audios.forEach(a => {
-        a.currentTime = refTime;
-        a.play().catch(() => {});
-      });
-      intervalRef.current = setInterval(() => {
-        const a = audioRefs.current[STEM_CONFIG[0].key];
-        if (a) setCurrentTime(a.currentTime);
-      }, 200);
-      setMasterPlaying(true);
-    }
-  }, [masterPlaying]);
-
-  /* ── Seek ───────────────────────────────────────────────────────────── */
-  const seek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const t = parseFloat(e.target.value);
-    Object.values(audioRefs.current).forEach(a => { a.currentTime = t; });
-    setCurrentTime(t);
-  }, []);
-
-  /* ── Toggle mute for a single stem ─────────────────────────────────── */
-  const toggleMute = useCallback((key: string) => {
-    setMutedStems(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-        if (audioRefs.current[key]) audioRefs.current[key].volume = 1;
-      } else {
-        next.add(key);
-        if (audioRefs.current[key]) audioRefs.current[key].volume = 0;
-      }
-      return next;
-    });
-  }, []);
-
-  /* ── Render ─────────────────────────────────────────────────────────── */
+export function StemsTab({
+  track,
+  stemsStatus,
+  mutedStems = new Set(),
+  onToggleMute,
+  onRequestStems,
+}: StemsTabProps) {
   if (!track) {
     return (
       <div className="flex items-center justify-center h-48 text-[var(--text-muted)] text-sm">
@@ -141,6 +77,10 @@ export function StemsTab({ track, stemsStatus, onRequestStems }: StemsTabProps) 
       </div>
     );
   }
+
+  const isProcessing = stemsStatus?.status === 'processing';
+  const isCompleted  = stemsStatus?.status === 'completed';
+  const isFailed     = stemsStatus?.status === 'failed';
 
   return (
     <div className="p-4 space-y-3">
@@ -166,119 +106,93 @@ export function StemsTab({ track, stemsStatus, onRequestStems }: StemsTabProps) 
         </div>
       )}
 
-      {/* ── Stem cards ─────────────────────────────────────── */}
+      {/* Completed — stem cards */}
       {isCompleted && (
         <>
-          {/* Hint */}
-          <p className="text-[10px] text-[var(--text-muted)] px-1 leading-relaxed">
-            🎛️ <strong>Clique sur un stem</strong> pour le couper / le réactiver · écoute le mix en temps réel avant de télécharger
+          <p className="text-[10px] text-[var(--text-muted)] px-0.5">
+            🎛️ <strong>Clique sur un stem</strong> pour le couper ou le réactiver dans la lecture
           </p>
 
-          <div className="space-y-2">
-            {STEM_CONFIG.map(({ key, name, emoji, desc, dot, accent }) => {
-              const url    = stemsStatus?.[key as keyof StemsStatus];
-              const avail  = typeof url === 'string' && url.length > 0;
-              const muted  = mutedStems.has(key);
+          <div className="grid grid-cols-2 gap-2">
+            {STEM_CONFIG.map(({ key, name, emoji, desc, color, border, dot, glow }) => {
+              const url   = stemsStatus?.[key as keyof StemsStatus];
+              const avail = typeof url === 'string' && url.length > 0;
+              const muted = mutedStems.has(key);
 
               return (
-                <div
-                  key={key}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                    muted
-                      ? 'opacity-40 bg-[var(--bg-card)] border-[var(--border-subtle)] scale-[0.98]'
-                      : avail
-                        ? `${accent} border`
-                        : 'bg-[var(--bg-card)] border-[var(--border-subtle)] opacity-50'
-                  }`}
-                >
-                  <span className="text-base w-6 text-center select-none">{emoji}</span>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${dot} ${muted ? 'opacity-30' : ''}`} />
+                <div key={key} className="relative group">
+                  {/* Main clickable card */}
+                  <button
+                    onClick={() => avail && onToggleMute?.(key)}
+                    disabled={!avail}
+                    title={muted ? `Réactiver ${name}` : `Couper ${name}`}
+                    className={`
+                      w-full text-left rounded-xl border p-3 transition-all duration-200 cursor-pointer
+                      bg-gradient-to-br ${color} ${border}
+                      ${muted
+                        ? 'opacity-35 scale-[0.97] grayscale'
+                        : `shadow-lg ${glow} hover:scale-[1.02] hover:brightness-110`
+                      }
+                      ${!avail ? 'opacity-25 cursor-not-allowed grayscale' : ''}
+                    `}
+                  >
+                    {/* Emoji grande */}
+                    <div className="text-3xl mb-2 leading-none">{emoji}</div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
-                      {name}
-                      {muted && (
-                        <span className="text-[9px] font-normal text-red-400 bg-red-400/10 border border-red-400/30 rounded px-1 py-0">
-                          COUPÉ
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[10px] text-[var(--text-muted)] truncate">{desc}</p>
-                  </div>
-
-                  {avail && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Mute toggle */}
-                      <button
-                        onClick={() => toggleMute(key)}
-                        title={muted ? `Réactiver ${name}` : `Couper ${name}`}
-                        className={`p-1.5 rounded-lg border text-[11px] transition-all cursor-pointer ${
-                          muted
-                            ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                            : 'bg-transparent border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-red-400/50 hover:text-red-400'
-                        }`}
-                      >
-                        {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-                      </button>
-
-                      {/* Download */}
-                      <a
-                        href={url as string}
-                        download={`${track?.title ?? 'track'}_${name.toLowerCase()}.mp3`}
-                        className="p-1.5 rounded-lg bg-transparent border border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)] transition-all"
-                        title={`Télécharger ${name}`}
-                      >
-                        <Download size={12} />
-                      </a>
+                    {/* Nom + dot */}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                      <span className="text-xs font-bold text-[var(--text-primary)]">{name}</span>
                     </div>
+                    <p className="text-[9px] text-[var(--text-muted)] leading-tight">{desc}</p>
+
+                    {/* Badge COUPÉ */}
+                    {muted && (
+                      <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/40">
+                        <span className="text-[8px] font-bold text-red-400 tracking-wide">COUPÉ</span>
+                      </div>
+                    )}
+
+                    {/* Spinner si processing */}
+                    {isProcessing && !avail && (
+                      <Loader2 size={12} className="mt-1 text-[var(--text-muted)] animate-spin" />
+                    )}
+                  </button>
+
+                  {/* Download button — overlay en bas à droite */}
+                  {avail && (
+                    <a
+                      href={url as string}
+                      download={`${track?.title ?? 'track'}_${name.toLowerCase()}.mp3`}
+                      title={`Télécharger ${name}`}
+                      onClick={e => e.stopPropagation()}
+                      className="
+                        absolute bottom-2 right-2
+                        p-1 rounded-md
+                        bg-black/40 border border-white/10
+                        text-white/50 hover:text-white hover:bg-black/60
+                        transition-all opacity-0 group-hover:opacity-100
+                        z-10
+                      "
+                    >
+                      <Download size={11} />
+                    </a>
                   )}
                 </div>
               );
             })}
           </div>
 
-          {/* ── Master player ──────────────────────────────── */}
-          <div className="mt-3 p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)]">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleMaster}
-                disabled={!ready}
-                title={masterPlaying ? 'Pause' : 'Écouter le mix'}
-                className={`w-8 h-8 flex items-center justify-center rounded-full border transition-all shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                  masterPlaying
-                    ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white'
-                    : 'bg-transparent border-[var(--border-default)] text-[var(--text-muted)] hover:text-white hover:border-[var(--accent-primary)]'
-                }`}
-              >
-                {masterPlaying ? <Pause size={14} /> : <Play size={14} />}
-              </button>
-
-              <div className="flex-1 flex flex-col gap-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  step={0.1}
-                  value={currentTime}
-                  onChange={seek}
-                  className="w-full h-1.5 accent-[var(--accent-primary)] cursor-pointer"
-                />
-                <div className="flex justify-between text-[9px] text-[var(--text-muted)]">
-                  <span>{fmt(currentTime)}</span>
-                  <span>
-                    {mutedStems.size > 0
-                      ? `${mutedStems.size} stem${mutedStems.size > 1 ? 's' : ''} coupé${mutedStems.size > 1 ? 's' : ''}`
-                      : 'Mix complet'}
-                  </span>
-                  <span>{fmt(duration)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Status line */}
+          <p className="text-[9px] text-center text-[var(--text-muted)] pt-1">
+            {mutedStems.size === 0
+              ? '✅ Mix complet — tous les stems actifs'
+              : `🔇 ${mutedStems.size} stem${mutedStems.size > 1 ? 's' : ''} coupé${mutedStems.size > 1 ? 's' : ''} · clique pour réactiver`}
+          </p>
         </>
       )}
 
-      {/* No stems yet */}
+      {/* Not started */}
       {!isCompleted && !isProcessing && (
         <>
           <p className="text-[10px] text-[var(--text-muted)] leading-relaxed px-1">

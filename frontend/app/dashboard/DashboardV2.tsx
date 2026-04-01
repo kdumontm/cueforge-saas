@@ -186,6 +186,12 @@ export default function DashboardV2() {
     other_url?: string | null;
   } | null>(null);
 
+  // Stems audio sync — audio elements live here, synced with WaveSurfer
+  const stemAudioMapRef = useRef<Record<string, HTMLAudioElement>>({});
+  const [stemMuted, setStemMuted] = useState<Set<string>>(new Set());
+  const stemMutedRef = useRef<Set<string>>(new Set());
+  const stemLastTimeRef = useRef<number>(0); // seconds
+
   // FX state (local — will integrate with Web Audio when backend supports it)
   const [fxParams, setFxParams] = useState<Record<string, number>>({});
 
@@ -461,6 +467,67 @@ export default function DashboardV2() {
     setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
+
+  // ── Stems audio sync with WaveSurfer ──────────────────────────────────────
+  // Créer/détruire les audio elements quand stemsStatus.completed change
+  useEffect(() => {
+    if (stemsStatus?.status !== 'completed') {
+      Object.values(stemAudioMapRef.current).forEach(a => { a.pause(); a.src = ''; });
+      stemAudioMapRef.current = {};
+      return;
+    }
+    const STEM_KEYS = ['vocals_url', 'drums_url', 'bass_url', 'other_url'] as const;
+    STEM_KEYS.forEach(k => {
+      const url = stemsStatus[k];
+      if (!url || stemAudioMapRef.current[k]) return;
+      const a = new Audio(url);
+      a.preload = 'auto';
+      a.volume = stemMutedRef.current.has(k) ? 0 : 1;
+      stemAudioMapRef.current[k] = a;
+    });
+    return () => {
+      Object.values(stemAudioMapRef.current).forEach(a => { a.pause(); a.src = ''; });
+      stemAudioMapRef.current = {};
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stemsStatus?.status]);
+
+  const handleStemPlay = useCallback(() => {
+    const audios = Object.values(stemAudioMapRef.current);
+    if (!audios.length) return;
+    audios.forEach(a => {
+      a.currentTime = stemLastTimeRef.current;
+      a.play().catch(() => {});
+    });
+  }, []);
+
+  const handleStemPause = useCallback(() => {
+    Object.values(stemAudioMapRef.current).forEach(a => a.pause());
+  }, []);
+
+  const handleStemTimeUpdate = useCallback((ms: number) => {
+    stemLastTimeRef.current = ms / 1000;
+    // Re-sync stems si dérive > 0.4s (seek manuel)
+    Object.values(stemAudioMapRef.current).forEach(a => {
+      if (Math.abs(a.currentTime - ms / 1000) > 0.4) a.currentTime = ms / 1000;
+    });
+  }, []);
+
+  const toggleStemMute = useCallback((key: string) => {
+    setStemMuted(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+        if (stemAudioMapRef.current[key]) stemAudioMapRef.current[key].volume = 1;
+      } else {
+        next.add(key);
+        if (stemAudioMapRef.current[key]) stemAudioMapRef.current[key].volume = 0;
+      }
+      stemMutedRef.current = next;
+      return next;
+    });
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Record play event — met à jour l'historique local + backend
   const handleTrackPlay = useCallback(() => {
@@ -1056,8 +1123,9 @@ export default function DashboardV2() {
             onPrev={selectedTrackIdx > 0 ? handlePrev : undefined}
             onNext={selectedTrackIdx >= 0 && selectedTrackIdx < displayTracks.length - 1 ? handleNext : undefined}
             onWaveformClick={handleWaveformClick}
-            onTimeUpdate={(ms) => setCuePositionMs(ms)}
-            onPlay={handleTrackPlay}
+            onTimeUpdate={(ms) => { setCuePositionMs(ms); handleStemTimeUpdate(ms); }}
+            onPlay={() => { handleTrackPlay(); handleStemPlay(); }}
+            onPause={handleStemPause}
             playerRef={playerRef}
           />
           {/* TrackList sous le waveform */}
@@ -1225,6 +1293,8 @@ export default function DashboardV2() {
               <StemsTab
                 track={selectedTrack}
                 stemsStatus={stemsStatus}
+                mutedStems={stemMuted}
+                onToggleMute={toggleStemMute}
                 onRequestStems={async () => {
                   if (!selectedTrack || selectedTrack.id < 0) return;
                   setStemsStatus({ status: 'processing' });
