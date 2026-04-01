@@ -28,6 +28,26 @@ import MetadataEnrichModal from '@/components/MetadataEnrichModal';
 
 const TabFallback = () => <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">Chargement…</div>;
 
+// ── Energy helpers ─────────────────────────────────────────────────────
+function energyColor(energy: number | null | undefined): string {
+  if (energy == null) return 'rgb(107,114,128)';
+  if (energy < 0.25) return 'rgb(34,197,94)';
+  if (energy < 0.5)  return 'rgb(234,179,8)';
+  if (energy < 0.75) return 'rgb(249,115,22)';
+  return 'rgb(239,68,68)';
+}
+function energyRating(energy: number | null | undefined): string {
+  if (energy == null) return '—';
+  return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
+}
+function energyLabel(energy: number | null | undefined): string {
+  if (energy == null) return 'N/A';
+  if (energy < 0.25) return 'Calm';
+  if (energy < 0.5)  return 'Moderate';
+  if (energy < 0.75) return 'Energetic';
+  return 'Intense';
+}
+
 // ── Camelot conversion ─────────────────────────────────────────────────
 const CAMELOT_WHEEL_MAP: Record<string, string> = {
   'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
@@ -149,6 +169,13 @@ export default function DashboardV2() {
 
   // Metadata Enrich modal
   const [enrichTracks, setEnrichTracks] = useState<any[]>([]);
+
+  // Export bibliothèque modal
+  const [showExport, setShowExport] = useState(false);
+
+  // Drag & drop overlay
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // Stems state
   const [stemsStatus, setStemsStatus] = useState<{
@@ -738,13 +765,85 @@ export default function DashboardV2() {
     setUploading(false);
   }
 
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) { dragCounterRef.current = 0; setIsDragging(false); }
+  }
+
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
     if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files?.length) handleFiles(e.target.files);
+  }
+
+  // ── Export toute la bibliothèque ────────────────────────────────────
+  function handleExportAllCSV() {
+    const rows = [
+      ['#', 'Titre', 'Artiste', 'Album', 'Genre', 'BPM', 'Key', 'Energy', 'Rating', 'Tags', 'Durée (ms)'],
+      ...tracks.map((t, i) => {
+        const a = (t as any).analysis || {};
+        return [
+          i + 1,
+          t.title || t.original_filename || '',
+          t.artist || '',
+          t.album || '',
+          t.genre || a.genre || '',
+          a.bpm?.toFixed(1) || '',
+          a.key || '',
+          a.energy != null ? Math.round(a.energy * 100) + '%' : '',
+          t.rating || '',
+          t.tags || '',
+          a.duration_ms || '',
+        ];
+      }),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'cueforge-library.csv'; a.click();
+    URL.revokeObjectURL(url);
+    addToast(`Export CSV — ${tracks.length} tracks`, 'success');
+    setShowExport(false);
+  }
+
+  function handleExportAllTXT() {
+    const lines = [
+      `=== CueForge — Bibliothèque complète (${tracks.length} tracks) ===`,
+      `Exporté le ${new Date().toLocaleDateString('fr-FR')}`,
+      '',
+      ...tracks.map((t, i) => {
+        const a = (t as any).analysis || {};
+        return `[${i + 1}] ${t.title || t.original_filename || '?'} — ${t.artist || '?'} | BPM: ${a.bpm?.toFixed(0) || '?'} | Key: ${a.key || '?'} | Energy: ${energyLabel(a.energy)}`;
+      }),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'cueforge-library.txt'; a.click();
+    URL.revokeObjectURL(url);
+    addToast(`Export TXT — ${tracks.length} tracks`, 'success');
+    setShowExport(false);
+  }
+
+  async function handleExportAllRekordbox() {
+    addToast('Export Rekordbox en cours…', 'info');
+    setShowExport(false);
+    let ok = 0;
+    for (const t of tracks) {
+      try { await exportRekordbox(t.id); ok++; } catch {}
+    }
+    addToast(`Export Rekordbox — ${ok} tracks`, 'success');
   }
 
   const unanalyzedCount = tracks.filter(t => t.status !== 'analyzed').length;
@@ -895,10 +994,23 @@ export default function DashboardV2() {
 
   return (
     <div
-      className="p-4 space-y-3"
+      className="p-4 space-y-3 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
+      {/* ── Drag & Drop Overlay ── */}
+      {isDragging && (
+        <div className="absolute inset-0 z-[9998] bg-cyan-500/10 backdrop-blur-sm border-2 border-dashed border-cyan-400/60 rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 text-cyan-400">
+            <Upload size={48} className="animate-bounce" />
+            <span className="text-lg font-semibold">Dépose tes fichiers audio ici</span>
+            <span className="text-sm text-cyan-400/60">MP3 · WAV · FLAC · AAC · OGG · M4A · AIF</span>
+          </div>
+        </div>
+      )}
+
       {/* Demo banner (uniquement en mode demo) */}
       {isDemo && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl">
@@ -959,6 +1071,13 @@ export default function DashboardV2() {
                   title="Supprimer tous les tracks du compte"
                 >
                   <Trash2 size={12} /> Vider la bibliothèque
+                </button>
+                <button
+                  onClick={() => setShowExport(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[var(--border-subtle)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all cursor-pointer bg-transparent"
+                  title="Exporter la bibliothèque"
+                >
+                  <Download size={12} /> Exporter
                 </button>
               </div>
             )}
@@ -1298,6 +1417,43 @@ export default function DashboardV2() {
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Export Bibliothèque Modal */}
+      {showExport && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowExport(false)}>
+          <div className="bg-[var(--bg-card)] rounded-2xl p-6 w-full max-w-md border border-[var(--border-default)] shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Download size={17} className="text-cyan-400" /> Export Bibliothèque
+              </h2>
+              <button onClick={() => setShowExport(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer bg-transparent border-none p-1">
+                <X size={15} />
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Rekordbox XML', desc: 'Compatible Pioneer DJ, rekordbox 5/6', color: 'cyan', action: handleExportAllRekordbox },
+                { label: 'CSV Tracklist', desc: 'Titre, Artiste, BPM, Key, Genre, Energy…', color: 'emerald', action: handleExportAllCSV },
+                { label: 'Tracklist TXT', desc: 'Format texte numéroté', color: 'violet', action: handleExportAllTXT },
+              ].map(opt => (
+                <button key={opt.label} onClick={opt.action}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] hover:border-${opt.color}-500/40 hover:bg-${opt.color}-500/5 transition-all cursor-pointer text-left`}>
+                  <div className={`w-9 h-9 rounded-xl bg-${opt.color}-500/10 flex items-center justify-center shrink-0`}>
+                    <Download size={16} className={`text-${opt.color}-400`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{opt.label}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">{opt.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] mt-4 text-center">
+              {tracks.length} morceaux dans la bibliothèque
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Metadata Enrich Modal */}
       {enrichTracks.length > 0 && (
