@@ -526,41 +526,54 @@ export default function DashboardV2() {
   }, [stemsStatus?.status]);
 
   const handleStemPlay = useCallback(() => {
-    const audios = Object.values(stemAudioMapRef.current);
-    if (!audios.length) return;
-    // CRUCIAL : muter le WaveSurfer pour entendre uniquement les stems
+    const entries = Object.entries(stemAudioMapRef.current);
+    if (!entries.length) return;
+    // Muter le WaveSurfer — les stems sont la seule source audio
     playerRef.current?.setVolume?.(0);
-    audios.forEach(a => {
-      a.currentTime = stemLastTimeRef.current;
-      a.play().catch(() => {});
+    const t = stemLastTimeRef.current;
+    entries.forEach(([key, a]) => {
+      a.currentTime = t;
+      // Ne pas lancer les stems déjà coupés
+      if (!stemMutedRef.current.has(key)) {
+        a.play().catch(() => {});
+      }
     });
   }, []);
 
   const handleStemPause = useCallback(() => {
-    const audios = Object.values(stemAudioMapRef.current);
-    if (!audios.length) return;
-    audios.forEach(a => a.pause());
-    // Restaurer le volume du WaveSurfer
+    if (!Object.keys(stemAudioMapRef.current).length) return;
+    Object.values(stemAudioMapRef.current).forEach(a => a.pause());
     playerRef.current?.setVolume?.(1);
   }, []);
 
   const handleStemTimeUpdate = useCallback((ms: number) => {
     stemLastTimeRef.current = ms / 1000;
-    // Re-sync stems si dérive > 0.4s (seek manuel ou loop)
-    Object.values(stemAudioMapRef.current).forEach(a => {
-      if (Math.abs(a.currentTime - ms / 1000) > 0.4) a.currentTime = ms / 1000;
+    // Re-sync si dérive > 0.4s (seek manuel)
+    Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
+      if (!stemMutedRef.current.has(key) && Math.abs(a.currentTime - ms / 1000) > 0.4) {
+        a.currentTime = ms / 1000;
+      }
     });
   }, []);
 
   const toggleStemMute = useCallback((key: string) => {
+    const audio = stemAudioMapRef.current[key];
     setStemMuted(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
+        // Réactiver — relancer en sync avec les autres stems
         next.delete(key);
-        if (stemAudioMapRef.current[key]) stemAudioMapRef.current[key].volume = 1;
+        if (audio) {
+          // Chercher un stem qui joue pour se caler dessus
+          const refAudio = Object.entries(stemAudioMapRef.current)
+            .find(([k, a]) => !next.has(k) && !a.paused)?.[1];
+          audio.currentTime = refAudio ? refAudio.currentTime : stemLastTimeRef.current;
+          audio.play().catch(() => {});
+        }
       } else {
+        // Couper — pause complète (plus fiable que volume=0)
         next.add(key);
-        if (stemAudioMapRef.current[key]) stemAudioMapRef.current[key].volume = 0;
+        if (audio) audio.pause();
       }
       stemMutedRef.current = next;
       return next;
