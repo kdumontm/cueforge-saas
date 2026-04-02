@@ -534,11 +534,15 @@ export default function DashboardV2() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stemsStatus?.status]);
 
+  // Track si les stems sont en train de jouer (pour garder WaveSurfer muté)
+  const stemsPlayingRef = useRef(false);
+
   const handleStemPlay = useCallback(() => {
     if (!stemsLoadedRef.current) return;
     const entries = Object.entries(stemAudioMapRef.current);
     if (!entries.length) return;
-    // Muter le WaveSurfer — les stems deviennent la seule source audio
+    stemsPlayingRef.current = true;
+    // Muter WaveSurfer — les stems deviennent la seule source audio
     playerRef.current?.setVolume?.(0);
     const t = stemLastTimeRef.current;
     entries.forEach(([key, a]) => {
@@ -549,26 +553,41 @@ export default function DashboardV2() {
     });
   }, []);
 
-  // Pas de onPause explicite — on détecte la pause via le timer dans timeUpdate
   const handleStemTimeUpdate = useCallback((ms: number) => {
-    stemLastTimeRef.current = ms / 1000;
+    const newTime = ms / 1000;
+    const prevTime = stemLastTimeRef.current;
+    const isSeeking = Math.abs(newTime - prevTime) > 0.5;
+    stemLastTimeRef.current = newTime;
 
-    // Si pas de stems chargés, ne rien faire
     if (!stemsLoadedRef.current || !Object.keys(stemAudioMapRef.current).length) return;
 
-    // Re-sync si dérive > 0.4s (seek manuel)
-    Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
-      if (!stemMutedRef.current.has(key) && !a.paused && Math.abs(a.currentTime - ms / 1000) > 0.4) {
-        a.currentTime = ms / 1000;
-      }
-    });
+    // Toujours garder WaveSurfer muté pendant la lecture des stems
+    if (stemsPlayingRef.current) {
+      playerRef.current?.setVolume?.(0);
+    }
 
-    // Timer : si pas de timeUpdate pendant 600ms → WaveSurfer est en pause
+    if (isSeeking) {
+      // Seek détecté → repositionner TOUS les stems (même en pause)
+      // pour qu'ils reprennent au bon endroit au prochain play
+      Object.values(stemAudioMapRef.current).forEach(a => {
+        a.currentTime = newTime;
+      });
+    } else {
+      // Re-sync si dérive > 0.4s pendant la lecture
+      Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
+        if (!stemMutedRef.current.has(key) && !a.paused && Math.abs(a.currentTime - newTime) > 0.4) {
+          a.currentTime = newTime;
+        }
+      });
+    }
+
+    // Timer pause: 1200ms (plus long pour éviter les faux positifs pendant seeking/buffering)
     if (stemPauseTimerRef.current) clearTimeout(stemPauseTimerRef.current);
     stemPauseTimerRef.current = setTimeout(() => {
+      stemsPlayingRef.current = false;
       Object.values(stemAudioMapRef.current).forEach(a => a.pause());
       playerRef.current?.setVolume?.(1);
-    }, 600);
+    }, 1200);
   }, []);
 
   const toggleStemMute = useCallback((key: string) => {
