@@ -389,15 +389,16 @@ def _run_analysis(track_id: int):
             user = db.query(User).filter(User.id == track.user_id).first()
             if user and getattr(user, 'use_stem_separation', False):
                 use_stems = True
-                logger.info(f"[STEM] Stem separation enabled for user {user.id}")
+                logger.info(f"[STEM] Mode pro activé pour user {user.id} — Demucs sera lancé en arrière-plan après analyse")
         except Exception:
             pass
 
         try:
-            # Pass track_id so stems are saved to disk when use_stems=True
-            # → the stems module finds them without re-running Demucs
+            # L'analyse principale tourne TOUJOURS sans Demucs inline.
+            # Demucs (10-30 min sur CPU) est déclenché en thread séparé ci-dessous
+            # pour ne pas bloquer ni dépasser le timeout de 3 min.
             analysis_data = analysis_svc.analyze_audio(
-                file_path, use_stem_separation=use_stems, track_id=track_id
+                file_path, use_stem_separation=False, track_id=None
             )
         except Exception as e:
             logger.error(f"Audio analysis failed for track {track_id}: {e}")
@@ -530,6 +531,35 @@ def _run_analysis(track_id: int):
         track.status = TrackStatus.completed
         db.commit()
         logger.info(f"Track {track_id} analysis complete")
+
+        # ── Mode pro : lancer Demucs en thread daemon après analyse ─────
+        # On utilise stems_service.separate_stems (CLI subprocess, timeout 15 min)
+        # plutôt qu'une intégration Python inline, bien plus robuste sur Railway CPU.
+        if use_stems:
+            try:
+                from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
+                from app.routers.advanced import _stems_jobs
+                import threading as _threading
+                if stems_already_exist(track_id):
+                    logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
+                else:
+                    _stems_jobs[track_id] = {"status": "processing", "error": None}
+                    _fp = file_path  # capture locale pour le thread
+
+                    def _auto_demucs():
+                        try:
+                            _demucs_sep(track_id, _fp)
+                            _stems_jobs[track_id] = {"status": "completed", "error": None}
+                            logger.info(f"[STEM] Demucs auto-terminé pour track {track_id}")
+                        except Exception as _e:
+                            _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
+                            logger.error(f"[STEM] Demucs auto-échoué pour track {track_id}: {_e}")
+
+                    t = _threading.Thread(target=_auto_demucs, daemon=True)
+                    t.start()
+                    logger.info(f"[STEM] Thread Demucs lancé en arrière-plan pour track {track_id}")
+            except Exception as _stem_err:
+                logger.warning(f"[STEM] Impossible de lancer Demucs auto: {_stem_err}")
 
     except Exception as e:
         logger.error(f"Unexpected error analyzing track {track_id}: {e}")
