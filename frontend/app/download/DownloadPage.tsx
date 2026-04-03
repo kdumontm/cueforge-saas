@@ -179,9 +179,23 @@ export default function DownloadPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-mono mt-0.5">3.</span>
-                    Si macOS bloque : Préférences Système → Sécurité → &quot;Ouvrir quand même&quot;
+                    <span>
+                      <strong className="text-zinc-300">Premier lancement :</strong> faites clic-droit sur CueForge
+                      dans Applications → &quot;Ouvrir&quot;, puis confirmez dans la fenêtre qui s&apos;affiche
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-400 font-mono mt-0.5">4.</span>
+                    <span>
+                      Si macOS affiche &quot;endommagé&quot; : allez dans
+                      <strong className="text-zinc-300"> Réglages Système → Confidentialité et sécurité</strong> et
+                      cliquez &quot;Ouvrir quand même&quot;
+                    </span>
                   </li>
                 </ol>
+                <div className="mt-3 px-3 py-2 rounded-lg bg-purple-500/5 border border-purple-500/10 text-xs text-zinc-500">
+                  <span className="text-purple-400">Info :</span> Les mises à jour sont automatiques — l&apos;app vous notifiera quand une nouvelle version est disponible.
+                </div>
               </div>
             </div>
           ) : (
@@ -256,6 +270,15 @@ export default function DownloadPage() {
               ),
               title: 'Mode hors-ligne',
               desc: 'Consultez vos tracks même sans connexion internet.',
+            },
+            {
+              icon: (
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.78 7.78 5.5 5.5 0 017.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                </svg>
+              ),
+              title: 'Mises à jour auto',
+              desc: 'L\'app se met à jour automatiquement. Plus besoin de retélécharger.',
             },
           ].map((feature, i) => (
             <div

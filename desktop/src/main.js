@@ -14,6 +14,7 @@ const {
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
+const { autoUpdater } = require('electron-updater');
 
 // ─── Configuration ──────────────────────────────────────────
 const PROD_URL = 'https://cueforge-saas-production.up.railway.app';
@@ -417,6 +418,105 @@ function loadOfflinePage() {
   }
 }
 
+// ─── Auto-Updater ──────────────────────────────────────────
+function setupAutoUpdater() {
+  // Configuration
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    console.log(`Mise à jour disponible: v${info.version}`);
+    if (mainWindow) {
+      // Notifier l'utilisateur
+      const notification = new Notification({
+        title: 'Mise à jour CueForge disponible',
+        body: `Version ${info.version} est disponible. Cliquez pour télécharger.`,
+        icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+      });
+      notification.on('click', () => {
+        autoUpdater.downloadUpdate();
+      });
+      notification.show();
+
+      // Aussi demander via dialog
+      dialog
+        .showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Mise à jour disponible',
+          message: `CueForge v${info.version} est disponible.`,
+          detail: 'Voulez-vous télécharger et installer la mise à jour ? L\'app redémarrera automatiquement.',
+          buttons: ['Mettre à jour', 'Plus tard'],
+          defaultId: 0,
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            autoUpdater.downloadUpdate();
+          }
+        });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow) {
+      mainWindow.setProgressBar(progress.percent / 100);
+      mainWindow.webContents.send('update-progress', Math.round(progress.percent));
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log(`Mise à jour téléchargée: v${info.version}`);
+    if (mainWindow) {
+      mainWindow.setProgressBar(-1); // Retirer la barre de progression
+    }
+
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Mise à jour prête',
+        message: 'La mise à jour a été téléchargée.',
+        detail: 'L\'application va redémarrer pour appliquer la mise à jour.',
+        buttons: ['Redémarrer maintenant', 'Plus tard'],
+        defaultId: 0,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          isQuitting = true;
+          autoUpdater.quitAndInstall();
+        }
+      });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('Aucune mise à jour disponible.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Erreur auto-update:', err.message);
+  });
+
+  // Vérifier les mises à jour au démarrage (après 5 secondes)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.log('Vérification MAJ échouée (pas grave):', err.message);
+    });
+  }, 5000);
+
+  // Revérifier toutes les 4 heures
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 4 * 60 * 60 * 1000);
+}
+
+// IPC pour vérifier les mises à jour manuellement depuis le frontend
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { available: !!result?.updateInfo, version: result?.updateInfo?.version };
+  } catch (err) {
+    return { available: false, error: err.message };
+  }
+});
+
 // ─── App Ready ──────────────────────────────────────────────
 app.whenReady().then(() => {
   createMainWindow();
@@ -425,6 +525,7 @@ app.whenReady().then(() => {
   setupDragAndDrop();
   setupNotifications();
   setupOfflineCache();
+  setupAutoUpdater();
 
   // Gérer les erreurs de chargement (pas de réseau)
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {

@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('cueforge', {
     ipcRenderer.on('offline-mode-toggle', (event, isOffline) => callback(isOffline));
   },
 
+  // ── Mises à jour ──────────────────────────────────────────
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  onUpdateProgress: (callback) => {
+    ipcRenderer.on('update-progress', (event, percent) => callback(percent));
+  },
+
   // ── Info app ──────────────────────────────────────────────
   isDesktopApp: true,
   platform: process.platform,
