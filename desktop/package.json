@@ -1,7 +1,7 @@
 {
   "name": "cueforge",
-  "version": "1.0.0",
-  "description": "CueForge — L'app desktop pour les DJs. Analyse audio, cue points, et organisation musicale.",
+  "version": "2.0.0",
+  "description": "CueForge — App desktop pour DJs. Analyse audio locale, cue points, export Rekordbox/Serato.",
   "main": "src/main.js",
   "author": {
     "name": "Kevin Dumont",
@@ -26,17 +26,28 @@
     "appId": "com.cueforge.app",
     "productName": "CueForge",
     "afterPack": "./scripts/afterPack.js",
+    "asar": true,
+    "asarUnpack": [
+      "**/better-sqlite3/**/*",
+      "**/node_modules/better-sqlite3/**/*"
+    ],
     "mac": {
       "category": "public.app-category.music",
       "icon": "assets/icon.png",
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "identity": null,
@@ -49,18 +60,21 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico",
@@ -73,13 +87,24 @@
       "title": "CueForge-${arch}",
       "backgroundColor": "#0a0a0a",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "files": [
       "src/**/*",
-      "assets/**/*"
+      "renderer/**/*",
+      "services/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
     ],
     "publish": {
       "provider": "github",
@@ -92,8 +117,10 @@
     }
   },
   "dependencies": {
+    "better-sqlite3": "^11.5.0",
     "electron-store": "^8.2.0",
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "music-metadata": "^10.5.0"
   },
   "devDependencies": {
     "electron": "^33.2.0",
