@@ -83,13 +83,34 @@ const Settings = {
     // Tab switching
     document.querySelectorAll('.settings-tab[data-stab]').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.settings-tab[data-stab]').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('[id^="stab"]').forEach(p => p.classList.remove('active'));
+        // Highlight active tab
+        document.querySelectorAll('.settings-tab[data-stab]').forEach(t => {
+          t.classList.remove('active');
+          t.style.background = 'none';
+          t.style.color = 'var(--text-secondary)';
+        });
         tab.classList.add('active');
+        tab.style.background = 'var(--bg-elevated)';
+        tab.style.color = 'var(--text-primary)';
+
+        // Show corresponding panel
+        const panels = ['stabProfile', 'stabPassword', 'stabPrefs', 'stabUpdates'];
+        panels.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
         const panelId = 'stab' + tab.dataset.stab.charAt(0).toUpperCase() + tab.dataset.stab.slice(1);
-        document.getElementById(panelId)?.classList.add('active');
+        const panel = document.getElementById(panelId);
+        if (panel) panel.style.display = 'block';
       });
     });
+
+    // Set initial active tab style
+    const firstTab = document.querySelector('.settings-tab[data-stab].active');
+    if (firstTab) {
+      firstTab.style.background = 'var(--bg-elevated)';
+      firstTab.style.color = 'var(--text-primary)';
+    }
 
     // Save profile
     document.getElementById('btnSaveProfile').addEventListener('click', () => this.saveProfile());
@@ -417,11 +438,176 @@ const AdminPanel = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// UPDATE CHECKER (dans les préférences)
+// ═══════════════════════════════════════════════════════════════════════════
+const UpdateChecker = {
+  init() {
+    const btn = document.getElementById('btnCheckUpdates');
+    if (!btn) return;
+    btn.addEventListener('click', () => this.check());
+
+    // Afficher la version actuelle
+    this.loadVersion();
+  },
+
+  async loadVersion() {
+    try {
+      const version = await window.cueforge.getAppVersion();
+      const label = document.getElementById('currentVersionLabel');
+      if (label) label.textContent = `v${version}`;
+    } catch (err) {
+      console.warn('Could not get app version:', err);
+    }
+  },
+
+  async check() {
+    const btn = document.getElementById('btnCheckUpdates');
+    const result = document.getElementById('updateCheckResult');
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Vérification en cours…';
+    result.style.display = 'none';
+
+    try {
+      const info = await window.cueforge.checkForUpdates();
+      if (info && info.available) {
+        result.style.background = 'rgba(37, 99, 235, 0.1)';
+        result.style.border = '1px solid rgba(37, 99, 235, 0.3)';
+        result.style.color = '#60a5fa';
+        result.innerHTML = `🚀 <strong>Nouvelle version disponible : v${info.version}</strong><br><span style="font-size:12px;color:var(--text-muted)">Le téléchargement démarre automatiquement. Tu seras notifié quand elle sera prête.</span>`;
+      } else {
+        result.style.background = 'rgba(16, 185, 129, 0.1)';
+        result.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        result.style.color = '#10b981';
+        result.innerHTML = `✅ <strong>Tu es à jour !</strong> (v${info?.version || '?'})`;
+      }
+    } catch (err) {
+      result.style.background = 'rgba(239, 68, 68, 0.1)';
+      result.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      result.style.color = '#ef4444';
+      result.innerHTML = `❌ Erreur de vérification : ${err.message}`;
+    }
+
+    result.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<span>🔍</span> Vérifier les mises à jour';
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
 function initSettingsAdmin() {
+  // Injecter le HTML des settings dans le container
+  const container = document.getElementById('settingsContent');
+  if (container && !container.dataset.rendered) {
+    container.dataset.rendered = 'true';
+    container.innerHTML = `
+      <!-- Settings Tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+        <button class="settings-tab active" data-stab="profile" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Profil</button>
+        <button class="settings-tab" data-stab="password" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Sécurité</button>
+        <button class="settings-tab" data-stab="prefs" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">DJ Préférences</button>
+        <button class="settings-tab" data-stab="updates" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Mises à jour</button>
+      </div>
+
+      <!-- Profil -->
+      <div id="stabProfile" class="active" style="display:block">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+          <div id="accountAvatar" style="width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white">K</div>
+          <div>
+            <div id="accountName2" style="font-size:16px;font-weight:600;color:var(--text-primary)">—</div>
+            <div id="accountEmail2" style="font-size:12px;color:var(--text-muted)">—</div>
+            <span id="accountPlanBadge" class="plan-badge-lg plan-free" style="display:inline-block;margin-top:4px;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700">Free</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:400px">
+          <label style="font-size:12px;color:var(--text-secondary)">Nom</label>
+          <input id="settingsName" type="text" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <label style="font-size:12px;color:var(--text-secondary)">Email</label>
+          <input id="settingsEmail" type="email" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <button id="btnSaveProfile" class="btn-save" style="align-self:flex-start;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;margin-top:8px">Sauvegarder</button>
+        </div>
+      </div>
+
+      <!-- Sécurité -->
+      <div id="stabPassword" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:400px">
+          <label style="font-size:12px;color:var(--text-secondary)">Mot de passe actuel</label>
+          <input id="settingsCurrentPwd" type="password" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <label style="font-size:12px;color:var(--text-secondary)">Nouveau mot de passe</label>
+          <input id="settingsNewPwd" type="password" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <label style="font-size:12px;color:var(--text-secondary)">Confirmer le mot de passe</label>
+          <input id="settingsConfirmPwd" type="password" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <button id="btnChangePassword" class="btn-save" style="align-self:flex-start;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;margin-top:8px">Changer le mot de passe</button>
+        </div>
+      </div>
+
+      <!-- DJ Préférences -->
+      <div id="stabPrefs" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:16px;max-width:400px">
+          <div>
+            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Format d'export par défaut</label>
+            <select id="prefExportFormat" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px;width:100%">
+              <option value="rekordbox">Rekordbox XML</option>
+              <option value="serato">Serato</option>
+              <option value="traktor">Traktor NML</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label style="font-size:13px;color:var(--text-primary)">Auto-analyse à l'import</label>
+            <input id="prefAutoAnalyze" type="checkbox" checked />
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Qualité d'analyse</label>
+            <select id="prefAnalysisQuality" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px;width:100%">
+              <option value="fast">Rapide</option>
+              <option value="balanced">Équilibré</option>
+              <option value="high">Haute qualité</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label style="font-size:13px;color:var(--text-primary)">Afficher clés Camelot</label>
+            <input id="prefCamelot" type="checkbox" checked />
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label style="font-size:13px;color:var(--text-primary)">Afficher barres d'énergie</label>
+            <input id="prefEnergyBars" type="checkbox" checked />
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Style de waveform</label>
+            <select id="prefWaveformStyle" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px;width:100%">
+              <option value="gradient">Gradient 3 bandes</option>
+              <option value="solid">Couleur unie</option>
+              <option value="bars">Barres</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mises à jour -->
+      <div id="stabUpdates" style="display:none">
+        <div style="max-width:500px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding:16px;background:var(--bg-card);border:1px solid var(--border-default);border-radius:10px">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px">🎵</div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:600;color:var(--text-primary)">CueForge Desktop</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:2px">Version actuelle : <strong id="currentVersionLabel" style="color:var(--accent-success)">…</strong></div>
+            </div>
+          </div>
+
+          <button id="btnCheckUpdates" style="display:flex;align-items:center;gap:8px;padding:10px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s">
+            <span>🔍</span> Vérifier les mises à jour
+          </button>
+
+          <div id="updateCheckResult" style="margin-top:16px;padding:14px 16px;border-radius:8px;font-size:13px;display:none"></div>
+        </div>
+      </div>
+    `;
+  }
+
   Settings.init();
   AdminPanel.init();
+  UpdateChecker.init();
 
   // Load profile on init to show admin sidebar etc.
   Settings.loadProfile();

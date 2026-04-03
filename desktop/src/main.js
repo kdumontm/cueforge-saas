@@ -268,9 +268,20 @@ function setupIPC() {
     return filePath;
   });
 
-  // ── Check for updates ─────────────────────────────────
-  ipcMain.handle('check-for-updates', () => {
-    autoUpdater.checkForUpdates();
+  // ── Version de l'app ───────────────────────────────────
+  ipcMain.handle('get-app-version', () => app.getVersion());
+
+  // ── Check for updates (retourne un résultat structuré) ──
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      if (result && result.updateInfo) {
+        return { available: true, version: result.updateInfo.version };
+      }
+      return { available: false, version: app.getVersion() };
+    } catch (err) {
+      return { available: false, error: err.message, version: app.getVersion() };
+    }
   });
 
   // ── Installer la mise à jour téléchargée et redémarrer ──
@@ -338,9 +349,22 @@ function installAndRestart() {
     mainWindow = null;
   }
 
-  // 3. Petit délai pour laisser la fenêtre se fermer proprement
+  // 3. Petit délai pour laisser la fenêtre se fermer
   setTimeout(() => {
-    // isSilent=true (pas de popup), isForceRunAfter=true (relancer après install)
-    autoUpdater.quitAndInstall(true, true);
-  }, 500);
+    try {
+      // isSilent=false pour éviter le hang macOS, isForceRunAfter=true
+      autoUpdater.quitAndInstall(false, true);
+    } catch (err) {
+      console.error('quitAndInstall failed, using fallback:', err);
+      app.relaunch();
+      app.exit(0);
+    }
+  }, 800);
+
+  // 4. Safety net — si quitAndInstall ne tue pas le process après 5s
+  setTimeout(() => {
+    console.warn('quitAndInstall did not exit in time, forcing exit...');
+    app.relaunch();
+    app.exit(0);
+  }, 5000);
 }

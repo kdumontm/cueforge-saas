@@ -23,14 +23,14 @@ DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
 # Stockage en mémoire (sera persisté en DB si nécessaire)
 _download_config = {
     "allowed_plans": DEFAULT_ALLOWED_PLANS.copy(),
-    "latest_version": "2.5.0",
-    "release_notes": "CueForge Desktop v2.5.0 — Refonte totale UX : waveforms SVG, 9 onglets (Cues/Beatgrid/Stems/EQ/FX/Mix/Playlists/Stats/Historique), roue Camelot, Set Builder, tracklist complète.",
+    "latest_version": "2.5.1",
+    "release_notes": "CueForge Desktop v2.5.1 — Fix auto-update restart + vérification des mises à jour dans les préférences.",
     # macOS
-    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.0/CueForge-2.5.0-arm64.dmg",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.1/CueForge-2.5.1-arm64.dmg",
     "dmg_size": "~99 MB",
     "min_macos": "12.0",
     # Windows
-    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.0/CueForge-2.5.0-x64.exe",
+    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.1/CueForge-2.5.1-x64.exe",
     "exe_size": "~82 MB",
     "min_windows": "10",
 }
