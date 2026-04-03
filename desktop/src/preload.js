@@ -19,6 +19,18 @@ contextBridge.exposeInMainWorld('cueforge', {
   logout:           ()     => ipcRenderer.invoke('logout'),
   getStoredEmail:   ()     => ipcRenderer.invoke('get-stored-email'),
   saveTextFile: (content, name, filter, ext) => ipcRenderer.invoke('save-text-file', content, name, filter, ext),
+  // Profile / Settings
+  getProfile:       ()          => ipcRenderer.invoke('get-profile'),
+  updateProfile:    (data)      => ipcRenderer.invoke('update-profile', data),
+  changePassword:   (cur, newP) => ipcRenderer.invoke('change-password', cur, newP),
+  // Admin
+  getAdminDashboard: ()           => ipcRenderer.invoke('get-admin-dashboard'),
+  getAdminUsers:     (s, p)       => ipcRenderer.invoke('get-admin-users', s, p),
+  updateAdminUser:   (id, data)   => ipcRenderer.invoke('update-admin-user', id, data),
+  getAdminFeatures:  ()           => ipcRenderer.invoke('get-admin-features'),
+  updateAdminFeature:(id, data)   => ipcRenderer.invoke('update-admin-feature', id, data),
+  createAdminFeature:(data)       => ipcRenderer.invoke('create-admin-feature', data),
+  deleteAdminFeature:(id)         => ipcRenderer.invoke('delete-admin-feature', id),
   onFilesDropped:     (cb) => ipcRenderer.on('files-dropped',    (_, files) => cb(files)),
   // ── Mise à jour automatique ──────────────────────────────
   onUpdateAvailable:  (cb) => ipcRenderer.on('update-available',  (_, info)  => cb(info)),

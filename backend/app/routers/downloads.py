@@ -23,14 +23,14 @@ DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
 # Stockage en mémoire (sera persisté en DB si nécessaire)
 _download_config = {
     "allowed_plans": DEFAULT_ALLOWED_PLANS.copy(),
-    "latest_version": "2.1.0",
-    "release_notes": "CueForge Desktop v2.1.0 — Outils DJ complets : Tap Tempo, Roue de Camelot, Energy Flow, Gig Prep, Crate Digger, Quick Notes + Export M3U/CSV/JSON.",
+    "latest_version": "2.2.0",
+    "release_notes": "CueForge Desktop v2.2.0 — Settings, profil, admin panel + fix auto-update + bannière de progression.",
     # macOS
-    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.1.0/CueForge-2.1.0-arm64.dmg",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.2.0/CueForge-2.2.0-arm64.dmg",
     "dmg_size": "~99 MB",
     "min_macos": "12.0",
     # Windows
-    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.1.0/CueForge-2.1.0-x64.exe",
+    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.2.0/CueForge-2.2.0-x64.exe",
     "exe_size": "~82 MB",
     "min_windows": "10",
 }

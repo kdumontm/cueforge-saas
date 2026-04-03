@@ -242,6 +242,20 @@ function setupIPC() {
   // ── Infos utilisateur stockées ────────────────────────
   ipcMain.handle('get-stored-email', () => licenseCheck.getStoredEmail());
 
+  // ── Profile / Settings ──────────────────────────────
+  ipcMain.handle('get-profile', () => licenseCheck.getProfile());
+  ipcMain.handle('update-profile', (e, data) => licenseCheck.updateProfile(data));
+  ipcMain.handle('change-password', (e, current, newPwd) => licenseCheck.changePassword(current, newPwd));
+
+  // ── Admin ───────────────────────────────────────────
+  ipcMain.handle('get-admin-dashboard', () => licenseCheck.getAdminDashboard());
+  ipcMain.handle('get-admin-users', (e, search, plan) => licenseCheck.getAdminUsers(search, plan));
+  ipcMain.handle('update-admin-user', (e, userId, data) => licenseCheck.updateAdminUser(userId, data));
+  ipcMain.handle('get-admin-features', () => licenseCheck.getAdminFeatures());
+  ipcMain.handle('update-admin-feature', (e, id, data) => licenseCheck.updateAdminFeature(id, data));
+  ipcMain.handle('create-admin-feature', (e, data) => licenseCheck.createAdminFeature(data));
+  ipcMain.handle('delete-admin-feature', (e, id) => licenseCheck.deleteAdminFeature(id));
+
   // ── Sauvegarder un fichier texte (export M3U, CSV, JSON) ──
   ipcMain.handle('save-text-file', async (e, content, defaultName, filterName, ext) => {
     const { filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -278,7 +292,7 @@ function setupDragAndDrop() {
 function setupAutoUpdater() {
   // Téléchargement automatique dès qu'une mise à jour est trouvée
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoInstallOnAppQuit = true;
 
   // Mise à jour disponible → notifier le renderer (download démarre automatiquement)
   autoUpdater.on('update-available', (info) => {
@@ -324,12 +338,9 @@ function installAndRestart() {
     mainWindow = null;
   }
 
-  // 3. Installer + relancer (isSilent=false pour macOS, isForceRunAfter=true)
-  autoUpdater.quitAndInstall(false, true);
-
-  // 4. Fallback : si quitAndInstall ne redémarre pas dans les 3s, forcer via app.relaunch
+  // 3. Petit délai pour laisser la fenêtre se fermer proprement
   setTimeout(() => {
-    app.relaunch();
-    app.exit(0);
-  }, 3000);
+    // isSilent=true (pas de popup), isForceRunAfter=true (relancer après install)
+    autoUpdater.quitAndInstall(true, true);
+  }, 500);
 }

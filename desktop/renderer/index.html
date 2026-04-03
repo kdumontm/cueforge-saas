@@ -30,11 +30,11 @@
     #updateBanner {
       display: none;
       position: fixed;
-      top: 0; left: 0; right: 0;
+      top: 38px; left: 0; right: 0;
       z-index: 9999;
       background: linear-gradient(90deg, #1a0a3a, #2d1b69);
       border-bottom: 1px solid #7c3aed;
-      padding: 10px 20px;
+      padding: 8px 20px;
       flex-direction: column;
       gap: 6px;
     }
@@ -829,6 +829,63 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #404040;
     }
+
+    /* ─── SETTINGS & ADMIN ────────────────────────────────────────────────── */
+    .settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #111; border-radius: 10px; padding: 4px; }
+    .settings-tab { padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #888; background: transparent; border: none; cursor: pointer; transition: all 0.15s; }
+    .settings-tab.active { background: #7c3aed; color: #fff; }
+    .settings-tab:hover:not(.active) { color: #ccc; }
+    .settings-tab-panel { display: none; }
+    .settings-tab-panel.active { display: block; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #aaa; margin-bottom: 6px; }
+    .form-input-s { width: 100%; padding: 10px 14px; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; color: #e0e0e0; font-size: 13px; transition: border-color 0.15s; }
+    .form-input-s:focus { outline: none; border-color: #7c3aed; }
+    .btn-save { background: #7c3aed; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-save:hover { background: #6d28d9; }
+    .btn-save:disabled { opacity: 0.5; cursor: default; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 9999; transform: translateY(100px); opacity: 0; transition: all 0.3s ease; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: #065f46; color: #6ee7b7; border: 1px solid #10b981; }
+    .toast.error { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+
+    .plan-badge-lg { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .plan-free { background: #1e293b; color: #94a3b8; }
+    .plan-pro { background: #1e3a5f; color: #60a5fa; }
+    .plan-unlimited { background: #2d1b69; color: #c084fc; }
+
+    .toggle-switch { position: relative; width: 40px; height: 22px; cursor: pointer; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #333; border-radius: 11px; transition: 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; bottom: 3px; background: #888; border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: #7c3aed; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: #fff; }
+
+    .select-s { padding: 8px 12px; background: #0a0a0a; border: 1px solid #333; border-radius: 8px; color: #e0e0e0; font-size: 12px; }
+
+    .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #141414; border: 1px solid #222; border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-card-value { font-size: 28px; font-weight: 800; color: #c4b5fd; }
+    .stat-card-label { font-size: 11px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .admin-table th { text-align: left; padding: 10px 12px; color: #666; font-weight: 600; border-bottom: 1px solid #222; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .admin-table td { padding: 10px 12px; border-bottom: 1px solid #1a1a1a; color: #ccc; }
+    .admin-table tr:hover { background: #111; }
+    .admin-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+
+    .shortcut-key { display: inline-block; padding: 3px 8px; background: #222; border: 1px solid #333; border-radius: 4px; font-size: 11px; font-family: monospace; color: #c4b5fd; }
+    .shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .shortcut-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #111; border-radius: 6px; font-size: 12px; color: #aaa; }
+
+    .feature-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 1px; background: #222; border-radius: 10px; overflow: hidden; }
+    .feature-grid-header { padding: 10px; background: #141414; font-size: 11px; font-weight: 700; color: #888; text-align: center; text-transform: uppercase; }
+    .feature-grid-cell { padding: 8px 10px; background: #0f0f0f; font-size: 12px; color: #ccc; display: flex; align-items: center; justify-content: center; }
+    .feature-grid-name { justify-content: flex-start; }
   </style>
 </head>
 <body>
@@ -929,6 +986,10 @@
       <div class="sidebar-item" data-view="settings">
         <span>⚙</span>
         <span>Paramètres</span>
+      </div>
+      <div class="sidebar-item" data-view="admin" id="sidebarAdmin" style="display:none">
+        <span>🛡</span>
+        <span>Admin</span>
       </div>
     </div>
 
@@ -1090,6 +1151,178 @@
       </div>
     </div>
 
+    <!-- ═══ ACCOUNT VIEW ═══════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewAccount">
+      <div class="tool-header">👤 Mon compte</div>
+      <div class="tool-card" id="accountInfoCard">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+          <div id="accountAvatar" style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#5b21b6);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff">K</div>
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#fff" id="accountName2">—</div>
+            <div style="font-size:13px;color:#888" id="accountEmail2">—</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:12px;color:#666;margin-bottom:6px">Abonnement actuel</div>
+          <span class="plan-badge-lg plan-free" id="accountPlanBadge">Free</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SETTINGS VIEW ════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewSettings">
+      <div class="tool-header">⚙ Paramètres</div>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-stab="profil">Profil</button>
+        <button class="settings-tab" data-stab="security">Sécurité</button>
+        <button class="settings-tab" data-stab="djprefs">Préférences DJ</button>
+        <button class="settings-tab" data-stab="shortcuts">Raccourcis</button>
+      </div>
+
+      <!-- Profil Tab -->
+      <div class="settings-tab-panel active" id="stabProfil">
+        <div class="tool-card">
+          <div class="form-group">
+            <label>Nom / Pseudo</label>
+            <input class="form-input-s" id="settingsName" placeholder="Ton pseudo">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input class="form-input-s" id="settingsEmail" type="email" placeholder="email@exemple.com">
+          </div>
+          <button class="btn-save" id="btnSaveProfile">Enregistrer</button>
+        </div>
+      </div>
+
+      <!-- Security Tab -->
+      <div class="settings-tab-panel" id="stabSecurity">
+        <div class="tool-card">
+          <div class="form-group">
+            <label>Mot de passe actuel</label>
+            <input class="form-input-s" id="settingsCurrentPwd" type="password">
+          </div>
+          <div class="form-group">
+            <label>Nouveau mot de passe</label>
+            <input class="form-input-s" id="settingsNewPwd" type="password" placeholder="Min 8 car., 1 majuscule, 1 chiffre, 1 spécial">
+          </div>
+          <div class="form-group">
+            <label>Confirmer</label>
+            <input class="form-input-s" id="settingsConfirmPwd" type="password">
+          </div>
+          <button class="btn-save" id="btnChangePassword">Changer le mot de passe</button>
+        </div>
+      </div>
+
+      <!-- DJ Prefs Tab -->
+      <div class="settings-tab-panel" id="stabDjprefs">
+        <div class="tool-card">
+          <div class="form-group">
+            <label>Format d'export par défaut</label>
+            <select class="select-s" id="prefExportFormat">
+              <option value="rekordbox">Rekordbox XML</option>
+              <option value="serato">Serato</option>
+              <option value="m3u">M3U Playlist</option>
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+            <label style="margin:0">Analyse automatique à l'import</label>
+            <label class="toggle-switch"><input type="checkbox" id="prefAutoAnalyze" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-group">
+            <label>Qualité d'analyse</label>
+            <select class="select-s" id="prefAnalysisQuality">
+              <option value="fast">Rapide (~10s)</option>
+              <option value="high" selected>Haute (~30s)</option>
+              <option value="ultra">Ultra (~60s)</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+            <label style="margin:0">Afficher clés Camelot</label>
+            <label class="toggle-switch"><input type="checkbox" id="prefCamelot" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+            <label style="margin:0">Barres d'énergie dans la liste</label>
+            <label class="toggle-switch"><input type="checkbox" id="prefEnergyBars" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-group">
+            <label>Style de waveform</label>
+            <select class="select-s" id="prefWaveformStyle">
+              <option value="gradient">Gradient</option>
+              <option value="solid">Solid</option>
+              <option value="spectrum">Spectrum</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shortcuts Tab -->
+      <div class="settings-tab-panel" id="stabShortcuts">
+        <div class="tool-card">
+          <div class="tool-card-title">Lecture</div>
+          <div class="shortcuts-grid">
+            <div class="shortcut-row"><span>Play / Pause</span><span class="shortcut-key">Espace</span></div>
+            <div class="shortcut-row"><span>Avancer 5s</span><span class="shortcut-key">→</span></div>
+            <div class="shortcut-row"><span>Reculer 5s</span><span class="shortcut-key">←</span></div>
+          </div>
+          <div class="tool-card-title" style="margin-top:16px">Navigation</div>
+          <div class="shortcuts-grid">
+            <div class="shortcut-row"><span>Piste suivante</span><span class="shortcut-key">↓</span></div>
+            <div class="shortcut-row"><span>Piste précédente</span><span class="shortcut-key">↑</span></div>
+            <div class="shortcut-row"><span>Recherche</span><span class="shortcut-key">Ctrl+F</span></div>
+            <div class="shortcut-row"><span>Fermer le panel</span><span class="shortcut-key">Esc</span></div>
+          </div>
+          <div class="tool-card-title" style="margin-top:16px">Actions</div>
+          <div class="shortcuts-grid">
+            <div class="shortcut-row"><span>Tap Tempo</span><span class="shortcut-key">T</span></div>
+            <div class="shortcut-row"><span>Tout sélectionner</span><span class="shortcut-key">Ctrl+A</span></div>
+            <div class="shortcut-row"><span>Supprimer</span><span class="shortcut-key">Del</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ADMIN VIEW ═══════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewAdmin">
+      <div class="tool-header">🛡 Administration</div>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-atab="dashboard">Dashboard</button>
+        <button class="settings-tab" data-atab="users">Utilisateurs</button>
+        <button class="settings-tab" data-atab="features">Features / Plans</button>
+      </div>
+
+      <!-- Admin Dashboard -->
+      <div class="settings-tab-panel active" id="atabDashboard">
+        <div class="stat-cards" id="adminStatCards"></div>
+        <div class="tool-card" id="adminPlanDistrib"></div>
+      </div>
+
+      <!-- Admin Users -->
+      <div class="settings-tab-panel" id="atabUsers">
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input class="form-input-s" id="adminUserSearch" placeholder="Rechercher un utilisateur…" style="flex:1">
+          <select class="select-s" id="adminUserPlanFilter">
+            <option value="all">Tous les plans</option>
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="unlimited">Unlimited</option>
+          </select>
+          <button class="btn-save" id="btnAdminRefreshUsers" style="padding:8px 14px">🔄</button>
+        </div>
+        <div class="tool-card" style="overflow-x:auto" id="adminUsersTableContainer"></div>
+      </div>
+
+      <!-- Admin Features -->
+      <div class="settings-tab-panel" id="atabFeatures">
+        <div style="margin-bottom:14px;display:flex;gap:8px">
+          <input class="form-input-s" id="adminNewFeatureName" placeholder="Nom de la feature" style="flex:1">
+          <button class="btn-save" id="btnAdminAddFeature">+ Ajouter</button>
+        </div>
+        <div class="tool-card" id="adminFeaturesContainer"></div>
+      </div>
+    </div>
+
     <!-- DETAIL PANEL -->
     <div class="detail-panel" id="detailPanel">
       <div class="detail-row">
@@ -1114,6 +1347,7 @@
 
 <script src="audioAnalyzer.js"></script>
 <script src="djTools.js"></script>
+<script src="settingsAdmin.js"></script>
 <script>
 'use strict';
 
@@ -1520,6 +1754,7 @@ function updateUI() {
 window.addEventListener('load', () => {
   initApp();
   initDJTools();
+  initSettingsAdmin();
 });
 
 // ─── AUTO-UPDATE UI ────────────────────────────────────────────────────────

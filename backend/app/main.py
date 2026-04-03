@@ -125,7 +125,7 @@ settings = get_settings()
 app = FastAPI(
     title="CueForge SaaS API",
     description="Audio analysis and cue point generation for DJs",
-    version="4.0.0",
+    version="4.2.0",
     lifespan=lifespan,
     redirect_slashes=False,
 )

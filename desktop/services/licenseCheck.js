@@ -91,4 +91,74 @@ function getStoredEmail() {
   return getSetting('auth_email');
 }
 
-module.exports = { login, logout, verifyLicense, getStoredToken, getStoredEmail };
+// ─── API helpers (profile, password, admin) ────────────────────────────────
+
+async function _authFetch(endpoint, options = {}) {
+  const token = getSetting('auth_token');
+  if (!token) throw new Error('Non connecté');
+  const res = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(options.headers || {}) },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Erreur ${res.status}`);
+  }
+  return res.json();
+}
+
+async function getProfile() {
+  return _authFetch('/auth/me');
+}
+
+async function updateProfile(data) {
+  return _authFetch('/auth/me', { method: 'PUT', body: JSON.stringify(data) });
+}
+
+async function changePassword(currentPassword, newPassword) {
+  return _authFetch('/auth/me', {
+    method: 'PUT',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+}
+
+async function getAdminDashboard() {
+  return _authFetch('/admin/dashboard');
+}
+
+async function getAdminUsers(search, plan) {
+  let qs = '';
+  const params = [];
+  if (search) params.push(`search=${encodeURIComponent(search)}`);
+  if (plan && plan !== 'all') params.push(`plan=${encodeURIComponent(plan)}`);
+  if (params.length) qs = '?' + params.join('&');
+  return _authFetch(`/admin/users${qs}`);
+}
+
+async function updateAdminUser(userId, data) {
+  return _authFetch(`/admin/users/${userId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+async function getAdminFeatures() {
+  return _authFetch('/admin/features');
+}
+
+async function updateAdminFeature(featureId, data) {
+  return _authFetch(`/admin/features/${featureId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+async function createAdminFeature(data) {
+  return _authFetch('/admin/features', { method: 'POST', body: JSON.stringify(data) });
+}
+
+async function deleteAdminFeature(featureId) {
+  return _authFetch(`/admin/features/${featureId}`, { method: 'DELETE' });
+}
+
+module.exports = {
+  login, logout, verifyLicense, getStoredToken, getStoredEmail,
+  getProfile, updateProfile, changePassword,
+  getAdminDashboard, getAdminUsers, updateAdminUser,
+  getAdminFeatures, updateAdminFeature, createAdminFeature, deleteAdminFeature,
+};

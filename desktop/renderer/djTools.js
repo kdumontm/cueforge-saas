@@ -764,8 +764,9 @@ const ViewManager = {
     'gig-prep':     'viewGigPrep',
     'crate-digger': 'viewCrateDigger',
     'notes':        'viewNotes',
-    'account':      null,
-    'settings':     null,
+    'account':      'viewAccount',
+    'settings':     'viewSettings',
+    'admin':        'viewAdmin',
   },
 
   init() {
@@ -803,6 +804,9 @@ const ViewManager = {
       if (view === 'energy-flow') EnergyFlow.render(typeof state !== 'undefined' ? state.tracks : []);
       if (view === 'gig-prep') GigPrep.render();
       if (view === 'notes') QuickNotes.render();
+
+      // Settings / Admin data loading
+      if (typeof onViewSwitch === 'function') onViewSwitch(view);
     } else {
       // Show default content
       defaultEls.forEach(id => {
