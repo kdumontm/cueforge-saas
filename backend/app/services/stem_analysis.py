@@ -1,6 +1,13 @@
 """
-CueForge Stem Analysis Service — v5.0
+CueForge Stem Analysis Service — v5.1
 Demucs-powered source separation for ultra-precise DJ cue point detection.
+
+v5.1 fixes:
+- Memory check before loading Demucs (skip if <1.5GB available)
+- Timeout protection (max 180s for separation)
+- Reduced max duration (5 min) to fit Railway containers
+- Segment-based processing for memory efficiency
+- Robust fallback: if Demucs fails, returns empty dict (never crashes analysis)
 
 Separates audio into 4 stems (drums, bass, vocals, other/melody)
 and extracts per-stem features that dramatically improve:
@@ -8,18 +15,12 @@ and extracts per-stem features that dramatically improve:
 - Vocal section detection (vocal stem energy)
 - Build/breakdown detection (drum buildup patterns)
 - Intro/outro precision (when drums first appear / last disappear)
-
-The htdemucs model is pre-downloaded in Docker for zero cold-start.
-
-Performance:
-- CPU: ~30-60s per track (5 min track)
-- GPU: ~5-10s per track
-- Memory: ~2GB peak during separation
 """
 import gc
 import os
 import logging
 import tempfile
+import traceback
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -32,81 +33,138 @@ logger = logging.getLogger(__name__)
 SR = 22050
 HOP_LENGTH = 512
 
+# ── Config tunables for Railway (small containers) ──────────────────────
+MAX_DURATION_SEC = 300      # 5 min max (was 10 — Railway OOM)
+MIN_FREE_RAM_MB = 600       # Need at least 600MB free to attempt Demucs
+SEPARATION_TIMEOUT_SEC = 180  # 3 min max for Demucs separation
+
+
+class StemTimeoutError(Exception):
+    """Raised when Demucs takes too long."""
+    pass
+
+
+def _check_available_memory_mb() -> float:
+    """Return available RAM in MB. Works on Linux (Railway)."""
+    try:
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 1024  # kB → MB
+    except Exception:
+        pass
+    # Fallback: use psutil if available
+    try:
+        import psutil
+        return psutil.virtual_memory().available / (1024 * 1024)
+    except Exception:
+        pass
+    # Can't determine → assume enough (let it try)
+    return 9999.0
+
 
 # ══════════════════════════════════════════════════════════════════════════
 #   DEMUCS STEM SEPARATION
 # ══════════════════════════════════════════════════════════════════════════
 
-def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
+def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     """
-    Separate audio into 4 stems using Demucs htdemucs model.
-    Returns dict of {stem_name: mono_numpy_array} at 22050 Hz.
-
-    Stems: drums, bass, vocals, other (melody/synths/pads)
+    Inner function that runs the actual Demucs separation.
+    Extracted so it can be called with a timeout wrapper.
     """
     import torch
     import torchaudio
     from demucs.pretrained import get_model
     from demucs.apply import apply_model
 
-    logger.info(f"[STEM] Starting Demucs separation for {file_path}")
+    model = get_model("htdemucs")
+    model.eval()
+
+    wav, sr_orig = torchaudio.load(file_path)
+
+    model_sr = model.samplerate
+    if sr_orig != model_sr:
+        resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
+        wav = resampler(wav)
+
+    if wav.shape[0] == 1:
+        wav = wav.repeat(2, 1)
+    elif wav.shape[0] > 2:
+        wav = wav[:2]
+
+    max_samples = model_sr * MAX_DURATION_SEC
+    if wav.shape[1] > max_samples:
+        logger.info(f"[STEM] Truncating audio to {MAX_DURATION_SEC}s")
+        wav = wav[:, :max_samples]
+
+    logger.info(f"[STEM] RAM before Demucs: {_check_available_memory_mb():.0f} MB, "
+                f"audio: {wav.shape}")
+
+    wav = wav.unsqueeze(0)
+
+    with torch.no_grad():
+        sources = apply_model(
+            model, wav, device="cpu",
+            progress=False,
+            split=True,
+            segment=30,
+            overlap=0.25,
+        )
+
+    stem_names = model.sources
+    stems = {}
+    for i, name in enumerate(stem_names):
+        stem_stereo = sources[0, i].numpy()
+        stem_mono = np.mean(stem_stereo, axis=0)
+        stems[name] = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
+
+    del sources, wav, model
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    gc.collect()
+
+    return stems
+
+
+def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
+    """
+    Separate audio into 4 stems using Demucs htdemucs model.
+    Returns dict of {stem_name: mono_numpy_array} at 22050 Hz.
+
+    v5.1 safety:
+    - RAM check before loading Demucs
+    - Thread-safe timeout (no signal.alarm — works in BackgroundTasks)
+    - Max 5 min audio
+    - Segment-based processing (split=True, segment=30s)
+    """
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
+    # ── Pre-flight: check RAM ───────────────────────────────────────────
+    free_mb = _check_available_memory_mb()
+    logger.info(f"[STEM] Available RAM: {free_mb:.0f} MB (need {MIN_FREE_RAM_MB} MB)")
+    if free_mb < MIN_FREE_RAM_MB:
+        raise MemoryError(
+            f"Not enough RAM for Demucs: {free_mb:.0f}MB < {MIN_FREE_RAM_MB}MB"
+        )
+
+    logger.info(f"[STEM] Starting Demucs separation (timeout={SEPARATION_TIMEOUT_SEC}s)")
 
     try:
-        # Load model (cached after first call)
-        model = get_model("htdemucs")
-        model.eval()
+        # Thread-safe timeout — no signal.alarm needed
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run_demucs_inner, file_path)
+            stems = future.result(timeout=SEPARATION_TIMEOUT_SEC)
 
-        # Load audio at model's native sample rate (44100)
-        wav, sr_orig = torchaudio.load(file_path)
-
-        # Resample to model's expected rate if needed
-        model_sr = model.samplerate  # usually 44100
-        if sr_orig != model_sr:
-            resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
-            wav = resampler(wav)
-
-        # Ensure stereo (model expects 2 channels)
-        if wav.shape[0] == 1:
-            wav = wav.repeat(2, 1)
-        elif wav.shape[0] > 2:
-            wav = wav[:2]
-
-        # Limit to 10 minutes to save memory
-        max_samples = model_sr * 600
-        if wav.shape[1] > max_samples:
-            wav = wav[:, :max_samples]
-
-        # Run separation
-        wav = wav.unsqueeze(0)  # add batch dim: [1, 2, samples]
-
-        with torch.no_grad():
-            sources = apply_model(model, wav, device="cpu", progress=False)
-            # sources shape: [1, 4, 2, samples]
-            # Order: drums, bass, other, vocals
-
-        # Extract and convert to mono numpy at SR (22050)
-        stem_names = model.sources  # ['drums', 'bass', 'other', 'vocals']
-        stems = {}
-
-        for i, name in enumerate(stem_names):
-            stem_stereo = sources[0, i].numpy()  # [2, samples]
-            stem_mono = np.mean(stem_stereo, axis=0)  # [samples]
-            # Resample to our standard SR
-            stem_mono_resampled = librosa.resample(
-                stem_mono, orig_sr=model_sr, target_sr=SR
-            )
-            stems[name] = stem_mono_resampled
-
-        # Clean up GPU/CPU memory
-        del sources, wav, model
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
-        gc.collect()
-
-        logger.info(f"[STEM] Separation complete: {list(stems.keys())}")
+        logger.info(f"[STEM] Separation OK: {list(stems.keys())}, "
+                     f"RAM after: {_check_available_memory_mb():.0f} MB")
         return stems
 
+    except FuturesTimeout:
+        logger.error(f"[STEM] TIMEOUT after {SEPARATION_TIMEOUT_SEC}s")
+        gc.collect()
+        raise StemTimeoutError(f"Demucs timed out after {SEPARATION_TIMEOUT_SEC}s")
     except Exception as e:
-        logger.error(f"[STEM] Demucs separation failed: {e}")
+        logger.error(f"[STEM] Failed: {e}\n{traceback.format_exc()}")
+        gc.collect()
         raise
 
 

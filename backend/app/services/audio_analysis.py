@@ -1429,17 +1429,26 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False) -> Dict:
     del y
     gc.collect()
 
-    # ── v5: Stem separation analysis (Demucs) — optional ──────────────
+    # ── v5.1: Stem separation analysis (Demucs) — optional & fault-tolerant ──
+    # CRITICAL: stem analysis must NEVER crash the main analysis pipeline.
+    # If Demucs fails for ANY reason (OOM, timeout, import error, etc.),
+    # we log the error and continue with standard analysis.
     stem_data = {}
     if use_stem_separation:
         try:
             from app.services.stem_analysis import analyze_stems
             logger.info(f"[STEM] Running Demucs stem analysis for {file_path}")
             stem_data = analyze_stems(file_path, beats)
-            logger.info(f"[STEM] Stem analysis complete")
+            logger.info(f"[STEM] Stem analysis complete — {len(stem_data)} fields")
+        except MemoryError as e:
+            logger.error(f"[STEM] Not enough RAM for Demucs: {e}")
+            stem_data = {"stem_analysis": False, "stem_error": "memory"}
+        except ImportError as e:
+            logger.error(f"[STEM] Demucs/torch not installed: {e}")
+            stem_data = {"stem_analysis": False, "stem_error": "not_installed"}
         except Exception as e:
-            logger.warning(f"[STEM] Stem analysis failed (falling back to standard): {e}")
-            stem_data = {"stem_analysis": False}
+            logger.error(f"[STEM] Stem analysis failed (continuing with standard analysis): {e}")
+            stem_data = {"stem_analysis": False, "stem_error": str(e)[:200]}
 
     result = {
         "bpm": bpm,
