@@ -307,7 +307,12 @@ function setupIPC() {
     try {
       const result = await autoUpdater.checkForUpdates();
       if (result && result.updateInfo) {
-        return { available: true, version: result.updateInfo.version };
+        const currentVersion = app.getVersion();
+        const remoteVersion = result.updateInfo.version;
+        // Comparer les versions — seulement signaler si la remote est plus récente
+        const isNewer = remoteVersion !== currentVersion &&
+          remoteVersion.localeCompare(currentVersion, undefined, { numeric: true }) > 0;
+        return { available: isNewer, version: isNewer ? remoteVersion : currentVersion };
       }
       return { available: false, version: app.getVersion() };
     } catch (err) {
@@ -349,12 +354,20 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  // Mise à jour disponible → notifier le renderer (download démarre automatiquement)
+  // Mise à jour disponible → notifier le renderer seulement si version supérieure
   autoUpdater.on('update-available', (info) => {
-    mainWindow?.webContents.send('update-available', {
-      version: info.version,
-      releaseNotes: info.releaseNotes || '',
-    });
+    const currentVersion = app.getVersion();
+    const remoteVersion = info.version;
+    const isNewer = remoteVersion !== currentVersion &&
+      remoteVersion.localeCompare(currentVersion, undefined, { numeric: true }) > 0;
+    if (isNewer) {
+      mainWindow?.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes || '',
+      });
+    } else {
+      console.log(`[update] Ignoring same/older version: ${remoteVersion} (current: ${currentVersion})`);
+    }
   });
 
   // Progression du téléchargement → envoyer le % au renderer
