@@ -749,6 +749,41 @@ export default function DashboardV2() {
       .catch(() => setCuePoints([]));
   }, [selectedTrack?.id]);
 
+  // Auto-check stems : si des stems ont déjà été générés (ex. via analyse pro),
+  // les afficher immédiatement sans forcer l'utilisateur à cliquer "Séparer les stems"
+  useEffect(() => {
+    if (!selectedTrack || selectedTrack.id < 0) return;
+    // Ne rien faire si on a déjà un statut valide pour ce track
+    if (stemsStatus?.status === 'completed' || stemsStatus?.status === 'processing') return;
+    // Déclencher seulement quand l'onglet Stems est ouvert ou quand le track change
+    // (on vérifie silencieusement si les stems existent déjà sur le serveur)
+    const trackId = selectedTrack.id;
+    const check = async () => {
+      try {
+        const { getToken } = await import('@/lib/api');
+        const token = getToken();
+        const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+        const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+        const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.status === 'completed') {
+          const origin = BASE.replace(/\/api\/v1\/?$/, '');
+          const abs = (u?: string) => u && !u.startsWith('http') ? `${origin}${u}` : u;
+          setStemsStatus({
+            status: 'completed',
+            vocals_url: abs(d.vocals_url),
+            drums_url:  abs(d.drums_url),
+            bass_url:   abs(d.bass_url),
+            other_url:  abs(d.other_url),
+          });
+        }
+      } catch { /* silencieux — les stems n'existent pas encore, pas grave */ }
+    };
+    check();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTrack?.id, activeTab]);
+
   async function handleCreateCue(data: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) {
     if (!selectedTrack || selectedTrack.id < 0) return;
     try {
