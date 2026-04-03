@@ -2269,6 +2269,9 @@ window.addEventListener('load', () => {
   const pct         = document.getElementById('updateProgressPct');
   const btnInstall  = document.getElementById('btnInstallUpdate');
 
+  // Flag pour ne JAMAIS cacher la bannière si l'update est prête
+  let updateReady = false;
+
   function showBanner() {
     banner.classList.add('show');
     document.body.classList.add('has-update');
@@ -2298,23 +2301,25 @@ window.addEventListener('load', () => {
     sub.textContent = `${dlMB} Mo / ${totMB} Mo  —  ${mbps} Mo/s`;
   });
 
-  // Téléchargement terminé → afficher bouton "Redémarrer"
+  // Téléchargement terminé → afficher bouton "Redémarrer" (PERMANENT)
   window.cueforge.onUpdateDownloaded((info) => {
+    updateReady = true;
     title.textContent = `✅ CueForge ${info.version} prêt à installer`;
-    sub.textContent   = 'La mise à jour est téléchargée.';
+    sub.textContent   = 'Clique sur Redémarrer pour installer la mise à jour.';
     bar.style.width   = '100%';
-    pct.textContent   = '100%';
-    barOuter.style.display = 'none';
     pct.textContent   = '';
+    barOuter.style.display = 'none';
     btnInstall.classList.add('show');
     showBanner();
   });
 
-  // Erreur (silencieux, on log juste)
+  // Erreur — on ne cache la bannière que si l'update n'est PAS déjà prête
   window.cueforge.onUpdateError((msg) => {
     console.warn('Update error:', msg);
-    banner.classList.remove('show');
-    document.body.classList.remove('has-update');
+    if (!updateReady) {
+      banner.classList.remove('show');
+      document.body.classList.remove('has-update');
+    }
   });
 })();
 
