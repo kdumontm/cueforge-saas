@@ -1,5 +1,5 @@
 """
-Stem separation service — Meta Demucs (htdemucs model).
+Stem separation service — Meta Demucs (mdx_extra_q model).
 
 DJ-grade deep learning source separation.
 Produces 4 stems: drums, bass, vocals, other.
@@ -24,7 +24,7 @@ STEM_NAMES = ("drums", "bass", "vocals", "other")
 
 def check_demucs_available() -> dict:
     """Diagnostic endpoint."""
-    info = {"method": "demucs_htdemucs", "torch": False, "demucs": False,
+    info = {"method": "demucs_mdx_extra_q", "torch": False, "demucs": False,
             "model": False, "ffmpeg": False, "errors": []}
     try:
         import torch
@@ -39,7 +39,7 @@ def check_demucs_available() -> dict:
         info["errors"].append(f"demucs: {e}")
     try:
         from demucs.pretrained import get_model
-        get_model("htdemucs")
+        get_model("mdx_extra_q")
         info["model"] = True
     except Exception as e:
         info["errors"].append(f"model: {e}")
@@ -67,7 +67,7 @@ def stems_already_exist(track_id: int) -> bool:
 
 def separate_stems(track_id: int, file_path: str) -> dict:
     """
-    Separate a track into 4 stems using Demucs htdemucs.
+    Separate a track into 4 stems using Demucs mdx_extra_q.
     With 8 GB RAM on Hobby plan, this runs comfortably.
     """
     logger.info(f"[stems] Starting Demucs separation for track {track_id}")
@@ -87,7 +87,7 @@ def separate_stems(track_id: int, file_path: str) -> dict:
     # ── Run Demucs ────────────────────────────────────────────────────
     cmd = [
         "python", "-m", "demucs",
-        "-n", "htdemucs",
+        "-n", "mdx_extra_q",
         "--out", demucs_tmp,
         "--mp3",
         "--mp3-bitrate", "192",
@@ -119,11 +119,11 @@ def separate_stems(track_id: int, file_path: str) -> dict:
     logger.info("[stems] Demucs finished OK")
 
     # ── Collect output files ──────────────────────────────────────────
-    found = glob.glob(os.path.join(demucs_tmp, "htdemucs", "*", "*.mp3"))
+    found = glob.glob(os.path.join(demucs_tmp, "mdx_extra_q", "*", "*.mp3"))
 
     if not found:
         # Try WAV fallback
-        found_wav = glob.glob(os.path.join(demucs_tmp, "htdemucs", "*", "*.wav"))
+        found_wav = glob.glob(os.path.join(demucs_tmp, "mdx_extra_q", "*", "*.wav"))
         if found_wav:
             logger.info("[stems] Converting WAV → MP3...")
             for wav in found_wav:

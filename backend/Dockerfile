@@ -21,9 +21,9 @@ RUN pip install --no-cache-dir \
     && python -c "import torch; import demucs; print(f'torch={torch.__version__}, demucs OK')" \
     || echo "WARNING: PyTorch/Demucs install failed — stem separation disabled"
 
-# Pré-télécharger le modèle htdemucs (~80MB) si Demucs est installé
-RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs'); print('htdemucs model cached')" \
-    || echo "WARNING: htdemucs model download skipped"
+# Pré-télécharger le modèle mdx_extra_q (~80MB, 4x plus rapide que htdemucs sur CPU)
+RUN python -c "from demucs.pretrained import get_model; get_model('mdx_extra_q'); print('mdx_extra_q model cached')" \
+    || echo "WARNING: mdx_extra_q model download skipped"
 
 COPY app/ ./app/
 

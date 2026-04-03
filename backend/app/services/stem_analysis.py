@@ -77,7 +77,7 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     from demucs.pretrained import get_model
     from demucs.apply import apply_model
 
-    model = get_model("htdemucs")
+    model = get_model("mdx_extra_q")
     model.eval()
 
     wav, sr_orig = torchaudio.load(file_path)
