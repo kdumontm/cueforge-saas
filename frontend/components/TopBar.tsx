@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Search, Sun, Moon, Bell, X, Upload, Download } from 'lucide-react';
-import Link from 'next/link';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { useLang } from './LangProvider';
@@ -22,6 +21,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
     globalSearch, setGlobalSearch,
     showNotifications, setShowNotifications,
     unanalyzedCount, autoAnalyze, setAutoAnalyze, triggerAnalyzeAll,
+    triggerImport, triggerExport,
   } = useDashboardContext();
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -55,23 +55,23 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
-        {/* Import / Export */}
-        <Link
-          href="/dashboard/upload"
-          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
+        {/* Import / Export — popup, sans changer de page */}
+        <button
+          onClick={triggerImport}
+          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
           title={lang === 'en' ? 'Import tracks' : 'Importer des tracks'}
         >
           <Upload size={12} />
           {tr('topbar.import', lang)}
-        </Link>
-        <Link
-          href="/dashboard/export"
-          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
+        </button>
+        <button
+          onClick={triggerExport}
+          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
           title={lang === 'en' ? 'Export' : 'Exporter'}
         >
           <Download size={12} />
           {tr('topbar.export', lang)}
-        </Link>
+        </button>
 
         {/* Auto-analyse toggle */}
         <button

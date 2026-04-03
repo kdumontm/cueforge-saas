@@ -26,6 +26,10 @@ interface DashboardContextValue {
   triggerImport: () => void;
   registerImportHandler: (fn: () => void) => void;
 
+  // Export trigger
+  triggerExport: () => void;
+  registerExportHandler: (fn: () => void) => void;
+
   // Analyse state — DashboardV2 registers these, TopBar reads them
   unanalyzedCount: number;
   setUnanalyzedCount: (n: number) => void;
@@ -49,6 +53,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [importHandler, setImportHandler] = useState<(() => void) | null>(null);
+  const [exportHandler, setExportHandler] = useState<(() => void) | null>(null);
   const [unanalyzedCount, setUnanalyzedCount] = useState(0);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
   const [persistedTrackId, setPersistedTrackId] = useState<number | null>(null);
@@ -63,6 +68,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const triggerImport = useCallback(() => {
     importHandler?.();
   }, [importHandler]);
+
+  const registerExportHandler = useCallback((fn: () => void) => {
+    setExportHandler(() => fn);
+  }, []);
+  const triggerExport = useCallback(() => {
+    exportHandler?.();
+  }, [exportHandler]);
 
   // Stable: just update the ref, no state change, no re-renders
   const registerAnalyzeAllHandler = useCallback((fn: () => void) => {
@@ -82,6 +94,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       showSearchModal, setShowSearchModal,
       showNotifications, setShowNotifications,
       triggerImport, registerImportHandler,
+      triggerExport, registerExportHandler,
       unanalyzedCount, setUnanalyzedCount,
       autoAnalyze, setAutoAnalyze,
       triggerAnalyzeAll, registerAnalyzeAllHandler,

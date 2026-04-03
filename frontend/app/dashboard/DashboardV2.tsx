@@ -117,7 +117,7 @@ const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
   const {
-    activeSection, globalSearch, registerImportHandler,
+    activeSection, globalSearch, registerImportHandler, registerExportHandler,
     autoAnalyze, setAutoAnalyze,
     setUnanalyzedCount, registerAnalyzeAllHandler,
     persistedTrackId, setPersistedTrackId,
@@ -223,10 +223,15 @@ export default function DashboardV2() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Register import handler so Sidebar/TopBar can trigger file upload
+  // Register import handler so TopBar can trigger file upload
   useEffect(() => {
     registerImportHandler(() => fileRef.current?.click());
   }, [registerImportHandler]);
+
+  // Register export handler so TopBar can ouvrir le popup export
+  useEffect(() => {
+    registerExportHandler(() => setShowExport(true));
+  }, [registerExportHandler]);
 
   // Load playlists
   useEffect(() => {
@@ -1292,13 +1297,6 @@ export default function DashboardV2() {
                   title="Supprimer tous les tracks du compte"
                 >
                   <Trash2 size={12} /> Vider la bibliothèque
-                </button>
-                <button
-                  onClick={() => setShowExport(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[var(--border-subtle)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all cursor-pointer bg-transparent"
-                  title="Exporter la bibliothèque"
-                >
-                  <Download size={12} /> Exporter
                 </button>
               </div>
             )}
