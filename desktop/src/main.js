@@ -211,7 +211,10 @@ function setupIPC() {
   ipcMain.handle('login', async (e, email, password) => {
     try {
       const result = await licenseCheck.login(email, password);
-      return { success: true, token: result.access_token };
+      // Récupérer le profil après login pour avoir les infos complètes
+      let user = { email };
+      try { user = await licenseCheck.getProfile(); } catch {}
+      return { success: true, token: result.access_token, user };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -266,6 +269,13 @@ function setupIPC() {
     fs.writeFileSync(filePath, content, 'utf-8');
     shell.showItemInFolder(filePath);
     return filePath;
+  });
+
+  // ── Token / User (auto-login) ──────────────────────────
+  ipcMain.handle('get-token', () => licenseCheck.getStoredToken());
+  ipcMain.handle('get-user', async () => {
+    try { return await licenseCheck.getProfile(); }
+    catch { return null; }
   });
 
   // ── Version de l'app ───────────────────────────────────

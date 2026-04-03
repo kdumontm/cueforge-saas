@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('cueforge', {
   login:   (email, pwd)    => ipcRenderer.invoke('login', email, pwd),
   logout:           ()     => ipcRenderer.invoke('logout'),
   getStoredEmail:   ()     => ipcRenderer.invoke('get-stored-email'),
+  getToken:         ()     => ipcRenderer.invoke('get-token'),
+  getUser:          ()     => ipcRenderer.invoke('get-user'),
   saveTextFile: (content, name, filter, ext) => ipcRenderer.invoke('save-text-file', content, name, filter, ext),
   // Profile / Settings
   getProfile:       ()          => ipcRenderer.invoke('get-profile'),

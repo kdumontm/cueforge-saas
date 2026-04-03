@@ -1453,13 +1453,13 @@
   <!-- Update Banner -->
   <div id="updateBanner">
     <div class="update-banner-row">
-      <span class="update-banner-label">Mise à jour disponible</span>
-      <span class="update-banner-sub">Une nouvelle version de CueForge est prête à être installée.</span>
+      <span class="update-banner-label">Mise à jour <span id="updateVersionLabel"></span> disponible</span>
+      <span class="update-banner-sub">Téléchargement en cours...</span>
       <div class="update-progress-bar-outer">
-        <div class="update-progress-bar-inner"></div>
+        <div class="update-progress-bar-inner" id="updateProgressBar"></div>
       </div>
-      <span class="update-progress-pct">0%</span>
-      <button class="btn-install-update">Installer</button>
+      <span class="update-progress-pct" id="updatePct">0%</span>
+      <button class="btn-install-update" id="btnInstallUpdate">Redémarrer</button>
     </div>
   </div>
 
@@ -2139,6 +2139,18 @@
           if (banner) { banner.classList.remove('show'); document.body.classList.remove('has-update'); }
         }
       });
+
+      // Bouton "Redémarrer" pour installer la mise à jour
+      const installBtn = document.getElementById('btnInstallUpdate');
+      if (installBtn) {
+        installBtn.addEventListener('click', () => {
+          if (updateReady && window.cueforge.installUpdate) {
+            installBtn.disabled = true;
+            installBtn.textContent = 'Installation...';
+            window.cueforge.installUpdate();
+          }
+        });
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
