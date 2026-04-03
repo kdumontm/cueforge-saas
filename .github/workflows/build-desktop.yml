@@ -1,0 +1,103 @@
+name: Build CueForge Desktop App
+
+on:
+  push:
+    paths:
+      - 'desktop/**'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Generate PNG icons from SVG
+        working-directory: desktop
+        run: |
+          brew install librsvg
+          rsvg-convert -w 1024 -h 1024 assets/icon.svg > assets/icon.png
+          rsvg-convert -w 36 -h 36 assets/tray-icon.svg > assets/tray-icon.png
+          mkdir -p icon.iconset
+          rsvg-convert -w 16 -h 16 assets/icon.svg > icon.iconset/icon_16x16.png
+          rsvg-convert -w 32 -h 32 assets/icon.svg > icon.iconset/icon_16x16@2x.png
+          rsvg-convert -w 32 -h 32 assets/icon.svg > icon.iconset/icon_32x32.png
+          rsvg-convert -w 64 -h 64 assets/icon.svg > icon.iconset/icon_32x32@2x.png
+          rsvg-convert -w 128 -h 128 assets/icon.svg > icon.iconset/icon_128x128.png
+          rsvg-convert -w 256 -h 256 assets/icon.svg > icon.iconset/icon_128x128@2x.png
+          rsvg-convert -w 256 -h 256 assets/icon.svg > icon.iconset/icon_256x256.png
+          rsvg-convert -w 512 -h 512 assets/icon.svg > icon.iconset/icon_256x256@2x.png
+          rsvg-convert -w 512 -h 512 assets/icon.svg > icon.iconset/icon_512x512.png
+          rsvg-convert -w 1024 -h 1024 assets/icon.svg > icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset -o assets/icon.icns
+
+      - name: Build DMG (Intel + Apple Silicon)
+        working-directory: desktop
+        run: |
+          npx electron-builder --mac dmg zip --x64 --arm64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List build output
+        working-directory: desktop
+        run: ls -lh dist/
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-macOS-dmg
+          path: desktop/dist/*.dmg
+          retention-days: 90
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-macOS-zip
+          path: desktop/dist/*.zip
+          retention-days: 90
+
+  release:
+    needs: build-mac
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-v${{ github.run_number }}
+          name: "CueForge Desktop v1.0.${{ github.run_number }}"
+          body: |
+            ## CueForge App Mac
+            Telechargez le .dmg et glissez CueForge dans Applications.
+            1. Telechargez le .dmg ci-dessous
+            2. Ouvrez-le et glissez CueForge dans Applications
+            3. Si macOS bloque: Preferences Systeme > Securite > Ouvrir quand meme
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
