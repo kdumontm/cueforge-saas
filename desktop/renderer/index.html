@@ -680,6 +680,97 @@
       border-radius: 50%;
     }
 
+    /* ─── TOOL VIEWS ──────────────────────────────────────────────────────── */
+    .view-panel { display: none; padding: 24px; overflow-y: auto; height: 100%; }
+    .view-panel.active { display: block; }
+
+    .tool-header { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .tool-sub { color: #888; font-size: 13px; margin-bottom: 20px; }
+    .tool-card { background: #141414; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .tool-card-title { font-size: 14px; font-weight: 600; color: #c4b5fd; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+
+    /* Tap Tempo */
+    .tap-area { width: 200px; height: 200px; border-radius: 50%; background: linear-gradient(135deg, #2d1b69, #7c3aed); display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; margin: 20px auto; transition: transform 0.08s; font-size: 42px; font-weight: 800; color: #fff; border: 3px solid #5b21b6; }
+    .tap-area:active { transform: scale(0.93); }
+    .tap-area.pulse { animation: tapPulse 0.2s ease-out; }
+    @keyframes tapPulse { 0% { box-shadow: 0 0 0 0 rgba(124,58,237,0.5); } 100% { box-shadow: 0 0 0 30px rgba(124,58,237,0); } }
+    .bpm-variants { display: flex; justify-content: center; gap: 20px; margin-top: 16px; }
+    .bpm-variant { text-align: center; padding: 8px 16px; background: #1a1a1a; border-radius: 8px; }
+    .bpm-variant-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+    .bpm-variant-value { font-size: 18px; font-weight: 700; color: #c4b5fd; }
+
+    /* Camelot Wheel */
+    .camelot-container { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+    .camelot-svg { flex-shrink: 0; }
+    .camelot-info { flex: 1; min-width: 200px; }
+    .camelot-key-cell { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 32px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; margin: 2px; }
+    .camelot-key-cell:hover { transform: scale(1.1); }
+    .camelot-key-cell.selected { outline: 2px solid #fff; outline-offset: 2px; }
+    .camelot-key-cell.compatible { outline: 2px solid #10b981; outline-offset: 1px; }
+    .camelot-legend { margin-top: 12px; font-size: 12px; color: #888; }
+    .camelot-compat-list { margin-top: 12px; }
+    .camelot-compat-item { display: inline-block; padding: 4px 10px; border-radius: 6px; margin: 3px; font-size: 12px; font-weight: 600; }
+
+    /* Gig Prep */
+    .gig-list { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .gig-chip { padding: 6px 14px; border-radius: 20px; background: #1a1a1a; border: 1px solid #333; font-size: 12px; color: #ccc; cursor: pointer; transition: all 0.15s; }
+    .gig-chip.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    .gig-chip.add { border-style: dashed; border-color: #555; color: #888; }
+    .gig-progress { height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin: 12px 0; }
+    .gig-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .checklist-category { margin-bottom: 14px; }
+    .checklist-cat-header { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 0; font-size: 13px; font-weight: 600; color: #c4b5fd; }
+    .checklist-cat-header:hover { color: #a78bfa; }
+    .checklist-items { padding-left: 8px; }
+    .checklist-item { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 12px; color: #ccc; border-radius: 4px; }
+    .checklist-item:hover { background: #1a1a1a; }
+    .checklist-item.done { color: #666; text-decoration: line-through; }
+    .checklist-item input[type=checkbox] { accent-color: #7c3aed; width: 14px; height: 14px; }
+    .checklist-item .del-item { visibility: hidden; cursor: pointer; color: #555; margin-left: auto; font-size: 14px; }
+    .checklist-item:hover .del-item { visibility: visible; color: #ef4444; }
+    .add-item-row { display: flex; gap: 8px; margin-top: 6px; padding-left: 8px; }
+    .add-item-input { flex: 1; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 5px 10px; color: #ccc; font-size: 12px; }
+    .add-item-btn { background: #7c3aed; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+
+    /* Quick Notes */
+    .note-colors { display: flex; gap: 6px; margin-bottom: 10px; }
+    .note-color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+    .note-color-dot.active { border-color: #fff; transform: scale(1.15); }
+    .notes-list { max-height: 400px; overflow-y: auto; }
+    .note-card { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; position: relative; border-left: 3px solid; }
+    .note-card .note-time { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+    .note-card .note-pin { position: absolute; top: 6px; right: 26px; cursor: pointer; font-size: 13px; opacity: 0.4; }
+    .note-card .note-pin.pinned { opacity: 1; }
+    .note-card .note-del { position: absolute; top: 6px; right: 8px; cursor: pointer; font-size: 13px; opacity: 0.4; }
+    .note-card .note-del:hover { opacity: 1; color: #ef4444; }
+
+    /* Energy Flow */
+    .energy-chart { display: flex; align-items: flex-end; gap: 3px; height: 180px; padding: 0 4px; border-bottom: 1px solid #333; overflow-x: auto; }
+    .energy-bar { flex: 1; min-width: 24px; max-width: 50px; border-radius: 4px 4px 0 0; cursor: pointer; transition: opacity 0.15s; position: relative; }
+    .energy-bar:hover { opacity: 0.8; }
+    .energy-bar-tooltip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #222; padding: 4px 8px; border-radius: 6px; font-size: 10px; color: #ccc; white-space: nowrap; z-index: 10; pointer-events: none; }
+    .energy-bar:hover .energy-bar-tooltip { display: block; }
+    .energy-stats { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    .energy-stat { padding: 10px 14px; background: #1a1a1a; border-radius: 8px; text-align: center; }
+    .energy-stat-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .energy-stat-value { font-size: 18px; font-weight: 700; color: #c4b5fd; margin-top: 2px; }
+
+    /* Crate Digger */
+    .dig-modes { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .dig-mode { padding: 6px 14px; border-radius: 20px; background: #1a1a1a; border: 1px solid #333; font-size: 12px; color: #ccc; cursor: pointer; }
+    .dig-mode.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    .dig-btn { background: linear-gradient(135deg, #7c3aed, #5b21b6); color: #fff; border: none; border-radius: 10px; padding: 10px 28px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+    .dig-btn:hover { background: linear-gradient(135deg, #6d28d9, #4c1d95); }
+    .dig-results { display: flex; flex-direction: column; gap: 8px; }
+    .dig-result { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1a1a1a; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+    .dig-result:hover { background: #222; }
+    .dig-result-info { flex: 1; }
+    .dig-result-title { font-size: 13px; font-weight: 600; color: #e0e0e0; }
+    .dig-result-artist { font-size: 11px; color: #888; }
+    .dig-result-meta { display: flex; gap: 10px; font-size: 11px; color: #666; }
+    .dig-result-energy { width: 60px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+    .dig-result-energy-fill { height: 100%; border-radius: 2px; }
+
     /* Empty state */
     .empty-state {
       display: none;
@@ -800,6 +891,36 @@
     <div class="sidebar-divider"></div>
 
     <div class="sidebar-section">
+      <div class="sidebar-title">Outils DJ</div>
+      <div class="sidebar-item" data-view="tap-tempo">
+        <span>🥁</span>
+        <span>Tap Tempo</span>
+      </div>
+      <div class="sidebar-item" data-view="camelot">
+        <span>🎡</span>
+        <span>Camelot</span>
+      </div>
+      <div class="sidebar-item" data-view="energy-flow">
+        <span>⚡</span>
+        <span>Energy Flow</span>
+      </div>
+      <div class="sidebar-item" data-view="gig-prep">
+        <span>📋</span>
+        <span>Gig Prep</span>
+      </div>
+      <div class="sidebar-item" data-view="crate-digger">
+        <span>🎲</span>
+        <span>Crate Digger</span>
+      </div>
+      <div class="sidebar-item" data-view="notes">
+        <span>📝</span>
+        <span>Notes</span>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
       <div class="sidebar-title">Paramètres</div>
       <div class="sidebar-item" data-view="account">
         <span>👤</span>
@@ -832,6 +953,9 @@
           <div class="dropdown-menu" id="exportMenu">
             <button class="dropdown-item" data-format="rekordbox">Export Rekordbox XML</button>
             <button class="dropdown-item" data-format="serato">Export Serato</button>
+            <button class="dropdown-item" data-format="m3u">Export M3U Playlist</button>
+            <button class="dropdown-item" data-format="csv">Export CSV</button>
+            <button class="dropdown-item" data-format="json">Export JSON</button>
           </div>
         </div>
       </div>
@@ -872,6 +996,100 @@
       </div>
     </div>
 
+    <!-- ═══ TOOL VIEWS ════════════════════════════════════════════════════ -->
+
+    <!-- TAP TEMPO -->
+    <div class="view-panel" id="viewTapTempo">
+      <div class="tool-header">🥁 Tap Tempo</div>
+      <div class="tool-sub">Clique ou appuie sur <kbd style="background:#222;padding:2px 6px;border-radius:4px">T</kbd> en rythme pour détecter le BPM</div>
+      <div class="tool-card" style="text-align:center">
+        <div class="tap-area" id="tapArea">—</div>
+        <div class="bpm-variants">
+          <div class="bpm-variant"><div class="bpm-variant-label">½</div><div class="bpm-variant-value" id="tapHalf">—</div></div>
+          <div class="bpm-variant"><div class="bpm-variant-label">×1</div><div class="bpm-variant-value" id="tapNormal">—</div></div>
+          <div class="bpm-variant"><div class="bpm-variant-label">×2</div><div class="bpm-variant-value" id="tapDouble">—</div></div>
+        </div>
+        <div style="margin-top:14px;color:#666;font-size:11px" id="tapCount">0 taps</div>
+        <button style="margin-top:10px;background:#222;color:#aaa;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px" id="tapReset">Réinitialiser</button>
+      </div>
+    </div>
+
+    <!-- CAMELOT WHEEL -->
+    <div class="view-panel" id="viewCamelot">
+      <div class="tool-header">🎡 Roue de Camelot</div>
+      <div class="tool-sub">Sélectionne une tonalité pour voir les mixages compatibles</div>
+      <div class="camelot-container">
+        <div class="tool-card" style="flex:1">
+          <div id="camelotGrid"></div>
+        </div>
+        <div class="tool-card camelot-info" id="camelotInfo">
+          <div style="color:#888;font-size:13px">Clique sur une tonalité pour voir les clés compatibles.</div>
+          <div class="camelot-legend" style="margin-top:16px">
+            <div><strong style="color:#c4b5fd">Compatible :</strong></div>
+            <div style="margin-top:4px">• Même numéro (ex: 8A ↔ 8B) = passage majeur/mineur</div>
+            <div>• ±1 position (ex: 8A → 7A ou 9A) = transition harmonique</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENERGY FLOW -->
+    <div class="view-panel" id="viewEnergyFlow">
+      <div class="tool-header">⚡ Energy Flow</div>
+      <div class="tool-sub">Visualise la distribution d'énergie de ta bibliothèque</div>
+      <div class="tool-card">
+        <div class="energy-chart" id="energyChart"></div>
+        <div class="energy-stats" id="energyStats"></div>
+      </div>
+    </div>
+
+    <!-- GIG PREP -->
+    <div class="view-panel" id="viewGigPrep">
+      <div class="tool-header">📋 Gig Prep</div>
+      <div class="tool-sub">Prépare tes sets avec des checklists complètes</div>
+      <div class="gig-list" id="gigList"></div>
+      <div id="gigContent"></div>
+    </div>
+
+    <!-- CRATE DIGGER -->
+    <div class="view-panel" id="viewCrateDigger">
+      <div class="tool-header">🎲 Crate Digger</div>
+      <div class="tool-sub">Redécouvre des pépites dans ta bibliothèque</div>
+      <div class="tool-card">
+        <div class="dig-modes" id="digModes">
+          <div class="dig-mode active" data-mode="random">🎲 Random</div>
+          <div class="dig-mode" data-mode="energy">⚡ Energy Journey</div>
+          <div class="dig-mode" data-mode="genre">🎸 Genre Explore</div>
+          <div class="dig-mode" data-mode="gems">💎 Hidden Gems</div>
+        </div>
+        <button class="dig-btn" id="digBtn">🔍 Dig !</button>
+        <div class="dig-results" id="digResults"></div>
+      </div>
+    </div>
+
+    <!-- QUICK NOTES -->
+    <div class="view-panel" id="viewNotes">
+      <div class="tool-header">📝 Quick Notes</div>
+      <div class="tool-sub">Prends des notes rapides pour tes sets et gigs</div>
+      <div class="tool-card">
+        <div class="note-colors" id="noteColors">
+          <div class="note-color-dot active" data-color="#fbbf24" style="background:#fbbf24"></div>
+          <div class="note-color-dot" data-color="#60a5fa" style="background:#60a5fa"></div>
+          <div class="note-color-dot" data-color="#f472b6" style="background:#f472b6"></div>
+          <div class="note-color-dot" data-color="#34d399" style="background:#34d399"></div>
+          <div class="note-color-dot" data-color="#c084fc" style="background:#c084fc"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input type="text" id="noteInput" placeholder="Écrire une note…" style="flex:1;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#ccc;font-size:12px">
+          <button id="noteAddBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:600">Ajouter</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="text" id="noteSearch" placeholder="Rechercher…" style="flex:1;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:6px 10px;color:#ccc;font-size:11px">
+        </div>
+        <div class="notes-list" id="notesList"></div>
+      </div>
+    </div>
+
     <!-- DETAIL PANEL -->
     <div class="detail-panel" id="detailPanel">
       <div class="detail-row">
@@ -895,6 +1113,7 @@
 </div>
 
 <script src="audioAnalyzer.js"></script>
+<script src="djTools.js"></script>
 <script>
 'use strict';
 
@@ -1255,6 +1474,22 @@ document.querySelectorAll('[data-format]').forEach(btn => {
         await window.cueforge.exportRekordbox(ids);
       } else if (format === 'serato') {
         await window.cueforge.exportSerato(ids);
+      } else if (format === 'm3u' || format === 'csv' || format === 'json') {
+        const tracks = ids
+          ? state.tracks.filter(t => ids.includes(t.id))
+          : state.tracks;
+        let content, ext, filterName;
+        if (format === 'm3u') {
+          content = MultiExport.exportM3U(tracks);
+          ext = 'm3u'; filterName = 'M3U Playlist';
+        } else if (format === 'csv') {
+          content = MultiExport.exportCSV(tracks);
+          ext = 'csv'; filterName = 'CSV Spreadsheet';
+        } else {
+          content = MultiExport.exportJSON(tracks);
+          ext = 'json'; filterName = 'JSON Data';
+        }
+        await window.cueforge.saveTextFile(content, `CueForge_Export.${ext}`, filterName, ext);
       }
     } catch (error) {
       console.error('Export error:', error);
@@ -1282,7 +1517,10 @@ function updateUI() {
 }
 
 // ─── STARTUP ───────────────────────────────────────────────────────────────
-window.addEventListener('load', initApp);
+window.addEventListener('load', () => {
+  initApp();
+  initDJTools();
+});
 
 // ─── AUTO-UPDATE UI ────────────────────────────────────────────────────────
 (function setupUpdateBanner() {

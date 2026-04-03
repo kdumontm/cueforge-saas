@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('cueforge', {
   login:   (email, pwd)    => ipcRenderer.invoke('login', email, pwd),
   logout:           ()     => ipcRenderer.invoke('logout'),
   getStoredEmail:   ()     => ipcRenderer.invoke('get-stored-email'),
+  saveTextFile: (content, name, filter, ext) => ipcRenderer.invoke('save-text-file', content, name, filter, ext),
   onFilesDropped:     (cb) => ipcRenderer.on('files-dropped',    (_, files) => cb(files)),
   // ── Mise à jour automatique ──────────────────────────────
   onUpdateAvailable:  (cb) => ipcRenderer.on('update-available',  (_, info)  => cb(info)),

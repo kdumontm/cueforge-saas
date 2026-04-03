@@ -242,6 +242,18 @@ function setupIPC() {
   // ── Infos utilisateur stockées ────────────────────────
   ipcMain.handle('get-stored-email', () => licenseCheck.getStoredEmail());
 
+  // ── Sauvegarder un fichier texte (export M3U, CSV, JSON) ──
+  ipcMain.handle('save-text-file', async (e, content, defaultName, filterName, ext) => {
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: defaultName,
+      filters: [{ name: filterName, extensions: [ext] }],
+    });
+    if (!filePath) return null;
+    fs.writeFileSync(filePath, content, 'utf-8');
+    shell.showItemInFolder(filePath);
+    return filePath;
+  });
+
   // ── Check for updates ─────────────────────────────────
   ipcMain.handle('check-for-updates', () => {
     autoUpdater.checkForUpdates();
