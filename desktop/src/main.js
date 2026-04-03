@@ -65,6 +65,27 @@ function createWindow() {
 
 // ─── App lifecycle ─────────────────────────────────────
 app.whenReady().then(() => {
+  // ── Sur macOS, proposer de déplacer l'app dans /Applications ──
+  // Sans ça, l'auto-updater ne peut pas remplacer le binaire
+  if (isMac && !app.isInApplicationsFolder()) {
+    const choice = dialog.showMessageBoxSync({
+      type: 'question',
+      buttons: ['Déplacer dans Applications', 'Continuer sans déplacer'],
+      defaultId: 0,
+      title: 'CueForge',
+      message: 'CueForge doit être dans le dossier Applications',
+      detail: 'Pour que les mises à jour automatiques fonctionnent, CueForge doit être dans /Applications.\n\nVoulez-vous le déplacer maintenant ?',
+    });
+    if (choice === 0) {
+      try {
+        app.moveToApplicationsFolder();
+        return; // L'app redémarre depuis /Applications
+      } catch (err) {
+        console.error('Failed to move to Applications:', err);
+      }
+    }
+  }
+
   loadServices();
   createWindow();
   createTray();
@@ -349,6 +370,13 @@ function setupAutoUpdater() {
 
 // ─── Installer la mise à jour et redémarrer ────────────
 function installAndRestart() {
+  console.log('[update] installAndRestart called');
+  console.log('[update] app path:', app.getAppPath());
+  console.log('[update] exe path:', app.getPath('exe'));
+  if (isMac) {
+    console.log('[update] isInApplicationsFolder:', app.isInApplicationsFolder());
+  }
+
   // 1. Bypasser le handler hide-on-close de macOS
   app.isQuitting = true;
 
@@ -362,16 +390,12 @@ function installAndRestart() {
   // 3. Petit délai pour laisser la fenêtre se fermer, puis installer
   //    isSilent=true : pas de dialog, applique la MAJ directement
   //    isForceRunAfter=true : relance l'app après installation
-  //    PAS de safety net avec app.relaunch() — sinon ça relance l'ancienne version
-  //    avant que quitAndInstall ait fini d'extraire le ZIP (~100MB)
   setTimeout(() => {
     try {
-      autoUpdater.quitAndInstall(true, true);
+      autoUpdater.quitAndInstall(false, true);
     } catch (err) {
-      console.error('quitAndInstall failed:', err);
-      // Ne PAS faire app.relaunch() ici — ça relancerait l'ancienne version
-      // L'utilisateur devra relancer manuellement
+      console.error('[update] quitAndInstall failed:', err);
       app.exit(0);
     }
-  }, 500);
+  }, 1000);
 }
