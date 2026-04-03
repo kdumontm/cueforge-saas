@@ -467,15 +467,89 @@ def analyze_melody_stem(other: np.ndarray, sr: int = SR) -> Dict:
 #   COMBINED STEM ANALYSIS — produces enriched data for cue_generator
 # ══════════════════════════════════════════════════════════════════════════
 
-def analyze_stems(file_path: str, beats: List[float] = None) -> Dict:
+def _save_stems_to_disk(stems: Dict[str, np.ndarray], track_id: int) -> bool:
+    """
+    Save stem numpy arrays as MP3 files in STEMS_DIR/{track_id}/.
+    This allows the stems module to find them without re-running Demucs.
+
+    Workflow: numpy array → WAV (soundfile) → MP3 (ffmpeg) → cleanup WAV
+    Returns True if all 4 stems saved successfully, False on any error.
+    """
+    import subprocess
+    import soundfile as sf
+
+    try:
+        from app.services.stems_service import stems_dir_for_track, stems_already_exist, STEM_NAMES
+    except ImportError:
+        logger.warning("[STEM] stems_service not importable — skipping disk save")
+        return False
+
+    # Already saved? Don't overwrite
+    if stems_already_exist(track_id):
+        logger.info(f"[STEM] Stems already on disk for track {track_id} — skipping save")
+        return True
+
+    out_dir = stems_dir_for_track(track_id)
+    saved = []
+
+    # Map: stem_analysis names → stems_service names
+    name_map = {"drums": "drums", "bass": "bass", "vocals": "vocals", "other": "other"}
+
+    for stem_name, array in stems.items():
+        mapped = name_map.get(stem_name, stem_name)
+        wav_path = os.path.join(out_dir, f"{mapped}.wav")
+        mp3_path = os.path.join(out_dir, f"{mapped}.mp3")
+
+        try:
+            # Write WAV (soundfile handles numpy arrays natively)
+            sf.write(wav_path, array, SR, subtype="PCM_16")
+
+            # Convert WAV → MP3 with ffmpeg
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", wav_path, "-b:a", "192k", mp3_path],
+                capture_output=True, timeout=60,
+            )
+
+            if result.returncode == 0 and os.path.exists(mp3_path):
+                os.remove(wav_path)
+                sz = os.path.getsize(mp3_path)
+                logger.info(f"[STEM] ✓ Saved {mapped}.mp3 ({sz // 1024} KB) for track {track_id}")
+                saved.append(mapped)
+            else:
+                logger.warning(f"[STEM] ffmpeg failed for {mapped}: {result.stderr[-200:]}")
+                if os.path.exists(wav_path):
+                    os.remove(wav_path)
+
+        except Exception as e:
+            logger.warning(f"[STEM] Failed to save {mapped} for track {track_id}: {e}")
+            for p in [wav_path, mp3_path]:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
+
+    success = len(saved) == 4
+    if success:
+        logger.info(f"[STEM] ✅ All 4 stems saved to disk for track {track_id}")
+    else:
+        logger.warning(f"[STEM] Only {len(saved)}/4 stems saved for track {track_id}: {saved}")
+
+    return success
+
+
+def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[int] = None) -> Dict:
     """
     Full stem analysis pipeline:
     1. Separate with Demucs
     2. Analyze each stem independently
     3. Cross-stem analysis (drums+bass alignment = drop confidence)
-    4. Return enriched data dict
+    4. Optionally save stems to disk (if track_id provided) — avoids re-running Demucs
+    5. Return enriched data dict
 
     This data is merged into the main analysis_data before cue generation.
+    If track_id is provided, stems are saved as MP3 in STEMS_DIR/{track_id}/
+    so the stems module can serve them directly without re-analysis.
     """
     logger.info(f"[STEM] Full stem analysis pipeline starting for {file_path}")
 
@@ -502,13 +576,22 @@ def analyze_stems(file_path: str, beats: List[float] = None) -> Dict:
     stem_intro_end_ms = drum_data["drum_enter_ms"]
     stem_outro_start_ms = drum_data["drum_exit_ms"]
 
+    # Step 5: Save stems to disk (avoids re-running Demucs if user opens stems module)
+    stems_saved = False
+    if track_id is not None:
+        try:
+            stems_saved = _save_stems_to_disk(stems, track_id)
+        except Exception as e:
+            logger.warning(f"[STEM] Disk save failed (non-critical): {e}")
+
     # Cleanup
     del stems
     gc.collect()
 
     logger.info(f"[STEM] Analysis complete: {len(validated_drops)} validated drops, "
                 f"vocal {vocal_data['vocal_percentage']}%, "
-                f"{len(melody_data['riser_candidates'])} risers")
+                f"{len(melody_data['riser_candidates'])} risers, "
+                f"stems_saved={stems_saved}")
 
     return {
         # Drum features
@@ -529,8 +612,9 @@ def analyze_stems(file_path: str, beats: List[float] = None) -> Dict:
         "stem_validated_drops": validated_drops,
         "stem_intro_end_ms": stem_intro_end_ms,
         "stem_outro_start_ms": stem_outro_start_ms,
-        # Flag
+        # Flags
         "stem_analysis": True,
+        "stems_saved_to_disk": stems_saved,
     }
 
 

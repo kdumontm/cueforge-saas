@@ -394,7 +394,11 @@ def _run_analysis(track_id: int):
             pass
 
         try:
-            analysis_data = analysis_svc.analyze_audio(file_path, use_stem_separation=use_stems)
+            # Pass track_id so stems are saved to disk when use_stems=True
+            # → the stems module finds them without re-running Demucs
+            analysis_data = analysis_svc.analyze_audio(
+                file_path, use_stem_separation=use_stems, track_id=track_id
+            )
         except Exception as e:
             logger.error(f"Audio analysis failed for track {track_id}: {e}")
             track.status = TrackStatus.failed

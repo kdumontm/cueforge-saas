@@ -1279,13 +1279,17 @@ def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
         "genre_scores": {k: round(v, 1) for k, v in sorted_genres[:5]},
     }
 
-def analyze_audio(file_path: str, use_stem_separation: bool = False) -> Dict:
+def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: Optional[int] = None) -> Dict:
     """
-    Full audio analysis pipeline v5.0
+    Full audio analysis pipeline v5.1
     Loads audio ONCE, runs all analysis with beat-synchronous features.
 
     If use_stem_separation=True, also runs Demucs stem separation for
     ultra-precise drop/vocal/build detection (adds ~30-60s on CPU).
+
+    If track_id is provided AND use_stem_separation=True, the 4 stems are
+    saved as MP3 files in STEMS_DIR/{track_id}/ so the stems module can
+    serve them directly without re-running Demucs.
     """
     y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION)
     # Get REAL file duration (not limited by MAX_DURATION)
@@ -1440,9 +1444,10 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False) -> Dict:
     if use_stem_separation:
         try:
             from app.services.stem_analysis import analyze_stems
-            logger.info(f"[STEM] Running Demucs stem analysis for {file_path}")
-            stem_data = analyze_stems(file_path, beats)
-            logger.info(f"[STEM] Stem analysis complete — {len(stem_data)} fields")
+            logger.info(f"[STEM] Running Demucs stem analysis for {file_path} (track_id={track_id})")
+            stem_data = analyze_stems(file_path, beats, track_id=track_id)
+            saved = stem_data.get("stems_saved_to_disk", False)
+            logger.info(f"[STEM] Stem analysis complete — {len(stem_data)} fields, stems_on_disk={saved}")
         except MemoryError as e:
             logger.error(f"[STEM] Not enough RAM for Demucs: {e}")
             stem_data = {"stem_analysis": False, "stem_error": "memory"}
