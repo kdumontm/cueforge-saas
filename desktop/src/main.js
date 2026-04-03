@@ -621,66 +621,121 @@ function installAndRestart() {
   if (updateInstallInProgress) return;
   updateInstallInProgress = true;
 
+  const exePath = app.getPath('exe');
   console.log('[update] installAndRestart called');
-  console.log('[update] app path:', app.getAppPath());
-  console.log('[update] exe path:', app.getPath('exe'));
-  if (isMac) {
-    console.log('[update] isInApplicationsFolder:', app.isInApplicationsFolder());
-  }
+  console.log('[update] exe path:', exePath);
 
-  // 1. Notifier le renderer que l'installation démarre
   mainWindow?.webContents.send('update-progress', { percent: 100, status: 'installing' });
 
-  // 2. Essayer quitAndInstall — NE PAS détruire la fenêtre avant
-  //    (sinon le fallback DMG côté renderer ne peut plus s'exécuter)
-  try {
-    app.isQuitting = true;
-    autoUpdater.quitAndInstall(false, true);
-  } catch (err) {
-    console.error('[update] quitAndInstall failed:', err);
-    app.isQuitting = false;
-    updateInstallInProgress = false;
-
-    // Fallback : essayer app.relaunch() manuellement
+  if (isMac) {
+    // ── macOS : remplacement manuel via ditto (quitAndInstall échoue sur apps non signées) ──
+    installOnMac();
+  } else {
+    // ── Windows : quitAndInstall fonctionne normalement ──
     try {
-      console.log('[update] Trying app.relaunch() fallback...');
-      app.relaunch();
-      app.exit(0);
-    } catch (relaunchErr) {
-      console.error('[update] app.relaunch() also failed:', relaunchErr);
-      // Dernier recours : notifier le renderer pour télécharger le DMG
-      mainWindow?.webContents.send('update-install-failed', {
-        version: pendingUpdateVersion || 'latest',
-        error: err.message
-      });
-    }
-  }
-
-  // 3. Safety net : si on est encore vivant après 8s, quitAndInstall a échoué silencieusement
-  setTimeout(() => {
-    console.log('[update] Still alive after 8s — quitAndInstall failed silently');
-    app.isQuitting = false;
-    updateInstallInProgress = false;
-
-    // Tenter le fallback DMG depuis le main process
-    const version = pendingUpdateVersion || 'latest';
-    if (isMac) {
-      console.log('[update] Triggering DMG fallback from main process');
-      mainWindow?.webContents.send('update-install-failed', { version, error: 'quitAndInstall timeout' });
-
-      // Si la fenêtre est morte, télécharger et ouvrir le DMG directement
-      if (!mainWindow) {
-        downloadAndOpenDMG(version)
-          .then((dmgPath) => shell.openPath(dmgPath))
-          .catch(() => shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`))
-          .finally(() => app.exit(0));
-      }
-    } else {
-      // Windows : ouvrir la page de releases
+      app.isQuitting = true;
+      autoUpdater.quitAndInstall(false, true);
+    } catch (err) {
+      console.error('[update] quitAndInstall failed on Windows:', err);
+      const version = pendingUpdateVersion || 'latest';
       shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`);
       app.exit(0);
     }
-  }, 8000);
+  }
+}
+
+async function installOnMac() {
+  const { execSync } = require('child_process');
+  const os = require('os');
+
+  // 1. Trouver le .zip téléchargé par electron-updater dans le cache
+  const cacheDir = path.join(app.getPath('userData'), '..', 'cueforge-updater');
+  const appName = 'CueForge.app';
+  const exePath = app.getPath('exe');
+  // exePath = /Applications/CueForge.app/Contents/MacOS/CueForge → remonter à CueForge.app
+  const currentAppPath = exePath.replace(/\/Contents\/MacOS\/.*$/, '');
+
+  console.log('[update] cacheDir:', cacheDir);
+  console.log('[update] currentAppPath:', currentAppPath);
+
+  try {
+    // 2. Chercher le zip téléchargé
+    let zipPath = null;
+    if (fs.existsSync(cacheDir)) {
+      const files = fs.readdirSync(cacheDir);
+      zipPath = files
+        .filter(f => f.endsWith('.zip'))
+        .map(f => path.join(cacheDir, f))
+        .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+    }
+
+    if (!zipPath || !fs.existsSync(zipPath)) {
+      // Essayer le dossier standard Electron
+      const altCache = path.join(os.homedir(), 'Library', 'Caches', 'cueforge-updater');
+      if (fs.existsSync(altCache)) {
+        const files = fs.readdirSync(altCache);
+        zipPath = files
+          .filter(f => f.endsWith('.zip'))
+          .map(f => path.join(altCache, f))
+          .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+      }
+    }
+
+    if (zipPath && fs.existsSync(zipPath)) {
+      console.log('[update] Found update zip:', zipPath);
+
+      // 3. Extraire dans un dossier temp
+      const tmpDir = path.join(os.tmpdir(), 'cueforge-update-' + Date.now());
+      fs.mkdirSync(tmpDir, { recursive: true });
+      execSync(`ditto -xk "${zipPath}" "${tmpDir}"`, { timeout: 30000 });
+
+      // 4. Trouver le .app extrait
+      const extracted = fs.readdirSync(tmpDir).find(f => f.endsWith('.app'));
+      if (extracted) {
+        const newAppPath = path.join(tmpDir, extracted);
+        console.log('[update] Extracted new app:', newAppPath);
+
+        // 5. Créer un script shell qui attend la fermeture, remplace l'app et la relance
+        const script = path.join(os.tmpdir(), 'cueforge-updater.sh');
+        fs.writeFileSync(script, [
+          '#!/bin/bash',
+          `sleep 2`,
+          `rm -rf "${currentAppPath}"`,
+          `ditto "${newAppPath}" "${currentAppPath}"`,
+          `xattr -cr "${currentAppPath}"`,  // Supprimer les flags de quarantaine
+          `open "${currentAppPath}"`,
+          `rm -rf "${tmpDir}"`,
+          `rm -f "${script}"`,
+        ].join('\n'), { mode: 0o755 });
+
+        console.log('[update] Launching updater script:', script);
+        require('child_process').spawn('/bin/bash', [script], {
+          detached: true,
+          stdio: 'ignore',
+        }).unref();
+
+        // 6. Quitter l'app pour que le script puisse la remplacer
+        app.isQuitting = true;
+        setTimeout(() => app.exit(0), 500);
+        return;
+      }
+    }
+
+    // ── Fallback : si pas de zip trouvé, télécharger le DMG ──
+    console.log('[update] No cached zip found, falling back to DMG download');
+    const version = pendingUpdateVersion || 'latest';
+    mainWindow?.webContents.send('update-install-failed', { version, error: 'no-cached-zip' });
+
+    updateInstallInProgress = false;
+
+  } catch (err) {
+    console.error('[update] installOnMac failed:', err);
+    updateInstallInProgress = false;
+
+    // Dernier recours : fallback DMG
+    const version = pendingUpdateVersion || 'latest';
+    mainWindow?.webContents.send('update-install-failed', { version, error: err.message });
+  }
 }
 
 // ─── Fallback : télécharger le DMG directement ─────────
