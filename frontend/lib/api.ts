@@ -254,7 +254,7 @@ export async function deleteTrack(trackId: number): Promise<void> {
 // ── Export API ───────────────────────────────────────────────────────────────
 
 export async function exportRekordbox(trackId: number): Promise<Blob> {
-  const response = await authFetch(`${API_URL}/export/${trackId}/rekordbox`, {
+  const response = await authFetch(`${API_URL}/export/export/${trackId}/rekordbox`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export Rekordbox');
@@ -270,7 +270,7 @@ export async function exportSerato(trackId: number): Promise<Blob> {
 }
 
 export async function exportJSON(trackId: number): Promise<Blob> {
-  const response = await authFetch(`${API_URL}/export/${trackId}/json`, {
+  const response = await authFetch(`${API_URL}/export/export/${trackId}/rekordbox/json`, {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export JSON');
@@ -1012,13 +1012,13 @@ export async function getDemoMode(): Promise<boolean> {
 // ── v2: Export All / Batch / Playlist M3U ────────────────────────────────────
 
 export async function exportAllRekordbox(): Promise<Blob> {
-  const r = await authFetch(`${API_URL}/export/rekordbox/all`, { headers: authHeaders() });
+  const r = await authFetch(`${API_URL}/export/export/rekordbox/all`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to export all tracks as Rekordbox XML');
   return r.blob();
 }
 
 export async function exportBatchRekordbox(trackIds: number[]): Promise<Blob> {
-  const r = await authFetch(`${API_URL}/export/rekordbox/batch`, {
+  const r = await authFetch(`${API_URL}/export/export/rekordbox/batch`, {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ track_ids: trackIds }),
@@ -1028,7 +1028,7 @@ export async function exportBatchRekordbox(trackIds: number[]): Promise<Blob> {
 }
 
 export async function exportPlaylistM3U(playlistId: number): Promise<Blob> {
-  const r = await authFetch(`${API_URL}/export/playlist/${playlistId}/m3u`, { headers: authHeaders() });
+  const r = await authFetch(`${API_URL}/export/export/playlist/${playlistId}/m3u`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to export playlist as M3U');
   return r.blob();
 }
@@ -1057,13 +1057,13 @@ export interface DJSetDetail extends DJSet {
 }
 
 export async function listSets(): Promise<DJSet[]> {
-  const r = await authFetch(`${API_URL}/sets/`, { headers: authHeaders() });
+  const r = await authFetch(`${API_URL}/sets`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to fetch DJ sets');
   return r.json();
 }
 
 export async function createSet(data: { name: string; description?: string }): Promise<DJSet> {
-  const r = await authFetch(`${API_URL}/sets/`, {
+  const r = await authFetch(`${API_URL}/sets`, {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -1121,13 +1121,13 @@ export async function suggestNextTrack(setId: number): Promise<{ suggestions: Tr
 }
 
 export async function exportSetRekordbox(setId: number): Promise<Blob> {
-  const r = await authFetch(`${API_URL}/export/set/${setId}/rekordbox`, { headers: authHeaders() });
+  const r = await authFetch(`${API_URL}/export/export/set/${setId}/rekordbox`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to export set as Rekordbox XML');
   return r.blob();
 }
 
 export async function exportSetM3U(setId: number): Promise<Blob> {
-  const r = await authFetch(`${API_URL}/export/set/${setId}/m3u`, { headers: authHeaders() });
+  const r = await authFetch(`${API_URL}/export/export/set/${setId}/m3u`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to export set as M3U');
   return r.blob();
 }
