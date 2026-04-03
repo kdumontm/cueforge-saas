@@ -120,13 +120,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Pseudo
+                Email ou pseudo
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="ton pseudo"
+                placeholder="ton@email.com ou ton_pseudo"
                 required
                 autoComplete="username"
                 className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
