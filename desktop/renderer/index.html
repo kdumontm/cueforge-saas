@@ -2195,31 +2195,57 @@
           if (banner) banner.classList.remove('show');
         }
       });
+      // Écouter l'échec d'installation depuis le main process
+      window.cueforge.onUpdateInstallFailed?.((data) => {
+        console.warn('[update] Install failed, triggering DMG fallback:', data);
+        const btn = document.getElementById('btnInstallUpdate');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Télécharger le DMG';
+          btn.classList.add('show');
+          // Remplacer le handler pour télécharger directement le DMG
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.textContent = 'Téléchargement du DMG...';
+            try {
+              if (window.cueforge.downloadDmgUpdate) {
+                await window.cueforge.downloadDmgUpdate(data.version);
+                btn.textContent = 'DMG ouvert — glisse dans Applications';
+              }
+            } catch (err) {
+              btn.textContent = 'Erreur — réessaie';
+              btn.disabled = false;
+            }
+          };
+        }
+      });
+
       document.getElementById('btnInstallUpdate')?.addEventListener('click', async () => {
         if (!updateReady) return;
         const btn = document.getElementById('btnInstallUpdate');
         btn.disabled = true; btn.textContent = 'Installation...';
 
-        // Essayer quitAndInstall d'abord
+        // Essayer quitAndInstall via le main process
         if (window.cueforge.installUpdate) {
           window.cueforge.installUpdate();
         }
 
-        // Si on est encore là après 5s, quitAndInstall a échoué
-        // → fallback : télécharger et ouvrir le DMG
+        // Si on est encore là après 10s, fallback DMG côté renderer
         setTimeout(async () => {
-          btn.textContent = 'Téléchargement du DMG...';
-          try {
-            const version = document.getElementById('updateVersionLabel')?.textContent?.replace('v', '') || '';
-            if (version && window.cueforge.downloadDmgUpdate) {
-              await window.cueforge.downloadDmgUpdate(version);
-              btn.textContent = 'DMG ouvert — glisse dans Applications';
+          if (btn.textContent === 'Installation...') {
+            btn.textContent = 'Téléchargement du DMG...';
+            try {
+              const version = document.getElementById('updateVersionLabel')?.textContent?.replace('v', '') || '';
+              if (version && window.cueforge.downloadDmgUpdate) {
+                await window.cueforge.downloadDmgUpdate(version);
+                btn.textContent = 'DMG ouvert — glisse dans Applications';
+              }
+            } catch (err) {
+              btn.textContent = 'Erreur — réessaie';
+              btn.disabled = false;
             }
-          } catch (err) {
-            btn.textContent = 'Erreur — réessaie';
-            btn.disabled = false;
           }
-        }, 5000);
+        }, 10000);
       });
     }
 

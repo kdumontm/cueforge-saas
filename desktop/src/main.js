@@ -615,8 +615,12 @@ function setupAutoUpdater() {
 
 // ─── Installer la mise à jour et redémarrer ────────────
 let pendingUpdateVersion = null;
+let updateInstallInProgress = false;
 
 function installAndRestart() {
+  if (updateInstallInProgress) return;
+  updateInstallInProgress = true;
+
   console.log('[update] installAndRestart called');
   console.log('[update] app path:', app.getAppPath());
   console.log('[update] exe path:', app.getPath('exe'));
@@ -624,28 +628,59 @@ function installAndRestart() {
     console.log('[update] isInApplicationsFolder:', app.isInApplicationsFolder());
   }
 
-  // 1. Bypasser le handler hide-on-close de macOS
-  app.isQuitting = true;
+  // 1. Notifier le renderer que l'installation démarre
+  mainWindow?.webContents.send('update-progress', { percent: 100, status: 'installing' });
 
-  // 2. Détruire la fenêtre proprement pour libérer les locks
-  if (mainWindow) {
-    mainWindow.removeAllListeners('close');
-    mainWindow.destroy();
-    mainWindow = null;
+  // 2. Essayer quitAndInstall — NE PAS détruire la fenêtre avant
+  //    (sinon le fallback DMG côté renderer ne peut plus s'exécuter)
+  try {
+    app.isQuitting = true;
+    autoUpdater.quitAndInstall(false, true);
+  } catch (err) {
+    console.error('[update] quitAndInstall failed:', err);
+    app.isQuitting = false;
+    updateInstallInProgress = false;
+
+    // Fallback : essayer app.relaunch() manuellement
+    try {
+      console.log('[update] Trying app.relaunch() fallback...');
+      app.relaunch();
+      app.exit(0);
+    } catch (relaunchErr) {
+      console.error('[update] app.relaunch() also failed:', relaunchErr);
+      // Dernier recours : notifier le renderer pour télécharger le DMG
+      mainWindow?.webContents.send('update-install-failed', {
+        version: pendingUpdateVersion || 'latest',
+        error: err.message
+      });
+    }
   }
 
-  // 3. Essayer quitAndInstall, avec fallback vers téléchargement DMG
+  // 3. Safety net : si on est encore vivant après 8s, quitAndInstall a échoué silencieusement
   setTimeout(() => {
-    try {
-      autoUpdater.quitAndInstall(false, true);
-    } catch (err) {
-      console.error('[update] quitAndInstall failed:', err);
-      // Fallback : ouvrir la page de releases GitHub
-      const version = pendingUpdateVersion || 'latest';
+    console.log('[update] Still alive after 8s — quitAndInstall failed silently');
+    app.isQuitting = false;
+    updateInstallInProgress = false;
+
+    // Tenter le fallback DMG depuis le main process
+    const version = pendingUpdateVersion || 'latest';
+    if (isMac) {
+      console.log('[update] Triggering DMG fallback from main process');
+      mainWindow?.webContents.send('update-install-failed', { version, error: 'quitAndInstall timeout' });
+
+      // Si la fenêtre est morte, télécharger et ouvrir le DMG directement
+      if (!mainWindow) {
+        downloadAndOpenDMG(version)
+          .then((dmgPath) => shell.openPath(dmgPath))
+          .catch(() => shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`))
+          .finally(() => app.exit(0));
+      }
+    } else {
+      // Windows : ouvrir la page de releases
       shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`);
       app.exit(0);
     }
-  }, 1000);
+  }, 8000);
 }
 
 // ─── Fallback : télécharger le DMG directement ─────────

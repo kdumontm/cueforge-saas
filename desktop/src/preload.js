@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('cueforge', {
   onUpdateProgress:   (cb) => ipcRenderer.on('update-progress',   (_, data)  => cb(data)),
   onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_, info)  => cb(info)),
   onUpdateError:      (cb) => ipcRenderer.on('update-error',      (_, msg)   => cb(msg)),
+  onUpdateInstallFailed: (cb) => ipcRenderer.on('update-install-failed', (_, data) => cb(data)),
   checkForUpdates:    ()   => ipcRenderer.invoke('check-for-updates'),
   installUpdate:      ()   => ipcRenderer.invoke('install-update'),
   downloadDmgUpdate:  (v)  => ipcRenderer.invoke('download-dmg-update', v),
