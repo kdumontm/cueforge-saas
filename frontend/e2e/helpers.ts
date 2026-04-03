@@ -27,7 +27,7 @@ export async function loginViaToken(page: Page) {
   const resp = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: TEST_USER.username, password: TEST_USER.password }),
+    body: JSON.stringify({ identifier: TEST_USER.username, password: TEST_USER.password }),
   });
   const data = await resp.json() as { access_token: string };
   await page.goto('/');

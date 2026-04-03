@@ -12,9 +12,9 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """Schema for user login."""
+    """Schema for user login. 'identifier' accepts email OR username."""
 
-    email: str
+    identifier: str
     password: str
 
 
