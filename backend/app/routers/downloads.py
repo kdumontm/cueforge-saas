@@ -26,12 +26,12 @@ _download_config = {
     "latest_version": "1.0.0",
     "release_notes": "Première version de CueForge Desktop. Drag & drop, notifications natives, mode hors-ligne, mises à jour automatiques.",
     # macOS
-    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/desktop-v1.0.0/CueForge-1.0.0-arm64.dmg",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v1.0.0/CueForge-1.0.0-arm64.dmg",
     "dmg_size": "~95 MB",
     "min_macos": "12.0",
     # Windows
-    "exe_url": "",  # Sera rempli après le premier build Windows
-    "exe_size": "",
+    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v1.0.0/CueForge-1.0.0-x64.exe",
+    "exe_size": "~79 MB",
     "min_windows": "10",
 }
 
