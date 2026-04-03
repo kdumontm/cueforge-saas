@@ -7,6 +7,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (ex: 1.1.0)'
+        required: false
+        default: ''
 
 jobs:
   build-mac:
@@ -23,6 +28,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: desktop/package-lock.json
+
+      - name: Set version (if provided)
+        if: github.event.inputs.version != ''
+        working-directory: desktop
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
       - name: Install dependencies
         working-directory: desktop
@@ -47,10 +58,10 @@ jobs:
           rsvg-convert -w 1024 -h 1024 assets/icon.svg > icon.iconset/icon_512x512@2x.png
           iconutil -c icns icon.iconset -o assets/icon.icns
 
-      - name: Build DMG (Intel + Apple Silicon)
+      - name: Build and publish to GitHub Releases
         working-directory: desktop
         run: |
-          npx electron-builder --mac dmg zip --x64 --arm64
+          npx electron-builder --mac dmg zip --x64 --arm64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -72,32 +83,66 @@ jobs:
           path: desktop/dist/*.zip
           retention-days: 90
 
-  release:
-    needs: build-mac
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+      - name: Upload latest-mac.yml (auto-updater)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-update-manifest
+          path: desktop/dist/latest-mac.yml
+          retention-days: 90
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          tag_name: desktop-v${{ github.run_number }}
-          name: "CueForge Desktop v1.0.${{ github.run_number }}"
-          body: |
-            ## CueForge App Mac
-            Telechargez le .dmg et glissez CueForge dans Applications.
-            1. Telechargez le .dmg ci-dessous
-            2. Ouvrez-le et glissez CueForge dans Applications
-            3. Si macOS bloque: Preferences Systeme > Securite > Ouvrir quand meme
-          files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.zip
-          draft: false
-          prerelease: false
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Set version (if provided)
+        if: github.event.inputs.version != ''
+        working-directory: desktop
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build and publish to GitHub Releases
+        working-directory: desktop
+        run: |
+          npx electron-builder --win nsis zip --x64 --publish always
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List build output
+        working-directory: desktop
+        run: dir dist
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-Windows-exe
+          path: desktop/dist/*.exe
+          retention-days: 90
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-Windows-zip
+          path: desktop/dist/*.zip
+          retention-days: 90
+
+      - name: Upload latest.yml (auto-updater)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CueForge-update-manifest-win
+          path: desktop/dist/latest.yml
+          retention-days: 90
