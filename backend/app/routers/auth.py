@@ -261,7 +261,7 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     """Login by username or email. Returns access + refresh tokens."""
     user = db.query(User).filter(
-        or_(User.name == credentials.username, User.email == credentials.username)
+        or_(User.name == credentials.email, User.email == credentials.email)
     ).first()
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")

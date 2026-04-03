@@ -10,8 +10,8 @@ const { getSetting, setSetting } = require('./database');
 async function login(email, password) {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ username: email, password }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
