@@ -18,6 +18,19 @@ export interface CuePoint {
   end_position_ms: number | null;
 }
 
+export interface LoopMarker {
+  id: number;
+  track_id: number;
+  start_ms: number;
+  end_ms: number;
+  name?: string | null;
+  color?: string;
+  number?: number | null;
+  length_beats?: number | null;
+  is_active: boolean;
+  auto_generated: boolean;
+}
+
 export interface TrackAnalysis {
   id: number;
   bpm: number | null;
@@ -36,6 +49,18 @@ export interface TrackAnalysis {
     high_energy: number;
   } | null;
   analyzed_at: string;
+  // v4 fields
+  loudness_lufs?: number | null;
+  loudness_range_lu?: number | null;
+  replay_gain_db?: number | null;
+  bpm_map?: Array<{ position_ms: number; bpm: number }> | null;
+  bpm_stable?: boolean;
+  key_secondary?: string | null;
+  key_confidence?: number | null;
+  loudness_db?: number | null;
+  vocal_percentage?: number | null;
+  mood?: string | null;
+  danceability?: number | null;
 }
 
 export interface Track {
@@ -62,8 +87,16 @@ export interface Track {
   comment?: string | null;
   energy_level?: number | null;
   played_count?: number;
+  // v4: Remix/version info
+  remix_artist?: string | null;
+  remix_type?: string | null;
+  feat_artist?: string | null;
+  label?: string | null;
+  camelot_code?: string | null;
+  last_played_at?: string | null;
   analysis: TrackAnalysis | null;
   cue_points: CuePoint[];
+  loop_markers?: LoopMarker[];
 }
 
 export interface AuthTokens {

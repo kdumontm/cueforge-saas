@@ -139,6 +139,40 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             if not is_loop:
                 hot_cue_num += 1
 
+        # v4: Loop markers as POSITION_MARK Type="4"
+        loop_markers = track.get("loop_markers", []) or []
+        for loop_idx, loop in enumerate(loop_markers):
+            start_ms = loop.get("start_ms", 0)
+            end_ms = loop.get("end_ms", 0)
+            if end_ms <= start_ms:
+                continue
+            loop_name = loop.get("name", f"Loop {loop_idx + 1}")
+            loop_attrs = {
+                "Name": loop_name,
+                "Type": "4",        # Loop type in Rekordbox
+                "Start": format_time_mmss(start_ms),
+                "End": format_time_mmss(end_ms),
+                "Num": "-1",
+            }
+            # Color
+            color = loop.get("color", "green")
+            loop_colors = {
+                "green": "#1DB954", "red": "#E13535", "yellow": "#E2D420",
+                "cyan": "#21C8DE", "blue": "#2B7FFF", "purple": "#A855F7",
+                "orange": "#FF8C00", "pink": "#FF69B4",
+            }
+            hex_color = loop_colors.get(color, "#1DB954")
+            loop_attrs["Red"] = str(int(hex_color[1:3], 16))
+            loop_attrs["Green"] = str(int(hex_color[3:5], 16))
+            loop_attrs["Blue"] = str(int(hex_color[5:7], 16))
+
+            ET.SubElement(track_el, "POSITION_MARK", **loop_attrs)
+
+        # v4: Artwork URL
+        artwork = track.get("artwork_url", "")
+        if artwork:
+            track_el.set("ArtworkPath", artwork)
+
     # Playlists section
     playlists = ET.SubElement(root, "PLAYLISTS")
     root_node = ET.SubElement(playlists, "NODE", Type="0", Name="ROOT", Count="1")

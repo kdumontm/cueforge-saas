@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import User, Track, CuePoint, TrackAnalysis, CueRule
+from app.models import User, Track, CuePoint, TrackAnalysis, CueRule, LoopMarker
 from app.middleware.auth import get_current_user
 from app.services.cue_generator import apply_rules_to_track, generate_cue_points
 
@@ -389,3 +389,194 @@ async def generate_cues(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error generating cues: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   LOOP MARKERS  (v3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class LoopMarkerResp(BaseModel):
+    id: int
+    track_id: int
+    start_ms: int
+    end_ms: int
+    name: Optional[str] = None
+    color: Optional[str] = "green"
+    number: Optional[int] = None
+    length_beats: Optional[float] = None
+    is_active: bool = True
+    auto_generated: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class LoopMarkerCreate(BaseModel):
+    start_ms: int
+    end_ms: int
+    name: Optional[str] = None
+    color: Optional[str] = "green"
+    number: Optional[int] = None
+    length_beats: Optional[float] = None
+
+
+class LoopMarkerPatch(BaseModel):
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
+    name: Optional[str] = None
+    color: Optional[str] = None
+    number: Optional[int] = None
+    length_beats: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+def _verify_track_owner(track_id: int, user: User, db: Session) -> Track:
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return track
+
+
+@router.get("/{track_id}/loops", response_model=List[LoopMarkerResp])
+async def list_loops(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Liste les loop markers d'un track (trié par position)."""
+    _verify_track_owner(track_id, user, db)
+    loops = (
+        db.query(LoopMarker)
+        .filter(LoopMarker.track_id == track_id)
+        .order_by(LoopMarker.start_ms)
+        .all()
+    )
+    return [LoopMarkerResp.model_validate(l) for l in loops]
+
+
+@router.post("/{track_id}/loops", response_model=LoopMarkerResp, status_code=201)
+async def create_loop(
+    track_id: int,
+    data: LoopMarkerCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Crée un loop marker."""
+    _verify_track_owner(track_id, user, db)
+    if data.end_ms <= data.start_ms:
+        raise HTTPException(status_code=400, detail="end_ms must be > start_ms")
+    loop = LoopMarker(
+        track_id=track_id,
+        start_ms=data.start_ms,
+        end_ms=data.end_ms,
+        name=data.name,
+        color=data.color or "green",
+        number=data.number,
+        length_beats=data.length_beats,
+    )
+    db.add(loop)
+    db.commit()
+    db.refresh(loop)
+    return LoopMarkerResp.model_validate(loop)
+
+
+@router.patch("/loops/{loop_id}", response_model=LoopMarkerResp)
+async def update_loop(
+    loop_id: int,
+    data: LoopMarkerPatch,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Modifie un loop marker."""
+    loop = db.query(LoopMarker).filter(LoopMarker.id == loop_id).first()
+    if not loop:
+        raise HTTPException(status_code=404, detail="Loop not found")
+    _verify_track_owner(loop.track_id, user, db)
+    update = data.model_dump(exclude_unset=True)
+    for field, value in update.items():
+        setattr(loop, field, value)
+    db.commit()
+    db.refresh(loop)
+    return LoopMarkerResp.model_validate(loop)
+
+
+@router.delete("/loops/{loop_id}", status_code=204)
+async def delete_loop(
+    loop_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Supprime un loop marker."""
+    loop = db.query(LoopMarker).filter(LoopMarker.id == loop_id).first()
+    if not loop:
+        raise HTTPException(status_code=404, detail="Loop not found")
+    _verify_track_owner(loop.track_id, user, db)
+    db.delete(loop)
+    db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   COPIER / COLLER CUE POINTS ENTRE TRACKS  (v3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class CopyCuesRequest(BaseModel):
+    source_track_id: int
+    include_loops: bool = True
+
+
+@router.post("/{track_id}/copy-cues", status_code=200)
+async def copy_cues_from_track(
+    track_id: int,
+    data: CopyCuesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Copie les cue points (et optionnellement les loops) d'un track source
+    vers le track cible. Utile pour les remixes / versions alternatives.
+    """
+    target = _verify_track_owner(track_id, user, db)
+    source = _verify_track_owner(data.source_track_id, user, db)
+
+    # Copy cue points
+    source_cues = db.query(CuePoint).filter(CuePoint.track_id == source.id).all()
+    copied_cues = 0
+    for cue in source_cues:
+        new_cue = CuePoint(
+            track_id=target.id,
+            position_ms=cue.position_ms,
+            end_position_ms=cue.end_position_ms,
+            cue_type=cue.cue_type,
+            name=cue.name,
+            color=cue.color,
+            number=cue.number,
+            cue_mode=cue.cue_mode,
+            color_rgb=cue.color_rgb,
+        )
+        db.add(new_cue)
+        copied_cues += 1
+
+    # Copy loop markers
+    copied_loops = 0
+    if data.include_loops:
+        source_loops = db.query(LoopMarker).filter(LoopMarker.track_id == source.id).all()
+        for lm in source_loops:
+            new_loop = LoopMarker(
+                track_id=target.id,
+                start_ms=lm.start_ms,
+                end_ms=lm.end_ms,
+                name=lm.name,
+                color=lm.color,
+                number=lm.number,
+                length_beats=lm.length_beats,
+                is_active=lm.is_active,
+            )
+            db.add(new_loop)
+            copied_loops += 1
+
+    db.commit()
+    return {
+        "message": f"Copied {copied_cues} cue points and {copied_loops} loops",
+        "copied_cues": copied_cues,
+        "copied_loops": copied_loops,
+    }

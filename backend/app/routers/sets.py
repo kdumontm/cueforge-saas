@@ -354,7 +354,10 @@ def suggest_next_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Suggest the best next track based on Camelot wheel + BPM compatibility."""
+    """
+    v4 multi-factor suggestions: Camelot + BPM + energy flow + genre + mood.
+    Uses the enhanced transition_score with 5 weighted dimensions.
+    """
     s = _get_user_set(set_id, current_user, db)
 
     # Get last track in set
@@ -367,6 +370,7 @@ def suggest_next_track(
     if not last_entry:
         raise HTTPException(status_code=400, detail="Set is empty — add a track first")
 
+    last_track = db.query(Track).filter(Track.id == last_entry.track_id).first()
     last_analysis = db.query(TrackAnalysis).filter(
         TrackAnalysis.track_id == last_entry.track_id
     ).first()
@@ -375,6 +379,10 @@ def suggest_next_track(
 
     last_bpm = last_analysis.bpm or 0
     last_key = last_analysis.key or ""
+    last_energy = last_analysis.energy or 50
+    last_genre = last_track.genre if last_track else None
+    last_mood = getattr(last_analysis, 'mood', None)
+    last_danceability = getattr(last_analysis, 'danceability', None)
 
     # Get tracks already in set
     set_track_ids = {
@@ -398,6 +406,10 @@ def suggest_next_track(
         ts = transition_score(
             last_bpm, last_key,
             analysis.bpm or 0, analysis.key or "",
+            energy1=last_energy, energy2=analysis.energy,
+            genre1=last_genre, genre2=track.genre,
+            mood1=last_mood, mood2=getattr(analysis, 'mood', None),
+            danceability1=last_danceability, danceability2=getattr(analysis, 'danceability', None),
         )
         scored.append(SuggestNextResponse(
             track_id=track.id,

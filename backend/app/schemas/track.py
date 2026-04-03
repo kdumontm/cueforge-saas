@@ -3,6 +3,41 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
+# ── Loop Markers ─────────────────────────────────────────────────────────
+
+class LoopMarkerBase(BaseModel):
+    start_ms: int
+    end_ms: int
+    name: Optional[str] = None
+    color: Optional[str] = "green"
+    number: Optional[int] = None
+    length_beats: Optional[float] = None
+    is_active: bool = True
+
+
+class LoopMarkerCreate(LoopMarkerBase):
+    pass
+
+
+class LoopMarkerUpdate(BaseModel):
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
+    name: Optional[str] = None
+    color: Optional[str] = None
+    number: Optional[int] = None
+    length_beats: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+class LoopMarkerResponse(LoopMarkerBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    track_id: int
+    auto_generated: bool = False
+
+
+# ── Cue Points ──────────────────────────────────────────────────────────
+
 class CuePointBase(BaseModel):
     position_ms: int
     end_position_ms: Optional[int] = None
@@ -43,6 +78,18 @@ class TrackAnalysisResponse(BaseModel):
     phrase_positions: Optional[List[int]] = None
     beat_positions: Optional[List[int]] = None
     section_labels: Optional[List[Dict[str, Any]]] = None
+    # v3 fields
+    loudness_lufs: Optional[float] = None
+    loudness_range_lu: Optional[float] = None
+    replay_gain_db: Optional[float] = None
+    bpm_map: Optional[List[Dict[str, Any]]] = None
+    bpm_stable: Optional[bool] = True
+    key_secondary: Optional[str] = None
+    key_confidence: Optional[float] = None
+    loudness_db: Optional[float] = None
+    vocal_percentage: Optional[float] = None
+    mood: Optional[str] = None
+    danceability: Optional[float] = None
     analyzed_at: Optional[datetime] = None
 
     @field_validator('drop_positions', 'phrase_positions', 'beat_positions', mode='before')
@@ -102,6 +149,7 @@ class TrackResponse(BaseModel):
     created_at: Optional[datetime] = None
     analysis: Optional[TrackAnalysisResponse] = None
     cue_points: Optional[List[CuePointResponse]] = []
+    loop_markers: Optional[List[LoopMarkerResponse]] = []
 
     @field_validator('tags', mode='before')
     @classmethod
@@ -116,6 +164,13 @@ class TrackResponse(BaseModel):
     @field_validator('cue_points', mode='before')
     @classmethod
     def coerce_cue_points(cls, v):
+        if v is None:
+            return []
+        return v
+
+    @field_validator('loop_markers', mode='before')
+    @classmethod
+    def coerce_loop_markers(cls, v):
         if v is None:
             return []
         return v

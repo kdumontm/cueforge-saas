@@ -10,7 +10,7 @@ from typing import List, Optional
 import json
 
 from app.database import get_db
-from app.models import Track, CuePoint
+from app.models import Track, CuePoint, LoopMarker
 from app.services.rekordbox_export import export_tracks_to_rekordbox, generate_rekordbox_xml
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -50,16 +50,32 @@ def track_to_dict(track: Track) -> dict:
     elif isinstance(analysis_obj, dict):
         analysis = analysis_obj
 
+    # v4: Loop markers
+    loop_markers = []
+    if hasattr(track, 'loop_markers') and track.loop_markers:
+        for lm in track.loop_markers:
+            loop_markers.append({
+                "start_ms": lm.start_ms,
+                "end_ms": lm.end_ms,
+                "name": lm.name or "",
+                "color": lm.color or "green",
+                "number": lm.number,
+                "length_beats": lm.length_beats,
+            })
+
     return {
         "title": track.title or track.original_filename or "Unknown",
         "artist": track.artist or "",
         "album": getattr(track, "album", "") or "",
         "genre": getattr(track, "genre", "") or "",
+        "label": getattr(track, "label", "") or "",
         "bpm": analysis.get("bpm") or 0,
         "key": analysis.get("key") or "",
         "duration_ms": analysis.get("duration_ms") or 0,
         "file_path": track.original_filename or "",
+        "artwork_url": getattr(track, "artwork_url", "") or "",
         "cue_points": cue_points,
+        "loop_markers": loop_markers,
         "analysis": analysis,
     }
 

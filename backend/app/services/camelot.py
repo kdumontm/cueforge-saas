@@ -170,30 +170,95 @@ def transition_score(
     bpm1: float, key1: str,
     bpm2: float, key2: str,
     bpm_tolerance: float = 6.0,
+    # v4: multi-factor scoring
+    energy1: float = None, energy2: float = None,
+    genre1: str = None, genre2: str = None,
+    mood1: str = None, mood2: str = None,
+    danceability1: float = None, danceability2: float = None,
 ) -> dict:
-    """Calculate an overall transition score between two tracks.
+    """
+    v4 multi-factor transition scoring.
 
-    Returns dict with:
-        - harmonic_score: 0-3
-        - bpm_compatible: bool
-        - bpm_diff: float
-        - overall_score: 0-100
-        - recommendation: str
+    Weights:
+        - Harmonic compatibility: 35% (Camelot wheel)
+        - BPM compatibility: 25% (±6% tolerance)
+        - Energy flow: 20% (smooth transitions, slight build preferred)
+        - Genre match: 10% (same genre family)
+        - Mood continuity: 10% (avoid jarring mood shifts)
+
+    Returns dict with overall_score 0-100 and recommendation.
     """
     h_score = compatibility_score(key1, key2)
     bpm_ok = bpm_compatible(bpm1, bpm2, bpm_tolerance)
     bpm_diff = abs(bpm1 - bpm2) if bpm1 and bpm2 else 999
 
-    # Overall: harmonic (60%) + BPM (40%)
-    h_pct = (h_score / 3.0) * 60
-    b_pct = 40.0 if bpm_ok else max(0, 40 - bpm_diff * 4)
-    overall = round(h_pct + b_pct)
+    # Harmonic (35%)
+    h_pct = (h_score / 3.0) * 35
+
+    # BPM (25%)
+    if bpm_ok:
+        b_pct = 25.0
+    else:
+        b_pct = max(0, 25 - bpm_diff * 2.5)
+
+    # Energy flow (20%) — smooth transitions, slight build is ideal
+    e_pct = 10.0  # default neutral
+    if energy1 is not None and energy2 is not None:
+        energy_diff = energy2 - energy1
+        # Ideal: energy stays same or increases slightly (0 to +15)
+        if -5 <= energy_diff <= 15:
+            e_pct = 20.0
+        elif -15 <= energy_diff <= 25:
+            e_pct = 14.0
+        elif abs(energy_diff) <= 30:
+            e_pct = 8.0
+        else:
+            e_pct = 3.0  # Big energy jump = risky
+
+    # Genre match (10%)
+    g_pct = 5.0  # default
+    if genre1 and genre2:
+        if genre1 == genre2:
+            g_pct = 10.0
+        else:
+            # Check genre family
+            genre_families = {
+                "house": ["Deep House", "Tech House", "Progressive House", "Melodic House",
+                          "Afro House", "Bass House", "Funky House", "Vocal House", "House"],
+                "techno": ["Techno", "Hard Techno", "Industrial Techno", "Hypnotic Techno",
+                           "Minimal", "Acid Techno"],
+                "dnb": ["Drum & Bass", "Liquid D&B", "Neurofunk", "Jungle"],
+                "trance": ["Trance", "Psy Trance", "Progressive Trance", "Uplifting Trance"],
+                "bass": ["Dubstep", "Bass House", "Trap", "Future Bass"],
+            }
+            g1_family = None
+            g2_family = None
+            for family, members in genre_families.items():
+                if genre1 in members: g1_family = family
+                if genre2 in members: g2_family = family
+            if g1_family and g2_family and g1_family == g2_family:
+                g_pct = 8.0
+
+    # Mood continuity (10%)
+    m_pct = 5.0  # default
+    if mood1 and mood2:
+        mood_compat = {
+            "energetic": {"energetic": 10, "euphoric": 8, "groovy": 7, "dark": 5, "calm": 2, "melancholic": 2},
+            "euphoric": {"euphoric": 10, "energetic": 8, "groovy": 7, "calm": 4, "dark": 3, "melancholic": 3},
+            "dark": {"dark": 10, "energetic": 6, "groovy": 5, "melancholic": 7, "calm": 4, "euphoric": 3},
+            "calm": {"calm": 10, "melancholic": 8, "groovy": 6, "euphoric": 4, "dark": 4, "energetic": 2},
+            "groovy": {"groovy": 10, "energetic": 8, "euphoric": 7, "dark": 5, "calm": 5, "melancholic": 4},
+            "melancholic": {"melancholic": 10, "calm": 8, "dark": 7, "groovy": 4, "euphoric": 3, "energetic": 2},
+        }
+        m_pct = mood_compat.get(mood1, {}).get(mood2, 5)
+
+    overall = round(h_pct + b_pct + e_pct + g_pct + m_pct)
 
     if overall >= 80:
         rec = "excellent"
-    elif overall >= 60:
+    elif overall >= 65:
         rec = "good"
-    elif overall >= 40:
+    elif overall >= 45:
         rec = "possible"
     else:
         rec = "risky"
@@ -204,6 +269,9 @@ def transition_score(
         "camelot_to": key_to_camelot(key2),
         "bpm_compatible": bpm_ok,
         "bpm_diff": round(bpm_diff, 1),
+        "energy_flow": "smooth" if e_pct >= 14 else "moderate" if e_pct >= 8 else "jarring",
+        "genre_match": g_pct >= 8,
+        "mood_flow": "good" if m_pct >= 7 else "ok" if m_pct >= 4 else "mismatch",
         "overall_score": overall,
         "recommendation": rec,
     }

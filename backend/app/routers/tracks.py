@@ -392,21 +392,50 @@ def _run_analysis(track_id: int):
             db.commit()
             return
 
-        # Save analysis
+        # Save analysis (v4: includes LUFS, variable BPM, mood, danceability)
         analysis = TrackAnalysis(
             track_id=track.id,
             bpm=analysis_data.get("bpm"),
             bpm_confidence=analysis_data.get("bpm_confidence"),
             key=analysis_data.get("key"),
+            key_confidence=analysis_data.get("key_confidence"),
+            key_secondary=analysis_data.get("key_secondary"),
             energy=analysis_data.get("energy"),
             duration_ms=analysis_data.get("duration_ms"),
             drop_positions=analysis_data.get("drop_positions", []),
             phrase_positions=analysis_data.get("phrase_positions", []),
             beat_positions=analysis_data.get("beat_positions", []),
             section_labels=analysis_data.get("section_labels", []),
+            # v4 fields
+            loudness_lufs=analysis_data.get("loudness_lufs"),
+            loudness_range_lu=analysis_data.get("loudness_range_lu"),
+            replay_gain_db=analysis_data.get("replay_gain_db"),
+            bpm_map=analysis_data.get("bpm_map"),
+            bpm_stable=analysis_data.get("bpm_stable", True),
+            mood=analysis_data.get("mood"),
+            danceability=analysis_data.get("danceability"),
         )
         db.add(analysis)
         db.flush()
+
+        # ── v4: Auto loop markers ─────────────────────────────────────
+        try:
+            auto_loops = analysis_data.get("auto_loops", [])
+            for i, loop_data in enumerate(auto_loops):
+                from app.models.track import LoopMarker
+                loop = LoopMarker(
+                    track_id=track.id,
+                    start_ms=loop_data["start_ms"],
+                    end_ms=loop_data["end_ms"],
+                    name=loop_data.get("name", f"Loop {i+1}"),
+                    color=loop_data.get("color", "green"),
+                    number=i + 1,
+                    length_beats=loop_data.get("length_beats"),
+                    auto_generated=True,
+                )
+                db.add(loop)
+        except Exception as e:
+            logger.warning(f"Auto loop detection failed for track {track.id}: {e}")
 
         # ── Step 2: Cue point generation ────────────────────────────────
         track.status = TrackStatus.generating_cues
@@ -467,6 +496,20 @@ def _run_analysis(track_id: int):
                         setattr(track, key, value)
         except Exception as e:
             logger.warning(f"Metadata lookup failed for track {track_id} (non-critical): {e}")
+
+        # ── Step 3b: Auto remix/version detection (v4) ─────────────────
+        try:
+            from app.services.remix_detection import detect_remix_info
+            title_to_parse = track.title or track.original_filename or ""
+            remix_info = detect_remix_info(title_to_parse)
+            if remix_info.get("remix_artist") and not track.remix_artist:
+                track.remix_artist = remix_info["remix_artist"]
+            if remix_info.get("remix_type") and not track.remix_type:
+                track.remix_type = remix_info["remix_type"]
+            if remix_info.get("feat_artist") and not track.feat_artist:
+                track.feat_artist = remix_info["feat_artist"]
+        except Exception as e:
+            logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
         # ── Done ────────────────────────────────────────────────────────
         track.status = TrackStatus.completed

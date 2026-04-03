@@ -125,7 +125,7 @@ settings = get_settings()
 app = FastAPI(
     title="CueForge SaaS API",
     description="Audio analysis and cue point generation for DJs",
-    version="0.4.0",
+    version="4.0.0",
     lifespan=lifespan,
     redirect_slashes=False,
 )
@@ -159,6 +159,8 @@ from app.routers import auth, tracks, cues, export, billing, admin, waveforms, o
 from app.routers import org_management  # noqa: E402
 # v2 routers
 from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
+# v4 routers
+from app.routers import analytics, mix_analyzer  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -178,3 +180,6 @@ app.include_router(sets.router, prefix="/api/v1", tags=["dj-sets"])
 app.include_router(import_dj.router, prefix="/api/v1", tags=["import"])
 app.include_router(advanced.router, prefix="/api/v1", tags=["advanced"])
 app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
+# v4 routers
+app.include_router(analytics.router, prefix="/api/v1", tags=["analytics"])
+app.include_router(mix_analyzer.router, prefix="/api/v1", tags=["mix-analyzer"])

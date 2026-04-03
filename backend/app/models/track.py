@@ -109,6 +109,10 @@ class Track(Base):
         "CueRule", back_populates="track",
         cascade="all, delete-orphan",
     )
+    loop_markers = relationship(
+        "LoopMarker", back_populates="track",
+        cascade="all, delete-orphan", order_by="LoopMarker.start_ms",
+    )
 
 
 class TrackAnalysis(Base):
@@ -134,7 +138,15 @@ class TrackAnalysis(Base):
     time_signature = Column(String(10), default="4/4")
     key_confidence = Column(Float, nullable=True)
     loudness_db = Column(Float, nullable=True)
+    loudness_lufs = Column(Float, nullable=True)           # v3: Integrated LUFS
+    loudness_range_lu = Column(Float, nullable=True)       # v3: Loudness Range (LU)
+    replay_gain_db = Column(Float, nullable=True)          # v3: ReplayGain adjustment
+    bpm_map = Column(JSON, nullable=True)                  # v3: [{position_ms, bpm}] for variable tempo
+    bpm_stable = Column(Boolean, default=True)             # v3: True if BPM is constant
+    key_secondary = Column(String(10), nullable=True)      # v3: Secondary key (for modulating tracks)
     vocal_percentage = Column(Float, nullable=True)
+    mood = Column(String(50), nullable=True)               # v3: calm, energetic, dark, euphoric, etc.
+    danceability = Column(Float, nullable=True)            # v3: 0.0 to 1.0
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 
@@ -153,6 +165,24 @@ class CuePoint(Base):
     cue_mode = Column(String(20), default="memory")
     color_rgb = Column(String(30), nullable=True)
     track = relationship("Track", back_populates="cue_points")
+
+
+class LoopMarker(Base):
+    """Loop in/out markers — essential for DJ performance."""
+    __tablename__ = "loop_markers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    start_ms = Column(Integer, nullable=False)          # Loop in position
+    end_ms = Column(Integer, nullable=False)            # Loop out position
+    name = Column(String(255), nullable=True)           # e.g. "Buildup Loop", "Vocal 4-bar"
+    color = Column(String(50), default="green")
+    color_rgb = Column(String(30), nullable=True)
+    number = Column(Integer, nullable=True)             # Loop slot (1-8 like Rekordbox)
+    length_beats = Column(Float, nullable=True)         # 1, 2, 4, 8, 16, 32 beats
+    is_active = Column(Boolean, default=True)           # Active loop toggle
+    auto_generated = Column(Boolean, default=False)     # AI-generated vs manual
+    track = relationship("Track", back_populates="loop_markers")
 
 
 class CueRule(Base):

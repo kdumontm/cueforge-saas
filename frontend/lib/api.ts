@@ -1163,3 +1163,126 @@ export async function importTraktor(file: File): Promise<ImportResult> {
   if (!r.ok) throw new Error('Failed to import Traktor NML');
   return r.json();
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════
+//  v4: LOOP MARKERS API
+// ══════════════════════════════════════════════════════════════════════════
+
+export interface LoopMarker {
+  id: number;
+  track_id: number;
+  start_ms: number;
+  end_ms: number;
+  name?: string | null;
+  color?: string;
+  number?: number | null;
+  length_beats?: number | null;
+  is_active: boolean;
+  auto_generated: boolean;
+}
+
+export async function listLoops(trackId: number): Promise<LoopMarker[]> {
+  const r = await authFetch(`${API_URL}/cues/${trackId}/loops`, { headers: authHeaders() });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function createLoop(trackId: number, data: { start_ms: number; end_ms: number; name?: string; color?: string; number?: number; length_beats?: number }): Promise<LoopMarker> {
+  const r = await authFetch(`${API_URL}/cues/${trackId}/loops`, { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  if (!r.ok) throw new Error('Failed to create loop');
+  return r.json();
+}
+
+export async function updateLoop(loopId: number, data: Partial<LoopMarker>): Promise<LoopMarker> {
+  const r = await authFetch(`${API_URL}/cues/loops/${loopId}`, { method: 'PATCH', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  if (!r.ok) throw new Error('Failed to update loop');
+  return r.json();
+}
+
+export async function deleteLoop(loopId: number): Promise<void> {
+  await authFetch(`${API_URL}/cues/loops/${loopId}`, { method: 'DELETE', headers: authHeaders() });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  v4: COPY CUE POINTS
+// ══════════════════════════════════════════════════════════════════════════
+
+export async function copyCuesFromTrack(targetTrackId: number, sourceTrackId: number, includeLoops = true): Promise<{ copied_cues: number; copied_loops: number }> {
+  const r = await authFetch(`${API_URL}/cues/${targetTrackId}/copy-cues`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source_track_id: sourceTrackId, include_loops: includeLoops }),
+  });
+  if (!r.ok) throw new Error('Failed to copy cues');
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  v4: DJ ANALYTICS API
+// ══════════════════════════════════════════════════════════════════════════
+
+export interface DJAnalytics {
+  library: {
+    total_tracks: number;
+    analyzed_tracks: number;
+    total_duration_hours: number;
+    avg_bpm: number | null;
+    avg_energy: number | null;
+    avg_loudness_lufs: number | null;
+    most_common_key: string | null;
+    most_common_genre: string | null;
+    bpm_range: { min: number; max: number } | null;
+    tracks_this_week: number;
+    tracks_this_month: number;
+  };
+  key_distribution: Array<{ key: string; camelot: string | null; count: number; percentage: number }>;
+  genre_distribution: Array<{ genre: string; count: number; percentage: number }>;
+  bpm_distribution: Array<{ range_label: string; count: number }>;
+  energy_distribution: Array<{ level: string; count: number; avg_energy: number }>;
+  top_played: Array<{ track_id: number; title: string | null; artist: string | null; played_count: number }>;
+  mood_distribution: Record<string, number> | null;
+}
+
+export async function getAnalytics(): Promise<DJAnalytics> {
+  const r = await authFetch(`${API_URL}/analytics`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Failed to fetch analytics');
+  return r.json();
+}
+
+export async function recordPlay(trackId: number): Promise<void> {
+  await authFetch(`${API_URL}/analytics/${trackId}/play`, { method: 'POST', headers: authHeaders() });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  v4: MIX ANALYZER API
+// ══════════════════════════════════════════════════════════════════════════
+
+export interface MixJobStatus {
+  job_id: string;
+  status: string;
+  progress: number | null;
+  result: {
+    status: string;
+    mix_duration_ms: number | null;
+    tracks_identified: number;
+    transitions: Array<{ position_ms: number; bpm_shift: number | null }>;
+    avg_bpm: number | null;
+    bpm_range: { min: number; max: number } | null;
+    error: string | null;
+  } | null;
+}
+
+export async function uploadMix(file: File): Promise<MixJobStatus> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await authFetch(`${API_URL}/mix-analyzer/upload`, { method: 'POST', headers: authHeaders(), body: fd });
+  if (!r.ok) throw new Error('Failed to upload mix');
+  return r.json();
+}
+
+export async function getMixStatus(jobId: string): Promise<MixJobStatus> {
+  const r = await authFetch(`${API_URL}/mix-analyzer/${jobId}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Failed to get mix status');
+  return r.json();
+}

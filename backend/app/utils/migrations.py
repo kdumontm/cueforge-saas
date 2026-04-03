@@ -76,6 +76,15 @@ PENDING_MIGRATIONS = {
         "vocal_percentage": "FLOAT",
         # v2: Waveform URL (replaces waveform_peaks inline storage)
         "waveform_url": "VARCHAR(512)",
+        # v4: LUFS, variable BPM, mood, danceability
+        "loudness_lufs": "FLOAT",
+        "loudness_range_lu": "FLOAT",
+        "replay_gain_db": "FLOAT",
+        "bpm_map": "JSON",
+        "bpm_stable": "BOOLEAN DEFAULT TRUE",
+        "key_secondary": "VARCHAR(10)",
+        "mood": "VARCHAR(50)",
+        "danceability": "FLOAT",
     },
     "subscriptions": {
         # Stripe price ID
