@@ -283,7 +283,10 @@ function setupAutoUpdater() {
       message: 'La mise à jour est téléchargée. Redémarrer CueForge maintenant ?',
       buttons: ['Redémarrer', 'Plus tard'],
     }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
+      if (response === 0) {
+        app.isQuitting = true;          // bypass le hide-on-close macOS
+        autoUpdater.quitAndInstall(false, true); // isSilent=false, isForceRunAfter=true
+      }
     });
   });
 
