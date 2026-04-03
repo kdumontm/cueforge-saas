@@ -506,24 +506,7 @@ export default function WaveSurferPlayer({
       const startTime = currentT - visSec / 2;
       const secPerPx = visSec / w;
 
-      // Beat grid (fallback BPM calculé si pas de beatPositions)
-      if (beatPositions.length === 0) {
-        const bpm = bpmRef.current;
-        if (bpm && bpm > 0) {
-          const beatInt = 60 / bpm;
-          const barInt = beatInt * 4;
-          const firstBeat = Math.floor(Math.max(0, startTime) / beatInt) * beatInt;
-          for (let t = firstBeat; t < startTime + visSec; t += beatInt) {
-            if (t < 0) continue;
-            const x = (t - startTime) / secPerPx;
-            if (x < 0 || x >= w) continue;
-            const isBar = Math.abs((t / barInt) - Math.round(t / barInt)) < 0.01;
-            ctx.strokeStyle = isBar ? 'rgba(255,60,60,0.70)' : 'rgba(255,60,60,0.25)';
-            ctx.lineWidth = isBar ? 1.5 : 0.75;
-            ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, isBar ? 0 : h * 0.45); ctx.lineTo(Math.round(x) + 0.5, h); ctx.stroke();
-          }
-        }
-      }
+      // (beat grid dessiné APRÈS le waveform — voir plus bas)
 
       // Loop region
       const lIn = loopInRef.current, lOut = loopOutRef.current, lAct = loopActiveRef.current;
@@ -612,20 +595,41 @@ export default function WaveSurferPlayer({
         }
       }
 
-      // Beat grid — rouge style Rekordbox (downbeats = 1er temps de chaque mesure)
+      // Beat grid — rouge style Rekordbox, dessiné APRÈS le waveform
       if (beatPositions.length > 0) {
+        // Vraies positions depuis l'analyse
         beatPositions.forEach((bMs, idx) => {
           const bT = bMs / 1000;
           const x = (bT - startTime) / secPerPx;
           if (x < -2 || x >= w + 2) return;
           const isDownbeat = idx % 4 === 0;
-          ctx.strokeStyle = isDownbeat ? 'rgba(255,60,60,0.85)' : 'rgba(255,60,60,0.35)';
-          ctx.lineWidth = isDownbeat ? 1.5 : 0.75;
+          ctx.strokeStyle = isDownbeat ? 'rgba(255,50,50,0.90)' : 'rgba(255,80,80,0.50)';
+          ctx.lineWidth = isDownbeat ? 2 : 1;
           ctx.beginPath();
-          ctx.moveTo(x, isDownbeat ? 0 : h * 0.45);
-          ctx.lineTo(x, h);
+          ctx.moveTo(Math.round(x) + 0.5, isDownbeat ? 0 : h * 0.4);
+          ctx.lineTo(Math.round(x) + 0.5, h);
           ctx.stroke();
         });
+      } else {
+        // Fallback BPM calculé (si pas encore de beat_positions dans l'analyse)
+        const bpm = bpmRef.current;
+        if (bpm && bpm > 0) {
+          const beatInt = 60 / bpm;
+          const barInt = beatInt * 4;
+          const firstBeat = Math.floor(Math.max(0, startTime) / beatInt) * beatInt;
+          for (let t = firstBeat; t < startTime + visSec; t += beatInt) {
+            if (t < 0) continue;
+            const x = (t - startTime) / secPerPx;
+            if (x < 0 || x >= w) continue;
+            const isBar = Math.abs((t / barInt) - Math.round(t / barInt)) < 0.01;
+            ctx.strokeStyle = isBar ? 'rgba(255,50,50,0.80)' : 'rgba(255,80,80,0.40)';
+            ctx.lineWidth = isBar ? 2 : 1;
+            ctx.beginPath();
+            ctx.moveTo(Math.round(x) + 0.5, isBar ? 0 : h * 0.4);
+            ctx.lineTo(Math.round(x) + 0.5, h);
+            ctx.stroke();
+          }
+        }
       }
 
       // Cue points
