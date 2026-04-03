@@ -725,7 +725,7 @@ export default function WaveSurferPlayer({
     const onPause = () => { if (!destroyed) setIsPlaying(false); };
     const onEnded = () => { if (!destroyed) setIsPlaying(false); };
     let lastExternalUpdate = 0;
-    const onTimeUpdate = () => {
+    const handleTimeUpdate = () => {
       if (destroyed) return;
       const t = audio.currentTime;
       currentTimeRef.current = t;
@@ -749,7 +749,7 @@ export default function WaveSurferPlayer({
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onEnded);
-    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('error', onError);
 
     // Expose controls to parent
@@ -816,7 +816,7 @@ export default function WaveSurferPlayer({
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
-      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('error', onError);
       audio.src = '';
       audioRef.current = null;

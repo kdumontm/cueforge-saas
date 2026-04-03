@@ -538,11 +538,13 @@ export default function DashboardV2() {
 
         const onPause = () => {
           if (!stemsLoadedRef.current) return;
+          console.log('[CueForge] native onPause → deferred timer 150ms');
           // Différer la pause de 150ms — si c'est un seek, seeked annulera ce timer
           if (pauseTimer) clearTimeout(pauseTimer);
           pauseTimer = setTimeout(() => {
             pauseTimer = null;
-            if (!audio.paused) return; // plus en pause (reprise entre-temps)
+            if (!audio.paused) { console.log('[CueForge] pause timer: audio resumed, skip'); return; }
+            console.log('[CueForge] pause timer: REAL pause → stopping stems, restoring volume');
             Object.values(stemAudioMapRef.current).forEach(a => a.pause());
             playerRef.current?.setVolume?.(1);
           }, 150);
@@ -552,10 +554,12 @@ export default function DashboardV2() {
         audio.addEventListener('seeked', onSeeked);
         audio.addEventListener('pause', onPause);
         stemNativeListenersRef.current = { seeking: onSeeking, seeked: onSeeked, pause: onPause, audio };
+        console.log('[CueForge] Native listeners attachés (seeking/seeked/pause)');
 
         // Si WaveSurfer joue déjà quand les stems chargent → muter immédiatement
         if (!audio.paused) {
           playerRef.current?.setVolume?.(0);
+          console.log('[CueForge] WaveSurfer déjà en lecture → muté');
         }
       };
       tryAttach();
@@ -585,6 +589,7 @@ export default function DashboardV2() {
 
       if (!cancelled && Object.keys(stemAudioMapRef.current).length > 0) {
         stemsLoadedRef.current = true;
+        console.log('[CueForge] Stems chargés:', Object.keys(stemAudioMapRef.current).length, 'stems');
         attachNativeListeners();
       }
     };
@@ -609,7 +614,8 @@ export default function DashboardV2() {
   // handleStemPlay: appelé par le callback onPlay de WaveSurferPlayer (TOUJOURS fiable)
   // C'est le signal principal pour muter WaveSurfer et lancer les stems
   const handleStemPlay = useCallback(() => {
-    if (!stemsLoadedRef.current) return;
+    if (!stemsLoadedRef.current) { console.log('[CueForge] handleStemPlay: stems not loaded, skip'); return; }
+    console.log('[CueForge] handleStemPlay: muting wavesurfer, starting stems');
     playerRef.current?.setVolume?.(0);
     const audio = playerRef.current?.getAudio?.();
     const t = audio?.currentTime ?? stemLastTimeRef.current;
@@ -619,11 +625,11 @@ export default function DashboardV2() {
     });
   }, []);
 
-  // handleStemTimeUpdate: drift correction uniquement
+  // handleStemTimeUpdate: drift correction + volume enforcement continu
   const handleStemTimeUpdate = useCallback((ms: number) => {
     stemLastTimeRef.current = ms / 1000;
     if (!stemsLoadedRef.current) return;
-    // Keep WaveSurfer muted tant que les stems jouent
+    // Keep WaveSurfer muted tant que les stems jouent (CRITIQUE — sans ça = double audio)
     playerRef.current?.setVolume?.(0);
     // Drift correction si dérive > 0.4s
     const t = ms / 1000;
