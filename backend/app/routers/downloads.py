@@ -23,14 +23,14 @@ DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
 # Stockage en mémoire (sera persisté en DB si nécessaire)
 _download_config = {
     "allowed_plans": DEFAULT_ALLOWED_PLANS.copy(),
-    "latest_version": "2.5.3",
-    "release_notes": "CueForge Desktop v2.5.3 — Refonte complète UI desktop identique au prototype V2 web.",
+    "latest_version": "2.5.4",
+    "release_notes": "CueForge Desktop v2.5.4 — Fix auto-update macOS + refonte UI V2.",
     # macOS
-    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.3/CueForge-2.5.3-arm64.dmg",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.4/CueForge-2.5.4-arm64.dmg",
     "dmg_size": "~99 MB",
     "min_macos": "12.0",
     # Windows
-    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.3/CueForge-2.5.3-x64.exe",
+    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.5.4/CueForge-2.5.4-x64.exe",
     "exe_size": "~82 MB",
     "min_windows": "10",
 }

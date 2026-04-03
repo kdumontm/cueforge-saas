@@ -359,22 +359,19 @@ function installAndRestart() {
     mainWindow = null;
   }
 
-  // 3. Petit délai pour laisser la fenêtre se fermer
+  // 3. Petit délai pour laisser la fenêtre se fermer, puis installer
+  //    isSilent=true : pas de dialog, applique la MAJ directement
+  //    isForceRunAfter=true : relance l'app après installation
+  //    PAS de safety net avec app.relaunch() — sinon ça relance l'ancienne version
+  //    avant que quitAndInstall ait fini d'extraire le ZIP (~100MB)
   setTimeout(() => {
     try {
-      // isSilent=false pour éviter le hang macOS, isForceRunAfter=true
-      autoUpdater.quitAndInstall(false, true);
+      autoUpdater.quitAndInstall(true, true);
     } catch (err) {
-      console.error('quitAndInstall failed, using fallback:', err);
-      app.relaunch();
+      console.error('quitAndInstall failed:', err);
+      // Ne PAS faire app.relaunch() ici — ça relancerait l'ancienne version
+      // L'utilisateur devra relancer manuellement
       app.exit(0);
     }
-  }, 800);
-
-  // 4. Safety net — si quitAndInstall ne tue pas le process après 5s
-  setTimeout(() => {
-    console.warn('quitAndInstall did not exit in time, forcing exit...');
-    app.relaunch();
-    app.exit(0);
-  }, 5000);
+  }, 500);
 }
