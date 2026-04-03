@@ -994,7 +994,8 @@ export default function WaveSurferPlayer({
     const onMove = (ev: MouseEvent) => {
       if (!isDraggingDetail.current) return;
       const deltaX = ev.clientX - dragStartX;
-      const seekTime = Math.max(0, Math.min(dur, dragStartTime + deltaX * dragSecPerPx));
+      // Négatif : glisser à droite = reculer dans le temps (scroll naturel)
+      const seekTime = Math.max(0, Math.min(dur, dragStartTime - deltaX * dragSecPerPx));
       audio.currentTime = seekTime;
       currentTimeRef.current = seekTime;
       onSeek?.(seekTime * 1000);
