@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
@@ -154,6 +154,20 @@ export default function DashboardV2() {
   const toastIdRef = useRef(0);
   const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Repositionner le menu contextuel si il dépasse l'écran (bas ou droite)
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return;
+    const menu = contextMenuRef.current;
+    const { width, height } = menu.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+    const newLeft = contextMenu.x + width + margin > vw ? vw - width - margin : contextMenu.x;
+    const newTop  = contextMenu.y + height + margin > vh ? vh - height - margin : contextMenu.y;
+    menu.style.left = `${newLeft}px`;
+    menu.style.top  = `${newTop}px`;
+  }, [contextMenu]);
 
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
