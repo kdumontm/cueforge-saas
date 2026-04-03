@@ -77,7 +77,7 @@ class UserRegister(BaseModel):
 
 
 class UserLogin(BaseModel):
-    username: str  # Login by username (name field)
+    identifier: str  # Login by email OR username (name field)
     password: str
 
 
