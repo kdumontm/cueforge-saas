@@ -28,7 +28,7 @@
     "afterPack": "./scripts/afterPack.js",
     "mac": {
       "category": "public.app-category.music",
-      "icon": "assets/icon.icns",
+      "icon": "assets/icon.png",
       "target": [
         {
           "target": "dmg",
@@ -45,7 +45,7 @@
       "darkModeSupport": true
     },
     "win": {
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -61,15 +61,16 @@
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png",
-      "installerHeaderIcon": "assets/icon.png",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "CueForge"
     },
+    "artifactName": "CueForge-${version}-${arch}.${ext}",
     "dmg": {
-      "title": "CueForge",
+      "title": "CueForge-${arch}",
       "backgroundColor": "#0a0a0a",
       "contents": [
         { "x": 130, "y": 220 },
