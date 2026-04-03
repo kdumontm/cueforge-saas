@@ -8,7 +8,7 @@ test.describe('📤 Export Rekordbox & CSV', () => {
 
   test.beforeAll(async ({ request }) => {
     const loginResp = await request.post(`${API_URL}/api/v1/auth/login`, {
-      data: { username: 'e2etester', password: 'TestPass999@' },
+      data: { identifier: 'e2etester', password: 'TestPass999@' },
     });
     const data = await loginResp.json();
     token = data.access_token;

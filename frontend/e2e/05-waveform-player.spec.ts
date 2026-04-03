@@ -146,7 +146,7 @@ test.describe('🌊 Waveform & Lecteur audio', () => {
   test('Waveform API — données waveform disponibles', async ({ request }) => {
     // Login via API
     const loginResp = await request.post(`${API_URL}/api/v1/auth/login`, {
-      data: { username: 'e2etester', password: 'TestPass999@' },
+      data: { identifier: 'e2etester', password: 'TestPass999@' },
     });
     const { access_token } = await loginResp.json();
 

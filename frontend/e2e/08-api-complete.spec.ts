@@ -12,7 +12,7 @@ test.describe('🔌 API Backend — Tests complets', () => {
 
   test.beforeAll(async ({ request }) => {
     const loginResp = await request.post(`${API_URL}/api/v1/auth/login`, {
-      data: { username: 'e2etester', password: 'TestPass999@' },
+      data: { identifier: 'e2etester', password: 'TestPass999@' },
     });
     const data = await loginResp.json();
     token = data.access_token;
@@ -33,7 +33,7 @@ test.describe('🔌 API Backend — Tests complets', () => {
   // ── AUTH ──
   test('AUTH — Login retourne un token JWT', async ({ request }) => {
     const resp = await request.post(`${API_URL}/api/v1/auth/login`, {
-      data: { username: 'e2etester', password: 'TestPass999@' },
+      data: { identifier: 'e2etester', password: 'TestPass999@' },
     });
     expect(resp.ok()).toBeTruthy();
     const data = await resp.json();

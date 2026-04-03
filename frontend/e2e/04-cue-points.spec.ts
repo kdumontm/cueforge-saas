@@ -9,7 +9,7 @@ test.describe('🎯 Cue Points — Tests réels', () => {
   test.beforeAll(async ({ request }) => {
     // Login via API pour avoir un token frais
     const loginResp = await request.post(`${API_URL}/api/v1/auth/login`, {
-      data: { username: 'e2etester', password: 'TestPass999@' },
+      data: { identifier: 'e2etester', password: 'TestPass999@' },
     });
     const loginData = await loginResp.json();
     token = loginData.access_token;
