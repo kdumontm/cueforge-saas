@@ -22,6 +22,7 @@ References:
 """
 from typing import Dict, List, Optional, Tuple
 import gc
+import logging
 
 import librosa
 import numpy as np
@@ -32,6 +33,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Track, TrackAnalysis
 from app.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 # ── Constants ──────────────────────────────────────────────────────────────
