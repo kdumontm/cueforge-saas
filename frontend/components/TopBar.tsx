@@ -1,15 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, Bell, X, Upload, Download, Languages } from 'lucide-react';
+import { Search, Sun, Moon, Bell, X, Upload, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
-
-// ── Language context (simple, sans lib i18n) ──────────────────────────────────
-import { createContext, useContext } from 'react';
-export type Lang = 'fr' | 'en';
-export const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void }>({ lang: 'fr', setLang: () => {} });
+import { useLang } from './LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface TopBarProps {
   title: string;
@@ -19,15 +16,8 @@ interface TopBarProps {
 const NOTIFICATIONS: { id: number; text: string; time: string; read: boolean }[] = [];
 
 export default function TopBar({ title, subtitle }: TopBarProps) {
-  const { mode, toggle, isDark } = useTheme();
-  const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window !== 'undefined') return (localStorage.getItem('cueforge_lang') as Lang) || 'fr';
-    return 'fr';
-  });
-  const switchLang = (l: Lang) => {
-    setLang(l);
-    if (typeof window !== 'undefined') localStorage.setItem('cueforge_lang', l);
-  };
+  const { toggle, isDark } = useTheme();
+  const { lang, setLang } = useLang();
   const {
     globalSearch, setGlobalSearch,
     showNotifications, setShowNotifications,
@@ -65,22 +55,22 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
-        {/* Import / Export — accès rapide */}
+        {/* Import / Export */}
         <Link
           href="/dashboard/upload"
           className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
-          title="Importer des tracks"
+          title={lang === 'en' ? 'Import tracks' : 'Importer des tracks'}
         >
           <Upload size={12} />
-          Import
+          {tr('topbar.import', lang)}
         </Link>
         <Link
           href="/dashboard/export"
           className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0"
-          title="Exporter"
+          title={lang === 'en' ? 'Export' : 'Exporter'}
         >
           <Download size={12} />
-          Export
+          {tr('topbar.export', lang)}
         </Link>
 
         {/* Auto-analyse toggle */}
@@ -91,12 +81,14 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
               ? 'bg-emerald-600/15 border-emerald-500/40 text-emerald-400 font-semibold'
               : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
           }`}
-          title={autoAnalyze ? 'Auto-analyse activée — cliquer pour désactiver' : 'Auto-analyse désactivée — cliquer pour activer'}
+          title={autoAnalyze
+            ? (lang === 'en' ? 'Auto-analyze ON — click to disable' : 'Auto-analyse activée — cliquer pour désactiver')
+            : (lang === 'en' ? 'Auto-analyze OFF — click to enable' : 'Auto-analyse désactivée — cliquer pour activer')}
         >
           <span className={`w-6 h-3 rounded-full relative inline-block flex-shrink-0 transition-colors ${autoAnalyze ? 'bg-emerald-500' : 'bg-[var(--bg-elevated)]'}`}>
             <span className={`absolute top-0.5 left-0.5 w-2 h-2 rounded-full bg-white shadow transition-transform ${autoAnalyze ? 'translate-x-3' : 'translate-x-0'}`} />
           </span>
-          Auto
+          {tr('topbar.auto', lang)}
         </button>
 
         {/* Tracks à analyser */}
@@ -104,13 +96,13 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           <button
             onClick={triggerAnalyzeAll}
             className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
-            title={`${unanalyzedCount} tracks non analysés — cliquer pour lancer l'analyse`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-            {unanalyzedCount} à analyser
+            {unanalyzedCount} {tr('topbar.to_analyze', lang)}
           </button>
         )}
 
+        {/* Search */}
         <div className={`flex items-center gap-1.5 bg-[var(--bg-card)] border rounded-lg px-2.5 py-[5px] min-w-[200px] transition-colors ${searchFocused ? 'border-blue-500' : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'}`}>
           <Search size={13} className="text-[var(--text-muted)]" />
           <input
@@ -120,7 +112,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             onChange={(e) => setGlobalSearch(e.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            placeholder="Rechercher..."
+            placeholder={tr('topbar.search', lang)}
             className="bg-transparent border-none outline-none text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] w-full"
           />
           {globalSearch ? (
@@ -129,6 +121,8 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             <kbd className="text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-default)]">⌘K</kbd>
           )}
         </div>
+
+        {/* Notifications */}
         <div ref={notifRef} className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
@@ -139,12 +133,18 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           {showNotifications && (
             <div className="absolute right-0 top-10 w-80 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl shadow-2xl z-50 overflow-hidden">
               <div className="px-4 py-3 border-b border-[var(--border-subtle)] flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">Notifications</span>
-                <span className="text-[10px] text-blue-400 cursor-pointer">Tout marquer comme lu</span>
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
+                  {lang === 'en' ? 'Notifications' : 'Notifications'}
+                </span>
+                <span className="text-[10px] text-blue-400 cursor-pointer">
+                  {lang === 'en' ? 'Mark all as read' : 'Tout marquer comme lu'}
+                </span>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {NOTIFICATIONS.length === 0 && (
-                  <div className="px-4 py-6 text-xs text-[var(--text-muted)] text-center">Aucune notification</div>
+                  <div className="px-4 py-6 text-xs text-[var(--text-muted)] text-center">
+                    {lang === 'en' ? 'No notifications' : 'Aucune notification'}
+                  </div>
                 )}
                 {NOTIFICATIONS.map(n => (
                   <div key={n.id} className={`px-4 py-3 border-b border-[var(--border-subtle)] last:border-b-0 ${!n.read ? 'bg-blue-500/5' : ''} hover:bg-[var(--bg-hover)] cursor-pointer`}>
@@ -156,12 +156,13 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             </div>
           )}
         </div>
+
         {/* Language toggle FR / EN */}
         <div className="flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] overflow-hidden">
-          {(['fr', 'en'] as Lang[]).map((l) => (
+          {(['fr', 'en'] as const).map((l) => (
             <button
               key={l}
-              onClick={() => switchLang(l)}
+              onClick={() => setLang(l)}
               title={l === 'fr' ? 'Français' : 'English'}
               className={`px-2.5 py-[7px] text-[11px] font-bold uppercase cursor-pointer transition-all ${
                 lang === l
@@ -174,9 +175,10 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           ))}
         </div>
 
+        {/* Theme toggle */}
         <button
           onClick={toggle}
-          title={isDark ? 'Mode clair' : 'Mode sombre'}
+          title={isDark ? (lang === 'en' ? 'Light mode' : 'Mode clair') : (lang === 'en' ? 'Dark mode' : 'Mode sombre')}
           className={`flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] cursor-pointer transition-colors hover:border-[var(--border-default)] ${isDark ? 'text-amber-400 hover:text-amber-300' : 'text-blue-600 hover:text-blue-500'}`}
         >
           {isDark ? <Sun size={15} /> : <Moon size={15} />}
