@@ -38,6 +38,7 @@ class CuePointResponse(BaseModel):
     number: Optional[int] = None
     color: Optional[str] = None
     cue_type: str = "hot_cue"
+    confidence: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -349,20 +350,27 @@ async def generate_cues(
             "phrase_positions": analysis.phrase_positions or [],
             "beat_positions": analysis.beat_positions or [],
             "section_labels": analysis.section_labels or [],
+            "genre": track.genre,  # v4: pass genre for genre-aware thresholds
         }
 
-        # Generate smart cue points using the pro algorithm
+        # Generate smart cue points using the pro v4.0 algorithm
         generated = generate_cue_points(analysis_data)
 
         if not generated:
             return {"message": "No cue points could be generated", "cues": []}
 
-        # Delete existing auto-generated cue points (keep manually created ones)
+        # Delete existing auto-generated cue points but PRESERVE manual cues
+        # Manual cues have cue_type="manual" — never delete those
         existing_auto = db.query(CuePoint).filter(
             CuePoint.track_id == track_id,
             CuePoint.cue_type.in_(["section", "drop", "phrase", "hot_cue"])
         ).all()
+        preserved_manual = 0
         for cue in existing_auto:
+            # Extra safety: if user edited the name, treat it as manual
+            if cue.cue_type == "manual":
+                preserved_manual += 1
+                continue
             db.delete(cue)
         db.flush()
 
@@ -376,14 +384,19 @@ async def generate_cues(
                 number=cp.get("number"),
                 color=cp.get("color", "blue"),
                 cue_type=cp.get("cue_type", "hot_cue"),
+                confidence=cp.get("confidence"),
             )
             db.add(cue)
             created_cues.append(cp)
 
         db.commit()
 
+        msg = f"{len(created_cues)} cue points generated"
+        if preserved_manual:
+            msg += f" ({preserved_manual} manual cues preserved)"
+
         return {
-            "message": f"{len(created_cues)} cue points generated",
+            "message": msg,
             "cues": created_cues,
         }
     except Exception as e:

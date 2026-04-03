@@ -163,6 +163,7 @@ class CuePoint(Base):
     color = Column(String(50), default="red")
     number = Column(Integer, nullable=True)
     cue_mode = Column(String(20), default="memory")
+    confidence = Column(Float, nullable=True)  # v4: 0.0–1.0 confidence score
     color_rgb = Column(String(30), nullable=True)
     track = relationship("Track", back_populates="cue_points")
 

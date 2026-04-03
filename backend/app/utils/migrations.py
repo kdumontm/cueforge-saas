@@ -33,6 +33,8 @@ PENDING_MIGRATIONS = {
         # Cue customization columns
         "cue_mode": "VARCHAR(20) DEFAULT 'memory'",
         "color_rgb": "VARCHAR(30)",
+        # v4: confidence scoring
+        "confidence": "FLOAT",
     },
     "tracks": {
         # Existing metadata columns
