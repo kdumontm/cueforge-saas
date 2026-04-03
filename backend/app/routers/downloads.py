@@ -26,10 +26,10 @@ DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
 _download_config = {
     "allowed_plans": DEFAULT_ALLOWED_PLANS.copy(),
     "latest_version": "1.0.0",
-    "release_notes": "Première version de CueForge Desktop pour macOS.",
-    "dmg_url": "",  # URL du .dmg sur GitHub Releases
-    "dmg_size": "",  # Taille du fichier
-    "min_macos": "12.0",  # Version macOS minimale
+    "release_notes": "Première version de CueForge Desktop pour macOS. Drag & drop, notifications natives, mode hors-ligne.",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/desktop-v1.0.0/CueForge-1.0.0-arm64.dmg",
+    "dmg_size": "~95 MB",
+    "min_macos": "12.0",
 }
 
 

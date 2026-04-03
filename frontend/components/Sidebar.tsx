@@ -7,7 +7,7 @@ import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
   Music, Clock, Zap, LayoutGrid, X, Trash2, Wrench,
-  ListMusic, Layers, GitBranch,
+  ListMusic, Layers, GitBranch, Monitor,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
@@ -29,6 +29,7 @@ const navItems = [
   { href: '/dashboard/tools', icon: Wrench, label: 'Outils DJ' },
   { href: '/dashboard/upload', icon: Upload, label: 'Importer' },
   { href: '/dashboard/export', icon: Download, label: 'Exporter' },
+  { href: '/download', icon: Monitor, label: 'App Desktop' },
 ];
 
 const DEFAULT_CRATES = [
