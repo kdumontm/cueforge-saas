@@ -152,6 +152,7 @@ export default function PlayerCard({
         setVolume: (v: number) => wsPlayerRef.current?.setVolume?.(v),
         toggleMute: () => wsPlayerRef.current?.toggleMute?.(),
         setEQ: (low: number, mid: number, high: number) => wsPlayerRef.current?.setEQ?.(low, mid, high),
+        getAudio: () => wsPlayerRef.current?.getAudio?.(),
       };
     }
   }, [playerRef]);
