@@ -158,7 +158,7 @@ app.add_middleware(SecurityHeadersMiddleware)  # 🔴 FIX (faille 9) : headers H
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402
 from app.routers import org_management  # noqa: E402
 # v2 routers
-from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced  # noqa: E402
+from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -177,3 +177,4 @@ app.include_router(crates.router, prefix="/api/v1", tags=["smart-crates"])
 app.include_router(sets.router, prefix="/api/v1", tags=["dj-sets"])
 app.include_router(import_dj.router, prefix="/api/v1", tags=["import"])
 app.include_router(advanced.router, prefix="/api/v1", tags=["advanced"])
+app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
