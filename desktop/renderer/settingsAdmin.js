@@ -139,14 +139,17 @@ const Settings = {
       badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
       badge.className = `plan-badge-lg plan-${plan}`;
 
-      // Show admin sidebar if admin
+      // Show admin nav if admin
       if (this.profile.is_admin) {
-        document.getElementById('sidebarAdmin').style.display = '';
+        const navAdmin = document.getElementById('navAdmin');
+        if (navAdmin) navAdmin.style.display = '';
       }
 
-      // Update sidebar account
-      document.getElementById('accountEmail').textContent = this.profile.name || this.profile.email;
-      document.getElementById('accountPlan').textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+      // Update sidebar user footer
+      const sidebarUsername = document.getElementById('sidebarUsername');
+      const sidebarPlan = document.getElementById('sidebarPlan');
+      if (sidebarUsername) sidebarUsername.textContent = this.profile.name || this.profile.email;
+      if (sidebarPlan) sidebarPlan.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
 
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -215,11 +218,24 @@ const AdminPanel = {
     // Admin tab switching
     document.querySelectorAll('.settings-tab[data-atab]').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.settings-tab[data-atab]').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('[id^="atab"]').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.settings-tab[data-atab]').forEach(t => {
+          t.classList.remove('active');
+          t.style.background = 'none';
+          t.style.color = 'var(--text-secondary)';
+        });
         tab.classList.add('active');
+        tab.style.background = 'var(--bg-elevated)';
+        tab.style.color = 'var(--text-primary)';
+
+        // Show corresponding panel
+        const panels = ['atabDashboard', 'atabUsers', 'atabFeatures'];
+        panels.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'none';
+        });
         const panelId = 'atab' + tab.dataset.atab.charAt(0).toUpperCase() + tab.dataset.atab.slice(1);
-        document.getElementById(panelId)?.classList.add('active');
+        const panel = document.getElementById(panelId);
+        if (panel) panel.style.display = 'block';
 
         // Load data when switching tabs
         if (tab.dataset.atab === 'users') this.loadUsers();
@@ -613,11 +629,68 @@ function initSettingsAdmin() {
   Settings.loadProfile();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// INJECT ADMIN HTML
+// ═══════════════════════════════════════════════════════════════════════════
+function initAdminContent() {
+  const container = document.getElementById('adminContent');
+  if (!container || container.dataset.rendered) return;
+  container.dataset.rendered = 'true';
+  container.innerHTML = `
+    <div class="page-inner">
+      <div class="page-title">Administration</div>
+      <div class="page-desc">Gestion des utilisateurs, plans et features</div>
+
+      <!-- Admin Tabs -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+        <button class="settings-tab active" data-atab="dashboard" style="background:var(--bg-elevated);border:none;color:var(--text-primary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Dashboard</button>
+        <button class="settings-tab" data-atab="users" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Utilisateurs</button>
+        <button class="settings-tab" data-atab="features" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Features</button>
+      </div>
+
+      <!-- Dashboard Panel -->
+      <div id="atabDashboard" class="active">
+        <div id="adminStatCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px"></div>
+        <div id="adminPlanDistrib" style="background:var(--bg-card);border:1px solid var(--border-default);border-radius:10px;padding:16px"></div>
+      </div>
+
+      <!-- Users Panel -->
+      <div id="atabUsers" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+          <input id="adminUserSearch" type="text" placeholder="Rechercher un email…" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <select id="adminUserPlanFilter" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px">
+            <option value="">Tous les plans</option>
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="unlimited">Unlimited</option>
+          </select>
+          <button id="btnAdminRefreshUsers" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer">Actualiser</button>
+        </div>
+        <div id="adminUsersTableContainer"></div>
+      </div>
+
+      <!-- Features Panel -->
+      <div id="atabFeatures" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+          <input id="adminNewFeatureName" type="text" placeholder="Nom de la feature…" style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+          <button id="btnAdminAddFeature" style="padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer">+ Ajouter</button>
+        </div>
+        <div id="adminFeaturesContainer"></div>
+      </div>
+    </div>
+  `;
+}
+
 // Update ViewManager to handle settings/admin views
 function onViewSwitch(view) {
   if (view === 'account') Settings.loadProfile();
-  if (view === 'settings') Settings.loadProfile();
+  if (view === 'settings') {
+    initSettingsAdmin();
+    Settings.loadProfile();
+  }
   if (view === 'admin') {
+    initAdminContent();
+    AdminPanel.init();
     AdminPanel.loadDashboard();
   }
 }

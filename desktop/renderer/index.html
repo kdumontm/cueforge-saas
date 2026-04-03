@@ -6,40 +6,43 @@
   <title>CueForge</title>
   <style>
     /* ═══════════════════════════════════════════════════════════════════════
-       DESIGN SYSTEM — exact match with cueforge-v2-prototype.jsx
+       DESIGN SYSTEM — exact match with DashboardV2.tsx + globals.css
        ═══════════════════════════════════════════════════════════════════════ */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
     :root {
-      /* BG */
       --bg-primary: #08080f;
       --bg-secondary: #0f0f1a;
-      --bg-card: #131320;
-      --bg-elevated: #1a1a2e;
-      --bg-hover: #1f1f35;
-      --bg-surface: #0f0f1a;
-      /* TEXT */
+      --bg-card: #151525;
+      --bg-elevated: #1c1c32;
+      --bg-hover: #22223a;
       --text-primary: #f1f5f9;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
-      --text-disabled: #374151;
-      /* BORDER */
-      --border-subtle: #1a1a2e;
-      --border-default: #252540;
-      --border-strong: #334155;
-      /* ACCENT */
+      --border-subtle: #1e293b;
+      --border-default: #334155;
       --accent: #2563eb;
-      --accent-success: #10b981;
-      --accent-error: #ef4444;
-      --accent-warning: #f59e0b;
-      --accent-purple: #8b5cf6;
-      --accent-cyan: #06b6d4;
-      --accent-pink: #ec4899;
-      /* LAYOUT */
       --sidebar-width: 220px;
       --sidebar-collapsed: 56px;
-      --topbar-height: 56px;
-      /* FONTS */
+      --topbar-height: 50px;
       --font-main: 'Inter', system-ui, -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+      --scrollbar-track: #0f0f1a;
+      --scrollbar-thumb: #2563eb;
+    }
+    .light {
+      --bg-primary: #f8fafc;
+      --bg-secondary: #ffffff;
+      --bg-card: #f1f5f9;
+      --bg-elevated: #e2e8f0;
+      --bg-hover: #cbd5e1;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border-subtle: #e2e8f0;
+      --border-default: #cbd5e1;
+      --scrollbar-track: #f1f5f9;
+      --scrollbar-thumb: #2563eb;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -50,7 +53,13 @@
       background: var(--bg-primary);
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
     /* ── Update Banner ──────────────────────────────────────── */
     #updateBanner {
@@ -59,8 +68,8 @@
       z-index: 1000;
       background: linear-gradient(90deg, #2563eb, #4f46e5);
       padding: 6px 16px;
-      align-items: center; gap: 12;
-      font-size: 12; color: white;
+      align-items: center; gap: 12px;
+      font-size: 12px; color: white;
     }
     #updateBanner.show { display: flex; }
     .update-progress-bar-outer { width: 120px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
@@ -100,512 +109,826 @@
       cursor: pointer;
     }
     .login-btn:hover { opacity: 0.9; }
-    .login-error { color: var(--accent-error); font-size: 12px; display: none; }
+    .login-error { color: #ef4444; font-size: 12px; display: none; }
 
     /* ── App Layout ─────────────────────────────────────────── */
-    #appContainer {
-      display: none; height: 100vh; width: 100vw;
-    }
+    #appContainer { display: none; height: 100vh; width: 100vw; }
 
-    /* ── Sidebar — exact V2 prototype styles ────────────────── */
+    /* ── Sidebar ────────────────────────────────────────────── */
     .sidebar {
       width: var(--sidebar-width); min-width: var(--sidebar-width); max-width: var(--sidebar-width);
       height: 100vh; background: var(--bg-secondary);
       border-right: 1px solid var(--border-subtle);
       display: flex; flex-direction: column;
       transition: all 0.25s; overflow: hidden;
-      position: relative; z-index: 10;
+      position: fixed; left: 0; top: 0; z-index: 50;
+      flex-shrink: 0;
     }
     .sidebar.collapsed {
       width: var(--sidebar-collapsed); min-width: var(--sidebar-collapsed); max-width: var(--sidebar-collapsed);
     }
-
-    /* Logo area */
     .sidebar-logo {
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid var(--border-subtle);
+      padding: 16px 14px; border-bottom: 1px solid var(--border-subtle);
       display: flex; align-items: center; justify-content: space-between;
     }
     .sidebar.collapsed .sidebar-logo { padding: 16px 12px; justify-content: center; }
-    .sidebar-logo-group { display: flex; align-items: center; gap: 8; }
+    .sidebar-logo-group { display: flex; align-items: center; gap: 8px; }
     .sidebar-logo-icon {
-      width: 32px; height: 32px; border-radius: 9px;
-      background: var(--accent); display: flex; align-items: center; justify-content: center;
-      font-size: 14px; flex-shrink: 0;
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #2563eb, #ec4899);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0; color: white;
     }
-    .sidebar-logo-text { font-size: 15px; font-weight: 800; color: var(--text-primary); }
+    .sidebar-logo-text { font-size: 16px; font-weight: 800; color: var(--text-primary); }
     .sidebar.collapsed .sidebar-logo-text { display: none; }
     .sidebar-collapse-btn {
       background: none; border: none; cursor: pointer;
-      color: var(--text-muted); font-size: 16px; padding: 2px;
+      color: var(--text-muted); font-size: 14px; padding: 2px;
+      transition: color 0.15s;
     }
+    .sidebar-collapse-btn:hover { color: var(--text-primary); }
     .sidebar.collapsed .sidebar-collapse-btn { display: none; }
     .sidebar-expand-btn {
       display: none; margin: 8px auto;
       background: none; border: none; cursor: pointer;
-      color: var(--text-muted); font-size: 16px;
+      color: var(--text-muted); font-size: 14px;
     }
     .sidebar.collapsed .sidebar-expand-btn { display: block; }
 
-    /* Sidebar content */
-    .sidebar-content { flex: 1; overflow-y: auto; padding: 8px 8px; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 8px 6px; }
 
-    /* Section titles */
-    .sidebar-section { margin-bottom: 4px; }
     .sidebar-section-title {
-      font-size: 10px; font-weight: 700; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.08em;
-      padding: 4px 8px 6px;
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 4px 10px 6px;
     }
     .sidebar.collapsed .sidebar-section-title { display: none; }
     .sidebar-section-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 4px 8px 6px;
+      padding: 4px 10px 6px;
     }
     .sidebar.collapsed .sidebar-section-header { display: none; }
     .sidebar-add-btn {
       background: none; border: none; cursor: pointer;
-      color: var(--text-muted); font-size: 16px; line-height: 1;
+      color: var(--text-muted); font-size: 13px; line-height: 1;
+      transition: color 0.15s;
     }
+    .sidebar-add-btn:hover { color: var(--text-primary); }
 
-    /* Nav items — exact match with V2 navItem styles */
+    .sidebar-divider { height: 1px; background: var(--border-subtle); margin: 8px 8px; }
+
     .nav-item {
-      display: flex; align-items: center; gap: 10;
-      padding: 7px 12px; border-radius: 8; cursor: pointer;
-      margin-bottom: 1px; background: transparent;
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 1px; background: transparent; border: none; width: 100%;
       color: var(--text-secondary); font-size: 13px; font-weight: 500;
-      transition: all 0.15s; position: relative;
+      transition: all 0.15s; position: relative; text-align: left;
     }
-    .nav-item:hover { background: var(--bg-hover); }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
     .nav-item.active {
-      background: rgba(37,99,235,0.094); /* accent + 18 hex */
-      color: var(--accent); font-weight: 600;
+      background: rgba(37,99,235,0.1);
+      color: #60a5fa; font-weight: 600;
     }
-    .nav-item.active::after {
-      content: ''; position: absolute; right: 10px;
-      width: 5px; height: 5px; border-radius: 50%;
-      background: var(--accent);
+    .nav-item.active .nav-dot { display: block; }
+    .nav-dot {
+      display: none; margin-left: auto;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #3b82f6;
     }
-    .nav-item.sub { color: var(--text-muted); }
-    .sidebar.collapsed .nav-item { padding: 8px 16px; font-size: 0; }
-    .sidebar.collapsed .nav-item.active::after { display: none; }
-    .nav-icon { font-size: 14px; flex-shrink: 0; }
+    .nav-item .nav-icon { font-size: 15px; flex-shrink: 0; width: 15px; text-align: center; }
+    .nav-item.active .nav-icon { color: #3b82f6; }
     .nav-label { font-size: 13px; }
-    .sidebar.collapsed .nav-label { display: none; }
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .nav-dot { display: none; }
+    .sidebar.collapsed .nav-item { padding: 8px 0; justify-content: center; font-size: 0; }
 
-    /* Smart Crates */
-    .crate-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 12px; border-radius: 8; cursor: pointer;
-      margin-bottom: 1px; transition: all 0.15s;
+    /* Library items */
+    .lib-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 1px; background: transparent; border: none; width: 100%;
+      color: var(--text-muted); font-size: 13px; font-weight: 400;
+      transition: all 0.15s; text-align: left;
     }
-    .crate-item:hover { background: var(--bg-hover); }
-    .sidebar.collapsed .crate-item { display: none; }
-    .crate-left { display: flex; align-items: center; gap: 8; }
-    .crate-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .crate-label { font-size: 13px; color: var(--text-secondary); font-weight: 400; }
-    .crate-count { font-size: 10px; color: var(--text-muted); }
+    .lib-item:hover { color: var(--text-secondary); background: var(--bg-hover); }
+    .lib-item.active { color: var(--text-primary); font-weight: 600; background: var(--bg-hover); }
+    .lib-item.active .lib-icon { color: #60a5fa; }
+    .lib-icon { font-size: 14px; flex-shrink: 0; color: var(--text-muted); }
+    .sidebar.collapsed .lib-item span:not(.lib-icon) { display: none; }
+    .sidebar.collapsed .lib-item { padding: 8px 0; justify-content: center; }
 
-    /* Playlists */
+    /* Crate items */
+    .crate-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 1px; transition: all 0.15s; background: transparent; border: none; width: 100%;
+      text-align: left;
+    }
+    .crate-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .crate-label { font-size: 13px; color: var(--text-secondary); }
+    .crate-item.active .crate-label { font-weight: 600; }
+
+    /* Playlist items */
     .playlist-item {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 12px; border-radius: 8; cursor: pointer;
+      padding: 6px 10px; border-radius: 8px; cursor: pointer;
       margin-bottom: 1px; transition: all 0.15s;
     }
     .playlist-item:hover { background: var(--bg-hover); }
-    .sidebar.collapsed .playlist-item { display: none; }
-    .pl-left { display: flex; align-items: center; gap: 8; }
-    .pl-icon { font-size: 12px; }
-    .pl-label { font-size: 13px; color: var(--text-secondary); font-weight: 400; }
-    .pl-count { font-size: 10px; color: var(--text-muted); }
+    .playlist-item.active { background: rgba(37,99,235,0.1); }
+    .playlist-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .playlist-icon { font-size: 12px; color: var(--text-muted); }
+    .playlist-item.active .playlist-icon { color: #60a5fa; }
+    .playlist-name { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .playlist-item.active .playlist-name { color: var(--accent); font-weight: 600; }
+    .playlist-right { display: flex; align-items: center; gap: 4px; }
+    .playlist-count { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+    .playlist-delete {
+      opacity: 0; background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 11px; transition: all 0.15s; padding: 0;
+    }
+    .playlist-item:hover .playlist-delete { opacity: 1; }
+    .playlist-delete:hover { color: #ef4444; }
 
-    /* Sidebar footer — exact V2 prototype */
+    /* New playlist form */
+    .new-playlist-form { display: flex; align-items: center; gap: 4px; padding: 4px 10px; }
+    .new-playlist-input {
+      flex: 1; padding: 4px 8px; border-radius: 4px; font-size: 12px;
+      background: var(--bg-primary); border: 1px solid var(--border-default);
+      color: var(--text-primary); outline: none;
+    }
+    .new-playlist-input:focus { border-color: var(--accent); }
+    .new-playlist-ok { background: none; border: none; cursor: pointer; color: #60a5fa; font-size: 12px; }
+    .new-playlist-cancel { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 12px; }
+
+    /* Sidebar user footer */
     .sidebar-footer {
-      padding: 10px 12px;
-      border-top: 1px solid var(--border-subtle);
-      display: flex; align-items: center; gap: 8;
+      padding: 8px 6px; border-top: 1px solid var(--border-subtle);
     }
+    .sidebar-user {
+      display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    }
+    .sidebar.collapsed .sidebar-user { padding: 6px 0; justify-content: center; }
     .sidebar-avatar {
-      width: 30px; height: 30px; border-radius: 50%;
-      background: rgba(37,99,235,0.19); border: 2px solid var(--accent);
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; flex-shrink: 0;
+      font-size: 11px; font-weight: 700; color: white; flex-shrink: 0;
     }
-    .sidebar-user-info { flex: 1; min-width: 0; }
+    .sidebar-user-info { min-width: 0; flex: 1; }
+    .sidebar-username { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-plan { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
     .sidebar.collapsed .sidebar-user-info { display: none; }
-    .sidebar-username {
-      font-size: 12px; font-weight: 600; color: var(--text-primary);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    .sidebar-logout-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); margin-left: auto; font-size: 13px;
+      transition: color 0.15s;
     }
-    .sidebar-plan { font-size: 10px; color: var(--accent); }
-    .sidebar-settings-btn {
-      color: var(--text-muted); font-size: 16px; cursor: pointer;
-      background: none; border: none;
-    }
-    .sidebar.collapsed .sidebar-settings-btn { display: none; }
+    .sidebar-logout-btn:hover { color: var(--text-primary); }
+    .sidebar.collapsed .sidebar-logout-btn { display: none; }
 
-    /* ── Main Content ───────────────────────────────────────── */
-    .main-content {
-      flex: 1; display: flex; flex-direction: column;
-      min-width: 0; overflow: hidden;
+    /* ── Main content area ──────────────────────────────────── */
+    .main-area {
+      margin-left: var(--sidebar-width);
+      display: flex; flex-direction: column;
+      height: 100vh; width: calc(100vw - var(--sidebar-width));
+      transition: margin-left 0.25s, width 0.25s;
+    }
+    .sidebar.collapsed ~ .main-area {
+      margin-left: var(--sidebar-collapsed);
+      width: calc(100vw - var(--sidebar-collapsed));
     }
 
-    /* TopBar — exact V2: height 56, bg secondary, border bottom subtle */
+    /* ── Topbar ─────────────────────────────────────────────── */
     .topbar {
-      height: var(--topbar-height); background: var(--bg-secondary);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: var(--topbar-height);
       border-bottom: 1px solid var(--border-subtle);
-      display: flex; align-items: center;
-      padding: 0 20px; gap: 16;
-      position: sticky; top: 0; z-index: 5;
+      background: rgba(15,15,26,0.9); backdrop-filter: blur(20px);
+      position: sticky; top: 0; z-index: 40;
+      transition: background-color 0.3s;
+      flex-shrink: 0;
     }
-    .topbar-title-area { flex: 1; }
-    .topbar-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
-    .topbar-subtitle { font-size: 11px; color: var(--text-muted); }
-    .topbar-actions { display: flex; align-items: center; gap: 8; }
+    .topbar-left { display: flex; flex-direction: column; }
+    .topbar-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0; }
+    .topbar-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+    .topbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 8px;
+      border: 1px solid var(--border-subtle); background: var(--bg-card);
+      color: var(--text-muted); font-size: 11px; cursor: pointer;
+      transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .topbar-btn:hover { color: var(--text-primary); border-color: var(--border-default); }
+    .topbar-btn.active-toggle {
+      background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4);
+      color: #34d399; font-weight: 600;
+    }
+    .topbar-btn.warn {
+      background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.4);
+      color: #fbbf24; font-weight: 600;
+    }
+    .topbar-btn .pulse-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #fbbf24; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
     .topbar-search {
-      display: flex; align-items: center; gap: 8;
-      background: var(--bg-elevated); border: 1px solid var(--border-default);
-      border-radius: 9px; padding: 6px 12px; width: 220px;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 8px; padding: 5px 10px; min-width: 200px;
+      transition: border-color 0.15s;
     }
+    .topbar-search:focus-within { border-color: #3b82f6; }
     .topbar-search-icon { color: var(--text-muted); font-size: 13px; }
-    .topbar-search-text { font-size: 12px; color: var(--text-muted); }
-    .btn-analyze-all {
-      display: flex; align-items: center; gap: 6;
-      padding: 6px 12px; border-radius: 8;
-      background: rgba(245,158,11,0.094); color: var(--accent-warning);
-      border: 1px solid rgba(245,158,11,0.188);
-      font-size: 12px; font-weight: 600; cursor: pointer;
+    .topbar-search input {
+      background: transparent; border: none; outline: none;
+      font-size: 12px; color: var(--text-primary); width: 100%;
     }
+    .topbar-search input::placeholder { color: var(--text-muted); }
+    .topbar-search kbd {
+      font-size: 9px; font-family: var(--font-mono);
+      padding: 1px 4px; border-radius: 4px;
+      background: var(--bg-hover); color: var(--text-muted);
+      border: 1px solid var(--border-default);
+    }
+
     .topbar-icon-btn {
-      width: 34px; height: 34px; border-radius: 8;
-      background: var(--bg-elevated); border: 1px solid var(--border-default);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      position: relative; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 8px;
+      border: 1px solid var(--border-subtle); background: var(--bg-card);
+      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
     }
-    .notif-dot {
-      position: absolute; top: 4px; right: 4px;
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent-error);
+    .topbar-icon-btn:hover { color: var(--text-primary); border-color: var(--border-default); }
+    .topbar-icon-btn.theme-dark { color: #fbbf24; }
+    .topbar-icon-btn.theme-light { color: #2563eb; }
+
+    .topbar-lang-toggle {
+      display: flex; align-items: center; border-radius: 8px;
+      border: 1px solid var(--border-subtle); background: var(--bg-card);
+      overflow: hidden;
     }
+    .topbar-lang-btn {
+      padding: 7px 10px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; cursor: pointer; transition: all 0.15s;
+      background: transparent; border: none; color: var(--text-muted);
+    }
+    .topbar-lang-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .topbar-lang-btn.active { background: #2563eb; color: white; }
 
-    /* ── Page Views ─────────────────────────────────────────── */
-    .page-scroll { flex: 1; overflow-y: auto; }
-    .page-view { display: none; }
-    .page-view.active { display: block; }
-    .page-padding { padding: 14px 18px; }
+    /* ── Notification Panel ─────────────────────────────────── */
+    .notif-panel {
+      display: none; position: absolute; right: 0; top: 42px;
+      width: 320px; background: var(--bg-card);
+      border: 1px solid var(--border-default); border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4); z-index: 50; overflow: hidden;
+    }
+    .notif-panel.show { display: block; }
+    .notif-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notif-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .notif-mark-read { font-size: 10px; color: #60a5fa; cursor: pointer; }
+    .notif-body { max-height: 256px; overflow-y: auto; }
+    .notif-empty { padding: 24px 16px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
-    /* ── Player Card — exact V2 prototype ───────────────────── */
+    /* ── Page views ─────────────────────────────────────────── */
+    .main-content { flex: 1; overflow-y: auto; }
+    .page-view { display: none; height: 100%; }
+    .page-view.active { display: flex; flex-direction: column; }
+
+    /* ── Dashboard: Player + Tabs + TrackList ────────────────── */
+    .dashboard-content { display: flex; flex-direction: column; height: 100%; }
+
+    /* Player Card */
     .player-card {
       background: var(--bg-card); border-radius: 14px;
       border: 1px solid var(--border-subtle);
-      margin-bottom: 12px; overflow: hidden;
+      margin: 12px 16px 0; overflow: hidden; flex-shrink: 0;
     }
+    .player-card.empty {
+      border: 2px dashed var(--border-default);
+      padding: 40px; display: flex; flex-direction: column;
+      align-items: center; gap: 16px; text-align: center;
+    }
+    .player-card.empty .empty-icon { font-size: 48px; opacity: 0.25; }
+    .player-card.empty .empty-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+    .player-card.empty .empty-sub { font-size: 13px; color: var(--text-muted); }
+    .player-card.empty .import-btn {
+      padding: 8px 16px; border-radius: 8px; background: #2563eb;
+      color: white; font-size: 14px; font-weight: 600; border: none; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .player-card.empty .import-btn:hover { background: #3b82f6; }
+
     .player-info-row {
-      display: flex; align-items: center; gap: 16;
+      display: flex; align-items: center; gap: 16px;
       padding: 14px 18px 10px;
     }
     .player-art {
       width: 44px; height: 44px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
+      font-size: 20px; flex-shrink: 0;
     }
-    .player-title-area { flex: 1; min-width: 0; }
-    .player-title {
-      font-size: 15px; font-weight: 700; color: var(--text-primary);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
+    .player-meta { flex: 1; min-width: 0; }
+    .player-title { font-size: 15px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .player-subtitle { font-size: 12px; color: var(--text-secondary); }
-    .player-badges { display: flex; align-items: center; gap: 8; }
+    .player-badges { display: flex; align-items: center; gap: 8px; }
 
-    /* Badge — matches V2 Badge component */
-    .badge {
+    .badge-bpm {
       display: inline-flex; align-items: center;
       padding: 2px 7px; border-radius: 5px;
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 0.04em;
-      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+      background: rgba(6,182,212,0.15); color: #22d3ee;
+      border: 1px solid rgba(6,182,212,0.3);
     }
-    .badge-bpm { background: rgba(6,182,212,0.133); color: var(--accent-cyan); border: 1px solid rgba(6,182,212,0.25); }
-    .badge-key { font-family: var(--font-mono); }
-
-    /* Energy bar in player */
-    .energy-bar-outer {
-      width: 50px; height: 5px; border-radius: 3px;
-      background: var(--bg-elevated); overflow: hidden;
+    .badge-key {
+      display: inline-flex; align-items: center;
+      padding: 2px 7px; border-radius: 5px;
+      font-size: 10px; font-weight: 700; font-family: var(--font-mono);
     }
-    .energy-bar-inner {
+    .energy-bar-container { display: flex; align-items: center; gap: 4px; }
+    .energy-bar {
+      width: 50px; height: 6px; border-radius: 3px;
+      background: var(--bg-primary); overflow: hidden;
+    }
+    .energy-bar-fill {
       height: 100%; border-radius: 3px;
       background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
     }
-    .energy-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+    .energy-value { font-size: 10px; font-weight: 600; font-family: var(--font-mono); }
 
-    /* Transport controls */
-    .transport-controls { display: flex; align-items: center; gap: 8; }
-    .btn-transport {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-secondary); font-size: 18px;
+    .player-nav { display: flex; align-items: center; gap: 8px; }
+    .player-nav-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-secondary); padding: 4px; transition: color 0.15s;
+      font-size: 18px;
     }
-    .btn-play {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: var(--accent); border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; color: white;
-    }
+    .player-nav-btn:hover { color: var(--text-primary); }
+    .player-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-    /* Waveform containers */
+    /* Waveform area */
+    .waveform-area { padding: 0 18px 8px; }
     .waveform-overview {
-      padding: 0 18px 4px;
-    }
-    .waveform-overview-inner {
-      background: var(--bg-elevated); border-radius: 6px;
-      overflow: hidden; height: 32px;
+      height: 56px; background: rgba(0,0,0,0.3); border-radius: 8px;
+      overflow: hidden; position: relative; margin-bottom: 6px;
     }
     .waveform-detail {
-      padding: 4px 18px;
-    }
-    .waveform-detail-inner {
-      background: var(--bg-primary); border-radius: 8px;
-      overflow: hidden; height: 80px; position: relative;
+      height: 90px; background: rgba(0,0,0,0.2); border-radius: 8px;
+      overflow: hidden; position: relative;
     }
 
-    /* Hot cues row */
-    .hotcues-row {
-      display: flex; align-items: center; gap: 6;
+    /* Hot cues bar */
+    .hotcues-bar {
+      display: flex; align-items: center; gap: 6px;
       padding: 6px 18px 12px;
     }
-    .hotcues-label {
-      font-size: 10px; color: var(--text-muted);
-      margin-right: 4px; font-family: var(--font-mono);
-    }
+    .hotcues-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); margin-right: 4px; }
     .hotcue-btn {
-      flex: 1; min-width: 0;
-      padding: 5px 4px; border-radius: 7px;
-      font-size: 10px; font-weight: 700; cursor: pointer;
-      border: none; text-align: center; transition: all 0.15s;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      flex: 1; min-width: 0; border-radius: 7px;
+      padding: 5px 4px; font-size: 10px; font-weight: 700;
+      border: none; cursor: pointer; transition: all 0.15s;
+      font-family: var(--font-mono); text-align: center; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
     }
-    .hotcue-btn-empty {
-      background: var(--bg-elevated); color: var(--text-muted);
-    }
+    .hotcue-btn:disabled { cursor: default; }
+    .hotcue-btn .hotcue-time { font-size: 9px; opacity: 0.85; }
 
-    /* Time/Loop row */
-    .time-loop-row {
-      display: flex; align-items: center; gap: 16;
-      padding: 6px 18px 10px;
-      border-top: 1px solid var(--border-subtle);
+    /* Loop / Zoom / Rate row */
+    .controls-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 18px 10px; border-top: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
     }
-    .time-current { font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); }
-    .time-remaining { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
-    .time-total { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
-    .btn-loop-ctrl {
+    .ctrl-btn {
       padding: 3px 10px; border-radius: 6px;
-      font-size: 11px; cursor: pointer;
+      border: 1px solid var(--border-default); background: transparent;
+      font-size: 11px; color: var(--text-muted); cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-loop-in { border: 1px solid var(--border-default); background: transparent; color: var(--text-muted); }
-    .btn-loop-active {
-      border: 1px solid rgba(16,185,129,0.376);
-      background: rgba(16,185,129,0.082);
-      color: var(--accent-success); font-weight: 600;
-    }
-    .btn-loop-out { border: 1px solid var(--border-default); background: transparent; color: var(--text-muted); }
-    .btn-zoom {
+    .ctrl-btn:hover { background: var(--bg-hover); }
+    .ctrl-btn.active-blue { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.15); color: #60a5fa; font-weight: 600; }
+    .ctrl-btn.active-green { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.15); color: #34d399; font-weight: 600; }
+    .ctrl-btn.active-orange { border-color: rgba(249,115,22,0.5); background: rgba(249,115,22,0.15); color: #fb923c; font-weight: 600; }
+    .ctrl-btn.active-purple { border-color: rgba(139,92,246,0.5); background: rgba(139,92,246,0.15); color: #a78bfa; font-weight: 600; }
+    .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ctrl-spacer { flex: 1; }
+    .ctrl-label { font-size: 10px; color: var(--text-muted); }
+    .zoom-btn {
       padding: 2px 7px; border-radius: 5px;
-      border: 1px solid var(--border-default);
-      background: transparent; color: var(--text-muted);
-      font-size: 10px; cursor: pointer;
+      border: 1px solid var(--border-default); background: transparent;
+      font-size: 10px; color: var(--text-muted); cursor: pointer;
+      transition: all 0.15s;
     }
-    .btn-zoom.active {
-      background: rgba(37,99,235,0.125);
-      color: var(--accent);
-    }
+    .zoom-btn:hover { background: var(--bg-hover); }
+    .zoom-btn.active { border-color: rgba(59,130,246,0.6); background: rgba(37,99,235,0.25); color: #60a5fa; font-weight: 600; }
 
-    /* ── Bottom Tabs — exact V2 BottomTabs ──────────────────── */
-    .bottom-tabs {
-      background: var(--bg-card); border-radius: 14px;
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 12px; overflow: hidden;
+    /* ── Bottom Tabs ────────────────────────────────────────── */
+    .bottom-section {
+      flex: 1; display: flex; flex-direction: column;
+      margin: 0 16px 12px; background: var(--bg-card);
+      border-radius: 14px; border: 1px solid var(--border-subtle);
+      overflow: hidden; min-height: 0;
     }
-    .tabs-bar {
-      display: flex; gap: 0;
-      border-bottom: 1px solid var(--border-subtle);
+    .tab-bar {
+      display: flex; align-items: center; gap: 0;
+      padding: 0 4px; border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary); flex-shrink: 0;
       overflow-x: auto;
     }
     .tab-btn {
-      display: flex; align-items: center; gap: 6;
-      padding: 10px 14px; border: none; cursor: pointer;
-      background: transparent; color: var(--text-secondary);
-      font-size: 12px; font-weight: 400;
-      border-bottom: 2px solid transparent;
-      transition: all 0.15s; white-space: nowrap;
+      padding: 10px 14px; font-size: 11px; font-weight: 500;
+      color: var(--text-muted); cursor: pointer;
+      border: none; background: transparent; position: relative;
+      white-space: nowrap; transition: color 0.15s;
     }
+    .tab-btn:hover { color: var(--text-secondary); }
     .tab-btn.active {
-      background: var(--bg-elevated); color: var(--text-primary);
-      font-weight: 600; border-bottom-color: var(--accent);
+      color: var(--text-primary); font-weight: 600;
     }
-    .tab-icon { font-size: 13px; }
-    .tab-pane { display: none; padding: 16px; min-height: 160px; }
-    .tab-pane.active { display: block; }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: 0; left: 8px; right: 8px;
+      height: 2px; background: var(--accent); border-radius: 1px;
+    }
+    .tab-content { flex: 1; overflow-y: auto; min-height: 0; }
+    .tab-pane { display: none; height: 100%; }
+    .tab-pane.active { display: flex; flex-direction: column; }
 
-    /* ── Track List — exact V2 TrackList ─────────────────────── */
-    .tracklist {
-      background: var(--bg-card); border-radius: 14px;
-      border: 1px solid var(--border-subtle);
-      overflow: hidden;
+    /* ── TrackList ──────────────────────────────────────────── */
+    .tracklist { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .tracklist-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary); flex-shrink: 0;
     }
-    .tracklist-header {
-      display: flex; align-items: center; gap: 10;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    .tracklist-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
     .tracklist-search {
-      display: flex; align-items: center; gap: 7;
-      background: var(--bg-elevated); border: 1px solid var(--border-default);
-      border-radius: 8px; padding: 5px 10px;
+      flex: 1; position: relative;
     }
-    .tracklist-search-icon { font-size: 11px; color: var(--text-muted); }
-    .tracklist-search-input {
-      background: none; border: none; outline: none;
-      font-size: 12px; color: var(--text-primary); width: 150px;
+    .tracklist-search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 13px;
     }
-    .tracklist-search-input::placeholder { color: var(--text-muted); }
-    .btn-filter {
-      padding: 5px 12px; border-radius: 8px;
-      border: 1px solid var(--border-default);
-      background: var(--bg-elevated); color: var(--text-secondary);
-      font-size: 12px; cursor: pointer;
+    .tracklist-search input {
+      width: 100%; padding: 6px 12px 6px 32px;
+      background: var(--bg-primary); border: 1px solid var(--border-subtle);
+      border-radius: 6px; font-size: 12px; color: var(--text-primary); outline: none;
     }
-    .btn-filter.active {
-      border-color: var(--accent);
-      background: rgba(37,99,235,0.082);
-      color: var(--accent); font-weight: 600;
-    }
-    .view-toggle {
-      display: flex;
-      border: 1px solid var(--border-default); border-radius: 8px;
-      overflow: hidden;
-    }
-    .view-toggle-btn {
-      padding: 5px 10px; border: none;
-      background: var(--bg-elevated); color: var(--text-muted);
-      font-size: 12px; cursor: pointer;
-    }
-    .view-toggle-btn.active { background: var(--accent); color: white; }
-    .btn-upload-sm {
-      display: inline-flex; align-items: center; gap: 6;
-      padding: 6px 14px; border-radius: 8px; font-weight: 600;
-      background: var(--accent); color: white; border: none;
-      font-size: 12px; cursor: pointer;
-    }
+    .tracklist-search input::placeholder { color: var(--text-muted); }
+    .tracklist-search input:focus { border-color: var(--accent); }
 
-    /* Filter panel */
-    .filter-panel {
-      display: none;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-subtle);
-      background: var(--bg-elevated);
-      gap: 20; align-items: flex-end;
+    .tracklist-sort {
+      padding: 6px 8px; background: var(--bg-primary);
+      border: 1px solid var(--border-subtle); border-radius: 6px;
+      font-size: 12px; color: var(--text-primary); outline: none; cursor: pointer;
     }
-    .filter-panel.show { display: flex; }
+    .tracklist-view-toggle {
+      display: flex; gap: 2px; background: var(--bg-primary);
+      border: 1px solid var(--border-subtle); border-radius: 6px; padding: 2px;
+    }
+    .view-btn {
+      padding: 4px; border-radius: 4px; border: none; cursor: pointer;
+      background: transparent; color: var(--text-muted); transition: all 0.15s;
+      font-size: 13px;
+    }
+    .view-btn.active { background: var(--accent); color: white; }
+
+    .tracklist-count {
+      padding: 6px 16px; font-size: 12px; color: var(--text-secondary);
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
 
     /* Column headers */
-    .tracklist-cols {
+    .tracklist-headers {
       display: grid;
-      grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
-      gap: 0; padding: 7px 16px;
-      border-bottom: 1px solid var(--border-subtle);
+      grid-template-columns: 40px 40px 2fr 80px 80px 120px 100px 80px 80px 40px;
+      gap: 12px; padding: 8px 16px;
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
+      position: sticky; top: 0; z-index: 5; flex-shrink: 0;
     }
-    .tracklist-col-header {
-      font-size: 9px; font-weight: 700; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.07em; padding-right: 8px;
-    }
+    .tracklist-header { cursor: pointer; transition: color 0.15s; user-select: none; }
+    .tracklist-header:hover { color: var(--text-primary); }
 
-    /* Track rows */
+    .tracklist-rows { flex: 1; overflow-y: auto; }
+
+    /* Track row */
     .track-row {
       display: grid;
-      grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
-      gap: 0; padding: 9px 16px;
-      border-bottom: 1px solid var(--border-subtle);
-      cursor: pointer; transition: background 0.1s;
-      align-items: center;
+      grid-template-columns: 40px 40px 2fr 80px 80px 120px 100px 80px 80px 40px;
+      gap: 12px; padding: 8px 16px;
+      align-items: center; border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer; transition: background 0.15s;
     }
     .track-row:hover { background: var(--bg-hover); }
-    .track-row.selected { background: rgba(37,99,235,0.063); }
-    .track-row-status { display: flex; align-items: center; justify-content: center; }
-    .track-row-title { min-width: 0; padding-right: 12px; }
-    .track-row-title-text {
-      font-size: 13px; font-weight: 600; color: var(--text-primary);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .track-row-artist { font-size: 11px; color: var(--text-muted); }
-    .track-row-bpm { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); }
-    .btn-analyze-sm {
-      padding: 2px 7px; border-radius: 5px;
-      border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.082);
-      color: var(--accent-warning); font-size: 10px; cursor: pointer;
-    }
-    .track-row-duration { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
-    .track-row-genre {
-      font-size: 11px; color: var(--text-secondary);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .track-row-rating { font-size: 11px; }
-    .tag-badge {
-      padding: 1px 5px; border-radius: 4px; font-size: 9px;
-      background: var(--bg-elevated); color: var(--text-muted);
-      border: 1px solid var(--border-default);
+    .track-row.selected { background: var(--bg-secondary); border-left: 4px solid var(--accent); }
+    .track-row.playing { }
+
+    .track-index { font-size: 12px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+    .track-color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .track-play-col { display: flex; justify-content: center; }
+    .eq-bars { display: flex; align-items: center; gap: 2px; height: 16px; }
+    .eq-bar { width: 3px; background: var(--accent); border-radius: 1px; animation: eqPulse 0.6s ease-in-out infinite; }
+    .eq-bar:nth-child(2) { animation-delay: 0.1s; }
+    .eq-bar:nth-child(3) { animation-delay: 0.2s; }
+    @keyframes eqPulse { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+    .track-title-col { min-width: 0; }
+    .track-title { font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-artist { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .track-bpm { font-size: 14px; font-family: var(--font-mono); color: var(--text-primary); text-align: right; }
+    .track-key-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 12px; font-weight: 500; color: white;
     }
     .track-energy-bar {
-      width: 36px; height: 4px; border-radius: 2px;
-      background: var(--bg-elevated); overflow: hidden;
+      width: 100%; height: 8px; background: var(--bg-primary);
+      border-radius: 4px; overflow: hidden;
     }
     .track-energy-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, #2563eb, #3b82f6, #ef4444);
+    }
+    .track-genre { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-duration { font-size: 12px; font-family: var(--font-mono); color: var(--text-primary); text-align: right; }
+
+    /* Rating stars */
+    .track-rating { display: flex; justify-content: center; gap: 1px; }
+    .star-btn {
+      padding: 2px; background: transparent; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 14px; transition: color 0.15s;
+      border-radius: 3px;
+    }
+    .star-btn:hover { background: var(--bg-hover); }
+    .star-btn.filled { color: #eab308; }
+
+    /* Actions menu */
+    .track-actions { display: flex; justify-content: flex-end; position: relative; }
+    .track-actions-btn {
+      padding: 4px; background: transparent; border: none; cursor: pointer;
+      border-radius: 4px; color: var(--text-secondary); transition: background 0.15s;
+    }
+    .track-actions-btn:hover { background: var(--bg-primary); }
+    .actions-dropdown {
+      display: none; position: absolute; right: 0; top: 32px;
+      width: 176px; background: var(--bg-card);
+      border: 1px solid var(--border-default); border-radius: 8px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3); z-index: 50; padding: 4px 0;
+      overflow: hidden;
+    }
+    .actions-dropdown.show { display: block; }
+    .actions-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; font-size: 12px; width: 100%;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-secondary); transition: all 0.15s; text-align: left;
+    }
+    .actions-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .actions-item.danger { color: #ef4444; }
+    .actions-item.danger:hover { background: rgba(239,68,68,0.1); }
+
+    /* Empty state */
+    .tracklist-empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 16px; padding: 32px; text-align: center;
+      flex: 1;
+    }
+    .tracklist-empty-icon { font-size: 48px; color: var(--text-secondary); opacity: 0.5; }
+    .tracklist-empty h3 { font-size: 18px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+    .tracklist-empty p { font-size: 14px; color: var(--text-secondary); }
+    .tracklist-empty .import-btn {
+      padding: 8px 16px; border-radius: 8px; background: var(--accent);
+      color: white; font-size: 14px; font-weight: 600; border: none; cursor: pointer;
     }
 
-    /* ── Buttons (V2 Btn component) ─────────────────────────── */
-    .btn {
-      display: inline-flex; align-items: center; gap: 6;
-      border-radius: 8px; font-weight: 600; cursor: pointer;
+    /* ── Tab pane specific styles ──────────────────────────── */
+    /* Cues tab */
+    .cues-timeline {
+      margin: 12px; height: 32px; border-radius: 8px; overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.06); position: relative;
+    }
+    .cues-timeline-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; padding: 0 4px; gap: 1px; }
+    .cues-timeline-bar { flex: 1; border-radius: 1px; background: rgba(255,255,255,0.05); }
+    .cue-marker {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      cursor: pointer; transition: opacity 0.15s; opacity: 0.7;
+    }
+    .cue-marker:hover { opacity: 1; }
+    .cue-marker-triangle {
+      position: absolute; top: 0; left: -4px;
+      width: 0; height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+    }
+
+    .cue-add-area { padding: 12px; border-bottom: 1px solid var(--border-subtle); }
+    .cue-quick-add {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 6px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 12px; font-weight: 600; color: white; width: 100%;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      box-shadow: 0 2px 8px rgba(59,130,246,0.25);
       transition: all 0.15s;
     }
-    .btn-sm { padding: 4px 10px; font-size: 11px; }
-    .btn-md { padding: 6px 14px; font-size: 13px; }
-    .btn-lg { padding: 10px 20px; font-size: 14px; }
-    .btn-primary { background: var(--accent); color: #fff; border: none; }
-    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default); }
-    .btn-success { background: rgba(16,185,129,0.125); color: var(--accent-success); border: 1px solid rgba(16,185,129,0.25); }
-    .btn-danger { background: rgba(239,68,68,0.125); color: var(--accent-error); border: 1px solid rgba(239,68,68,0.25); }
-    .btn-default { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-default); }
+    .cue-quick-add:hover { opacity: 0.9; }
+    .cue-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .cue-list-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 8px; cursor: pointer;
+      transition: all 0.15s; border: 1px solid rgba(255,255,255,0.04);
+      border-left-width: 3px;
+    }
+    .cue-list-item:hover { opacity: 0.9; }
+    .cue-badge {
+      width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 10px;
+    }
+    .cue-type-pill {
+      font-size: 9px; flex-shrink: 0; padding: 2px 4px; border-radius: 4px;
+    }
+    .cue-info { flex: 1; min-width: 0; }
+    .cue-name { font-size: 10px; font-weight: 600; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cue-time-label { font-size: 10px; font-family: var(--font-mono); }
+    .cue-glow-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .cue-delete-btn {
+      padding: 4px; border-radius: 4px; background: transparent; border: none;
+      cursor: pointer; color: var(--text-muted); transition: all 0.15s;
+      opacity: 0;
+    }
+    .cue-list-item:hover .cue-delete-btn { opacity: 1; }
+    .cue-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.15); }
 
-    /* ── Utility ─────────────────────────────────────────────── */
-    .mono { font-family: var(--font-mono); }
-    .flex-1 { flex: 1; }
-    .hide { display: none !important; }
+    .cue-legend { padding: 8px 12px; border-top: 1px solid var(--border-subtle); display: flex; flex-wrap: wrap; gap: 6px; }
+    .cue-legend-pill { font-size: 8px; padding: 2px 6px; border-radius: 99px; }
+
+    /* Mix tab */
+    .mix-current { padding: 16px; border-radius: 8px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); margin: 12px; }
+    .mix-tolerance { padding: 16px; border-radius: 8px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); margin: 0 12px; }
+    .mix-tolerance input[type=range] { width: 100%; margin-top: 8px; }
+    .mix-results { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .mix-track-card {
+      padding: 12px; border-radius: 8px; background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle); cursor: pointer; transition: border-color 0.15s;
+      width: 100%; text-align: left;
+    }
+    .mix-track-card:hover { border-color: var(--border-default); }
+    .mix-score-bar { width: 100%; height: 8px; background: var(--bg-primary); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+    .mix-score-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #3b82f6); border-radius: 4px; }
+
+    /* Generic tab placeholder */
+    .tab-placeholder {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; gap: 8px;
+      color: var(--text-muted); font-size: 13px;
+    }
+    .tab-placeholder-icon { font-size: 32px; opacity: 0.3; }
+
+    /* ── Other page views (set builder, upload, export, settings, admin) ── */
+    .page-inner {
+      padding: 24px; max-width: 800px; margin: 0 auto; width: 100%;
+    }
+    .page-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+    .page-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 20px; margin-bottom: 16px;
+    }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .card-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-radius: 12px; background: var(--bg-elevated);
+      border: 1px solid var(--border-default); cursor: pointer; transition: all 0.15s;
+    }
+    .card-item:hover { border-color: var(--accent); background: rgba(37,99,235,0.05); }
+    .card-item-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .card-item-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .card-item-desc { font-size: 10px; color: var(--text-muted); }
+
+    /* ── Toast notifications ───────────────────────────────── */
+    .toast-container {
+      position: fixed; bottom: 16px; right: 16px; z-index: 100;
+      display: flex; flex-direction: column; gap: 8px; max-width: 320px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 12px 16px; border-radius: 12px; border: 1px solid;
+      font-size: 14px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+      pointer-events: auto; animation: toastIn 0.3s ease;
+    }
+    .toast.success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: #34d399; }
+    .toast.error { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #f87171; }
+    .toast.info { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3); color: #60a5fa; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Context menu ──────────────────────────────────────── */
+    .context-menu {
+      display: none; position: fixed; z-index: 100;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .context-menu.show { display: block; }
+    .context-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; font-size: 14px; width: 100%;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-primary); transition: background 0.15s; text-align: left;
+    }
+    .context-item:hover { background: var(--bg-hover); }
+    .context-item.danger { color: #ef4444; }
+    .context-item.danger:hover { background: rgba(239,68,68,0.1); }
+
+    /* ── Drag & drop overlay ───────────────────────────────── */
+    .drop-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(37,99,235,0.1); border: 3px dashed var(--accent);
+      justify-content: center; align-items: center;
+    }
+    .drop-overlay.show { display: flex; }
+    .drop-overlay-text { font-size: 18px; font-weight: 700; color: var(--accent); }
+
+    /* ── Upload progress ───────────────────────────────────── */
+    .upload-indicator {
+      display: none; position: fixed; bottom: 16px; right: 16px;
+      background: var(--bg-card); border: 1px solid var(--border-default);
+      border-radius: 12px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3); z-index: 50;
+    }
+    .upload-indicator.show { display: flex; }
+
+    /* ── Settings / Admin content ──────────────────────────── */
+    #settingsContent, #adminContent { padding: 20px; height: 100%; overflow-y: auto; }
+
+    /* ── Admin / Settings components ─────────────────────── */
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-card-value { font-size: 28px; font-weight: 800; color: var(--text-primary); }
+    .stat-card-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .admin-table th { text-align: left; padding: 10px 12px; color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); }
+    .admin-table td { padding: 10px 12px; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); }
+    .admin-table tr:hover td { background: var(--bg-hover); }
+
+    .admin-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+
+    .feature-grid { display: grid; grid-template-columns: 1fr repeat(3, 80px); gap: 0; }
+    .feature-grid-header { padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-default); }
+    .feature-grid-cell { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; }
+    .feature-grid-name { font-size: 13px; color: var(--text-primary); gap: 8px; }
+
+    .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--bg-elevated); border-radius: 20px; cursor: pointer; transition: background 0.2s; border: 1px solid var(--border-default); }
+    .toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 2px; bottom: 2px; background: white; border-radius: 50%; transition: transform 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+    .plan-badge-lg { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .plan-free { background: rgba(100,116,139,0.15); color: #94a3b8; }
+    .plan-pro { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .plan-unlimited { background: rgba(139,92,246,0.15); color: #c084fc; }
+
+    .btn-save { padding: 8px 20px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
+
   <!-- Update Banner -->
   <div id="updateBanner">
-    <span>Mise à jour <span id="updateVersionLabel"></span> disponible</span>
-    <span style="font-size:11px;opacity:0.8;margin-left:4px">Téléchargement...</span>
+    <span>Mise à jour <b id="updateVersionLabel">v?.?.?</b> :</span>
     <div class="update-progress-bar-outer">
       <div class="update-progress-bar-inner" id="updateProgressBar"></div>
     </div>
-    <span id="updatePct" style="font-size:11px;min-width:36px">0%</span>
-    <button class="btn-install-update" id="btnInstallUpdate">Redémarrer</button>
+    <span id="updatePct"></span>
+    <button class="btn-install-update" id="btnInstallUpdate">Installer & relancer</button>
   </div>
 
   <!-- Login Screen -->
   <div id="loginScreen">
     <div class="login-card">
-      <div class="login-logo">🎵 CueForge</div>
-      <div class="login-subtitle">Analyse musicale pour DJs</div>
-      <input type="email" class="login-input" placeholder="Email" id="loginEmail">
-      <input type="password" class="login-input" placeholder="Mot de passe" id="loginPassword">
-      <button class="login-btn" id="loginBtn">Se connecter</button>
-      <div class="login-error" id="loginError"></div>
+      <div class="login-logo">CueForge</div>
+      <div class="login-subtitle">Connecte-toi pour accéder à ton espace DJ</div>
+      <input type="email" id="loginEmail" class="login-input" placeholder="Email">
+      <input type="password" id="loginPassword" class="login-input" placeholder="Mot de passe">
+      <div id="loginError" class="login-error"></div>
+      <button id="loginBtn" class="login-btn">Se connecter</button>
     </div>
   </div>
 
@@ -615,292 +938,269 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
         <div class="sidebar-logo-group">
-          <div class="sidebar-logo-icon">🎵</div>
-          <div class="sidebar-logo-text">CueForge</div>
+          <div class="sidebar-logo-icon">&#x1f3b5;</div>
+          <span class="sidebar-logo-text">CueForge</span>
         </div>
-        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn">‹</button>
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Replier">&#x276E;</button>
       </div>
-      <button class="sidebar-expand-btn" id="sidebarExpandBtn">›</button>
+      <button class="sidebar-expand-btn" id="sidebarExpandBtn" title="Déplier">&#x276F;</button>
 
-      <div class="sidebar-content">
-        <!-- Navigation -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-title">Navigation</div>
-          <div class="nav-item active" data-nav="dashboard">
-            <span class="nav-icon">⬛</span>
-            <span class="nav-label">Dashboard</span>
-          </div>
-          <div class="nav-item" data-nav="setbuilder">
-            <span class="nav-icon">🎛️</span>
-            <span class="nav-label">Set Builder</span>
-          </div>
-          <div class="nav-item" data-nav="upload">
-            <span class="nav-icon">⬆️</span>
-            <span class="nav-label">Importer</span>
-          </div>
-          <div class="nav-item" data-nav="export">
-            <span class="nav-icon">⬇️</span>
-            <span class="nav-label">Exporter</span>
-          </div>
-          <div class="nav-item" data-nav="settings" style="margin-top:8px">
-            <span class="nav-icon">⚙️</span>
-            <span class="nav-label">Paramètres</span>
-          </div>
-          <div class="nav-item" data-nav="admin" id="sidebarAdmin" style="display:none">
-            <span class="nav-icon">🛡️</span>
-            <span class="nav-label">Admin</span>
-          </div>
+      <nav class="sidebar-content">
+        <div class="sidebar-section-title">Navigation</div>
+        <button class="nav-item active" data-nav="dashboard"><span class="nav-icon">&#x1f4ca;</span><span class="nav-label">Dashboard</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="setbuilder"><span class="nav-icon">&#x2b1a;</span><span class="nav-label">Set Builder</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="upload"><span class="nav-icon">&#x2b06;</span><span class="nav-label">Importer</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="export"><span class="nav-icon">&#x2b07;</span><span class="nav-label">Exporter</span><span class="nav-dot"></span></button>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section-title">Bibliothèque</div>
+        <button class="lib-item active" data-lib="all"><span class="lib-icon">&#x1f3b5;</span><span>Toutes les tracks</span></button>
+        <button class="lib-item" data-lib="recent"><span class="lib-icon">&#x1f552;</span><span>Récemment ajoutés</span></button>
+        <button class="lib-item" data-lib="unanalyzed"><span class="lib-icon">&#x26a1;</span><span>Non analysés</span></button>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section-title">Smart Crates</div>
+        <div id="smartCrates">
+          <button class="crate-item" data-crate="peak"><span class="crate-dot" style="background:#ef4444"></span><span class="crate-label">Peak Hour</span></button>
+          <button class="crate-item" data-crate="warmup"><span class="crate-dot" style="background:#f97316"></span><span class="crate-label">Warm-Up</span></button>
+          <button class="crate-item" data-crate="vocal"><span class="crate-dot" style="background:#8b5cf6"></span><span class="crate-label">Avec voix</span></button>
         </div>
 
-        <!-- Library -->
-        <div class="sidebar-section" style="margin-top:8px">
-          <div class="sidebar-section-title">Bibliothèque</div>
-          <div class="nav-item sub" data-crate="all">
-            <span class="nav-icon">🎵</span>
-            <span class="nav-label">Toutes les tracks</span>
-          </div>
-          <div class="nav-item sub" data-crate="recent">
-            <span class="nav-icon">🕐</span>
-            <span class="nav-label">Récemment ajoutés</span>
-          </div>
-          <div class="nav-item sub" data-crate="unanalyzed">
-            <span class="nav-icon">⚡</span>
-            <span class="nav-label">Non analysés</span>
-          </div>
-        </div>
+        <div class="sidebar-divider"></div>
 
-        <!-- Smart Crates -->
-        <div class="sidebar-section" style="margin-top:8px">
-          <div class="sidebar-section-header">
-            <span class="sidebar-section-title">Smart Crates</span>
-            <button class="sidebar-add-btn">+</button>
-          </div>
-          <div class="crate-item" data-crate="peak">
-            <div class="crate-left">
-              <span class="crate-dot" style="background:#ef4444"></span>
-              <span class="crate-label">Peak Hour</span>
-            </div>
-            <span class="crate-count">3</span>
-          </div>
-          <div class="crate-item" data-crate="warmup">
-            <div class="crate-left">
-              <span class="crate-dot" style="background:#f97316"></span>
-              <span class="crate-label">Warm-Up</span>
-            </div>
-            <span class="crate-count">2</span>
-          </div>
-          <div class="crate-item" data-crate="vocal">
-            <div class="crate-left">
-              <span class="crate-dot" style="background:#8b5cf6"></span>
-              <span class="crate-label">Avec voix</span>
-            </div>
-            <span class="crate-count">3</span>
-          </div>
+        <div class="sidebar-section-header">
+          <span class="sidebar-section-title" style="padding:0">Playlists</span>
+          <button class="sidebar-add-btn" id="addPlaylistBtn" title="Nouvelle playlist">+</button>
         </div>
-
-        <!-- Playlists -->
-        <div class="sidebar-section" style="margin-top:8px">
-          <div class="sidebar-section-header">
-            <span class="sidebar-section-title">Playlists</span>
-            <button class="sidebar-add-btn">+</button>
-          </div>
-          <div class="playlist-item" data-playlist="playlist1">
-            <div class="pl-left">
-              <span class="pl-icon">💿</span>
-              <span class="pl-label">Set Berghain 2024</span>
-            </div>
-            <span class="pl-count">12</span>
-          </div>
-          <div class="playlist-item" data-playlist="playlist2">
-            <div class="pl-left">
-              <span class="pl-icon">💿</span>
-              <span class="pl-label">Outdoor Summer</span>
-            </div>
-            <span class="pl-count">8</span>
-          </div>
+        <div id="newPlaylistForm" style="display:none" class="new-playlist-form">
+          <input class="new-playlist-input" id="newPlaylistInput" placeholder="Nom…">
+          <button class="new-playlist-ok" id="newPlaylistOk">OK</button>
+          <button class="new-playlist-cancel" id="newPlaylistCancel">✕</button>
         </div>
-      </div>
+        <div id="playlistsList"></div>
 
-      <!-- User footer -->
+        <div class="sidebar-divider"></div>
+
+        <div class="sidebar-section-title">Compte</div>
+        <button class="nav-item" data-nav="settings"><span class="nav-icon">&#x2699;</span><span class="nav-label">Paramètres</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="admin" id="navAdmin" style="display:none"><span class="nav-icon">&#x1f6e1;</span><span class="nav-label">Admin</span><span class="nav-dot"></span></button>
+      </nav>
+
       <div class="sidebar-footer">
-        <div class="sidebar-avatar" id="sidebarAvatar">US</div>
-        <div class="sidebar-user-info">
-          <div class="sidebar-username" id="sidebarUsername">User</div>
-          <div class="sidebar-plan"><span id="accountEmail">User</span> · <span id="accountPlan">Free</span></div>
+        <div class="sidebar-user">
+          <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-username" id="sidebarUsername">User</div>
+            <div class="sidebar-plan"><span id="sidebarPlan">Plan Free</span></div>
+          </div>
+          <button class="sidebar-logout-btn" id="logoutBtn" title="Déconnexion">&#x2190;</button>
         </div>
-        <button class="sidebar-settings-btn" data-nav="settings">⚙️</button>
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <div class="main-content">
+    <!-- Main Area -->
+    <div class="main-area">
       <!-- TopBar -->
       <header class="topbar">
-        <div class="topbar-title-area">
-          <div class="topbar-title" id="topbarTitle">Dashboard</div>
-          <div class="topbar-subtitle" id="topbarSubtitle">Prépare et analyse tes sets</div>
+        <div class="topbar-left">
+          <h1 class="topbar-title" id="topbarTitle">Dashboard</h1>
+          <p class="topbar-subtitle" id="topbarSubtitle">Prépare et analyse tes sets</p>
         </div>
-        <div class="topbar-actions">
-          <div class="topbar-search">
-            <span class="topbar-search-icon">🔍</span>
-            <span class="topbar-search-text">Rechercher... (⌘K)</span>
-          </div>
-          <button class="btn-analyze-all">⚡ Analyser tout (2)</button>
-          <button class="topbar-icon-btn">
-            🔔
-            <span class="notif-dot"></span>
+        <div class="topbar-right">
+          <button class="topbar-btn" id="btnImport" title="Importer des tracks">&#x2b06; Importer</button>
+          <button class="topbar-btn" id="btnExport" title="Exporter">&#x2b07; Exporter</button>
+          <button class="topbar-btn" id="btnAutoAnalyze" title="Auto-analyse">
+            <span class="toggle-track" id="autoAnalyzeTrack"><span class="toggle-dot"></span></span>
+            Auto
           </button>
-          <button class="topbar-icon-btn" id="themeToggle">☀️</button>
+          <button class="topbar-btn warn" id="btnAnalyzeAll" style="display:none">
+            <span class="pulse-dot"></span>
+            <span id="unanalyzedCountLabel">0</span> à analyser
+          </button>
+
+          <div class="topbar-search">
+            <span class="topbar-search-icon">&#x1f50d;</span>
+            <input type="text" id="globalSearch" placeholder="Rechercher…">
+            <kbd>⌘K</kbd>
+          </div>
+
+          <div style="position:relative">
+            <button class="topbar-icon-btn" id="btnNotif" title="Notifications">&#x1f514;</button>
+            <div class="notif-panel" id="notifPanel">
+              <div class="notif-header">
+                <span class="notif-title">Notifications</span>
+                <span class="notif-mark-read">Tout marquer comme lu</span>
+              </div>
+              <div class="notif-body">
+                <div class="notif-empty">Aucune notification</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="topbar-lang-toggle">
+            <button class="topbar-lang-btn active" data-lang="fr" title="Français">FR</button>
+            <button class="topbar-lang-btn" data-lang="en" title="English">EN</button>
+          </div>
+
+          <button class="topbar-icon-btn theme-dark" id="themeToggle" title="Mode clair">&#x2600;</button>
         </div>
       </header>
 
-      <!-- Page Scroll Area -->
-      <div class="page-scroll">
-        <!-- ═══ DASHBOARD ═══ -->
-        <div id="viewDashboard" class="page-view active">
-          <div class="page-padding">
+      <!-- Page Views -->
+      <div class="main-content">
+
+        <!-- Dashboard -->
+        <div class="page-view active" id="viewDashboard">
+          <div class="dashboard-content">
+
             <!-- Player Card -->
-            <div class="player-card" id="playerCard">
+            <div class="player-card empty" id="playerCard">
+              <div class="empty-icon">&#x1f3b5;</div>
+              <div class="empty-title">Glisse tes tracks ici</div>
+              <div class="empty-sub">ou sélectionne un track dans la liste ci-dessous</div>
+              <button class="import-btn" id="btnImportPlayer">&#x2b06;&#xfe0f; Importer des tracks</button>
+            </div>
+
+            <!-- Player Card (filled state — hidden by default) -->
+            <div class="player-card" id="playerCardFilled" style="display:none">
               <!-- Track info row -->
               <div class="player-info-row">
-                <div class="player-art" id="playerArt">🎵</div>
-                <div class="player-title-area">
+                <div class="player-art" id="playerArt">&#x1f3b5;</div>
+                <div class="player-meta">
                   <div class="player-title" id="playerTitle">—</div>
                   <div class="player-subtitle" id="playerSubtitle">—</div>
                 </div>
                 <div class="player-badges" id="playerBadges"></div>
-                <div class="transport-controls">
-                  <button class="btn-transport">⏮</button>
-                  <button class="btn-play" id="btnPlay">▶</button>
-                  <button class="btn-transport">⏭</button>
+                <div class="player-nav">
+                  <button class="player-nav-btn" id="btnPrevTrack" title="Track précédent">&#x23ee;</button>
+                  <button class="player-nav-btn" id="btnNextTrack" title="Track suivant">&#x23ed;</button>
                 </div>
               </div>
-              <!-- Waveform overview -->
-              <div class="waveform-overview">
-                <div class="waveform-overview-inner" id="waveformOverview"></div>
+
+              <!-- Waveform -->
+              <div class="waveform-area">
+                <div class="waveform-overview" id="waveformOverview"></div>
+                <div class="waveform-detail" id="waveformDetail"></div>
               </div>
-              <!-- Waveform detail -->
-              <div class="waveform-detail">
-                <div class="waveform-detail-inner" id="waveformDetail"></div>
-              </div>
-              <!-- Hot Cues row -->
-              <div class="hotcues-row" id="hotcuesRow"></div>
-              <!-- Time / Loop row -->
-              <div class="time-loop-row" id="timeLoopRow"></div>
+
+              <!-- Hot Cues -->
+              <div class="hotcues-bar" id="hotcuesRow"></div>
+
+              <!-- Loop / Zoom / Rate / Theme controls -->
+              <div class="controls-row" id="controlsRow"></div>
             </div>
 
-            <!-- Bottom Tabs -->
-            <div class="bottom-tabs">
-              <div class="tabs-bar" id="tabsBar">
-                <button class="tab-btn active" data-tab="cues"><span class="tab-icon">🎯</span> Cues</button>
-                <button class="tab-btn" data-tab="beatgrid"><span class="tab-icon">⊞</span> Beatgrid</button>
-                <button class="tab-btn" data-tab="stems"><span class="tab-icon">🎸</span> Stems</button>
-                <button class="tab-btn" data-tab="eq"><span class="tab-icon">〰</span> EQ</button>
-                <button class="tab-btn" data-tab="fx"><span class="tab-icon">✨</span> FX</button>
-                <button class="tab-btn" data-tab="mix"><span class="tab-icon">🎡</span> Mix</button>
-                <button class="tab-btn" data-tab="playlists"><span class="tab-icon">💿</span> Playlists</button>
-                <button class="tab-btn" data-tab="stats"><span class="tab-icon">📊</span> Stats</button>
-                <button class="tab-btn" data-tab="history"><span class="tab-icon">🕐</span> Historique</button>
+            <!-- Bottom section: Tabs + TrackList -->
+            <div class="bottom-section">
+              <!-- Tab bar -->
+              <div class="tab-bar">
+                <button class="tab-btn active" data-tab="cues">Cues</button>
+                <button class="tab-btn" data-tab="beatgrid">Beatgrid</button>
+                <button class="tab-btn" data-tab="stems">Stems</button>
+                <button class="tab-btn" data-tab="eq">EQ</button>
+                <button class="tab-btn" data-tab="fx">FX</button>
+                <button class="tab-btn" data-tab="mix">Mix</button>
+                <button class="tab-btn" data-tab="playlists">Playlists</button>
+                <button class="tab-btn" data-tab="stats">Stats</button>
+                <button class="tab-btn" data-tab="history">History</button>
+                <button class="tab-btn" data-tab="notes">Notes</button>
               </div>
-              <div id="cuesPane" class="tab-pane active"></div>
-              <div id="beatgridPane" class="tab-pane"></div>
-              <div id="stemsPane" class="tab-pane"></div>
-              <div id="eqPane" class="tab-pane"></div>
-              <div id="fxPane" class="tab-pane"></div>
-              <div id="mixPane" class="tab-pane"></div>
-              <div id="playlistsPane" class="tab-pane"></div>
-              <div id="statsPane" class="tab-pane"></div>
-              <div id="historyPane" class="tab-pane"></div>
+
+              <!-- Tab panes -->
+              <div class="tab-content">
+                <div class="tab-pane active" id="cuesPane"></div>
+                <div class="tab-pane" id="beatgridPane"></div>
+                <div class="tab-pane" id="stemsPane"></div>
+                <div class="tab-pane" id="eqPane"></div>
+                <div class="tab-pane" id="fxPane"></div>
+                <div class="tab-pane" id="mixPane"></div>
+                <div class="tab-pane" id="playlistsPane"></div>
+                <div class="tab-pane" id="statsPane"></div>
+                <div class="tab-pane" id="historyPane"></div>
+                <div class="tab-pane" id="notesPane"></div>
+              </div>
             </div>
 
-            <!-- Track List -->
-            <div class="tracklist" id="tracklist">
-              <div class="tracklist-header">
-                <span class="tracklist-title">Tracks</span>
-                <span class="badge badge-bpm" id="trackCount">8</span>
-                <div class="flex-1"></div>
+            <!-- TrackList -->
+            <div class="tracklist" id="tracklistSection">
+              <div class="tracklist-toolbar">
                 <div class="tracklist-search">
-                  <span class="tracklist-search-icon">🔍</span>
-                  <input class="tracklist-search-input" placeholder="Rechercher des tracks..." id="trackSearch" />
+                  <span class="tracklist-search-icon">&#x1f50d;</span>
+                  <input type="text" id="trackSearch" placeholder="Rechercher…">
                 </div>
-                <button class="btn-filter" id="btnFilters">⚙ Filtres</button>
-                <div class="view-toggle">
-                  <button class="view-toggle-btn active" data-view="list">☰</button>
-                  <button class="view-toggle-btn" data-view="grid">⊞</button>
-                </div>
-                <button class="btn-upload-sm">⬆️ Upload</button>
-              </div>
-              <div class="filter-panel" id="filterPanel"></div>
-              <div class="tracklist-cols">
-                <div class="tracklist-col-header"></div>
-                <div class="tracklist-col-header">Titre</div>
-                <div class="tracklist-col-header">BPM</div>
-                <div class="tracklist-col-header">Tonalité</div>
-                <div class="tracklist-col-header">Énergie</div>
-                <div class="tracklist-col-header">Durée</div>
-                <div class="tracklist-col-header">Genre</div>
-                <div class="tracklist-col-header">Rating</div>
-                <div class="tracklist-col-header">Tags</div>
-              </div>
-              <div id="trackRows"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ═══ SET BUILDER ═══ -->
-        <div id="viewSetbuilder" class="page-view">
-          <div class="page-padding" id="setBuilderContent"></div>
-        </div>
-
-        <!-- ═══ UPLOAD ═══ -->
-        <div id="viewUpload" class="page-view">
-          <div class="page-padding" id="uploadContent"></div>
-        </div>
-
-        <!-- ═══ EXPORT ═══ -->
-        <div id="viewExport" class="page-view">
-          <div class="page-padding" id="exportContent"></div>
-        </div>
-
-        <!-- ═══ SETTINGS ═══ -->
-        <div id="viewSettings" class="page-view">
-          <div class="settings-page" id="settingsContent" style="padding:24px;max-width:700px"></div>
-        </div>
-
-        <!-- ═══ ADMIN ═══ -->
-        <div id="viewAdmin" class="page-view">
-          <div class="admin-page" id="adminContent" style="padding:24px">
-            <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:20px">Administration</h2>
-            <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-              <button class="settings-tab active" data-atab="dashboard" style="background:var(--bg-elevated);border:none;color:var(--text-primary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Dashboard</button>
-              <button class="settings-tab" data-atab="users" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Utilisateurs</button>
-              <button class="settings-tab" data-atab="features" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Features</button>
-            </div>
-            <div id="atabDashboard" class="active" style="display:block">
-              <div id="adminStatCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
-              <div id="adminPlanDistrib" style="margin-top:16px"></div>
-            </div>
-            <div id="atabUsers" style="display:none">
-              <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-                <input id="adminUserSearch" type="text" placeholder="Rechercher un utilisateur..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
-                <select id="adminUserPlanFilter" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px">
-                  <option value="">Tous les plans</option><option value="free">Free</option><option value="pro">Pro</option><option value="unlimited">Unlimited</option>
+                <select class="tracklist-sort" id="trackSort">
+                  <option value="date">Date (récent)</option>
+                  <option value="bpm">BPM</option>
+                  <option value="key">Tonalité</option>
+                  <option value="title">Titre</option>
+                  <option value="energy">Énergie</option>
+                  <option value="genre">Genre</option>
+                  <option value="duration">Durée</option>
+                  <option value="rating">Évaluation</option>
                 </select>
-                <button id="btnAdminRefreshUsers" style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer">Rafraîchir</button>
+                <div class="tracklist-view-toggle">
+                  <button class="view-btn active" data-view="list" title="Liste">&#x2630;</button>
+                  <button class="view-btn" data-view="grid" title="Grille">&#x2b1a;</button>
+                </div>
               </div>
-              <div id="adminUsersTableContainer" style="overflow-x:auto"></div>
-            </div>
-            <div id="atabFeatures" style="display:none">
-              <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
-                <input id="adminNewFeatureName" type="text" placeholder="Nom de la feature..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
-                <button id="btnAdminAddFeature" style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer">Ajouter</button>
+              <div class="tracklist-count" id="trackCount">0 morceaux</div>
+              <div class="tracklist-headers">
+                <span class="tracklist-header">#</span>
+                <span></span>
+                <span class="tracklist-header" data-sort="title">Titre</span>
+                <span class="tracklist-header" data-sort="bpm">BPM</span>
+                <span class="tracklist-header" data-sort="key">Tonalité</span>
+                <span class="tracklist-header" data-sort="energy">Énergie</span>
+                <span class="tracklist-header" data-sort="genre">Genre</span>
+                <span class="tracklist-header" data-sort="duration">Durée</span>
+                <span></span>
+                <span></span>
               </div>
-              <div id="adminFeaturesContainer"></div>
+              <div class="tracklist-rows" id="trackRows"></div>
             </div>
+
           </div>
+        </div>
+
+        <!-- Set Builder -->
+        <div class="page-view" id="viewSetbuilder">
+          <div class="page-inner" id="setBuilderContent"></div>
+        </div>
+
+        <!-- Upload -->
+        <div class="page-view" id="viewUpload">
+          <div class="page-inner" id="uploadContent"></div>
+        </div>
+
+        <!-- Export -->
+        <div class="page-view" id="viewExport">
+          <div class="page-inner" id="exportContent"></div>
+        </div>
+
+        <!-- Settings -->
+        <div class="page-view" id="viewSettings">
+          <div id="settingsContent"></div>
+        </div>
+
+        <!-- Admin -->
+        <div class="page-view" id="viewAdmin">
+          <div id="adminContent"></div>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div class="context-menu" id="contextMenu"></div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Drop Overlay -->
+  <div class="drop-overlay" id="dropOverlay">
+    <span class="drop-overlay-text">&#x1f4c2; Dépose tes fichiers audio ici</span>
   </div>
 
   <!-- Scripts -->
@@ -918,7 +1218,7 @@
         const banner = document.getElementById('updateBanner');
         const label = document.getElementById('updateVersionLabel');
         if (label) label.textContent = `v${info.version}`;
-        if (banner) { banner.classList.add('show'); document.body.classList.add('has-update'); }
+        if (banner) { banner.classList.add('show'); }
       });
       window.cueforge.onUpdateProgress?.((p) => {
         const bar = document.getElementById('updateProgressBar');
@@ -939,20 +1239,16 @@
         console.warn('Update error:', msg);
         if (!updateReady) {
           const banner = document.getElementById('updateBanner');
-          if (banner) { banner.classList.remove('show'); document.body.classList.remove('has-update'); }
+          if (banner) banner.classList.remove('show');
         }
       });
-      // Install button
-      const installBtn = document.getElementById('btnInstallUpdate');
-      if (installBtn) {
-        installBtn.addEventListener('click', () => {
-          if (updateReady && window.cueforge.installUpdate) {
-            installBtn.disabled = true;
-            installBtn.textContent = 'Installation...';
-            window.cueforge.installUpdate();
-          }
-        });
-      }
+      document.getElementById('btnInstallUpdate')?.addEventListener('click', () => {
+        if (updateReady && window.cueforge.installUpdate) {
+          const btn = document.getElementById('btnInstallUpdate');
+          btn.disabled = true; btn.textContent = 'Installation...';
+          window.cueforge.installUpdate();
+        }
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -970,8 +1266,14 @@
         const initials = (user.username || user.email || 'U').substring(0, 2).toUpperCase();
         const avatar = document.getElementById('sidebarAvatar');
         const username = document.getElementById('sidebarUsername');
+        const plan = document.getElementById('sidebarPlan');
         if (avatar) avatar.textContent = initials;
         if (username) username.textContent = user.username || user.email;
+        if (plan) plan.textContent = 'Plan ' + (user.subscription_plan || 'Free').charAt(0).toUpperCase() + (user.subscription_plan || 'free').slice(1);
+        if (user.is_admin) {
+          const adminNav = document.getElementById('navAdmin');
+          if (adminNav) adminNav.style.display = '';
+        }
       }
       // Initialize all dynamic content
       if (typeof CueForgeApp !== 'undefined') CueForgeApp.init();
@@ -1019,16 +1321,27 @@
     })();
 
     // ═══════════════════════════════════════════════════════════════════════
+    // LOGOUT
+    // ═══════════════════════════════════════════════════════════════════════
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      if (window.cueforge?.logout) await window.cueforge.logout();
+      if (appContainer) appContainer.style.display = 'none';
+      if (loginScreen) loginScreen.style.display = 'flex';
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // UI INITIALIZATION
     // ═══════════════════════════════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', () => {
       // Theme toggle
       const themeToggle = document.getElementById('themeToggle');
+      let isDark = true;
       if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-          const isDark = document.documentElement.style.colorScheme !== 'light';
-          document.documentElement.style.colorScheme = isDark ? 'light' : 'dark';
-          themeToggle.textContent = isDark ? '🌙' : '☀️';
+          isDark = !isDark;
+          document.documentElement.classList.toggle('light', !isDark);
+          themeToggle.innerHTML = isDark ? '&#x2600;' : '&#x1f319;';
+          themeToggle.className = 'topbar-icon-btn ' + (isDark ? 'theme-dark' : 'theme-light');
         });
       }
 
@@ -1054,18 +1367,11 @@
           document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
           const viewId = 'view' + view.charAt(0).toUpperCase() + view.slice(1);
           document.getElementById(viewId)?.classList.add('active');
-          // Update topbar
           const t = titles[view] || [view, ''];
           document.getElementById('topbarTitle').textContent = t[0];
           document.getElementById('topbarSubtitle').textContent = t[1];
-          // Notify settings/admin
           if (typeof onViewSwitch === 'function') onViewSwitch(view);
         });
-      });
-
-      // Settings button in footer
-      document.querySelector('.sidebar-settings-btn')?.addEventListener('click', () => {
-        document.querySelector('[data-nav="settings"]')?.click();
       });
 
       // Tab switching
@@ -1078,24 +1384,89 @@
         });
       });
 
-      // Play button
-      document.getElementById('btnPlay')?.addEventListener('click', function() {
-        const isPlaying = this.textContent === '⏸';
-        this.textContent = isPlaying ? '▶' : '⏸';
-      });
-
-      // Filter toggle
-      document.getElementById('btnFilters')?.addEventListener('click', function() {
-        this.classList.toggle('active');
-        document.getElementById('filterPanel')?.classList.toggle('show');
-      });
-
-      // View toggle
+      // View toggle (list / grid)
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
+      });
+
+      // Column header sort
+      document.querySelectorAll('.tracklist-header[data-sort]').forEach(header => {
+        header.addEventListener('click', () => {
+          const sort = header.dataset.sort;
+          const sortSelect = document.getElementById('trackSort');
+          if (sortSelect) { sortSelect.value = sort; sortSelect.dispatchEvent(new Event('change')); }
+        });
+      });
+
+      // Notification panel toggle
+      document.getElementById('btnNotif')?.addEventListener('click', () => {
+        document.getElementById('notifPanel')?.classList.toggle('show');
+      });
+      document.addEventListener('click', (e) => {
+        const notifPanel = document.getElementById('notifPanel');
+        const btnNotif = document.getElementById('btnNotif');
+        if (notifPanel?.classList.contains('show') && !notifPanel.contains(e.target) && e.target !== btnNotif) {
+          notifPanel.classList.remove('show');
+        }
+      });
+
+      // Language toggle
+      document.querySelectorAll('[data-lang]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Global search shortcut ⌘K
+      window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+          e.preventDefault();
+          document.getElementById('globalSearch')?.focus();
+        }
+      });
+
+      // New playlist
+      document.getElementById('addPlaylistBtn')?.addEventListener('click', () => {
+        document.getElementById('newPlaylistForm').style.display = 'flex';
+        document.getElementById('newPlaylistInput').focus();
+      });
+      document.getElementById('newPlaylistCancel')?.addEventListener('click', () => {
+        document.getElementById('newPlaylistForm').style.display = 'none';
+      });
+      document.getElementById('newPlaylistOk')?.addEventListener('click', () => {
+        const name = document.getElementById('newPlaylistInput').value.trim();
+        if (name && typeof CueForgeApp !== 'undefined') {
+          CueForgeApp.createPlaylist(name);
+          document.getElementById('newPlaylistInput').value = '';
+          document.getElementById('newPlaylistForm').style.display = 'none';
+        }
+      });
+      document.getElementById('newPlaylistInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('newPlaylistOk')?.click();
+        if (e.key === 'Escape') document.getElementById('newPlaylistCancel')?.click();
+      });
+
+      // Import buttons
+      document.getElementById('btnImport')?.addEventListener('click', () => {
+        if (typeof CueForgeApp !== 'undefined') CueForgeApp.importFiles();
+      });
+      document.getElementById('btnImportPlayer')?.addEventListener('click', () => {
+        if (typeof CueForgeApp !== 'undefined') CueForgeApp.importFiles();
+      });
+
+      // Export button
+      document.getElementById('btnExport')?.addEventListener('click', () => {
+        document.querySelector('[data-nav="export"]')?.click();
+      });
+
+      // Close context menu on click outside
+      document.addEventListener('click', () => {
+        document.getElementById('contextMenu')?.classList.remove('show');
+        document.querySelectorAll('.actions-dropdown.show').forEach(d => d.classList.remove('show'));
       });
     });
   </script>
