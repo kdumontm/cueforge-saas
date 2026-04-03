@@ -1511,6 +1511,14 @@
             <span class="nav-icon">⬇️</span>
             <span class="nav-label">Exporter</span>
           </div>
+          <div class="nav-item" data-nav="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Paramètres</span>
+          </div>
+          <div class="nav-item" data-nav="admin" id="sidebarAdmin" style="display:none">
+            <span class="nav-icon">🛡️</span>
+            <span class="nav-label">Admin</span>
+          </div>
         </div>
 
         <!-- Library -->
@@ -1584,12 +1592,12 @@
 
       <!-- User footer -->
       <div class="sidebar-footer">
-        <div class="sidebar-avatar">US</div>
+        <div class="sidebar-avatar" id="sidebarAvatar">US</div>
         <div class="sidebar-user-info">
-          <div class="sidebar-username">User</div>
-          <div class="sidebar-plan">Plan Pro</div>
+          <div class="sidebar-username" id="sidebarUsername">User</div>
+          <div class="sidebar-plan"><span id="accountEmail">User</span> · <span id="accountPlan">Free</span></div>
         </div>
-        <button class="sidebar-settings-btn">⚙️</button>
+        <button class="sidebar-settings-btn" data-nav="settings">⚙️</button>
       </div>
     </aside>
 
@@ -2041,15 +2049,50 @@
 
         <!-- Settings Page -->
         <div id="viewSettings" class="page-view">
-          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-            Settings Page
-          </div>
+          <div class="settings-page" id="settingsContent" style="padding:24px;max-width:700px;"></div>
         </div>
 
         <!-- Admin Page -->
         <div id="viewAdmin" class="page-view">
-          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-            Admin Page
+          <div class="admin-page" id="adminContent" style="padding:24px;">
+            <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:20px">Administration</h2>
+
+            <!-- Admin Tabs -->
+            <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
+              <button class="settings-tab active" data-atab="dashboard" style="background:var(--bg-elevated);border:none;color:var(--text-primary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Dashboard</button>
+              <button class="settings-tab" data-atab="users" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Utilisateurs</button>
+              <button class="settings-tab" data-atab="features" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Features</button>
+            </div>
+
+            <!-- Dashboard Panel -->
+            <div id="atabDashboard" class="active" style="display:block">
+              <div id="adminStatCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
+              <div id="adminPlanDistrib" style="margin-top:16px"></div>
+            </div>
+
+            <!-- Users Panel -->
+            <div id="atabUsers" style="display:none">
+              <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+                <input id="adminUserSearch" type="text" placeholder="Rechercher un utilisateur..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+                <select id="adminUserPlanFilter" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px">
+                  <option value="">Tous les plans</option>
+                  <option value="free">Free</option>
+                  <option value="pro">Pro</option>
+                  <option value="unlimited">Unlimited</option>
+                </select>
+                <button id="btnAdminRefreshUsers" style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer">Rafraîchir</button>
+              </div>
+              <div id="adminUsersTableContainer" style="overflow-x:auto"></div>
+            </div>
+
+            <!-- Features Panel -->
+            <div id="atabFeatures" style="display:none">
+              <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+                <input id="adminNewFeatureName" type="text" placeholder="Nom de la feature..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
+                <button id="btnAdminAddFeature" style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer">Ajouter</button>
+              </div>
+              <div id="adminFeaturesContainer"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2062,53 +2105,160 @@
   <script src="./audioAnalyzer.js"></script>
 
   <script>
-    // IPC Bridge
-    const ipcBridge = {
-      send: (channel, data) => {
-        if (window.electronAPI) {
-          window.electronAPI.send(channel, data);
-        }
-      },
-      on: (channel, callback) => {
-        if (window.electronAPI) {
-          window.electronAPI.receive(channel, callback);
-        }
-      }
-    };
+    // ═══════════════════════════════════════════════════════════════════════
+    // UPDATE SYSTEM
+    // ═══════════════════════════════════════════════════════════════════════
+    let updateReady = false;
 
-    // Basic UI initialization
+    if (window.cueforge) {
+      window.cueforge.onUpdateAvailable?.((info) => {
+        const banner = document.getElementById('updateBanner');
+        const label = document.getElementById('updateVersionLabel');
+        if (label) label.textContent = `v${info.version}`;
+        if (banner) { banner.classList.add('show'); document.body.classList.add('has-update'); }
+      });
+      window.cueforge.onUpdateProgress?.((p) => {
+        const bar = document.getElementById('updateProgressBar');
+        const pct = document.getElementById('updatePct');
+        if (bar) bar.style.width = `${Math.round(p.percent)}%`;
+        if (pct) pct.textContent = `${Math.round(p.percent)} %`;
+      });
+      window.cueforge.onUpdateDownloaded?.((info) => {
+        updateReady = true;
+        const pct = document.getElementById('updatePct');
+        const bar = document.getElementById('updateProgressBar');
+        const btn = document.getElementById('btnInstallUpdate');
+        if (pct) pct.textContent = '✓';
+        if (bar) bar.style.width = '100%';
+        if (btn) btn.classList.add('show');
+      });
+      window.cueforge.onUpdateError?.((msg) => {
+        console.warn('Update error:', msg);
+        if (!updateReady) {
+          const banner = document.getElementById('updateBanner');
+          if (banner) { banner.classList.remove('show'); document.body.classList.remove('has-update'); }
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUTH / LOGIN
+    // ═══════════════════════════════════════════════════════════════════════
+    const loginScreen = document.getElementById('loginScreen');
+    const appContainer = document.getElementById('appContainer');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+
+    function showApp(user) {
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (appContainer) appContainer.style.display = 'flex';
+      if (user) {
+        const initials = (user.username || user.email || 'U').substring(0, 2).toUpperCase();
+        const avatar = document.getElementById('sidebarAvatar');
+        const username = document.getElementById('sidebarUsername');
+        if (avatar) avatar.textContent = initials;
+        if (username) username.textContent = user.username || user.email;
+      }
+      // Initialize all dynamic content
+      if (typeof CueForgeApp !== 'undefined') CueForgeApp.init();
+      if (typeof initSettingsAdmin === 'function') initSettingsAdmin();
+    }
+
+    if (loginBtn) {
+      loginBtn.addEventListener('click', async () => {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pw = document.getElementById('loginPassword').value;
+        if (loginError) loginError.style.display = 'none';
+        if (!email || !pw) {
+          if (loginError) { loginError.textContent = 'Remplis tous les champs'; loginError.style.display = 'block'; }
+          return;
+        }
+        loginBtn.disabled = true; loginBtn.textContent = 'Connexion...';
+        try {
+          const res = await window.cueforge.login(email, pw);
+          if (res.token) {
+            showApp(res.user || { email });
+          } else {
+            if (loginError) { loginError.textContent = res.error || 'Erreur de connexion'; loginError.style.display = 'block'; }
+          }
+        } catch (e) {
+          if (loginError) { loginError.textContent = 'Erreur réseau'; loginError.style.display = 'block'; }
+        }
+        loginBtn.disabled = false; loginBtn.textContent = 'Se connecter';
+      });
+    }
+
+    document.getElementById('loginPassword')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && loginBtn) loginBtn.click();
+    });
+
+    // Auto-login if token saved
+    (async () => {
+      try {
+        if (window.cueforge) {
+          const token = await window.cueforge.getToken();
+          if (token) {
+            const user = await window.cueforge.getUser();
+            showApp(user);
+          }
+        }
+      } catch (e) { /* stay on login */ }
+    })();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // UI INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════════
     document.addEventListener('DOMContentLoaded', () => {
       // Theme toggle
       const themeToggle = document.getElementById('themeToggle');
-      themeToggle.addEventListener('click', () => {
-        const isDark = document.documentElement.style.colorScheme !== 'light';
-        document.documentElement.style.colorScheme = isDark ? 'light' : 'dark';
-        themeToggle.textContent = isDark ? '🌙' : '☀️';
-      });
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          const isDark = document.documentElement.style.colorScheme !== 'light';
+          document.documentElement.style.colorScheme = isDark ? 'light' : 'dark';
+          themeToggle.textContent = isDark ? '🌙' : '☀️';
+        });
+      }
 
       // Sidebar toggle
       const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
       const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
       const sidebar = document.querySelector('.sidebar');
 
-      sidebarCollapseBtn.addEventListener('click', () => {
-        sidebar.classList.add('collapsed');
-      });
+      if (sidebarCollapseBtn) sidebarCollapseBtn.addEventListener('click', () => sidebar?.classList.add('collapsed'));
+      if (sidebarExpandBtn) sidebarExpandBtn.addEventListener('click', () => sidebar?.classList.remove('collapsed'));
 
-      sidebarExpandBtn.addEventListener('click', () => {
-        sidebar.classList.remove('collapsed');
-      });
-
-      // Nav items
+      // Nav items — switch views + call onViewSwitch for settings/admin
       document.querySelectorAll('[data-nav]').forEach(item => {
         item.addEventListener('click', () => {
           document.querySelectorAll('[data-nav]').forEach(i => i.classList.remove('active'));
           item.classList.add('active');
           const view = item.dataset.nav;
-          const viewElements = document.querySelectorAll('.page-view');
-          viewElements.forEach(v => v.classList.remove('active'));
-          document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1))?.classList.add('active');
+          document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+          const viewEl = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
+          if (viewEl) viewEl.classList.add('active');
+          // Notify settings/admin
+          if (typeof onViewSwitch === 'function') onViewSwitch(view);
+          // Update topbar title
+          const titles = {
+            dashboard: ['Dashboard', 'Prépare et analyse tes sets'],
+            setbuilder: ['Set Builder', 'Construis ton set parfait'],
+            upload: ['Importer', 'Ajoute des tracks à ta bibliothèque'],
+            export: ['Exporter', 'Exporte vers Rekordbox, Serato, Traktor...'],
+            settings: ['Paramètres', 'Gère ton compte et tes préférences'],
+            admin: ['Administration', 'Gestion des utilisateurs et features']
+          };
+          const t = titles[view] || [view, ''];
+          const topTitle = document.getElementById('topbarTitle');
+          const topSub = document.getElementById('topbarSubtitle');
+          if (topTitle) topTitle.textContent = t[0];
+          if (topSub) topSub.textContent = t[1];
         });
+      });
+
+      // Settings button in sidebar footer
+      document.querySelector('.sidebar-settings-btn')?.addEventListener('click', () => {
+        const settingsNav = document.querySelector('[data-nav="settings"]');
+        if (settingsNav) settingsNav.click();
       });
 
       // Tab switching
@@ -2123,7 +2273,7 @@
       });
 
       // Play button toggle
-      document.getElementById('btnPlay').addEventListener('click', function() {
+      document.getElementById('btnPlay')?.addEventListener('click', function() {
         const isPlaying = this.textContent === '⏸';
         this.textContent = isPlaying ? '▶' : '⏸';
       });

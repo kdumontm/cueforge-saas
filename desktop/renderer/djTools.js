@@ -1,32 +1,45 @@
 'use strict';
 /**
- * CueForge Desktop — Main App Engine
- * Matches web prototype 1:1
+ * CueForge Desktop — V2 Prototype Implementation
+ * Vanilla JS for Electron desktop app (no React)
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DATA — Exact match with web prototype
+// DATA CONSTANTS — Must match V2 prototype EXACTLY
 // ═══════════════════════════════════════════════════════════════════════════
 
 const HOT_CUE_COLORS = [
   '#ef4444', '#f97316', '#eab308', '#22c55e',
   '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
 ];
+
 const HOT_CUE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 const CAMELOT = [
-  { n: '1A', key: 'Am', color: '#4a9eff' },   { n: '1B', key: 'C', color: '#6ab4ff' },
-  { n: '2A', key: 'Em', color: '#4ecdc4' },   { n: '2B', key: 'G', color: '#6ee4da' },
-  { n: '3A', key: 'Bm', color: '#45b7d1' },   { n: '3B', key: 'D', color: '#63cddf' },
-  { n: '4A', key: 'F#m', color: '#96ceb4' },  { n: '4B', key: 'A', color: '#a8dcc5' },
-  { n: '5A', key: 'C#m', color: '#88d8a3' },  { n: '5B', key: 'E', color: '#9de8b5' },
-  { n: '6A', key: 'G#m', color: '#a8e6cf' },  { n: '6B', key: 'B', color: '#b8f0dd' },
-  { n: '7A', key: 'Ebm', color: '#ffd93d' },  { n: '7B', key: 'F#', color: '#ffe566' },
-  { n: '8A', key: 'Bbm', color: '#ffb347' },  { n: '8B', key: 'Db', color: '#ffc566' },
-  { n: '9A', key: 'Fm', color: '#ff8c69' },   { n: '9B', key: 'Ab', color: '#ffa085' },
-  { n: '10A', key: 'Cm', color: '#ff6b9d' },  { n: '10B', key: 'Eb', color: '#ff85b0' },
-  { n: '11A', key: 'Gm', color: '#c589e8' },  { n: '11B', key: 'Bb', color: '#d4a0f0' },
-  { n: '12A', key: 'Dm', color: '#a390f0' },  { n: '12B', key: 'F', color: '#b8a8f8' },
+  { n: '1A', key: 'Am', color: '#4a9eff' },
+  { n: '1B', key: 'C', color: '#6ab4ff' },
+  { n: '2A', key: 'Em', color: '#4ecdc4' },
+  { n: '2B', key: 'G', color: '#6ee4da' },
+  { n: '3A', key: 'Bm', color: '#45b7d1' },
+  { n: '3B', key: 'D', color: '#63cddf' },
+  { n: '4A', key: 'F#m', color: '#96ceb4' },
+  { n: '4B', key: 'A', color: '#a8dcc5' },
+  { n: '5A', key: 'C#m', color: '#88d8a3' },
+  { n: '5B', key: 'E', color: '#9de8b5' },
+  { n: '6A', key: 'G#m', color: '#a8e6cf' },
+  { n: '6B', key: 'B', color: '#b8f0dd' },
+  { n: '7A', key: 'Ebm', color: '#ffd93d' },
+  { n: '7B', key: 'F#', color: '#ffe566' },
+  { n: '8A', key: 'Bbm', color: '#ffb347' },
+  { n: '8B', key: 'Db', color: '#ffc566' },
+  { n: '9A', key: 'Fm', color: '#ff8c69' },
+  { n: '9B', key: 'Ab', color: '#ffa085' },
+  { n: '10A', key: 'Cm', color: '#ff6b9d' },
+  { n: '10B', key: 'Eb', color: '#ff85b0' },
+  { n: '11A', key: 'Gm', color: '#c589e8' },
+  { n: '11B', key: 'Bb', color: '#d4a0f0' },
+  { n: '12A', key: 'Dm', color: '#a390f0' },
+  { n: '12B', key: 'F', color: '#b8a8f8' },
 ];
 
 const MOCK_TRACKS = [
@@ -68,76 +81,60 @@ const DEFAULT_HOT_CUES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function getKeyColor(key) {
-  const found = CAMELOT.find(c => c.n === key);
-  return found ? found.color : '#64748b';
-}
-
-function getCompatibleKeys(n) {
-  if (!n) return [];
-  const num = parseInt(n);
-  const mode = n.includes('A') ? 'A' : 'B';
-  return [
-    n,
-    `${num === 12 ? 1 : num + 1}${mode}`,
-    `${num === 1 ? 12 : num - 1}${mode}`,
-    `${num}${mode === 'A' ? 'B' : 'A'}`,
-  ];
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // SVG GENERATORS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function generateWaveformSVG(height, overview, hotCues) {
+function generateWaveformSVG(height, overview = false, hotCues = []) {
   const bars = overview ? 200 : 120;
   const progress = 0.35;
-  // Use seeded random for consistent look
-  const seed = overview ? 42 : 77;
-  const rng = (i) => Math.abs(Math.sin(i * 0.73 + seed) * 0.5 + Math.sin(i * 1.2 + seed * 2) * 0.3);
 
-  let rects = '';
+  let svg = `<svg width="100%" height="${height}" viewBox="0 0 ${bars} ${height}" preserveAspectRatio="none">`;
+
+  // Bars - 3-band frequency waveform
   for (let i = 0; i < bars; i++) {
     const h = overview
-      ? rng(i) * height * 0.7 + height * 0.1
+      ? Math.random() * height * 0.7 + height * 0.1
       : (Math.sin(i * 0.3) * 0.4 + 0.6) * height * 0.85;
     const isPlayed = i / bars < progress;
     const mid = height / 2;
     const low = (Math.sin(i * 0.8 + 1) * 0.5 + 0.5) * h * 0.4;
     const mid2 = (Math.sin(i * 0.5 + 0.5) * 0.5 + 0.5) * h * 0.35;
     const high = h - low - mid2;
-    const x = (i / bars * 100).toFixed(2);
-    const w = (100 / bars * 0.6).toFixed(2);
+    const x = i * (100 / bars) + '%';
+    const w = (100 / bars) * 0.6 + '%';
 
-    rects += `<rect x="${x}%" y="${(mid - h / 2).toFixed(1)}" width="${w}%" height="${low.toFixed(1)}" fill="${isPlayed ? '#ef444488' : '#ef444440'}"/>`;
-    rects += `<rect x="${x}%" y="${(mid - h / 2 + low).toFixed(1)}" width="${w}%" height="${mid2.toFixed(1)}" fill="${isPlayed ? '#22c55e88' : '#22c55e40'}"/>`;
-    rects += `<rect x="${x}%" y="${(mid - h / 2 + low + mid2).toFixed(1)}" width="${w}%" height="${high.toFixed(1)}" fill="${isPlayed ? '#3b82f688' : '#3b82f640'}"/>`;
+    svg += `<g>`;
+    svg += `<rect x="${x}" y="${mid - h / 2}" width="${w}" height="${low}" fill="${isPlayed ? '#ef444488' : '#ef444440'}" />`;
+    svg += `<rect x="${x}" y="${mid - h / 2 + low}" width="${w}" height="${mid2}" fill="${isPlayed ? '#22c55e88' : '#22c55e40'}" />`;
+    svg += `<rect x="${x}" y="${mid - h / 2 + low + mid2}" width="${w}" height="${high}" fill="${isPlayed ? '#3b82f688' : '#3b82f640'}" />`;
+    svg += `</g>`;
   }
 
   // Playhead
   if (!overview) {
-    rects += `<line x1="${progress * 100}%" y1="0" x2="${progress * 100}%" y2="${height}" stroke="white" stroke-width="1.5" opacity="0.9"/>`;
-    // Hot cue markers
-    if (hotCues) {
-      const positions = [8, 26, 61, 88];
-      hotCues.forEach((c, idx) => {
-        const pct = positions[idx] || 30;
-        rects += `<line x1="${pct}%" y1="0" x2="${pct}%" y2="${height}" stroke="${HOT_CUE_COLORS[c.slot]}" stroke-width="1.5" opacity="0.85"/>`;
-      });
-    }
+    svg += `<line x1="${progress * 100}%" y1="0" x2="${progress * 100}%" y2="${height}" stroke="white" stroke-width="1.5" opacity="0.9" />`;
   }
 
-  return `<svg width="100%" height="${height}" viewBox="0 0 ${bars} ${height}" preserveAspectRatio="none">${rects}</svg>`;
+  // Hot cue markers on waveform
+  if (!overview && hotCues.length > 0) {
+    const positions = [8, 26, 61, 88];
+    hotCues.forEach((cue, i) => {
+      const pct = positions[i] || 30;
+      svg += `<line x1="${pct}%" y1="0" x2="${pct}%" y2="${height}" stroke="${HOT_CUE_COLORS[cue.slot]}" stroke-width="1.5" opacity="0.85" />`;
+    });
+  }
+
+  svg += `</svg>`;
+  return svg;
 }
 
-function generateBeatgridLines(count) {
+function generateBeatgridLines(count = 32) {
   let html = '';
   for (let i = 0; i < count; i++) {
-    const opacity = i % 4 === 0 ? '0.15' : '0.05';
-    html += `<div class="beatgrid-line" style="left:${(i / count * 100).toFixed(2)}%;background:rgba(255,255,255,${opacity})"></div>`;
+    const isStrong = i % 4 === 0;
+    const opacity = isStrong ? 0.15 : 0.05;
+    const width = isStrong ? 2 : 1;
+    html += `<div style="position: absolute; top: 0; bottom: 0; left: ${(i / count) * 100}%; width: ${width}px; background: rgba(255,255,255,${opacity});"></div>`;
   }
   return html;
 }
@@ -146,10 +143,23 @@ function generateCamelotWheelSVG(selectedKey) {
   const size = 200;
   const cx = size / 2, cy = size / 2;
   const outerR = 88, innerR = 55, textR_out = 75, textR_in = 43;
-  const compatible = getCompatibleKeys(selectedKey);
 
-  let paths = '';
-  CAMELOT.forEach(item => {
+  const getCompatible = (n) => {
+    if (!n) return [];
+    const num = parseInt(n);
+    const mode = n.includes('A') ? 'A' : 'B';
+    return [
+      n,
+      `${num === 12 ? 1 : num + 1}${mode}`,
+      `${num === 1 ? 12 : num - 1}${mode}`,
+      `${num}${mode === 'A' ? 'B' : 'A'}`,
+    ];
+  };
+  const compatible = getCompatible(selectedKey);
+
+  let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
+
+  CAMELOT.forEach((item) => {
     const isOuter = item.n.includes('B');
     const num = parseInt(item.n);
     const angle = ((num - 1) / 12) * 2 * Math.PI - Math.PI / 2;
@@ -159,6 +169,7 @@ function generateCamelotWheelSVG(selectedKey) {
     const startAngle = angle - slice / 2;
     const endAngle = angle + slice / 2;
     const gap = 0.04;
+
     const x1 = cx + (r - 14) * Math.cos(startAngle + gap);
     const y1 = cy + (r - 14) * Math.sin(startAngle + gap);
     const x2 = cx + (r + 14) * Math.cos(startAngle + gap);
@@ -167,6 +178,7 @@ function generateCamelotWheelSVG(selectedKey) {
     const y3 = cy + (r + 14) * Math.sin(endAngle - gap);
     const x4 = cx + (r - 14) * Math.cos(endAngle - gap);
     const y4 = cy + (r - 14) * Math.sin(endAngle - gap);
+
     const isSelected = item.n === selectedKey;
     const isCompat = compatible.includes(item.n);
     const tx = cx + textR * Math.cos(angle);
@@ -174,408 +186,376 @@ function generateCamelotWheelSVG(selectedKey) {
 
     const fill = isSelected ? item.color : isCompat ? item.color + '70' : item.color + '30';
     const stroke = isSelected ? 'white' : isCompat ? item.color + '90' : 'transparent';
-    const sw = isSelected ? 2 : 1;
-    const fs = isSelected ? 9 : 8;
-    const fw = isSelected ? 700 : 500;
-    const textFill = isSelected || isCompat ? 'white' : 'rgba(255,255,255,0.5)';
+    const strokeWidth = isSelected ? 2 : 1;
 
-    paths += `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} A ${r + 14} ${r + 14} 0 0 1 ${x3.toFixed(1)} ${y3.toFixed(1)} L ${x4.toFixed(1)} ${y4.toFixed(1)} A ${r - 14} ${r - 14} 0 0 0 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" style="cursor:pointer"/>`;
-    paths += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" font-weight="${fw}" fill="${textFill}" font-family="'JetBrains Mono',monospace">${item.n}</text>`;
+    svg += `<g>`;
+    svg += `<path d="M ${x1} ${y1} L ${x2} ${y2} A ${r + 14} ${r + 14} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${r - 14} ${r - 14} 0 0 0 ${x1} ${y1}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`;
+    svg += `<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" font-size="${isSelected ? 9 : 8}" font-weight="${isSelected ? 700 : 500}" fill="${isSelected || isCompat ? 'white' : 'rgba(255,255,255,0.5)'}">${item.n}</text>`;
+    svg += `</g>`;
   });
 
-  // Center
-  const keyColor = getKeyColor(selectedKey);
-  paths += `<circle cx="${cx}" cy="${cy}" r="28" fill="#1a1a2e" stroke="#252540" stroke-width="1"/>`;
-  paths += `<text x="${cx}" y="${cy - 5}" text-anchor="middle" font-size="9" font-weight="700" fill="#f1f5f9" font-family="Inter,sans-serif">Camelot</text>`;
-  paths += `<text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${keyColor}" font-family="'JetBrains Mono',monospace">${selectedKey || '—'}</text>`;
+  // Center circle
+  svg += `<circle cx="${cx}" cy="${cy}" r="28" fill="#1a1a2e" stroke="#252540" stroke-width="1" />`;
+  svg += `<text x="${cx}" y="${cy - 5}" text-anchor="middle" font-size="9" font-weight="700" fill="#f1f5f9">Camelot</text>`;
+  const keyColor = CAMELOT.find(c => c.n === selectedKey)?.color || '#64748b';
+  svg += `<text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${keyColor}">${selectedKey || '—'}</text>`;
 
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
+  svg += `</svg>`;
+  return svg;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN APP
+// MAIN APP OBJECT
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CueForgeApp = {
-  currentPage: 'dashboard',
-  selectedTrack: MOCK_TRACKS[0],
-  activeTab: 'cues',
-  isPlaying: false,
-  hotCues: [...DEFAULT_HOT_CUES],
-  showFilters: false,
-
-  // Page titles
-  pageTitles: {
-    dashboard: { title: 'Dashboard', sub: 'Prépare et analyse tes sets' },
-    setbuilder: { title: 'Set Builder', sub: 'Construis et planifie tes sets' },
-    upload: { title: 'Importer', sub: 'Ajoute des tracks à ta bibliothèque' },
-    export: { title: 'Exporter', sub: 'Exporte vers ton logiciel DJ' },
-    settings: { title: 'Réglages', sub: 'Paramètres de ton compte' },
-    admin: { title: 'Admin', sub: 'Panneau d\'administration' },
+  state: {
+    currentPage: 'dashboard',
+    selectedTrack: MOCK_TRACKS[0],
+    activeTab: 'cues',
+    isPlaying: false,
+    hotCues: [...DEFAULT_HOT_CUES],
+    showFilters: false,
+    viewMode: 'list',
+    sidebarCollapsed: false,
   },
 
   init() {
     this.renderWaveforms();
     this.renderHotCues();
     this.renderTrackList();
-    this.renderTabContent('cues');
-    this.renderExportPage();
-    this.renderSetBuilderPage();
-    this.bindNavigation();
-    this.bindTabs();
-    this.bindPlayer();
-    this.bindFilters();
-    if (typeof initSettingsAdmin === 'function') initSettingsAdmin();
+    this.updatePlayerCard(this.state.selectedTrack);
+    this.renderAllTabs();
+    this.renderPages();
+    this.bindEvents();
   },
 
-  // ── Navigation ──────────────────────────────────────────────────────
-  bindNavigation() {
-    // Nav items
-    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
-      el.addEventListener('click', () => this.switchPage(el.dataset.page));
-    });
-    // Crate items
-    document.querySelectorAll('.nav-item[data-crate], .crate-item[data-crate], .playlist-item[data-crate]').forEach(el => {
-      el.addEventListener('click', () => {
-        this.switchPage('dashboard');
-        // Highlight active crate
-        document.querySelectorAll('.crate-item, .playlist-item, .nav-item[data-crate]').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-      });
-    });
-    // Settings button in footer
-    document.querySelector('.sidebar-settings-btn')?.addEventListener('click', () => this.switchPage('settings'));
-  },
-
-  switchPage(page) {
-    this.currentPage = page;
-
-    // Update sidebar active state
-    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
-      el.classList.toggle('active', el.dataset.page === page);
-    });
-
-    // Update topbar
-    const info = this.pageTitles[page] || this.pageTitles.dashboard;
-    document.getElementById('topbarTitle').textContent = info.title;
-    document.getElementById('topbarSubtitle').textContent = info.sub;
-
-    // Switch view
-    document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
-    const viewMap = {
-      dashboard: 'viewDashboard',
-      setbuilder: 'viewSetBuilder',
-      upload: 'viewUpload',
-      export: 'viewExport',
-      settings: 'viewSettings',
-      admin: 'viewAdmin',
-    };
-    const viewId = viewMap[page];
-    if (viewId) document.getElementById(viewId)?.classList.add('active');
-  },
-
-  // ── Waveforms ───────────────────────────────────────────────────────
-  renderWaveforms() {
-    document.getElementById('waveformOverview').innerHTML = generateWaveformSVG(32, true);
-    const detail = document.getElementById('waveformDetail');
-    detail.innerHTML = generateWaveformSVG(80, false, this.hotCues) + generateBeatgridLines(32);
-  },
-
-  // ── Hot Cues ────────────────────────────────────────────────────────
-  renderHotCues() {
-    const row = document.getElementById('hotcuesRow');
-    let html = '<span class="hotcues-label">HOT CUES</span>';
-    HOT_CUE_LABELS.forEach((label, i) => {
-      const cue = this.hotCues.find(c => c.slot === i);
-      if (cue) {
-        html += `<button class="hotcue-btn" style="background:${HOT_CUE_COLORS[i]};color:white">
-          <div class="hc-letter">${label}</div>
-          <div class="hc-time">${cue.time}</div>
-        </button>`;
-      } else {
-        html += `<button class="hotcue-btn empty"><div class="hc-letter">${label}</div></button>`;
-      }
-    });
-    row.innerHTML = html;
-  },
-
-  // ── Player ──────────────────────────────────────────────────────────
-  bindPlayer() {
-    document.getElementById('btnPlay').addEventListener('click', () => {
-      this.isPlaying = !this.isPlaying;
-      document.getElementById('btnPlay').textContent = this.isPlaying ? '⏸' : '▶';
-    });
-  },
-
-  updatePlayerCard(track) {
-    this.selectedTrack = track;
-    document.getElementById('playerTitle').textContent = track.title;
-    document.getElementById('playerArtist').textContent = `${track.artist} · ${track.genre}`;
-
-    const art = document.getElementById('playerArt');
-    const c = track.color || '#1a1a2e';
-    art.style.background = c + '30';
-    art.style.border = `1px solid ${c}40`;
-
-    // Badges
-    const badges = document.getElementById('playerBadges');
-    let bhtml = '';
-    if (track.bpm) bhtml += `<span class="badge badge-cyan">${track.bpm} BPM</span>`;
-    if (track.key) {
-      const kc = getKeyColor(track.key);
-      bhtml += `<span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${track.key}</span>`;
-    }
-    if (track.energy) {
-      bhtml += `<div class="energy-bar-container"><div class="energy-bar-bg"><div class="energy-bar-fill" style="width:${track.energy}%"></div></div><span class="energy-bar-val">${track.energy}</span></div>`;
-    }
-    badges.innerHTML = bhtml;
-
-    // Re-render waveforms and tabs
-    this.renderWaveforms();
-    this.renderTabContent(this.activeTab);
-  },
-
-  // ── Track List ──────────────────────────────────────────────────────
-  renderTrackList(tracks) {
-    const list = tracks || MOCK_TRACKS;
-    const container = document.getElementById('trackRows');
-    document.getElementById('trackCount').textContent = list.length;
-
-    let html = '';
-    list.forEach(t => {
-      const selected = this.selectedTrack?.id === t.id ? ' selected' : '';
-      html += `<div class="track-row${selected}" data-track-id="${t.id}">`;
-
-      // Status
-      html += `<div class="track-status">${t.analyzed
-        ? '<span class="track-status-ok">✓</span>'
-        : '<span class="track-status-pending" title="Cliquer pour analyser">⚡</span>'}</div>`;
-
-      // Title
-      html += `<div class="track-title-cell"><div class="track-title">${t.title}</div><div class="track-artist">${t.artist}</div></div>`;
-
-      // BPM
-      html += `<div>${t.bpm
-        ? `<span class="track-bpm">${t.bpm}</span>`
-        : '<button class="track-bpm-analyze">Analyser</button>'}</div>`;
-
-      // Key
-      if (t.key) {
-        const kc = getKeyColor(t.key);
-        html += `<div><span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span></div>`;
-      } else {
-        html += '<div><span style="color:var(--text-muted)">—</span></div>';
-      }
-
-      // Energy
-      if (t.energy) {
-        html += `<div><div class="energy-mini"><div class="energy-mini-bar"><div class="energy-mini-fill" style="width:${t.energy}%"></div></div></div></div>`;
-      } else {
-        html += '<div><span style="color:var(--text-muted)">—</span></div>';
-      }
-
-      // Duration
-      html += `<div class="track-duration">${t.duration}</div>`;
-
-      // Genre
-      html += `<div class="track-genre">${t.genre}</div>`;
-
-      // Rating
-      html += '<div class="track-rating">';
-      for (let s = 0; s < 5; s++) {
-        html += `<span class="star ${s < t.rating ? 'star-on' : 'star-off'}">★</span>`;
-      }
-      html += '</div>';
-
-      // Tags
-      html += '<div>';
-      if (t.tags.length > 0) {
-        html += `<span class="track-tag">#${t.tags[0]}</span>`;
-      }
-      html += '</div>';
-
-      html += '</div>';
-    });
-
-    container.innerHTML = html;
-
-    // Bind row clicks
-    container.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const id = parseInt(row.dataset.trackId);
-        const track = MOCK_TRACKS.find(t => t.id === id);
+  bindEvents() {
+    // Track selection (re-bound after renderTrackList)
+    document.querySelectorAll('[data-track-id]').forEach(row => {
+      row.addEventListener('click', (e) => {
+        const trackId = parseInt(e.currentTarget.getAttribute('data-track-id'));
+        const track = MOCK_TRACKS.find(t => t.id === trackId);
         if (track) {
-          container.querySelectorAll('.track-row').forEach(r => r.classList.remove('selected'));
-          row.classList.add('selected');
+          this.state.selectedTrack = track;
           this.updatePlayerCard(track);
+          this.renderAllTabs();
+          this.renderTrackList();
         }
       });
     });
   },
 
-  bindFilters() {
-    document.getElementById('btnFilters')?.addEventListener('click', () => {
-      this.showFilters = !this.showFilters;
-      const panel = document.getElementById('filterPanel');
-      const btn = document.getElementById('btnFilters');
-      panel.classList.toggle('show', this.showFilters);
-      btn.classList.toggle('active', this.showFilters);
-      if (this.showFilters && !panel.innerHTML) {
-        this.renderFilterPanel();
-      }
-    });
-
-    // Search
-    document.getElementById('trackSearch')?.addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase();
-      const filtered = MOCK_TRACKS.filter(t =>
-        t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.genre.toLowerCase().includes(q)
-      );
-      this.renderTrackList(filtered);
-    });
-  },
-
-  renderFilterPanel() {
-    const panel = document.getElementById('filterPanel');
-    panel.innerHTML = `
-      <div class="filter-group">
-        <div class="filter-label">BPM: 100–145</div>
-        <div class="filter-chips">
-          ${[100, 110, 120, 125, 128, 130, 135, 140, 145].map(bpm =>
-            `<button class="filter-chip active">${bpm}</button>`
-          ).join('')}
-        </div>
-      </div>
-      <div>
-        <div class="filter-label">Tonalité</div>
-        <div class="filter-chips">
-          ${['Am', 'Em', 'Bm', 'Dm'].map(k => `<button class="filter-chip">${k}</button>`).join('')}
-        </div>
-      </div>
-      <div>
-        <div class="filter-label">Genre</div>
-        <div class="filter-chips">
-          ${['Techno', 'House', 'Melodic'].map(g => `<button class="filter-chip">${g}</button>`).join('')}
-        </div>
-      </div>
-      <div>
-        <div class="filter-label">Énergie: 0–100</div>
-        <div style="display:flex;gap:4px;align-items:center">
-          <div style="width:80px;height:5px;border-radius:3px;background:var(--border-default);position:relative">
-            <div style="position:absolute;left:0;right:0;top:0;bottom:0;background:var(--accent);border-radius:3px"></div>
-          </div>
-          <button class="btn-ghost" style="font-size:10px;padding:2px 8px">Reset</button>
-        </div>
-      </div>
-    `;
-  },
-
-  // ── Tabs ─────────────────────────────────────────────────────────────
-  bindTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        const tab = btn.dataset.tab;
-        this.activeTab = tab;
-        const paneMap = { cues: 'tabCues', beatgrid: 'tabBeatgrid', stems: 'tabStems', eq: 'tabEq', fx: 'tabFx', mix: 'tabMix', playlists: 'tabPlaylists', stats: 'tabStats', history: 'tabHistory' };
-        document.getElementById(paneMap[tab])?.classList.add('active');
-        this.renderTabContent(tab);
-      });
-    });
-  },
-
-  renderTabContent(tab) {
-    const t = this.selectedTrack;
-    const renderers = {
-      cues: () => this.renderCuesTab(),
-      beatgrid: () => this.renderBeatgridTab(),
-      stems: () => this.renderStemsTab(),
-      eq: () => this.renderEqTab(),
-      fx: () => this.renderFxTab(),
-      mix: () => this.renderMixTab(),
-      playlists: () => this.renderPlaylistsTab(),
-      stats: () => this.renderStatsTab(),
-      history: () => this.renderHistoryTab(),
+  // Render all tab panes at once (each pane has its own ID like cuesPane, beatgridPane, etc.)
+  renderAllTabs() {
+    const tabMap = {
+      cues: this.renderCuesTab(),
+      beatgrid: this.renderBeatgridTab(),
+      stems: this.renderStemsTab(),
+      eq: this.renderEqTab(),
+      fx: this.renderFxTab(),
+      mix: this.renderMixTab(),
+      playlists: this.renderPlaylistsTab(),
+      stats: this.renderStatsTab(),
+      history: this.renderHistoryTab(),
     };
-    if (renderers[tab]) renderers[tab]();
+    Object.entries(tabMap).forEach(([tabId, html]) => {
+      const pane = document.getElementById(tabId + 'Pane');
+      if (pane) pane.innerHTML = html;
+    });
   },
 
-  renderCuesTab() {
-    const el = document.getElementById('tabCues');
-    let html = `
-      <div class="section-header">
-        <div class="section-title">Hot Cues — ${this.selectedTrack?.title || ''}</div>
-        <div class="section-actions">
-          <button class="btn-ghost">⬆️ Auto-détecter</button>
-          <button class="btn-primary" style="font-size:11px;padding:4px 10px">+ Ajouter cue</button>
-        </div>
-      </div>
-      <div class="cues-grid">`;
+  // Render pages that are dynamically generated
+  renderPages() {
+    const exportEl = document.getElementById('viewExport');
+    if (exportEl) exportEl.innerHTML = this.renderExportPage();
+
+    const setBuilderEl = document.getElementById('viewSetBuilder');
+    if (setBuilderEl) setBuilderEl.innerHTML = this.renderSetBuilderPage();
+
+    const uploadEl = document.getElementById('viewUpload');
+    if (uploadEl) uploadEl.innerHTML = this.renderUploadPage();
+  },
+
+  renderWaveforms() {
+    const overviewEl = document.querySelector('#waveformOverview');
+    const detailEl = document.querySelector('#waveformDetail');
+
+    if (overviewEl) {
+      overviewEl.innerHTML = generateWaveformSVG(32, true);
+    }
+
+    if (detailEl) {
+      detailEl.innerHTML = generateWaveformSVG(80, false, this.state.hotCues);
+      // Add beatgrid lines
+      detailEl.innerHTML += generateBeatgridLines(32);
+    }
+  },
+
+  renderHotCues() {
+    const container = document.querySelector('.hotcues-row');
+    if (!container) return;
+
+    let html = '<span style="font-size: 10px; color: var(--text-muted); margin-right: 4px; font-family: \'JetBrains Mono\', monospace;">HOT CUES</span>';
 
     HOT_CUE_LABELS.forEach((label, i) => {
-      const cue = this.hotCues.find(c => c.slot === i);
+      const cue = this.state.hotCues.find(c => c.slot === i);
+      const bgColor = cue ? HOT_CUE_COLORS[i] : 'var(--bg-elevated)';
+      const textColor = cue ? 'white' : 'var(--text-muted)';
+
+      html += `
+        <div style="flex: 1; min-width: 0;">
+          <button style="
+            width: 100%; padding: 5px 4px; border-radius: 7px; font-size: 10px;
+            font-weight: 700; cursor: pointer; border: none;
+            background: ${bgColor}; color: ${textColor};
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.15s;
+          ">
+            <div>${label}</div>
+            ${cue ? `<div style="font-size: 9px; opacity: 0.85; font-family: 'JetBrains Mono', monospace;">${cue.time}</div>` : ''}
+          </button>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  },
+
+  renderTrackList() {
+    const container = document.querySelector('#trackRows');
+    if (!container) return;
+
+    let html = `
+      <div style="
+        display: grid;
+        grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
+        gap: 0;
+        padding: 7px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      ">
+    `;
+    const headers = ['', 'TITRE', 'BPM', 'TONALITÉ', 'ÉNERGIE', 'DURÉE', 'GENRE', 'RATING', 'TAGS'];
+    headers.forEach(h => {
+      html += `<div style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; padding-right: 8px;">${h}</div>`;
+    });
+    html += `</div>`;
+
+    MOCK_TRACKS.forEach(track => {
+      const isSelected = this.state.selectedTrack?.id === track.id;
+      html += `
+        <div data-track-id="${track.id}" style="
+          display: grid;
+          grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
+          gap: 0;
+          padding: 9px 16px;
+          border-bottom: 1px solid var(--border-subtle);
+          cursor: pointer;
+          background: ${isSelected ? 'rgba(37,99,235,0.1)' : 'transparent'};
+          transition: background 0.1s;
+          align-items: center;
+        ">
+      `;
+
+      // Col 1: Status
+      html += `<div style="display: flex; align-items: center; justify-content: center;">`;
+      if (track.analyzed) {
+        html += `<span style="font-size: 13px; color: var(--accent-success);">✓</span>`;
+      } else {
+        html += `<span title="Analyser" style="font-size: 13px; color: var(--accent-warning); cursor: pointer;">⚡</span>`;
+      }
+      html += `</div>`;
+
+      // Col 2: Title + Artist
+      html += `<div style="min-width: 0; padding-right: 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${track.title}</div>
+        <div style="font-size: 11px; color: var(--text-muted);">${track.artist}</div>
+      </div>`;
+
+      // Col 3: BPM
+      html += `<div>`;
+      if (track.bpm) {
+        html += `<span style="font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${track.bpm}</span>`;
+      } else {
+        html += `<button style="padding: 2px 7px; border-radius: 5px; border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.1); color: var(--accent-warning); font-size: 10px; cursor: pointer;">Analyser</button>`;
+      }
+      html += `</div>`;
+
+      // Col 4: Key
+      html += `<div>`;
+      if (track.key) {
+        const keyColor = CAMELOT.find(c => c.n === track.key)?.color || '#64748b';
+        html += `<span style="display: inline-block; padding: 2px 8px; border-radius: 5px; background: ${keyColor}20; color: ${keyColor}; font-size: 10px; font-weight: 600;">${track.key}</span>`;
+      } else {
+        html += `<span style="color: var(--text-muted);">—</span>`;
+      }
+      html += `</div>`;
+
+      // Col 5: Energy
+      html += `<div>`;
+      if (track.energy) {
+        html += `<div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 36px; height: 4px; border-radius: 2px; background: var(--bg-elevated); overflow: hidden;">
+            <div style="width: ${track.energy}%; height: 100%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); border-radius: 2px;"></div>
+          </div>
+        </div>`;
+      } else {
+        html += `<span style="color: var(--text-muted);">—</span>`;
+      }
+      html += `</div>`;
+
+      // Col 6: Duration
+      html += `<div style="font-size: 12px; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;">${track.duration}</div>`;
+
+      // Col 7: Genre
+      html += `<div style="font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${track.genre}</div>`;
+
+      // Col 8: Rating
+      html += `<div style="font-size: 11px;">`;
+      for (let j = 0; j < 5; j++) {
+        const starColor = j < track.rating ? 'var(--accent-warning)' : 'var(--text-muted)';
+        html += `<span style="color: ${starColor};">★</span>`;
+      }
+      html += `</div>`;
+
+      // Col 9: Tags
+      html += `<div style="display: flex; gap: 3px; flex-wrap: nowrap; overflow: hidden;">`;
+      track.tags.slice(0, 1).forEach(tag => {
+        html += `<span style="padding: 1px 5px; border-radius: 4px; font-size: 9px; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border-default);">#${tag}</span>`;
+      });
+      html += `</div>`;
+
+      html += `</div>`;
+    });
+
+    container.innerHTML = html;
+    this.bindEvents();
+  },
+
+  updatePlayerCard(track) {
+    if (!track) return;
+
+    const titleEl = document.getElementById('playerTitle');
+    const artistEl = document.getElementById('playerArtist');
+    const bpmEl = document.getElementById('playerBpm');
+    const keyEl = document.getElementById('playerKey');
+    const energyFill = document.getElementById('playerEnergyFill');
+    const energyVal = document.getElementById('playerEnergy');
+    const artEl = document.getElementById('playerArt');
+
+    if (titleEl) titleEl.textContent = track.title;
+    if (artistEl) artistEl.textContent = `${track.artist} · ${track.genre}`;
+    if (bpmEl) bpmEl.textContent = track.bpm ? `${track.bpm} BPM` : '—';
+    if (keyEl) {
+      keyEl.textContent = track.key || '—';
+      const keyColor = CAMELOT.find(c => c.n === track.key)?.color || '#64748b';
+      keyEl.style.borderColor = keyColor;
+      keyEl.style.color = keyColor;
+      keyEl.style.background = keyColor + '22';
+    }
+    if (energyFill && track.energy) {
+      energyFill.style.width = track.energy + '%';
+    }
+    if (energyVal) energyVal.textContent = track.energy || '—';
+    if (artEl && track.color) {
+      artEl.style.background = track.color + '30';
+      artEl.style.border = `1px solid ${track.color}40`;
+    }
+
+    this.renderWaveforms();
+    this.renderHotCues();
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TAB RENDERERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  renderCuesTab() {
+    let html = `
+      <div style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Hot Cues — ${this.state.selectedTrack?.title || ''}</div>
+          <div style="display: flex; gap: 6px;">
+            <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">⬆️ Auto-détecter</button>
+            <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">+ Ajouter cue</button>
+          </div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    `;
+
+    HOT_CUE_LABELS.forEach((label, i) => {
+      const cue = this.state.hotCues.find(c => c.slot === i);
       const borderColor = cue ? HOT_CUE_COLORS[i] + '50' : 'var(--border-subtle)';
       const bgColor = cue ? HOT_CUE_COLORS[i] + '10' : 'var(--bg-elevated)';
-      const badgeBg = cue ? HOT_CUE_COLORS[i] : 'var(--bg-primary)';
-      const badgeBorder = cue ? HOT_CUE_COLORS[i] : 'var(--border-default)';
-      const badgeColor = cue ? 'white' : 'var(--text-muted)';
 
-      html += `<div class="cue-slot" style="border:1px solid ${borderColor};background:${bgColor}">
-        <div class="cue-slot-badge" style="background:${badgeBg};border:1px solid ${badgeBorder};color:${badgeColor}">${label}</div>`;
+      html += `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 9px; border: 1px solid ${borderColor}; background: ${bgColor};">
+          <div style="
+            width: 26px; height: 26px; border-radius: 6px;
+            background: ${cue ? HOT_CUE_COLORS[i] : 'var(--bg-primary)'};
+            border: 1px solid ${cue ? HOT_CUE_COLORS[i] : 'var(--border-default)'};
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700;
+            color: ${cue ? 'white' : 'var(--text-muted)'};
+            flex-shrink: 0;
+          ">${label}</div>
+      `;
+
       if (cue) {
-        html += `<div class="cue-slot-info"><div class="cue-slot-time">${cue.time}</div><div class="cue-slot-label">${cue.label}</div></div>
-          <button class="cue-slot-edit">✏️</button>`;
+        html += `
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${cue.time}</div>
+            <div style="font-size: 10px; color: var(--text-secondary);">${cue.label}</div>
+          </div>
+          <button style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px;">✏️</button>
+        `;
       } else {
-        html += `<div class="cue-slot-empty">Vide — Cliquer pour poser</div>`;
+        html += `<div style="font-size: 11px; color: var(--text-muted);">Vide — Cliquer pour poser</div>`;
       }
-      html += '</div>';
+
+      html += `</div>`;
     });
-    html += '</div>';
-    el.innerHTML = html;
+
+    html += `</div>`;
+    return html;
   },
 
   renderBeatgridTab() {
-    const el = document.getElementById('tabBeatgrid');
-    const bpm = this.selectedTrack?.bpm || 0;
-    el.innerHTML = `
-      <div class="section-header">
+    let html = `
+      <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
         <div>
-          <div class="section-title">Beatgrid Editor</div>
-          <div class="section-subtitle">Corrige le grid manuellement pour un mix parfait</div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Beatgrid Editor</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Corrige le grid manuellement pour un mix parfait</div>
         </div>
-        <div class="section-actions">
-          <button class="btn-ghost">⟳ Re-analyser</button>
-          <button class="btn-ghost">÷2 BPM</button>
-          <button class="btn-ghost">×2 BPM</button>
+        <div style="display: flex; gap: 6px;">
+          <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">⟳ Re-analyser</button>
+          <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">÷2 BPM</button>
+          <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">×2 BPM</button>
         </div>
       </div>
-      <div style="background:var(--bg-primary);border-radius:9px;padding:12px 16px;margin-bottom:12px;position:relative;height:80px;overflow:hidden">
-        ${generateWaveformSVG(80, false)}
-        ${Array.from({length: 32}, (_, i) => {
-          const w = i % 4 === 0 ? 2 : 1;
-          const bg = i % 4 === 0 ? 'rgba(37,99,235,0.6)' : 'rgba(37,99,235,0.2)';
-          const label = i % 4 === 0 ? `<div style="position:absolute;top:2px;left:3px;font-size:9px;color:#2563eb;font-family:var(--mono)">${Math.floor(i/4)+1}</div>` : '';
-          return `<div style="position:absolute;top:0;bottom:0;left:${(i/32*100).toFixed(1)}%;width:${w}px;background:${bg};cursor:pointer">${label}</div>`;
-        }).join('')}
+      <div style="background: var(--bg-primary); border-radius: 9px; padding: 12px 16px; margin-bottom: 12px; position: relative; height: 80px; overflow: hidden;">
+        ${generateWaveformSVG(80, false, this.state.hotCues)}
+        ${generateBeatgridLines(32)}
       </div>
-      <div style="display:flex;align-items:center;gap:16px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:var(--text-muted)">BPM détecté:</span>
-          <span style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--mono)">${bpm}</span>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 11px; color: var(--text-muted);">BPM détecté:</span>
+          <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${this.state.selectedTrack?.bpm || '—'}</span>
         </div>
-        <div style="display:flex;gap:4px">
-          ${['−0.5', '−0.1', '+0.1', '+0.5'].map(v =>
-            `<button style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--text-primary);font-size:13px;cursor:pointer;font-family:var(--mono)">${v}</button>`
-          ).join('')}
+        <div style="display: flex; gap: 4px;">
+          <button style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; cursor: pointer;">−0.5</button>
+          <button style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; cursor: pointer;">−0.1</button>
+          <button style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; cursor: pointer;">+0.1</button>
+          <button style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-primary); font-size: 13px; font-family: 'JetBrains Mono', monospace; cursor: pointer;">+0.5</button>
         </div>
-        <button class="btn-success">✓ Confirmer le grid</button>
-      </div>`;
+        <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent-success); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">✓ Confirmer le grid</button>
+      </div>
+    `;
+    return html;
   },
 
   renderStemsTab() {
-    const el = document.getElementById('tabStems');
     const stems = [
       { id: 'vocals', label: 'Voix', icon: '🎤', color: '#ec4899' },
       { id: 'drums', label: 'Drums', icon: '🥁', color: '#f97316' },
@@ -583,190 +563,297 @@ const CueForgeApp = {
       { id: 'melody', label: 'Mélodie', icon: '🎹', color: '#3b82f6' },
     ];
 
-    el.innerHTML = `
-      <div class="section-header">
+    let html = `
+      <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
         <div>
-          <div class="section-title">Stem Separation</div>
-          <div class="section-subtitle">Isoler ou muter chaque élément du track</div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Stem Separation</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Isoler ou muter chaque élément du track</div>
         </div>
-        <button class="btn-primary" style="font-size:11px;padding:4px 10px">⚡ Séparer les stems</button>
+        <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">⚡ Séparer les stems</button>
       </div>
-      <div class="stems-grid">
-        ${stems.map(s => {
-          let bars = '';
-          for (let i = 0; i < 50; i++) {
-            const h = Math.abs(Math.sin(i * 0.5 + s.id.length)) * 18 + 3;
-            bars += `<rect x="${i * 2}" y="${(24 - h) / 2}" width="1.5" height="${h}" fill="${s.color}80"/>`;
-          }
-          return `<div class="stem-card" style="border:1px solid ${s.color}40;background:${s.color}10">
-            <div class="stem-header">
-              <div class="stem-left"><span class="stem-icon">${s.icon}</span><span class="stem-name">${s.label}</span></div>
-              <div class="stem-btns">
-                <button class="stem-btn" style="border:1px solid ${s.color}50;background:${s.color}20;color:${s.color}">S</button>
-                <button class="stem-btn" style="border:1px solid var(--border-default);background:transparent;color:var(--text-muted)">M</button>
-              </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    `;
+
+    stems.forEach(stem => {
+      html += `
+        <div style="border-radius: 10px; border: 1px solid ${stem.color}40; background: ${stem.color}10; padding: 10px 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">${stem.icon}</span>
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${stem.label}</span>
             </div>
-            <div class="stem-wave"><svg width="100%" height="24" viewBox="0 0 100 24">${bars}</svg></div>
-          </div>`;
-        }).join('')}
-      </div>`;
+            <div style="display: flex; gap: 4px;">
+              <button style="padding: 2px 8px; border-radius: 5px; border: 1px solid ${stem.color}50; background: ${stem.color}20; color: ${stem.color}; font-size: 10px; font-weight: 700; cursor: pointer;">S</button>
+              <button style="padding: 2px 8px; border-radius: 5px; border: 1px solid var(--border-default); background: transparent; color: var(--text-muted); font-size: 10px; cursor: pointer;">M</button>
+            </div>
+          </div>
+          <div style="height: 24px; background: var(--bg-primary); border-radius: 5px; overflow: hidden;">
+            <svg width="100%" height="24" viewBox="0 0 100 24">
+              ${Array.from({ length: 50 }, (_, i) => {
+                const h = Math.abs(Math.sin(i * 0.5 + stem.id.length)) * 18 + 3;
+                return `<rect x="${i * 2}" y="${(24 - h) / 2}" width="1.5" height="${h}" fill="${stem.color}80" />`;
+              }).join('')}
+            </svg>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    return html;
   },
 
   renderEqTab() {
-    const el = document.getElementById('tabEq');
     const bands = [
       { label: 'LOW', freq: '32Hz-512Hz', val: 0 },
       { label: 'MID', freq: '512Hz-8kHz', val: 2 },
       { label: 'HIGH', freq: '8kHz-20kHz', val: -1 },
     ];
-    el.innerHTML = `<div class="eq-container">
-      ${bands.map(b => {
-        const fillColor = b.val > 0 ? 'var(--accent-success)' : 'var(--accent-error)';
-        const fillH = Math.abs(b.val) * 8;
-        return `<div class="eq-band">
-          <span class="eq-value">${b.val > 0 ? '+' : ''}${b.val}</span>
-          <div class="eq-slider">
-            <div class="eq-fill" style="height:${fillH}%;background:${fillColor}"></div>
-            <div class="eq-center"></div>
+
+    let html = `<div style="display: flex; gap: 24px; align-items: flex-end;">`;
+
+    bands.forEach(band => {
+      const barHeight = Math.abs(band.val) * 8;
+      html += `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;">
+          <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${band.val > 0 ? '+' : ''}${band.val}</span>
+          <div style="width: 8px; height: 120px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden;">
+            <div style="position: absolute; bottom: 50%; left: 0; right: 0; height: ${barHeight}%; background: ${band.val > 0 ? 'var(--accent-success)' : 'var(--accent-error)'}; border-radius: 4px;"></div>
+            <div style="position: absolute; top: 49%; left: 0; right: 0; height: 2px; background: var(--border-strong);"></div>
           </div>
-          <span class="eq-label">${b.label}</span>
-          <span class="eq-freq">${b.freq}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
+          <span style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">${band.label}</span>
+          <span style="font-size: 9px; color: var(--text-muted);">${band.freq}</span>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    return html;
   },
 
   renderFxTab() {
-    const el = document.getElementById('tabFx');
     const effects = [
-      { name: 'Reverb', active: false }, { name: 'Delay', active: true }, { name: 'Flanger', active: false },
-      { name: 'Phaser', active: false }, { name: 'Filter', active: true }, { name: 'Bitcrusher', active: false },
-      { name: 'Chorus', active: false }, { name: 'Tremolo', active: false },
+      { name: 'Reverb', active: false },
+      { name: 'Delay', active: true },
+      { name: 'Flanger', active: false },
+      { name: 'Phaser', active: false },
+      { name: 'Filter', active: true },
+      { name: 'Bitcrusher', active: false },
+      { name: 'Chorus', active: false },
+      { name: 'Tremolo', active: false },
     ];
-    el.innerHTML = `
-      <div class="section-title" style="margin-bottom:12px">Effets Audio</div>
-      <div class="fx-grid">
-        ${effects.map(e =>
-          `<button class="fx-btn ${e.active ? 'active' : 'inactive'}">${e.name}</button>`
-        ).join('')}
-      </div>`;
+
+    let html = `
+      <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">Effets Audio</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+    `;
+
+    effects.forEach(effect => {
+      const borderColor = effect.active ? `var(--accent-purple)60` : `var(--border-subtle)`;
+      const bgColor = effect.active ? `var(--accent-purple)20` : `var(--bg-elevated)`;
+      const textColor = effect.active ? `var(--accent-purple)` : `var(--text-secondary)`;
+      const fontWeight = effect.active ? 600 : 400;
+
+      html += `
+        <button style="
+          padding: 10px 8px; border-radius: 9px;
+          border: 1px solid ${borderColor};
+          background: ${bgColor};
+          color: ${textColor};
+          font-size: 12px;
+          font-weight: ${fontWeight};
+          cursor: pointer;
+        ">${effect.name}</button>
+      `;
+    });
+
+    html += `</div>`;
+    return html;
   },
 
   renderMixTab() {
-    const el = document.getElementById('tabMix');
-    const key = this.selectedTrack?.key;
-    const compatible = MOCK_TRACKS.filter(t => t.analyzed && t.id !== this.selectedTrack?.id);
+    const compatible = MOCK_TRACKS.filter(t => t.analyzed && t.id !== this.state.selectedTrack?.id);
 
-    el.innerHTML = `<div class="mix-container">
-      <div class="mix-wheel-area">
-        <div class="mix-wheel-label">Roue de Camelot</div>
-        ${generateCamelotWheelSVG(key)}
+    let html = `<div style="display: flex; gap: 20px;">`;
+
+    // Camelot Wheel
+    html += `
+      <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Roue de Camelot</div>
+        ${generateCamelotWheelSVG(this.state.selectedTrack?.key)}
       </div>
-      <div class="mix-compat-list">
-        <div class="mix-compat-title">Tracks compatibles avec ${key || '—'}</div>
-        ${compatible.slice(0, 5).map(t => {
-          const score = t.key === key ? 100 : Math.floor(Math.random() * 40 + 55);
-          const scoreColor = score > 85 ? 'var(--accent-success)' : score > 70 ? 'var(--accent-warning)' : 'var(--accent-error)';
-          const kc = getKeyColor(t.key);
-          return `<div class="mix-compat-row">
-            <div class="mix-compat-bar" style="background:${scoreColor}"></div>
-            <div class="mix-compat-info">
-              <div class="mix-compat-name">${t.title}</div>
-              <div class="mix-compat-artist">${t.artist}</div>
-            </div>
-            <span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span>
-            <span class="badge badge-cyan">${t.bpm}</span>
-            <span class="mix-compat-score" style="color:${scoreColor}">${score}%</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
+    `;
+
+    // Compatible tracks
+    html += `
+      <div style="flex: 1;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;">Tracks compatibles avec ${this.state.selectedTrack?.key || '—'}</div>
+    `;
+
+    compatible.slice(0, 5).forEach(track => {
+      const score = track.key === this.state.selectedTrack?.key ? 100 : Math.floor(Math.random() * 40 + 55);
+      const barColor = score > 85 ? 'var(--accent-success)' : score > 70 ? 'var(--accent-warning)' : 'var(--accent-error)';
+
+      html += `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px; margin-bottom: 4px; background: var(--bg-elevated); cursor: pointer;">
+          <div style="width: 4px; height: 30px; border-radius: 2px; background: ${barColor};"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${track.title}</div>
+            <div style="font-size: 10px; color: var(--text-muted);">${track.artist}</div>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">${score}%</span>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+    return html;
   },
 
   renderPlaylistsTab() {
-    const el = document.getElementById('tabPlaylists');
-    const playlists = [
-      { label: 'Set Berghain 2024', count: 12 },
-      { label: 'Outdoor Summer', count: 8 },
-    ];
-    el.innerHTML = `
-      <div class="section-header">
-        <div class="section-title">Mes Playlists</div>
-        <button class="btn-primary" style="font-size:11px;padding:4px 10px">+ Nouvelle playlist</button>
+    let html = `
+      <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Playlists</div>
+        <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">+ Nouvelle playlist</button>
       </div>
-      ${playlists.map(p => `<div class="playlist-row">
-        <span class="playlist-row-icon">💿</span>
-        <div class="playlist-row-info">
-          <div class="playlist-row-name">${p.label}</div>
-          <div class="playlist-row-count">${p.count} tracks</div>
+    `;
+
+    const playlists = [
+      { id: 'p1', label: 'Set Berghain 2024', icon: '💿', count: 12 },
+      { id: 'p2', label: 'Outdoor Summer', icon: '💿', count: 8 },
+    ];
+
+    playlists.forEach(pl => {
+      html += `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 6px; background: var(--bg-elevated);">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+            <span style="font-size: 14px;">${pl.icon}</span>
+            <span style="font-size: 13px; color: var(--text-secondary);">${pl.label}</span>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted);">${pl.count} tracks</span>
+          <button style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-default); background: var(--bg-primary); color: var(--text-secondary); font-size: 11px; cursor: pointer; margin-left: 8px;">Ouvrir</button>
         </div>
-        <button class="btn-ghost">Ouvrir</button>
-      </div>`).join('')}`;
+      `;
+    });
+
+    return html;
   },
 
   renderStatsTab() {
-    const el = document.getElementById('tabStats');
     const analyzed = MOCK_TRACKS.filter(t => t.analyzed).length;
+    const bpmValues = MOCK_TRACKS.filter(t => t.bpm).map(t => t.bpm);
+    const avgBpm = Math.round(bpmValues.reduce((a, b) => a + b, 0) / bpmValues.length);
+
+    let html = `
+      <div style="margin-bottom: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+    `;
+
     const stats = [
       { label: 'Total tracks', value: MOCK_TRACKS.length, icon: '🎵' },
-      { label: 'Analysés', value: analyzed, icon: '✅' },
-      { label: 'BPM moyen', value: '127', icon: '⚡' },
-      { label: 'Genres', value: '4', icon: '🎨' },
+      { label: 'Analysés', value: analyzed, icon: '✓' },
+      { label: 'BPM moyen', value: avgBpm, icon: '🎯' },
+      { label: 'Genres', value: new Set(MOCK_TRACKS.map(t => t.genre)).size, icon: '🏷️' },
     ];
-    const bpmBars = [20, 35, 80, 100, 75, 45, 30];
-    const bpmLabels = ['115', '118', '122', '126', '130', '134', '138'];
 
-    el.innerHTML = `
-      <div class="stats-grid">
-        ${stats.map(s => `<div class="stat-card">
-          <div class="stat-icon">${s.icon}</div>
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-label">${s.label}</div>
-        </div>`).join('')}
+    stats.forEach(stat => {
+      html += `
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 6px;">${stat.icon}</div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px;">${stat.label}</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${stat.value}</div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    // BPM distribution histogram
+    html += `
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; margin-top: 10px;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;">Distribution BPM</div>
+        <div style="display: flex; align-items: flex-end; gap: 6px; height: 80px;">
+          ${[100, 115, 130, 145].map((bpm, i) => {
+            const count = MOCK_TRACKS.filter(t => t.bpm && t.bpm >= bpm - 5 && t.bpm < bpm + 5).length;
+            const height = (count / MOCK_TRACKS.length) * 100;
+            return `
+              <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <div style="width: 100%; height: ${Math.max(height, 5)}px; background: var(--accent); border-radius: 3px;"></div>
+                <span style="font-size: 9px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">${bpm}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
-      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Distribution BPM</div>
-      <div class="bpm-histogram">
-        ${bpmBars.map(h => `<div class="bpm-bar" style="height:${h}%;background:rgba(37,99,235,0.4)"></div>`).join('')}
-      </div>
-      <div class="bpm-labels">
-        ${bpmLabels.map(l => `<span class="bpm-label">${l}</span>`).join('')}
-      </div>`;
+    `;
+
+    return html;
   },
 
   renderHistoryTab() {
-    const el = document.getElementById('tabHistory');
-    const tracks = MOCK_TRACKS.slice(0, 5).reverse();
-    el.innerHTML = `
-      <div class="section-title" style="margin-bottom:10px">Historique de lecture</div>
-      ${tracks.map((t, i) => `<div class="history-row">
-        <span class="history-num">${i + 1}</span>
-        <div class="history-info">
-          <div class="history-title">${t.title}</div>
-          <div class="history-sub">${t.artist} · Il y a ${(i + 1) * 8} min</div>
+    let html = `
+      <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">Récemment écoutés</div>
+    `;
+
+    const recent = MOCK_TRACKS.filter(t => t.analyzed).slice(0, 5).reverse();
+
+    recent.forEach((track, i) => {
+      html += `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: var(--bg-elevated); border: 1px solid var(--border-subtle);">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; min-width: 20px;">${i + 1}</span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${track.title}</div>
+            <div style="font-size: 10px; color: var(--text-muted);">${track.artist}</div>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted);">Il y a 2h</span>
+          <span style="font-size: 10px; color: var(--text-muted); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;">${track.bpm} BPM</span>
         </div>
-        ${t.bpm ? `<span class="badge badge-cyan">${t.bpm}</span>` : ''}
-      </div>`).join('')}`;
+      `;
+    });
+
+    return html;
   },
 
-  // ── Export Page ──────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAGE RENDERERS
+  // ─────────────────────────────────────────────────────────────────────────
+
   renderExportPage() {
-    const grid = document.getElementById('exportGrid');
-    grid.innerHTML = EXPORT_FORMATS.map(f => `
-      <div class="export-card">
-        ${f.popular ? '<span class="export-card-popular">POPULAIRE</span>' : ''}
-        <span class="export-card-icon">${f.icon}</span>
-        <div class="export-card-info">
-          <div class="export-card-name">${f.name}</div>
-          <div class="export-card-desc">${f.desc}</div>
+    let html = `<div style="padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">`;
+
+    EXPORT_FORMATS.forEach(format => {
+      html += `
+        <div style="
+          background: var(--bg-card);
+          border: 1px solid var(--border-subtle);
+          border-radius: 12px;
+          padding: 16px 18px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          position: relative;
+        ">
+          ${format.popular ? `<span style="position: absolute; top: 10px; right: 12px; font-size: 9px; padding: 2px 7px; border-radius: 5px; background: rgba(37,99,235,0.25); color: var(--accent); font-weight: 700;">POPULAIRE</span>` : ''}
+          <span style="font-size: 28px;">${format.icon}</span>
+          <div style="flex: 1;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">${format.name}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${format.desc}</div>
+          </div>
+          <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">Exporter</button>
         </div>
-        <button class="btn-primary" style="font-size:11px;padding:4px 10px">Exporter</button>
-      </div>
-    `).join('');
+      `;
+    });
+
+    html += `</div>`;
+    return html;
   },
 
-  // ── Set Builder Page ────────────────────────────────────────────────
   renderSetBuilderPage() {
-    const el = document.getElementById('setBuilderContent');
+    let html = `
+      <div style="padding: 20px;">
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+    `;
+
     const stats = [
       { label: 'Durée totale', value: '~48 min' },
       { label: 'BPM de départ', value: '120' },
@@ -774,87 +861,160 @@ const CueForgeApp = {
       { label: 'Transitions', value: '5' },
     ];
 
-    // Energy curve SVG
-    const points = SET_BUILDER_TRACKS.map((t, i) =>
-      `${(i / (SET_BUILDER_TRACKS.length - 1)) * 600},${60 - (t.energy / 100) * 50}`
-    ).join(' L ');
-
-    const dots = SET_BUILDER_TRACKS.map((t, i) => {
-      const color = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
-      return `<circle cx="${(i / (SET_BUILDER_TRACKS.length - 1)) * 600}" cy="${60 - (t.energy / 100) * 50}" r="4" fill="${color}"/>`;
-    }).join('');
-
-    const gradStops = SET_BUILDER_TRACKS.map((t, i) => {
-      const color = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
-      return `<stop offset="${(i / (SET_BUILDER_TRACKS.length - 1) * 100).toFixed(0)}%" stop-color="${color}" stop-opacity="0.8"/>`;
-    }).join('');
-
-    // Timeline blocks
-    const blocks = SET_BUILDER_TRACKS.map(t => {
-      const start = (t.startMin / 48) * 100;
-      const dur = parseInt(t.duration.split(':')[0]);
-      const width = (dur / 48) * 100;
-      return `<div class="timeline-block" style="left:${start}%;width:${width}%;background:${t.color}50;border:1px solid ${t.color}80">
-        <span class="timeline-block-label">${t.title}</span>
-      </div>`;
-    }).join('');
-
-    // Track list
-    const trackList = SET_BUILDER_TRACKS.map((t, i) => {
-      const kc = getKeyColor(t.key);
-      const delta = i < SET_BUILDER_TRACKS.length - 1
-        ? `<span class="set-track-delta">→ ${Math.abs(SET_BUILDER_TRACKS[i + 1].bpm - t.bpm)} BPM</span>` : '';
-      return `<div class="set-track-row">
-        <span class="set-track-num">${i + 1}</span>
-        <div class="set-track-color" style="background:${t.color}"></div>
-        <div class="set-track-info">
-          <div class="set-track-title">${t.title}</div>
-          <div class="set-track-artist">${t.artist}</div>
+    stats.forEach(stat => {
+      html += `
+        <div style="flex: 1; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-subtle); padding: 10px 16px;">
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 3px;">${stat.label}</div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">${stat.value}</div>
         </div>
-        <span class="set-track-time">${t.startMin}:00</span>
-        <span class="badge badge-cyan">${t.bpm}</span>
-        <span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span>
-        ${delta}
-        <button class="set-track-more">⋮</button>
-      </div>`;
-    }).join('');
+      `;
+    });
 
-    el.innerHTML = `
-      <!-- Stats -->
-      <div class="setbuilder-stats">
-        ${stats.map(s => `<div class="setbuilder-stat-card">
-          <div class="setbuilder-stat-label">${s.label}</div>
-          <div class="setbuilder-stat-value">${s.value}</div>
-        </div>`).join('')}
-      </div>
+    html += `</div>`;
 
-      <!-- Energy Curve -->
-      <div class="setbuilder-section">
-        <div class="setbuilder-section-title">Courbe d'énergie du set</div>
-        <div class="energy-curve">
+    // Energy curve
+    html += `
+      <div style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-subtle); padding: 16px; margin-bottom: 16px;">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;">Courbe d'énergie du set</div>
+        <div style="position: relative; height: 60px;">
           <svg width="100%" height="60" viewBox="0 0 600 60" preserveAspectRatio="none">
-            <defs><linearGradient id="energyGrad" x1="0" y1="0" x2="1" y2="0">${gradStops}</linearGradient></defs>
-            <path d="M ${points}" fill="none" stroke="url(#energyGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            ${dots}
+            <defs>
+              <linearGradient id="energyGrad" x1="0" y1="0" x2="1" y2="0">
+                ${SET_BUILDER_TRACKS.map((t, i) => {
+                  const stopColor = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
+                  const offset = (i / (SET_BUILDER_TRACKS.length - 1)) * 100;
+                  return `<stop offset="${offset}%" stop-color="${stopColor}" stop-opacity="0.8" />`;
+                }).join('')}
+              </linearGradient>
+            </defs>
+            <path
+              d="M ${SET_BUILDER_TRACKS.map((t, i) => `${(i / (SET_BUILDER_TRACKS.length - 1)) * 600},${60 - (t.energy / 100) * 50}`).join(' L ')}"
+              fill="none"
+              stroke="url(#energyGrad)"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            ${SET_BUILDER_TRACKS.map((t, i) => {
+              const color = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
+              const cx = (i / (SET_BUILDER_TRACKS.length - 1)) * 600;
+              const cy = 60 - (t.energy / 100) * 50;
+              return `<circle cx="${cx}" cy="${cy}" r="4" fill="${color}" />`;
+            }).join('')}
           </svg>
         </div>
       </div>
 
-      <!-- Timeline -->
-      <div class="setbuilder-section">
-        <div class="section-header">
-          <div class="setbuilder-section-title" style="margin:0">Timeline du set</div>
-          <div class="section-actions">
-            <button class="btn-ghost">⬆️ Ajouter track</button>
-            <button class="btn-ghost">🤖 Suggérer suite</button>
-            <button class="btn-primary" style="font-size:11px;padding:4px 10px">⬇️ Exporter tracklist</button>
+      <div style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-subtle); padding: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Timeline du set</div>
+          <div style="display: flex; gap: 6px;">
+            <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">⬆️ Ajouter track</button>
+            <button style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--bg-elevated); color: var(--text-secondary); font-size: 12px; cursor: pointer;">🤖 Suggérer suite</button>
+            <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 12px; font-weight: 600; cursor: pointer;">⬇️ Exporter tracklist</button>
           </div>
         </div>
-        <div class="timeline-ruler">
-          ${Array.from({length: 10}, (_, i) => `<div class="timeline-mark">${i * 5}min</div>`).join('')}
+
+        <div style="display: flex; border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px; margin-bottom: 8px;">
+          ${Array.from({ length: 10 }, (_, i) => `
+            <div style="flex: 1; font-size: 9px; color: var(--text-muted); text-align: center;">${i * 5}min</div>
+          `).join('')}
         </div>
-        <div class="timeline-bar">${blocks}</div>
-        <div style="margin-top:12px">${trackList}</div>
-      </div>`;
+
+        <div style="position: relative; height: 48px; background: var(--bg-elevated); border-radius: 8px; overflow: hidden; margin-bottom: 12px;">
+          ${SET_BUILDER_TRACKS.map((t, i) => {
+            const start = (t.startMin / 48) * 100;
+            const durationMin = parseInt(t.duration.split(':')[0]);
+            const width = (durationMin / 48) * 100;
+            return `
+              <div style="
+                position: absolute;
+                left: ${start}%;
+                width: ${width}%;
+                top: 4px;
+                bottom: 4px;
+                border-radius: 6px;
+                background: ${t.color}50;
+                border: 1px solid ${t.color}80;
+                display: flex;
+                align-items: center;
+                padding: 0 6px;
+                cursor: grab;
+                overflow: hidden;
+              ">
+                <span style="font-size: 9px; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.title}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="margin-top: 12px;">
+          ${SET_BUILDER_TRACKS.map((t, i) => {
+            const keyColor = CAMELOT.find(c => c.n === t.key)?.color || '#64748b';
+            return `
+              <div style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; margin-bottom: 3px; background: var(--bg-elevated); cursor: pointer;">
+                <span style="font-size: 11px; color: var(--text-muted); width: 20px; text-align: right; font-family: 'JetBrains Mono', monospace;">${i + 1}</span>
+                <div style="width: 6px; height: 24px; border-radius: 3px; background: ${t.color};"></div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.title}</div>
+                  <div style="font-size: 10px; color: var(--text-muted);">${t.artist}</div>
+                </div>
+                <span style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">${t.startMin}:00</span>
+                <span style="font-size: 10px; color: var(--accent-cyan); background: var(--accent-cyan)20; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;">${t.bpm}</span>
+                <span style="font-size: 10px; color: white; background: ${keyColor}; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${t.key}</span>
+                ${i < SET_BUILDER_TRACKS.length - 1 ? `<span style="font-size: 10px; color: var(--accent);">→ ${Math.abs(SET_BUILDER_TRACKS[i + 1].bpm - t.bpm)} BPM</span>` : ''}
+                <button style="background: none; border: none; cursor: pointer; color: var(--text-muted);">⋮</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    html += `</div>`;
+    return html;
+  },
+
+  renderUploadPage() {
+    let html = `
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="
+          border: 2px dashed rgba(37,99,235,0.37);
+          border-radius: 16px;
+          padding: 48px 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          background: rgba(37,99,235,0.03);
+          cursor: pointer;
+        ">
+          <div style="width: 64px; height: 64px; border-radius: 16px; background: rgba(37,99,235,0.12); display: flex; align-items: center; justify-content: center; font-size: 28px;">⬆️</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Glisse tes fichiers ici</div>
+          <div style="font-size: 13px; color: var(--text-muted);">MP3, WAV, FLAC, AIFF, OGG, M4A — jusqu'à 500 fichiers</div>
+          <button style="padding: 10px 20px; border-radius: 8px; border: none; background: var(--accent); color: white; font-size: 14px; font-weight: 600; cursor: pointer;">Sélectionner des fichiers</button>
+        </div>
+        <div style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-subtle); padding: 16px;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px;">Importer depuis</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+            ${['📂 Dossier local', '🎵 Rekordbox XML', '🎵 Serato', '🎵 Traktor'].map(source => `
+              <button style="
+                padding: 12px 8px;
+                border-radius: 10px;
+                border: 1px solid var(--border-default);
+                background: var(--bg-elevated);
+                color: var(--text-secondary);
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: 500;
+              ">${source}</button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    return html;
   },
 };
+
+// CueForgeApp.init() is called from index.html after login (via showApp → CueForgeApp.init())
