@@ -906,6 +906,572 @@
     .btn-save { padding: 8px 20px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; }
     .btn-save:hover { opacity: 0.85; }
     .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Sync Indicator ───────────────────────────────────── */
+    .sync-indicator {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; font-size: 12px; color: var(--text-muted);
+    }
+    .sync-icon { font-size: 14px; }
+    .sync-label { flex: 1; font-size: 11px; }
+    .sync-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 14px; transition: color 0.15s;
+    }
+    .sync-btn:hover { color: var(--accent); }
+    .sync-btn.spinning { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .sync-indicator.online .sync-icon { color: #34d399; }
+    .sync-indicator.offline .sync-icon { color: #f59e0b; }
+    .sync-indicator.syncing .sync-icon { color: #60a5fa; animation: pulse 1.5s infinite; }
+
+    /* ── Page header (shared by new pages) ─────────────────── */
+    .page-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 20px 24px 16px;
+    }
+    .page-header-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0; color: white;
+    }
+    .page-header-text { flex: 1; }
+    .page-header-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+    .page-header-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .page-header-actions { display: flex; gap: 8px; }
+    .btn-primary {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 10px; border: none;
+      background: var(--accent); color: white; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 10px;
+      border: 1px solid var(--border-default); background: var(--bg-card);
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--text-primary); }
+
+    /* ── Compatible Page ───────────────────────────────────── */
+    .compat-container { padding: 0 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .compat-selector {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px; position: relative;
+    }
+    .compat-selector-btn {
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 13px; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .compat-selector-btn:hover { border-color: var(--accent); }
+    .compat-selector-btn .chevron { margin-left: auto; color: var(--text-muted); transition: transform 0.2s; }
+    .compat-selector-btn.open .chevron { transform: rotate(180deg); }
+    .compat-dropdown {
+      display: none; position: absolute; left: 16px; right: 16px; top: calc(100% - 8px);
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 10px; max-height: 240px; overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4); z-index: 20;
+    }
+    .compat-dropdown.show { display: block; }
+    .compat-dropdown-search {
+      padding: 8px; border-bottom: 1px solid var(--border-subtle); position: sticky; top: 0;
+      background: var(--bg-elevated);
+    }
+    .compat-dropdown-search input {
+      width: 100%; padding: 7px 10px; border-radius: 6px;
+      border: 1px solid var(--border-subtle); background: var(--bg-primary);
+      color: var(--text-primary); font-size: 12px; outline: none;
+    }
+    .compat-dropdown-search input:focus { border-color: var(--accent); }
+    .compat-dropdown-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; cursor: pointer; transition: background 0.1s;
+      border: none; background: none; width: 100%; text-align: left; color: var(--text-primary); font-size: 13px;
+    }
+    .compat-dropdown-item:hover { background: var(--bg-hover); }
+    .compat-dropdown-item.selected { background: rgba(37,99,235,0.1); }
+    .compat-dropdown-item .track-meta { font-size: 11px; color: var(--text-muted); margin-left: auto; font-family: var(--font-mono); }
+
+    .compat-results {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; overflow: hidden;
+    }
+    .compat-results-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .compat-results-header .icon { color: #a78bfa; font-size: 16px; }
+    .compat-results-header .title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .compat-results-header .count { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+    .compat-cols {
+      display: grid; grid-template-columns: 2fr 70px 70px 80px 90px;
+      gap: 8px; padding: 8px 16px; font-size: 10px; font-weight: 600;
+      color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .compat-row {
+      display: grid; grid-template-columns: 2fr 70px 70px 80px 90px;
+      gap: 8px; padding: 10px 16px; align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer; transition: background 0.1s;
+    }
+    .compat-row:hover { background: var(--bg-hover); }
+    .compat-row:last-child { border-bottom: none; }
+    .compat-track-info { min-width: 0; }
+    .compat-track-title { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .compat-track-artist { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .compat-bpm { font-size: 13px; font-family: var(--font-mono); color: var(--text-primary); text-align: right; }
+    .compat-camelot {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600; font-family: var(--font-mono); color: white; text-align: center;
+    }
+    .compat-stars { display: flex; gap: 3px; }
+    .compat-star { width: 8px; height: 8px; border-radius: 50%; }
+    .compat-star.filled { background: #a78bfa; }
+    .compat-star.empty { background: var(--border-subtle); }
+    .score-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    }
+    .score-excellent { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .score-good { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .score-possible { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .score-risky { background: rgba(239,68,68,0.15); color: #f87171; }
+
+    .compat-empty {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px; text-align: center; color: var(--text-muted);
+    }
+    .compat-empty-icon { font-size: 40px; opacity: 0.3; margin-bottom: 12px; }
+
+    /* ── Playlists Page ────────────────────────────────────── */
+    .playlists-container { padding: 0 24px 24px; }
+    .playlists-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .playlist-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px; cursor: pointer;
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .playlist-card:hover { border-color: rgba(59,130,246,0.4); box-shadow: 0 0 20px rgba(59,130,246,0.08); }
+    .playlist-card-art {
+      width: 100%; aspect-ratio: 1; border-radius: 10px; margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--bg-elevated), var(--bg-hover));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; color: var(--text-muted);
+    }
+    .playlist-card-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .playlist-card-count { font-size: 12px; color: var(--text-muted); }
+    .playlist-card-menu {
+      position: absolute; top: 12px; right: 12px; opacity: 0;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 6px; padding: 4px; cursor: pointer; color: var(--text-muted);
+      transition: opacity 0.15s; font-size: 14px;
+    }
+    .playlist-card:hover .playlist-card-menu { opacity: 1; }
+    .playlist-card-menu:hover { color: var(--text-primary); }
+
+    .playlist-detail { display: none; }
+    .playlist-detail.active { display: flex; flex-direction: column; }
+    .playlist-detail-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 0; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;
+    }
+    .playlist-back-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 16px; padding: 4px;
+      transition: color 0.15s;
+    }
+    .playlist-back-btn:hover { color: var(--text-primary); }
+    .playlist-detail-name { font-size: 18px; font-weight: 700; color: var(--text-primary); flex: 1; }
+    .playlist-track-count { font-size: 12px; color: var(--text-muted); }
+
+    .playlist-create-form {
+      display: none; background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px; margin-bottom: 16px;
+    }
+    .playlist-create-form.show { display: flex; align-items: center; gap: 8px; }
+    .playlist-create-form input {
+      flex: 1; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 13px; outline: none;
+    }
+    .playlist-create-form input:focus { border-color: var(--accent); }
+
+    .playlists-empty {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 64px 24px; text-align: center;
+    }
+    .playlists-empty-icon { font-size: 48px; opacity: 0.25; margin-bottom: 16px; }
+    .playlists-empty h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .playlists-empty p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+    /* ── Smart Crates Page ─────────────────────────────────── */
+    .crates-container { padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }
+
+    .crate-create-form {
+      display: none; background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 20px;
+    }
+    .crate-create-form.show { display: block; }
+    .crate-form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .crate-form-row input {
+      flex: 1; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 13px; outline: none;
+    }
+    .crate-form-row input:focus { border-color: #a78bfa; }
+
+    .rules-section { margin-bottom: 12px; }
+    .rules-section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .rule-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 0;
+    }
+    .rule-row select, .rule-row input {
+      padding: 6px 8px; border-radius: 6px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 12px; outline: none;
+    }
+    .rule-row select:focus, .rule-row input:focus { border-color: #a78bfa; }
+    .rule-row select { min-width: 100px; }
+    .rule-row input[type="number"] { width: 70px; }
+    .rule-row input[type="text"] { flex: 1; min-width: 80px; }
+    .rule-delete-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 14px; padding: 4px;
+      transition: color 0.15s;
+    }
+    .rule-delete-btn:hover { color: #ef4444; }
+    .add-rule-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      border: 1px dashed var(--border-default); background: none;
+      color: var(--text-muted); font-size: 12px; cursor: pointer;
+      transition: all 0.15s; margin-top: 4px;
+    }
+    .add-rule-btn:hover { color: #a78bfa; border-color: #a78bfa; }
+
+    .crate-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; overflow: hidden; transition: border-color 0.2s;
+    }
+    .crate-card.expanded { border-color: rgba(139,92,246,0.4); }
+    .crate-card-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 16px; cursor: pointer; transition: background 0.1s;
+    }
+    .crate-card-header:hover { background: var(--bg-hover); }
+    .crate-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .crate-card-name { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; }
+    .crate-card-meta { display: flex; align-items: center; gap: 8px; }
+    .crate-card-meta span { font-size: 11px; color: var(--text-muted); }
+    .crate-card-delete {
+      opacity: 0; background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 13px; padding: 4px;
+      transition: all 0.15s;
+    }
+    .crate-card-header:hover .crate-card-delete { opacity: 1; }
+    .crate-card-delete:hover { color: #ef4444; }
+    .crate-card-chevron { color: var(--text-muted); font-size: 12px; transition: transform 0.2s; }
+    .crate-card.expanded .crate-card-chevron { transform: rotate(180deg); }
+
+    .crate-rule-tags {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      padding: 0 16px 10px;
+    }
+    .crate-rule-tag {
+      display: inline-flex; padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 600;
+    }
+
+    .crate-card-body {
+      display: none; border-top: 1px solid var(--border-subtle);
+    }
+    .crate-card.expanded .crate-card-body { display: block; }
+    .crate-track-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.1s;
+    }
+    .crate-track-row:hover { background: var(--bg-hover); }
+    .crate-track-row:last-child { border-bottom: none; }
+    .crate-track-icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0;
+    }
+    .crate-track-title { font-size: 13px; font-weight: 500; color: var(--text-primary); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .crate-track-artist { font-size: 11px; color: var(--text-muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+    .crate-track-bpm { font-size: 12px; font-family: var(--font-mono); color: var(--text-primary); text-align: right; min-width: 45px; }
+    .crate-track-key {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 600; font-family: var(--font-mono); color: white;
+    }
+
+    .crates-empty {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px; text-align: center;
+    }
+    .crates-empty-icon { font-size: 48px; opacity: 0.25; margin-bottom: 16px; }
+
+    /* ── Gig Prep Page ─────────────────────────────────────── */
+    .gig-container { padding: 0 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    .gig-tabs {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+    }
+    .gig-tab {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px 14px; border-radius: 10px;
+      border: 1px solid var(--border-subtle); background: var(--bg-card);
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      transition: all 0.15s; min-width: 120px; white-space: nowrap;
+    }
+    .gig-tab:hover { border-color: var(--border-default); }
+    .gig-tab.active { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.4); color: var(--text-primary); }
+    .gig-tab-name { font-weight: 600; font-size: 13px; }
+    .gig-tab-meta { font-size: 10px; color: var(--text-muted); }
+
+    .gig-progress-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px;
+    }
+    .gig-progress-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .gig-progress-pct { font-family: var(--font-mono); }
+    .gig-progress-bar { height: 10px; background: var(--bg-primary); border-radius: 5px; overflow: hidden; }
+    .gig-progress-fill { height: 100%; border-radius: 5px; transition: width 0.3s; }
+
+    .gig-info-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 20px;
+    }
+    .gig-form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .gig-field { display: flex; flex-direction: column; gap: 4px; }
+    .gig-field label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .gig-field input, .gig-field select {
+      padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 13px; outline: none;
+    }
+    .gig-field input:focus, .gig-field select:focus { border-color: #a78bfa; }
+
+    .gig-checklist-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; overflow: hidden;
+    }
+    .gig-category-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; cursor: pointer; transition: background 0.1s;
+    }
+    .gig-category-header:hover { background: var(--bg-hover); }
+    .gig-category-emoji { font-size: 16px; }
+    .gig-category-name { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; }
+    .gig-category-badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px;
+      background: var(--bg-elevated); color: var(--text-muted); font-family: var(--font-mono);
+    }
+    .gig-category-badge.complete { background: rgba(16,185,129,0.15); color: #34d399; }
+    .gig-category-chevron { color: var(--text-muted); font-size: 12px; transition: transform 0.2s; }
+    .gig-category-header.expanded .gig-category-chevron { transform: rotate(180deg); }
+
+    .gig-category-items { display: none; border-top: 1px solid var(--border-subtle); }
+    .gig-category-header.expanded + .gig-category-items { display: block; }
+    .gig-check-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; transition: background 0.1s;
+    }
+    .gig-check-item:hover { background: var(--bg-hover); }
+    .gig-check-btn {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid var(--border-default); background: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: transparent; transition: all 0.15s;
+    }
+    .gig-check-btn.checked { border-color: #34d399; background: #34d399; color: white; }
+    .gig-check-label { font-size: 13px; color: var(--text-primary); flex: 1; }
+    .gig-check-item.checked .gig-check-label { text-decoration: line-through; color: var(--text-muted); }
+    .gig-check-delete {
+      opacity: 0; background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 12px; transition: all 0.15s;
+    }
+    .gig-check-item:hover .gig-check-delete { opacity: 1; }
+    .gig-check-delete:hover { color: #ef4444; }
+    .gig-add-item-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border: none; background: none;
+      color: var(--text-muted); font-size: 12px; cursor: pointer;
+      transition: color 0.15s; width: 100%;
+    }
+    .gig-add-item-btn:hover { color: var(--text-primary); }
+
+    .gig-empty {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 64px 24px; text-align: center;
+    }
+    .gig-empty-icon { font-size: 48px; opacity: 0.25; margin-bottom: 16px; }
+
+    /* ── DJ Tools Page ─────────────────────────────────────── */
+    .tools-container { padding: 0 24px 24px; }
+    .tools-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .tool-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 20px; display: flex; flex-direction: column;
+    }
+    .tool-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+    }
+    .tool-card-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0; color: white;
+    }
+    .tool-card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .tool-card-badge { font-size: 10px; color: var(--text-muted); margin-left: auto; font-family: var(--font-mono); }
+
+    /* BPM Tap Tempo */
+    .bpm-tap-area { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .bpm-tap-btn {
+      width: 120px; height: 120px; border-radius: 50%;
+      border: 3px solid var(--border-default); background: var(--bg-elevated);
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      transition: all 0.15s; position: relative;
+    }
+    .bpm-tap-btn:active, .bpm-tap-btn.active { border-color: #ec4899; box-shadow: 0 0 30px rgba(236,72,153,0.3); }
+    .bpm-tap-btn .bpm-value { font-size: 28px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
+    .bpm-tap-btn .bpm-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+    .bpm-tap-info { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); }
+    .bpm-tap-info button {
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-secondary); font-size: 11px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .bpm-tap-info button:hover { border-color: var(--accent); color: var(--text-primary); }
+    .bpm-variants {
+      display: flex; gap: 8px; font-family: var(--font-mono); font-size: 11px;
+    }
+    .bpm-variant {
+      padding: 4px 10px; border-radius: 6px;
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      color: var(--text-secondary); text-align: center;
+    }
+    .bpm-variant-label { font-size: 9px; color: var(--text-muted); }
+
+    /* Crate Digger */
+    .digger-modes {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px;
+    }
+    .digger-mode {
+      padding: 8px 10px; border-radius: 8px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      cursor: pointer; transition: all 0.15s; text-align: left;
+    }
+    .digger-mode:hover { border-color: var(--accent); }
+    .digger-mode.active { border-color: #60a5fa; background: rgba(59,130,246,0.1); }
+    .digger-mode-name { font-size: 12px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+    .digger-mode-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .digger-go-btn {
+      width: 100%; padding: 10px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white; font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: opacity 0.15s; margin-bottom: 12px;
+    }
+    .digger-go-btn:hover { opacity: 0.9; }
+    .digger-results { display: flex; flex-direction: column; gap: 4px; }
+    .digger-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px; border-radius: 8px; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .digger-item:hover { background: var(--bg-hover); }
+    .digger-num { font-size: 12px; font-weight: 700; color: var(--text-muted); width: 20px; text-align: center; }
+    .digger-item-info { flex: 1; min-width: 0; }
+    .digger-item-title { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .digger-item-meta { font-size: 11px; color: var(--text-muted); }
+    .digger-energy-bar { width: 40px; height: 6px; border-radius: 3px; background: var(--bg-primary); overflow: hidden; }
+    .digger-energy-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); }
+
+    /* Quick Notes */
+    .notes-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .notes-input-row input {
+      flex: 1; padding: 8px 12px; border-radius: 8px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 12px; outline: none;
+    }
+    .notes-input-row input:focus { border-color: #eab308; }
+    .notes-input-row button {
+      padding: 8px 12px; border-radius: 8px; border: none;
+      background: rgba(234,179,8,0.15); color: #eab308;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .notes-colors { display: flex; gap: 6px; margin-bottom: 10px; }
+    .notes-color-btn {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid transparent; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .notes-color-btn.active { border-color: white; }
+    .notes-list { display: flex; flex-direction: column; gap: 4px; max-height: 250px; overflow-y: auto; }
+    .note-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 8px 10px; border-radius: 8px;
+      border-left: 3px solid; background: var(--bg-elevated);
+      position: relative;
+    }
+    .note-text { font-size: 12px; color: var(--text-primary); flex: 1; }
+    .note-time { font-size: 10px; color: var(--text-muted); }
+    .note-delete {
+      opacity: 0; position: absolute; top: 4px; right: 4px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 11px;
+    }
+    .note-item:hover .note-delete { opacity: 1; }
+    .note-delete:hover { color: #ef4444; }
+
+    /* Harmonic Wheel */
+    .wheel-container { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .wheel-svg { width: 100%; max-width: 280px; }
+    .wheel-info { text-align: center; }
+    .wheel-key-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; font-family: var(--font-mono);
+      background: rgba(139,92,246,0.15); color: #a78bfa;
+    }
+    .wheel-legend { display: flex; gap: 12px; justify-content: center; font-size: 10px; color: var(--text-muted); }
+    .wheel-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 4px; }
+
+    /* Energy Flow */
+    .energy-flow-container { position: relative; }
+    .energy-flow-svg { width: 100%; height: 180px; }
+    .energy-flow-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;
+    }
+    .energy-stat {
+      text-align: center; padding: 8px; border-radius: 8px;
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    }
+    .energy-stat-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+    .energy-stat-label { font-size: 10px; color: var(--text-muted); }
+    .energy-legend {
+      display: flex; gap: 8px; justify-content: center; margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .energy-legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); }
+    .energy-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
   </style>
 </head>
 <body>
@@ -949,6 +1515,11 @@
         <div class="sidebar-section-title">Navigation</div>
         <button class="nav-item active" data-nav="dashboard"><span class="nav-icon">&#x1f4ca;</span><span class="nav-label">Dashboard</span><span class="nav-dot"></span></button>
         <button class="nav-item" data-nav="setbuilder"><span class="nav-icon">&#x2b1a;</span><span class="nav-label">Set Builder</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="compatible"><span class="nav-icon">&#x1f500;</span><span class="nav-label">Mix compatible</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="playlists"><span class="nav-icon">&#x1f3b6;</span><span class="nav-label">Playlists</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="crates"><span class="nav-icon">&#x1f4da;</span><span class="nav-label">Smart Crates</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="gigprep"><span class="nav-icon">&#x26a1;</span><span class="nav-label">Prépa Gig</span><span class="nav-dot"></span></button>
+        <button class="nav-item" data-nav="tools"><span class="nav-icon">&#x1f527;</span><span class="nav-label">Outils DJ</span><span class="nav-dot"></span></button>
         <button class="nav-item" data-nav="upload"><span class="nav-icon">&#x2b06;</span><span class="nav-label">Importer</span><span class="nav-dot"></span></button>
         <button class="nav-item" data-nav="export"><span class="nav-icon">&#x2b07;</span><span class="nav-label">Exporter</span><span class="nav-dot"></span></button>
 
@@ -961,12 +1532,11 @@
 
         <div class="sidebar-divider"></div>
 
-        <div class="sidebar-section-title">Smart Crates</div>
-        <div id="smartCrates">
-          <button class="crate-item" data-crate="peak"><span class="crate-dot" style="background:#ef4444"></span><span class="crate-label">Peak Hour</span></button>
-          <button class="crate-item" data-crate="warmup"><span class="crate-dot" style="background:#f97316"></span><span class="crate-label">Warm-Up</span></button>
-          <button class="crate-item" data-crate="vocal"><span class="crate-dot" style="background:#8b5cf6"></span><span class="crate-label">Avec voix</span></button>
+        <div class="sidebar-section-header">
+          <span class="sidebar-section-title" style="padding:0">Smart Crates</span>
+          <button class="sidebar-add-btn" id="addCrateBtn" title="Nouveau smart crate">+</button>
         </div>
+        <div id="smartCrates"></div>
 
         <div class="sidebar-divider"></div>
 
@@ -986,6 +1556,14 @@
         <div class="sidebar-section-title">Compte</div>
         <button class="nav-item" data-nav="settings"><span class="nav-icon">&#x2699;</span><span class="nav-label">Paramètres</span><span class="nav-dot"></span></button>
         <button class="nav-item" data-nav="admin" id="navAdmin" style="display:none"><span class="nav-icon">&#x1f6e1;</span><span class="nav-label">Admin</span><span class="nav-dot"></span></button>
+
+        <!-- Sync indicator -->
+        <div class="sidebar-divider"></div>
+        <div class="sync-indicator" id="syncIndicator">
+          <span class="sync-icon" id="syncIcon">&#x2601;</span>
+          <span class="sync-label" id="syncLabel">Synchronisé</span>
+          <button class="sync-btn" id="syncBtn" title="Synchroniser">&#x21bb;</button>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -1188,6 +1766,273 @@
         <div class="page-view" id="viewAdmin">
           <div id="adminContent"></div>
         </div>
+
+        <!-- Mix Compatible -->
+        <div class="page-view" id="viewCompatible">
+          <div class="page-header">
+            <div class="page-header-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">&#x1f500;</div>
+            <div class="page-header-text">
+              <div class="page-header-title">Mix Compatible</div>
+              <div class="page-header-desc">Trouve les tracks harmoniquement compatibles</div>
+            </div>
+          </div>
+          <div class="compat-container">
+            <div class="compat-selector">
+              <button class="compat-selector-btn" id="compatSelectorBtn">
+                <span>&#x1f3b5;</span>
+                <span id="compatSelectedLabel">Sélectionne un track de référence…</span>
+                <span class="chevron">&#x25BE;</span>
+              </button>
+              <div class="compat-dropdown" id="compatDropdown">
+                <div class="compat-dropdown-search">
+                  <input type="text" id="compatSearchInput" placeholder="Rechercher un track…">
+                </div>
+                <div id="compatDropdownList"></div>
+              </div>
+            </div>
+            <div id="compatResultsArea">
+              <div class="compat-empty" id="compatEmpty">
+                <div class="compat-empty-icon">&#x1f500;</div>
+                <p style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">Sélectionne un track</p>
+                <p style="font-size:12px">pour voir les tracks compatibles pour ton mix</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Playlists -->
+        <div class="page-view" id="viewPlaylists">
+          <div class="page-header">
+            <div class="page-header-icon" style="background:linear-gradient(135deg,#2563eb,#3b82f6)">&#x1f3b6;</div>
+            <div class="page-header-text">
+              <div class="page-header-title">Playlists <span id="playlistsCount" style="font-size:13px;color:var(--text-muted);font-weight:400"></span></div>
+              <div class="page-header-desc">Organise tes tracks en playlists</div>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn-primary" id="newPlaylistPageBtn">+ Nouvelle playlist</button>
+            </div>
+          </div>
+          <div class="playlists-container">
+            <div class="playlist-create-form" id="playlistCreateForm">
+              <span style="font-size:16px">&#x1f3b6;</span>
+              <input type="text" id="playlistCreateInput" placeholder="Nom de la playlist…">
+              <button class="btn-primary" id="playlistCreateOk" style="padding:8px 14px">&#x2713;</button>
+              <button class="btn-secondary" id="playlistCreateCancel" style="padding:8px 14px">&#x2715;</button>
+            </div>
+            <div id="playlistsGrid" class="playlists-grid"></div>
+            <div id="playlistDetailView" class="playlist-detail"></div>
+            <div class="playlists-empty" id="playlistsEmpty" style="display:none">
+              <div class="playlists-empty-icon">&#x1f3b6;</div>
+              <h3>Aucune playlist</h3>
+              <p>Crée ta première playlist pour organiser tes tracks</p>
+              <button class="btn-primary" id="playlistsEmptyBtn">+ Créer une playlist</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smart Crates -->
+        <div class="page-view" id="viewCrates">
+          <div class="page-header">
+            <div class="page-header-icon" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">&#x1f4da;</div>
+            <div class="page-header-text">
+              <div class="page-header-title">Smart Crates</div>
+              <div class="page-header-desc">Filtrage automatique par règles — BPM, énergie, genre, tonalité…</div>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn-primary" id="newCratePageBtn" style="background:#7c3aed">+ Nouveau Crate</button>
+            </div>
+          </div>
+          <div class="crates-container">
+            <div class="crate-create-form" id="crateCreateForm">
+              <div class="crate-form-row">
+                <input type="text" id="crateNameInput" placeholder="Nom du smart crate…">
+                <button class="btn-primary" id="crateCreateOk" style="background:#7c3aed;padding:8px 14px">Créer</button>
+                <button class="btn-secondary" id="crateCreateCancel" style="padding:8px 14px">&#x2715;</button>
+              </div>
+              <div class="rules-section">
+                <div class="rules-section-title">Règles</div>
+                <div id="crateRulesContainer"></div>
+                <button class="add-rule-btn" id="addRuleBtn">+ Ajouter une règle</button>
+              </div>
+            </div>
+            <div id="cratesList"></div>
+            <div class="crates-empty" id="cratesEmpty" style="display:none">
+              <div class="crates-empty-icon">&#x1f4da;</div>
+              <h3 style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Aucun smart crate</h3>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Crée des crates avec des règles pour filtrer tes tracks automatiquement</p>
+              <button class="btn-primary" id="cratesEmptyBtn" style="background:#7c3aed">+ Créer un Smart Crate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gig Prep -->
+        <div class="page-view" id="viewGigprep">
+          <div class="page-header">
+            <div class="page-header-icon" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">&#x26a1;</div>
+            <div class="page-header-text">
+              <div class="page-header-title">Préparation de Gig</div>
+              <div class="page-header-desc">Organise et prépare tes performances</div>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn-primary" id="newGigBtn" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">+ Nouveau Gig</button>
+            </div>
+          </div>
+          <div class="gig-container">
+            <div class="gig-tabs" id="gigTabs"></div>
+            <div id="gigContent">
+              <div class="gig-empty" id="gigEmpty">
+                <div class="gig-empty-icon">&#x26a1;</div>
+                <h3 style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px">Aucun gig prévu</h3>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Crée un gig pour commencer à préparer ta performance</p>
+                <button class="btn-primary" id="gigEmptyBtn" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">+ Créer un Gig</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DJ Tools -->
+        <div class="page-view" id="viewTools">
+          <div class="page-header">
+            <div class="page-header-icon" style="background:linear-gradient(135deg,#0891b2,#2563eb)">&#x1f527;</div>
+            <div class="page-header-text">
+              <div class="page-header-title">Outils DJ</div>
+              <div class="page-header-desc">Tap Tempo, Crate Digger, Harmonic Wheel et plus</div>
+            </div>
+          </div>
+          <div class="tools-container">
+            <div class="tools-grid">
+
+              <!-- BPM Tap Tempo -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon" style="background:linear-gradient(135deg,#ec4899,#f43f5e)">&#x1f3af;</div>
+                  <div class="tool-card-title">BPM Tap Tempo</div>
+                  <div class="tool-card-badge">Appuie T ou clique</div>
+                </div>
+                <div class="bpm-tap-area">
+                  <button class="bpm-tap-btn" id="bpmTapBtn">
+                    <span class="bpm-value" id="bpmValue">TAP</span>
+                    <span class="bpm-label" id="bpmTapLabel">BPM</span>
+                  </button>
+                  <div class="bpm-tap-info">
+                    <span id="bpmTapCount">0 taps</span>
+                    <button id="bpmCopyBtn">Copier</button>
+                    <button id="bpmResetBtn">Reset</button>
+                  </div>
+                  <div class="bpm-variants" id="bpmVariants">
+                    <div class="bpm-variant"><div class="bpm-variant-label">÷2</div><div id="bpmHalf">—</div></div>
+                    <div class="bpm-variant" style="border-color:var(--accent)"><div class="bpm-variant-label">×1</div><div id="bpmNormal">—</div></div>
+                    <div class="bpm-variant"><div class="bpm-variant-label">×2</div><div id="bpmDouble">—</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Crate Digger -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon" style="background:linear-gradient(135deg,#2563eb,#7c3aed)">&#x1f4e6;</div>
+                  <div class="tool-card-title">Crate Digger</div>
+                  <div class="tool-card-badge" id="digCount">0 digs</div>
+                </div>
+                <div class="digger-modes" id="diggerModes">
+                  <button class="digger-mode active" data-mode="random">
+                    <div class="digger-mode-name">&#x1f500; Aléatoire</div>
+                    <div class="digger-mode-desc">Découverte au hasard</div>
+                  </button>
+                  <button class="digger-mode" data-mode="energy">
+                    <div class="digger-mode-name">&#x26a1; Énergie</div>
+                    <div class="digger-mode-desc">Voyage énergétique</div>
+                  </button>
+                  <button class="digger-mode" data-mode="genre">
+                    <div class="digger-mode-name">&#x1f3b5; Genre</div>
+                    <div class="digger-mode-desc">Explorer par genre</div>
+                  </button>
+                  <button class="digger-mode" data-mode="gems">
+                    <div class="digger-mode-name">&#x2b50; Pépites</div>
+                    <div class="digger-mode-desc">Tracks cachées</div>
+                  </button>
+                </div>
+                <button class="digger-go-btn" id="digBtn">&#x1f4e6; Dig!</button>
+                <div class="digger-results" id="diggerResults"></div>
+              </div>
+
+              <!-- Quick Notes -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon" style="background:linear-gradient(135deg,#eab308,#f59e0b)">&#x1f4dd;</div>
+                  <div class="tool-card-title">Quick Notes</div>
+                  <div class="tool-card-badge" id="notesCount">0 notes</div>
+                </div>
+                <div class="notes-input-row">
+                  <input type="text" id="noteInput" placeholder="Ajouter une note…">
+                  <button id="noteAddBtn">+ Ajouter</button>
+                </div>
+                <div class="notes-colors" id="noteColors">
+                  <button class="notes-color-btn active" data-color="#eab308" style="background:#eab308"></button>
+                  <button class="notes-color-btn" data-color="#3b82f6" style="background:#3b82f6"></button>
+                  <button class="notes-color-btn" data-color="#22c55e" style="background:#22c55e"></button>
+                  <button class="notes-color-btn" data-color="#ef4444" style="background:#ef4444"></button>
+                  <button class="notes-color-btn" data-color="#a78bfa" style="background:#a78bfa"></button>
+                </div>
+                <div class="notes-list" id="notesList"></div>
+              </div>
+
+              <!-- Harmonic Wheel -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">&#x1f3a1;</div>
+                  <div class="tool-card-title">Harmonic Wheel</div>
+                  <div id="wheelKeyBadge"></div>
+                </div>
+                <div class="wheel-container">
+                  <svg class="wheel-svg" id="harmonicWheelSvg" viewBox="0 0 300 300"></svg>
+                  <div class="wheel-info" id="wheelInfo">
+                    <p style="font-size:12px;color:var(--text-muted)">Clique sur une section pour voir les tonalités compatibles</p>
+                  </div>
+                  <div class="wheel-legend">
+                    <span><span class="wheel-legend-dot" style="background:#a78bfa"></span> Compatible</span>
+                    <span><span class="wheel-legend-dot" style="background:white;border:1px solid var(--border-default)"></span> Sélectionné</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Energy Flow -->
+              <div class="tool-card" style="grid-column: span 2">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">&#x1f4c8;</div>
+                  <div class="tool-card-title">Energy Flow</div>
+                  <div class="tool-card-badge" id="energyTrackCount">0 tracks</div>
+                </div>
+                <div class="energy-flow-container">
+                  <svg class="energy-flow-svg" id="energyFlowSvg" viewBox="0 0 800 180" preserveAspectRatio="none"></svg>
+                  <div class="energy-flow-stats" id="energyStats">
+                    <div class="energy-stat">
+                      <div class="energy-stat-value" id="energyAvg">—</div>
+                      <div class="energy-stat-label">Moyenne</div>
+                    </div>
+                    <div class="energy-stat">
+                      <div class="energy-stat-value" id="energyMaxBuild">—</div>
+                      <div class="energy-stat-label">&#x2197; Max Build</div>
+                    </div>
+                    <div class="energy-stat">
+                      <div class="energy-stat-value" id="energyMaxDrop">—</div>
+                      <div class="energy-stat-label">&#x2198; Max Drop</div>
+                    </div>
+                  </div>
+                  <div class="energy-legend">
+                    <div class="energy-legend-item"><div class="energy-legend-dot" style="background:#6366f1"></div>Ambient</div>
+                    <div class="energy-legend-item"><div class="energy-legend-dot" style="background:#3b82f6"></div>Chill</div>
+                    <div class="energy-legend-item"><div class="energy-legend-dot" style="background:#22c55e"></div>Warm</div>
+                    <div class="energy-legend-item"><div class="energy-legend-dot" style="background:#f59e0b"></div>Hot</div>
+                    <div class="energy-legend-item"><div class="energy-legend-dot" style="background:#ef4444"></div>Peak</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -1207,6 +2052,7 @@
   <script src="./djTools.js"></script>
   <script src="./settingsAdmin.js"></script>
   <script src="./audioAnalyzer.js"></script>
+  <script src="./pages.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════════════
@@ -1373,6 +2219,11 @@
       const titles = {
         dashboard: ['Dashboard', 'Prépare et analyse tes sets'],
         setbuilder: ['Set Builder', 'Construis et planifie tes sets'],
+        compatible: ['Mix Compatible', 'Trouve les tracks harmoniquement compatibles'],
+        playlists: ['Playlists', 'Organise tes tracks en playlists'],
+        crates: ['Smart Crates', 'Filtrage automatique par règles'],
+        gigprep: ['Prépa Gig', 'Organise et prépare tes performances'],
+        tools: ['Outils DJ', 'Tap Tempo, Crate Digger et plus'],
         upload: ['Importer', 'Ajoute des tracks à ta bibliothèque'],
         export: ['Exporter', 'Exporte vers ton logiciel DJ'],
         settings: ['Paramètres', 'Gère ton compte et tes préférences'],
