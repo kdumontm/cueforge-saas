@@ -459,15 +459,15 @@ export default function WaveSurferPlayer({
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(progress * w, 0, w - progress * w, h);
 
-      // Beat grid — downbeats every 4 beats are brighter
+      // Beat grid — rouge style Rekordbox (downbeats plus marqués)
       if (beatPositions.length > 0 && dur > 0) {
         beatPositions.forEach((bMs, idx) => {
           const xPos = (bMs / 1000 / dur) * w;
           const isDownbeat = idx % 4 === 0;
-          ctx.strokeStyle = isDownbeat ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.12)';
-          ctx.lineWidth = isDownbeat ? 1 : 0.5;
+          ctx.strokeStyle = isDownbeat ? 'rgba(255,60,60,0.75)' : 'rgba(255,60,60,0.30)';
+          ctx.lineWidth = isDownbeat ? 1.5 : 0.75;
           ctx.beginPath();
-          ctx.moveTo(xPos, isDownbeat ? 0 : h * 0.6);
+          ctx.moveTo(xPos, isDownbeat ? 0 : h * 0.5);
           ctx.lineTo(xPos, h);
           ctx.stroke();
         });
@@ -506,20 +506,22 @@ export default function WaveSurferPlayer({
       const startTime = currentT - visSec / 2;
       const secPerPx = visSec / w;
 
-      // Beat grid
-      const bpm = bpmRef.current;
-      if (bpm && bpm > 0) {
-        const beatInt = 60 / bpm;
-        const barInt = beatInt * 4;
-        const firstBeat = Math.floor(Math.max(0, startTime) / beatInt) * beatInt;
-        for (let t = firstBeat; t < startTime + visSec; t += beatInt) {
-          if (t < 0) continue;
-          const x = (t - startTime) / secPerPx;
-          if (x < 0 || x >= w) continue;
-          const isBar = Math.abs((t / barInt) - Math.round(t / barInt)) < 0.01;
-          ctx.strokeStyle = isBar ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
-          ctx.lineWidth = isBar ? 1 : 0.5;
-          ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, h); ctx.stroke();
+      // Beat grid (fallback BPM calculé si pas de beatPositions)
+      if (beatPositions.length === 0) {
+        const bpm = bpmRef.current;
+        if (bpm && bpm > 0) {
+          const beatInt = 60 / bpm;
+          const barInt = beatInt * 4;
+          const firstBeat = Math.floor(Math.max(0, startTime) / beatInt) * beatInt;
+          for (let t = firstBeat; t < startTime + visSec; t += beatInt) {
+            if (t < 0) continue;
+            const x = (t - startTime) / secPerPx;
+            if (x < 0 || x >= w) continue;
+            const isBar = Math.abs((t / barInt) - Math.round(t / barInt)) < 0.01;
+            ctx.strokeStyle = isBar ? 'rgba(255,60,60,0.70)' : 'rgba(255,60,60,0.25)';
+            ctx.lineWidth = isBar ? 1.5 : 0.75;
+            ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, isBar ? 0 : h * 0.45); ctx.lineTo(Math.round(x) + 0.5, h); ctx.stroke();
+          }
         }
       }
 
@@ -610,17 +612,17 @@ export default function WaveSurferPlayer({
         }
       }
 
-      // Beat grid — visible dans la vue détaillée
+      // Beat grid — rouge style Rekordbox (downbeats = 1er temps de chaque mesure)
       if (beatPositions.length > 0) {
         beatPositions.forEach((bMs, idx) => {
           const bT = bMs / 1000;
           const x = (bT - startTime) / secPerPx;
           if (x < -2 || x >= w + 2) return;
           const isDownbeat = idx % 4 === 0;
-          ctx.strokeStyle = isDownbeat ? 'rgba(255,255,255,0.40)' : 'rgba(255,255,255,0.15)';
-          ctx.lineWidth = isDownbeat ? 1 : 0.5;
+          ctx.strokeStyle = isDownbeat ? 'rgba(255,60,60,0.85)' : 'rgba(255,60,60,0.35)';
+          ctx.lineWidth = isDownbeat ? 1.5 : 0.75;
           ctx.beginPath();
-          ctx.moveTo(x, isDownbeat ? 0 : h * 0.55);
+          ctx.moveTo(x, isDownbeat ? 0 : h * 0.45);
           ctx.lineTo(x, h);
           ctx.stroke();
         });
