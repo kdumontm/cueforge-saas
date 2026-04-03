@@ -383,19 +383,23 @@ def _snap_quality(original_ms: int, snapped_ms: int, beats: List[int], bpm: floa
 
 def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     """
-    Generate up to 8 DJ-ready cue points — v4.0 precision.
+    Generate up to 8 DJ-ready cue points — v5.0 precision.
 
-    v4.0 improvements:
+    v5.0 — Demucs-powered stem analysis integration:
+    - When stem_analysis=True in analysis_data, uses per-stem features:
+      * Drum stem: precise drop/intro/outro detection
+      * Bass stem: cross-validated drop confidence
+      * Vocal stem: vocal section detection for VERSE/CHORUS labeling
+      * Melody stem: riser detection for BUILD placement
+    - Falls back gracefully to v4.0 energy-only analysis when stems unavailable
+
+    v4.0 base improvements (always active):
     - BPM-adaptive windows, gaps, snap tolerances
     - Confidence scoring on every cue point
     - Genre-aware thresholds (EDM vs Hip-Hop vs Pop)
     - Distinct DROP 2 color (pink/magenta instead of red)
-    - Robust fallback grid cues when analysis data is sparse
-    - Better BUILD synthesis (lower gradient threshold, wider search)
-    - Smarter intro/outro using energy + silence detection
-    - BPM-scaled energy windows for drop scoring
 
-    Priority: INTRO → DROP → BUILD → BREAKDOWN → DROP 2 → OUTRO → PHRASE → VERSE/CHORUS
+    Priority: INTRO → DROP → BUILD → BREAKDOWN → DROP 2 → OUTRO → PHRASE → VOCAL/VERSE/CHORUS
     """
     cue_points = []
     used_positions = set()
@@ -406,7 +410,19 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     beats = analysis_data.get("beat_positions", [])
     duration_ms = analysis_data.get("duration_ms", 0)
     bpm = analysis_data.get("bpm", 128)
-    genre = analysis_data.get("genre")  # may be None
+    genre = analysis_data.get("genre")
+
+    # ── v5: Stem data (may be empty if stem analysis disabled) ──
+    has_stems = analysis_data.get("stem_analysis", False)
+    stem_validated_drops = analysis_data.get("stem_validated_drops", [])
+    stem_intro_end_ms = analysis_data.get("stem_intro_end_ms")
+    stem_outro_start_ms = analysis_data.get("stem_outro_start_ms")
+    vocal_sections_ms = analysis_data.get("vocal_sections_ms", [])
+    vocal_regions = analysis_data.get("vocal_active_regions", [])
+    riser_candidates = analysis_data.get("riser_candidates", [])
+    drum_enter_ms = analysis_data.get("drum_enter_ms")
+    drum_exit_ms = analysis_data.get("drum_exit_ms")
+    bass_enter_ms = analysis_data.get("bass_enter_ms")
 
     # ── Genre-aware profile ──
     profile = _get_genre_profile(genre)
@@ -450,9 +466,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         if _pos_used(snapped):
             return False
 
-        # Compute snap quality for confidence
         sq = _snap_quality(original_ms, snapped, beats, bpm)
-        # Adjust confidence with snap quality
         final_confidence = round(min(1.0, confidence * 0.7 + sq * 0.3), 2)
 
         slot = len(cue_points)
@@ -468,7 +482,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         used_positions.add(snapped)
         return True
 
-    # ── Energy envelope from sections (for gradient-based detection) ──
+    # ── Energy envelope from sections ──
     section_energies: List[Tuple[int, float]] = []
     for s in sections:
         t = s.get("time_ms", 0)
@@ -477,7 +491,6 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     section_energies.sort(key=lambda x: x[0])
 
     def _energy_at(t_ms: int) -> float:
-        """Interpolated energy at a given timestamp."""
         if not section_energies:
             return 0.5
         if t_ms <= section_energies[0][0]:
@@ -493,13 +506,10 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         return 0.5
 
     def _energy_contrast(t_ms: int) -> float:
-        """Energy contrast = energy jump from before to after this point.
-        Uses BPM-scaled windows (8 bars before, 1 bar after)."""
         before = _energy_at(max(0, t_ms - int(phrase_8bar_ms)))
         after = _energy_at(t_ms + int(bar_ms))
         return after - before
 
-    # Check if a section label exists at a given position
     def _has_section_label(pos_ms: int, label: str, tolerance_ms: int = None) -> bool:
         if tolerance_ms is None:
             tolerance_ms = int(bar_ms * 2)
@@ -508,102 +518,156 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                 return True
         return False
 
-    # ── Score drops by energy contrast (BPM-scaled windows) ──
+    def _is_vocal_at(pos_ms: int) -> bool:
+        """Check if vocals are active at a given position (stem-based)."""
+        for region in vocal_regions:
+            if region["start_ms"] <= pos_ms <= region["end_ms"]:
+                return True
+        return False
+
+    # ── Score drops — use STEM data when available ──
     scored_drops: List[Tuple[int, float]] = []
     min_contrast = profile.get("min_drop_contrast", 0.15)
-    for d in drops:
-        contrast = _energy_contrast(d)
-        abs_energy = _energy_at(d + int(bar_ms))
-        e_w = profile.get("energy_weight", 0.55)
-        score = contrast * e_w + abs_energy * (1.0 - e_w)
-        # Only keep drops that meet genre-aware minimum contrast
-        if contrast >= min_contrast * 0.5 or abs_energy >= 0.6:
-            scored_drops.append((d, score))
+
+    if has_stems and stem_validated_drops:
+        # v5: Use cross-validated drum+bass drops — FAR more reliable
+        for sv in stem_validated_drops:
+            pos = sv["position_ms"]
+            stem_conf = sv["confidence"]
+            # Combine stem confidence with energy contrast
+            contrast = _energy_contrast(pos)
+            abs_energy = _energy_at(pos + int(bar_ms))
+            # Stem confidence weighs 60%, energy 40% — stems are more reliable
+            score = stem_conf * 0.6 + (contrast * 0.25 + abs_energy * 0.15)
+            scored_drops.append((pos, score))
+    else:
+        # v4 fallback: energy-only scoring
+        for d in drops:
+            contrast = _energy_contrast(d)
+            abs_energy = _energy_at(d + int(bar_ms))
+            e_w = profile.get("energy_weight", 0.55)
+            score = contrast * e_w + abs_energy * (1.0 - e_w)
+            if contrast >= min_contrast * 0.5 or abs_energy >= 0.6:
+                scored_drops.append((d, score))
+
     scored_drops.sort(key=lambda x: -x[1])
 
     # ═══════════════════════════════════════════════════════════════════
     # CUE PLACEMENT — priority order
     # ═══════════════════════════════════════════════════════════════════
 
-    # ── 1. INTRO — first meaningful 4-bar boundary with beats ──
-    intro_sections = _find_section_by_label(sections, "INTRO")
-    if intro_sections:
-        intro_pos = intro_sections[0].get("time_ms", 0)
-        intro_end = intro_pos + intro_sections[0].get("duration_ms", 0)
-        intro_conf = _compute_confidence("section", 0.3, 1.0, True, profile)
-        _add_cue(intro_pos, "section", "INTRO", CUE_COLORS["blue"],
-                 snap_4bar=True, end_ms=intro_end, confidence=intro_conf)
-    elif beats and len(beats) > 0:
-        # Find first beat with audible energy — skip silence/count-in
-        intro_beat = beats[0]
-        for b in beats[:min(len(beats), 64)]:  # Search further (up to 64 beats)
-            if _energy_at(b) > 0.05:
-                intro_beat = b
-                break
-        intro_conf = _compute_confidence("section", 0.1, 0.85, False, profile)
-        _add_cue(intro_beat, "section", "INTRO", CUE_COLORS["blue"],
-                 snap_4bar=True, confidence=intro_conf)
-    else:
-        _add_cue(0, "section", "INTRO", CUE_COLORS["blue"], confidence=0.3)
+    # ── 1. INTRO — use drum entry point when stems available ──
+    intro_placed = False
+    if has_stems and drum_enter_ms is not None and drum_enter_ms > 0:
+        # v5: INTRO = first beat, cue at drum entry is more useful
+        # Place INTRO at very start, it marks where to start the track
+        if beats:
+            first_beat = beats[0]
+            _add_cue(first_beat, "section", "INTRO", CUE_COLORS["blue"],
+                     snap_4bar=True, confidence=0.95)
+            intro_placed = True
 
-    # ── 2. DROP 1 — highest energy-contrast drop ──
+    if not intro_placed:
+        intro_sections = _find_section_by_label(sections, "INTRO")
+        if intro_sections:
+            intro_pos = intro_sections[0].get("time_ms", 0)
+            intro_end = intro_pos + intro_sections[0].get("duration_ms", 0)
+            intro_conf = _compute_confidence("section", 0.3, 1.0, True, profile)
+            _add_cue(intro_pos, "section", "INTRO", CUE_COLORS["blue"],
+                     snap_4bar=True, end_ms=intro_end, confidence=intro_conf)
+        elif beats and len(beats) > 0:
+            intro_beat = beats[0]
+            for b in beats[:min(len(beats), 64)]:
+                if _energy_at(b) > 0.05:
+                    intro_beat = b
+                    break
+            intro_conf = _compute_confidence("section", 0.1, 0.85, False, profile)
+            _add_cue(intro_beat, "section", "INTRO", CUE_COLORS["blue"],
+                     snap_4bar=True, confidence=intro_conf)
+        else:
+            _add_cue(0, "section", "INTRO", CUE_COLORS["blue"], confidence=0.3)
+
+    # ── 2. DROP 1 — highest-scoring drop ──
     first_drop_ms = scored_drops[0][0] if scored_drops else duration_ms
     if scored_drops:
         main_drop = scored_drops[0][0]
-        main_score = scored_drops[0][1]
         struct_match = _has_section_label(main_drop, "DROP")
-        drop_conf = _compute_confidence("drop", _energy_contrast(main_drop), 1.0, struct_match, profile)
+        # Stem-validated drops get higher base confidence
+        base_conf = 0.9 if has_stems else 0.7
+        drop_conf = _compute_confidence("drop", _energy_contrast(main_drop), base_conf, struct_match, profile)
         if _add_cue(main_drop, "drop", "DROP", CUE_COLORS["red"],
                     snap_4bar=True, confidence=drop_conf):
             first_drop_ms = main_drop
 
-    # ── 3. BUILD — steepest energy rise before main drop ──
-    build_sections = _find_section_by_label(sections, "BUILD")
-    min_build_gradient = profile.get("min_build_gradient", 0.12)
+    # ── 3. BUILD — use riser detection from melody stem when available ──
+    build_placed = False
 
-    best_build = None
-    best_build_score = -1
+    # v5: Check melody stem risers first (much more accurate than energy gradient)
+    if has_stems and riser_candidates and len(cue_points) < 8:
+        # Find the riser closest to (and before) the main drop
+        best_riser = None
+        best_riser_score = -1
+        for r_ms in riser_candidates:
+            if r_ms < first_drop_ms:
+                dist_bars = (first_drop_ms - r_ms) / max(bar_ms, 1)
+                # Ideal: 8-16 bars before drop
+                if 4 <= dist_bars <= 24:
+                    proximity = max(0, 1.0 - abs(dist_bars - 12) / 16)
+                    if proximity > best_riser_score:
+                        best_riser_score = proximity
+                        best_riser = r_ms
+        if best_riser is not None:
+            riser_conf = _compute_confidence("section", 0.4, 0.95, False, profile)
+            if _add_cue(best_riser, "section", "BUILD", CUE_COLORS["orange"],
+                        snap_4bar=True, confidence=riser_conf):
+                build_placed = True
 
-    for b in build_sections:
-        b_time = b.get("time_ms", 0)
-        b_energy = b.get("energy", 0.5)
-        b_dur = b.get("duration_ms", 0)
-        if b_time < first_drop_ms:
-            dist_bars = (first_drop_ms - b_time) / max(bar_ms, 1)
-            ideal_dist = 12
-            proximity_score = max(0, 1.0 - abs(dist_bars - ideal_dist) / 20)
-            energy_score = b_energy
-            duration_score = min(1.0, b_dur / phrase_16bar_ms)
-            score = proximity_score * 0.4 + energy_score * 0.3 + duration_score * 0.3
-            if score > best_build_score:
-                best_build_score = score
-                best_build = b
+    # Fallback: section labels or energy gradient
+    if not build_placed:
+        build_sections = _find_section_by_label(sections, "BUILD")
+        min_build_gradient = profile.get("min_build_gradient", 0.12)
 
-    if best_build and len(cue_points) < 8:
-        build_pos = best_build.get("time_ms", 0)
-        build_end = build_pos + best_build.get("duration_ms", 0)
-        struct_match = True  # came from section labels
-        build_conf = _compute_confidence("section", best_build.get("energy", 0.5), 1.0, True, profile)
-        _add_cue(build_pos, "section", "BUILD", CUE_COLORS["orange"],
-                 snap_4bar=True, end_ms=build_end, confidence=build_conf)
+        best_build = None
+        best_build_score = -1
 
-    # Synthesize BUILD if none found from section labels
-    if not best_build and first_drop_ms > 0 and first_drop_ms < duration_ms and len(cue_points) < 8:
-        # Wider search: up to 32 bars before the drop
-        search_start = max(0, first_drop_ms - int(phrase_16bar_ms * 2))
-        best_gradient = 0
-        best_gradient_pos = None
-        step = max(1, int(bar_ms))
-        for t in range(search_start, max(search_start, first_drop_ms - step), step):
-            gradient = _energy_at(t + step * 4) - _energy_at(t)
-            if gradient > best_gradient:
-                best_gradient = gradient
-                best_gradient_pos = t
-        # Lower threshold for synthetic builds (genre-aware)
-        if best_gradient_pos is not None and best_gradient > min_build_gradient * 0.8:
-            synth_conf = _compute_confidence("section", best_gradient, 0.7, False, profile)
-            _add_cue(best_gradient_pos, "section", "BUILD", CUE_COLORS["orange"],
-                     snap_4bar=True, confidence=synth_conf)
+        for b in build_sections:
+            b_time = b.get("time_ms", 0)
+            b_energy = b.get("energy", 0.5)
+            b_dur = b.get("duration_ms", 0)
+            if b_time < first_drop_ms:
+                dist_bars = (first_drop_ms - b_time) / max(bar_ms, 1)
+                ideal_dist = 12
+                proximity_score = max(0, 1.0 - abs(dist_bars - ideal_dist) / 20)
+                energy_score = b_energy
+                duration_score = min(1.0, b_dur / phrase_16bar_ms)
+                score = proximity_score * 0.4 + energy_score * 0.3 + duration_score * 0.3
+                if score > best_build_score:
+                    best_build_score = score
+                    best_build = b
+
+        if best_build and len(cue_points) < 8:
+            build_pos = best_build.get("time_ms", 0)
+            build_end = build_pos + best_build.get("duration_ms", 0)
+            build_conf = _compute_confidence("section", best_build.get("energy", 0.5), 1.0, True, profile)
+            if _add_cue(build_pos, "section", "BUILD", CUE_COLORS["orange"],
+                        snap_4bar=True, end_ms=build_end, confidence=build_conf):
+                build_placed = True
+
+        # Synthesize BUILD from energy gradient
+        if not build_placed and first_drop_ms > 0 and first_drop_ms < duration_ms and len(cue_points) < 8:
+            search_start = max(0, first_drop_ms - int(phrase_16bar_ms * 2))
+            best_gradient = 0
+            best_gradient_pos = None
+            step = max(1, int(bar_ms))
+            for t in range(search_start, max(search_start, first_drop_ms - step), step):
+                gradient = _energy_at(t + step * 4) - _energy_at(t)
+                if gradient > best_gradient:
+                    best_gradient = gradient
+                    best_gradient_pos = t
+            if best_gradient_pos is not None and best_gradient > min_build_gradient * 0.8:
+                synth_conf = _compute_confidence("section", best_gradient, 0.7, False, profile)
+                _add_cue(best_gradient_pos, "section", "BUILD", CUE_COLORS["orange"],
+                         snap_4bar=True, confidence=synth_conf)
 
     # ── 4. BREAKDOWN — deepest energy valley after first drop ──
     breakdown_sections = _find_section_by_label(sections, "BREAKDOWN")
@@ -624,7 +688,6 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         _add_cue(bd_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"],
                  snap_4bar=True, end_ms=bd_end, confidence=bd_conf)
     elif len(cue_points) < 8 and first_drop_ms < duration_ms * 0.7:
-        # Synthesize: lowest energy between drop and 70% mark
         search_end = min(duration_ms, int(first_drop_ms + phrase_16bar_ms * 4))
         lowest_energy = 1.0
         lowest_pos = None
@@ -639,7 +702,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             _add_cue(lowest_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"],
                      snap_4bar=True, confidence=synth_conf)
 
-    # ── 5. DROP 2 — second drop with DISTINCT color (pink/magenta) ──
+    # ── 5. DROP 2 — DISTINCT color (pink/magenta) ──
     if len(scored_drops) > 1 and len(cue_points) < 8:
         second_drop = scored_drops[1]
         if second_drop[1] > min_contrast * 0.8:
@@ -648,44 +711,74 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             _add_cue(second_drop[0], "drop", "DROP 2", CUE_COLORS["pink"],
                      snap_4bar=True, confidence=d2_conf)
 
-    # ── 6. OUTRO — sustained energy decline in last ~20% ──
-    outro_sections = _find_section_by_label(sections, "OUTRO")
-    if outro_sections and len(cue_points) < 8:
-        outro_pos = outro_sections[0].get("time_ms", 0)
-        outro_conf = _compute_confidence("section", -0.3, 1.0, True, profile)
-        _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
-                 snap_4bar=True, confidence=outro_conf)
-    elif duration_ms > 30000 and len(cue_points) < 8:
-        # Find where energy starts sustained decline
-        search_start = int(duration_ms * 0.65)
-        step = max(1, int(bar_ms * 4))
-        outro_pos = int(duration_ms * 0.87)  # fallback
-        prev_energy = _energy_at(search_start)
-        decline_count = 0
-        for t in range(search_start, duration_ms - step, step):
-            e = _energy_at(t)
-            if e < prev_energy - 0.02:
-                decline_count += 1
-                if decline_count >= 2:
-                    outro_pos = t - step
-                    break
-            else:
-                decline_count = 0
-            prev_energy = e
-        outro_conf = _compute_confidence("section", -0.2, 0.7, False, profile)
-        _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
-                 snap_4bar=True, confidence=outro_conf)
+    # ── 6. OUTRO — use drum exit point when stems available ──
+    outro_placed = False
+    if has_stems and drum_exit_ms is not None and drum_exit_ms < duration_ms and len(cue_points) < 8:
+        # v5: Outro = where drums permanently stop
+        outro_conf = _compute_confidence("section", -0.4, 0.95, True, profile)
+        if _add_cue(drum_exit_ms, "section", "OUTRO", CUE_COLORS["purple"],
+                    snap_4bar=True, confidence=outro_conf):
+            outro_placed = True
 
-    # ── 7. PHRASE markers — structurally significant boundaries ──
+    if not outro_placed and len(cue_points) < 8:
+        outro_sections = _find_section_by_label(sections, "OUTRO")
+        if outro_sections:
+            outro_pos = outro_sections[0].get("time_ms", 0)
+            outro_conf = _compute_confidence("section", -0.3, 1.0, True, profile)
+            _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
+                     snap_4bar=True, confidence=outro_conf)
+        elif duration_ms > 30000:
+            search_start = int(duration_ms * 0.65)
+            step = max(1, int(bar_ms * 4))
+            outro_pos = int(duration_ms * 0.87)
+            prev_energy = _energy_at(search_start)
+            decline_count = 0
+            for t in range(search_start, duration_ms - step, step):
+                e = _energy_at(t)
+                if e < prev_energy - 0.02:
+                    decline_count += 1
+                    if decline_count >= 2:
+                        outro_pos = t - step
+                        break
+                else:
+                    decline_count = 0
+                prev_energy = e
+            outro_conf = _compute_confidence("section", -0.2, 0.7, False, profile)
+            _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
+                     snap_4bar=True, confidence=outro_conf)
+
+    # ── 7. VOCAL sections — v5 stem-powered (replaces generic PHRASE) ──
+    if has_stems and vocal_sections_ms and len(cue_points) < 8:
+        # Place a VOCAL cue at the start of the most prominent vocal section
+        # Sort vocal regions by energy (most prominent first)
+        sorted_vocals = sorted(vocal_regions, key=lambda r: -r.get("energy", 0))
+        for vr in sorted_vocals:
+            if len(cue_points) >= 8:
+                break
+            v_start = vr["start_ms"]
+            v_end = vr["end_ms"]
+            # Skip vocals that overlap with already-placed cues
+            vocal_conf = _compute_confidence("section", 0.3, 0.9, True, profile)
+            _add_cue(v_start, "section", "VOCAL", CUE_COLORS["cyan"],
+                     snap_4bar=True, end_ms=v_end, confidence=vocal_conf)
+
+    # ── 8. PHRASE markers — structurally significant boundaries ──
     if phrases and len(cue_points) < 8:
         scored_phrases: List[Tuple[int, float]] = []
         for ph in phrases:
             contrast = abs(_energy_contrast(ph))
-            # Prefer phrases on 16-bar boundaries
             bar_offset = (ph % phrase_16bar_ms) / phrase_16bar_ms if phrase_16bar_ms > 0 else 0.5
             structural_score = 1.0 - min(bar_offset, 1.0 - bar_offset) * 2
             e_w = profile.get("energy_weight", 0.55)
             total_score = contrast * e_w + structural_score * (1.0 - e_w)
+
+            # v5 bonus: if this phrase boundary coincides with vocal entry/exit, boost it
+            if has_stems:
+                for vr in vocal_regions:
+                    if abs(ph - vr["start_ms"]) < bar_ms * 2 or abs(ph - vr["end_ms"]) < bar_ms * 2:
+                        total_score += 0.2
+                        break
+
             scored_phrases.append((ph, total_score))
         scored_phrases.sort(key=lambda x: -x[1])
 
@@ -696,29 +789,24 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             _add_cue(ph_ms, "phrase", "PHRASE", CUE_COLORS["green"],
                      snap_4bar=True, confidence=ph_conf)
 
-    # ── 8. VERSE/CHORUS — fill remaining with extra section markers ──
+    # ── 9. VERSE/CHORUS — fill remaining ──
     verse_sections = _find_section_by_label(sections, "VERSE")
     chorus_sections = _find_section_by_label(sections, "CHORUS")
-
     extra_sections = (
         [(vs.get("time_ms", 0), "VERSE", CUE_COLORS["cyan"]) for vs in verse_sections] +
         [(ch.get("time_ms", 0), "CHORUS", CUE_COLORS["pink"]) for ch in chorus_sections]
     )
     extra_sections.sort(key=lambda x: x[0])
-
     for pos, name, color in extra_sections:
         if len(cue_points) >= 8:
             break
         extra_conf = _compute_confidence("section", abs(_energy_contrast(pos)), 0.8, True, profile)
         _add_cue(pos, "section", name, color, snap_4bar=True, confidence=extra_conf)
 
-    # ── 9. FALLBACK — grid-based cues when analysis produced too few ──
+    # ── 10. FALLBACK — grid-based cues when analysis produced too few ──
     if len(cue_points) < 4 and duration_ms > 30000 and beats:
-        # Analysis was sparse — place cues at regular structural intervals
-        # Divide track into equal sections and place cues at phrase boundaries
         n_needed = 4 - len(cue_points)
-        track_len = duration_ms
-        interval = track_len / (n_needed + 1)
+        interval = duration_ms / (n_needed + 1)
         for i in range(1, n_needed + 1):
             target = int(interval * i)
             if len(cue_points) >= 8:

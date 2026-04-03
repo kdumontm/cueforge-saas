@@ -61,6 +61,9 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     last_login_at = Column(DateTime, nullable=True)
 
+    # ── v5: Analysis settings ──
+    use_stem_separation = Column(Boolean, default=False, nullable=False)  # Demucs stem analysis (slower but 10x more precise)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

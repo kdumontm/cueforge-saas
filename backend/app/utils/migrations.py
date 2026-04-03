@@ -28,6 +28,8 @@ PENDING_MIGRATIONS = {
         # Profile
         "avatar_url": "VARCHAR(500)",
         "last_login_at": "TIMESTAMP",
+        # v5: Analysis settings
+        "use_stem_separation": "BOOLEAN NOT NULL DEFAULT FALSE",
     },
     "cue_points": {
         # Cue customization columns

@@ -1276,10 +1276,13 @@ def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
         "genre_scores": {k: round(v, 1) for k, v in sorted_genres[:5]},
     }
 
-def analyze_audio(file_path: str) -> Dict:
+def analyze_audio(file_path: str, use_stem_separation: bool = False) -> Dict:
     """
-    Full audio analysis pipeline v3.0
+    Full audio analysis pipeline v5.0
     Loads audio ONCE, runs all analysis with beat-synchronous features.
+
+    If use_stem_separation=True, also runs Demucs stem separation for
+    ultra-precise drop/vocal/build detection (adds ~30-60s on CPU).
     """
     y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION)
     # Get REAL file duration (not limited by MAX_DURATION)
@@ -1426,8 +1429,19 @@ def analyze_audio(file_path: str) -> Dict:
     del y
     gc.collect()
 
+    # ── v5: Stem separation analysis (Demucs) — optional ──────────────
+    stem_data = {}
+    if use_stem_separation:
+        try:
+            from app.services.stem_analysis import analyze_stems
+            logger.info(f"[STEM] Running Demucs stem analysis for {file_path}")
+            stem_data = analyze_stems(file_path, beats)
+            logger.info(f"[STEM] Stem analysis complete")
+        except Exception as e:
+            logger.warning(f"[STEM] Stem analysis failed (falling back to standard): {e}")
+            stem_data = {"stem_analysis": False}
 
-    return {
+    result = {
         "bpm": bpm,
         "bpm_confidence": key_confidence,
         "key": key,
@@ -1454,3 +1468,9 @@ def analyze_audio(file_path: str) -> Dict:
         "danceability": mood_data.get("danceability"),
         "auto_loops": auto_loops,
     }
+
+    # Merge stem data into result if available
+    if stem_data:
+        result.update(stem_data)
+
+    return result

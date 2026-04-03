@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { User, Lock, CreditCard, Disc3, Keyboard, ArrowLeft, Save, ChevronRight, Music2, Download, Zap, Palette, Bell } from "lucide-react";
-import { getMyProfile, updateMyProfile, UserProfile } from "@/lib/api";
+import { getMyProfile, updateMyProfile, updateUserSettings, UserProfile } from "@/lib/api";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -363,6 +363,42 @@ export default function SettingsPage() {
                     <button onClick={() => saveDjPrefs({ ...djPrefs, showEnergyBars: !djPrefs.showEnergyBars })}
                       className={`w-11 h-6 rounded-full transition-colors cursor-pointer border-none ${djPrefs.showEnergyBars ? 'bg-blue-600' : 'bg-[var(--bg-elevated)]'}`}>
                       <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${djPrefs.showEnergyBars ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+
+                  {/* Stem Separation (Demucs) — server-side setting */}
+                  <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-gradient-to-r from-purple-600/5 to-pink-600/5 border border-purple-500/20">
+                    <div>
+                      <div className="text-sm font-medium text-[var(--text-primary)] flex items-center gap-1.5">
+                        <Zap size={12} className="text-purple-400" />
+                        Séparation de stems (Demucs IA)
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-600/20 text-purple-400 border border-purple-500/30 uppercase">Pro</span>
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                        Sépare drums/bass/voix/mélodie pour des cue points ultra-précis.
+                        <br/>
+                        <span className="text-purple-400/70">+30-60s d'analyse par track — résultats 10x plus précis</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const newVal = !profile?.use_stem_separation;
+                          const updated = await updateUserSettings({ use_stem_separation: newVal });
+                          setProfile(updated);
+                          showMessage("success", newVal
+                            ? "Séparation de stems activée — les prochaines analyses utiliseront Demucs"
+                            : "Séparation de stems désactivée — analyse standard");
+                        } catch (err: any) {
+                          showMessage("error", err.message || "Erreur");
+                        }
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors cursor-pointer border-none flex-shrink-0 ${
+                        profile?.use_stem_separation ? 'bg-purple-600' : 'bg-[var(--bg-elevated)]'
+                      }`}>
+                      <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                        profile?.use_stem_separation ? 'translate-x-5' : 'translate-x-0.5'
+                      }`} />
                     </button>
                   </div>
 

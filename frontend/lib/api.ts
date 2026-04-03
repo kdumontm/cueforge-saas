@@ -648,6 +648,7 @@ export interface UserProfile {
   name: string | null;
   subscription_plan: string;
   is_admin: boolean;
+  use_stem_separation?: boolean;
 }
 
 export async function getMyProfile(): Promise<UserProfile> {
@@ -678,6 +679,22 @@ export async function updateMyProfile(data: UpdateProfileData): Promise<UserProf
   return response.json();
 }
 
+
+
+// ── User Analysis Settings ──────────────────────────────────────────────────
+
+export async function updateUserSettings(data: { use_stem_separation?: boolean }): Promise<UserProfile> {
+  const response = await authFetch(`${API_URL}/auth/me/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Failed to update settings" }));
+    throw new Error(err.detail || "Failed to update settings");
+  }
+  return response.json();
+}
 
 
 // ── Cue Points CRUD ───────────────────────────────────────────────────────

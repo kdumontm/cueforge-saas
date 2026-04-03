@@ -97,9 +97,14 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     organization_id: Optional[int] = None
     org_role: str = "member"
+    use_stem_separation: bool = False
 
     class Config:
         from_attributes = True
+
+
+class UserSettingsUpdate(BaseModel):
+    use_stem_separation: Optional[bool] = None
 
 
 class TokenResponse(BaseModel):
@@ -361,6 +366,27 @@ async def update_me(
             send_verification_email(user.email, token)  # send plaintext to user
         except Exception:
             pass
+    db.commit()
+    db.refresh(user)
+    return UserResponse.model_validate(user)
+
+
+# ─── User settings (analysis preferences) ────────────────────────
+
+
+@router.patch("/me/settings", response_model=UserResponse)
+async def update_settings(
+    settings: UserSettingsUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update user analysis settings.
+    Currently supports:
+    - use_stem_separation: enable Demucs stem separation for ultra-precise cue points
+    """
+    if settings.use_stem_separation is not None:
+        user.use_stem_separation = settings.use_stem_separation
     db.commit()
     db.refresh(user)
     return UserResponse.model_validate(user)

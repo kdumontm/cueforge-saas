@@ -383,8 +383,18 @@ def _run_analysis(track_id: int):
         track.status = TrackStatus.analyzing
         db.commit()
 
+        # v5: Check user's stem separation preference
+        use_stems = False
         try:
-            analysis_data = analysis_svc.analyze_audio(file_path)
+            user = db.query(User).filter(User.id == track.user_id).first()
+            if user and getattr(user, 'use_stem_separation', False):
+                use_stems = True
+                logger.info(f"[STEM] Stem separation enabled for user {user.id}")
+        except Exception:
+            pass
+
+        try:
+            analysis_data = analysis_svc.analyze_audio(file_path, use_stem_separation=use_stems)
         except Exception as e:
             logger.error(f"Audio analysis failed for track {track_id}: {e}")
             track.status = TrackStatus.failed
@@ -452,6 +462,7 @@ def _run_analysis(track_id: int):
                     name=cp["name"],
                     color=cp.get("color", "red"),
                     number=cp.get("number"),
+                    confidence=cp.get("confidence"),
                 )
                 db.add(cue)
         except Exception as e:
