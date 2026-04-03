@@ -17,7 +17,7 @@ const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 
 // ─── Configuration ──────────────────────────────────────────
-const PROD_URL = 'https://cueforge-saas-production.up.railway.app';
+const PROD_URL = 'https://exquisite-art-production-f4c6.up.railway.app';
 const APP_NAME = 'CueForge';
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -411,7 +411,7 @@ function setupNotifications() {
 function setupOfflineCache() {
   // Intercepter les requêtes pour mise en cache
   session.defaultSession.webRequest.onCompleted(
-    { urls: ['*://cueforge-saas-production.up.railway.app/*'] },
+    { urls: ['*://exquisite-art-production-f4c6.up.railway.app/*'] },
     (details) => {
       if (details.statusCode === 200 && details.method === 'GET') {
         // Stocker les URLs consultées pour le cache
