@@ -534,60 +534,104 @@ export default function DashboardV2() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stemsStatus?.status]);
 
-  // Track si les stems sont en train de jouer (pour garder WaveSurfer muté)
-  const stemsPlayingRef = useRef(false);
+  // Ref vers les listeners natifs pour cleanup
+  const stemNativeListenersRef = useRef<{
+    play: () => void;
+    pause: () => void;
+    seeked: () => void;
+  } | null>(null);
 
-  const handleStemPlay = useCallback(() => {
+  // Attacher les listeners natifs sur l'audio WaveSurfer dès que les stems sont chargés
+  useEffect(() => {
     if (!stemsLoadedRef.current) return;
-    const entries = Object.entries(stemAudioMapRef.current);
-    if (!entries.length) return;
-    stemsPlayingRef.current = true;
-    // Muter WaveSurfer — les stems deviennent la seule source audio
-    playerRef.current?.setVolume?.(0);
-    const t = stemLastTimeRef.current;
-    entries.forEach(([key, a]) => {
-      a.currentTime = t;
-      if (!stemMutedRef.current.has(key)) {
-        a.play().catch(() => {});
+
+    // Attendre que playerRef soit prêt
+    const attach = () => {
+      const audio = playerRef.current?.getAudio?.();
+      if (!audio) return;
+
+      // Cleanup des anciens listeners
+      if (stemNativeListenersRef.current) {
+        audio.removeEventListener('play', stemNativeListenersRef.current.play);
+        audio.removeEventListener('pause', stemNativeListenersRef.current.pause);
+        audio.removeEventListener('seeked', stemNativeListenersRef.current.seeked);
       }
-    });
+
+      const onPlay = () => {
+        if (!stemsLoadedRef.current) return;
+        // Muter WaveSurfer, lancer tous les stems non-muted en sync
+        playerRef.current?.setVolume?.(0);
+        const t = audio.currentTime;
+        Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
+          a.currentTime = t;
+          if (!stemMutedRef.current.has(key)) {
+            a.play().catch(() => {});
+          }
+        });
+      };
+
+      const onPause = () => {
+        if (!stemsLoadedRef.current) return;
+        // Ne pas réagir si c'est un seek (audio.seeking = true pendant seeked)
+        if (audio.seeking) return;
+        // Pause réelle → pauser tous les stems + restaurer volume WaveSurfer
+        Object.values(stemAudioMapRef.current).forEach(a => a.pause());
+        playerRef.current?.setVolume?.(1);
+      };
+
+      const onSeeked = () => {
+        if (!stemsLoadedRef.current) return;
+        // Repositionner tous les stems à la nouvelle position (pause ou lecture)
+        const t = audio.currentTime;
+        Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
+          a.currentTime = t;
+          // Si WaveSurfer joue, relancer les stems non-muted
+          if (!audio.paused && !stemMutedRef.current.has(key)) {
+            a.play().catch(() => {});
+          }
+        });
+      };
+
+      audio.addEventListener('play', onPlay);
+      audio.addEventListener('pause', onPause);
+      audio.addEventListener('seeked', onSeeked);
+      stemNativeListenersRef.current = { play: onPlay, pause: onPause, seeked: onSeeked };
+    };
+
+    // Petit délai pour laisser playerRef se monter
+    const timer = setTimeout(attach, 100);
+    return () => clearTimeout(timer);
+  }, [stemsStatus?.status]); // se re-attache quand les stems changent
+
+  // Cleanup listeners quand on change de track
+  useEffect(() => {
+    return () => {
+      const audio = playerRef.current?.getAudio?.();
+      if (audio && stemNativeListenersRef.current) {
+        audio.removeEventListener('play', stemNativeListenersRef.current.play);
+        audio.removeEventListener('pause', stemNativeListenersRef.current.pause);
+        audio.removeEventListener('seeked', stemNativeListenersRef.current.seeked);
+        stemNativeListenersRef.current = null;
+      }
+    };
   }, []);
 
+  // handleStemPlay: déclenché par onPlay du PlayerCard (garde compatibilité)
+  const handleStemPlay = useCallback(() => {
+    // Les native event listeners s'occupent de tout — rien à faire ici
+  }, []);
+
+  // handleStemTimeUpdate: uniquement pour mettre à jour stemLastTimeRef
   const handleStemTimeUpdate = useCallback((ms: number) => {
-    const newTime = ms / 1000;
-    const prevTime = stemLastTimeRef.current;
-    const isSeeking = Math.abs(newTime - prevTime) > 0.5;
-    stemLastTimeRef.current = newTime;
-
-    if (!stemsLoadedRef.current || !Object.keys(stemAudioMapRef.current).length) return;
-
-    // Toujours garder WaveSurfer muté pendant la lecture des stems
-    if (stemsPlayingRef.current) {
-      playerRef.current?.setVolume?.(0);
-    }
-
-    if (isSeeking) {
-      // Seek détecté → repositionner TOUS les stems (même en pause)
-      // pour qu'ils reprennent au bon endroit au prochain play
-      Object.values(stemAudioMapRef.current).forEach(a => {
-        a.currentTime = newTime;
-      });
-    } else {
-      // Re-sync si dérive > 0.4s pendant la lecture
-      Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
-        if (!stemMutedRef.current.has(key) && !a.paused && Math.abs(a.currentTime - newTime) > 0.4) {
-          a.currentTime = newTime;
-        }
-      });
-    }
-
-    // Timer pause: 1200ms (plus long pour éviter les faux positifs pendant seeking/buffering)
-    if (stemPauseTimerRef.current) clearTimeout(stemPauseTimerRef.current);
-    stemPauseTimerRef.current = setTimeout(() => {
-      stemsPlayingRef.current = false;
-      Object.values(stemAudioMapRef.current).forEach(a => a.pause());
-      playerRef.current?.setVolume?.(1);
-    }, 1200);
+    stemLastTimeRef.current = ms / 1000;
+    // Drift correction légère (protection supplémentaire)
+    if (!stemsLoadedRef.current) return;
+    const t = ms / 1000;
+    Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
+      if (!stemMutedRef.current.has(key) && !a.paused && Math.abs(a.currentTime - t) > 0.5) {
+        a.currentTime = t;
+      }
+    });
   }, []);
 
   const toggleStemMute = useCallback((key: string) => {

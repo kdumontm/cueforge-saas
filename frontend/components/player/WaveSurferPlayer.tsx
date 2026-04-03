@@ -163,6 +163,7 @@ interface WaveSurferPlayerProps {
     setLoop?: (inMs: number, outMs: number) => void;
     setPlaybackRate?: (rate: number) => void;
     setEQ?: (low: number, mid: number, high: number) => void;
+    getAudio?: () => HTMLAudioElement | null;
   } | null>;
   onLoopChange?: (loopIn: number | null, loopOut: number | null, loopActive: boolean) => void;
   onZoomChange?: (pxPerSec: number) => void;
@@ -800,6 +801,7 @@ export default function WaveSurferPlayer({
           if (eqHighRef.current) eqHighRef.current.gain.value = high;
           eqContextRef.current?.resume().catch(() => {});
         },
+        getAudio: () => audio,
       };
     }
 
