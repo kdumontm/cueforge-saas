@@ -1557,6 +1557,242 @@
     .gig-check-btn { transition: all 0.2s ease; }
     .gig-check-item { transition: opacity 0.2s ease; }
 
+    /* ── Filter Panel ─────────────────────────────────────── */
+    .filter-toggle-btn {
+      padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-subtle);
+      background: var(--bg-primary); color: var(--text-muted); font-size: 12px;
+      cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+    }
+    .filter-toggle-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+    .filter-toggle-btn.active { background: rgba(37,99,235,0.15); border-color: var(--accent); color: var(--accent); }
+    .filter-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 16px; height: 16px; border-radius: 8px;
+      background: var(--accent); color: white; font-size: 10px; font-weight: 700;
+    }
+    .filter-panel {
+      display: none; padding: 12px 16px; background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      gap: 12px; flex-wrap: wrap; align-items: flex-start;
+      animation: dropdownIn 0.15s ease;
+    }
+    .filter-panel.open { display: flex; }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-bpm-inputs { display: flex; gap: 4px; align-items: center; }
+    .filter-bpm-inputs input {
+      width: 60px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);
+      background: var(--bg-primary); color: var(--text-primary); font-size: 11px; font-family: var(--font-mono);
+      text-align: center; outline: none;
+    }
+    .filter-bpm-inputs input:focus { border-color: var(--accent); }
+    .filter-bpm-inputs span { color: var(--text-muted); font-size: 11px; }
+    .filter-key-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
+    }
+    .filter-key-btn {
+      padding: 3px 2px; border-radius: 3px; border: 1px solid transparent;
+      background: var(--bg-primary); color: var(--text-muted); font-size: 9px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; text-align: center; font-family: var(--font-mono);
+    }
+    .filter-key-btn:hover { border-color: var(--border-default); color: var(--text-primary); }
+    .filter-key-btn.active { border-color: currentColor; }
+    .filter-select {
+      padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);
+      background: var(--bg-primary); color: var(--text-primary); font-size: 11px; outline: none; cursor: pointer;
+    }
+    .filter-energy-range { display: flex; gap: 4px; align-items: center; }
+    .filter-energy-range input[type=range] {
+      width: 60px; accent-color: var(--accent); height: 4px;
+    }
+    .filter-energy-range span { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); min-width: 20px; text-align: center; }
+    .filter-checkbox { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); cursor: pointer; }
+    .filter-checkbox input { accent-color: var(--accent); }
+    .filter-reset-btn {
+      padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-subtle);
+      background: transparent; color: var(--text-muted); font-size: 10px; cursor: pointer;
+      transition: all 0.15s; align-self: flex-end;
+    }
+    .filter-reset-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+    /* ── Track Grid View ──────────────────────────────────── */
+    .tracklist-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px; padding: 12px; overflow-y: auto; flex: 1;
+    }
+    .track-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 12px; overflow: hidden; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .track-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .track-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .track-card-art {
+      height: 120px; background: linear-gradient(135deg, var(--bg-elevated), var(--bg-hover));
+      display: flex; align-items: center; justify-content: center; position: relative;
+    }
+    .track-card-art-icon { font-size: 36px; opacity: 0.15; }
+    .track-card-eq {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); opacity: 0;
+    }
+    .track-card.playing .track-card-eq { opacity: 1; }
+    .track-card-body { padding: 10px 12px; }
+    .track-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-card-artist { font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-card-badges { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .track-card-bpm {
+      padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      background: rgba(37,99,235,0.15); color: #60a5fa; font-family: var(--font-mono);
+    }
+    .track-card-key {
+      padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .track-card-energy {
+      flex: 1; height: 4px; border-radius: 2px; background: var(--bg-elevated); overflow: hidden;
+    }
+    .track-card-energy-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+    .track-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+    .track-card-genre { font-size: 10px; color: var(--text-muted); }
+    .track-card-fav {
+      background: none; border: none; cursor: pointer; font-size: 14px;
+      color: var(--text-muted); transition: all 0.15s; padding: 0;
+    }
+    .track-card-fav.active { color: #f59e0b; }
+    .track-card-fav:hover { transform: scale(1.2); }
+
+    /* ── Set Builder ──────────────────────────────────────── */
+    .sb-container { padding: 0 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .sb-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 0 24px; }
+    .sb-tab {
+      padding: 8px 16px; border-radius: 8px 8px 0 0; border: 1px solid var(--border-subtle);
+      border-bottom: none; background: var(--bg-secondary); color: var(--text-muted);
+      font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .sb-tab:hover { color: var(--text-primary); }
+    .sb-tab.active { background: var(--bg-card); color: var(--text-primary); font-weight: 600; }
+    .sb-tab-add {
+      padding: 8px 12px; border: 1px dashed var(--border-default); border-bottom: none;
+      border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted);
+      font-size: 14px; cursor: pointer; transition: all 0.15s;
+    }
+    .sb-tab-add:hover { border-color: var(--accent); color: var(--accent); }
+    .sb-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px; background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+    }
+    .sb-header-stats { display: flex; gap: 16px; }
+    .sb-stat { text-align: center; }
+    .sb-stat-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+    .sb-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+    .sb-energy-curve {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px; position: relative;
+    }
+    .sb-energy-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+    .sb-tracklist {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; overflow: hidden;
+    }
+    .sb-track-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle); transition: background 0.15s;
+    }
+    .sb-track-row:hover { background: var(--bg-hover); }
+    .sb-track-row:last-child { border-bottom: none; }
+    .sb-track-grip { color: var(--text-muted); cursor: grab; font-size: 14px; }
+    .sb-track-pos {
+      width: 24px; height: 24px; border-radius: 6px; display: flex;
+      align-items: center; justify-content: center; font-size: 11px;
+      font-weight: 700; background: rgba(37,99,235,0.15); color: #60a5fa;
+      font-family: var(--font-mono);
+    }
+    .sb-track-info { flex: 1; min-width: 0; }
+    .sb-track-title { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sb-track-artist { font-size: 11px; color: var(--text-secondary); }
+    .sb-track-bpm { font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary); min-width: 35px; text-align: right; }
+    .sb-track-key { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; font-family: var(--font-mono); }
+    .sb-track-energy { width: 60px; height: 4px; border-radius: 2px; background: var(--bg-elevated); overflow: hidden; }
+    .sb-track-energy-fill { height: 100%; border-radius: 2px; }
+    .sb-track-duration { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); min-width: 40px; text-align: right; }
+    .sb-track-remove { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; transition: color 0.15s; padding: 4px; }
+    .sb-track-remove:hover { color: #ef4444; }
+    .sb-transition {
+      display: flex; align-items: center; gap: 8px; padding: 2px 14px 2px 48px;
+      font-size: 10px; color: var(--text-muted);
+    }
+    .sb-transition-line { flex: 1; height: 1px; background: var(--border-subtle); }
+    .sb-transition-badge {
+      padding: 1px 6px; border-radius: 3px; font-family: var(--font-mono);
+      font-weight: 600; font-size: 9px;
+    }
+    .sb-transition-good { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .sb-transition-ok { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .sb-transition-bad { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .sb-suggestions {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 14px; padding: 16px;
+    }
+    .sb-suggestions-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+    .sb-suggestion-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+      border-radius: 8px; cursor: pointer; transition: background 0.15s;
+    }
+    .sb-suggestion-row:hover { background: var(--bg-hover); }
+    .sb-suggestion-score {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+    }
+    .sb-empty-drop {
+      border: 2px dashed var(--border-default); border-radius: 14px;
+      padding: 40px; text-align: center; color: var(--text-muted);
+      transition: border-color 0.2s;
+    }
+    .sb-empty-drop:hover { border-color: var(--accent); }
+    .sb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Stats Tab Enrichi ────────────────────────────────── */
+    .stats-container { padding: 16px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+    .stats-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .stats-card {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 12px; padding: 14px; text-align: center;
+    }
+    .stats-card-icon { font-size: 20px; margin-bottom: 4px; }
+    .stats-card-value { font-size: 24px; font-weight: 800; font-family: var(--font-mono); }
+    .stats-card-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+    .stats-section {
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: 12px; padding: 14px;
+    }
+    .stats-section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+    .stats-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .stats-bar-label { font-size: 11px; color: var(--text-secondary); min-width: 50px; text-align: right; font-family: var(--font-mono); }
+    .stats-bar-track { flex: 1; height: 18px; background: var(--bg-elevated); border-radius: 4px; overflow: hidden; position: relative; }
+    .stats-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+    .stats-bar-count { font-size: 9px; font-weight: 600; color: white; font-family: var(--font-mono); }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stats-tags-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+    .stats-tag {
+      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;
+      background: rgba(37,99,235,0.1); color: #60a5fa;
+    }
+    .stats-rating-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .stats-rating-stars { font-size: 12px; color: #f59e0b; min-width: 70px; }
+    .stats-rating-bar { flex: 1; height: 12px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+    .stats-rating-fill { height: 100%; background: #f59e0b; border-radius: 3px; }
+    .stats-rating-count { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); min-width: 30px; text-align: right; }
+
+    /* ── Empty State SVGs ─────────────────────────────────── */
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px; text-align: center; flex: 1; }
+    .empty-state svg { opacity: 0.4; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0; }
+    .empty-state p { font-size: 13px; color: var(--text-muted); margin: 0; max-width: 280px; }
+
     /* ── Focus Visible (keyboard nav) ──────────────────────── */
     *:focus-visible {
       outline: 2px solid var(--accent);
@@ -1802,6 +2038,9 @@
                   <span class="tracklist-search-icon">&#x1f50d;</span>
                   <input type="text" id="trackSearch" placeholder="Rechercher…">
                 </div>
+                <button class="filter-toggle-btn" id="filterToggleBtn" title="Filtres">
+                  <span>&#x2699;</span> Filtres <span class="filter-badge" id="filterBadge" style="display:none">0</span>
+                </button>
                 <select class="tracklist-sort" id="trackSort">
                   <option value="date">Date (récent)</option>
                   <option value="bpm">BPM</option>
@@ -1816,6 +2055,41 @@
                   <button class="view-btn active" data-view="list" title="Liste">&#x2630;</button>
                   <button class="view-btn" data-view="grid" title="Grille">&#x2b1a;</button>
                 </div>
+              </div>
+              <div class="filter-panel" id="filterPanel">
+                <div class="filter-group">
+                  <span class="filter-group-label">BPM</span>
+                  <div class="filter-bpm-inputs">
+                    <input type="number" id="filterBpmMin" placeholder="Min" min="60" max="200">
+                    <span>—</span>
+                    <input type="number" id="filterBpmMax" placeholder="Max" min="60" max="200">
+                  </div>
+                </div>
+                <div class="filter-group">
+                  <span class="filter-group-label">Tonalité</span>
+                  <div class="filter-key-grid" id="filterKeyGrid"></div>
+                </div>
+                <div class="filter-group">
+                  <span class="filter-group-label">Genre</span>
+                  <select class="filter-select" id="filterGenre">
+                    <option value="">Tous</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <span class="filter-group-label">Énergie</span>
+                  <div class="filter-energy-range">
+                    <span id="filterEnergyMinVal">0</span>
+                    <input type="range" id="filterEnergyMin" min="0" max="100" value="0">
+                    <input type="range" id="filterEnergyMax" min="0" max="100" value="100">
+                    <span id="filterEnergyMaxVal">100</span>
+                  </div>
+                </div>
+                <div class="filter-group">
+                  <span class="filter-group-label">Options</span>
+                  <label class="filter-checkbox"><input type="checkbox" id="filterAnalyzed"> Analysés</label>
+                  <label class="filter-checkbox"><input type="checkbox" id="filterFavorites"> Favoris</label>
+                </div>
+                <button class="filter-reset-btn" id="filterResetBtn">Réinitialiser</button>
               </div>
               <div class="tracklist-count" id="trackCount">0 morceaux</div>
               <div class="tracklist-headers">

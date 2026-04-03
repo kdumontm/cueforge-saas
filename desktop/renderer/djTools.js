@@ -163,6 +163,7 @@ const CueForgeApp = {
   playlists: [],
   sortBy: 'date',
   searchQuery: '',
+  viewMode: 'list',
   zoom: 1,
   loopIn: null,
   loopOut: null,
@@ -170,6 +171,11 @@ const CueForgeApp = {
   playbackRate: 1,
   bpmTolerance: 6,
   sessionNotes: '',
+  // Filter state
+  filters: { bpmMin: '', bpmMax: '', keys: [], genre: '', energyMin: 0, energyMax: 100, analyzedOnly: false, favoritesOnly: false },
+  // Set Builder state
+  sets: [],
+  activeSetId: null,
 
   // ═══════════════════════════════════════════════════════════
   // INIT
@@ -177,6 +183,7 @@ const CueForgeApp = {
   init() {
     this.tracks = MOCK_TRACKS.slice();
     this.loadRealTracks();
+    this.initFilterPanel();
     this.renderTrackList();
     this.renderAllTabs();
     this.renderPages();
@@ -489,16 +496,117 @@ const CueForgeApp = {
   },
 
   // ═══════════════════════════════════════════════════════════
-  // RENDER TRACK LIST
+  // FILTER PANEL
   // ═══════════════════════════════════════════════════════════
-  renderTrackList() {
-    const rows = document.getElementById('trackRows');
-    const countEl = document.getElementById('trackCount');
-    if (!rows) return;
+  initFilterPanel() {
+    const grid = document.getElementById('filterKeyGrid');
+    if (grid) {
+      grid.innerHTML = CAMELOT.map(c =>
+        `<button class="filter-key-btn" data-key="${c.n}" style="--kc:${c.color}" title="${c.key}">${c.n}</button>`
+      ).join('');
+      grid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filter-key-btn');
+        if (!btn) return;
+        const key = btn.dataset.key;
+        const idx = this.filters.keys.indexOf(key);
+        if (idx >= 0) { this.filters.keys.splice(idx, 1); btn.classList.remove('active'); }
+        else { this.filters.keys.push(key); btn.classList.add('active'); }
+        btn.style.background = btn.classList.contains('active') ? btn.style.getPropertyValue('--kc') + '33' : '';
+        btn.style.color = btn.classList.contains('active') ? btn.style.getPropertyValue('--kc') : '';
+        btn.style.borderColor = btn.classList.contains('active') ? btn.style.getPropertyValue('--kc') : '';
+        this.updateFilterBadge();
+        this.renderTrackList();
+      });
+    }
+    // Toggle
+    document.getElementById('filterToggleBtn')?.addEventListener('click', () => {
+      const panel = document.getElementById('filterPanel');
+      panel?.classList.toggle('open');
+      document.getElementById('filterToggleBtn')?.classList.toggle('active', panel?.classList.contains('open'));
+    });
+    // BPM inputs
+    ['filterBpmMin', 'filterBpmMax'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', (e) => {
+        this.filters[id === 'filterBpmMin' ? 'bpmMin' : 'bpmMax'] = e.target.value;
+        this.updateFilterBadge();
+        this.renderTrackList();
+      });
+    });
+    // Genre select
+    document.getElementById('filterGenre')?.addEventListener('change', (e) => {
+      this.filters.genre = e.target.value;
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    // Energy range
+    document.getElementById('filterEnergyMin')?.addEventListener('input', (e) => {
+      this.filters.energyMin = parseInt(e.target.value);
+      document.getElementById('filterEnergyMinVal').textContent = e.target.value;
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    document.getElementById('filterEnergyMax')?.addEventListener('input', (e) => {
+      this.filters.energyMax = parseInt(e.target.value);
+      document.getElementById('filterEnergyMaxVal').textContent = e.target.value;
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    // Checkboxes
+    document.getElementById('filterAnalyzed')?.addEventListener('change', (e) => {
+      this.filters.analyzedOnly = e.target.checked;
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    document.getElementById('filterFavorites')?.addEventListener('change', (e) => {
+      this.filters.favoritesOnly = e.target.checked;
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    // Reset
+    document.getElementById('filterResetBtn')?.addEventListener('click', () => {
+      this.filters = { bpmMin: '', bpmMax: '', keys: [], genre: '', energyMin: 0, energyMax: 100, analyzedOnly: false, favoritesOnly: false };
+      document.getElementById('filterBpmMin').value = '';
+      document.getElementById('filterBpmMax').value = '';
+      document.getElementById('filterGenre').value = '';
+      document.getElementById('filterEnergyMin').value = 0;
+      document.getElementById('filterEnergyMax').value = 100;
+      document.getElementById('filterEnergyMinVal').textContent = '0';
+      document.getElementById('filterEnergyMaxVal').textContent = '100';
+      document.getElementById('filterAnalyzed').checked = false;
+      document.getElementById('filterFavorites').checked = false;
+      document.querySelectorAll('.filter-key-btn').forEach(b => { b.classList.remove('active'); b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+      this.updateFilterBadge();
+      this.renderTrackList();
+    });
+    // Populate genres
+    this.updateFilterGenres();
+  },
 
+  updateFilterGenres() {
+    const sel = document.getElementById('filterGenre');
+    if (!sel) return;
+    const genres = [...new Set(this.tracks.map(t => t.genre).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Tous</option>' + genres.map(g => `<option value="${g}">${g}</option>`).join('');
+  },
+
+  updateFilterBadge() {
+    const f = this.filters;
+    let count = 0;
+    if (f.bpmMin) count++;
+    if (f.bpmMax) count++;
+    if (f.keys.length) count++;
+    if (f.genre) count++;
+    if (f.energyMin > 0 || f.energyMax < 100) count++;
+    if (f.analyzedOnly) count++;
+    if (f.favoritesOnly) count++;
+    const badge = document.getElementById('filterBadge');
+    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+    document.getElementById('filterToggleBtn')?.classList.toggle('active', count > 0 || document.getElementById('filterPanel')?.classList.contains('open'));
+  },
+
+  getFilteredTracks() {
     let filtered = [...this.tracks];
-
-    // Search filter
+    // Search
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase();
       filtered = filtered.filter(t =>
@@ -507,7 +615,22 @@ const CueForgeApp = {
         (t.genre && t.genre.toLowerCase().includes(q))
       );
     }
-
+    // Filters
+    const f = this.filters;
+    if (f.bpmMin) filtered = filtered.filter(t => t.bpm && t.bpm >= parseFloat(f.bpmMin));
+    if (f.bpmMax) filtered = filtered.filter(t => t.bpm && t.bpm <= parseFloat(f.bpmMax));
+    if (f.keys.length > 0) {
+      filtered = filtered.filter(t => {
+        if (!t.key) return false;
+        const cam = CAMELOT.find(c => c.n === t.key || c.key === t.key);
+        return cam ? f.keys.includes(cam.n) : false;
+      });
+    }
+    if (f.genre) filtered = filtered.filter(t => t.genre === f.genre);
+    if (f.energyMin > 0) filtered = filtered.filter(t => t.energy != null && t.energy >= f.energyMin);
+    if (f.energyMax < 100) filtered = filtered.filter(t => t.energy != null && t.energy <= f.energyMax);
+    if (f.analyzedOnly) filtered = filtered.filter(t => t.analyzed);
+    if (f.favoritesOnly) filtered = filtered.filter(t => this.favoriteIds.has(t.id));
     // Sort
     filtered.sort((a, b) => {
       switch (this.sortBy) {
@@ -521,19 +644,84 @@ const CueForgeApp = {
         default: return (b.id || 0) - (a.id || 0);
       }
     });
+    return filtered;
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER TRACK LIST
+  // ═══════════════════════════════════════════════════════════
+  renderTrackList() {
+    const rows = document.getElementById('trackRows');
+    const countEl = document.getElementById('trackCount');
+    if (!rows) return;
+
+    const filtered = this.getFilteredTracks();
+    const headers = document.querySelector('.tracklist-headers');
 
     if (countEl) {
       countEl.textContent = `${filtered.length} morceau${filtered.length !== 1 ? 'x' : ''}${filtered.length !== this.tracks.length ? ` (${this.tracks.length} total)` : ''}`;
     }
 
     if (filtered.length === 0) {
-      rows.innerHTML = `<div class="tracklist-empty">
-        <div class="tracklist-empty-icon">&#x2b06;</div>
-        <div><h3>Aucun morceau</h3><p>Commencez par importer vos pistes audio</p></div>
-        <button class="import-btn" onclick="CueForgeApp.importFiles()">Importer des tracks</button>
+      rows.innerHTML = `<div class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="14" width="48" height="36" rx="4" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/><circle cx="32" cy="32" r="10" stroke="currentColor" stroke-width="2" fill="none" opacity="0.5"/><path d="M30 28v8l6-4z" fill="currentColor" opacity="0.5"/></svg>
+        <div><h3>Aucun morceau</h3><p>Commencez par importer vos pistes audio pour construire votre bibliothèque</p></div>
+        <button class="btn-primary" onclick="CueForgeApp.importFiles()">Importer des tracks</button>
       </div>`;
+      if (headers) headers.style.display = 'none';
       return;
     }
+
+    // Grid View
+    if (this.viewMode === 'grid') {
+      if (headers) headers.style.display = 'none';
+      rows.className = 'tracklist-grid';
+      rows.innerHTML = filtered.map((track) => {
+        const isSelected = this.selectedTrack?.id === track.id;
+        const isPlaying = this.playingTrackId === track.id;
+        const isFav = this.favoriteIds.has(track.id);
+        const keyColor = getKeyColor(track.key);
+        const eColor = track.energy >= 80 ? '#ef4444' : track.energy >= 60 ? '#f59e0b' : track.energy >= 40 ? '#22c55e' : '#3b82f6';
+        return `<div class="track-card${isSelected ? ' selected' : ''}${isPlaying ? ' playing' : ''}" data-track-id="${track.id}">
+          <div class="track-card-art" style="background:linear-gradient(135deg, ${keyColor}15, ${keyColor}05)">
+            <div class="track-card-art-icon">&#x266b;</div>
+            <div class="track-card-eq">${isPlaying ? '<div class="eq-bars"><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div></div>' : ''}</div>
+          </div>
+          <div class="track-card-body">
+            <div class="track-card-title">${track.title}</div>
+            <div class="track-card-artist">${track.artist}</div>
+            <div class="track-card-badges">
+              ${track.bpm ? `<span class="track-card-bpm">${Math.round(track.bpm)}</span>` : ''}
+              ${track.key ? `<span class="track-card-key" style="background:${keyColor}22;color:${keyColor}">${track.key}</span>` : ''}
+              ${track.energy != null ? `<div class="track-card-energy"><div class="track-card-energy-fill" style="width:${track.energy}%;background:${eColor}"></div></div>` : ''}
+            </div>
+            <div class="track-card-footer">
+              <span class="track-card-genre">${track.genre || ''}</span>
+              <button class="track-card-fav${isFav ? ' active' : ''}" data-fav-id="${track.id}">${isFav ? '★' : '☆'}</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+      // Bind grid events
+      rows.querySelectorAll('.track-card').forEach(card => {
+        const trackId = parseInt(card.dataset.trackId);
+        card.addEventListener('click', (e) => { if (!e.target.closest('.track-card-fav')) this.selectTrack(trackId); });
+        card.addEventListener('dblclick', () => this.selectTrack(trackId));
+      });
+      rows.querySelectorAll('.track-card-fav').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = parseInt(btn.dataset.favId);
+          if (this.favoriteIds.has(id)) this.favoriteIds.delete(id); else this.favoriteIds.add(id);
+          this.renderTrackList();
+        });
+      });
+      return;
+    }
+
+    // List View
+    if (headers) headers.style.display = '';
+    rows.className = 'tracklist-rows';
 
     let html = '';
     filtered.forEach((track, index) => {
@@ -947,29 +1135,95 @@ const CueForgeApp = {
     </div>`;
   },
 
-  // ─── Stats Tab ──────────────────────────────────────────
+  // ─── Stats Tab (enrichi — parité web) ───────────────────
   renderStatsTab() {
     const pane = document.getElementById('statsPane');
     if (!pane) return;
-    const total = this.tracks.length;
-    const analyzed = this.tracks.filter(t => t.analyzed).length;
-    const avgBpm = total > 0 ? (this.tracks.reduce((s, t) => s + (t.bpm || 0), 0) / total).toFixed(1) : 0;
-    const genres = {};
-    this.tracks.forEach(t => { if (t.genre) genres[t.genre] = (genres[t.genre] || 0) + 1; });
-    const topGenres = Object.entries(genres).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const tracks = this.tracks;
+    const total = tracks.length;
+    if (total === 0) {
+      pane.innerHTML = `<div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="6" y="24" width="8" height="26" rx="2" fill="currentColor" opacity="0.2"/><rect x="18" y="16" width="8" height="34" rx="2" fill="currentColor" opacity="0.3"/><rect x="30" y="8" width="8" height="42" rx="2" fill="currentColor" opacity="0.4"/><rect x="42" y="20" width="8" height="30" rx="2" fill="currentColor" opacity="0.25"/></svg>
+        <h3>Pas de statistiques</h3><p>Importez des morceaux pour voir vos analytics</p>
+      </div>`;
+      return;
+    }
+    const analyzed = tracks.filter(t => t.analyzed).length;
+    const bpms = tracks.filter(t => t.bpm).map(t => t.bpm);
+    const avgBpm = bpms.length ? (bpms.reduce((a, b) => a + b, 0) / bpms.length).toFixed(1) : '—';
+    const energies = tracks.filter(t => t.energy != null).map(t => t.energy);
+    const avgEnergy = energies.length ? (energies.reduce((a, b) => a + b, 0) / energies.length).toFixed(0) : '—';
+    const totalSec = tracks.reduce((s, t) => s + parseDuration(t.duration), 0);
+    const totalDur = totalSec > 3600 ? `${Math.floor(totalSec/3600)}h ${Math.floor((totalSec%3600)/60)}m` : `${Math.floor(totalSec/60)}m`;
 
-    pane.innerHTML = `<div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="card" style="margin:0"><div class="card-title">📊 Bibliothèque</div>
-        <div style="font-size:28px;font-weight:800;color:var(--accent)">${total}</div>
-        <div style="font-size:12px;color:var(--text-muted)">morceaux • ${analyzed} analysés</div>
+    // BPM histogram (5-increment buckets)
+    const bpmBuckets = {};
+    bpms.forEach(b => { const bucket = Math.floor(b / 5) * 5; bpmBuckets[bucket] = (bpmBuckets[bucket] || 0) + 1; });
+    const bpmEntries = Object.entries(bpmBuckets).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    const bpmMax = Math.max(...bpmEntries.map(e => e[1]), 1);
+
+    // Energy distribution (4 buckets)
+    const eBuckets = { 'Chill (0-30)': 0, 'Medium (31-60)': 0, 'High (61-80)': 0, 'Peak (81-100)': 0 };
+    const eColors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444'];
+    energies.forEach(e => { if (e <= 30) eBuckets['Chill (0-30)']++; else if (e <= 60) eBuckets['Medium (31-60)']++; else if (e <= 80) eBuckets['High (61-80)']++; else eBuckets['Peak (81-100)']++; });
+    const eMax = Math.max(...Object.values(eBuckets), 1);
+
+    // Genre distribution (top 8)
+    const genres = {};
+    tracks.forEach(t => { if (t.genre) genres[t.genre] = (genres[t.genre] || 0) + 1; });
+    const topGenres = Object.entries(genres).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const genreMax = topGenres.length ? topGenres[0][1] : 1;
+
+    // Key distribution (top 12)
+    const keys = {};
+    tracks.forEach(t => { if (t.key) keys[t.key] = (keys[t.key] || 0) + 1; });
+    const topKeys = Object.entries(keys).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const keyMax = topKeys.length ? topKeys[0][1] : 1;
+
+    // Tags cloud
+    const tags = {};
+    tracks.forEach(t => { (t.tags || []).forEach(tag => { tags[tag] = (tags[tag] || 0) + 1; }); });
+    const tagEntries = Object.entries(tags).sort((a, b) => b[1] - a[1]);
+    const tagMax = tagEntries.length ? tagEntries[0][1] : 1;
+
+    // Rating distribution
+    const ratings = [0, 0, 0, 0, 0];
+    tracks.forEach(t => { if (t.rating >= 1 && t.rating <= 5) ratings[t.rating - 1]++; });
+    const ratingMax = Math.max(...ratings, 1);
+
+    pane.innerHTML = `<div class="stats-container">
+      <div class="stats-cards">
+        <div class="stats-card"><div class="stats-card-icon" style="color:var(--accent)">&#x266b;</div><div class="stats-card-value" style="color:var(--accent)">${total}</div><div class="stats-card-label">Morceaux</div></div>
+        <div class="stats-card"><div class="stats-card-icon" style="color:#06b6d4">&#x2693;</div><div class="stats-card-value" style="color:#06b6d4">${avgBpm}</div><div class="stats-card-label">BPM moyen</div></div>
+        <div class="stats-card"><div class="stats-card-icon" style="color:#f59e0b">&#x26a1;</div><div class="stats-card-value" style="color:#f59e0b">${avgEnergy}%</div><div class="stats-card-label">Énergie moy.</div></div>
+        <div class="stats-card"><div class="stats-card-icon" style="color:#8b5cf6">&#x23f1;</div><div class="stats-card-value" style="color:#8b5cf6">${totalDur}</div><div class="stats-card-label">Durée totale</div></div>
       </div>
-      <div class="card" style="margin:0"><div class="card-title">🎵 BPM Moyen</div>
-        <div style="font-size:28px;font-weight:800;color:#06b6d4;font-family:var(--font-mono)">${avgBpm}</div>
+      <div class="stats-grid">
+        <div class="stats-section"><div class="stats-section-title">Distribution BPM</div>
+          ${bpmEntries.map(([b, c]) => `<div class="stats-bar-row"><span class="stats-bar-label">${b}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${(c/bpmMax)*100}%;background:var(--accent)"><span class="stats-bar-count">${c}</span></div></div></div>`).join('')}
+        </div>
+        <div class="stats-section"><div class="stats-section-title">Distribution Énergie</div>
+          ${Object.entries(eBuckets).map(([label, count], i) => `<div class="stats-bar-row"><span class="stats-bar-label" style="min-width:80px;font-size:10px">${label}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${(count/eMax)*100}%;background:${eColors[i]}"><span class="stats-bar-count">${count}</span></div></div></div>`).join('')}
+        </div>
+        <div class="stats-section"><div class="stats-section-title">Top Genres</div>
+          ${topGenres.map(([g, c]) => `<div class="stats-bar-row"><span class="stats-bar-label" style="min-width:90px;font-size:10px;text-align:left">${g}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${(c/genreMax)*100}%;background:#8b5cf6"><span class="stats-bar-count">${c}</span></div></div></div>`).join('')}
+          ${topGenres.length === 0 ? '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:8px">Aucun genre</div>' : ''}
+        </div>
+        <div class="stats-section"><div class="stats-section-title">Distribution Tonalité</div>
+          ${topKeys.map(([k, c]) => {
+            const kc = getKeyColor(k);
+            return `<div class="stats-bar-row"><span class="stats-bar-label" style="color:${kc}">${k}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${(c/keyMax)*100}%;background:${kc}"><span class="stats-bar-count">${c}</span></div></div></div>`;
+          }).join('')}
+        </div>
       </div>
-      <div class="card" style="grid-column:span 2;margin:0"><div class="card-title">🎶 Top Genres</div>
-        ${topGenres.map(([g, c]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-subtle)">
-          <span style="font-size:13px;color:var(--text-primary)">${g}</span>
-          <span style="font-size:13px;color:var(--text-muted);font-family:var(--font-mono)">${c}</span>
+      ${tagEntries.length > 0 ? `<div class="stats-section"><div class="stats-section-title">Tags</div><div class="stats-tags-cloud">
+        ${tagEntries.map(([tag, count]) => `<span class="stats-tag" style="opacity:${0.4 + 0.6 * (count/tagMax)}">${tag} (${count})</span>`).join('')}
+      </div></div>` : ''}
+      <div class="stats-section"><div class="stats-section-title">Évaluations</div>
+        ${[5,4,3,2,1].map(star => `<div class="stats-rating-row">
+          <span class="stats-rating-stars">${'★'.repeat(star)}${'☆'.repeat(5-star)}</span>
+          <div class="stats-rating-bar"><div class="stats-rating-fill" style="width:${(ratings[star-1]/ratingMax)*100}%"></div></div>
+          <span class="stats-rating-count">${ratings[star-1]}</span>
         </div>`).join('')}
       </div>
     </div>`;
@@ -1028,25 +1282,245 @@ const CueForgeApp = {
   renderSetBuilderPage() {
     const el = document.getElementById('setBuilderContent');
     if (!el) return;
+
+    // Load sets from localStorage or init
+    if (!this.sets.length) {
+      const saved = localStorage.getItem('cf_sets');
+      if (saved) { try { this.sets = JSON.parse(saved); } catch(e) {} }
+    }
+
+    const activeSet = this.sets.find(s => s.id === this.activeSetId);
+    const setTracks = activeSet ? activeSet.trackIds.map(id => this.tracks.find(t => t.id === id)).filter(Boolean) : [];
+
+    // Header with tabs
     el.innerHTML = `
-      <div class="page-title">Set Builder</div>
-      <div class="page-desc">Construis et planifie tes sets DJ</div>
-      <div class="card">
-        <div class="card-title">🎵 Tracks de ta bibliothèque</div>
-        <div style="color:var(--text-muted);font-size:13px">Glisse des tracks ici depuis ta bibliothèque pour construire ton set.</div>
-        <div style="border:2px dashed var(--border-default);border-radius:12px;padding:32px;text-align:center;margin-top:12px;color:var(--text-muted)">
-          <div style="font-size:32px;margin-bottom:8px;opacity:0.3">🎵</div>
-          <div style="font-size:14px;font-weight:600">Drop tes tracks ici</div>
-          <div style="font-size:12px;margin-top:4px">ou retourne au Dashboard pour sélectionner des morceaux</div>
+      <div class="page-header">
+        <div class="page-header-icon" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">&#x266b;</div>
+        <div class="page-header-text">
+          <div class="page-header-title">Set Builder</div>
+          <div class="page-header-desc">Construis et planifie tes sets DJ</div>
+        </div>
+        <div class="page-header-actions">
+          <button class="btn-secondary" id="sbAddTrackBtn">+ Ajouter des tracks</button>
+          ${activeSet ? `<button class="btn-secondary" id="sbExportBtn">&#x2b07; Exporter</button>` : ''}
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">📐 Camelot Wheel</div>
-        <div style="display:flex;justify-content:center">
-          ${generateCamelotWheelSVG(this.selectedTrack?.key)}
-        </div>
+      <div class="sb-tabs" id="sbTabs">
+        ${this.sets.map(s => `<button class="sb-tab${s.id === this.activeSetId ? ' active' : ''}" data-set-id="${s.id}">${s.name}</button>`).join('')}
+        <button class="sb-tab-add" id="sbNewSet" title="Nouveau set">+</button>
       </div>
+      <div class="sb-container" id="sbBody"></div>
     `;
+
+    const body = el.querySelector('#sbBody');
+
+    if (!activeSet) {
+      body.innerHTML = `<div class="sb-empty-drop">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><circle cx="28" cy="28" r="20" stroke="currentColor" stroke-width="2" fill="none" opacity="0.2"/><path d="M28 20v16M20 28h16" stroke="currentColor" stroke-width="2" opacity="0.4"/></svg>
+        <div style="font-size:15px;font-weight:600;margin-top:8px">Crée ton premier set</div>
+        <div style="font-size:12px;margin-top:4px">Clique sur + pour commencer</div>
+      </div>`;
+    } else {
+      // Stats header
+      const totalDur = setTracks.reduce((s, t) => s + parseDuration(t.duration), 0);
+      const durStr = totalDur > 3600 ? `${Math.floor(totalDur/3600)}h${Math.floor((totalDur%3600)/60)}m` : `${Math.floor(totalDur/60)}m`;
+      const bpms = setTracks.filter(t => t.bpm).map(t => t.bpm);
+      const bpmRange = bpms.length ? `${Math.min(...bpms).toFixed(0)}–${Math.max(...bpms).toFixed(0)}` : '—';
+
+      // Compute transitions
+      const transitions = [];
+      for (let i = 0; i < setTracks.length - 1; i++) {
+        const a = setTracks[i], b = setTracks[i + 1];
+        const bpmDiff = Math.abs((a.bpm || 0) - (b.bpm || 0));
+        const keyCompat = this._keyCompatibility(a.key, b.key);
+        const score = Math.max(0, 100 - bpmDiff * 3 - (keyCompat === 'perfect' ? 0 : keyCompat === 'compatible' ? 15 : 40));
+        transitions.push({ bpmDiff, keyCompat, score });
+      }
+      const avgScore = transitions.length ? Math.round(transitions.reduce((s, t) => s + t.score, 0) / transitions.length) : 0;
+
+      body.innerHTML = `
+        <div class="sb-header">
+          <div class="sb-header-stats">
+            <div class="sb-stat"><div class="sb-stat-value">${setTracks.length}</div><div class="sb-stat-label">Tracks</div></div>
+            <div class="sb-stat"><div class="sb-stat-value">${durStr}</div><div class="sb-stat-label">Durée</div></div>
+            <div class="sb-stat"><div class="sb-stat-value">${bpmRange}</div><div class="sb-stat-label">BPM</div></div>
+            <div class="sb-stat"><div class="sb-stat-value" style="color:${avgScore >= 70 ? '#22c55e' : avgScore >= 40 ? '#f59e0b' : '#ef4444'}">${avgScore}%</div><div class="sb-stat-label">Mix Score</div></div>
+          </div>
+          <div class="sb-actions">
+            <button class="btn-secondary" style="color:#ef4444;border-color:rgba(239,68,68,0.3)" id="sbDeleteSet">Supprimer</button>
+          </div>
+        </div>
+        ${setTracks.length > 0 ? `<div class="sb-energy-curve"><div class="sb-energy-title">Courbe d'énergie</div>
+          <svg width="100%" height="60" viewBox="0 0 ${setTracks.length * 60} 60" preserveAspectRatio="none">
+            ${setTracks.map((t, i) => {
+              const e = t.energy || 0;
+              const h = (e / 100) * 50;
+              const col = e >= 80 ? '#ef4444' : e >= 60 ? '#f59e0b' : e >= 40 ? '#22c55e' : '#3b82f6';
+              return `<rect x="${i * 60 + 5}" y="${55 - h}" width="50" height="${h}" rx="4" fill="${col}" opacity="0.6"/>`;
+            }).join('')}
+          </svg>
+        </div>` : ''}
+        <div class="sb-tracklist" id="sbTrackList">
+          ${setTracks.length === 0 ? `<div style="padding:32px;text-align:center;color:var(--text-muted)">
+            <div style="font-size:14px;font-weight:600">Set vide</div>
+            <div style="font-size:12px;margin-top:4px">Ajoute des tracks depuis ta bibliothèque</div>
+          </div>` : ''}
+          ${setTracks.map((track, i) => {
+            const keyColor = getKeyColor(track.key);
+            const eColor = track.energy >= 80 ? '#ef4444' : track.energy >= 60 ? '#f59e0b' : track.energy >= 40 ? '#22c55e' : '#3b82f6';
+            let transHtml = '';
+            if (i < transitions.length) {
+              const tr = transitions[i];
+              const cls = tr.score >= 70 ? 'sb-transition-good' : tr.score >= 40 ? 'sb-transition-ok' : 'sb-transition-bad';
+              transHtml = `<div class="sb-transition">
+                <div class="sb-transition-line"></div>
+                <span class="sb-transition-badge ${cls}">BPM ${tr.bpmDiff > 0 ? ('+' + tr.bpmDiff.toFixed(0)) : '0'}</span>
+                <span class="sb-transition-badge ${cls}">${tr.keyCompat}</span>
+                <span class="sb-transition-badge ${cls}">${tr.score}%</span>
+                <div class="sb-transition-line"></div>
+              </div>`;
+            }
+            return `<div class="sb-track-row" data-sb-idx="${i}">
+              <span class="sb-track-grip">&#x2630;</span>
+              <span class="sb-track-pos">${i + 1}</span>
+              <div class="sb-track-info"><div class="sb-track-title">${track.title}</div><div class="sb-track-artist">${track.artist}</div></div>
+              <span class="sb-track-bpm">${track.bpm ? Math.round(track.bpm) : '—'}</span>
+              ${track.key ? `<span class="sb-track-key" style="background:${keyColor}22;color:${keyColor}">${track.key}</span>` : '<span style="color:var(--text-muted)">—</span>'}
+              <div class="sb-track-energy"><div class="sb-track-energy-fill" style="width:${track.energy || 0}%;background:${eColor}"></div></div>
+              <span class="sb-track-duration">${track.duration || '—'}</span>
+              <button class="sb-track-remove" data-remove-idx="${i}" title="Retirer">&#x2715;</button>
+            </div>${transHtml}`;
+          }).join('')}
+        </div>
+        ${setTracks.length > 0 && this.tracks.length > setTracks.length ? this._renderSbSuggestions(setTracks) : ''}
+      `;
+    }
+
+    // Bind Set Builder events
+    el.querySelectorAll('.sb-tab[data-set-id]').forEach(tab => {
+      tab.addEventListener('click', () => { this.activeSetId = parseInt(tab.dataset.setId); this.renderSetBuilderPage(); });
+    });
+    el.querySelector('#sbNewSet')?.addEventListener('click', async () => {
+      const name = typeof promptModal === 'function' ? await promptModal('Nom du set', 'Mon Set') : prompt('Nom du set', 'Mon Set');
+      if (!name) return;
+      const id = Date.now();
+      this.sets.push({ id, name, trackIds: [] });
+      this.activeSetId = id;
+      this._saveSets();
+      this.renderSetBuilderPage();
+    });
+    el.querySelector('#sbDeleteSet')?.addEventListener('click', async () => {
+      const ok = typeof confirmModal === 'function' ? await confirmModal('Supprimer ce set ?') : confirm('Supprimer ce set ?');
+      if (!ok) return;
+      this.sets = this.sets.filter(s => s.id !== this.activeSetId);
+      this.activeSetId = this.sets.length ? this.sets[0].id : null;
+      this._saveSets();
+      this.renderSetBuilderPage();
+    });
+    el.querySelectorAll('.sb-track-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.removeIdx);
+        if (activeSet) { activeSet.trackIds.splice(idx, 1); this._saveSets(); this.renderSetBuilderPage(); }
+      });
+    });
+    el.querySelector('#sbAddTrackBtn')?.addEventListener('click', () => this._showTrackPicker());
+    el.querySelector('#sbExportBtn')?.addEventListener('click', () => {
+      if (activeSet) this.exportRekordbox(activeSet.trackIds);
+    });
+    el.querySelectorAll('.sb-suggestion-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = parseInt(row.dataset.trackId);
+        if (activeSet && !activeSet.trackIds.includes(id)) {
+          activeSet.trackIds.push(id);
+          this._saveSets();
+          this.renderSetBuilderPage();
+        }
+      });
+    });
+  },
+
+  _saveSets() { localStorage.setItem('cf_sets', JSON.stringify(this.sets)); },
+
+  _keyCompatibility(k1, k2) {
+    if (!k1 || !k2) return 'unknown';
+    const c1 = CAMELOT.find(c => c.n === k1 || c.key === k1);
+    const c2 = CAMELOT.find(c => c.n === k2 || c.key === k2);
+    if (!c1 || !c2) return 'unknown';
+    const n1 = parseInt(c1.n), n2 = parseInt(c2.n);
+    const l1 = c1.n.slice(-1), l2 = c2.n.slice(-1);
+    if (c1.n === c2.n) return 'perfect';
+    if (l1 === l2 && (Math.abs(n1 - n2) === 1 || Math.abs(n1 - n2) === 11)) return 'compatible';
+    if (n1 === n2 && l1 !== l2) return 'compatible';
+    return 'clash';
+  },
+
+  _renderSbSuggestions(setTracks) {
+    const last = setTracks[setTracks.length - 1];
+    if (!last) return '';
+    const usedIds = new Set(setTracks.map(t => t.id));
+    const scored = this.tracks
+      .filter(t => !usedIds.has(t.id))
+      .map(t => {
+        const bpmDiff = Math.abs((last.bpm || 0) - (t.bpm || 0));
+        const keyCompat = this._keyCompatibility(last.key, t.key);
+        const score = Math.max(0, 100 - bpmDiff * 3 - (keyCompat === 'perfect' ? 0 : keyCompat === 'compatible' ? 15 : 40));
+        return { ...t, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    if (!scored.length) return '';
+    return `<div class="sb-suggestions"><div class="sb-suggestions-title">Suggestions (après ${last.title})</div>
+      ${scored.map(t => {
+        const sc = t.score >= 70 ? '#22c55e' : t.score >= 40 ? '#f59e0b' : '#ef4444';
+        return `<div class="sb-suggestion-row" data-track-id="${t.id}">
+          <div class="sb-suggestion-score" style="background:${sc}22;color:${sc}">${t.score}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.title}</div><div style="font-size:11px;color:var(--text-secondary)">${t.artist}</div></div>
+          <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">${t.bpm ? Math.round(t.bpm) : '—'}</span>
+          ${t.key ? `<span class="sb-track-key" style="background:${getKeyColor(t.key)}22;color:${getKeyColor(t.key)}">${t.key}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  },
+
+  _showTrackPicker() {
+    const activeSet = this.sets.find(s => s.id === this.activeSetId);
+    if (!activeSet) { showToast('Crée un set d\'abord', 'info'); return; }
+    // Create a modal picker
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    const usedIds = new Set(activeSet.trackIds);
+    const available = this.tracks.filter(t => !usedIds.has(t.id));
+    overlay.innerHTML = `<div class="modal-dialog" style="max-width:500px;max-height:70vh;display:flex;flex-direction:column">
+      <div class="modal-title">Ajouter des tracks</div>
+      <input type="text" id="pickerSearch" placeholder="Rechercher…" style="padding:8px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-primary);color:var(--text-primary);font-size:13px;outline:none;margin-bottom:8px">
+      <div id="pickerList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px">
+        ${available.map(t => `<div class="sb-suggestion-row" data-pick-id="${t.id}" style="cursor:pointer">
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text-primary)">${t.title}</div><div style="font-size:11px;color:var(--text-secondary)">${t.artist}</div></div>
+          <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted)">${t.bpm ? Math.round(t.bpm) : ''}</span>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn-secondary modal-cancel" style="flex:1">Fermer</button></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.modal-cancel').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#pickerSearch')?.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      overlay.querySelectorAll('[data-pick-id]').forEach(row => {
+        const title = row.querySelector('div div:first-child')?.textContent.toLowerCase() || '';
+        row.style.display = title.includes(q) ? '' : 'none';
+      });
+    });
+    overlay.querySelectorAll('[data-pick-id]').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = parseInt(row.dataset.pickId);
+        activeSet.trackIds.push(id);
+        row.remove();
+        this._saveSets();
+        this.renderSetBuilderPage();
+      });
+    });
   },
 
   renderUploadPage() {
@@ -1233,6 +1707,16 @@ const CueForgeApp = {
     document.getElementById('trackSearch')?.addEventListener('input', (e) => {
       this.searchQuery = e.target.value;
       this.renderTrackList();
+    });
+
+    // View toggle (list/grid)
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.viewMode = btn.dataset.view;
+        this.renderTrackList();
+      });
     });
 
     // Global search
