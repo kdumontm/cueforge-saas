@@ -1,7 +1,7 @@
 {
   "name": "cueforge",
   "version": "1.0.0",
-  "description": "CueForge — L'app Mac pour les DJs. Analyse audio, cue points, et organisation musicale.",
+  "description": "CueForge — L'app desktop pour les DJs. Analyse audio, cue points, et organisation musicale.",
   "main": "src/main.js",
   "author": {
     "name": "Kevin Dumont",
@@ -18,6 +18,8 @@
     "build": "electron-builder --mac",
     "build:dmg": "electron-builder --mac dmg",
     "build:zip": "electron-builder --mac zip",
+    "build:win": "electron-builder --win nsis zip",
+    "build:all": "electron-builder --mac dmg zip --win nsis zip",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -41,6 +43,30 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "darkModeSupport": true
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "assets/icon.png",
+      "uninstallerIcon": "assets/icon.png",
+      "installerHeaderIcon": "assets/icon.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CueForge"
     },
     "dmg": {
       "title": "CueForge",

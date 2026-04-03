@@ -19,6 +19,8 @@ const { autoUpdater } = require('electron-updater');
 // ─── Configuration ──────────────────────────────────────────
 const PROD_URL = 'https://cueforge-saas-production.up.railway.app';
 const APP_NAME = 'CueForge';
+const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
 
 const store = new Store({
   defaults: {
@@ -49,15 +51,26 @@ if (!gotLock) {
 function createMainWindow() {
   const { width, height } = store.get('windowBounds');
 
-  mainWindow = new BrowserWindow({
+  const windowOpts = {
     width,
     height,
     minWidth: 900,
     minHeight: 600,
     title: APP_NAME,
-    titleBarStyle: 'hiddenInset', // Style macOS natif
-    trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff',
+  };
+
+  // Options spécifiques par OS
+  if (isMac) {
+    windowOpts.titleBarStyle = 'hiddenInset';
+    windowOpts.trafficLightPosition = { x: 16, y: 16 };
+  } else if (isWin) {
+    windowOpts.autoHideMenuBar = true;
+    windowOpts.icon = path.join(__dirname, '..', 'assets', 'icon.png');
+  }
+
+  mainWindow = new BrowserWindow({
+    ...windowOpts,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -81,9 +94,10 @@ function createMainWindow() {
     store.set('windowBounds', { width: bounds.width, height: bounds.height });
   });
 
-  // Masquer au lieu de fermer (rester dans le Dock)
+  // macOS : masquer au lieu de fermer (rester dans le Dock)
+  // Windows : fermer normalement (pas de dock)
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
+    if (isMac && !isQuitting) {
       event.preventDefault();
       mainWindow.hide();
     }
@@ -122,7 +136,7 @@ function createTray() {
   if (fs.existsSync(trayIconPath)) {
     trayIcon = nativeImage.createFromPath(trayIconPath);
     trayIcon = trayIcon.resize({ width: 18, height: 18 });
-    trayIcon.setTemplateImage(true);
+    if (isMac) trayIcon.setTemplateImage(true);
   } else {
     // Icône par défaut si le fichier n'existe pas encore
     trayIcon = nativeImage.createEmpty();
@@ -194,62 +208,66 @@ function createTray() {
   });
 }
 
-// ─── Menu App macOS ─────────────────────────────────────────
+// ─── Menu App (macOS + Windows) ────────────────────────────
 function createAppMenu() {
+  const mod = isMac ? 'Cmd' : 'Ctrl'; // Raccourci adapté à l'OS
+
   const template = [
-    {
-      label: APP_NAME,
-      submenu: [
-        { label: `À propos de ${APP_NAME}`, role: 'about' },
-        { type: 'separator' },
-        { label: 'Préférences…', accelerator: 'Cmd+,', click: () => {} },
-        { type: 'separator' },
-        { label: `Masquer ${APP_NAME}`, role: 'hide' },
-        { label: 'Masquer les autres', role: 'hideOthers' },
-        { label: 'Tout afficher', role: 'unhide' },
-        { type: 'separator' },
-        {
-          label: `Quitter ${APP_NAME}`,
-          accelerator: 'Cmd+Q',
-          click: () => {
-            isQuitting = true;
-            app.quit();
+    // Menu app macOS uniquement
+    ...(isMac
+      ? [
+          {
+            label: APP_NAME,
+            submenu: [
+              { label: `À propos de ${APP_NAME}`, role: 'about' },
+              { type: 'separator' },
+              { label: 'Préférences…', accelerator: 'Cmd+,', click: () => {} },
+              { type: 'separator' },
+              { label: `Masquer ${APP_NAME}`, role: 'hide' },
+              { label: 'Masquer les autres', role: 'hideOthers' },
+              { label: 'Tout afficher', role: 'unhide' },
+              { type: 'separator' },
+              {
+                label: `Quitter ${APP_NAME}`,
+                accelerator: 'Cmd+Q',
+                click: () => { isQuitting = true; app.quit(); },
+              },
+            ],
           },
-        },
-      ],
-    },
+        ]
+      : []),
     {
       label: 'Édition',
       submenu: [
-        { label: 'Annuler', accelerator: 'Cmd+Z', role: 'undo' },
-        { label: 'Rétablir', accelerator: 'Shift+Cmd+Z', role: 'redo' },
+        { label: 'Annuler', accelerator: `${mod}+Z`, role: 'undo' },
+        { label: 'Rétablir', accelerator: `Shift+${mod}+Z`, role: 'redo' },
         { type: 'separator' },
-        { label: 'Couper', accelerator: 'Cmd+X', role: 'cut' },
-        { label: 'Copier', accelerator: 'Cmd+C', role: 'copy' },
-        { label: 'Coller', accelerator: 'Cmd+V', role: 'paste' },
-        { label: 'Tout sélectionner', accelerator: 'Cmd+A', role: 'selectAll' },
+        { label: 'Couper', accelerator: `${mod}+X`, role: 'cut' },
+        { label: 'Copier', accelerator: `${mod}+C`, role: 'copy' },
+        { label: 'Coller', accelerator: `${mod}+V`, role: 'paste' },
+        { label: 'Tout sélectionner', accelerator: `${mod}+A`, role: 'selectAll' },
       ],
     },
     {
       label: 'Présentation',
       submenu: [
-        { label: 'Recharger', accelerator: 'Cmd+R', role: 'reload' },
-        { label: 'Forcer le rechargement', accelerator: 'Shift+Cmd+R', role: 'forceReload' },
+        { label: 'Recharger', accelerator: `${mod}+R`, role: 'reload' },
+        { label: 'Forcer le rechargement', accelerator: `Shift+${mod}+R`, role: 'forceReload' },
         { type: 'separator' },
-        { label: 'Zoom avant', accelerator: 'Cmd+Plus', role: 'zoomIn' },
-        { label: 'Zoom arrière', accelerator: 'Cmd+-', role: 'zoomOut' },
-        { label: 'Taille réelle', accelerator: 'Cmd+0', role: 'resetZoom' },
+        { label: 'Zoom avant', accelerator: `${mod}+Plus`, role: 'zoomIn' },
+        { label: 'Zoom arrière', accelerator: `${mod}+-`, role: 'zoomOut' },
+        { label: 'Taille réelle', accelerator: `${mod}+0`, role: 'resetZoom' },
         { type: 'separator' },
-        { label: 'Plein écran', accelerator: 'Ctrl+Cmd+F', role: 'togglefullscreen' },
+        { label: 'Plein écran', accelerator: isMac ? 'Ctrl+Cmd+F' : 'F11', role: 'togglefullscreen' },
       ],
     },
     {
       label: 'Fenêtre',
       submenu: [
-        { label: 'Réduire', accelerator: 'Cmd+M', role: 'minimize' },
+        { label: 'Réduire', accelerator: `${mod}+M`, role: 'minimize' },
         { label: 'Zoom', role: 'zoom' },
         { type: 'separator' },
-        { label: 'Fermer', accelerator: 'Cmd+W', role: 'close' },
+        { label: 'Fermer', accelerator: `${mod}+W`, role: 'close' },
       ],
     },
     {
@@ -257,32 +275,47 @@ function createAppMenu() {
       submenu: [
         {
           label: 'Accueil',
-          accelerator: 'Cmd+1',
+          accelerator: `${mod}+1`,
           click: () => mainWindow && mainWindow.loadURL(PROD_URL),
         },
         {
           label: 'Mes Tracks',
-          accelerator: 'Cmd+2',
+          accelerator: `${mod}+2`,
           click: () => mainWindow && mainWindow.loadURL(`${PROD_URL}/tracks`),
         },
         {
           label: 'Upload',
-          accelerator: 'Cmd+3',
+          accelerator: `${mod}+3`,
           click: () => mainWindow && mainWindow.loadURL(`${PROD_URL}/upload`),
         },
         { type: 'separator' },
         {
           label: 'Précédent',
-          accelerator: 'Cmd+[',
+          accelerator: isMac ? 'Cmd+[' : 'Alt+Left',
           click: () => mainWindow && mainWindow.webContents.goBack(),
         },
         {
           label: 'Suivant',
-          accelerator: 'Cmd+]',
+          accelerator: isMac ? 'Cmd+]' : 'Alt+Right',
           click: () => mainWindow && mainWindow.webContents.goForward(),
         },
       ],
     },
+    // Menu Quitter pour Windows
+    ...(!isMac
+      ? [
+          {
+            label: 'Fichier',
+            submenu: [
+              {
+                label: 'Quitter',
+                accelerator: 'Alt+F4',
+                click: () => { isQuitting = true; app.quit(); },
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   const menu = Menu.buildFromTemplate(template);

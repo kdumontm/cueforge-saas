@@ -15,6 +15,9 @@ interface DownloadInfo {
   dmg_url: string | null;
   dmg_size: string | null;
   min_macos: string;
+  exe_url: string | null;
+  exe_size: string | null;
+  min_windows: string;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -28,6 +31,7 @@ export default function DownloadPage() {
   const [info, setInfo] = useState<DownloadInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'mac' | 'windows'>('mac');
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -110,8 +114,8 @@ export default function DownloadPage() {
             </span>
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-            L&apos;app native macOS pour analyser, organiser et exporter tes tracks.
-            Drag &amp; drop depuis le Finder, notifications système, et mode hors-ligne.
+            L&apos;app native pour analyser, organiser et exporter tes tracks.
+            Disponible sur macOS et Windows.
           </p>
         </div>
 
@@ -120,41 +124,159 @@ export default function DownloadPage() {
           {info?.has_access ? (
             /* ── Accès autorisé ─────────────────────────── */
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 backdrop-blur p-8 text-center">
-              {/* Icône macOS */}
-              <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <svg width="48" height="48" fill="none" stroke="white" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path d="M9 3v18m6-18v18M3 9h18M3 15h18" />
-                </svg>
+              {/* OS Tabs */}
+              <div className="flex gap-2 justify-center mb-8">
+                <button
+                  onClick={() => setActiveTab('mac')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === 'mac'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/50 hover:text-zinc-300'
+                  }`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                  </svg>
+                  macOS
+                </button>
+                <button
+                  onClick={() => setActiveTab('windows')}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === 'windows'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/50 hover:text-zinc-300'
+                  }`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 12V6.75l8-1.25V12H3zm0 .5h8v6.5l-8-1.25V12.5zM11.5 5.34L21 3.5V12h-9.5V5.34zm0 7.16H21v8.5l-9.5-1.84V12.5z"/>
+                  </svg>
+                  Windows
+                </button>
               </div>
 
-              <h2 className="text-2xl font-bold text-white mb-2">
-                CueForge pour macOS
-              </h2>
-              <p className="text-zinc-400 mb-1">
-                Version {info.latest_version}
-              </p>
-              <p className="text-zinc-500 text-sm mb-8">
-                macOS {info.min_macos}+ requis {info.dmg_size && `· ${info.dmg_size}`}
-              </p>
+              {/* macOS Download */}
+              {activeTab === 'mac' && (
+                <>
+                  <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="white">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">CueForge pour macOS</h2>
+                  <p className="text-zinc-400 mb-1">Version {info.latest_version}</p>
+                  <p className="text-zinc-500 text-sm mb-8">
+                    macOS {info.min_macos}+ requis {info.dmg_size && `· ${info.dmg_size}`}
+                  </p>
 
-              {info.dmg_url ? (
-                <a
-                  href={info.dmg_url}
-                  className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold text-lg hover:from-purple-500 hover:to-purple-400 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5"
-                >
-                  <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                  </svg>
-                  Télécharger le .dmg
-                </a>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-800 text-zinc-400">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                  Build en cours — bientôt disponible
-                </div>
+                  {info.dmg_url ? (
+                    <a
+                      href={info.dmg_url}
+                      className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold text-lg hover:from-purple-500 hover:to-purple-400 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                    >
+                      <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      Télécharger le .dmg
+                    </a>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-800 text-zinc-400">
+                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                      Build en cours — bientôt disponible
+                    </div>
+                  )}
+
+                  {/* Instructions macOS */}
+                  <div className="mt-6 pt-6 border-t border-zinc-800 text-left">
+                    <h3 className="text-sm font-medium text-zinc-400 mb-3">Installation macOS</h3>
+                    <ol className="space-y-2 text-sm text-zinc-500">
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-mono mt-0.5">1.</span>
+                        Téléchargez le fichier .dmg
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-mono mt-0.5">2.</span>
+                        Ouvrez-le et glissez CueForge dans Applications
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-mono mt-0.5">3.</span>
+                        <span>
+                          <strong className="text-zinc-300">Premier lancement :</strong> faites clic-droit sur CueForge
+                          dans Applications → &quot;Ouvrir&quot;, puis confirmez dans la fenêtre qui s&apos;affiche
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-400 font-mono mt-0.5">4.</span>
+                        <span>
+                          Si macOS affiche &quot;endommagé&quot; : allez dans
+                          <strong className="text-zinc-300"> Réglages Système → Confidentialité et sécurité</strong> et
+                          cliquez &quot;Ouvrir quand même&quot;
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+                </>
+              )}
+
+              {/* Windows Download */}
+              {activeTab === 'windows' && (
+                <>
+                  <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="white">
+                      <path d="M3 12V6.75l8-1.25V12H3zm0 .5h8v6.5l-8-1.25V12.5zM11.5 5.34L21 3.5V12h-9.5V5.34zm0 7.16H21v8.5l-9.5-1.84V12.5z"/>
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">CueForge pour Windows</h2>
+                  <p className="text-zinc-400 mb-1">Version {info.latest_version}</p>
+                  <p className="text-zinc-500 text-sm mb-8">
+                    Windows {info.min_windows}+ requis {info.exe_size && `· ${info.exe_size}`}
+                  </p>
+
+                  {info.exe_url ? (
+                    <a
+                      href={info.exe_url}
+                      className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold text-lg hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5"
+                    >
+                      <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                      </svg>
+                      Télécharger le .exe
+                    </a>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-800 text-zinc-400">
+                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                      Build en cours — bientôt disponible
+                    </div>
+                  )}
+
+                  {/* Instructions Windows */}
+                  <div className="mt-6 pt-6 border-t border-zinc-800 text-left">
+                    <h3 className="text-sm font-medium text-zinc-400 mb-3">Installation Windows</h3>
+                    <ol className="space-y-2 text-sm text-zinc-500">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 font-mono mt-0.5">1.</span>
+                        Téléchargez le fichier .exe
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 font-mono mt-0.5">2.</span>
+                        Lancez l&apos;installateur et suivez les instructions
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-400 font-mono mt-0.5">3.</span>
+                        <span>
+                          Si Windows SmartScreen bloque : cliquez
+                          <strong className="text-zinc-300"> &quot;Informations complémentaires&quot;</strong> puis
+                          <strong className="text-zinc-300"> &quot;Exécuter quand même&quot;</strong>
+                        </span>
+                      </li>
+                    </ol>
+                  </div>
+                </>
               )}
 
               {/* Release notes */}
@@ -165,37 +287,8 @@ export default function DownloadPage() {
                 </div>
               )}
 
-              {/* Instructions */}
-              <div className="mt-6 pt-6 border-t border-zinc-800 text-left">
-                <h3 className="text-sm font-medium text-zinc-400 mb-3">Installation</h3>
-                <ol className="space-y-2 text-sm text-zinc-500">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 font-mono mt-0.5">1.</span>
-                    Téléchargez le fichier .dmg
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 font-mono mt-0.5">2.</span>
-                    Ouvrez-le et glissez CueForge dans Applications
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 font-mono mt-0.5">3.</span>
-                    <span>
-                      <strong className="text-zinc-300">Premier lancement :</strong> faites clic-droit sur CueForge
-                      dans Applications → &quot;Ouvrir&quot;, puis confirmez dans la fenêtre qui s&apos;affiche
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-400 font-mono mt-0.5">4.</span>
-                    <span>
-                      Si macOS affiche &quot;endommagé&quot; : allez dans
-                      <strong className="text-zinc-300"> Réglages Système → Confidentialité et sécurité</strong> et
-                      cliquez &quot;Ouvrir quand même&quot;
-                    </span>
-                  </li>
-                </ol>
-                <div className="mt-3 px-3 py-2 rounded-lg bg-purple-500/5 border border-purple-500/10 text-xs text-zinc-500">
-                  <span className="text-purple-400">Info :</span> Les mises à jour sont automatiques — l&apos;app vous notifiera quand une nouvelle version est disponible.
-                </div>
+              <div className="mt-3 px-3 py-2 rounded-lg bg-purple-500/5 border border-purple-500/10 text-xs text-zinc-500">
+                <span className="text-purple-400">Info :</span> Les mises à jour sont automatiques — l&apos;app vous notifiera quand une nouvelle version est disponible.
               </div>
             </div>
           ) : (
@@ -242,7 +335,7 @@ export default function DownloadPage() {
         </div>
 
         {/* Features */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             {
               icon: (
@@ -251,7 +344,7 @@ export default function DownloadPage() {
                 </svg>
               ),
               title: 'Drag & Drop',
-              desc: 'Glissez vos fichiers audio depuis le Finder directement dans l\'app.',
+              desc: 'Glissez vos fichiers audio directement dans l\'app.',
             },
             {
               icon: (
@@ -260,7 +353,7 @@ export default function DownloadPage() {
                 </svg>
               ),
               title: 'Notifications',
-              desc: 'Alertes macOS natives quand l\'analyse d\'un track est terminée.',
+              desc: 'Alertes natives quand l\'analyse est terminée.',
             },
             {
               icon: (
@@ -269,7 +362,7 @@ export default function DownloadPage() {
                 </svg>
               ),
               title: 'Mode hors-ligne',
-              desc: 'Consultez vos tracks même sans connexion internet.',
+              desc: 'Consultez vos tracks sans connexion.',
             },
             {
               icon: (
@@ -278,7 +371,7 @@ export default function DownloadPage() {
                 </svg>
               ),
               title: 'Mises à jour auto',
-              desc: 'L\'app se met à jour automatiquement. Plus besoin de retélécharger.',
+              desc: 'Plus besoin de retélécharger.',
             },
           ].map((feature, i) => (
             <div
