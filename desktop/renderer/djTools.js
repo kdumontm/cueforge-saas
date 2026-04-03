@@ -221,10 +221,11 @@ const CueForgeApp = {
   },
 
   init() {
+    this.updatePlayerCard(this.state.selectedTrack);
     this.renderWaveforms();
     this.renderHotCues();
+    this.renderTimeLoop(this.state.selectedTrack);
     this.renderTrackList();
-    this.updatePlayerCard(this.state.selectedTrack);
     this.renderAllTabs();
     this.renderPages();
     this.bindEvents();
@@ -267,13 +268,13 @@ const CueForgeApp = {
 
   // Render pages that are dynamically generated
   renderPages() {
-    const exportEl = document.getElementById('viewExport');
+    const exportEl = document.getElementById('exportContent');
     if (exportEl) exportEl.innerHTML = this.renderExportPage();
 
-    const setBuilderEl = document.getElementById('viewSetBuilder');
+    const setBuilderEl = document.getElementById('setBuilderContent');
     if (setBuilderEl) setBuilderEl.innerHTML = this.renderSetBuilderPage();
 
-    const uploadEl = document.getElementById('viewUpload');
+    const uploadEl = document.getElementById('uploadContent');
     if (uploadEl) uploadEl.innerHTML = this.renderUploadPage();
   },
 
@@ -436,27 +437,33 @@ const CueForgeApp = {
     if (!track) return;
 
     const titleEl = document.getElementById('playerTitle');
-    const artistEl = document.getElementById('playerArtist');
-    const bpmEl = document.getElementById('playerBpm');
-    const keyEl = document.getElementById('playerKey');
-    const energyFill = document.getElementById('playerEnergyFill');
-    const energyVal = document.getElementById('playerEnergy');
+    const subtitleEl = document.getElementById('playerSubtitle');
+    const badgesEl = document.getElementById('playerBadges');
     const artEl = document.getElementById('playerArt');
 
     if (titleEl) titleEl.textContent = track.title;
-    if (artistEl) artistEl.textContent = `${track.artist} · ${track.genre}`;
-    if (bpmEl) bpmEl.textContent = track.bpm ? `${track.bpm} BPM` : '—';
-    if (keyEl) {
-      keyEl.textContent = track.key || '—';
-      const keyColor = CAMELOT.find(c => c.n === track.key)?.color || '#64748b';
-      keyEl.style.borderColor = keyColor;
-      keyEl.style.color = keyColor;
-      keyEl.style.background = keyColor + '22';
+    if (subtitleEl) subtitleEl.textContent = `${track.artist} · ${track.genre}`;
+
+    // Render badges (BPM + Key + Energy)
+    if (badgesEl) {
+      let badgesHtml = '';
+      if (track.bpm) {
+        badgesHtml += `<span class="badge badge-bpm">${track.bpm} BPM</span>`;
+      }
+      if (track.key) {
+        const keyColor = CAMELOT.find(c => c.n === track.key)?.color || '#64748b';
+        badgesHtml += `<span class="badge badge-key" style="background:${keyColor}22;color:${keyColor};border:1px solid ${keyColor}40">${track.key}</span>`;
+      }
+      if (track.energy) {
+        badgesHtml += `
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div class="energy-bar-outer"><div class="energy-bar-inner" style="width:${track.energy}%"></div></div>
+            <span class="energy-label">${track.energy}</span>
+          </div>`;
+      }
+      badgesEl.innerHTML = badgesHtml;
     }
-    if (energyFill && track.energy) {
-      energyFill.style.width = track.energy + '%';
-    }
-    if (energyVal) energyVal.textContent = track.energy || '—';
+
     if (artEl && track.color) {
       artEl.style.background = track.color + '30';
       artEl.style.border = `1px solid ${track.color}40`;
@@ -464,6 +471,29 @@ const CueForgeApp = {
 
     this.renderWaveforms();
     this.renderHotCues();
+    this.renderTimeLoop(track);
+  },
+
+  renderTimeLoop(track) {
+    const container = document.getElementById('timeLoopRow');
+    if (!container) return;
+
+    const duration = track?.duration || '0:00';
+    container.innerHTML = `
+      <span class="time-current">2:21</span>
+      <span class="time-remaining">−${duration}</span>
+      <div style="flex:1"></div>
+      <button class="btn-loop-ctrl btn-loop-in">IN</button>
+      <button class="btn-loop-ctrl btn-loop-active">4 BARS</button>
+      <button class="btn-loop-ctrl btn-loop-out">OUT</button>
+      <div style="flex:1"></div>
+      <span style="font-size:10px;color:var(--text-muted)">Zoom</span>
+      <button class="btn-zoom">2x</button>
+      <button class="btn-zoom active">4x</button>
+      <button class="btn-zoom">8x</button>
+      <button class="btn-zoom">16x</button>
+      <span class="time-total">${duration}</span>
+    `;
   },
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -1,31 +1,31 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CueForge DJ</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CueForge</title>
   <style>
-    /* ═══════════════════════════════════════════════════════════════════════════
-       DESIGN SYSTEM — Exact V2 Prototype Match
-       ═════════════════════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════════════════════════
+       DESIGN SYSTEM — exact match with cueforge-v2-prototype.jsx
+       ═══════════════════════════════════════════════════════════════════════ */
     :root {
+      /* BG */
       --bg-primary: #08080f;
       --bg-secondary: #0f0f1a;
       --bg-card: #131320;
       --bg-elevated: #1a1a2e;
       --bg-hover: #1f1f35;
       --bg-surface: #0f0f1a;
+      /* TEXT */
       --text-primary: #f1f5f9;
       --text-secondary: #94a3b8;
       --text-muted: #64748b;
       --text-disabled: #374151;
+      /* BORDER */
       --border-subtle: #1a1a2e;
       --border-default: #252540;
       --border-strong: #334155;
+      /* ACCENT */
       --accent: #2563eb;
       --accent-success: #10b981;
       --accent-error: #ef4444;
@@ -33,1434 +33,568 @@
       --accent-purple: #8b5cf6;
       --accent-cyan: #06b6d4;
       --accent-pink: #ec4899;
+      /* LAYOUT */
       --sidebar-width: 220px;
+      --sidebar-collapsed: 56px;
       --topbar-height: 56px;
-      --mono: 'JetBrains Mono', 'Consolas', monospace;
+      /* FONTS */
+      --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%; height: 100%;
-      background: var(--bg-primary);
+    body {
+      font-family: var(--font-main);
+      font-size: 14px;
       color: var(--text-primary);
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 13px; line-height: 1.5;
-      -webkit-app-region: no-drag;
+      background: var(--bg-primary);
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-    /* ─── UPDATE BANNER ──────────────────────────────────────────────────── */
+    /* ── Update Banner ──────────────────────────────────────── */
     #updateBanner {
       display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 9999;
-      background: linear-gradient(90deg, #1e1b4b, #312e81);
-      border-bottom: 1px solid #4f46e5;
-      padding: 8px 20px;
-      flex-direction: column;
-      gap: 6px;
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+      padding: 6px 16px;
+      align-items: center; gap: 12;
+      font-size: 12; color: white;
     }
     #updateBanner.show { display: flex; }
-    .update-banner-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .update-banner-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #e0d5ff;
-      white-space: nowrap;
-    }
-    .update-banner-sub {
-      font-size: 11px;
-      color: #a8a29e;
-    }
-    .update-progress-bar-outer {
-      flex: 1;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .update-progress-bar-inner {
-      height: 100%;
-      background: linear-gradient(90deg, #4f46e5, #6366f1);
-      border-radius: 3px;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-    .update-progress-pct {
-      font-size: 12px;
-      color: #c4b5fd;
-      font-weight: 600;
-      min-width: 38px;
-      text-align: right;
-    }
+    .update-progress-bar-outer { width: 120px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; overflow: hidden; }
+    .update-progress-bar-inner { width: 0%; height: 100%; background: white; border-radius: 2px; transition: width 0.3s; }
     .btn-install-update {
       display: none;
-      background: #4f46e5;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 5px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.2s;
+      background: #4f46e5; color: #fff; border: none; border-radius: 6px;
+      padding: 4px 14px; font-size: 11px; font-weight: 600; cursor: pointer;
       margin-left: auto;
     }
     .btn-install-update.show { display: inline-block; }
     .btn-install-update:hover { background: #4338ca; }
 
-    /* ─── LOGIN SCREEN ───────────────────────────────────────────────────── */
+    /* ── Login Screen ───────────────────────────────────────── */
     #loginScreen {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
       background: var(--bg-primary);
     }
     #loginScreen.hidden { display: none; }
     .login-card {
-      width: 360px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-default);
-      border-radius: 14px;
-      padding: 32px;
-      text-align: center;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      background: var(--bg-card); border: 1px solid var(--border-default);
+      border-radius: 16px; padding: 40px; width: 360px;
+      display: flex; flex-direction: column; gap: 14px; text-align: center;
     }
-    .login-logo {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
-    .login-subtitle {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 24px;
-    }
+    .login-logo { font-size: 28px; font-weight: 800; color: var(--text-primary); }
+    .login-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
     .login-input {
-      width: 100%;
-      padding: 10px 14px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: 8px;
-      color: var(--text-primary);
-      font-size: 13px;
-      margin-bottom: 12px;
-      outline: none;
-      font-family: 'Inter', sans-serif;
+      width: 100%; padding: 10px 14px; border-radius: 9px;
+      border: 1px solid var(--border-default); background: var(--bg-elevated);
+      color: var(--text-primary); font-size: 13px; outline: none;
     }
     .login-input:focus { border-color: var(--accent); }
-    .login-input::placeholder { color: var(--text-muted); }
     .login-btn {
-      width: 100%;
-      padding: 10px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
+      width: 100%; padding: 10px; border-radius: 9px; border: none;
+      background: var(--accent); color: white; font-size: 14px; font-weight: 700;
       cursor: pointer;
-      margin-top: 4px;
     }
-    .login-btn:hover { background: #1d4ed8; }
-    .login-error {
-      color: var(--accent-error);
-      font-size: 11px;
-      margin-top: 8px;
-      display: none;
-    }
-    .login-links {
-      margin-top: 16px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .login-links a {
-      color: var(--accent);
-      text-decoration: none;
-    }
+    .login-btn:hover { opacity: 0.9; }
+    .login-error { color: var(--accent-error); font-size: 12px; display: none; }
 
-    /* ═══════════════════════════════════════════════════════════════════════════
-       APP LAYOUT
-       ═════════════════════════════════════════════════════════════════════════ */
+    /* ── App Layout ─────────────────────────────────────────── */
     #appContainer {
-      display: none;
-      flex: 1;
-      height: 100vh;
-      width: 100%;
-      overflow: hidden;
-    }
-    #appContainer.show {
-      display: flex;
+      display: none; height: 100vh; width: 100vw;
     }
 
-    /* ─── SIDEBAR ────────────────────────────────────────────────────────── */
+    /* ── Sidebar — exact V2 prototype styles ────────────────── */
     .sidebar {
-      width: var(--sidebar-width);
-      min-width: var(--sidebar-width);
-      max-width: var(--sidebar-width);
-      height: 100vh;
-      background: var(--bg-secondary);
+      width: var(--sidebar-width); min-width: var(--sidebar-width); max-width: var(--sidebar-width);
+      height: 100vh; background: var(--bg-secondary);
       border-right: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      z-index: 10;
-      transition: all 0.25s;
+      display: flex; flex-direction: column;
+      transition: all 0.25s; overflow: hidden;
+      position: relative; z-index: 10;
     }
-
     .sidebar.collapsed {
-      width: 56px;
-      min-width: 56px;
-      max-width: 56px;
+      width: var(--sidebar-collapsed); min-width: var(--sidebar-collapsed); max-width: var(--sidebar-collapsed);
     }
 
+    /* Logo area */
     .sidebar-logo {
       padding: 16px 16px 12px;
       border-bottom: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
     }
-
-    .sidebar.collapsed .sidebar-logo {
-      justify-content: center;
-    }
-
-    .sidebar-logo-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
+    .sidebar.collapsed .sidebar-logo { padding: 16px 12px; justify-content: center; }
+    .sidebar-logo-group { display: flex; align-items: center; gap: 8; }
     .sidebar-logo-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
     }
-
-    .sidebar-logo-text {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--text-primary);
-    }
-
+    .sidebar-logo-text { font-size: 15px; font-weight: 800; color: var(--text-primary); }
     .sidebar.collapsed .sidebar-logo-text { display: none; }
-
     .sidebar-collapse-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 16px;
-      padding: 2px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 16px; padding: 2px;
     }
-
-    .sidebar.collapsed .sidebar-collapse-btn {
-      display: none;
-    }
-
+    .sidebar.collapsed .sidebar-collapse-btn { display: none; }
     .sidebar-expand-btn {
-      display: none;
-      margin: 8px auto;
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 16px;
+      display: none; margin: 8px auto;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 16px;
     }
+    .sidebar.collapsed .sidebar-expand-btn { display: block; }
 
-    .sidebar.collapsed .sidebar-expand-btn {
-      display: block;
-    }
+    /* Sidebar content */
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 8px 8px; }
 
-    .sidebar-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 8px;
-    }
-
-    .sidebar-section {
-      margin-bottom: 4px;
-    }
-
+    /* Section titles */
+    .sidebar-section { margin-bottom: 4px; }
     .sidebar-section-title {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
       padding: 4px 8px 6px;
     }
-
     .sidebar.collapsed .sidebar-section-title { display: none; }
-
     .sidebar-section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       padding: 4px 8px 6px;
     }
-
     .sidebar.collapsed .sidebar-section-header { display: none; }
-
     .sidebar-add-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 16px;
-      line-height: 1;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 16px; line-height: 1;
     }
 
+    /* Nav items — exact match with V2 navItem styles */
     .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 1px;
-      color: var(--text-secondary);
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s;
-      position: relative;
+      display: flex; align-items: center; gap: 10;
+      padding: 7px 12px; border-radius: 8; cursor: pointer;
+      margin-bottom: 1px; background: transparent;
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
+      transition: all 0.15s; position: relative;
     }
-
     .nav-item:hover { background: var(--bg-hover); }
-
     .nav-item.active {
-      background: rgba(37, 99, 235, 0.1);
-      color: var(--accent);
-      font-weight: 600;
+      background: rgba(37,99,235,0.094); /* accent + 18 hex */
+      color: var(--accent); font-weight: 600;
     }
-
     .nav-item.active::after {
-      content: '';
-      position: absolute;
-      right: 10px;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
+      content: ''; position: absolute; right: 10px;
+      width: 5px; height: 5px; border-radius: 50%;
       background: var(--accent);
     }
-
     .nav-item.sub { color: var(--text-muted); }
-
-    .sidebar.collapsed .nav-item {
-      padding: 8px 16px;
-      justify-content: center;
-    }
-
+    .sidebar.collapsed .nav-item { padding: 8px 16px; font-size: 0; }
     .sidebar.collapsed .nav-item.active::after { display: none; }
-
-    .nav-icon {
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .nav-label {
-      font-size: 13px;
-    }
-
+    .nav-icon { font-size: 14px; flex-shrink: 0; }
+    .nav-label { font-size: 13px; }
     .sidebar.collapsed .nav-label { display: none; }
 
+    /* Smart Crates */
     .crate-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 1px;
-      transition: all 0.15s;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px; border-radius: 8; cursor: pointer;
+      margin-bottom: 1px; transition: all 0.15s;
     }
-
     .crate-item:hover { background: var(--bg-hover); }
+    .sidebar.collapsed .crate-item { display: none; }
+    .crate-left { display: flex; align-items: center; gap: 8; }
+    .crate-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .crate-label { font-size: 13px; color: var(--text-secondary); font-weight: 400; }
+    .crate-count { font-size: 10px; color: var(--text-muted); }
 
-    .crate-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .crate-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .crate-label {
-      font-size: 13px;
-      color: var(--text-secondary);
-      font-weight: 400;
-    }
-
-    .crate-item.active .crate-label {
-      font-weight: 600;
-    }
-
-    .crate-count {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .sidebar.collapsed .crate-item {
-      display: none;
-    }
-
+    /* Playlists */
     .playlist-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 1px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px; border-radius: 8; cursor: pointer;
+      margin-bottom: 1px; transition: all 0.15s;
     }
-
     .playlist-item:hover { background: var(--bg-hover); }
-
-    .pl-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .pl-icon {
-      font-size: 12px;
-    }
-
-    .pl-label {
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .pl-count {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .playlist-item.active .pl-label {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
     .sidebar.collapsed .playlist-item { display: none; }
+    .pl-left { display: flex; align-items: center; gap: 8; }
+    .pl-icon { font-size: 12px; }
+    .pl-label { font-size: 13px; color: var(--text-secondary); font-weight: 400; }
+    .pl-count { font-size: 10px; color: var(--text-muted); }
 
+    /* Sidebar footer — exact V2 prototype */
     .sidebar-footer {
       padding: 10px 12px;
       border-top: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8;
     }
-
     .sidebar-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(37, 99, 235, 0.2);
-      border: 2px solid var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--accent);
-      flex-shrink: 0;
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(37,99,235,0.19); border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0;
     }
-
-    .sidebar-user-info {
-      flex: 1;
-      min-width: 0;
-    }
-
+    .sidebar-user-info { flex: 1; min-width: 0; }
     .sidebar.collapsed .sidebar-user-info { display: none; }
-
     .sidebar-username {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 12px; font-weight: 600; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .sidebar-plan {
-      font-size: 10px;
-      color: var(--accent);
-    }
-
+    .sidebar-plan { font-size: 10px; color: var(--accent); }
     .sidebar-settings-btn {
-      color: var(--text-muted);
-      font-size: 16px;
-      cursor: pointer;
-      background: none;
-      border: none;
+      color: var(--text-muted); font-size: 16px; cursor: pointer;
+      background: none; border: none;
     }
-
     .sidebar.collapsed .sidebar-settings-btn { display: none; }
 
-    /* ─── MAIN CONTENT ───────────────────────────────────────────────────── */
+    /* ── Main Content ───────────────────────────────────────── */
     .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      overflow: hidden;
+      flex: 1; display: flex; flex-direction: column;
+      min-width: 0; overflow: hidden;
     }
 
-    /* ─── TOPBAR ─────────────────────────────────────────────────────────── */
+    /* TopBar — exact V2: height 56, bg secondary, border bottom subtle */
     .topbar {
-      height: var(--topbar-height);
-      background: var(--bg-secondary);
+      height: var(--topbar-height); background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      gap: 16px;
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      flex-shrink: 0;
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 16;
+      position: sticky; top: 0; z-index: 5;
     }
-
-    .topbar-title-area {
-      flex: 1;
-    }
-
-    .topbar-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .topbar-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .topbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
+    .topbar-title-area { flex: 1; }
+    .topbar-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+    .topbar-subtitle { font-size: 11px; color: var(--text-muted); }
+    .topbar-actions { display: flex; align-items: center; gap: 8; }
     .topbar-search {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-default);
-      border-radius: 9px;
-      padding: 6px 12px;
-      width: 220px;
+      display: flex; align-items: center; gap: 8;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 9px; padding: 6px 12px; width: 220px;
     }
-
-    .topbar-search-icon {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
-    .topbar-search-text {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
+    .topbar-search-icon { color: var(--text-muted); font-size: 13px; }
+    .topbar-search-text { font-size: 12px; color: var(--text-muted); }
     .btn-analyze-all {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 8px;
-      background: rgba(245, 158, 11, 0.1);
-      color: var(--accent-warning);
-      border: 1px solid rgba(245, 158, 11, 0.2);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 6;
+      padding: 6px 12px; border-radius: 8;
+      background: rgba(245,158,11,0.094); color: var(--accent-warning);
+      border: 1px solid rgba(245,158,11,0.188);
+      font-size: 12px; font-weight: 600; cursor: pointer;
     }
-
     .topbar-icon-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-default);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      font-size: 14px;
+      width: 34px; height: 34px; border-radius: 8;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      position: relative; font-size: 14px;
     }
-
     .notif-dot {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
+      position: absolute; top: 4px; right: 4px;
+      width: 7px; height: 7px; border-radius: 50%;
       background: var(--accent-error);
     }
 
-    /* ─── PAGE VIEWS ─────────────────────────────────────────────────────── */
-    .page-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 14px 18px;
-    }
+    /* ── Page Views ─────────────────────────────────────────── */
+    .page-scroll { flex: 1; overflow-y: auto; }
+    .page-view { display: none; }
+    .page-view.active { display: block; }
+    .page-padding { padding: 14px 18px; }
 
-    .page-view {
-      display: none;
-    }
-
-    .page-view.active {
-      display: block;
-    }
-
-    /* ─── PLAYER CARD ────────────────────────────────────────────────────── */
+    /* ── Player Card — exact V2 prototype ───────────────────── */
     .player-card {
-      background: var(--bg-card);
-      border-radius: 14px;
+      background: var(--bg-card); border-radius: 14px;
       border: 1px solid var(--border-subtle);
-      margin-bottom: 12px;
-      overflow: hidden;
+      margin-bottom: 12px; overflow: hidden;
     }
-
-    .player-empty {
-      background: var(--bg-card);
-      border: 2px dashed var(--border-default);
-      border-radius: 14px;
-      padding: 40px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .player-empty-icon {
-      font-size: 48px;
-      opacity: 0.25;
-    }
-
-    .player-empty-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .player-empty-sub {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
     .player-info-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      display: flex; align-items: center; gap: 16;
       padding: 14px 18px 10px;
     }
-
     .player-art {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
       font-size: 20px;
-      flex-shrink: 0;
     }
-
-    .player-track-info {
-      flex: 1;
-      min-width: 0;
+    .player-title-area { flex: 1; min-width: 0; }
+    .player-title {
+      font-size: 15px; font-weight: 700; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .player-subtitle { font-size: 12px; color: var(--text-secondary); }
+    .player-badges { display: flex; align-items: center; gap: 8; }
 
-    .player-track-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .player-track-artist {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .player-badges {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
+    /* Badge — matches V2 Badge component */
     .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-size: 10px;
-      font-weight: 700;
+      display: inline-flex; align-items: center;
+      padding: 2px 7px; border-radius: 5px;
+      font-size: 10px; font-weight: 700;
       letter-spacing: 0.04em;
-      font-family: var(--mono);
+      font-family: var(--font-mono);
     }
+    .badge-bpm { background: rgba(6,182,212,0.133); color: var(--accent-cyan); border: 1px solid rgba(6,182,212,0.25); }
+    .badge-key { font-family: var(--font-mono); }
 
-    .badge-cyan {
-      background: rgba(6, 182, 212, 0.13);
-      color: #06b6d4;
-      border: 1px solid rgba(6, 182, 212, 0.25);
+    /* Energy bar in player */
+    .energy-bar-outer {
+      width: 50px; height: 5px; border-radius: 3px;
+      background: var(--bg-elevated); overflow: hidden;
     }
-
-    .badge-key {
-      border: 1px solid;
-    }
-
-    .energy-bar-container {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .energy-bar-bg {
-      width: 50px;
-      height: 5px;
-      border-radius: 3px;
-      background: var(--bg-elevated);
-      overflow: hidden;
-    }
-
-    .energy-bar-fill {
-      height: 100%;
+    .energy-bar-inner {
+      height: 100%; border-radius: 3px;
       background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
-      border-radius: 3px;
     }
+    .energy-label { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
 
-    .energy-bar-val {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-family: var(--mono);
+    /* Transport controls */
+    .transport-controls { display: flex; align-items: center; gap: 8; }
+    .btn-transport {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-secondary); font-size: 18px;
     }
-
-    .player-transport {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .transport-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-size: 18px;
-    }
-
-    .transport-play {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      color: white;
+    .btn-play {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: white;
     }
 
     /* Waveform containers */
-    .waveform-overview-wrap {
+    .waveform-overview {
       padding: 0 18px 4px;
     }
-
-    .waveform-overview {
-      background: var(--bg-elevated);
-      border-radius: 6px;
-      overflow: hidden;
-      height: 32px;
+    .waveform-overview-inner {
+      background: var(--bg-elevated); border-radius: 6px;
+      overflow: hidden; height: 32px;
     }
-
-    .waveform-detail-wrap {
+    .waveform-detail {
       padding: 4px 18px;
     }
-
-    .waveform-detail {
-      background: var(--bg-primary);
-      border-radius: 8px;
-      overflow: hidden;
-      height: 80px;
-      position: relative;
+    .waveform-detail-inner {
+      background: var(--bg-primary); border-radius: 8px;
+      overflow: hidden; height: 80px; position: relative;
     }
 
-    .waveform-detail .beatgrid-line {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-    }
-
-    svg { display: block; width: 100%; }
-
-    /* Hot Cues row */
+    /* Hot cues row */
     .hotcues-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      display: flex; align-items: center; gap: 6;
       padding: 6px 18px 12px;
     }
-
     .hotcues-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-right: 4px;
-      font-family: var(--mono);
+      font-size: 10px; color: var(--text-muted);
+      margin-right: 4px; font-family: var(--font-mono);
     }
-
     .hotcue-btn {
-      flex: 1;
-      min-width: 0;
-      padding: 5px 4px;
-      border-radius: 7px;
-      font-size: 10px;
-      font-weight: 700;
-      cursor: pointer;
-      border: none;
-      transition: all 0.15s;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      flex: 1; min-width: 0;
+      padding: 5px 4px; border-radius: 7px;
+      font-size: 10px; font-weight: 700; cursor: pointer;
+      border: none; text-align: center; transition: all 0.15s;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .hotcue-btn-empty {
+      background: var(--bg-elevated); color: var(--text-muted);
     }
 
-    .hc-letter {
-      font-family: var(--mono);
-    }
-
-    .hc-time {
-      font-size: 9px;
-      opacity: 0.85;
-      font-family: var(--mono);
-    }
-
-    .hotcue-btn.empty {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-    }
-
-    /* Time / Loop row */
-    .player-time-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    /* Time/Loop row */
+    .time-loop-row {
+      display: flex; align-items: center; gap: 16;
       padding: 6px 18px 10px;
       border-top: 1px solid var(--border-subtle);
     }
-
-    .time-display {
-      font-size: 12px;
-      font-family: var(--mono);
+    .time-current { font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); }
+    .time-remaining { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+    .time-total { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+    .btn-loop-ctrl {
+      padding: 3px 10px; border-radius: 6px;
+      font-size: 11px; cursor: pointer;
     }
-
-    .time-current {
-      color: var(--text-primary);
+    .btn-loop-in { border: 1px solid var(--border-default); background: transparent; color: var(--text-muted); }
+    .btn-loop-active {
+      border: 1px solid rgba(16,185,129,0.376);
+      background: rgba(16,185,129,0.082);
+      color: var(--accent-success); font-weight: 600;
     }
-
-    .time-remaining {
-      color: var(--text-muted);
-    }
-
-    .time-total {
-      color: var(--text-muted);
-    }
-
-    .loop-btn {
-      padding: 3px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      border: none;
-    }
-
-    .loop-btn-in,
-    .loop-btn-out {
+    .btn-loop-out { border: 1px solid var(--border-default); background: transparent; color: var(--text-muted); }
+    .btn-zoom {
+      padding: 2px 7px; border-radius: 5px;
       border: 1px solid var(--border-default);
-      background: transparent;
-      color: var(--text-muted);
+      background: transparent; color: var(--text-muted);
+      font-size: 10px; cursor: pointer;
     }
-
-    .loop-btn-active {
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--accent-success);
-      font-weight: 600;
-    }
-
-    .zoom-btns {
-      display: flex;
-      gap: 4px;
-      margin-left: 8px;
-    }
-
-    .zoom-btn {
-      padding: 2px 7px;
-      border-radius: 5px;
-      border: 1px solid var(--border-default);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 10px;
-      cursor: pointer;
-    }
-
-    .zoom-btn.active {
-      background: rgba(37, 99, 235, 0.13);
+    .btn-zoom.active {
+      background: rgba(37,99,235,0.125);
       color: var(--accent);
     }
 
-    /* ─── BOTTOM TABS ────────────────────────────────────────────────────── */
+    /* ── Bottom Tabs — exact V2 BottomTabs ──────────────────── */
     .bottom-tabs {
-      background: var(--bg-card);
-      border-radius: 14px;
+      background: var(--bg-card); border-radius: 14px;
       border: 1px solid var(--border-subtle);
-      margin-bottom: 12px;
-      overflow: hidden;
+      margin-bottom: 12px; overflow: hidden;
     }
-
     .tabs-bar {
-      display: flex;
-      gap: 0;
+      display: flex; gap: 0;
       border-bottom: 1px solid var(--border-subtle);
       overflow-x: auto;
     }
-
     .tab-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 14px;
-      border: none;
-      cursor: pointer;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 400;
+      display: flex; align-items: center; gap: 6;
+      padding: 10px 14px; border: none; cursor: pointer;
+      background: transparent; color: var(--text-secondary);
+      font-size: 12px; font-weight: 400;
       border-bottom: 2px solid transparent;
-      transition: all 0.15s;
-      white-space: nowrap;
-      font-family: 'Inter', sans-serif;
+      transition: all 0.15s; white-space: nowrap;
     }
-
-    .tab-btn:hover { background: var(--bg-hover); }
-
     .tab-btn.active {
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      font-weight: 600;
-      border-bottom-color: var(--accent);
+      background: var(--bg-elevated); color: var(--text-primary);
+      font-weight: 600; border-bottom-color: var(--accent);
     }
+    .tab-icon { font-size: 13px; }
+    .tab-pane { display: none; padding: 16px; min-height: 160px; }
+    .tab-pane.active { display: block; }
 
-    .tab-btn:disabled {
-      cursor: not-allowed;
-      opacity: 0.4;
-    }
-
-    .tab-icon {
-      font-size: 13px;
-    }
-
-    .tab-content {
-      padding: 16px;
-      min-height: 160px;
-    }
-
-    .tab-pane {
-      display: none;
-    }
-
-    .tab-pane.active {
-      display: block;
-    }
-
-    /* ─── TAB CONTENT STYLES ─────────────────────────────────────────────── */
-    .cues-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .cue-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      border-radius: 9px;
-      border: 1px solid;
-    }
-
-    .cue-box {
-      width: 26px;
-      height: 26px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    .cue-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .cue-time {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-primary);
-      font-family: var(--mono);
-    }
-
-    .cue-label {
-      font-size: 10px;
-      color: var(--text-secondary);
-    }
-
-    .cue-edit {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
-
-    /* FX Grid */
-    .fx-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-
-    .fx-card {
-      padding: 12px;
-      border-radius: 9px;
-      border: 1px solid;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .fx-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .fx-card-name {
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .fx-toggle {
-      width: 32px;
-      height: 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      background: var(--bg-primary);
-      transition: background 0.2s;
-    }
-
-    .fx-toggle.active {
-      background: var(--accent);
-    }
-
-    /* Stems Grid */
-    .stems-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .stem-card {
-      border-radius: 10px;
-      border: 1px solid;
-      padding: 10px 14px;
-    }
-
-    .stem-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .stem-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .stem-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .stem-buttons {
-      display: flex;
-      gap: 4px;
-    }
-
-    .stem-btn {
-      padding: 2px 8px;
-      border-radius: 5px;
-      border: 1px solid;
-      background: transparent;
-      font-size: 10px;
-      cursor: pointer;
-    }
-
-    .stem-waveform {
-      height: 24px;
-      background: var(--bg-primary);
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    /* Stats Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .stat-card {
-      padding: 16px;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      background: var(--bg-elevated);
-    }
-
-    .stat-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 4px;
-    }
-
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--text-primary);
-      font-family: var(--mono);
-    }
-
-    /* Track List */
+    /* ── Track List — exact V2 TrackList ─────────────────────── */
     .tracklist {
-      background: var(--bg-card);
-      border-radius: 14px;
+      background: var(--bg-card); border-radius: 14px;
       border: 1px solid var(--border-subtle);
       overflow: hidden;
-      margin-bottom: 12px;
     }
-
     .tracklist-header {
+      display: flex; align-items: center; gap: 10;
       padding: 12px 16px;
       border-bottom: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--bg-elevated);
     }
-
-    .tracklist-header-left {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
+    .tracklist-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
     .tracklist-search {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--bg-card);
+      display: flex; align-items: center; gap: 7;
+      background: var(--bg-elevated); border: 1px solid var(--border-default);
+      border-radius: 8px; padding: 5px 10px;
+    }
+    .tracklist-search-icon { font-size: 11px; color: var(--text-muted); }
+    .tracklist-search-input {
+      background: none; border: none; outline: none;
+      font-size: 12px; color: var(--text-primary); width: 150px;
+    }
+    .tracklist-search-input::placeholder { color: var(--text-muted); }
+    .btn-filter {
+      padding: 5px 12px; border-radius: 8px;
       border: 1px solid var(--border-default);
-      border-radius: 6px;
-      padding: 4px 10px;
-      flex: 1;
-      max-width: 280px;
+      background: var(--bg-elevated); color: var(--text-secondary);
+      font-size: 12px; cursor: pointer;
     }
-
-    .tracklist-search input {
-      background: none;
-      border: none;
-      color: var(--text-primary);
-      font-size: 12px;
-      outline: none;
-      flex: 1;
-    }
-
-    .tracklist-search input::placeholder {
-      color: var(--text-muted);
-    }
-
-    .tracklist-header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .tracklist-view-toggle {
-      display: flex;
-      gap: 2px;
-    }
-
-    .view-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 5px;
-      border: 1px solid var(--border-default);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .view-btn.active {
-      background: var(--accent);
-      color: white;
+    .btn-filter.active {
       border-color: var(--accent);
+      background: rgba(37,99,235,0.082);
+      color: var(--accent); font-weight: 600;
+    }
+    .view-toggle {
+      display: flex;
+      border: 1px solid var(--border-default); border-radius: 8px;
+      overflow: hidden;
+    }
+    .view-toggle-btn {
+      padding: 5px 10px; border: none;
+      background: var(--bg-elevated); color: var(--text-muted);
+      font-size: 12px; cursor: pointer;
+    }
+    .view-toggle-btn.active { background: var(--accent); color: white; }
+    .btn-upload-sm {
+      display: inline-flex; align-items: center; gap: 6;
+      padding: 6px 14px; border-radius: 8px; font-weight: 600;
+      background: var(--accent); color: white; border: none;
+      font-size: 12px; cursor: pointer;
     }
 
-    .btn-upload {
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border-default);
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+    /* Filter panel */
+    .filter-panel {
+      display: none;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-elevated);
+      gap: 20; align-items: flex-end;
+    }
+    .filter-panel.show { display: flex; }
+
+    /* Column headers */
+    .tracklist-cols {
+      display: grid;
+      grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
+      gap: 0; padding: 7px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .tracklist-col-header {
+      font-size: 9px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em; padding-right: 8px;
     }
 
-    .tracklist-rows {
-      overflow-y: auto;
-      max-height: 400px;
-    }
-
+    /* Track rows */
     .track-row {
       display: grid;
       grid-template-columns: 28px 1fr 80px 70px 60px 90px 70px 60px 60px;
-      gap: 12px;
-      padding: 8px 16px;
-      align-items: center;
+      gap: 0; padding: 9px 16px;
       border-bottom: 1px solid var(--border-subtle);
-      font-size: 12px;
-    }
-
-    .track-row:last-child {
-      border-bottom: none;
-    }
-
-    .track-row:hover {
-      background: var(--bg-hover);
-    }
-
-    .track-num {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 11px;
-    }
-
-    .track-title {
-      color: var(--text-primary);
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .track-artist {
-      color: var(--text-secondary);
-      font-size: 11px;
-    }
-
-    .track-bpm {
-      font-family: var(--mono);
-      color: var(--text-primary);
-    }
-
-    .track-key {
-      font-family: var(--mono);
-      color: var(--text-primary);
-    }
-
-    .track-duration {
-      font-family: var(--mono);
-      color: var(--text-muted);
-    }
-
-    .track-rating {
-      text-align: center;
-    }
-
-    .track-tag {
-      font-size: 9px;
-      padding: 1px 4px;
-      border-radius: 3px;
-      background: rgba(37, 99, 235, 0.1);
-      color: var(--accent);
-    }
-
-    /* ─── BUTTONS ────────────────────────────────────────────────────────── */
-    .btn {
-      display: inline-flex;
+      cursor: pointer; transition: background 0.1s;
       align-items: center;
-      gap: 6px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      opacity: 1;
-      transition: all 0.15s;
-      border: none;
     }
-
-    .btn.sm {
-      padding: 4px 10px;
-      font-size: 11px;
+    .track-row:hover { background: var(--bg-hover); }
+    .track-row.selected { background: rgba(37,99,235,0.063); }
+    .track-row-status { display: flex; align-items: center; justify-content: center; }
+    .track-row-title { min-width: 0; padding-right: 12px; }
+    .track-row-title-text {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .btn.md {
-      padding: 6px 14px;
-      font-size: 13px;
+    .track-row-artist { font-size: 11px; color: var(--text-muted); }
+    .track-row-bpm { font-size: 12px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); }
+    .btn-analyze-sm {
+      padding: 2px 7px; border-radius: 5px;
+      border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.082);
+      color: var(--accent-warning); font-size: 10px; cursor: pointer;
     }
-
-    .btn.lg {
-      padding: 10px 20px;
-      font-size: 14px;
+    .track-row-duration { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
+    .track-row-genre {
+      font-size: 11px; color: var(--text-secondary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .btn.primary {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .btn.primary:hover {
-      background: #1d4ed8;
-    }
-
-    .btn.ghost {
-      background: transparent;
-      color: var(--text-secondary);
+    .track-row-rating { font-size: 11px; }
+    .tag-badge {
+      padding: 1px 5px; border-radius: 4px; font-size: 9px;
+      background: var(--bg-elevated); color: var(--text-muted);
       border: 1px solid var(--border-default);
     }
-
-    .btn.ghost:hover {
-      background: var(--bg-hover);
+    .track-energy-bar {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: var(--bg-elevated); overflow: hidden;
+    }
+    .track-energy-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
     }
 
-    .btn.success {
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--accent-success);
-      border: 1px solid rgba(16, 185, 129, 0.3);
+    /* ── Buttons (V2 Btn component) ─────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6;
+      border-radius: 8px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
     }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn-md { padding: 6px 14px; font-size: 13px; }
+    .btn-lg { padding: 10px 20px; font-size: 14px; }
+    .btn-primary { background: var(--accent); color: #fff; border: none; }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-default); }
+    .btn-success { background: rgba(16,185,129,0.125); color: var(--accent-success); border: 1px solid rgba(16,185,129,0.25); }
+    .btn-danger { background: rgba(239,68,68,0.125); color: var(--accent-error); border: 1px solid rgba(239,68,68,0.25); }
+    .btn-default { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-default); }
 
-    .btn.success:hover {
-      background: rgba(16, 185, 129, 0.15);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* ─── UTILITY ────────────────────────────────────────────────────────── */
-    .flex-spacer {
-      flex: 1;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .section-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    .header-left {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .header-right {
-      display: flex;
-      gap: 6px;
-    }
+    /* ── Utility ─────────────────────────────────────────────── */
+    .mono { font-family: var(--font-mono); }
+    .flex-1 { flex: 1; }
+    .hide { display: none !important; }
   </style>
 </head>
-
 <body>
   <!-- Update Banner -->
   <div id="updateBanner">
-    <div class="update-banner-row">
-      <span class="update-banner-label">Mise à jour <span id="updateVersionLabel"></span> disponible</span>
-      <span class="update-banner-sub">Téléchargement en cours...</span>
-      <div class="update-progress-bar-outer">
-        <div class="update-progress-bar-inner" id="updateProgressBar"></div>
-      </div>
-      <span class="update-progress-pct" id="updatePct">0%</span>
-      <button class="btn-install-update" id="btnInstallUpdate">Redémarrer</button>
+    <span>Mise à jour <span id="updateVersionLabel"></span> disponible</span>
+    <span style="font-size:11px;opacity:0.8;margin-left:4px">Téléchargement...</span>
+    <div class="update-progress-bar-outer">
+      <div class="update-progress-bar-inner" id="updateProgressBar"></div>
     </div>
+    <span id="updatePct" style="font-size:11px;min-width:36px">0%</span>
+    <button class="btn-install-update" id="btnInstallUpdate">Redémarrer</button>
   </div>
 
   <!-- Login Screen -->
@@ -1472,16 +606,13 @@
       <input type="password" class="login-input" placeholder="Mot de passe" id="loginPassword">
       <button class="login-btn" id="loginBtn">Se connecter</button>
       <div class="login-error" id="loginError"></div>
-      <div class="login-links">
-        <a href="#signup">Créer un compte</a> · <a href="#forgot">Mot de passe oublié ?</a>
-      </div>
     </div>
   </div>
 
   <!-- App Container -->
   <div id="appContainer">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
         <div class="sidebar-logo-group">
           <div class="sidebar-logo-icon">🎵</div>
@@ -1511,7 +642,7 @@
             <span class="nav-icon">⬇️</span>
             <span class="nav-label">Exporter</span>
           </div>
-          <div class="nav-item" data-nav="settings">
+          <div class="nav-item" data-nav="settings" style="margin-top:8px">
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">Paramètres</span>
           </div>
@@ -1522,7 +653,7 @@
         </div>
 
         <!-- Library -->
-        <div class="sidebar-section">
+        <div class="sidebar-section" style="margin-top:8px">
           <div class="sidebar-section-title">Bibliothèque</div>
           <div class="nav-item sub" data-crate="all">
             <span class="nav-icon">🎵</span>
@@ -1539,28 +670,28 @@
         </div>
 
         <!-- Smart Crates -->
-        <div class="sidebar-section">
+        <div class="sidebar-section" style="margin-top:8px">
           <div class="sidebar-section-header">
             <span class="sidebar-section-title">Smart Crates</span>
             <button class="sidebar-add-btn">+</button>
           </div>
           <div class="crate-item" data-crate="peak">
             <div class="crate-left">
-              <span class="crate-dot" style="background: #ef4444;"></span>
+              <span class="crate-dot" style="background:#ef4444"></span>
               <span class="crate-label">Peak Hour</span>
             </div>
             <span class="crate-count">3</span>
           </div>
           <div class="crate-item" data-crate="warmup">
             <div class="crate-left">
-              <span class="crate-dot" style="background: #f97316;"></span>
+              <span class="crate-dot" style="background:#f97316"></span>
               <span class="crate-label">Warm-Up</span>
             </div>
             <span class="crate-count">2</span>
           </div>
           <div class="crate-item" data-crate="vocal">
             <div class="crate-left">
-              <span class="crate-dot" style="background: #8b5cf6;"></span>
+              <span class="crate-dot" style="background:#8b5cf6"></span>
               <span class="crate-label">Avec voix</span>
             </div>
             <span class="crate-count">3</span>
@@ -1568,7 +699,7 @@
         </div>
 
         <!-- Playlists -->
-        <div class="sidebar-section">
+        <div class="sidebar-section" style="margin-top:8px">
           <div class="sidebar-section-header">
             <span class="sidebar-section-title">Playlists</span>
             <button class="sidebar-add-btn">+</button>
@@ -1625,467 +756,140 @@
 
       <!-- Page Scroll Area -->
       <div class="page-scroll">
-        <!-- Dashboard Page -->
+        <!-- ═══ DASHBOARD ═══ -->
         <div id="viewDashboard" class="page-view active">
-          <!-- Player Card -->
-          <div class="player-card" id="playerCardContainer">
-            <div class="player-info-row">
-              <div class="player-art" id="playerArt" style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4);">🎵</div>
-              <div class="player-track-info">
-                <div class="player-track-title" id="playerTitle">Shed My Skin</div>
-                <div class="player-track-artist" id="playerArtist">Ben Böhmer · Melodic House</div>
-              </div>
-              <div class="player-badges">
-                <span class="badge badge-cyan" id="playerBpm">124 BPM</span>
-                <span class="badge badge-key" id="playerKey" style="border-color: #a8dcc5; color: #a8dcc5;">6A</span>
-                <div class="energy-bar-container">
-                  <div class="energy-bar-bg">
-                    <div class="energy-bar-fill" id="playerEnergyFill" style="width: 72%;"></div>
-                  </div>
-                  <span class="energy-bar-val" id="playerEnergy">72</span>
+          <div class="page-padding">
+            <!-- Player Card -->
+            <div class="player-card" id="playerCard">
+              <!-- Track info row -->
+              <div class="player-info-row">
+                <div class="player-art" id="playerArt">🎵</div>
+                <div class="player-title-area">
+                  <div class="player-title" id="playerTitle">—</div>
+                  <div class="player-subtitle" id="playerSubtitle">—</div>
+                </div>
+                <div class="player-badges" id="playerBadges"></div>
+                <div class="transport-controls">
+                  <button class="btn-transport">⏮</button>
+                  <button class="btn-play" id="btnPlay">▶</button>
+                  <button class="btn-transport">⏭</button>
                 </div>
               </div>
-              <div class="player-transport">
-                <button class="transport-btn">⏮</button>
-                <button class="transport-play" id="btnPlay">▶</button>
-                <button class="transport-btn">⏭</button>
+              <!-- Waveform overview -->
+              <div class="waveform-overview">
+                <div class="waveform-overview-inner" id="waveformOverview"></div>
               </div>
+              <!-- Waveform detail -->
+              <div class="waveform-detail">
+                <div class="waveform-detail-inner" id="waveformDetail"></div>
+              </div>
+              <!-- Hot Cues row -->
+              <div class="hotcues-row" id="hotcuesRow"></div>
+              <!-- Time / Loop row -->
+              <div class="time-loop-row" id="timeLoopRow"></div>
             </div>
 
-            <!-- Waveform Overview -->
-            <div class="waveform-overview-wrap">
-              <div class="waveform-overview" id="waveformOverview">
-                <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none"></svg>
+            <!-- Bottom Tabs -->
+            <div class="bottom-tabs">
+              <div class="tabs-bar" id="tabsBar">
+                <button class="tab-btn active" data-tab="cues"><span class="tab-icon">🎯</span> Cues</button>
+                <button class="tab-btn" data-tab="beatgrid"><span class="tab-icon">⊞</span> Beatgrid</button>
+                <button class="tab-btn" data-tab="stems"><span class="tab-icon">🎸</span> Stems</button>
+                <button class="tab-btn" data-tab="eq"><span class="tab-icon">〰</span> EQ</button>
+                <button class="tab-btn" data-tab="fx"><span class="tab-icon">✨</span> FX</button>
+                <button class="tab-btn" data-tab="mix"><span class="tab-icon">🎡</span> Mix</button>
+                <button class="tab-btn" data-tab="playlists"><span class="tab-icon">💿</span> Playlists</button>
+                <button class="tab-btn" data-tab="stats"><span class="tab-icon">📊</span> Stats</button>
+                <button class="tab-btn" data-tab="history"><span class="tab-icon">🕐</span> Historique</button>
               </div>
+              <div id="cuesPane" class="tab-pane active"></div>
+              <div id="beatgridPane" class="tab-pane"></div>
+              <div id="stemsPane" class="tab-pane"></div>
+              <div id="eqPane" class="tab-pane"></div>
+              <div id="fxPane" class="tab-pane"></div>
+              <div id="mixPane" class="tab-pane"></div>
+              <div id="playlistsPane" class="tab-pane"></div>
+              <div id="statsPane" class="tab-pane"></div>
+              <div id="historyPane" class="tab-pane"></div>
             </div>
 
-            <!-- Waveform Detail -->
-            <div class="waveform-detail-wrap">
-              <div class="waveform-detail" id="waveformDetail">
-                <svg width="100%" height="80" viewBox="0 0 120 80" preserveAspectRatio="none"></svg>
-              </div>
-            </div>
-
-            <!-- Hot Cues Row -->
-            <div class="hotcues-row">
-              <span class="hotcues-label">HOT CUES</span>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">A</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">B</div>
-              </button>
-              <button class="hotcue-btn" style="background: #ef4444; color: white;">
-                <div class="hc-letter">C</div>
-                <div class="hc-time">1:45</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">D</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">E</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">F</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">G</div>
-              </button>
-              <button class="hotcue-btn empty">
-                <div class="hc-letter">H</div>
-              </button>
-            </div>
-
-            <!-- Time / Loop Row -->
-            <div class="player-time-row">
-              <span class="time-display time-current">2:21</span>
-              <span class="time-display time-remaining">-4:21</span>
-              <span class="time-display time-total">/ 6:42</span>
-              <div class="flex-spacer"></div>
-              <button class="loop-btn loop-btn-in">IN</button>
-              <button class="loop-btn loop-btn-active">🔁 LOOP</button>
-              <button class="loop-btn loop-btn-out">OUT</button>
-              <div class="zoom-btns">
-                <button class="zoom-btn">0.5×</button>
-                <button class="zoom-btn active">1×</button>
-                <button class="zoom-btn">2×</button>
-                <button class="zoom-btn">4×</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Tabs -->
-          <div class="bottom-tabs">
-            <div class="tabs-bar" id="tabsBar">
-              <button class="tab-btn active" data-tab="cues">
-                <span class="tab-icon">🎯</span> Cues
-              </button>
-              <button class="tab-btn" data-tab="beatgrid">
-                <span class="tab-icon">⊞</span> Beatgrid
-              </button>
-              <button class="tab-btn" data-tab="stems">
-                <span class="tab-icon">🎸</span> Stems
-              </button>
-              <button class="tab-btn" data-tab="eq">
-                <span class="tab-icon">〰</span> EQ
-              </button>
-              <button class="tab-btn" data-tab="fx">
-                <span class="tab-icon">✨</span> FX
-              </button>
-              <button class="tab-btn" data-tab="mix">
-                <span class="tab-icon">🎡</span> Mix
-              </button>
-              <button class="tab-btn" data-tab="playlists">
-                <span class="tab-icon">💿</span> Playlists
-              </button>
-              <button class="tab-btn" data-tab="stats">
-                <span class="tab-icon">📊</span> Stats
-              </button>
-              <button class="tab-btn" data-tab="history">
-                <span class="tab-icon">🕐</span> Historique
-              </button>
-            </div>
-
-            <div class="tab-content">
-              <!-- Cues Tab -->
-              <div class="tab-pane active" id="cuesPane">
-                <div class="section-header">
-                  <div class="header-left">
-                    <div class="section-title">Hot Cues — Shed My Skin</div>
-                  </div>
-                  <div class="header-right">
-                    <button class="btn sm ghost">⬆️ Auto-détecter</button>
-                    <button class="btn sm primary">+ Ajouter cue</button>
-                  </div>
-                </div>
-                <div class="cues-grid" id="cuesGrid"></div>
-              </div>
-
-              <!-- Beatgrid Tab -->
-              <div class="tab-pane" id="beatgridPane">
-                <div class="section-header">
-                  <div class="header-left">
-                    <div class="section-title">Beatgrid Editor</div>
-                    <div class="section-subtitle">Corrige le grid manuellement pour un mix parfait</div>
-                  </div>
-                  <div class="header-right">
-                    <button class="btn sm ghost">⟳ Re-analyser</button>
-                    <button class="btn sm ghost">÷2 BPM</button>
-                    <button class="btn sm ghost">×2 BPM</button>
-                  </div>
-                </div>
-                <div class="waveform-detail" style="height: 80px; margin-bottom: 12px;">
-                  <svg width="100%" height="80" viewBox="0 0 120 80" preserveAspectRatio="none"></svg>
-                </div>
-                <div style="display: flex; align-items: center; gap: 16px;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 11px; color: var(--text-muted);">BPM détecté:</span>
-                    <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--mono);">124</span>
-                  </div>
-                  <div style="display: flex; gap: 4px;">
-                    <button class="zoom-btn">−0.5</button>
-                    <button class="zoom-btn">−0.1</button>
-                    <button class="zoom-btn">+0.1</button>
-                    <button class="zoom-btn">+0.5</button>
-                  </div>
-                  <button class="btn sm success">✓ Confirmer le grid</button>
-                </div>
-              </div>
-
-              <!-- Stems Tab -->
-              <div class="tab-pane" id="stemsPane">
-                <div class="section-header">
-                  <div class="header-left">
-                    <div class="section-title">Stem Separation</div>
-                    <div class="section-subtitle">Isoler ou muter chaque élément du track</div>
-                  </div>
-                  <button class="btn sm primary">⚡ Séparer les stems</button>
-                </div>
-                <div class="stems-grid">
-                  <div class="stem-card" style="border-color: rgba(236, 72, 153, 0.4); background: rgba(236, 72, 153, 0.05);">
-                    <div class="stem-header">
-                      <div class="stem-label">
-                        <span style="font-size: 16px;">🎤</span>
-                        <span class="stem-name">Voix</span>
-                      </div>
-                      <div class="stem-buttons">
-                        <button class="stem-btn" style="border-color: rgba(236, 72, 153, 0.5); background: rgba(236, 72, 153, 0.2); color: #ec4899;">S</button>
-                        <button class="stem-btn" style="border-color: var(--border-default); color: var(--text-muted);">M</button>
-                      </div>
-                    </div>
-                    <div class="stem-waveform">
-                      <svg width="100%" height="24" viewBox="0 0 100 24"></svg>
-                    </div>
-                  </div>
-                  <div class="stem-card" style="border-color: rgba(249, 115, 22, 0.4); background: rgba(249, 115, 22, 0.05);">
-                    <div class="stem-header">
-                      <div class="stem-label">
-                        <span style="font-size: 16px;">🥁</span>
-                        <span class="stem-name">Drums</span>
-                      </div>
-                      <div class="stem-buttons">
-                        <button class="stem-btn" style="border-color: rgba(249, 115, 22, 0.5); background: rgba(249, 115, 22, 0.2); color: #f97316;">S</button>
-                        <button class="stem-btn" style="border-color: var(--border-default); color: var(--text-muted);">M</button>
-                      </div>
-                    </div>
-                    <div class="stem-waveform">
-                      <svg width="100%" height="24" viewBox="0 0 100 24"></svg>
-                    </div>
-                  </div>
-                  <div class="stem-card" style="border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.05);">
-                    <div class="stem-header">
-                      <div class="stem-label">
-                        <span style="font-size: 16px;">🎸</span>
-                        <span class="stem-name">Basse</span>
-                      </div>
-                      <div class="stem-buttons">
-                        <button class="stem-btn" style="border-color: rgba(34, 197, 94, 0.5); background: rgba(34, 197, 94, 0.2); color: #22c55e;">S</button>
-                        <button class="stem-btn" style="border-color: var(--border-default); color: var(--text-muted);">M</button>
-                      </div>
-                    </div>
-                    <div class="stem-waveform">
-                      <svg width="100%" height="24" viewBox="0 0 100 24"></svg>
-                    </div>
-                  </div>
-                  <div class="stem-card" style="border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.05);">
-                    <div class="stem-header">
-                      <div class="stem-label">
-                        <span style="font-size: 16px;">🎹</span>
-                        <span class="stem-name">Mélodie</span>
-                      </div>
-                      <div class="stem-buttons">
-                        <button class="stem-btn" style="border-color: rgba(59, 130, 246, 0.5); background: rgba(59, 130, 246, 0.2); color: #3b82f6;">S</button>
-                        <button class="stem-btn" style="border-color: var(--border-default); color: var(--text-muted);">M</button>
-                      </div>
-                    </div>
-                    <div class="stem-waveform">
-                      <svg width="100%" height="24" viewBox="0 0 100 24"></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- EQ Tab -->
-              <div class="tab-pane" id="eqPane">
-                <div style="display: flex; gap: 24px; align-items: flex-end;">
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;">
-                    <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--mono);">+0</span>
-                    <div style="width: 8px; height: 120px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden;">
-                      <div style="position: absolute; bottom: 50%; left: 0; right: 0; height: 0%; background: var(--accent-success); border-radius: 4px;"></div>
-                      <div style="position: absolute; top: 49%; left: 0; right: 0; height: 2px; background: var(--border-strong);"></div>
-                    </div>
-                    <span style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">LOW</span>
-                    <span style="font-size: 9px; color: var(--text-muted);">32Hz-512Hz</span>
-                  </div>
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;">
-                    <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--mono);">+2</span>
-                    <div style="width: 8px; height: 120px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden;">
-                      <div style="position: absolute; bottom: 50%; left: 0; right: 0; height: 16%; background: var(--accent-success); border-radius: 4px;"></div>
-                      <div style="position: absolute; top: 49%; left: 0; right: 0; height: 2px; background: var(--border-strong);"></div>
-                    </div>
-                    <span style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">MID</span>
-                    <span style="font-size: 9px; color: var(--text-muted);">512Hz-8kHz</span>
-                  </div>
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;">
-                    <span style="font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--mono);">−1</span>
-                    <div style="width: 8px; height: 120px; background: var(--bg-elevated); border-radius: 4px; position: relative; overflow: hidden;">
-                      <div style="position: absolute; top: 50%; left: 0; right: 0; height: 8%; background: var(--accent-error); border-radius: 4px;"></div>
-                      <div style="position: absolute; top: 49%; left: 0; right: 0; height: 2px; background: var(--border-strong);"></div>
-                    </div>
-                    <span style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">HIGH</span>
-                    <span style="font-size: 9px; color: var(--text-muted);">8kHz-20kHz</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- FX Tab -->
-              <div class="tab-pane" id="fxPane">
-                <div class="section-header">
-                  <div class="section-title">Effets</div>
-                </div>
-                <div class="fx-grid">
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Reverb</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--accent); background: rgba(37, 99, 235, 0.1);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Delay</span>
-                      <button class="fx-toggle active"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Flanger</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Phaser</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--accent); background: rgba(37, 99, 235, 0.1);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Filter</span>
-                      <button class="fx-toggle active"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Bitcrusher</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Chorus</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                  <div class="fx-card" style="border-color: var(--border-subtle); background: var(--bg-elevated);">
-                    <div class="fx-card-header">
-                      <span class="fx-card-name">Tremolo</span>
-                      <button class="fx-toggle"></button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Mix Tab -->
-              <div class="tab-pane" id="mixPane">
-                <div class="section-title">Mix Compatible Tracks</div>
-                <div style="margin-top: 12px; padding: 16px; text-align: center; color: var(--text-muted);">
-                  Sélectionne un track pour voir les compatibilités
-                </div>
-              </div>
-
-              <!-- Playlists Tab -->
-              <div class="tab-pane" id="playlistsPane">
-                <div class="section-title">Ajouter à une playlist</div>
-                <div style="margin-top: 12px; padding: 8px; border-radius: 6px; background: var(--bg-elevated); cursor: pointer;">
-                  Set Berghain 2024
-                </div>
-              </div>
-
-              <!-- Stats Tab -->
-              <div class="tab-pane" id="statsPane">
-                <div class="stats-grid">
-                  <div class="stat-card">
-                    <div class="stat-label">BPM</div>
-                    <div class="stat-value">124</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-label">Key</div>
-                    <div class="stat-value" style="font-size: 18px;">6A</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-label">Energy</div>
-                    <div class="stat-value">72%</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-label">Duration</div>
-                    <div class="stat-value" style="font-size: 18px;">6:42</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- History Tab -->
-              <div class="tab-pane" id="historyPane">
-                <div class="section-title">Historique d'analyse</div>
-                <div style="margin-top: 12px; color: var(--text-muted); font-size: 12px;">
-                  Aucun historique pour ce track
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Track List -->
-          <div class="tracklist">
-            <div class="tracklist-header">
-              <div class="tracklist-header-left">
+            <!-- Track List -->
+            <div class="tracklist" id="tracklist">
+              <div class="tracklist-header">
+                <span class="tracklist-title">Tracks</span>
+                <span class="badge badge-bpm" id="trackCount">8</span>
+                <div class="flex-1"></div>
                 <div class="tracklist-search">
-                  <span>🔍</span>
-                  <input type="text" placeholder="Rechercher..." id="trackSearch">
+                  <span class="tracklist-search-icon">🔍</span>
+                  <input class="tracklist-search-input" placeholder="Rechercher des tracks..." id="trackSearch" />
                 </div>
-                <button class="btn sm ghost" style="padding: 4px 8px;">⊙ Filtres</button>
-                <button class="btn sm ghost" style="padding: 4px 8px;">⊞ Grille</button>
-              </div>
-              <div class="tracklist-header-right">
-                <div class="tracklist-view-toggle">
-                  <button class="view-btn active">☰</button>
-                  <button class="view-btn">⊞</button>
+                <button class="btn-filter" id="btnFilters">⚙ Filtres</button>
+                <div class="view-toggle">
+                  <button class="view-toggle-btn active" data-view="list">☰</button>
+                  <button class="view-toggle-btn" data-view="grid">⊞</button>
                 </div>
-                <button class="btn-upload">⬆️ Uploader</button>
+                <button class="btn-upload-sm">⬆️ Upload</button>
               </div>
+              <div class="filter-panel" id="filterPanel"></div>
+              <div class="tracklist-cols">
+                <div class="tracklist-col-header"></div>
+                <div class="tracklist-col-header">Titre</div>
+                <div class="tracklist-col-header">BPM</div>
+                <div class="tracklist-col-header">Tonalité</div>
+                <div class="tracklist-col-header">Énergie</div>
+                <div class="tracklist-col-header">Durée</div>
+                <div class="tracklist-col-header">Genre</div>
+                <div class="tracklist-col-header">Rating</div>
+                <div class="tracklist-col-header">Tags</div>
+              </div>
+              <div id="trackRows"></div>
             </div>
-            <div class="tracklist-rows" id="trackRows"></div>
           </div>
         </div>
 
-        <!-- Set Builder Page -->
-        <div id="viewSetBuilder" class="page-view">
-          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-            Set Builder Page
-          </div>
+        <!-- ═══ SET BUILDER ═══ -->
+        <div id="viewSetbuilder" class="page-view">
+          <div class="page-padding" id="setBuilderContent"></div>
         </div>
 
-        <!-- Upload Page -->
+        <!-- ═══ UPLOAD ═══ -->
         <div id="viewUpload" class="page-view">
-          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-            Upload Page
-          </div>
+          <div class="page-padding" id="uploadContent"></div>
         </div>
 
-        <!-- Export Page -->
+        <!-- ═══ EXPORT ═══ -->
         <div id="viewExport" class="page-view">
-          <div style="padding: 20px; text-align: center; color: var(--text-muted);">
-            Export Page
-          </div>
+          <div class="page-padding" id="exportContent"></div>
         </div>
 
-        <!-- Settings Page -->
+        <!-- ═══ SETTINGS ═══ -->
         <div id="viewSettings" class="page-view">
-          <div class="settings-page" id="settingsContent" style="padding:24px;max-width:700px;"></div>
+          <div class="settings-page" id="settingsContent" style="padding:24px;max-width:700px"></div>
         </div>
 
-        <!-- Admin Page -->
+        <!-- ═══ ADMIN ═══ -->
         <div id="viewAdmin" class="page-view">
-          <div class="admin-page" id="adminContent" style="padding:24px;">
+          <div class="admin-page" id="adminContent" style="padding:24px">
             <h2 style="font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:20px">Administration</h2>
-
-            <!-- Admin Tabs -->
             <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px">
-              <button class="settings-tab active" data-atab="dashboard" style="background:var(--bg-elevated);border:none;color:var(--text-primary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Dashboard</button>
-              <button class="settings-tab" data-atab="users" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Utilisateurs</button>
-              <button class="settings-tab" data-atab="features" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px;transition:all .2s">Features</button>
+              <button class="settings-tab active" data-atab="dashboard" style="background:var(--bg-elevated);border:none;color:var(--text-primary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Dashboard</button>
+              <button class="settings-tab" data-atab="users" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Utilisateurs</button>
+              <button class="settings-tab" data-atab="features" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:8px 16px;font-size:13px;border-radius:6px">Features</button>
             </div>
-
-            <!-- Dashboard Panel -->
             <div id="atabDashboard" class="active" style="display:block">
               <div id="adminStatCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
               <div id="adminPlanDistrib" style="margin-top:16px"></div>
             </div>
-
-            <!-- Users Panel -->
             <div id="atabUsers" style="display:none">
               <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
                 <input id="adminUserSearch" type="text" placeholder="Rechercher un utilisateur..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
                 <select id="adminUserPlanFilter" style="background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px">
-                  <option value="">Tous les plans</option>
-                  <option value="free">Free</option>
-                  <option value="pro">Pro</option>
-                  <option value="unlimited">Unlimited</option>
+                  <option value="">Tous les plans</option><option value="free">Free</option><option value="pro">Pro</option><option value="unlimited">Unlimited</option>
                 </select>
                 <button id="btnAdminRefreshUsers" style="background:var(--accent);color:white;border:none;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer">Rafraîchir</button>
               </div>
               <div id="adminUsersTableContainer" style="overflow-x:auto"></div>
             </div>
-
-            <!-- Features Panel -->
             <div id="atabFeatures" style="display:none">
               <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
                 <input id="adminNewFeatureName" type="text" placeholder="Nom de la feature..." style="flex:1;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:6px;padding:8px 12px;color:var(--text-primary);font-size:13px" />
@@ -2109,7 +913,6 @@
     // UPDATE SYSTEM
     // ═══════════════════════════════════════════════════════════════════════
     let updateReady = false;
-
     if (window.cueforge) {
       window.cueforge.onUpdateAvailable?.((info) => {
         const banner = document.getElementById('updateBanner');
@@ -2139,8 +942,7 @@
           if (banner) { banner.classList.remove('show'); document.body.classList.remove('has-update'); }
         }
       });
-
-      // Bouton "Redémarrer" pour installer la mise à jour
+      // Install button
       const installBtn = document.getElementById('btnInstallUpdate');
       if (installBtn) {
         installBtn.addEventListener('click', () => {
@@ -2199,12 +1001,11 @@
         loginBtn.disabled = false; loginBtn.textContent = 'Se connecter';
       });
     }
-
     document.getElementById('loginPassword')?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && loginBtn) loginBtn.click();
     });
 
-    // Auto-login if token saved
+    // Auto-login
     (async () => {
       try {
         if (window.cueforge) {
@@ -2231,66 +1032,72 @@
         });
       }
 
-      // Sidebar toggle
-      const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
-      const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
-      const sidebar = document.querySelector('.sidebar');
+      // Sidebar collapse/expand
+      const sidebar = document.getElementById('sidebar');
+      document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => sidebar?.classList.add('collapsed'));
+      document.getElementById('sidebarExpandBtn')?.addEventListener('click', () => sidebar?.classList.remove('collapsed'));
 
-      if (sidebarCollapseBtn) sidebarCollapseBtn.addEventListener('click', () => sidebar?.classList.add('collapsed'));
-      if (sidebarExpandBtn) sidebarExpandBtn.addEventListener('click', () => sidebar?.classList.remove('collapsed'));
-
-      // Nav items — switch views + call onViewSwitch for settings/admin
+      // Nav items — switch page views
+      const titles = {
+        dashboard: ['Dashboard', 'Prépare et analyse tes sets'],
+        setbuilder: ['Set Builder', 'Construis et planifie tes sets'],
+        upload: ['Importer', 'Ajoute des tracks à ta bibliothèque'],
+        export: ['Exporter', 'Exporte vers ton logiciel DJ'],
+        settings: ['Paramètres', 'Gère ton compte et tes préférences'],
+        admin: ['Administration', 'Gestion des utilisateurs et features'],
+      };
       document.querySelectorAll('[data-nav]').forEach(item => {
         item.addEventListener('click', () => {
           document.querySelectorAll('[data-nav]').forEach(i => i.classList.remove('active'));
           item.classList.add('active');
           const view = item.dataset.nav;
           document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
-          const viewEl = document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1));
-          if (viewEl) viewEl.classList.add('active');
+          const viewId = 'view' + view.charAt(0).toUpperCase() + view.slice(1);
+          document.getElementById(viewId)?.classList.add('active');
+          // Update topbar
+          const t = titles[view] || [view, ''];
+          document.getElementById('topbarTitle').textContent = t[0];
+          document.getElementById('topbarSubtitle').textContent = t[1];
           // Notify settings/admin
           if (typeof onViewSwitch === 'function') onViewSwitch(view);
-          // Update topbar title
-          const titles = {
-            dashboard: ['Dashboard', 'Prépare et analyse tes sets'],
-            setbuilder: ['Set Builder', 'Construis ton set parfait'],
-            upload: ['Importer', 'Ajoute des tracks à ta bibliothèque'],
-            export: ['Exporter', 'Exporte vers Rekordbox, Serato, Traktor...'],
-            settings: ['Paramètres', 'Gère ton compte et tes préférences'],
-            admin: ['Administration', 'Gestion des utilisateurs et features']
-          };
-          const t = titles[view] || [view, ''];
-          const topTitle = document.getElementById('topbarTitle');
-          const topSub = document.getElementById('topbarSubtitle');
-          if (topTitle) topTitle.textContent = t[0];
-          if (topSub) topSub.textContent = t[1];
         });
       });
 
-      // Settings button in sidebar footer
+      // Settings button in footer
       document.querySelector('.sidebar-settings-btn')?.addEventListener('click', () => {
-        const settingsNav = document.querySelector('[data-nav="settings"]');
-        if (settingsNav) settingsNav.click();
+        document.querySelector('[data-nav="settings"]')?.click();
       });
 
       // Tab switching
       document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const tabId = btn.dataset.tab;
           document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
-          document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-          document.getElementById(tabId + 'Pane')?.classList.add('active');
+          document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+          document.getElementById(btn.dataset.tab + 'Pane')?.classList.add('active');
         });
       });
 
-      // Play button toggle
+      // Play button
       document.getElementById('btnPlay')?.addEventListener('click', function() {
         const isPlaying = this.textContent === '⏸';
         this.textContent = isPlaying ? '▶' : '⏸';
       });
+
+      // Filter toggle
+      document.getElementById('btnFilters')?.addEventListener('click', function() {
+        this.classList.toggle('active');
+        document.getElementById('filterPanel')?.classList.toggle('show');
+      });
+
+      // View toggle
+      document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
     });
   </script>
 </body>
-
 </html>
