@@ -1,6 +1,6 @@
 {
   "name": "cueforge",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "CueForge — App desktop pour DJs. Analyse audio locale, cue points, export Rekordbox/Serato.",
   "main": "src/main.js",
   "author": {

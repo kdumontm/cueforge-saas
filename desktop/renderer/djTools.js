@@ -1,835 +1,860 @@
 'use strict';
 /**
- * CueForge DJ Tools — Desktop Edition
- * Tap Tempo, Camelot Wheel, Energy Flow, Gig Prep, Crate Digger, Quick Notes
+ * CueForge Desktop — Main App Engine
+ * Matches web prototype 1:1
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CAMELOT DATA
+// DATA — Exact match with web prototype
 // ═══════════════════════════════════════════════════════════════════════════
+
+const HOT_CUE_COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e',
+  '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
+];
+const HOT_CUE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
 const CAMELOT = [
-  { code: '1A',  note: 'Ab min', color: '#ef4444' },
-  { code: '1B',  note: 'B maj',  color: '#ef4444' },
-  { code: '2A',  note: 'Eb min', color: '#f97316' },
-  { code: '2B',  note: 'F# maj', color: '#f97316' },
-  { code: '3A',  note: 'Bb min', color: '#f59e0b' },
-  { code: '3B',  note: 'Db maj', color: '#f59e0b' },
-  { code: '4A',  note: 'F min',  color: '#eab308' },
-  { code: '4B',  note: 'Ab maj', color: '#eab308' },
-  { code: '5A',  note: 'C min',  color: '#84cc16' },
-  { code: '5B',  note: 'Eb maj', color: '#84cc16' },
-  { code: '6A',  note: 'G min',  color: '#22c55e' },
-  { code: '6B',  note: 'Bb maj', color: '#22c55e' },
-  { code: '7A',  note: 'D min',  color: '#10b981' },
-  { code: '7B',  note: 'F maj',  color: '#10b981' },
-  { code: '8A',  note: 'A min',  color: '#14b8a6' },
-  { code: '8B',  note: 'C maj',  color: '#14b8a6' },
-  { code: '9A',  note: 'E min',  color: '#06b6d4' },
-  { code: '9B',  note: 'G maj',  color: '#06b6d4' },
-  { code: '10A', note: 'B min',  color: '#3b82f6' },
-  { code: '10B', note: 'D maj',  color: '#3b82f6' },
-  { code: '11A', note: 'F# min', color: '#6366f1' },
-  { code: '11B', note: 'A maj',  color: '#6366f1' },
-  { code: '12A', note: 'Db min', color: '#8b5cf6' },
-  { code: '12B', note: 'E maj',  color: '#8b5cf6' },
+  { n: '1A', key: 'Am', color: '#4a9eff' },   { n: '1B', key: 'C', color: '#6ab4ff' },
+  { n: '2A', key: 'Em', color: '#4ecdc4' },   { n: '2B', key: 'G', color: '#6ee4da' },
+  { n: '3A', key: 'Bm', color: '#45b7d1' },   { n: '3B', key: 'D', color: '#63cddf' },
+  { n: '4A', key: 'F#m', color: '#96ceb4' },  { n: '4B', key: 'A', color: '#a8dcc5' },
+  { n: '5A', key: 'C#m', color: '#88d8a3' },  { n: '5B', key: 'E', color: '#9de8b5' },
+  { n: '6A', key: 'G#m', color: '#a8e6cf' },  { n: '6B', key: 'B', color: '#b8f0dd' },
+  { n: '7A', key: 'Ebm', color: '#ffd93d' },  { n: '7B', key: 'F#', color: '#ffe566' },
+  { n: '8A', key: 'Bbm', color: '#ffb347' },  { n: '8B', key: 'Db', color: '#ffc566' },
+  { n: '9A', key: 'Fm', color: '#ff8c69' },   { n: '9B', key: 'Ab', color: '#ffa085' },
+  { n: '10A', key: 'Cm', color: '#ff6b9d' },  { n: '10B', key: 'Eb', color: '#ff85b0' },
+  { n: '11A', key: 'Gm', color: '#c589e8' },  { n: '11B', key: 'Bb', color: '#d4a0f0' },
+  { n: '12A', key: 'Dm', color: '#a390f0' },  { n: '12B', key: 'F', color: '#b8a8f8' },
 ];
 
-function getCompatibleKeys(code) {
-  const num = parseInt(code);
-  const letter = code.slice(-1);
-  const otherLetter = letter === 'A' ? 'B' : 'A';
-  const prev = ((num - 2 + 12) % 12) + 1;
-  const next = (num % 12) + 1;
+const MOCK_TRACKS = [
+  { id: 1, title: 'Shed My Skin', artist: 'Ben Böhmer', genre: 'Melodic House', bpm: 124, key: '6A', energy: 72, duration: '6:42', rating: 5, tags: ['peak', 'vocal'], analyzed: true, color: '#22c55e' },
+  { id: 2, title: 'Lost Highway', artist: 'Stephan Bodzin', genre: 'Techno', bpm: 134, key: '10B', energy: 88, duration: '8:15', rating: 4, tags: ['dark', 'peak'], analyzed: true, color: '#ef4444' },
+  { id: 3, title: 'Equinox', artist: 'Solomun', genre: 'Deep House', bpm: 122, key: '3A', energy: 65, duration: '7:30', rating: 4, tags: ['warmup'], analyzed: true, color: '#3b82f6' },
+  { id: 4, title: 'Disco Volante', artist: 'ANNA', genre: 'Techno', bpm: 136, key: '8A', energy: 91, duration: '7:05', rating: 5, tags: ['peak', 'dark'], analyzed: true, color: '#ef4444' },
+  { id: 5, title: 'Dreamer', artist: 'Tale Of Us', genre: 'Melodic House', bpm: 120, key: '1A', energy: 58, duration: '9:10', rating: 3, tags: ['warmup', 'vocal'], analyzed: true, color: '#06b6d4' },
+  { id: 6, title: 'Bangalore', artist: 'Bicep', genre: 'House', bpm: 128, key: '4B', energy: 80, duration: '5:55', rating: 4, tags: ['festival'], analyzed: true, color: '#f97316' },
+  { id: 7, title: 'New Track 01.flac', artist: 'Unknown', genre: '—', bpm: null, key: null, energy: null, duration: '5:20', rating: 0, tags: [], analyzed: false, color: null },
+  { id: 8, title: 'New Track 02.wav', artist: 'Unknown', genre: '—', bpm: null, key: null, energy: null, duration: '7:45', rating: 0, tags: [], analyzed: false, color: null },
+];
+
+const SET_BUILDER_TRACKS = [
+  { id: 1, title: 'Dreamer', artist: 'Tale Of Us', bpm: 120, key: '1A', duration: '9:10', energy: 58, color: '#06b6d4', startMin: 0 },
+  { id: 3, title: 'Equinox', artist: 'Solomun', bpm: 122, key: '3A', duration: '7:30', energy: 65, color: '#3b82f6', startMin: 9 },
+  { id: 1, title: 'Shed My Skin', artist: 'Ben Böhmer', bpm: 124, key: '6A', duration: '6:42', energy: 72, color: '#22c55e', startMin: 17 },
+  { id: 6, title: 'Bangalore', artist: 'Bicep', bpm: 128, key: '4B', duration: '5:55', energy: 80, color: '#f97316', startMin: 24 },
+  { id: 2, title: 'Lost Highway', artist: 'Stephan Bodzin', bpm: 134, key: '10B', duration: '8:15', energy: 88, color: '#ef4444', startMin: 30 },
+  { id: 4, title: 'Disco Volante', artist: 'ANNA', bpm: 136, key: '8A', duration: '7:05', energy: 91, color: '#ef4444', startMin: 38 },
+];
+
+const EXPORT_FORMATS = [
+  { id: 'rekordbox', name: 'Rekordbox XML', icon: '🔵', desc: 'Pioneer DJ — CDJ/XDJ/DDJ', popular: true },
+  { id: 'serato', name: 'Serato DJ', icon: '🟢', desc: 'Serato DJ Pro / Lite', popular: false },
+  { id: 'traktor', name: 'Traktor NML', icon: '🟠', desc: 'Native Instruments Traktor', popular: false },
+  { id: 'engine', name: 'Engine DJ', icon: '⚫', desc: 'Denon DJ SC6000 / Prime', popular: false },
+  { id: 'virtualdj', name: 'VirtualDJ', icon: '🔴', desc: 'VirtualDJ 2023+', popular: false },
+  { id: 'm3u', name: 'Playlist M3U', icon: '📋', desc: 'Format universel', popular: false },
+  { id: 'csv', name: 'Tracklist CSV', icon: '📊', desc: 'Excel, Sheets, Notion', popular: false },
+  { id: 'id3', name: 'Tags ID3 (fichiers)', icon: '🏷️', desc: 'Écrire dans le fichier audio', popular: true },
+];
+
+const DEFAULT_HOT_CUES = [
+  { slot: 0, time: '0:32', label: 'Intro' },
+  { slot: 2, time: '1:45', label: 'Drop' },
+  { slot: 4, time: '4:10', label: 'Break' },
+  { slot: 6, time: '5:55', label: 'Outro' },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getKeyColor(key) {
+  const found = CAMELOT.find(c => c.n === key);
+  return found ? found.color : '#64748b';
+}
+
+function getCompatibleKeys(n) {
+  if (!n) return [];
+  const num = parseInt(n);
+  const mode = n.includes('A') ? 'A' : 'B';
   return [
-    code,                        // same key
-    `${num}${otherLetter}`,      // relative major/minor
-    `${prev}${letter}`,          // -1
-    `${next}${letter}`,          // +1
+    n,
+    `${num === 12 ? 1 : num + 1}${mode}`,
+    `${num === 1 ? 12 : num - 1}${mode}`,
+    `${num}${mode === 'A' ? 'B' : 'A'}`,
   ];
 }
 
-function keyToCamelot(keyStr) {
-  if (!keyStr) return null;
-  const k = keyStr.trim();
-  // Already camelot?
-  if (/^\d{1,2}[AB]$/i.test(k)) return k.toUpperCase();
-  // Find by note name
-  const found = CAMELOT.find(c => c.note.toLowerCase() === k.toLowerCase());
-  return found ? found.code : null;
+// ═══════════════════════════════════════════════════════════════════════════
+// SVG GENERATORS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function generateWaveformSVG(height, overview, hotCues) {
+  const bars = overview ? 200 : 120;
+  const progress = 0.35;
+  // Use seeded random for consistent look
+  const seed = overview ? 42 : 77;
+  const rng = (i) => Math.abs(Math.sin(i * 0.73 + seed) * 0.5 + Math.sin(i * 1.2 + seed * 2) * 0.3);
+
+  let rects = '';
+  for (let i = 0; i < bars; i++) {
+    const h = overview
+      ? rng(i) * height * 0.7 + height * 0.1
+      : (Math.sin(i * 0.3) * 0.4 + 0.6) * height * 0.85;
+    const isPlayed = i / bars < progress;
+    const mid = height / 2;
+    const low = (Math.sin(i * 0.8 + 1) * 0.5 + 0.5) * h * 0.4;
+    const mid2 = (Math.sin(i * 0.5 + 0.5) * 0.5 + 0.5) * h * 0.35;
+    const high = h - low - mid2;
+    const x = (i / bars * 100).toFixed(2);
+    const w = (100 / bars * 0.6).toFixed(2);
+
+    rects += `<rect x="${x}%" y="${(mid - h / 2).toFixed(1)}" width="${w}%" height="${low.toFixed(1)}" fill="${isPlayed ? '#ef444488' : '#ef444440'}"/>`;
+    rects += `<rect x="${x}%" y="${(mid - h / 2 + low).toFixed(1)}" width="${w}%" height="${mid2.toFixed(1)}" fill="${isPlayed ? '#22c55e88' : '#22c55e40'}"/>`;
+    rects += `<rect x="${x}%" y="${(mid - h / 2 + low + mid2).toFixed(1)}" width="${w}%" height="${high.toFixed(1)}" fill="${isPlayed ? '#3b82f688' : '#3b82f640'}"/>`;
+  }
+
+  // Playhead
+  if (!overview) {
+    rects += `<line x1="${progress * 100}%" y1="0" x2="${progress * 100}%" y2="${height}" stroke="white" stroke-width="1.5" opacity="0.9"/>`;
+    // Hot cue markers
+    if (hotCues) {
+      const positions = [8, 26, 61, 88];
+      hotCues.forEach((c, idx) => {
+        const pct = positions[idx] || 30;
+        rects += `<line x1="${pct}%" y1="0" x2="${pct}%" y2="${height}" stroke="${HOT_CUE_COLORS[c.slot]}" stroke-width="1.5" opacity="0.85"/>`;
+      });
+    }
+  }
+
+  return `<svg width="100%" height="${height}" viewBox="0 0 ${bars} ${height}" preserveAspectRatio="none">${rects}</svg>`;
+}
+
+function generateBeatgridLines(count) {
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const opacity = i % 4 === 0 ? '0.15' : '0.05';
+    html += `<div class="beatgrid-line" style="left:${(i / count * 100).toFixed(2)}%;background:rgba(255,255,255,${opacity})"></div>`;
+  }
+  return html;
+}
+
+function generateCamelotWheelSVG(selectedKey) {
+  const size = 200;
+  const cx = size / 2, cy = size / 2;
+  const outerR = 88, innerR = 55, textR_out = 75, textR_in = 43;
+  const compatible = getCompatibleKeys(selectedKey);
+
+  let paths = '';
+  CAMELOT.forEach(item => {
+    const isOuter = item.n.includes('B');
+    const num = parseInt(item.n);
+    const angle = ((num - 1) / 12) * 2 * Math.PI - Math.PI / 2;
+    const r = isOuter ? outerR : innerR;
+    const textR = isOuter ? textR_out : textR_in;
+    const slice = (2 * Math.PI) / 12;
+    const startAngle = angle - slice / 2;
+    const endAngle = angle + slice / 2;
+    const gap = 0.04;
+    const x1 = cx + (r - 14) * Math.cos(startAngle + gap);
+    const y1 = cy + (r - 14) * Math.sin(startAngle + gap);
+    const x2 = cx + (r + 14) * Math.cos(startAngle + gap);
+    const y2 = cy + (r + 14) * Math.sin(startAngle + gap);
+    const x3 = cx + (r + 14) * Math.cos(endAngle - gap);
+    const y3 = cy + (r + 14) * Math.sin(endAngle - gap);
+    const x4 = cx + (r - 14) * Math.cos(endAngle - gap);
+    const y4 = cy + (r - 14) * Math.sin(endAngle - gap);
+    const isSelected = item.n === selectedKey;
+    const isCompat = compatible.includes(item.n);
+    const tx = cx + textR * Math.cos(angle);
+    const ty = cy + textR * Math.sin(angle);
+
+    const fill = isSelected ? item.color : isCompat ? item.color + '70' : item.color + '30';
+    const stroke = isSelected ? 'white' : isCompat ? item.color + '90' : 'transparent';
+    const sw = isSelected ? 2 : 1;
+    const fs = isSelected ? 9 : 8;
+    const fw = isSelected ? 700 : 500;
+    const textFill = isSelected || isCompat ? 'white' : 'rgba(255,255,255,0.5)';
+
+    paths += `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)} A ${r + 14} ${r + 14} 0 0 1 ${x3.toFixed(1)} ${y3.toFixed(1)} L ${x4.toFixed(1)} ${y4.toFixed(1)} A ${r - 14} ${r - 14} 0 0 0 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" style="cursor:pointer"/>`;
+    paths += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" font-weight="${fw}" fill="${textFill}" font-family="'JetBrains Mono',monospace">${item.n}</text>`;
+  });
+
+  // Center
+  const keyColor = getKeyColor(selectedKey);
+  paths += `<circle cx="${cx}" cy="${cy}" r="28" fill="#1a1a2e" stroke="#252540" stroke-width="1"/>`;
+  paths += `<text x="${cx}" y="${cy - 5}" text-anchor="middle" font-size="9" font-weight="700" fill="#f1f5f9" font-family="Inter,sans-serif">Camelot</text>`;
+  paths += `<text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${keyColor}" font-family="'JetBrains Mono',monospace">${selectedKey || '—'}</text>`;
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 1. TAP TEMPO
+// MAIN APP
 // ═══════════════════════════════════════════════════════════════════════════
-const TapTempo = {
-  taps: [],
-  timeout: null,
+
+const CueForgeApp = {
+  currentPage: 'dashboard',
+  selectedTrack: MOCK_TRACKS[0],
+  activeTab: 'cues',
+  isPlaying: false,
+  hotCues: [...DEFAULT_HOT_CUES],
+  showFilters: false,
+
+  // Page titles
+  pageTitles: {
+    dashboard: { title: 'Dashboard', sub: 'Prépare et analyse tes sets' },
+    setbuilder: { title: 'Set Builder', sub: 'Construis et planifie tes sets' },
+    upload: { title: 'Importer', sub: 'Ajoute des tracks à ta bibliothèque' },
+    export: { title: 'Exporter', sub: 'Exporte vers ton logiciel DJ' },
+    settings: { title: 'Réglages', sub: 'Paramètres de ton compte' },
+    admin: { title: 'Admin', sub: 'Panneau d\'administration' },
+  },
 
   init() {
-    const area = document.getElementById('tapArea');
-    area.addEventListener('click', () => this.tap());
-    document.getElementById('tapReset').addEventListener('click', () => this.reset());
+    this.renderWaveforms();
+    this.renderHotCues();
+    this.renderTrackList();
+    this.renderTabContent('cues');
+    this.renderExportPage();
+    this.renderSetBuilderPage();
+    this.bindNavigation();
+    this.bindTabs();
+    this.bindPlayer();
+    this.bindFilters();
+    if (typeof initSettingsAdmin === 'function') initSettingsAdmin();
+  },
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 't' || e.key === 'T') {
-        // Only if tap tempo view is visible
-        if (document.getElementById('viewTapTempo')?.classList.contains('active')) {
-          e.preventDefault();
-          this.tap();
-        }
-      }
+  // ── Navigation ──────────────────────────────────────────────────────
+  bindNavigation() {
+    // Nav items
+    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+      el.addEventListener('click', () => this.switchPage(el.dataset.page));
     });
-  },
-
-  tap() {
-    const now = performance.now();
-    this.taps.push(now);
-    if (this.taps.length > 12) this.taps.shift();
-
-    clearTimeout(this.timeout);
-    this.timeout = setTimeout(() => this.reset(), 3000);
-
-    const area = document.getElementById('tapArea');
-    area.classList.remove('pulse');
-    void area.offsetWidth; // reflow
-    area.classList.add('pulse');
-
-    this.update();
-  },
-
-  update() {
-    const count = this.taps.length;
-    document.getElementById('tapCount').textContent = `${count} tap${count > 1 ? 's' : ''}`;
-
-    if (count < 2) {
-      document.getElementById('tapArea').textContent = '—';
-      document.getElementById('tapHalf').textContent = '—';
-      document.getElementById('tapNormal').textContent = '—';
-      document.getElementById('tapDouble').textContent = '—';
-      return;
-    }
-
-    const intervals = [];
-    for (let i = 1; i < count; i++) {
-      intervals.push(this.taps[i] - this.taps[i - 1]);
-    }
-    const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const bpm = Math.round(60000 / avg * 10) / 10;
-
-    document.getElementById('tapArea').textContent = bpm.toFixed(1);
-    document.getElementById('tapHalf').textContent = (bpm / 2).toFixed(1);
-    document.getElementById('tapNormal').textContent = bpm.toFixed(1);
-    document.getElementById('tapDouble').textContent = (bpm * 2).toFixed(1);
-  },
-
-  reset() {
-    this.taps = [];
-    clearTimeout(this.timeout);
-    document.getElementById('tapArea').textContent = '—';
-    document.getElementById('tapHalf').textContent = '—';
-    document.getElementById('tapNormal').textContent = '—';
-    document.getElementById('tapDouble').textContent = '—';
-    document.getElementById('tapCount').textContent = '0 taps';
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 2. CAMELOT WHEEL
-// ═══════════════════════════════════════════════════════════════════════════
-const CamelotWheel = {
-  selected: null,
-
-  init() {
-    this.render();
-  },
-
-  render() {
-    const grid = document.getElementById('camelotGrid');
-    // Build a grid: rows = numbers 1-12, columns = A and B
-    let html = '<div style="display:grid;grid-template-columns:repeat(4,auto);gap:4px;justify-content:center">';
-    html += '<div style="color:#666;font-size:10px;text-align:center;padding:4px">#</div>';
-    html += '<div style="color:#666;font-size:10px;text-align:center;padding:4px">Minor (A)</div>';
-    html += '<div style="color:#666;font-size:10px;text-align:center;padding:4px">Major (B)</div>';
-    html += '<div style="color:#666;font-size:10px;text-align:center;padding:4px">Note</div>';
-
-    for (let n = 1; n <= 12; n++) {
-      const a = CAMELOT.find(c => c.code === `${n}A`);
-      const b = CAMELOT.find(c => c.code === `${n}B`);
-
-      html += `<div style="color:#666;font-size:11px;display:flex;align-items:center;justify-content:center">${n}</div>`;
-      html += `<div class="camelot-key-cell" data-key="${a.code}" style="background:${a.color}33;color:${a.color}">${a.code}</div>`;
-      html += `<div class="camelot-key-cell" data-key="${b.code}" style="background:${b.color}33;color:${b.color}">${b.code}</div>`;
-      html += `<div style="color:#888;font-size:10px;display:flex;align-items:center;padding-left:6px">${a.note} / ${b.note}</div>`;
-    }
-    html += '</div>';
-    grid.innerHTML = html;
-
-    grid.querySelectorAll('.camelot-key-cell').forEach(el => {
-      el.addEventListener('click', () => this.select(el.dataset.key));
-    });
-  },
-
-  select(key) {
-    this.selected = key === this.selected ? null : key;
-    const compat = this.selected ? getCompatibleKeys(this.selected) : [];
-    const info = document.getElementById('camelotInfo');
-
-    // Update cell highlights
-    document.querySelectorAll('.camelot-key-cell').forEach(el => {
-      el.classList.remove('selected', 'compatible');
-      if (el.dataset.key === this.selected) el.classList.add('selected');
-      else if (compat.includes(el.dataset.key)) el.classList.add('compatible');
-    });
-
-    if (!this.selected) {
-      info.innerHTML = '<div style="color:#888;font-size:13px">Clique sur une tonalité pour voir les clés compatibles.</div>';
-      return;
-    }
-
-    const keyData = CAMELOT.find(c => c.code === key);
-    let html = `<div class="tool-card-title" style="font-size:16px;color:${keyData.color}">${key} — ${keyData.note}</div>`;
-    html += '<div style="margin-top:10px;font-size:12px;color:#aaa">Clés compatibles :</div>';
-    html += '<div class="camelot-compat-list">';
-    compat.forEach(k => {
-      const d = CAMELOT.find(c => c.code === k);
-      if (d) {
-        html += `<span class="camelot-compat-item" style="background:${d.color}22;color:${d.color}">${d.code} ${d.note}</span>`;
-      }
-    });
-    html += '</div>';
-
-    // Count tracks per key from the library
-    if (typeof state !== 'undefined' && state.tracks.length > 0) {
-      const counts = {};
-      compat.forEach(k => { counts[k] = 0; });
-      state.tracks.forEach(t => {
-        const ck = keyToCamelot(t.key_name);
-        if (ck && counts[ck] !== undefined) counts[ck]++;
+    // Crate items
+    document.querySelectorAll('.nav-item[data-crate], .crate-item[data-crate], .playlist-item[data-crate]').forEach(el => {
+      el.addEventListener('click', () => {
+        this.switchPage('dashboard');
+        // Highlight active crate
+        document.querySelectorAll('.crate-item, .playlist-item, .nav-item[data-crate]').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
       });
-      const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      html += `<div style="margin-top:14px;color:#666;font-size:12px">${total} piste${total > 1 ? 's' : ''} compatible${total > 1 ? 's' : ''} dans ta bibliothèque</div>`;
-    }
-
-    info.innerHTML = html;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 3. ENERGY FLOW
-// ═══════════════════════════════════════════════════════════════════════════
-const EnergyFlow = {
-  init() {},
-
-  render(tracks) {
-    const chart = document.getElementById('energyChart');
-    const stats = document.getElementById('energyStats');
-
-    if (!tracks || tracks.length === 0) {
-      chart.innerHTML = '<div style="color:#666;font-size:13px;padding:40px;text-align:center">Importe et analyse des pistes pour voir leur énergie.</div>';
-      stats.innerHTML = '';
-      return;
-    }
-
-    // Filter tracks with energy
-    const withEnergy = tracks.filter(t => t.energy != null && t.energy > 0);
-    if (withEnergy.length === 0) {
-      chart.innerHTML = '<div style="color:#666;font-size:13px;padding:40px;text-align:center">Aucune piste analysée avec énergie.</div>';
-      stats.innerHTML = '';
-      return;
-    }
-
-    // Energy levels
-    const levels = [
-      { name: 'Ambient', emoji: '🌙', max: 20, color: '#6366f1' },
-      { name: 'Chill',   emoji: '🌊', max: 40, color: '#06b6d4' },
-      { name: 'Warm',    emoji: '☀️', max: 60, color: '#eab308' },
-      { name: 'Hot',     emoji: '🔥', max: 80, color: '#f97316' },
-      { name: 'Peak',    emoji: '⚡', max: 100, color: '#ef4444' },
-    ];
-
-    function getLevel(e) {
-      return levels.find(l => e <= l.max) || levels[4];
-    }
-
-    // Build bars
-    let barsHtml = '';
-    withEnergy.forEach((t, i) => {
-      const e = Math.min(100, Math.max(1, Math.round(t.energy)));
-      const level = getLevel(e);
-      const title = t.title || t.original_filename || 'Track';
-      const artist = t.artist || '';
-      barsHtml += `<div class="energy-bar" style="height:${e}%;background:${level.color}">
-        <div class="energy-bar-tooltip">${level.emoji} ${title}${artist ? ' — ' + artist : ''}<br>${e}% — ${level.name}</div>
-      </div>`;
     });
-    chart.innerHTML = barsHtml;
-
-    // Stats
-    const energies = withEnergy.map(t => t.energy);
-    const avg = Math.round(energies.reduce((a, b) => a + b, 0) / energies.length);
-
-    let maxBuild = 0, maxDrop = 0;
-    for (let i = 1; i < energies.length; i++) {
-      const delta = energies[i] - energies[i - 1];
-      if (delta > maxBuild) maxBuild = delta;
-      if (delta < maxDrop) maxDrop = delta;
-    }
-
-    const avgLevel = getLevel(avg);
-    stats.innerHTML = `
-      <div class="energy-stat"><div class="energy-stat-label">Pistes</div><div class="energy-stat-value">${withEnergy.length}</div></div>
-      <div class="energy-stat"><div class="energy-stat-label">Énergie moy.</div><div class="energy-stat-value">${avgLevel.emoji} ${avg}%</div></div>
-      <div class="energy-stat"><div class="energy-stat-label">Plus gros build</div><div class="energy-stat-value" style="color:#22c55e">+${Math.round(maxBuild)}</div></div>
-      <div class="energy-stat"><div class="energy-stat-label">Plus gros drop</div><div class="energy-stat-value" style="color:#ef4444">${Math.round(maxDrop)}</div></div>
-    `;
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 4. GIG PREP
-// ═══════════════════════════════════════════════════════════════════════════
-const GigPrep = {
-  gigs: [],
-  activeGigId: null,
-  STORAGE_KEY: 'cueforge_gig_preps',
-
-  defaultChecklist: {
-    'Matériel 🎧': [
-      'Clé USB (backup)', 'Casque DJ', 'Câbles audio (RCA/Jack)',
-      'Laptop chargé', 'Carte son', 'Adaptateurs'
-    ],
-    'Musique 🎵': [
-      'Playlists prêtes', 'Cue points définis', 'BPM range vérifié',
-      'Tracks de backup', 'Transitions préparées'
-    ],
-    'Logistique 📍': [
-      'Adresse du lieu', 'Heure du soundcheck', 'Contact organisateur',
-      'Technical rider envoyé', 'Parking / accès'
-    ],
-    'Avant le set 🎚️': [
-      'Test son', 'Niveaux de volume', 'Retour casque OK',
-      'Téléphone en silencieux'
-    ]
+    // Settings button in footer
+    document.querySelector('.sidebar-settings-btn')?.addEventListener('click', () => this.switchPage('settings'));
   },
 
-  init() {
-    this.load();
-  },
+  switchPage(page) {
+    this.currentPage = page;
 
-  load() {
-    try {
-      this.gigs = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]');
-    } catch { this.gigs = []; }
-    if (this.gigs.length > 0 && !this.activeGigId) {
-      this.activeGigId = this.gigs[0].id;
-    }
-  },
+    // Update sidebar active state
+    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+      el.classList.toggle('active', el.dataset.page === page);
+    });
 
-  save() {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.gigs));
-  },
+    // Update topbar
+    const info = this.pageTitles[page] || this.pageTitles.dashboard;
+    document.getElementById('topbarTitle').textContent = info.title;
+    document.getElementById('topbarSubtitle').textContent = info.sub;
 
-  createGig(name) {
-    const gig = {
-      id: Date.now().toString(),
-      name: name || 'Nouveau gig',
-      date: '',
-      venue: '',
-      categories: {}
+    // Switch view
+    document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+    const viewMap = {
+      dashboard: 'viewDashboard',
+      setbuilder: 'viewSetBuilder',
+      upload: 'viewUpload',
+      export: 'viewExport',
+      settings: 'viewSettings',
+      admin: 'viewAdmin',
     };
-    for (const [cat, items] of Object.entries(this.defaultChecklist)) {
-      gig.categories[cat] = items.map(text => ({ text, done: false }));
-    }
-    this.gigs.unshift(gig);
-    this.activeGigId = gig.id;
-    this.save();
-    this.render();
+    const viewId = viewMap[page];
+    if (viewId) document.getElementById(viewId)?.classList.add('active');
   },
 
-  deleteGig(id) {
-    this.gigs = this.gigs.filter(g => g.id !== id);
-    if (this.activeGigId === id) {
-      this.activeGigId = this.gigs[0]?.id || null;
-    }
-    this.save();
-    this.render();
+  // ── Waveforms ───────────────────────────────────────────────────────
+  renderWaveforms() {
+    document.getElementById('waveformOverview').innerHTML = generateWaveformSVG(32, true);
+    const detail = document.getElementById('waveformDetail');
+    detail.innerHTML = generateWaveformSVG(80, false, this.hotCues) + generateBeatgridLines(32);
   },
 
-  render() {
-    const listEl = document.getElementById('gigList');
-    const contentEl = document.getElementById('gigContent');
-
-    // Gig chips
-    let chipsHtml = this.gigs.map(g => {
-      const active = g.id === this.activeGigId ? 'active' : '';
-      return `<div class="gig-chip ${active}" data-gig="${g.id}">${g.name}</div>`;
-    }).join('');
-    chipsHtml += '<div class="gig-chip add" id="addGigChip">+ Nouveau</div>';
-    listEl.innerHTML = chipsHtml;
-
-    // Chip events
-    listEl.querySelectorAll('.gig-chip[data-gig]').forEach(el => {
-      el.addEventListener('click', () => {
-        this.activeGigId = el.dataset.gig;
-        this.render();
-      });
-    });
-    document.getElementById('addGigChip').addEventListener('click', () => {
-      const name = prompt('Nom du gig :');
-      if (name) this.createGig(name);
-    });
-
-    const gig = this.gigs.find(g => g.id === this.activeGigId);
-    if (!gig) {
-      contentEl.innerHTML = '<div class="tool-card" style="text-align:center;color:#666;padding:40px">Crée ton premier gig pour commencer !</div>';
-      return;
-    }
-
-    // Progress
-    let total = 0, done = 0;
-    for (const items of Object.values(gig.categories)) {
-      total += items.length;
-      done += items.filter(i => i.done).length;
-    }
-    const pct = total > 0 ? Math.round(done / total * 100) : 0;
-    const progressColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#eab308' : '#ef4444';
-
-    let html = '<div class="tool-card">';
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
-    html += `<div style="font-size:16px;font-weight:700;color:#fff">${gig.name}</div>`;
-    html += `<div style="display:flex;gap:8px;align-items:center">`;
-    html += `<span style="font-size:12px;color:${progressColor};font-weight:700">${pct}%</span>`;
-    html += `<button onclick="GigPrep.deleteGig('${gig.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px" title="Supprimer">🗑</button>`;
-    html += `</div></div>`;
-    html += `<div class="gig-progress"><div class="gig-progress-fill" style="width:${pct}%;background:${progressColor}"></div></div>`;
-
-    // Categories
-    for (const [cat, items] of Object.entries(gig.categories)) {
-      const catDone = items.filter(i => i.done).length;
-      html += `<div class="checklist-category">`;
-      html += `<div class="checklist-cat-header">${cat} <span style="color:#666;font-size:11px;font-weight:400">(${catDone}/${items.length})</span></div>`;
-      html += `<div class="checklist-items">`;
-      items.forEach((item, idx) => {
-        html += `<div class="checklist-item ${item.done ? 'done' : ''}">
-          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="GigPrep.toggleItem('${gig.id}','${cat}',${idx})">
-          <span>${item.text}</span>
-          <span class="del-item" onclick="GigPrep.removeItem('${gig.id}','${cat}',${idx})">✕</span>
-        </div>`;
-      });
-      html += `</div>`;
-      html += `<div class="add-item-row">
-        <input class="add-item-input" placeholder="Ajouter un item…" data-cat="${cat}" data-gig="${gig.id}" onkeydown="if(event.key==='Enter')GigPrep.addItem(this)">
-        <button class="add-item-btn" onclick="GigPrep.addItem(this.previousElementSibling)">+</button>
-      </div>`;
-      html += `</div>`;
-    }
-    html += '</div>';
-    contentEl.innerHTML = html;
-  },
-
-  toggleItem(gigId, cat, idx) {
-    const gig = this.gigs.find(g => g.id === gigId);
-    if (gig) {
-      gig.categories[cat][idx].done = !gig.categories[cat][idx].done;
-      this.save();
-      this.render();
-    }
-  },
-
-  removeItem(gigId, cat, idx) {
-    const gig = this.gigs.find(g => g.id === gigId);
-    if (gig) {
-      gig.categories[cat].splice(idx, 1);
-      this.save();
-      this.render();
-    }
-  },
-
-  addItem(input) {
-    const text = input.value.trim();
-    if (!text) return;
-    const gig = this.gigs.find(g => g.id === input.dataset.gig);
-    if (gig) {
-      gig.categories[input.dataset.cat].push({ text, done: false });
-      input.value = '';
-      this.save();
-      this.render();
-    }
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 5. CRATE DIGGER
-// ═══════════════════════════════════════════════════════════════════════════
-const CrateDigger = {
-  mode: 'random',
-  digCount: 0,
-
-  init() {
-    document.querySelectorAll('.dig-mode').forEach(el => {
-      el.addEventListener('click', () => {
-        document.querySelectorAll('.dig-mode').forEach(m => m.classList.remove('active'));
-        el.classList.add('active');
-        this.mode = el.dataset.mode;
-      });
-    });
-    document.getElementById('digBtn').addEventListener('click', () => this.dig());
-  },
-
-  dig() {
-    const tracks = typeof state !== 'undefined' ? state.tracks : [];
-    if (tracks.length === 0) {
-      document.getElementById('digResults').innerHTML = '<div style="color:#666;font-size:13px">Importe des pistes d\'abord !</div>';
-      return;
-    }
-
-    this.digCount++;
-    let results = [];
-
-    switch (this.mode) {
-      case 'random':
-        results = this.shuffle(tracks).slice(0, 5);
-        break;
-      case 'energy':
-        results = this.energyJourney(tracks);
-        break;
-      case 'genre':
-        results = this.genreExplore(tracks);
-        break;
-      case 'gems':
-        results = this.hiddenGems(tracks);
-        break;
-    }
-
-    this.renderResults(results);
-  },
-
-  shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  },
-
-  energyJourney(tracks) {
-    const bands = [
-      { min: 0, max: 25 },
-      { min: 25, max: 50 },
-      { min: 50, max: 70 },
-      { min: 70, max: 85 },
-      { min: 85, max: 100 },
-    ];
-    const results = [];
-    for (const band of bands) {
-      const pool = tracks.filter(t => {
-        const e = t.energy || 0;
-        return e >= band.min && e < band.max;
-      });
-      if (pool.length > 0) {
-        results.push(pool[Math.floor(Math.random() * pool.length)]);
+  // ── Hot Cues ────────────────────────────────────────────────────────
+  renderHotCues() {
+    const row = document.getElementById('hotcuesRow');
+    let html = '<span class="hotcues-label">HOT CUES</span>';
+    HOT_CUE_LABELS.forEach((label, i) => {
+      const cue = this.hotCues.find(c => c.slot === i);
+      if (cue) {
+        html += `<button class="hotcue-btn" style="background:${HOT_CUE_COLORS[i]};color:white">
+          <div class="hc-letter">${label}</div>
+          <div class="hc-time">${cue.time}</div>
+        </button>`;
+      } else {
+        html += `<button class="hotcue-btn empty"><div class="hc-letter">${label}</div></button>`;
       }
-    }
-    return results;
-  },
-
-  genreExplore(tracks) {
-    const genreMap = {};
-    tracks.forEach(t => {
-      const g = t.genre || 'Unknown';
-      if (!genreMap[g]) genreMap[g] = [];
-      genreMap[g].push(t);
     });
-    // Sort by rarest genre first
-    const sorted = Object.entries(genreMap).sort((a, b) => a[1].length - b[1].length);
-    const results = [];
-    for (const [, pool] of sorted) {
-      if (results.length >= 5) break;
-      results.push(pool[Math.floor(Math.random() * pool.length)]);
-    }
-    return results;
+    row.innerHTML = html;
   },
 
-  hiddenGems(tracks) {
-    // Prioritize low play count + high rated (but we don't have play_count in desktop, so random with analysis)
-    const analyzed = tracks.filter(t => t.bpm && t.key_name);
-    const pool = analyzed.length > 5 ? analyzed : tracks;
-    return this.shuffle(pool).slice(0, 5);
+  // ── Player ──────────────────────────────────────────────────────────
+  bindPlayer() {
+    document.getElementById('btnPlay').addEventListener('click', () => {
+      this.isPlaying = !this.isPlaying;
+      document.getElementById('btnPlay').textContent = this.isPlaying ? '⏸' : '▶';
+    });
   },
 
-  renderResults(results) {
-    const el = document.getElementById('digResults');
-    if (results.length === 0) {
-      el.innerHTML = '<div style="color:#666;font-size:13px">Pas de résultats pour ce mode. Essaie un autre !</div>';
-      return;
+  updatePlayerCard(track) {
+    this.selectedTrack = track;
+    document.getElementById('playerTitle').textContent = track.title;
+    document.getElementById('playerArtist').textContent = `${track.artist} · ${track.genre}`;
+
+    const art = document.getElementById('playerArt');
+    const c = track.color || '#1a1a2e';
+    art.style.background = c + '30';
+    art.style.border = `1px solid ${c}40`;
+
+    // Badges
+    const badges = document.getElementById('playerBadges');
+    let bhtml = '';
+    if (track.bpm) bhtml += `<span class="badge badge-cyan">${track.bpm} BPM</span>`;
+    if (track.key) {
+      const kc = getKeyColor(track.key);
+      bhtml += `<span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${track.key}</span>`;
     }
+    if (track.energy) {
+      bhtml += `<div class="energy-bar-container"><div class="energy-bar-bg"><div class="energy-bar-fill" style="width:${track.energy}%"></div></div><span class="energy-bar-val">${track.energy}</span></div>`;
+    }
+    badges.innerHTML = bhtml;
 
-    el.innerHTML = results.map(t => {
-      const title = t.title || t.original_filename || 'Track';
-      const artist = t.artist || '—';
-      const bpm = t.bpm ? t.bpm.toFixed(1) : '—';
-      const key = t.key_name || '—';
-      const energy = t.energy || 0;
-      const eColor = energy > 70 ? '#ef4444' : energy > 40 ? '#eab308' : '#06b6d4';
+    // Re-render waveforms and tabs
+    this.renderWaveforms();
+    this.renderTabContent(this.activeTab);
+  },
 
-      return `<div class="dig-result" data-track-id="${t.id}">
-        <div style="font-size:18px">💿</div>
-        <div class="dig-result-info">
-          <div class="dig-result-title">${title}</div>
-          <div class="dig-result-artist">${artist}</div>
-        </div>
-        <div class="dig-result-meta">
-          <span>${bpm} BPM</span>
-          <span>${key}</span>
-        </div>
-        <div class="dig-result-energy"><div class="dig-result-energy-fill" style="width:${energy}%;background:${eColor}"></div></div>
-      </div>`;
-    }).join('');
-  }
-};
+  // ── Track List ──────────────────────────────────────────────────────
+  renderTrackList(tracks) {
+    const list = tracks || MOCK_TRACKS;
+    const container = document.getElementById('trackRows');
+    document.getElementById('trackCount').textContent = list.length;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 6. QUICK NOTES
-// ═══════════════════════════════════════════════════════════════════════════
-const QuickNotes = {
-  notes: [],
-  currentColor: '#fbbf24',
-  STORAGE_KEY: 'cueforge_quick_notes',
+    let html = '';
+    list.forEach(t => {
+      const selected = this.selectedTrack?.id === t.id ? ' selected' : '';
+      html += `<div class="track-row${selected}" data-track-id="${t.id}">`;
 
-  init() {
-    this.load();
+      // Status
+      html += `<div class="track-status">${t.analyzed
+        ? '<span class="track-status-ok">✓</span>'
+        : '<span class="track-status-pending" title="Cliquer pour analyser">⚡</span>'}</div>`;
 
-    // Color selection
-    document.querySelectorAll('.note-color-dot').forEach(el => {
-      el.addEventListener('click', () => {
-        document.querySelectorAll('.note-color-dot').forEach(d => d.classList.remove('active'));
-        el.classList.add('active');
-        this.currentColor = el.dataset.color;
+      // Title
+      html += `<div class="track-title-cell"><div class="track-title">${t.title}</div><div class="track-artist">${t.artist}</div></div>`;
+
+      // BPM
+      html += `<div>${t.bpm
+        ? `<span class="track-bpm">${t.bpm}</span>`
+        : '<button class="track-bpm-analyze">Analyser</button>'}</div>`;
+
+      // Key
+      if (t.key) {
+        const kc = getKeyColor(t.key);
+        html += `<div><span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span></div>`;
+      } else {
+        html += '<div><span style="color:var(--text-muted)">—</span></div>';
+      }
+
+      // Energy
+      if (t.energy) {
+        html += `<div><div class="energy-mini"><div class="energy-mini-bar"><div class="energy-mini-fill" style="width:${t.energy}%"></div></div></div></div>`;
+      } else {
+        html += '<div><span style="color:var(--text-muted)">—</span></div>';
+      }
+
+      // Duration
+      html += `<div class="track-duration">${t.duration}</div>`;
+
+      // Genre
+      html += `<div class="track-genre">${t.genre}</div>`;
+
+      // Rating
+      html += '<div class="track-rating">';
+      for (let s = 0; s < 5; s++) {
+        html += `<span class="star ${s < t.rating ? 'star-on' : 'star-off'}">★</span>`;
+      }
+      html += '</div>';
+
+      // Tags
+      html += '<div>';
+      if (t.tags.length > 0) {
+        html += `<span class="track-tag">#${t.tags[0]}</span>`;
+      }
+      html += '</div>';
+
+      html += '</div>';
+    });
+
+    container.innerHTML = html;
+
+    // Bind row clicks
+    container.querySelectorAll('.track-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const id = parseInt(row.dataset.trackId);
+        const track = MOCK_TRACKS.find(t => t.id === id);
+        if (track) {
+          container.querySelectorAll('.track-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          this.updatePlayerCard(track);
+        }
       });
     });
+  },
 
-    // Add note
-    document.getElementById('noteAddBtn').addEventListener('click', () => this.addNote());
-    document.getElementById('noteInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') this.addNote();
+  bindFilters() {
+    document.getElementById('btnFilters')?.addEventListener('click', () => {
+      this.showFilters = !this.showFilters;
+      const panel = document.getElementById('filterPanel');
+      const btn = document.getElementById('btnFilters');
+      panel.classList.toggle('show', this.showFilters);
+      btn.classList.toggle('active', this.showFilters);
+      if (this.showFilters && !panel.innerHTML) {
+        this.renderFilterPanel();
+      }
     });
 
     // Search
-    document.getElementById('noteSearch').addEventListener('input', () => this.render());
-  },
-
-  load() {
-    try {
-      this.notes = JSON.parse(localStorage.getItem(this.STORAGE_KEY) || '[]');
-    } catch { this.notes = []; }
-  },
-
-  save() {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.notes));
-  },
-
-  addNote() {
-    const input = document.getElementById('noteInput');
-    const text = input.value.trim();
-    if (!text) return;
-
-    this.notes.unshift({
-      id: Date.now().toString(),
-      text,
-      color: this.currentColor,
-      pinned: false,
-      createdAt: Date.now(),
+    document.getElementById('trackSearch')?.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      const filtered = MOCK_TRACKS.filter(t =>
+        t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.genre.toLowerCase().includes(q)
+      );
+      this.renderTrackList(filtered);
     });
-    input.value = '';
-    this.save();
-    this.render();
   },
 
-  togglePin(id) {
-    const note = this.notes.find(n => n.id === id);
-    if (note) {
-      note.pinned = !note.pinned;
-      this.save();
-      this.render();
-    }
+  renderFilterPanel() {
+    const panel = document.getElementById('filterPanel');
+    panel.innerHTML = `
+      <div class="filter-group">
+        <div class="filter-label">BPM: 100–145</div>
+        <div class="filter-chips">
+          ${[100, 110, 120, 125, 128, 130, 135, 140, 145].map(bpm =>
+            `<button class="filter-chip active">${bpm}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="filter-label">Tonalité</div>
+        <div class="filter-chips">
+          ${['Am', 'Em', 'Bm', 'Dm'].map(k => `<button class="filter-chip">${k}</button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="filter-label">Genre</div>
+        <div class="filter-chips">
+          ${['Techno', 'House', 'Melodic'].map(g => `<button class="filter-chip">${g}</button>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="filter-label">Énergie: 0–100</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <div style="width:80px;height:5px;border-radius:3px;background:var(--border-default);position:relative">
+            <div style="position:absolute;left:0;right:0;top:0;bottom:0;background:var(--accent);border-radius:3px"></div>
+          </div>
+          <button class="btn-ghost" style="font-size:10px;padding:2px 8px">Reset</button>
+        </div>
+      </div>
+    `;
   },
 
-  deleteNote(id) {
-    this.notes = this.notes.filter(n => n.id !== id);
-    this.save();
-    this.render();
+  // ── Tabs ─────────────────────────────────────────────────────────────
+  bindTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        this.activeTab = tab;
+        const paneMap = { cues: 'tabCues', beatgrid: 'tabBeatgrid', stems: 'tabStems', eq: 'tabEq', fx: 'tabFx', mix: 'tabMix', playlists: 'tabPlaylists', stats: 'tabStats', history: 'tabHistory' };
+        document.getElementById(paneMap[tab])?.classList.add('active');
+        this.renderTabContent(tab);
+      });
+    });
   },
 
-  timeAgo(ts) {
-    const diff = Date.now() - ts;
-    if (diff < 60000) return 'à l\'instant';
-    if (diff < 3600000) return `il y a ${Math.floor(diff / 60000)} min`;
-    if (diff < 86400000) return `il y a ${Math.floor(diff / 3600000)}h`;
-    return `il y a ${Math.floor(diff / 86400000)}j`;
+  renderTabContent(tab) {
+    const t = this.selectedTrack;
+    const renderers = {
+      cues: () => this.renderCuesTab(),
+      beatgrid: () => this.renderBeatgridTab(),
+      stems: () => this.renderStemsTab(),
+      eq: () => this.renderEqTab(),
+      fx: () => this.renderFxTab(),
+      mix: () => this.renderMixTab(),
+      playlists: () => this.renderPlaylistsTab(),
+      stats: () => this.renderStatsTab(),
+      history: () => this.renderHistoryTab(),
+    };
+    if (renderers[tab]) renderers[tab]();
   },
 
-  render() {
-    const search = (document.getElementById('noteSearch')?.value || '').toLowerCase();
-    const list = document.getElementById('notesList');
+  renderCuesTab() {
+    const el = document.getElementById('tabCues');
+    let html = `
+      <div class="section-header">
+        <div class="section-title">Hot Cues — ${this.selectedTrack?.title || ''}</div>
+        <div class="section-actions">
+          <button class="btn-ghost">⬆️ Auto-détecter</button>
+          <button class="btn-primary" style="font-size:11px;padding:4px 10px">+ Ajouter cue</button>
+        </div>
+      </div>
+      <div class="cues-grid">`;
 
-    let filtered = this.notes;
-    if (search) {
-      filtered = filtered.filter(n => n.text.toLowerCase().includes(search));
-    }
-    // Pinned first
-    filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    HOT_CUE_LABELS.forEach((label, i) => {
+      const cue = this.hotCues.find(c => c.slot === i);
+      const borderColor = cue ? HOT_CUE_COLORS[i] + '50' : 'var(--border-subtle)';
+      const bgColor = cue ? HOT_CUE_COLORS[i] + '10' : 'var(--bg-elevated)';
+      const badgeBg = cue ? HOT_CUE_COLORS[i] : 'var(--bg-primary)';
+      const badgeBorder = cue ? HOT_CUE_COLORS[i] : 'var(--border-default)';
+      const badgeColor = cue ? 'white' : 'var(--text-muted)';
 
-    if (filtered.length === 0) {
-      list.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px">Aucune note.</div>';
-      return;
-    }
+      html += `<div class="cue-slot" style="border:1px solid ${borderColor};background:${bgColor}">
+        <div class="cue-slot-badge" style="background:${badgeBg};border:1px solid ${badgeBorder};color:${badgeColor}">${label}</div>`;
+      if (cue) {
+        html += `<div class="cue-slot-info"><div class="cue-slot-time">${cue.time}</div><div class="cue-slot-label">${cue.label}</div></div>
+          <button class="cue-slot-edit">✏️</button>`;
+      } else {
+        html += `<div class="cue-slot-empty">Vide — Cliquer pour poser</div>`;
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  },
 
-    list.innerHTML = filtered.map(n => `
-      <div class="note-card" style="background:${n.color}11;border-color:${n.color}">
-        <span class="note-pin ${n.pinned ? 'pinned' : ''}" onclick="QuickNotes.togglePin('${n.id}')">${n.pinned ? '📌' : '📍'}</span>
-        <span class="note-del" onclick="QuickNotes.deleteNote('${n.id}')">✕</span>
-        <div style="color:#ddd">${n.text}</div>
-        <div class="note-time">${this.timeAgo(n.createdAt)}</div>
+  renderBeatgridTab() {
+    const el = document.getElementById('tabBeatgrid');
+    const bpm = this.selectedTrack?.bpm || 0;
+    el.innerHTML = `
+      <div class="section-header">
+        <div>
+          <div class="section-title">Beatgrid Editor</div>
+          <div class="section-subtitle">Corrige le grid manuellement pour un mix parfait</div>
+        </div>
+        <div class="section-actions">
+          <button class="btn-ghost">⟳ Re-analyser</button>
+          <button class="btn-ghost">÷2 BPM</button>
+          <button class="btn-ghost">×2 BPM</button>
+        </div>
+      </div>
+      <div style="background:var(--bg-primary);border-radius:9px;padding:12px 16px;margin-bottom:12px;position:relative;height:80px;overflow:hidden">
+        ${generateWaveformSVG(80, false)}
+        ${Array.from({length: 32}, (_, i) => {
+          const w = i % 4 === 0 ? 2 : 1;
+          const bg = i % 4 === 0 ? 'rgba(37,99,235,0.6)' : 'rgba(37,99,235,0.2)';
+          const label = i % 4 === 0 ? `<div style="position:absolute;top:2px;left:3px;font-size:9px;color:#2563eb;font-family:var(--mono)">${Math.floor(i/4)+1}</div>` : '';
+          return `<div style="position:absolute;top:0;bottom:0;left:${(i/32*100).toFixed(1)}%;width:${w}px;background:${bg};cursor:pointer">${label}</div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text-muted)">BPM détecté:</span>
+          <span style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--mono)">${bpm}</span>
+        </div>
+        <div style="display:flex;gap:4px">
+          ${['−0.5', '−0.1', '+0.1', '+0.5'].map(v =>
+            `<button style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--text-primary);font-size:13px;cursor:pointer;font-family:var(--mono)">${v}</button>`
+          ).join('')}
+        </div>
+        <button class="btn-success">✓ Confirmer le grid</button>
+      </div>`;
+  },
+
+  renderStemsTab() {
+    const el = document.getElementById('tabStems');
+    const stems = [
+      { id: 'vocals', label: 'Voix', icon: '🎤', color: '#ec4899' },
+      { id: 'drums', label: 'Drums', icon: '🥁', color: '#f97316' },
+      { id: 'bass', label: 'Basse', icon: '🎸', color: '#22c55e' },
+      { id: 'melody', label: 'Mélodie', icon: '🎹', color: '#3b82f6' },
+    ];
+
+    el.innerHTML = `
+      <div class="section-header">
+        <div>
+          <div class="section-title">Stem Separation</div>
+          <div class="section-subtitle">Isoler ou muter chaque élément du track</div>
+        </div>
+        <button class="btn-primary" style="font-size:11px;padding:4px 10px">⚡ Séparer les stems</button>
+      </div>
+      <div class="stems-grid">
+        ${stems.map(s => {
+          let bars = '';
+          for (let i = 0; i < 50; i++) {
+            const h = Math.abs(Math.sin(i * 0.5 + s.id.length)) * 18 + 3;
+            bars += `<rect x="${i * 2}" y="${(24 - h) / 2}" width="1.5" height="${h}" fill="${s.color}80"/>`;
+          }
+          return `<div class="stem-card" style="border:1px solid ${s.color}40;background:${s.color}10">
+            <div class="stem-header">
+              <div class="stem-left"><span class="stem-icon">${s.icon}</span><span class="stem-name">${s.label}</span></div>
+              <div class="stem-btns">
+                <button class="stem-btn" style="border:1px solid ${s.color}50;background:${s.color}20;color:${s.color}">S</button>
+                <button class="stem-btn" style="border:1px solid var(--border-default);background:transparent;color:var(--text-muted)">M</button>
+              </div>
+            </div>
+            <div class="stem-wave"><svg width="100%" height="24" viewBox="0 0 100 24">${bars}</svg></div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  },
+
+  renderEqTab() {
+    const el = document.getElementById('tabEq');
+    const bands = [
+      { label: 'LOW', freq: '32Hz-512Hz', val: 0 },
+      { label: 'MID', freq: '512Hz-8kHz', val: 2 },
+      { label: 'HIGH', freq: '8kHz-20kHz', val: -1 },
+    ];
+    el.innerHTML = `<div class="eq-container">
+      ${bands.map(b => {
+        const fillColor = b.val > 0 ? 'var(--accent-success)' : 'var(--accent-error)';
+        const fillH = Math.abs(b.val) * 8;
+        return `<div class="eq-band">
+          <span class="eq-value">${b.val > 0 ? '+' : ''}${b.val}</span>
+          <div class="eq-slider">
+            <div class="eq-fill" style="height:${fillH}%;background:${fillColor}"></div>
+            <div class="eq-center"></div>
+          </div>
+          <span class="eq-label">${b.label}</span>
+          <span class="eq-freq">${b.freq}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  },
+
+  renderFxTab() {
+    const el = document.getElementById('tabFx');
+    const effects = [
+      { name: 'Reverb', active: false }, { name: 'Delay', active: true }, { name: 'Flanger', active: false },
+      { name: 'Phaser', active: false }, { name: 'Filter', active: true }, { name: 'Bitcrusher', active: false },
+      { name: 'Chorus', active: false }, { name: 'Tremolo', active: false },
+    ];
+    el.innerHTML = `
+      <div class="section-title" style="margin-bottom:12px">Effets Audio</div>
+      <div class="fx-grid">
+        ${effects.map(e =>
+          `<button class="fx-btn ${e.active ? 'active' : 'inactive'}">${e.name}</button>`
+        ).join('')}
+      </div>`;
+  },
+
+  renderMixTab() {
+    const el = document.getElementById('tabMix');
+    const key = this.selectedTrack?.key;
+    const compatible = MOCK_TRACKS.filter(t => t.analyzed && t.id !== this.selectedTrack?.id);
+
+    el.innerHTML = `<div class="mix-container">
+      <div class="mix-wheel-area">
+        <div class="mix-wheel-label">Roue de Camelot</div>
+        ${generateCamelotWheelSVG(key)}
+      </div>
+      <div class="mix-compat-list">
+        <div class="mix-compat-title">Tracks compatibles avec ${key || '—'}</div>
+        ${compatible.slice(0, 5).map(t => {
+          const score = t.key === key ? 100 : Math.floor(Math.random() * 40 + 55);
+          const scoreColor = score > 85 ? 'var(--accent-success)' : score > 70 ? 'var(--accent-warning)' : 'var(--accent-error)';
+          const kc = getKeyColor(t.key);
+          return `<div class="mix-compat-row">
+            <div class="mix-compat-bar" style="background:${scoreColor}"></div>
+            <div class="mix-compat-info">
+              <div class="mix-compat-name">${t.title}</div>
+              <div class="mix-compat-artist">${t.artist}</div>
+            </div>
+            <span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span>
+            <span class="badge badge-cyan">${t.bpm}</span>
+            <span class="mix-compat-score" style="color:${scoreColor}">${score}%</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  renderPlaylistsTab() {
+    const el = document.getElementById('tabPlaylists');
+    const playlists = [
+      { label: 'Set Berghain 2024', count: 12 },
+      { label: 'Outdoor Summer', count: 8 },
+    ];
+    el.innerHTML = `
+      <div class="section-header">
+        <div class="section-title">Mes Playlists</div>
+        <button class="btn-primary" style="font-size:11px;padding:4px 10px">+ Nouvelle playlist</button>
+      </div>
+      ${playlists.map(p => `<div class="playlist-row">
+        <span class="playlist-row-icon">💿</span>
+        <div class="playlist-row-info">
+          <div class="playlist-row-name">${p.label}</div>
+          <div class="playlist-row-count">${p.count} tracks</div>
+        </div>
+        <button class="btn-ghost">Ouvrir</button>
+      </div>`).join('')}`;
+  },
+
+  renderStatsTab() {
+    const el = document.getElementById('tabStats');
+    const analyzed = MOCK_TRACKS.filter(t => t.analyzed).length;
+    const stats = [
+      { label: 'Total tracks', value: MOCK_TRACKS.length, icon: '🎵' },
+      { label: 'Analysés', value: analyzed, icon: '✅' },
+      { label: 'BPM moyen', value: '127', icon: '⚡' },
+      { label: 'Genres', value: '4', icon: '🎨' },
+    ];
+    const bpmBars = [20, 35, 80, 100, 75, 45, 30];
+    const bpmLabels = ['115', '118', '122', '126', '130', '134', '138'];
+
+    el.innerHTML = `
+      <div class="stats-grid">
+        ${stats.map(s => `<div class="stat-card">
+          <div class="stat-icon">${s.icon}</div>
+          <div class="stat-value">${s.value}</div>
+          <div class="stat-label">${s.label}</div>
+        </div>`).join('')}
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">Distribution BPM</div>
+      <div class="bpm-histogram">
+        ${bpmBars.map(h => `<div class="bpm-bar" style="height:${h}%;background:rgba(37,99,235,0.4)"></div>`).join('')}
+      </div>
+      <div class="bpm-labels">
+        ${bpmLabels.map(l => `<span class="bpm-label">${l}</span>`).join('')}
+      </div>`;
+  },
+
+  renderHistoryTab() {
+    const el = document.getElementById('tabHistory');
+    const tracks = MOCK_TRACKS.slice(0, 5).reverse();
+    el.innerHTML = `
+      <div class="section-title" style="margin-bottom:10px">Historique de lecture</div>
+      ${tracks.map((t, i) => `<div class="history-row">
+        <span class="history-num">${i + 1}</span>
+        <div class="history-info">
+          <div class="history-title">${t.title}</div>
+          <div class="history-sub">${t.artist} · Il y a ${(i + 1) * 8} min</div>
+        </div>
+        ${t.bpm ? `<span class="badge badge-cyan">${t.bpm}</span>` : ''}
+      </div>`).join('')}`;
+  },
+
+  // ── Export Page ──────────────────────────────────────────────────────
+  renderExportPage() {
+    const grid = document.getElementById('exportGrid');
+    grid.innerHTML = EXPORT_FORMATS.map(f => `
+      <div class="export-card">
+        ${f.popular ? '<span class="export-card-popular">POPULAIRE</span>' : ''}
+        <span class="export-card-icon">${f.icon}</span>
+        <div class="export-card-info">
+          <div class="export-card-name">${f.name}</div>
+          <div class="export-card-desc">${f.desc}</div>
+        </div>
+        <button class="btn-primary" style="font-size:11px;padding:4px 10px">Exporter</button>
       </div>
     `).join('');
-  }
+  },
+
+  // ── Set Builder Page ────────────────────────────────────────────────
+  renderSetBuilderPage() {
+    const el = document.getElementById('setBuilderContent');
+    const stats = [
+      { label: 'Durée totale', value: '~48 min' },
+      { label: 'BPM de départ', value: '120' },
+      { label: 'BPM final', value: '136' },
+      { label: 'Transitions', value: '5' },
+    ];
+
+    // Energy curve SVG
+    const points = SET_BUILDER_TRACKS.map((t, i) =>
+      `${(i / (SET_BUILDER_TRACKS.length - 1)) * 600},${60 - (t.energy / 100) * 50}`
+    ).join(' L ');
+
+    const dots = SET_BUILDER_TRACKS.map((t, i) => {
+      const color = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
+      return `<circle cx="${(i / (SET_BUILDER_TRACKS.length - 1)) * 600}" cy="${60 - (t.energy / 100) * 50}" r="4" fill="${color}"/>`;
+    }).join('');
+
+    const gradStops = SET_BUILDER_TRACKS.map((t, i) => {
+      const color = t.energy < 65 ? '#22c55e' : t.energy < 80 ? '#eab308' : '#ef4444';
+      return `<stop offset="${(i / (SET_BUILDER_TRACKS.length - 1) * 100).toFixed(0)}%" stop-color="${color}" stop-opacity="0.8"/>`;
+    }).join('');
+
+    // Timeline blocks
+    const blocks = SET_BUILDER_TRACKS.map(t => {
+      const start = (t.startMin / 48) * 100;
+      const dur = parseInt(t.duration.split(':')[0]);
+      const width = (dur / 48) * 100;
+      return `<div class="timeline-block" style="left:${start}%;width:${width}%;background:${t.color}50;border:1px solid ${t.color}80">
+        <span class="timeline-block-label">${t.title}</span>
+      </div>`;
+    }).join('');
+
+    // Track list
+    const trackList = SET_BUILDER_TRACKS.map((t, i) => {
+      const kc = getKeyColor(t.key);
+      const delta = i < SET_BUILDER_TRACKS.length - 1
+        ? `<span class="set-track-delta">→ ${Math.abs(SET_BUILDER_TRACKS[i + 1].bpm - t.bpm)} BPM</span>` : '';
+      return `<div class="set-track-row">
+        <span class="set-track-num">${i + 1}</span>
+        <div class="set-track-color" style="background:${t.color}"></div>
+        <div class="set-track-info">
+          <div class="set-track-title">${t.title}</div>
+          <div class="set-track-artist">${t.artist}</div>
+        </div>
+        <span class="set-track-time">${t.startMin}:00</span>
+        <span class="badge badge-cyan">${t.bpm}</span>
+        <span class="key-badge" style="background:${kc}25;color:${kc};border:1px solid ${kc}40">${t.key}</span>
+        ${delta}
+        <button class="set-track-more">⋮</button>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <!-- Stats -->
+      <div class="setbuilder-stats">
+        ${stats.map(s => `<div class="setbuilder-stat-card">
+          <div class="setbuilder-stat-label">${s.label}</div>
+          <div class="setbuilder-stat-value">${s.value}</div>
+        </div>`).join('')}
+      </div>
+
+      <!-- Energy Curve -->
+      <div class="setbuilder-section">
+        <div class="setbuilder-section-title">Courbe d'énergie du set</div>
+        <div class="energy-curve">
+          <svg width="100%" height="60" viewBox="0 0 600 60" preserveAspectRatio="none">
+            <defs><linearGradient id="energyGrad" x1="0" y1="0" x2="1" y2="0">${gradStops}</linearGradient></defs>
+            <path d="M ${points}" fill="none" stroke="url(#energyGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dots}
+          </svg>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="setbuilder-section">
+        <div class="section-header">
+          <div class="setbuilder-section-title" style="margin:0">Timeline du set</div>
+          <div class="section-actions">
+            <button class="btn-ghost">⬆️ Ajouter track</button>
+            <button class="btn-ghost">🤖 Suggérer suite</button>
+            <button class="btn-primary" style="font-size:11px;padding:4px 10px">⬇️ Exporter tracklist</button>
+          </div>
+        </div>
+        <div class="timeline-ruler">
+          ${Array.from({length: 10}, (_, i) => `<div class="timeline-mark">${i * 5}min</div>`).join('')}
+        </div>
+        <div class="timeline-bar">${blocks}</div>
+        <div style="margin-top:12px">${trackList}</div>
+      </div>`;
+  },
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 7. EXPORT MULTI-FORMAT
-// ═══════════════════════════════════════════════════════════════════════════
-const MultiExport = {
-  exportM3U(tracks) {
-    let content = '#EXTM3U\n';
-    tracks.forEach(t => {
-      const duration = Math.round(t.duration || 0);
-      const title = t.title || t.original_filename || 'Unknown';
-      const artist = t.artist || 'Unknown';
-      content += `#EXTINF:${duration},${artist} - ${title}\n`;
-      content += `${t.file_path}\n`;
-    });
-    return content;
-  },
-
-  exportCSV(tracks) {
-    const headers = ['Titre', 'Artiste', 'Album', 'BPM', 'Tonalité', 'Énergie', 'Durée (s)', 'Format', 'Chemin'];
-    let csv = headers.join(',') + '\n';
-    tracks.forEach(t => {
-      const row = [
-        `"${(t.title || '').replace(/"/g, '""')}"`,
-        `"${(t.artist || '').replace(/"/g, '""')}"`,
-        `"${(t.album || '').replace(/"/g, '""')}"`,
-        t.bpm ? t.bpm.toFixed(1) : '',
-        `"${t.key_name || ''}"`,
-        t.energy ? Math.round(t.energy) : '',
-        t.duration ? Math.round(t.duration) : '',
-        `"${t.format || ''}"`,
-        `"${(t.file_path || '').replace(/"/g, '""')}"`,
-      ];
-      csv += row.join(',') + '\n';
-    });
-    return csv;
-  },
-
-  exportJSON(tracks) {
-    const data = tracks.map(t => ({
-      title: t.title || null,
-      artist: t.artist || null,
-      album: t.album || null,
-      bpm: t.bpm || null,
-      key: t.key_name || null,
-      energy: t.energy || null,
-      duration: t.duration || null,
-      format: t.format || null,
-      file_path: t.file_path || null,
-      cue_points: t.cue_points || null,
-    }));
-    return JSON.stringify(data, null, 2);
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VIEW NAVIGATION
-// ═══════════════════════════════════════════════════════════════════════════
-const ViewManager = {
-  currentView: 'library',
-
-  viewMap: {
-    'library':      null,  // default content area (dashboard)
-    'set-builder':  'viewSetBuilder',
-    'compatible':   'viewCompatible',
-    'playlists':    'viewPlaylists',
-    'crates':       'viewCrates',
-    'gig-prep':     'viewGigPrep',
-    'tools':        'viewTools',
-    'import':       'viewImport',
-    'export':       'viewExport',
-    'account':      'viewAccount',
-    'settings':     'viewSettings',
-    'admin':        'viewAdmin',
-  },
-
-  init() {
-    document.querySelectorAll('.sidebar-item[data-view]').forEach(el => {
-      el.addEventListener('click', () => this.switchTo(el.dataset.view));
-    });
-  },
-
-  switchTo(view) {
-    this.currentView = view;
-
-    // Update sidebar active state
-    document.querySelectorAll('.sidebar-item[data-view]').forEach(el => {
-      el.classList.toggle('active', el.dataset.view === view);
-    });
-
-    // Hide all tool views
-    document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
-
-    // Hide or show default content (topbar, contentArea, detailPanel)
-    const defaultEls = ['contentArea', 'detailPanel'];
-    const topbar = document.querySelector('.topbar');
-    const panelId = this.viewMap[view];
-
-    if (panelId) {
-      // Show tool view, hide default
-      defaultEls.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-      });
-      if (topbar) topbar.style.display = 'none';
-      document.getElementById(panelId).classList.add('active');
-
-      // Init tools when Tools view shown
-      if (view === 'tools') {
-        EnergyFlow.render(typeof state !== 'undefined' ? state.tracks : []);
-        QuickNotes.render();
-      }
-      if (view === 'gig-prep') GigPrep.render();
-
-      // Settings / Admin data loading
-      if (typeof onViewSwitch === 'function') onViewSwitch(view);
-    } else {
-      // Show default content
-      defaultEls.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = '';
-      });
-      if (topbar) topbar.style.display = '';
-    }
-  }
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// INIT ALL TOOLS
-// ═══════════════════════════════════════════════════════════════════════════
-function initDJTools() {
-  ViewManager.init();
-  TapTempo.init();
-  CamelotWheel.init();
-  EnergyFlow.init();
-  GigPrep.init();
-  CrateDigger.init();
-  QuickNotes.init();
-}
