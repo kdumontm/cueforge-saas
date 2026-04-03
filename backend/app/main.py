@@ -135,13 +135,20 @@ app = FastAPI(
 def health_check():
     """Health check — Railway l'utilise pour vérifier que le service est up."""
     from sqlalchemy import text
+    db_status = "degraded"
+    db_error = None
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         db_status = "ok"
-    except Exception:
-        db_status = "degraded"
-    return {"status": "ok", "version": "0.5.0", "db": db_status}
+    except Exception as e:
+        db_error = str(e)
+        logger.error(f"Health check DB error: {e}")
+
+    response = {"status": "ok", "version": "4.0.0", "db": db_status}
+    if db_error:
+        response["db_error"] = db_error
+    return response
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
 app.add_middleware(

@@ -576,6 +576,7 @@ def list_tracks(
     q = db.query(Track).filter(Track.user_id == current_user.id).options(
         selectinload(Track.analysis),
         selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
     )
 
     # v2: Apply filters
@@ -644,6 +645,10 @@ def get_track(
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id,
+    ).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -708,6 +713,10 @@ def update_track_metadata(
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id,
+    ).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -865,6 +874,10 @@ def spotify_apply(
     """Apply Spotify metadata to track (approve flow)."""
     track = db.query(Track).filter(
         Track.id == track_id, Track.user_id == current_user.id
+    ).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
