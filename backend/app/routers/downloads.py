@@ -23,15 +23,15 @@ DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
 # Stockage en mémoire (sera persisté en DB si nécessaire)
 _download_config = {
     "allowed_plans": DEFAULT_ALLOWED_PLANS.copy(),
-    "latest_version": "1.0.0",
-    "release_notes": "Première version de CueForge Desktop. Drag & drop, notifications natives, mode hors-ligne, mises à jour automatiques.",
+    "latest_version": "2.0.0",
+    "release_notes": "CueForge Desktop v2 — Analyse audio 100% locale ! BPM, Key, Cue Points, Export Rekordbox/Serato. Aucun upload serveur.",
     # macOS
-    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v1.0.0/CueForge-1.0.0-arm64.dmg",
-    "dmg_size": "~95 MB",
+    "dmg_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.0.0/CueForge-2.0.0-arm64.dmg",
+    "dmg_size": "~99 MB",
     "min_macos": "12.0",
     # Windows
-    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v1.0.0/CueForge-1.0.0-x64.exe",
-    "exe_size": "~79 MB",
+    "exe_url": "https://github.com/kdumontm/cueforge-saas/releases/download/v2.0.0/CueForge-2.0.0-x64.exe",
+    "exe_size": "~82 MB",
     "min_windows": "10",
 }
 
