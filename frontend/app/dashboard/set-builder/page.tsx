@@ -6,7 +6,7 @@ import EnergyFlow from '@/components/tools/EnergyFlow';
 import {
   listSets, createSet, deleteSet, getSet, addTrackToSet, removeTrackFromSet,
   suggestNextTrack, listTracks, exportSetRekordbox, exportSetM3U, downloadBlob,
-  type DJSet,
+  type DJSet, type DJSetDetail,
 } from '@/lib/api';
 import type { Track } from '@/types';
 
@@ -93,7 +93,7 @@ function getMixScore(bpm1: number | null, bpm2: number | null, key1: string | nu
 
 export default function SetBuilderPage() {
   const [sets, setSets] = useState<DJSet[]>([]);
-  const [currentSet, setCurrentSet] = useState<DJSet | null>(null);
+  const [currentSet, setCurrentSet] = useState<DJSetDetail | null>(null);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [suggestions, setSuggestions] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +129,7 @@ export default function SetBuilderPage() {
     try {
       const s = await createSet({ name: newSetName.trim() });
       setSets(prev => [s, ...prev]);
-      setCurrentSet(s);
+      setCurrentSet({ ...s, tracks: [] });
       setNewSetName('');
       setCreating(false);
     } catch {}

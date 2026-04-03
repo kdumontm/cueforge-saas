@@ -59,6 +59,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  username?: string; // alias for name used in some UI components
   subscription_plan: 'free' | 'pro' | 'unlimited';
   is_admin: boolean;
   tracks_today: number;
@@ -395,6 +396,17 @@ export async function adminDeleteUser(userId: number): Promise<void> {
 
 // ── Types for existing components ───────────────────────────────────────────
 
+export interface TrackAnalysis {
+  bpm: number | null;
+  key: string | null;
+  camelot: string | null;
+  energy: number | null;
+  duration_ms: number | null;
+  danceability: number | null;
+  loudness: number | null;
+  [key: string]: unknown;
+}
+
 export interface TrackResponse {
   id: number;
   user_id: number;
@@ -416,6 +428,7 @@ export interface TrackResponse {
   duration: number | null;
   created_at: string;
   updated_at?: string;
+  analysis?: TrackAnalysis;
 }
 
 export interface MetadataUpdate {
@@ -1117,4 +1130,36 @@ export async function exportSetM3U(setId: number): Promise<Blob> {
   const r = await authFetch(`${API_URL}/export/set/${setId}/m3u`, { headers: authHeaders() });
   if (!r.ok) throw new Error('Failed to export set as M3U');
   return r.blob();
+}
+
+// ── v2: DJ Software Import API ───────────────────────────────────────────────
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export async function importRekordbox(file: File): Promise<ImportResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await authFetch(`${API_URL}/import/rekordbox`, { method: 'POST', headers: authHeaders(), body: fd });
+  if (!r.ok) throw new Error('Failed to import Rekordbox XML');
+  return r.json();
+}
+
+export async function importSerato(file: File): Promise<ImportResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await authFetch(`${API_URL}/import/serato`, { method: 'POST', headers: authHeaders(), body: fd });
+  if (!r.ok) throw new Error('Failed to import Serato crate');
+  return r.json();
+}
+
+export async function importTraktor(file: File): Promise<ImportResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await authFetch(`${API_URL}/import/traktor`, { method: 'POST', headers: authHeaders(), body: fd });
+  if (!r.ok) throw new Error('Failed to import Traktor NML');
+  return r.json();
 }
