@@ -11,7 +11,7 @@ const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
 // ─── Services (lazy-loaded après app.ready) ─────────────
-let db, licenseCheck, rekordboxExport, seratoExport, api;
+let db, licenseCheck, rekordboxExport, seratoExport, api, dataLayer;
 
 function loadServices() {
   db           = require('../services/database');
@@ -19,6 +19,7 @@ function loadServices() {
   rekordboxExport = require('../services/rekordboxExport');
   seratoExport    = require('../services/seratoExport');
   api             = require('../services/apiClient');
+  dataLayer       = require('../services/dataLayer');
 }
 
 // ─── Window ────────────────────────────────────────────
@@ -325,6 +326,46 @@ function setupIPC() {
   ipcMain.handle('install-update', () => {
     installAndRestart();
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  DATA LAYER — Hybride Local + Cloud  ████
+  // ═══════════════════════════════════════════════════════════
+
+  // ── Status & Sync ──
+  ipcMain.handle('data-check-connectivity', () => dataLayer.checkConnectivity());
+  ipcMain.handle('data-is-online', () => dataLayer.isOnline());
+  ipcMain.handle('data-sync-status', () => dataLayer.sync.getStatus());
+  ipcMain.handle('data-sync-push', () => dataLayer.sync.pushAll());
+  ipcMain.handle('data-sync-pull', () => dataLayer.sync.pullAll());
+  ipcMain.handle('data-sync-full', () => dataLayer.sync.fullSync());
+
+  // ── Tracks hybrides ──
+  ipcMain.handle('data-tracks-list', (e, page, limit) => dataLayer.tracks.list(page, limit));
+  ipcMain.handle('data-tracks-get', (e, id) => dataLayer.tracks.get(id));
+  ipcMain.handle('data-tracks-upload', (e, filePath) => dataLayer.tracks.upload(filePath));
+  ipcMain.handle('data-tracks-update', (e, id, data) => dataLayer.tracks.update(id, data));
+  ipcMain.handle('data-tracks-delete', (e, id) => dataLayer.tracks.delete(id));
+  ipcMain.handle('data-tracks-analyze', (e, id) => dataLayer.tracks.analyze(id));
+  ipcMain.handle('data-tracks-identify', (e, id) => dataLayer.tracks.identify(id));
+  ipcMain.handle('data-tracks-spotify-lookup', (e, id) => dataLayer.tracks.spotifyLookup(id));
+  ipcMain.handle('data-tracks-spotify-apply', (e, id) => dataLayer.tracks.spotifyApply(id));
+  ipcMain.handle('data-tracks-compatible', (e, id, limit) => dataLayer.tracks.compatible(id, limit));
+  ipcMain.handle('data-tracks-search', (e, query) => dataLayer.tracks.search(query));
+  ipcMain.handle('data-tracks-clean-title', (e, id) => dataLayer.tracks.cleanTitle(id));
+  ipcMain.handle('data-tracks-parse-remix', (e, id) => dataLayer.tracks.parseRemix(id));
+  ipcMain.handle('data-tracks-detect-genre', (e, id) => dataLayer.tracks.detectGenre(id));
+  ipcMain.handle('data-tracks-fix-tags', (e, id) => dataLayer.tracks.fixTags(id));
+  ipcMain.handle('data-tracks-record-play', (e, id, ctx) => dataLayer.tracks.recordPlay(id, ctx));
+  ipcMain.handle('data-tracks-audio-url', (e, id) => dataLayer.tracks.audioUrl(id));
+
+  // ── Playlists hybrides ──
+  ipcMain.handle('data-playlists-list', () => dataLayer.playlists.list());
+  ipcMain.handle('data-playlists-get', (e, id) => dataLayer.playlists.get(id));
+  ipcMain.handle('data-playlists-create', (e, data) => dataLayer.playlists.create(data));
+  ipcMain.handle('data-playlists-delete', (e, id) => dataLayer.playlists.delete(id));
+  ipcMain.handle('data-playlists-update', (e, id, data) => dataLayer.playlists.update(id, data));
+  ipcMain.handle('data-playlists-add-tracks', (e, id, trackIds) => dataLayer.playlists.addTracks(id, trackIds));
+  ipcMain.handle('data-playlists-remove-track', (e, id, trackId) => dataLayer.playlists.removeTrack(id, trackId));
 
   // ═══════════════════════════════════════════════════════════
   // ████  API REMOTE — Tracks (mêmes endpoints que le web)  ████

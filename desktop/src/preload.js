@@ -41,6 +41,52 @@ contextBridge.exposeInMainWorld('cueforge', {
   createAdminFeature:(data)       => ipcRenderer.invoke('create-admin-feature', data),
   deleteAdminFeature:(id)         => ipcRenderer.invoke('delete-admin-feature', id),
 
+  // ═══════════════════════════════════════════════════════════
+  // ████  DATA LAYER — Hybride Local + Cloud  ████
+  // ═══════════════════════════════════════════════════════════
+
+  data: {
+    // ── Status & Sync ──
+    checkConnectivity: ()              => ipcRenderer.invoke('data-check-connectivity'),
+    isOnline:          ()              => ipcRenderer.invoke('data-is-online'),
+    syncStatus:        ()              => ipcRenderer.invoke('data-sync-status'),
+    syncPush:          ()              => ipcRenderer.invoke('data-sync-push'),
+    syncPull:          ()              => ipcRenderer.invoke('data-sync-pull'),
+    syncFull:          ()              => ipcRenderer.invoke('data-sync-full'),
+
+    // ── Tracks hybrides (local + cloud automatique) ──
+    tracks: {
+      list:            (page, limit)   => ipcRenderer.invoke('data-tracks-list', page, limit),
+      get:             (id)            => ipcRenderer.invoke('data-tracks-get', id),
+      upload:          (filePath)      => ipcRenderer.invoke('data-tracks-upload', filePath),
+      update:          (id, data)      => ipcRenderer.invoke('data-tracks-update', id, data),
+      delete:          (id)            => ipcRenderer.invoke('data-tracks-delete', id),
+      analyze:         (id)            => ipcRenderer.invoke('data-tracks-analyze', id),
+      identify:        (id)            => ipcRenderer.invoke('data-tracks-identify', id),
+      spotifyLookup:   (id)            => ipcRenderer.invoke('data-tracks-spotify-lookup', id),
+      spotifyApply:    (id)            => ipcRenderer.invoke('data-tracks-spotify-apply', id),
+      compatible:      (id, limit)     => ipcRenderer.invoke('data-tracks-compatible', id, limit),
+      search:          (query)         => ipcRenderer.invoke('data-tracks-search', query),
+      cleanTitle:      (id)            => ipcRenderer.invoke('data-tracks-clean-title', id),
+      parseRemix:      (id)            => ipcRenderer.invoke('data-tracks-parse-remix', id),
+      detectGenre:     (id)            => ipcRenderer.invoke('data-tracks-detect-genre', id),
+      fixTags:         (id)            => ipcRenderer.invoke('data-tracks-fix-tags', id),
+      recordPlay:      (id, ctx)       => ipcRenderer.invoke('data-tracks-record-play', id, ctx),
+      audioUrl:        (id)            => ipcRenderer.invoke('data-tracks-audio-url', id),
+    },
+
+    // ── Playlists hybrides ──
+    playlists: {
+      list:        ()                  => ipcRenderer.invoke('data-playlists-list'),
+      get:         (id)                => ipcRenderer.invoke('data-playlists-get', id),
+      create:      (data)              => ipcRenderer.invoke('data-playlists-create', data),
+      delete:      (id)                => ipcRenderer.invoke('data-playlists-delete', id),
+      update:      (id, data)          => ipcRenderer.invoke('data-playlists-update', id, data),
+      addTracks:   (id, trackIds)      => ipcRenderer.invoke('data-playlists-add-tracks', id, trackIds),
+      removeTrack: (id, trackId)       => ipcRenderer.invoke('data-playlists-remove-track', id, trackId),
+    },
+  },
+
   // ── Events (drag & drop, mise à jour) ────────────────────
   onFilesDropped:     (cb) => ipcRenderer.on('files-dropped',    (_, files) => cb(files)),
   onUpdateAvailable:  (cb) => ipcRenderer.on('update-available',  (_, info)  => cb(info)),
