@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CueForge — Hors ligne</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .container {
+      text-align: center;
+      padding: 48px;
+      max-width: 480px;
+    }
+
+    .icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+      opacity: 0.8;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      color: #a1a1aa;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .retry-btn {
+      -webkit-app-region: no-drag;
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: #fff;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+    }
+
+    .status {
+      margin-top: 24px;
+      font-size: 13px;
+      color: #52525b;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .dot.online {
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>Vous êtes hors ligne</h1>
+    <p>
+      CueForge a besoin d'une connexion internet pour fonctionner.
+      Vérifiez votre connexion et réessayez.
+    </p>
+    <button class="retry-btn" onclick="retry()">Réessayer</button>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Pas de connexion</span>
+    </div>
+  </div>
+
+  <script>
+    async function retry() {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      text.textContent = 'Vérification...';
+
+      const online = await window.cueforge.checkOnline();
+      if (online) {
+        dot.classList.add('online');
+        text.textContent = 'Connecté ! Rechargement...';
+        setTimeout(() => {
+          window.location.href = 'https://cueforge-saas-production.up.railway.app';
+        }, 500);
+      } else {
+        text.textContent = 'Toujours hors ligne';
+      }
+    }
+
+    // Vérifier automatiquement toutes les 10 secondes
+    setInterval(async () => {
+      const online = await window.cueforge.checkOnline();
+      if (online) {
+        window.location.href = 'https://cueforge-saas-production.up.railway.app';
+      }
+    }, 10000);
+  </script>
+</body>
+</html>

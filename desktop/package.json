@@ -1,0 +1,57 @@
+{
+  "name": "cueforge",
+  "version": "1.0.0",
+  "description": "CueForge — L'app Mac pour les DJs. Analyse audio, cue points, et organisation musicale.",
+  "main": "src/main.js",
+  "author": {
+    "name": "Kevin Dumont",
+    "email": "kenin.dumont@gmail.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder --mac",
+    "build:dmg": "electron-builder --mac dmg",
+    "build:zip": "electron-builder --mac zip",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.cueforge.app",
+    "productName": "CueForge",
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "assets/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "darkModeSupport": true
+    },
+    "dmg": {
+      "title": "CueForge",
+      "backgroundColor": "#0a0a0a",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}
