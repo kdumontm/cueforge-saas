@@ -144,6 +144,7 @@ interface WaveSurferPlayerProps {
   trackDuration?: number;
   cuePoints?: CuePoint[];
   beatPositions?: number[]; // timestamps en ms
+  bpm?: number | null; // pour le fallback beat grid
   onTimeUpdate?: (positionMs: number) => void;
   onSeek?: (positionMs: number) => void;
   onWaveformClick?: (positionMs: number) => void;
@@ -288,6 +289,7 @@ export default function WaveSurferPlayer({
   trackDuration,
   cuePoints = [],
   beatPositions = [],
+  bpm,
   onTimeUpdate,
   onSeek,
   onWaveformClick,
@@ -381,8 +383,9 @@ export default function WaveSurferPlayer({
     themeRef.current = waveformTheme;
   }, [waveformTheme]);
 
-  // BPM
+  // BPM — alimenté depuis le prop pour le fallback beat grid
   const bpmRef = useRef<number>(0);
+  useEffect(() => { if (bpm && bpm > 0) bpmRef.current = bpm; }, [bpm]);
 
   // Sync refs
   useEffect(() => { loopInRef.current = loopIn; }, [loopIn]);

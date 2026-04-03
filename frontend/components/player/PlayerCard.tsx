@@ -291,6 +291,7 @@ export default function PlayerCard({
             trackDuration={parseDuration(track.duration)}
             cuePoints={cuePoints}
             beatPositions={beatPositions}
+            bpm={(track as any).bpm ?? (track as any).analysis?.bpm ?? null}
             zoom={zoom}
             height={90}
             overviewHeight={56}
