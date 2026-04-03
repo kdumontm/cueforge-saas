@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, Bell, X, Upload, Download } from 'lucide-react';
+import { Search, Sun, Moon, Bell, X, Upload, Download, Languages } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
+
+// ── Language context (simple, sans lib i18n) ──────────────────────────────────
+import { createContext, useContext } from 'react';
+export type Lang = 'fr' | 'en';
+export const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void }>({ lang: 'fr', setLang: () => {} });
 
 interface TopBarProps {
   title: string;
@@ -15,6 +20,14 @@ const NOTIFICATIONS: { id: number; text: string; time: string; read: boolean }[]
 
 export default function TopBar({ title, subtitle }: TopBarProps) {
   const { mode, toggle, isDark } = useTheme();
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('cueforge_lang') as Lang) || 'fr';
+    return 'fr';
+  });
+  const switchLang = (l: Lang) => {
+    setLang(l);
+    if (typeof window !== 'undefined') localStorage.setItem('cueforge_lang', l);
+  };
   const {
     globalSearch, setGlobalSearch,
     showNotifications, setShowNotifications,
@@ -143,6 +156,24 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             </div>
           )}
         </div>
+        {/* Language toggle FR / EN */}
+        <div className="flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] overflow-hidden">
+          {(['fr', 'en'] as Lang[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => switchLang(l)}
+              title={l === 'fr' ? 'Français' : 'English'}
+              className={`px-2.5 py-[7px] text-[11px] font-bold uppercase cursor-pointer transition-all ${
+                lang === l
+                  ? 'bg-blue-600 text-white'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
         <button
           onClick={toggle}
           title={isDark ? 'Mode clair' : 'Mode sombre'}
