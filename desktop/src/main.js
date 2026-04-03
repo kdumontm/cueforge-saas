@@ -11,13 +11,14 @@ const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
 // ─── Services (lazy-loaded après app.ready) ─────────────
-let db, licenseCheck, rekordboxExport, seratoExport;
+let db, licenseCheck, rekordboxExport, seratoExport, api;
 
 function loadServices() {
   db           = require('../services/database');
   licenseCheck = require('../services/licenseCheck');
   rekordboxExport = require('../services/rekordboxExport');
   seratoExport    = require('../services/seratoExport');
+  api             = require('../services/apiClient');
 }
 
 // ─── Window ────────────────────────────────────────────
@@ -324,6 +325,182 @@ function setupIPC() {
   ipcMain.handle('install-update', () => {
     installAndRestart();
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Tracks (mêmes endpoints que le web)  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-tracks-upload', (e, filePath) => api.tracks.upload(filePath));
+  ipcMain.handle('api-tracks-list', (e, page, limit) => api.tracks.list(page, limit));
+  ipcMain.handle('api-tracks-get', (e, id) => api.tracks.get(id));
+  ipcMain.handle('api-tracks-update', (e, id, data) => api.tracks.update(id, data));
+  ipcMain.handle('api-tracks-delete', (e, id) => api.tracks.delete(id));
+  ipcMain.handle('api-tracks-audio-url', (e, id) => api.tracks.audioUrl(id));
+  ipcMain.handle('api-tracks-analyze', (e, id) => api.tracks.analyze(id));
+  ipcMain.handle('api-tracks-clean-title', (e, id) => api.tracks.cleanTitle(id));
+  ipcMain.handle('api-tracks-parse-remix', (e, id) => api.tracks.parseRemix(id));
+  ipcMain.handle('api-tracks-detect-genre', (e, id) => api.tracks.detectGenre(id));
+  ipcMain.handle('api-tracks-identify', (e, id) => api.tracks.identify(id));
+  ipcMain.handle('api-tracks-identify-search', (e, id) => api.tracks.identifySearch(id));
+  ipcMain.handle('api-tracks-spotify-lookup', (e, id) => api.tracks.spotifyLookup(id));
+  ipcMain.handle('api-tracks-spotify-apply', (e, id) => api.tracks.spotifyApply(id));
+  ipcMain.handle('api-tracks-fix-tags', (e, id) => api.tracks.fixTags(id));
+  ipcMain.handle('api-tracks-compatible', (e, id, limit) => api.tracks.compatible(id, limit));
+  ipcMain.handle('api-tracks-record-play', (e, id, ctx) => api.tracks.recordPlay(id, ctx));
+  ipcMain.handle('api-tracks-history', (e, id) => api.tracks.getHistory(id));
+  ipcMain.handle('api-tracks-clear-history', () => api.tracks.clearHistory());
+  ipcMain.handle('api-tracks-beatgrid', (e, id) => api.tracks.getBeatgrid(id));
+  ipcMain.handle('api-tracks-update-beatgrid', (e, id, data) => api.tracks.updateBeatgrid(id, data));
+  ipcMain.handle('api-tracks-update-metadata', (e, id, data) => api.tracks.updateMetadata(id, data));
+  ipcMain.handle('api-tracks-categories', () => api.tracks.getCategories());
+  ipcMain.handle('api-tracks-tags', () => api.tracks.getTags());
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Cue Points  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-cues-list', (e, trackId) => api.cues.list(trackId));
+  ipcMain.handle('api-cues-create', (e, trackId, data) => api.cues.create(trackId, data));
+  ipcMain.handle('api-cues-update', (e, cueId, data) => api.cues.update(cueId, data));
+  ipcMain.handle('api-cues-delete', (e, cueId) => api.cues.delete(cueId));
+  ipcMain.handle('api-cues-copy', (e, trackId, sourceId, includeLoops) => api.cues.copyCues(trackId, sourceId, includeLoops));
+  ipcMain.handle('api-cues-generate', (e, trackId) => api.cues.generate(trackId));
+  ipcMain.handle('api-cues-analysis', (e, trackId) => api.cues.getAnalysis(trackId));
+  ipcMain.handle('api-cues-rules', (e, trackId) => api.cues.getRules(trackId));
+  ipcMain.handle('api-cues-create-rule', (e, trackId, data) => api.cues.createRule(trackId, data));
+  ipcMain.handle('api-cues-update-rule', (e, trackId, ruleId, data) => api.cues.updateRule(trackId, ruleId, data));
+  ipcMain.handle('api-cues-delete-rule', (e, trackId, ruleId) => api.cues.deleteRule(trackId, ruleId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Hot Cues  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-hotcues-list', (e, trackId) => api.hotCues.list(trackId));
+  ipcMain.handle('api-hotcues-create', (e, trackId, data) => api.hotCues.create(trackId, data));
+  ipcMain.handle('api-hotcues-update', (e, trackId, cueId, data) => api.hotCues.update(trackId, cueId, data));
+  ipcMain.handle('api-hotcues-delete', (e, trackId, cueId) => api.hotCues.delete(trackId, cueId));
+  ipcMain.handle('api-hotcues-reorder', (e, trackId, items) => api.hotCues.reorder(trackId, items));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Loops  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-loops-list', (e, trackId) => api.loops.list(trackId));
+  ipcMain.handle('api-loops-create', (e, trackId, data) => api.loops.create(trackId, data));
+  ipcMain.handle('api-loops-update', (e, loopId, data) => api.loops.update(loopId, data));
+  ipcMain.handle('api-loops-delete', (e, loopId) => api.loops.delete(loopId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Waveforms  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-waveforms-get', (e, trackId) => api.waveforms.get(trackId));
+  ipcMain.handle('api-waveforms-generate', (e, trackId) => api.waveforms.generate(trackId));
+  ipcMain.handle('api-waveforms-regenerate', (e, trackId) => api.waveforms.regenerate(trackId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Playlists  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-playlists-list', (e, parentId) => api.playlists.list(parentId));
+  ipcMain.handle('api-playlists-get', (e, id) => api.playlists.get(id));
+  ipcMain.handle('api-playlists-create', (e, data) => api.playlists.create(data));
+  ipcMain.handle('api-playlists-update', (e, id, data) => api.playlists.update(id, data));
+  ipcMain.handle('api-playlists-delete', (e, id) => api.playlists.delete(id));
+  ipcMain.handle('api-playlists-add-tracks', (e, id, trackIds) => api.playlists.addTracks(id, trackIds));
+  ipcMain.handle('api-playlists-remove-track', (e, id, trackId) => api.playlists.removeTrack(id, trackId));
+  ipcMain.handle('api-playlists-reorder', (e, id, items) => api.playlists.reorder(id, items));
+  ipcMain.handle('api-playlists-duplicate', (e, id) => api.playlists.duplicate(id));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Smart Crates  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-crates-list', () => api.crates.list());
+  ipcMain.handle('api-crates-get', (e, id) => api.crates.get(id));
+  ipcMain.handle('api-crates-create', (e, data) => api.crates.create(data));
+  ipcMain.handle('api-crates-update', (e, id, data) => api.crates.update(id, data));
+  ipcMain.handle('api-crates-delete', (e, id) => api.crates.delete(id));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — DJ Sets  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-sets-list', () => api.sets.list());
+  ipcMain.handle('api-sets-get', (e, id) => api.sets.get(id));
+  ipcMain.handle('api-sets-create', (e, data) => api.sets.create(data));
+  ipcMain.handle('api-sets-update', (e, id, data) => api.sets.update(id, data));
+  ipcMain.handle('api-sets-delete', (e, id) => api.sets.delete(id));
+  ipcMain.handle('api-sets-add-track', (e, id, data) => api.sets.addTrack(id, data));
+  ipcMain.handle('api-sets-remove-track', (e, id, trackId) => api.sets.removeTrack(id, trackId));
+  ipcMain.handle('api-sets-reorder', (e, id, items) => api.sets.reorder(id, items));
+  ipcMain.handle('api-sets-suggest-next', (e, id, limit) => api.sets.suggestNext(id, limit));
+  ipcMain.handle('api-sets-stats', (e, id) => api.sets.getStats(id));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Analytics  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-analytics', () => api.analytics.get());
+  ipcMain.handle('api-analytics-play', (e, trackId) => api.analytics.recordPlay(trackId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Export  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-export-rekordbox', (e, trackId) => api.export.rekordbox(trackId));
+  ipcMain.handle('api-export-rekordbox-json', (e, trackId) => api.export.rekordboxJson(trackId));
+  ipcMain.handle('api-export-rekordbox-batch', (e, trackIds, name) => api.export.rekordboxBatch(trackIds, name));
+  ipcMain.handle('api-export-rekordbox-all', (e, name) => api.export.rekordboxAll(name));
+  ipcMain.handle('api-export-serato', (e, trackId) => api.export.serato(trackId));
+  ipcMain.handle('api-export-playlist-m3u', (e, plId) => api.export.playlistM3u(plId));
+  ipcMain.handle('api-export-set-rekordbox', (e, setId) => api.export.setRekordbox(setId));
+  ipcMain.handle('api-export-set-m3u', (e, setId) => api.export.setM3u(setId));
+  ipcMain.handle('api-export-all-formats', (e, trackId) => api.export.allFormats(trackId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Import DJ  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-import-rekordbox', (e, filePath) => api.import.rekordbox(filePath));
+  ipcMain.handle('api-import-serato', (e, filePath) => api.import.serato(filePath));
+  ipcMain.handle('api-import-traktor', (e, filePath) => api.import.traktor(filePath));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Advanced (Stems, Duplicates)  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-stems-check', () => api.advanced.stemsCheck());
+  ipcMain.handle('api-stems-start', (e, trackId) => api.advanced.stemsStart(trackId));
+  ipcMain.handle('api-stems-status', (e, trackId) => api.advanced.stemsStatus(trackId));
+  ipcMain.handle('api-stems-file', (e, trackId, stemName) => api.advanced.stemFile(trackId, stemName));
+  ipcMain.handle('api-duplicates', (e, method, threshold) => api.advanced.duplicates(method, threshold));
+  ipcMain.handle('api-auto-cues', (e, trackId, style) => api.advanced.autoCues(trackId, style));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Mix Analyzer  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-mix-upload', (e, filePath) => api.mixAnalyzer.upload(filePath));
+  ipcMain.handle('api-mix-status', (e, jobId) => api.mixAnalyzer.getStatus(jobId));
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Billing  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-billing-plans', () => api.billing.getPlans());
+  ipcMain.handle('api-billing-current', () => api.billing.getCurrent());
+  ipcMain.handle('api-billing-usage', () => api.billing.getUsage());
+  ipcMain.handle('api-billing-subscribe', (e, planId, interval) => api.billing.subscribe(planId, interval));
+  ipcMain.handle('api-billing-portal', () => api.billing.getPortalUrl());
+
+  // ═══════════════════════════════════════════════════════════
+  // ████  API REMOTE — Downloads  ████
+  // ═══════════════════════════════════════════════════════════
+
+  ipcMain.handle('api-downloads-info', () => api.downloads.getInfo());
+  ipcMain.handle('api-downloads-config', () => api.downloads.getConfig());
+  ipcMain.handle('api-downloads-update-config', (e, data) => api.downloads.updateConfig(data));
 
   // ── Fallback : télécharger le DMG et l'ouvrir ──
   ipcMain.handle('download-dmg-update', async (e, version) => {
