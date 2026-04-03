@@ -516,13 +516,18 @@ export default function DashboardV2() {
 
         detachNativeListeners();
 
-        // Flag posé par 'seeking', levé par 'seeked' — plus fiable que audio.seeking dans onPause
-        let seekingInProgress = false;
+        // Timer-based pause : on attend 150ms avant de pauser les stems.
+        // Si seeked fire entre-temps, il annule le timer → pas de faux pause.
+        let pauseTimer: ReturnType<typeof setTimeout> | null = null;
 
-        const onSeeking = () => { seekingInProgress = true; };
+        const onSeeking = () => {
+          // Annuler tout timer de pause en cours (c'est un seek, pas une vraie pause)
+          if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
+        };
 
         const onSeeked = () => {
-          seekingInProgress = false;
+          // Annuler le timer de pause (seek terminé, pas une vraie pause)
+          if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = null; }
           if (!stemsLoadedRef.current) return;
           const t = audio.currentTime;
           Object.entries(stemAudioMapRef.current).forEach(([key, a]) => {
@@ -533,9 +538,14 @@ export default function DashboardV2() {
 
         const onPause = () => {
           if (!stemsLoadedRef.current) return;
-          if (seekingInProgress) return; // seek → ignore le pause intermédiaire
-          Object.values(stemAudioMapRef.current).forEach(a => a.pause());
-          playerRef.current?.setVolume?.(1);
+          // Différer la pause de 150ms — si c'est un seek, seeked annulera ce timer
+          if (pauseTimer) clearTimeout(pauseTimer);
+          pauseTimer = setTimeout(() => {
+            pauseTimer = null;
+            if (!audio.paused) return; // plus en pause (reprise entre-temps)
+            Object.values(stemAudioMapRef.current).forEach(a => a.pause());
+            playerRef.current?.setVolume?.(1);
+          }, 150);
         };
 
         audio.addEventListener('seeking', onSeeking);
@@ -743,7 +753,10 @@ export default function DashboardV2() {
   function handleWaveformClick(positionMs: number) {
     playerRef?.current?.seekTo?.(positionMs);
     setCuePositionMs(positionMs);
-    setActiveTab('cues'); // ouvrir l'onglet Cues automatiquement
+    // Ne pas changer d'onglet si stems actifs (sinon ça coupe le mode stems)
+    if (activeTab !== 'stems') {
+      setActiveTab('cues');
+    }
   }
 
   function handleSelectTrack(track: any) {
