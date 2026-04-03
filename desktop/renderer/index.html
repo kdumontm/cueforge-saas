@@ -26,6 +26,78 @@
       -webkit-app-region: no-drag;
     }
 
+    /* ─── UPDATE BANNER ────────────────────────────────────────────────────── */
+    #updateBanner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 9999;
+      background: linear-gradient(90deg, #1a0a3a, #2d1b69);
+      border-bottom: 1px solid #7c3aed;
+      padding: 10px 20px;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #updateBanner.show { display: flex; }
+
+    .update-banner-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .update-banner-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0d0ff;
+      white-space: nowrap;
+    }
+    .update-banner-sub {
+      font-size: 11px;
+      color: #a89fd4;
+    }
+    .update-progress-bar-outer {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .update-progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #a855f7);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .update-progress-pct {
+      font-size: 12px;
+      color: #c4b5fd;
+      font-weight: 600;
+      min-width: 38px;
+      text-align: right;
+    }
+    .btn-install-update {
+      display: none;
+      background: #7c3aed;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+      margin-left: auto;
+    }
+    .btn-install-update.show { display: inline-block; }
+    .btn-install-update:hover { background: #6d28d9; }
+    .btn-install-update:disabled { background: #4c1d95; opacity: 0.6; cursor: default; }
+
+    /* Décaler le contenu principal quand le bandeau est visible */
+    body.has-update #appContainer,
+    body.has-update .login-screen { padding-top: 60px; }
+
     /* ─── LOGIN SCREEN ─────────────────────────────────────────────────────── */
     .login-screen {
       display: flex;
@@ -670,6 +742,21 @@
 </head>
 <body>
 
+<!-- ─── UPDATE BANNER ─────────────────────────────────────────────────── -->
+<div id="updateBanner">
+  <div class="update-banner-row">
+    <span class="update-banner-label" id="updateBannerTitle">⬇ Mise à jour en cours…</span>
+    <span class="update-banner-sub" id="updateBannerSub"></span>
+    <div class="update-progress-bar-outer" id="updateProgressBarOuter">
+      <div class="update-progress-bar-inner" id="updateProgressBar"></div>
+    </div>
+    <span class="update-progress-pct" id="updateProgressPct">0%</span>
+    <button class="btn-install-update" id="btnInstallUpdate" onclick="doInstallUpdate()">
+      🔄 Redémarrer
+    </button>
+  </div>
+</div>
+
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
@@ -1196,6 +1283,73 @@ function updateUI() {
 
 // ─── STARTUP ───────────────────────────────────────────────────────────────
 window.addEventListener('load', initApp);
+
+// ─── AUTO-UPDATE UI ────────────────────────────────────────────────────────
+(function setupUpdateBanner() {
+  const banner      = document.getElementById('updateBanner');
+  const title       = document.getElementById('updateBannerTitle');
+  const sub         = document.getElementById('updateBannerSub');
+  const bar         = document.getElementById('updateProgressBar');
+  const barOuter    = document.getElementById('updateProgressBarOuter');
+  const pct         = document.getElementById('updateProgressPct');
+  const btnInstall  = document.getElementById('btnInstallUpdate');
+
+  function showBanner() {
+    banner.classList.add('show');
+    document.body.classList.add('has-update');
+  }
+
+  // Mise à jour détectée → téléchargement démarre automatiquement
+  window.cueforge.onUpdateAvailable((info) => {
+    title.textContent = `⬇ Téléchargement de CueForge ${info.version}…`;
+    sub.textContent   = '';
+    bar.style.width   = '0%';
+    pct.textContent   = '0%';
+    barOuter.style.display = 'block';
+    btnInstall.classList.remove('show');
+    showBanner();
+  });
+
+  // Progression du téléchargement
+  window.cueforge.onUpdateProgress((data) => {
+    const p = data.percent;
+    bar.style.width  = p + '%';
+    pct.textContent  = p + '%';
+
+    // Afficher la vitesse
+    const mbps = (data.bytesPerSecond / 1024 / 1024).toFixed(1);
+    const dlMB = (data.transferred / 1024 / 1024).toFixed(1);
+    const totMB = (data.total / 1024 / 1024).toFixed(1);
+    sub.textContent = `${dlMB} Mo / ${totMB} Mo  —  ${mbps} Mo/s`;
+  });
+
+  // Téléchargement terminé → afficher bouton "Redémarrer"
+  window.cueforge.onUpdateDownloaded((info) => {
+    title.textContent = `✅ CueForge ${info.version} prêt à installer`;
+    sub.textContent   = 'La mise à jour est téléchargée.';
+    bar.style.width   = '100%';
+    pct.textContent   = '100%';
+    barOuter.style.display = 'none';
+    pct.textContent   = '';
+    btnInstall.classList.add('show');
+    showBanner();
+  });
+
+  // Erreur (silencieux, on log juste)
+  window.cueforge.onUpdateError((msg) => {
+    console.warn('Update error:', msg);
+    banner.classList.remove('show');
+    document.body.classList.remove('has-update');
+  });
+})();
+
+// Appelé par le bouton "Redémarrer"
+async function doInstallUpdate() {
+  const btnInstall = document.getElementById('btnInstallUpdate');
+  btnInstall.disabled = true;
+  btnInstall.textContent = '⏳ Redémarrage…';
+  await window.cueforge.installUpdate();
+}
 </script>
 
 </body>

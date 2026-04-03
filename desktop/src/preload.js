@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('cueforge', {
   login:   (email, pwd)    => ipcRenderer.invoke('login', email, pwd),
   logout:           ()     => ipcRenderer.invoke('logout'),
   getStoredEmail:   ()     => ipcRenderer.invoke('get-stored-email'),
-  onFilesDropped:   (cb)   => ipcRenderer.on('files-dropped', (_, files) => cb(files)),
-  onUpdateProgress: (cb)   => ipcRenderer.on('update-progress', (_, pct) => cb(pct)),
+  onFilesDropped:     (cb) => ipcRenderer.on('files-dropped',    (_, files) => cb(files)),
+  // ── Mise à jour automatique ──────────────────────────────
+  onUpdateAvailable:  (cb) => ipcRenderer.on('update-available',  (_, info)  => cb(info)),
+  onUpdateProgress:   (cb) => ipcRenderer.on('update-progress',   (_, data)  => cb(data)),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_, info)  => cb(info)),
+  onUpdateError:      (cb) => ipcRenderer.on('update-error',      (_, msg)   => cb(msg)),
+  checkForUpdates:    ()   => ipcRenderer.invoke('check-for-updates'),
+  installUpdate:      ()   => ipcRenderer.invoke('install-update'),
 });

@@ -246,6 +246,11 @@ function setupIPC() {
   ipcMain.handle('check-for-updates', () => {
     autoUpdater.checkForUpdates();
   });
+
+  // ── Installer la mise à jour téléchargée et redémarrer ──
+  ipcMain.handle('install-update', () => {
+    installAndRestart();
+  });
 }
 
 // ─── Drag & Drop (fichiers depuis Finder/Explorer) ─────
@@ -259,38 +264,60 @@ function setupDragAndDrop() {
 
 // ─── Auto-updater ──────────────────────────────────────
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = false;
+  // Téléchargement automatique dès qu'une mise à jour est trouvée
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = false;
 
+  // Mise à jour disponible → notifier le renderer (download démarre automatiquement)
   autoUpdater.on('update-available', (info) => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Mise à jour disponible',
-      message: `CueForge ${info.version} est disponible. Voulez-vous télécharger ?`,
-      buttons: ['Télécharger', 'Plus tard'],
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.downloadUpdate();
+    mainWindow?.webContents.send('update-available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes || '',
     });
   });
 
+  // Progression du téléchargement → envoyer le % au renderer
   autoUpdater.on('download-progress', (progress) => {
-    mainWindow?.webContents.send('update-progress', Math.floor(progress.percent));
+    mainWindow?.webContents.send('update-progress', {
+      percent:      Math.floor(progress.percent),
+      transferred:  progress.transferred,
+      total:        progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+    });
   });
 
-  autoUpdater.on('update-downloaded', () => {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Prêt à installer',
-      message: 'La mise à jour est téléchargée. Redémarrer CueForge maintenant ?',
-      buttons: ['Redémarrer', 'Plus tard'],
-    }).then(({ response }) => {
-      if (response === 0) {
-        app.isQuitting = true;          // bypass le hide-on-close macOS
-        autoUpdater.quitAndInstall(false, true); // isSilent=false, isForceRunAfter=true
-      }
-    });
+  // Téléchargement terminé → notifier le renderer (ne pas installer automatiquement)
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send('update-downloaded', { version: info.version });
+  });
+
+  autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update-error', err.message);
   });
 
   // Vérifier au démarrage (5s delay) + toutes les 4h
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 5000);
   setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+}
+
+// ─── Installer la mise à jour et redémarrer ────────────
+function installAndRestart() {
+  // 1. Bypasser le handler hide-on-close de macOS
+  app.isQuitting = true;
+
+  // 2. Détruire la fenêtre proprement pour libérer les locks
+  if (mainWindow) {
+    mainWindow.removeAllListeners('close');
+    mainWindow.destroy();
+    mainWindow = null;
+  }
+
+  // 3. Installer + relancer (isSilent=false pour macOS, isForceRunAfter=true)
+  autoUpdater.quitAndInstall(false, true);
+
+  // 4. Fallback : si quitAndInstall ne redémarre pas dans les 3s, forcer via app.relaunch
+  setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 3000);
 }
