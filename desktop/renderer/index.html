@@ -1179,69 +1179,119 @@
 <div class="app-container" id="appContainer">
   <!-- SIDEBAR -->
   <div class="sidebar">
-    <div class="sidebar-section">
-      <div class="sidebar-title">Navigation</div>
-      <div class="sidebar-item active" data-view="library">
-        <span>🎵</span>
-        <span>Bibliothèque</span>
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 14px 10px">
+      <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#ec4899);display:flex;align-items:center;justify-content:center">
+        <span style="font-size:14px">🎵</span>
       </div>
-      <div class="sidebar-item" data-view="files">
-        <span>📁</span>
-        <span>Fichiers</span>
-      </div>
+      <span style="font-size:15px;font-weight:700;color:var(--text-primary);letter-spacing:-0.3px">CueForge</span>
     </div>
 
     <div class="sidebar-divider"></div>
 
+    <!-- Navigation principale -->
     <div class="sidebar-section">
-      <div class="sidebar-title">Outils DJ</div>
-      <div class="sidebar-item" data-view="tap-tempo">
-        <span>🥁</span>
-        <span>Tap Tempo</span>
+      <div class="sidebar-item active" data-view="library">
+        <span style="font-size:15px">📊</span>
+        <span>Dashboard</span>
       </div>
-      <div class="sidebar-item" data-view="camelot">
-        <span>🎡</span>
-        <span>Camelot</span>
+      <div class="sidebar-item" data-view="set-builder">
+        <span style="font-size:15px">🎛</span>
+        <span>Set Builder</span>
       </div>
-      <div class="sidebar-item" data-view="energy-flow">
-        <span>⚡</span>
-        <span>Energy Flow</span>
+      <div class="sidebar-item" data-view="compatible">
+        <span style="font-size:15px">🔀</span>
+        <span>Mix compatible</span>
+      </div>
+      <div class="sidebar-item" data-view="playlists">
+        <span style="font-size:15px">🎶</span>
+        <span>Playlists</span>
+      </div>
+      <div class="sidebar-item" data-view="crates">
+        <span style="font-size:15px">📚</span>
+        <span>Smart Crates</span>
       </div>
       <div class="sidebar-item" data-view="gig-prep">
-        <span>📋</span>
-        <span>Gig Prep</span>
+        <span style="font-size:15px">⚡</span>
+        <span>Prépa Gig</span>
       </div>
-      <div class="sidebar-item" data-view="crate-digger">
-        <span>🎲</span>
-        <span>Crate Digger</span>
+      <div class="sidebar-item" data-view="tools">
+        <span style="font-size:15px">🔧</span>
+        <span>Outils DJ</span>
       </div>
-      <div class="sidebar-item" data-view="notes">
-        <span>📝</span>
-        <span>Notes</span>
+      <div class="sidebar-item" data-view="import">
+        <span style="font-size:15px">📥</span>
+        <span>Importer</span>
+      </div>
+      <div class="sidebar-item" data-view="export">
+        <span style="font-size:15px">📤</span>
+        <span>Exporter</span>
       </div>
     </div>
 
     <div class="sidebar-divider"></div>
 
+    <!-- Bibliothèque -->
     <div class="sidebar-section">
-      <div class="sidebar-title">Paramètres</div>
-      <div class="sidebar-item" data-view="account">
-        <span>👤</span>
-        <span>Compte</span>
+      <div class="sidebar-title">Bibliothèque</div>
+      <div class="sidebar-item" data-view="library" data-filter="all">
+        <span style="font-size:15px">🎵</span>
+        <span>Toutes les tracks</span>
       </div>
+      <div class="sidebar-item" data-view="library" data-filter="recent">
+        <span style="font-size:15px">🕐</span>
+        <span>Récemment ajoutés</span>
+      </div>
+      <div class="sidebar-item" data-view="library" data-filter="unanalyzed">
+        <span style="font-size:15px">⚡</span>
+        <span>Non analysés</span>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Smart Crates -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">Smart Crates</div>
+      <div class="sidebar-item" data-view="library" data-crate="peak">
+        <span style="width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block;flex-shrink:0"></span>
+        <span>Peak Hour</span>
+      </div>
+      <div class="sidebar-item" data-view="library" data-crate="warmup">
+        <span style="width:7px;height:7px;border-radius:50%;background:#f97316;display:inline-block;flex-shrink:0"></span>
+        <span>Warm-Up</span>
+      </div>
+      <div class="sidebar-item" data-view="library" data-crate="vocal">
+        <span style="width:7px;height:7px;border-radius:50%;background:#8b5cf6;display:inline-block;flex-shrink:0"></span>
+        <span>Avec voix</span>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Paramètres -->
+    <div class="sidebar-section">
       <div class="sidebar-item" data-view="settings">
-        <span>⚙</span>
+        <span style="font-size:15px">⚙️</span>
         <span>Paramètres</span>
       </div>
       <div class="sidebar-item" data-view="admin" id="sidebarAdmin" style="display:none">
-        <span>🛡</span>
+        <span style="font-size:15px">🛡</span>
         <span>Admin</span>
       </div>
     </div>
 
+    <!-- Account -->
     <div class="sidebar-account">
-      <div class="account-email" id="accountEmail"></div>
-      <div class="account-badge" id="accountPlan">Free</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#2563eb,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff" id="accountInitial">K</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="accountEmail">—</div>
+          <div style="font-size:10px;color:var(--text-muted)" id="accountPlan">Free</div>
+        </div>
+      </div>
       <button class="btn-logout" id="logoutBtn">Se déconnecter</button>
     </div>
   </div>
@@ -1250,20 +1300,40 @@
   <div class="main-content">
     <!-- TOPBAR -->
     <div class="topbar">
-      <input type="text" class="search-box" id="searchBox" placeholder="Rechercher...">
+      <div style="display:flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:8px;padding:5px 10px;min-width:220px;transition:border-color 0.2s" id="searchContainer">
+        <span style="color:var(--text-muted);font-size:13px">🔍</span>
+        <input type="text" class="search-box" id="searchBox" placeholder="Rechercher..." style="flex:1;background:transparent;border:none;outline:none;color:var(--text-primary);font-size:12px">
+        <kbd style="font-size:9px;font-family:'JetBrains Mono',monospace;padding:1px 5px;border-radius:4px;background:var(--bg-hover);color:var(--text-muted);border:1px solid var(--border-default)">⌘K</kbd>
+      </div>
 
       <div class="topbar-buttons">
-        <button class="btn-topbar" id="importBtn">📥 Importer</button>
+        <button class="btn-topbar" id="importBtn">
+          <span style="font-size:12px">📥</span> Importer
+        </button>
 
         <div class="dropdown">
-          <button class="btn-topbar" id="exportBtn">📤 Exporter <span>▾</span></button>
+          <button class="btn-topbar" id="exportBtn">
+            <span style="font-size:12px">📤</span> Exporter <span style="font-size:10px">▾</span>
+          </button>
           <div class="dropdown-menu" id="exportMenu">
-            <button class="dropdown-item" data-format="rekordbox">Export Rekordbox XML</button>
-            <button class="dropdown-item" data-format="serato">Export Serato</button>
-            <button class="dropdown-item" data-format="m3u">Export M3U Playlist</button>
-            <button class="dropdown-item" data-format="csv">Export CSV</button>
-            <button class="dropdown-item" data-format="json">Export JSON</button>
+            <button class="dropdown-item" data-format="rekordbox">🗄 Rekordbox XML</button>
+            <button class="dropdown-item" data-format="m3u">🎵 Playlist M3U</button>
+            <button class="dropdown-item" data-format="csv">📊 CSV</button>
+            <button class="dropdown-item" data-format="json">📋 JSON</button>
+            <button class="dropdown-item" data-format="id3">🏷 Tags ID3</button>
           </div>
+        </div>
+
+        <button class="btn-topbar" id="autoAnalyzeToggle" style="gap:6px">
+          <span style="font-size:12px">⚡</span> Auto-analyse
+          <div style="width:24px;height:12px;border-radius:6px;background:var(--border-subtle);position:relative;transition:background 0.2s" id="autoAnalyzeDot">
+            <div style="width:10px;height:10px;border-radius:50%;background:#fff;position:absolute;top:1px;left:1px;transition:transform 0.2s" id="autoAnalyzeKnob"></div>
+          </div>
+        </button>
+
+        <div id="unanalyzedBadge" style="display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:1px solid rgba(245,158,11,0.4);background:rgba(245,158,11,0.1);color:#fbbf24;font-size:11px;font-weight:600">
+          <span style="width:6px;height:6px;border-radius:50%;background:#fbbf24;animation:pulse 2s infinite"></span>
+          <span id="unanalyzedCount">0</span> non analysés
         </div>
       </div>
     </div>
@@ -1303,98 +1373,284 @@
       </div>
     </div>
 
-    <!-- ═══ TOOL VIEWS ════════════════════════════════════════════════════ -->
-
-    <!-- TAP TEMPO -->
-    <div class="view-panel" id="viewTapTempo">
-      <div class="tool-header">🥁 Tap Tempo</div>
-      <div class="tool-sub">Clique ou appuie sur <kbd style="background:#222;padding:2px 6px;border-radius:4px">T</kbd> en rythme pour détecter le BPM</div>
-      <div class="tool-card" style="text-align:center">
-        <div class="tap-area" id="tapArea">—</div>
-        <div class="bpm-variants">
-          <div class="bpm-variant"><div class="bpm-variant-label">½</div><div class="bpm-variant-value" id="tapHalf">—</div></div>
-          <div class="bpm-variant"><div class="bpm-variant-label">×1</div><div class="bpm-variant-value" id="tapNormal">—</div></div>
-          <div class="bpm-variant"><div class="bpm-variant-label">×2</div><div class="bpm-variant-value" id="tapDouble">—</div></div>
+    <!-- ═══ SET BUILDER ═════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewSetBuilder">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(37,99,235,0.3),rgba(236,72,153,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">🎛</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Set Builder</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Crée et gère tes DJ sets avec scoring de compatibilité</p>
         </div>
-        <div style="margin-top:14px;color:#666;font-size:11px" id="tapCount">0 taps</div>
-        <button style="margin-top:10px;background:#222;color:#aaa;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px" id="tapReset">Réinitialiser</button>
+      </div>
+      <div class="tool-card" id="setBuilderContent">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <button class="btn-save" id="btnNewSet" style="font-size:12px">+ Nouveau set</button>
+          <div id="setTabs" style="display:flex;gap:6px;flex:1;overflow-x:auto"></div>
+        </div>
+        <div id="setEnergyCurve" style="height:64px;display:flex;align-items:end;gap:2px;margin-bottom:16px;padding:8px;background:var(--bg-elevated);border-radius:10px"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:11px;color:var(--text-muted)" id="setStats">
+          <span>🎵 0 tracks</span>
+          <span>🕐 ~0 min</span>
+          <span>⚡ — BPM</span>
+        </div>
+        <div id="setTrackList" style="min-height:100px">
+          <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+            <div style="font-size:32px;margin-bottom:8px">🎛</div>
+            <div style="font-size:13px">Crée un set et ajoute des tracks depuis ta bibliothèque</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button class="btn-topbar" id="btnSetAddTrack">+ Ajouter une track</button>
+          <button class="btn-topbar" id="btnSetSuggest" style="background:linear-gradient(90deg,#2563eb,#8b5cf6);color:#fff;border:none">✨ Suggérer</button>
+        </div>
       </div>
     </div>
 
-    <!-- CAMELOT WHEEL -->
-    <div class="view-panel" id="viewCamelot">
-      <div class="tool-header">🎡 Roue de Camelot</div>
-      <div class="tool-sub">Sélectionne une tonalité pour voir les mixages compatibles</div>
-      <div class="camelot-container">
-        <div class="tool-card" style="flex:1">
-          <div id="camelotGrid"></div>
+    <!-- ═══ MIX COMPATIBLE ════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewCompatible">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(37,99,235,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">🔀</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Compatibilité de mix</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Sélectionne une track et découvre les meilleures transitions (Camelot + BPM)</p>
         </div>
-        <div class="tool-card camelot-info" id="camelotInfo">
-          <div style="color:#888;font-size:13px">Clique sur une tonalité pour voir les clés compatibles.</div>
-          <div class="camelot-legend" style="margin-top:16px">
-            <div><strong style="color:#c4b5fd">Compatible :</strong></div>
-            <div style="margin-top:4px">• Même numéro (ex: 8A ↔ 8B) = passage majeur/mineur</div>
-            <div>• ±1 position (ex: 8A → 7A ou 9A) = transition harmonique</div>
+      </div>
+      <div class="tool-card">
+        <div style="margin-bottom:16px">
+          <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px;display:block">Track de référence</label>
+          <select class="select-s" id="compatTrackSelect" style="width:100%;padding:10px 12px;font-size:13px">
+            <option value="">— Sélectionner une track —</option>
+          </select>
+        </div>
+        <div id="compatResults" style="min-height:100px">
+          <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+            <div style="font-size:32px;margin-bottom:8px">🔀</div>
+            <div style="font-size:13px">Sélectionne une track pour voir les mix compatibles</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:var(--bg-elevated);border-radius:10px;font-size:11px;color:var(--text-muted)">
+          <div style="font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Légende</div>
+          <div>🟢 Même tonalité (parfait) · 🟡 ±1 sur la roue (harmonique) · 🟠 ±2 (boost énergie) · 🔴 Incompatible</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PLAYLISTS ═════════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewPlaylists">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(34,197,94,0.3),rgba(6,182,212,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">🎶</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Playlists</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Gère tes playlists et collections</p>
+        </div>
+        <button class="btn-save" id="btnNewPlaylist" style="margin-left:auto;font-size:12px">+ Nouvelle playlist</button>
+      </div>
+      <div id="playlistsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-muted);grid-column:1/-1">
+          <div style="font-size:32px;margin-bottom:8px">🎶</div>
+          <div style="font-size:13px">Aucune playlist pour le moment. Crée-en une !</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SMART CRATES ══════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewCrates">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(249,115,22,0.3),rgba(239,68,68,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">📚</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Smart Crates</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Collections dynamiques basées sur des règles (BPM, énergie, genre…)</p>
+        </div>
+        <button class="btn-save" id="btnNewCrate" style="margin-left:auto;font-size:12px">+ Nouveau crate</button>
+      </div>
+      <div id="cratesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        <div class="tool-card" style="border-left:3px solid #ef4444">
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Peak Hour</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Énergie ≥ 0.7 · BPM 125-135</div>
+          <div style="font-size:20px;font-weight:700;color:#ef4444;margin-top:8px" id="cratePeakCount">0 tracks</div>
+        </div>
+        <div class="tool-card" style="border-left:3px solid #f97316">
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Warm-Up</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Énergie ≤ 0.4 · BPM 118-124</div>
+          <div style="font-size:20px;font-weight:700;color:#f97316;margin-top:8px" id="crateWarmupCount">0 tracks</div>
+        </div>
+        <div class="tool-card" style="border-left:3px solid #8b5cf6">
+          <div style="font-size:14px;font-weight:600;color:var(--text-primary)">Avec voix</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tags contient "vocal"</div>
+          <div style="font-size:20px;font-weight:700;color:#8b5cf6;margin-top:8px" id="crateVocalCount">0 tracks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ OUTILS DJ (page regroupée) ════════════════════════════════════ -->
+    <div class="view-panel" id="viewTools">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(6,182,212,0.3),rgba(37,99,235,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">🔧</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Outils DJ</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Tap Tempo, Crate Digger, Energy Flow et plus</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- Tap Tempo -->
+        <div class="tool-card" style="text-align:center">
+          <div class="tool-card-title">🥁 Tap Tempo</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Clique ou appuie sur <kbd style="background:var(--bg-hover);padding:2px 6px;border-radius:4px;font-size:10px">T</kbd></div>
+          <div class="tap-area" id="tapArea">—</div>
+          <div class="bpm-variants">
+            <div class="bpm-variant"><div class="bpm-variant-label">½</div><div class="bpm-variant-value" id="tapHalf">—</div></div>
+            <div class="bpm-variant"><div class="bpm-variant-label">×1</div><div class="bpm-variant-value" id="tapNormal">—</div></div>
+            <div class="bpm-variant"><div class="bpm-variant-label">×2</div><div class="bpm-variant-value" id="tapDouble">—</div></div>
+          </div>
+          <div style="margin-top:10px;color:var(--text-muted);font-size:11px" id="tapCount">0 taps</div>
+          <button style="margin-top:8px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:11px" id="tapReset">Réinitialiser</button>
+        </div>
+
+        <!-- Crate Digger -->
+        <div class="tool-card">
+          <div class="tool-card-title">🎲 Crate Digger</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Redécouvre des pépites dans ta bibliothèque</div>
+          <div class="dig-modes" id="digModes">
+            <div class="dig-mode active" data-mode="random">🎲 Aléatoire</div>
+            <div class="dig-mode" data-mode="energy">⚡ Énergie</div>
+            <div class="dig-mode" data-mode="genre">🎸 Genre</div>
+            <div class="dig-mode" data-mode="gems">💎 Perles</div>
+          </div>
+          <button class="dig-btn" id="digBtn" style="width:100%;background:linear-gradient(90deg,#2563eb,#8b5cf6);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">🔍 Dig !</button>
+          <div class="dig-results" id="digResults"></div>
+        </div>
+
+        <!-- Quick Notes -->
+        <div class="tool-card">
+          <div class="tool-card-title">📝 Quick Notes</div>
+          <div class="note-colors" id="noteColors">
+            <span style="font-size:10px;color:var(--text-muted);margin-right:4px">Couleur:</span>
+            <div class="note-color-dot active" data-color="#fbbf24" style="background:#fbbf24"></div>
+            <div class="note-color-dot" data-color="#60a5fa" style="background:#60a5fa"></div>
+            <div class="note-color-dot" data-color="#f472b6" style="background:#f472b6"></div>
+            <div class="note-color-dot" data-color="#34d399" style="background:#34d399"></div>
+            <div class="note-color-dot" data-color="#c084fc" style="background:#c084fc"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input type="text" id="noteInput" placeholder="Écrire une note…" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-size:12px">
+            <button id="noteAddBtn" style="background:rgba(251,191,36,0.2);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600">+</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="noteSearch" placeholder="Rechercher…" style="flex:1;background:var(--bg-input);border:1px solid var(--border-subtle);border-radius:8px;padding:6px 10px;color:var(--text-primary);font-size:11px">
+          </div>
+          <div class="notes-list" id="notesList" style="max-height:260px;overflow-y:auto"></div>
+        </div>
+
+        <!-- Camelot Wheel -->
+        <div class="tool-card">
+          <div class="tool-card-title">🎡 Roue de Camelot</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">Sélectionne une tonalité pour les mixages compatibles</div>
+          <div id="camelotGrid"></div>
+          <div id="camelotInfo" style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+            Clique sur une tonalité pour voir les clés compatibles.
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- ENERGY FLOW -->
-    <div class="view-panel" id="viewEnergyFlow">
-      <div class="tool-header">⚡ Energy Flow</div>
-      <div class="tool-sub">Visualise la distribution d'énergie de ta bibliothèque</div>
-      <div class="tool-card">
+      <!-- Energy Flow (full width) -->
+      <div class="tool-card" style="margin-top:16px">
+        <div class="tool-card-title">⚡ Energy Flow</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Distribution d'énergie de ta bibliothèque</div>
         <div class="energy-chart" id="energyChart"></div>
         <div class="energy-stats" id="energyStats"></div>
       </div>
     </div>
 
-    <!-- GIG PREP -->
+    <!-- ═══ IMPORT PAGE ═══════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewImport">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(34,197,94,0.3),rgba(37,99,235,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">📥</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Importer</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Importe des fichiers audio ou des bibliothèques DJ</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="tool-card" style="text-align:center;cursor:pointer;transition:border-color 0.2s" id="importAudioBtn" onmouseenter="this.style.borderColor='#2563eb'" onmouseleave="this.style.borderColor='var(--border-subtle)'">
+          <div style="font-size:40px;margin-bottom:12px">🎵</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">Fichiers Audio</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px">MP3, WAV, FLAC, AIFF, AAC, OGG, M4A</div>
+          <div style="font-size:11px;color:var(--accent);margin-top:10px;font-weight:600">Glisser-déposer ou parcourir</div>
+        </div>
+        <div class="tool-card" style="text-align:center;cursor:pointer;transition:border-color 0.2s" id="importRekordboxBtn" onmouseenter="this.style.borderColor='#ef4444'" onmouseleave="this.style.borderColor='var(--border-subtle)'">
+          <div style="font-size:40px;margin-bottom:12px">🗄</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">Rekordbox XML</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Importer une collection Rekordbox complète</div>
+          <div style="font-size:11px;color:#ef4444;margin-top:10px;font-weight:600">Choisir le fichier XML</div>
+        </div>
+        <div class="tool-card" style="text-align:center;cursor:pointer;transition:border-color 0.2s" id="importSeratoBtn" onmouseenter="this.style.borderColor='#22c55e'" onmouseleave="this.style.borderColor='var(--border-subtle)'">
+          <div style="font-size:40px;margin-bottom:12px">💿</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">Serato Crates</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Importer des crates Serato</div>
+          <div style="font-size:11px;color:#22c55e;margin-top:10px;font-weight:600">Sélectionner le dossier</div>
+        </div>
+        <div class="tool-card" style="text-align:center;cursor:pointer;transition:border-color 0.2s" id="importTraktorBtn" onmouseenter="this.style.borderColor='#3b82f6'" onmouseleave="this.style.borderColor='var(--border-subtle)'">
+          <div style="font-size:40px;margin-bottom:12px">🎧</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text-primary)">Traktor NML</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Importer une collection Traktor</div>
+          <div style="font-size:11px;color:#3b82f6;margin-top:10px;font-weight:600">Choisir le fichier NML</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ EXPORT PAGE ═══════════════════════════════════════════════════ -->
+    <div class="view-panel" id="viewExport">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(236,72,153,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">📤</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Exporter</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Exporte ta bibliothèque dans le format de ton choix</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="rekordbox" onclick="handleExportClick('rekordbox')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">🗄</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Rekordbox XML</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Collection complète</div>
+        </button>
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="m3u" onclick="handleExportClick('m3u')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">🎵</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Playlist M3U</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Playlist universelle</div>
+        </button>
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="id3" onclick="handleExportClick('id3')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">🏷</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Tags ID3</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">BPM/Key dans les fichiers</div>
+        </button>
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="csv" onclick="handleExportClick('csv')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">📊</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">CSV Export</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tableur CSV</div>
+        </button>
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="json" onclick="handleExportClick('json')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">📋</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">JSON Export</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Données brutes</div>
+        </button>
+        <button class="tool-card" style="text-align:center;cursor:pointer;border:1px solid var(--border-subtle);transition:all 0.2s" data-export="txt" onclick="handleExportClick('txt')">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px">📄</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Tracklist TXT</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Liste texte</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ GIG PREP ══════════════════════════════════════════════════════ -->
     <div class="view-panel" id="viewGigPrep">
-      <div class="tool-header">📋 Gig Prep</div>
-      <div class="tool-sub">Prépare tes sets avec des checklists complètes</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(245,158,11,0.3),rgba(239,68,68,0.3));display:flex;align-items:center;justify-content:center"><span style="font-size:18px">⚡</span></div>
+        <div>
+          <h1 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0">Prépa Gig</h1>
+          <p style="font-size:13px;color:var(--text-muted);margin:0">Checklist complète pour préparer tes sets</p>
+        </div>
+      </div>
       <div class="gig-list" id="gigList"></div>
       <div id="gigContent"></div>
-    </div>
-
-    <!-- CRATE DIGGER -->
-    <div class="view-panel" id="viewCrateDigger">
-      <div class="tool-header">🎲 Crate Digger</div>
-      <div class="tool-sub">Redécouvre des pépites dans ta bibliothèque</div>
-      <div class="tool-card">
-        <div class="dig-modes" id="digModes">
-          <div class="dig-mode active" data-mode="random">🎲 Random</div>
-          <div class="dig-mode" data-mode="energy">⚡ Energy Journey</div>
-          <div class="dig-mode" data-mode="genre">🎸 Genre Explore</div>
-          <div class="dig-mode" data-mode="gems">💎 Hidden Gems</div>
-        </div>
-        <button class="dig-btn" id="digBtn">🔍 Dig !</button>
-        <div class="dig-results" id="digResults"></div>
-      </div>
-    </div>
-
-    <!-- QUICK NOTES -->
-    <div class="view-panel" id="viewNotes">
-      <div class="tool-header">📝 Quick Notes</div>
-      <div class="tool-sub">Prends des notes rapides pour tes sets et gigs</div>
-      <div class="tool-card">
-        <div class="note-colors" id="noteColors">
-          <div class="note-color-dot active" data-color="#fbbf24" style="background:#fbbf24"></div>
-          <div class="note-color-dot" data-color="#60a5fa" style="background:#60a5fa"></div>
-          <div class="note-color-dot" data-color="#f472b6" style="background:#f472b6"></div>
-          <div class="note-color-dot" data-color="#34d399" style="background:#34d399"></div>
-          <div class="note-color-dot" data-color="#c084fc" style="background:#c084fc"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input type="text" id="noteInput" placeholder="Écrire une note…" style="flex:1;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 12px;color:#ccc;font-size:12px">
-          <button id="noteAddBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:600">Ajouter</button>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <input type="text" id="noteSearch" placeholder="Rechercher…" style="flex:1;background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:6px 10px;color:#ccc;font-size:11px">
-        </div>
-        <div class="notes-list" id="notesList"></div>
-      </div>
     </div>
 
     <!-- ═══ ACCOUNT VIEW ═══════════════════════════════════════════════════ -->
@@ -2068,6 +2324,18 @@ async function doInstallUpdate() {
   btnInstall.disabled = true;
   btnInstall.textContent = '⏳ Redémarrage…';
   await window.cueforge.installUpdate();
+}
+
+// Export handler pour la page Export
+function handleExportClick(format) {
+  if (typeof MultiExport !== 'undefined') {
+    const tracks = typeof state !== 'undefined' ? state.tracks : [];
+    if (!tracks.length) {
+      if (typeof showToast === 'function') showToast('Aucune track à exporter', 'error');
+      return;
+    }
+    MultiExport.export(format, tracks);
+  }
 }
 </script>
 

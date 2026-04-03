@@ -756,14 +756,15 @@ const ViewManager = {
   currentView: 'library',
 
   viewMap: {
-    'library':      null,  // default content area
-    'files':        null,
-    'tap-tempo':    'viewTapTempo',
-    'camelot':      'viewCamelot',
-    'energy-flow':  'viewEnergyFlow',
+    'library':      null,  // default content area (dashboard)
+    'set-builder':  'viewSetBuilder',
+    'compatible':   'viewCompatible',
+    'playlists':    'viewPlaylists',
+    'crates':       'viewCrates',
     'gig-prep':     'viewGigPrep',
-    'crate-digger': 'viewCrateDigger',
-    'notes':        'viewNotes',
+    'tools':        'viewTools',
+    'import':       'viewImport',
+    'export':       'viewExport',
     'account':      'viewAccount',
     'settings':     'viewSettings',
     'admin':        'viewAdmin',
@@ -800,10 +801,12 @@ const ViewManager = {
       if (topbar) topbar.style.display = 'none';
       document.getElementById(panelId).classList.add('active');
 
-      // Init specific tools when shown
-      if (view === 'energy-flow') EnergyFlow.render(typeof state !== 'undefined' ? state.tracks : []);
+      // Init tools when Tools view shown
+      if (view === 'tools') {
+        EnergyFlow.render(typeof state !== 'undefined' ? state.tracks : []);
+        QuickNotes.render();
+      }
       if (view === 'gig-prep') GigPrep.render();
-      if (view === 'notes') QuickNotes.render();
 
       // Settings / Admin data loading
       if (typeof onViewSwitch === 'function') onViewSwitch(view);
