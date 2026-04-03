@@ -1363,6 +1363,7 @@ def analyze_audio(file_path: str) -> Dict:
         rms_sync = np.array([])
 
     # Sections (SSM novelty-based segmentation)
+    sections = []  # Initialize before try so it's always defined
     try:
         sections = detect_sections_ssm(
             y, sr_loaded, beats, beat_frames, drops, rms_sync
@@ -1418,8 +1419,7 @@ def analyze_audio(file_path: str) -> Dict:
 
     # ── v4: Auto loop detection ────────────────────────────────────────
     try:
-        raw_sections = sections if 'sections' in dir() else []
-        auto_loops = detect_loops(y, sr_loaded, beats, raw_sections, bpm)
+        auto_loops = detect_loops(y, sr_loaded, beats, sections, bpm)
     except Exception:
         auto_loops = []
 
