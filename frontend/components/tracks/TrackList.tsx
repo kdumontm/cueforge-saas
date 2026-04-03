@@ -39,6 +39,7 @@ interface TrackListProps {
   onFilterReset: () => void;
   isLoading?: boolean;
   onImportClick?: () => void;
+  analyzingIds?: Set<number>;
   // Auto-analyse controls (displayed in toolbar)
   unanalyzedCount?: number;
   autoAnalyze?: boolean;
@@ -102,6 +103,7 @@ export const TrackList = React.memo(function TrackList({
   autoAnalyze = false,
   onToggleAutoAnalyze,
   onAnalyzeAll,
+  analyzingIds = new Set(),
 }: TrackListProps) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -317,6 +319,7 @@ export const TrackList = React.memo(function TrackList({
                 isMultiSelected={selectedIds.has(track.id)}
                 isPlaying={playingTrackId === track.id}
                 isFavorite={favoriteIds.has(track.id)}
+                isAnalyzing={analyzingIds.has(track.id)}
                 onSelect={onSelect}
                 onDoubleClick={onDoubleClick}
                 onContextMenu={onContextMenu}

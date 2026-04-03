@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag } from 'lucide-react';
+import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2 } from 'lucide-react';
 import type { Track } from '@/types';
 
 interface TrackRowProps {
@@ -11,6 +11,7 @@ interface TrackRowProps {
   isMultiSelected?: boolean;
   isPlaying: boolean;
   isFavorite: boolean;
+  isAnalyzing?: boolean;
   onSelect: (track: Track, e?: React.MouseEvent) => void;
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
@@ -46,6 +47,7 @@ export const TrackRow = React.memo(function TrackRow({
   isPlaying,
   isMultiSelected = false,
   isFavorite,
+  isAnalyzing = false,
   onSelect,
   onDoubleClick,
   onContextMenu,
@@ -100,7 +102,12 @@ export const TrackRow = React.memo(function TrackRow({
 
       {/* Title + Artist */}
       <div className="min-w-0">
-        <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
+          {isAnalyzing && (
+            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" title="Analyse en cours…" />
+          )}
+        </div>
         <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
       </div>
 

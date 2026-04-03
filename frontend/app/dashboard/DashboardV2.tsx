@@ -187,6 +187,9 @@ export default function DashboardV2() {
   // Export bibliothèque modal
   const [showExport, setShowExport] = useState(false);
 
+  // IDs des tracks en cours d'analyse (roue de chargement dans la liste)
+  const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
+
   // Drag & drop overlay
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
@@ -968,26 +971,43 @@ export default function DashboardV2() {
 
   // File upload
   async function handleFiles(files: FileList) {
-    setUploading(true);
     for (const file of Array.from(files)) {
       try {
+        setUploading(true);
         const uploaded = await uploadTrack(file);
-        if (uploaded?.id) {
-          addToast(`Upload: ${file.name}`, 'info');
-          if (autoAnalyze) {
-            await analyzeTrack(uploaded.id);
-            await pollTrackUntilDone(uploaded.id);
-            addToast(`${file.name} analysé !`, 'success');
-          } else {
-            addToast(`${file.name} importé (analyse manuelle)`, 'info');
-          }
+        setUploading(false);
+        if (!uploaded?.id) continue;
+
+        // Afficher immédiatement le track dans la liste
+        await loadTracks();
+        addToast(`${file.name} importé`, 'info');
+
+        if (autoAnalyze) {
+          const id = uploaded.id;
+          // Marquer comme "en analyse" → roue dans la liste
+          setAnalyzingIds(prev => new Set(prev).add(id));
+
+          // Lancer l'analyse en arrière-plan (pas d'await → non-bloquant)
+          analyzeTrack(id)
+            .then(() => pollTrackUntilDone(id, (updated) => {
+              // Mettre à jour le track en temps réel dans la liste
+              setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+            }))
+            .then(() => {
+              setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+              addToast(`${file.name} analysé !`, 'success');
+              loadTracks(); // Refresh final pour récupérer toutes les données
+            })
+            .catch(() => {
+              setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+              addToast(`Erreur analyse: ${file.name}`, 'error');
+            });
         }
-      } catch (e) {
-        addToast(`Failed to upload ${file.name}`, 'error');
+      } catch {
+        setUploading(false);
+        addToast(`Erreur upload: ${file.name}`, 'error');
       }
     }
-    await loadTracks();
-    setUploading(false);
   }
 
   function handleDragEnter(e: React.DragEvent) {
@@ -1349,6 +1369,7 @@ export default function DashboardV2() {
               onFilterReset={() => setFilters({ bpmMin: 0, bpmMax: 300, keyFilter: null, genreFilter: null, energyMin: 0, energyMax: 100, showAnalyzedOnly: false, showFavoritesOnly: false })}
               isLoading={loading}
               onImportClick={() => fileRef.current?.click()}
+              analyzingIds={analyzingIds}
             />
             {/* Charger plus */}
             {hasMoreTracks && (
