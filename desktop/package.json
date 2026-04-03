@@ -8,6 +8,10 @@
     "email": "kenin.dumont@gmail.com"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kdumontm/cueforge-saas"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "NODE_ENV=development electron .",
@@ -48,6 +52,7 @@
       "src/**/*",
       "assets/**/*"
     ],
+    "publish": null,
     "directories": {
       "output": "dist"
     }

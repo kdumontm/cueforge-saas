@@ -168,6 +168,7 @@ from app.routers import org_management  # noqa: E402
 from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
 # v4 routers
 from app.routers import analytics, mix_analyzer  # noqa: E402
+from app.routers import downloads  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -190,3 +191,5 @@ app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
 # v4 routers
 app.include_router(analytics.router, prefix="/api/v1", tags=["analytics"])
 app.include_router(mix_analyzer.router, prefix="/api/v1", tags=["mix-analyzer"])
+# Desktop app downloads
+app.include_router(downloads.router, prefix="/api/v1", tags=["downloads"])
