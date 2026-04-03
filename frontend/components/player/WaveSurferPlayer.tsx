@@ -962,33 +962,42 @@ export default function WaveSurferPlayer({
   }, [isReady, seekOverviewAt]);
 
   // ── Detail: mousedown starts drag, mousemove scrubs, mouseup ends ──
-  const seekDetailAt = useCallback((clientX: number, container: HTMLDivElement) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const secPerPx = visibleSecondsRef.current / rect.width;
-    const startTime = currentTimeRef.current - visibleSecondsRef.current / 2;
-    const clickTime = startTime + x * secPerPx;
-    const dur = durationRef.current;
-    if (dur > 0) {
-      const seekTime = Math.max(0, Math.min(dur, clickTime));
-      audio.currentTime = seekTime;
-      currentTimeRef.current = seekTime;
-      onSeek?.(seekTime * 1000);
-      onWaveformClick?.(seekTime * 1000);
-    }
-  }, [onSeek, onWaveformClick]);
-
+  // Le delta est calculé depuis le point fixe du mousedown pour éviter
+  // l'effet boule de neige (currentTimeRef qui s'emballe à chaque mousemove).
   const handleDetailMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isReady) return;
     e.preventDefault();
     isDraggingDetail.current = true;
+    const audio = audioRef.current;
+    if (!audio) return;
     const container = e.currentTarget;
-    seekDetailAt(e.clientX, container);
+    const rect = container.getBoundingClientRect();
+    const dur = durationRef.current;
+    if (dur <= 0) return;
+
+    // Seek initial absolu au point de click
+    const secPerPx = visibleSecondsRef.current / rect.width;
+    const x0 = e.clientX - rect.left;
+    const initTime = Math.max(0, Math.min(dur,
+      (currentTimeRef.current - visibleSecondsRef.current / 2) + x0 * secPerPx
+    ));
+    audio.currentTime = initTime;
+    currentTimeRef.current = initTime;
+    onSeek?.(initTime * 1000);
+    onWaveformClick?.(initTime * 1000);
+
+    // Ancrage fixe pour le drag : chaque mousemove = delta depuis ce point
+    const dragStartX = e.clientX;
+    const dragStartTime = initTime;
+    const dragSecPerPx = secPerPx; // constant pendant tout le drag
 
     const onMove = (ev: MouseEvent) => {
-      if (isDraggingDetail.current) seekDetailAt(ev.clientX, container);
+      if (!isDraggingDetail.current) return;
+      const deltaX = ev.clientX - dragStartX;
+      const seekTime = Math.max(0, Math.min(dur, dragStartTime + deltaX * dragSecPerPx));
+      audio.currentTime = seekTime;
+      currentTimeRef.current = seekTime;
+      onSeek?.(seekTime * 1000);
     };
     const onUp = () => {
       isDraggingDetail.current = false;
@@ -997,7 +1006,7 @@ export default function WaveSurferPlayer({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [isReady, seekDetailAt]);
+  }, [isReady, onSeek, onWaveformClick]);
 
   // ── Zoom: Ctrl+Scroll OR Mac trackpad pinch-to-zoom ──
   // On Mac, pinch-to-zoom fires wheel events with ctrlKey=true (synthetic)
