@@ -190,31 +190,61 @@ const CueForgeApp = {
   // ═══════════════════════════════════════════════════════════
   async loadRealTracks() {
     try {
-      if (!window.cueforge?.getTracks) return;
-      const dbTracks = await window.cueforge.getTracks();
-      if (dbTracks && dbTracks.length > 0) {
-        const mapped = dbTracks.map(t => ({
-          id: t.id,
-          title: t.title || t.filename || 'Sans titre',
-          artist: t.artist || 'Artiste inconnu',
-          genre: t.genre || '',
-          bpm: t.bpm || t.analysis?.bpm || null,
-          key: t.key || t.analysis?.key || null,
-          energy: t.energy || t.analysis?.energy || null,
-          duration: t.duration || (t.analysis?.duration_ms ? formatTime(t.analysis.duration_ms / 1000) : '0:00'),
-          rating: t.rating || 0,
-          tags: t.tags || [],
-          analyzed: t.analyzed !== false,
-          color: t.color || null,
-          filePath: t.file_path || t.filePath,
-          cuePoints: t.cuePoints || [],
-        }));
-        this.tracks = mapped;
-        this.renderTrackList();
-        showToast(`${mapped.length} tracks chargées`, 'success');
+      // Utiliser le dataLayer hybride (cloud + local automatique)
+      if (window.cueforge?.data?.tracks?.list) {
+        const result = await window.cueforge.data.tracks.list();
+        const items = result?.data?.items || result?.data?.tracks || result?.data || [];
+        const dbTracks = Array.isArray(items) ? items : [];
+        if (dbTracks.length > 0) {
+          const mapped = dbTracks.map(t => ({
+            id: t.remote_id || t.id,
+            localId: t.id,
+            title: t.title || t.filename || 'Sans titre',
+            artist: t.artist || 'Artiste inconnu',
+            genre: t.genre || '',
+            bpm: t.bpm || t.analysis?.bpm || null,
+            key: t.key || t.key_name || t.musical_key || t.analysis?.key || null,
+            energy: t.energy || t.energy_level || t.analysis?.energy || null,
+            duration: t.duration || (t.analysis?.duration_ms ? formatTime(t.analysis.duration_ms / 1000) : '0:00'),
+            rating: t.rating || 0,
+            tags: t.tags || [],
+            analyzed: t.analyzed !== false,
+            color: t.color || null,
+            filePath: t.file_path || t.filePath,
+            cuePoints: t.cuePoints || [],
+          }));
+          this.tracks = mapped;
+          this.renderTrackList();
+          const src = result?.source === 'cloud' ? '☁️' : '💾';
+          showToast(`${src} ${mapped.length} tracks chargées`, 'success');
+        }
+      } else if (window.cueforge?.getTracks) {
+        // Fallback legacy SQLite
+        const dbTracks = await window.cueforge.getTracks();
+        if (dbTracks && dbTracks.length > 0) {
+          const mapped = dbTracks.map(t => ({
+            id: t.id,
+            title: t.title || t.filename || 'Sans titre',
+            artist: t.artist || 'Artiste inconnu',
+            genre: t.genre || '',
+            bpm: t.bpm || null,
+            key: t.key || t.key_name || null,
+            energy: t.energy || null,
+            duration: t.duration || '0:00',
+            rating: t.rating || 0,
+            tags: t.tags || [],
+            analyzed: t.analyzed !== false,
+            color: t.color || null,
+            filePath: t.file_path || t.filePath,
+            cuePoints: t.cuePoints || [],
+          }));
+          this.tracks = mapped;
+          this.renderTrackList();
+          showToast(`💾 ${mapped.length} tracks chargées (local)`, 'success');
+        }
       }
     } catch (e) {
-      console.warn('Could not load tracks from DB:', e);
+      console.warn('Could not load tracks:', e);
     }
   },
 
@@ -234,22 +264,34 @@ const CueForgeApp = {
         try {
           const meta = await window.cueforge.readMetadata(filePath);
           if (meta.error) continue;
-          const track = await window.cueforge.upsertTrack({
-            file_path: filePath,
-            title: meta.title || filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'Sans titre',
-            artist: meta.artist || 'Artiste inconnu',
-            album: meta.album || '',
-            bpm: meta.bpm,
-            key: meta.key,
-            duration: meta.duration ? formatTime(meta.duration) : '0:00',
-            format: meta.format,
-            file_size: meta.fileSize,
-          });
-          if (track) {
+
+          // Utiliser le dataLayer hybride (upload local + cloud)
+          let trackResult;
+          if (window.cueforge?.data?.tracks?.upload) {
+            const result = await window.cueforge.data.tracks.upload(filePath);
+            trackResult = result?.data;
+          } else {
+            // Fallback legacy
+            trackResult = await window.cueforge.upsertTrack({
+              file_path: filePath,
+              file_name: filePath.split('/').pop() || filePath.split('\\').pop() || 'file',
+              title: meta.title || filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'Sans titre',
+              artist: meta.artist || 'Artiste inconnu',
+              album: meta.album || '',
+              bpm: meta.bpm,
+              key: meta.key,
+              duration: meta.duration ? formatTime(meta.duration) : '0:00',
+              format: meta.format,
+              file_size: meta.fileSize,
+            });
+          }
+
+          if (trackResult) {
             this.tracks.push({
-              id: track.id || Date.now(),
-              title: track.title || meta.title || 'Sans titre',
-              artist: track.artist || meta.artist || 'Artiste inconnu',
+              id: trackResult.remote_id || trackResult.id || Date.now(),
+              localId: trackResult.id,
+              title: trackResult.title || meta.title || 'Sans titre',
+              artist: trackResult.artist || meta.artist || 'Artiste inconnu',
               genre: '', bpm: meta.bpm, key: meta.key,
               energy: null, duration: meta.duration ? formatTime(meta.duration) : '0:00',
               rating: 0, tags: [], analyzed: false, color: null,
@@ -1069,17 +1111,46 @@ const CueForgeApp = {
   // ═══════════════════════════════════════════════════════════
   async exportRekordbox(trackIds) {
     try {
+      // 1. Essayer l'export cloud (XML complet depuis l'API)
+      if (window.cueforge?.api?.export?.rekordboxBatch && trackIds?.length) {
+        const xml = await window.cueforge.api.export.rekordboxBatch(trackIds);
+        if (xml) {
+          await window.cueforge.saveTextFile(xml, 'CueForge_Rekordbox.xml', 'Rekordbox XML', 'xml');
+          showToast('☁️ Rekordbox XML exporté', 'success');
+          return;
+        }
+      }
+      if (window.cueforge?.api?.export?.rekordboxAll && !trackIds) {
+        const xml = await window.cueforge.api.export.rekordboxAll();
+        if (xml) {
+          await window.cueforge.saveTextFile(xml, 'CueForge_Rekordbox.xml', 'Rekordbox XML', 'xml');
+          showToast('☁️ Rekordbox XML exporté', 'success');
+          return;
+        }
+      }
+      // 2. Fallback local
       if (window.cueforge?.exportRekordbox) {
         const result = await window.cueforge.exportRekordbox(trackIds || null);
-        if (result) showToast('Rekordbox XML exporté', 'success');
+        if (result) showToast('💾 Rekordbox XML exporté (local)', 'success');
       } else {
         showToast('Export Rekordbox non disponible', 'error');
       }
-    } catch (e) { showToast('Erreur export Rekordbox', 'error'); }
+    } catch (e) {
+      // Fallback local en cas d'erreur cloud
+      try {
+        if (window.cueforge?.exportRekordbox) {
+          const result = await window.cueforge.exportRekordbox(trackIds || null);
+          if (result) showToast('💾 Rekordbox XML exporté (local)', 'success');
+          return;
+        }
+      } catch {}
+      showToast('Erreur export Rekordbox', 'error');
+    }
   },
 
   async exportSerato() {
     try {
+      // Serato : toujours export local (fichier .crate)
       if (window.cueforge?.exportSerato) {
         const result = await window.cueforge.exportSerato(null);
         if (result) showToast('Serato export OK', 'success');
