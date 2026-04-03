@@ -41,5 +41,6 @@ contextBridge.exposeInMainWorld('cueforge', {
   onUpdateError:      (cb) => ipcRenderer.on('update-error',      (_, msg)   => cb(msg)),
   checkForUpdates:    ()   => ipcRenderer.invoke('check-for-updates'),
   installUpdate:      ()   => ipcRenderer.invoke('install-update'),
+  downloadDmgUpdate:  (v)  => ipcRenderer.invoke('download-dmg-update', v),
   getAppVersion:      ()   => ipcRenderer.invoke('get-app-version'),
 });

@@ -1242,12 +1242,31 @@
           if (banner) banner.classList.remove('show');
         }
       });
-      document.getElementById('btnInstallUpdate')?.addEventListener('click', () => {
-        if (updateReady && window.cueforge.installUpdate) {
-          const btn = document.getElementById('btnInstallUpdate');
-          btn.disabled = true; btn.textContent = 'Installation...';
+      document.getElementById('btnInstallUpdate')?.addEventListener('click', async () => {
+        if (!updateReady) return;
+        const btn = document.getElementById('btnInstallUpdate');
+        btn.disabled = true; btn.textContent = 'Installation...';
+
+        // Essayer quitAndInstall d'abord
+        if (window.cueforge.installUpdate) {
           window.cueforge.installUpdate();
         }
+
+        // Si on est encore là après 5s, quitAndInstall a échoué
+        // → fallback : télécharger et ouvrir le DMG
+        setTimeout(async () => {
+          btn.textContent = 'Téléchargement du DMG...';
+          try {
+            const version = document.getElementById('updateVersionLabel')?.textContent?.replace('v', '') || '';
+            if (version && window.cueforge.downloadDmgUpdate) {
+              await window.cueforge.downloadDmgUpdate(version);
+              btn.textContent = 'DMG ouvert — glisse dans Applications';
+            }
+          } catch (err) {
+            btn.textContent = 'Erreur — réessaie';
+            btn.disabled = false;
+          }
+        }, 5000);
       });
     }
 

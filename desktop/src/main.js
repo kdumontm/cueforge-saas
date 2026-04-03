@@ -319,6 +319,19 @@ function setupIPC() {
   ipcMain.handle('install-update', () => {
     installAndRestart();
   });
+
+  // ── Fallback : télécharger le DMG et l'ouvrir ──
+  ipcMain.handle('download-dmg-update', async (e, version) => {
+    try {
+      const dmgPath = await downloadAndOpenDMG(version);
+      await shell.openPath(dmgPath);
+      return { success: true, path: dmgPath };
+    } catch (err) {
+      // Dernier recours : ouvrir la page GitHub
+      shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`);
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 // ─── Drag & Drop (fichiers depuis Finder/Explorer) ─────
@@ -356,6 +369,7 @@ function setupAutoUpdater() {
 
   // Téléchargement terminé → notifier le renderer (ne pas installer automatiquement)
   autoUpdater.on('update-downloaded', (info) => {
+    pendingUpdateVersion = info.version;
     mainWindow?.webContents.send('update-downloaded', { version: info.version });
   });
 
@@ -369,6 +383,8 @@ function setupAutoUpdater() {
 }
 
 // ─── Installer la mise à jour et redémarrer ────────────
+let pendingUpdateVersion = null;
+
 function installAndRestart() {
   console.log('[update] installAndRestart called');
   console.log('[update] app path:', app.getAppPath());
@@ -387,15 +403,65 @@ function installAndRestart() {
     mainWindow = null;
   }
 
-  // 3. Petit délai pour laisser la fenêtre se fermer, puis installer
-  //    isSilent=true : pas de dialog, applique la MAJ directement
-  //    isForceRunAfter=true : relance l'app après installation
+  // 3. Essayer quitAndInstall, avec fallback vers téléchargement DMG
   setTimeout(() => {
     try {
       autoUpdater.quitAndInstall(false, true);
     } catch (err) {
       console.error('[update] quitAndInstall failed:', err);
+      // Fallback : ouvrir la page de releases GitHub
+      const version = pendingUpdateVersion || 'latest';
+      shell.openExternal(`https://github.com/kdumontm/cueforge-saas/releases/tag/v${version}`);
       app.exit(0);
     }
   }, 1000);
+}
+
+// ─── Fallback : télécharger le DMG directement ─────────
+async function downloadAndOpenDMG(version) {
+  const { net } = require('electron');
+  const os = require('os');
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+  const url = `https://github.com/kdumontm/cueforge-saas/releases/download/v${version}/CueForge-${version}-${arch}.dmg`;
+  const dest = path.join(os.tmpdir(), `CueForge-${version}-${arch}.dmg`);
+
+  console.log('[update] Downloading DMG from:', url);
+  mainWindow?.webContents.send('update-progress', { percent: 0, transferred: 0, total: 0 });
+
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest);
+    require('https').get(url, { headers: { 'User-Agent': 'CueForge' } }, (response) => {
+      // Handle redirects (GitHub uses 302)
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        require('https').get(response.headers.location, (finalResp) => {
+          const total = parseInt(finalResp.headers['content-length'] || '0', 10);
+          let transferred = 0;
+          finalResp.on('data', (chunk) => {
+            transferred += chunk.length;
+            const percent = total > 0 ? Math.floor(transferred / total * 100) : 0;
+            mainWindow?.webContents.send('update-progress', { percent, transferred, total });
+          });
+          finalResp.pipe(file);
+          file.on('finish', () => {
+            file.close();
+            console.log('[update] DMG downloaded to:', dest);
+            resolve(dest);
+          });
+        }).on('error', reject);
+      } else {
+        const total = parseInt(response.headers['content-length'] || '0', 10);
+        let transferred = 0;
+        response.on('data', (chunk) => {
+          transferred += chunk.length;
+          const percent = total > 0 ? Math.floor(transferred / total * 100) : 0;
+          mainWindow?.webContents.send('update-progress', { percent, transferred, total });
+        });
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          resolve(dest);
+        });
+      }
+    }).on('error', reject);
+  });
 }
