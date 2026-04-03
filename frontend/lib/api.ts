@@ -1250,10 +1250,6 @@ export async function getAnalytics(): Promise<DJAnalytics> {
   return r.json();
 }
 
-export async function recordPlay(trackId: number): Promise<void> {
-  await authFetch(`${API_URL}/analytics/${trackId}/play`, { method: 'POST', headers: authHeaders() });
-}
-
 // ══════════════════════════════════════════════════════════════════════════
 //  v4: MIX ANALYZER API
 // ══════════════════════════════════════════════════════════════════════════
