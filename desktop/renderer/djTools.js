@@ -261,56 +261,117 @@ const CueForgeApp = {
   async importFiles() {
     try {
       if (!window.cueforge?.openFileDialog) {
-        showToast('Import non disponible', 'error');
+        showToast('Import non disponible — vérifiez que l\'app est bien lancée', 'error');
         return;
       }
       const files = await window.cueforge.openFileDialog();
       if (!files || files.length === 0) return;
-      showToast(`Import de ${files.length} fichier(s)…`, 'info');
+      showToast(`Import de ${files.length} fichier(s) en cours…`, 'info');
+
+      let imported = 0;
+      let errors = 0;
+
       for (const filePath of files) {
         try {
-          const meta = await window.cueforge.readMetadata(filePath);
-          if (meta.error) continue;
+          // 1. Extraire le nom de fichier comme fallback
+          const fileName = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
+          const baseName = fileName.replace(/\.[^.]+$/, '') || 'Sans titre';
 
-          // Utiliser le dataLayer hybride (upload local + cloud)
-          let trackResult;
-          if (window.cueforge?.data?.tracks?.upload) {
-            const result = await window.cueforge.data.tracks.upload(filePath);
-            trackResult = result?.data;
+          // 2. Lire les métadonnées (non-bloquant si ça échoue)
+          let meta = {};
+          try {
+            if (window.cueforge?.readMetadata) {
+              meta = await window.cueforge.readMetadata(filePath) || {};
+              if (meta.error) {
+                console.warn('Metadata read error for', fileName, ':', meta.error);
+                meta = {}; // Continuer quand même avec les données basiques
+              }
+            }
+          } catch (metaErr) {
+            console.warn('Metadata exception for', fileName, ':', metaErr);
+            meta = {};
+          }
+
+          const trackTitle = meta.title || baseName;
+          const trackArtist = meta.artist || 'Artiste inconnu';
+
+          // 3. Sauvegarder via dataLayer hybride OU legacy
+          let trackResult = null;
+          try {
+            if (window.cueforge?.data?.tracks?.upload) {
+              const result = await window.cueforge.data.tracks.upload(filePath);
+              trackResult = result?.data;
+              if (result?.cloudError) {
+                console.warn('Cloud upload failed (saved locally):', result.cloudError);
+              }
+            } else if (window.cueforge?.upsertTrack) {
+              const localId = await window.cueforge.upsertTrack({
+                file_path: filePath,
+                file_name: fileName,
+                title: trackTitle,
+                artist: trackArtist,
+                album: meta.album || '',
+                bpm: meta.bpm || null,
+                key: meta.key || null,
+                duration: meta.duration ? formatTime(meta.duration) : '0:00',
+                format: meta.format || fileName.split('.').pop()?.toUpperCase() || '',
+                file_size: meta.fileSize || 0,
+              });
+              trackResult = { id: localId, title: trackTitle, artist: trackArtist };
+            }
+          } catch (uploadErr) {
+            console.warn('Upload/save error for', fileName, ':', uploadErr);
+            // Même si la sauvegarde échoue, on ajoute quand même en mémoire
+            trackResult = { id: Date.now(), title: trackTitle, artist: trackArtist };
+          }
+
+          // 4. Ajouter au tableau local (toujours, même si DB a échoué)
+          const newTrack = {
+            id: trackResult?.remote_id || trackResult?.id || Date.now(),
+            localId: trackResult?.id || null,
+            title: trackResult?.title || trackTitle,
+            artist: trackResult?.artist || trackArtist,
+            genre: trackResult?.genre || meta.genre || '',
+            bpm: trackResult?.bpm || meta.bpm || null,
+            key: trackResult?.key_name || trackResult?.key || meta.key || null,
+            energy: trackResult?.energy || null,
+            duration: meta.duration ? formatTime(meta.duration) : (trackResult?.duration || '0:00'),
+            rating: 0, tags: [], analyzed: false, color: null,
+            filePath, cuePoints: [],
+          };
+
+          // Éviter les doublons (même fichier déjà importé)
+          if (!this.tracks.find(t => t.filePath === filePath)) {
+            this.tracks.push(newTrack);
+            imported++;
           } else {
-            // Fallback legacy
-            trackResult = await window.cueforge.upsertTrack({
-              file_path: filePath,
-              file_name: filePath.split('/').pop() || filePath.split('\\').pop() || 'file',
-              title: meta.title || filePath.split('/').pop()?.replace(/\.[^.]+$/, '') || 'Sans titre',
-              artist: meta.artist || 'Artiste inconnu',
-              album: meta.album || '',
-              bpm: meta.bpm,
-              key: meta.key,
-              duration: meta.duration ? formatTime(meta.duration) : '0:00',
-              format: meta.format,
-              file_size: meta.fileSize,
-            });
+            console.warn('Track déjà dans la bibliothèque:', fileName);
           }
 
-          if (trackResult) {
-            this.tracks.push({
-              id: trackResult.remote_id || trackResult.id || Date.now(),
-              localId: trackResult.id,
-              title: trackResult.title || meta.title || 'Sans titre',
-              artist: trackResult.artist || meta.artist || 'Artiste inconnu',
-              genre: '', bpm: meta.bpm, key: meta.key,
-              energy: null, duration: meta.duration ? formatTime(meta.duration) : '0:00',
-              rating: 0, tags: [], analyzed: false, color: null,
-              filePath, cuePoints: [],
-            });
-          }
-        } catch (err) { console.warn('Import error for', filePath, err); }
+        } catch (err) {
+          errors++;
+          console.error('Import failed for', filePath, ':', err);
+        }
       }
+
+      // 5. Mettre à jour l'UI
       this.renderTrackList();
-      showToast(`${files.length} fichier(s) importé(s)`, 'success');
+      this.updateFilterGenres();
+
+      // 6. Feedback utilisateur précis
+      if (imported > 0 && errors === 0) {
+        showToast(`${imported} fichier(s) importé(s) avec succès`, 'success');
+      } else if (imported > 0 && errors > 0) {
+        showToast(`${imported} importé(s), ${errors} en erreur`, 'warning');
+      } else if (errors > 0) {
+        showToast(`Échec de l'import (${errors} erreur${errors > 1 ? 's' : ''})`, 'error');
+      } else {
+        showToast('Aucun nouveau fichier à importer', 'info');
+      }
+
     } catch (e) {
-      showToast('Erreur import', 'error');
+      console.error('Import global error:', e);
+      showToast(`Erreur d'import : ${e.message || 'inconnue'}`, 'error');
     }
   },
 
@@ -1749,34 +1810,36 @@ const CueForgeApp = {
       dragCounter = 0;
       if (dropOverlay) dropOverlay.classList.remove('show');
       const files = Array.from(e.dataTransfer?.files || []);
-      if (files.length > 0) {
-        showToast(`Import de ${files.length} fichier(s)…`, 'info');
-        // Files dropped from Finder have a path property
-        for (const file of files) {
-          if (file.path) {
+      const audioPaths = files.map(f => f.path).filter(Boolean);
+      if (audioPaths.length > 0) {
+        // Réutiliser le même flow robuste que importFiles via openFileDialog interne
+        showToast(`Import de ${audioPaths.length} fichier(s) en cours…`, 'info');
+        let imported = 0;
+        for (const filePath of audioPaths) {
+          try {
+            const fileName = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
+            const baseName = fileName.replace(/\.[^.]+$/, '') || 'Sans titre';
+            let meta = {};
+            try { meta = await window.cueforge?.readMetadata(filePath) || {}; if (meta.error) meta = {}; } catch { meta = {}; }
+            let trackResult = null;
             try {
-              const meta = await window.cueforge?.readMetadata(file.path);
-              if (meta && !meta.error) {
-                const track = await window.cueforge?.upsertTrack({
-                  file_path: file.path,
-                  title: meta.title || file.name.replace(/\.[^.]+$/, ''),
-                  artist: meta.artist || 'Artiste inconnu',
-                  bpm: meta.bpm, key: meta.key,
-                  duration: meta.duration ? formatTime(meta.duration) : '0:00',
-                });
-                this.tracks.push({
-                  id: track?.id || Date.now(), title: meta.title || file.name,
-                  artist: meta.artist || 'Artiste inconnu', genre: '', bpm: meta.bpm,
-                  key: meta.key, energy: null, duration: meta.duration ? formatTime(meta.duration) : '0:00',
-                  rating: 0, tags: [], analyzed: false, color: null,
-                  filePath: file.path, cuePoints: [],
-                });
+              if (window.cueforge?.data?.tracks?.upload) {
+                const result = await window.cueforge.data.tracks.upload(filePath);
+                trackResult = result?.data;
+              } else if (window.cueforge?.upsertTrack) {
+                const localId = await window.cueforge.upsertTrack({ file_path: filePath, file_name: fileName, title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu', album: meta.album || '', bpm: meta.bpm, key: meta.key, duration: meta.duration ? formatTime(meta.duration) : '0:00', format: meta.format || '', file_size: meta.fileSize || 0 });
+                trackResult = { id: localId, title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu' };
               }
-            } catch (err) { console.warn('Drop import error:', err); }
-          }
+            } catch { trackResult = { id: Date.now(), title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu' }; }
+            if (!this.tracks.find(t => t.filePath === filePath)) {
+              this.tracks.push({ id: trackResult?.remote_id || trackResult?.id || Date.now(), localId: trackResult?.id, title: trackResult?.title || meta.title || baseName, artist: trackResult?.artist || meta.artist || 'Artiste inconnu', genre: meta.genre || '', bpm: meta.bpm || null, key: meta.key || null, energy: null, duration: meta.duration ? formatTime(meta.duration) : '0:00', rating: 0, tags: [], analyzed: false, color: null, filePath, cuePoints: [] });
+              imported++;
+            }
+          } catch (err) { console.warn('Drop import error:', err); }
         }
         this.renderTrackList();
-        showToast(`${files.length} fichier(s) importé(s)`, 'success');
+        this.updateFilterGenres();
+        showToast(imported > 0 ? `${imported} fichier(s) importé(s)` : 'Aucun nouveau fichier importé', imported > 0 ? 'success' : 'info');
       }
     });
 
