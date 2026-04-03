@@ -37,9 +37,71 @@ function toast(msg, type = 'info') {
   if (!c) return;
   const d = document.createElement('div');
   d.className = `toast ${type}`;
+  d.setAttribute('role', 'alert');
   d.textContent = msg;
   c.appendChild(d);
   setTimeout(() => d.remove(), 3500);
+}
+
+// ── Modal Dialog System ────────────────────────────────────
+function showModal({ title, message, inputPlaceholder, confirmLabel, danger, onConfirm, onCancel }) {
+  const overlay = document.getElementById('modalOverlay');
+  const titleEl = document.getElementById('modalTitle');
+  const msgEl = document.getElementById('modalMessage');
+  const inputEl = document.getElementById('modalInput');
+  const confirmBtn = document.getElementById('modalConfirm');
+  const cancelBtn = document.getElementById('modalCancel');
+  if (!overlay) return;
+
+  titleEl.textContent = title || '';
+  msgEl.textContent = message || '';
+  inputEl.style.display = inputPlaceholder ? 'block' : 'none';
+  inputEl.value = '';
+  if (inputPlaceholder) { inputEl.placeholder = inputPlaceholder; }
+  confirmBtn.textContent = confirmLabel || 'OK';
+  confirmBtn.className = `modal-btn ${danger ? 'modal-btn-danger' : 'modal-btn-confirm'}`;
+  overlay.classList.add('show');
+
+  // Focus management
+  setTimeout(() => { inputPlaceholder ? inputEl.focus() : confirmBtn.focus(); }, 50);
+
+  function close() {
+    overlay.classList.remove('show');
+    confirmBtn.onclick = null; cancelBtn.onclick = null;
+    document.removeEventListener('keydown', keyHandler);
+  }
+  function keyHandler(e) {
+    if (e.key === 'Escape') { close(); onCancel?.(); }
+    if (e.key === 'Enter' && inputPlaceholder) { confirmBtn.click(); }
+  }
+  document.addEventListener('keydown', keyHandler);
+
+  confirmBtn.onclick = () => { close(); onConfirm?.(inputEl.value); };
+  cancelBtn.onclick = () => { close(); onCancel?.(); };
+}
+
+// Promise-based wrappers
+function confirmModal(title, message, { danger = false, confirmLabel = 'Supprimer' } = {}) {
+  return new Promise(resolve => {
+    showModal({ title, message, danger, confirmLabel, onConfirm: () => resolve(true), onCancel: () => resolve(false) });
+  });
+}
+function promptModal(title, message, placeholder) {
+  return new Promise(resolve => {
+    showModal({ title, message, inputPlaceholder: placeholder, confirmLabel: 'Créer', onConfirm: (v) => resolve(v?.trim() || null), onCancel: () => resolve(null) });
+  });
+}
+
+// ── Loading State Helper ───────────────────────────────────
+function showLoading(container, message = 'Chargement…') {
+  if (!container) return;
+  container.innerHTML = `<div class="loading-state"><div class="spinner"></div><span>${message}</span></div>`;
+}
+
+// ── Skeleton Loader Helper ─────────────────────────────────
+function showSkeleton(container, count = 3) {
+  if (!container) return;
+  container.innerHTML = Array(count).fill('<div class="skeleton skeleton-card" style="margin-bottom:12px"></div>').join('');
 }
 
 let _allTracks = [];
@@ -53,7 +115,10 @@ async function ensureTracks() {
     } else if (cf?.getTracks) {
       _allTracks = await cf.getTracks() || [];
     }
-  } catch (e) { console.warn('ensureTracks:', e); }
+  } catch (e) {
+    console.warn('ensureTracks:', e);
+    toast('Erreur chargement des tracks', 'error');
+  }
   return _allTracks;
 }
 
@@ -122,11 +187,18 @@ function renderCompatDropdown(tracks) {
     };
   });
 
-  // Close on outside click
+  // Close on outside click + Escape
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.compat-selector')) {
       dropdown?.classList.remove('show');
       btn?.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dropdown?.classList.contains('show')) {
+      dropdown.classList.remove('show');
+      btn?.classList.remove('open');
+      btn?.focus();
     }
   });
 }
@@ -137,7 +209,7 @@ async function selectCompatTrack(track) {
   if (label) label.textContent = `${track.title || track.filename} — ${Math.round(track.bpm||0)} BPM · ${track.camelot||track.key_name||''}`;
 
   const area = document.getElementById('compatResultsArea');
-  area.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted)">Recherche des compatibles…</div>';
+  showLoading(area, 'Recherche des tracks compatibles…');
 
   try {
     const id = track.remote_id || track.id;
@@ -210,6 +282,8 @@ let playlistsData = [];
 let currentPlaylistId = null;
 
 async function initPlaylists() {
+  const grid = document.getElementById('playlistsGrid');
+  showSkeleton(grid, 4);
   try {
     if (window.cueforge?.api?.playlists?.list) {
       const r = await window.cueforge.api.playlists.list();
@@ -218,7 +292,11 @@ async function initPlaylists() {
       const r = await window.cueforge.data.playlists.list();
       playlistsData = r?.data || r || [];
     }
-  } catch (e) { console.warn('initPlaylists:', e); playlistsData = []; }
+  } catch (e) {
+    console.warn('initPlaylists:', e);
+    toast('Impossible de charger les playlists', 'error');
+    playlistsData = [];
+  }
 
   currentPlaylistId = null;
   renderPlaylistsGrid();
@@ -264,14 +342,16 @@ function renderPlaylistsGrid() {
   grid.querySelectorAll('.playlist-card-menu').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Supprimer cette playlist ?')) return;
       const id = parseInt(btn.dataset.id);
+      const pl = playlistsData.find(p => p.id === id);
+      const ok = await confirmModal('Supprimer la playlist ?', `"${pl?.name || 'Playlist'}" sera définitivement supprimée.`, { danger: true });
+      if (!ok) return;
       try {
         if (window.cueforge?.api?.playlists?.delete) await window.cueforge.api.playlists.delete(id);
         else if (window.cueforge?.data?.playlists?.delete) await window.cueforge.data.playlists.delete(id);
         toast('Playlist supprimée', 'success');
         initPlaylists();
-      } catch (e) { toast('Erreur suppression', 'error'); }
+      } catch (e) { toast('Erreur lors de la suppression', 'error'); }
     });
   });
 }
@@ -281,8 +361,12 @@ async function openPlaylistDetail(id) {
   const grid = document.getElementById('playlistsGrid');
   const detail = document.getElementById('playlistDetailView');
   const createForm = document.getElementById('playlistCreateForm');
+  const empty = document.getElementById('playlistsEmpty');
   if (grid) grid.style.display = 'none';
   if (createForm) createForm.classList.remove('show');
+  if (empty) empty.style.display = 'none';
+  detail.classList.add('active');
+  showLoading(detail, 'Chargement de la playlist…');
 
   let playlist = playlistsData.find(p => p.id === id);
   try {
@@ -357,12 +441,18 @@ let cratesData = [];
 let crateRules = [];
 
 async function initCrates() {
+  const list = document.getElementById('cratesList');
+  showSkeleton(list, 3);
   try {
     if (window.cueforge?.api?.crates?.list) {
       const r = await window.cueforge.api.crates.list();
       cratesData = r?.data || r || [];
     }
-  } catch (e) { console.warn('initCrates:', e); cratesData = []; }
+  } catch (e) {
+    console.warn('initCrates:', e);
+    toast('Impossible de charger les Smart Crates', 'error');
+    cratesData = [];
+  }
   renderCratesList();
   setupCrateEvents();
 }
@@ -418,12 +508,15 @@ function renderCratesList() {
   list.querySelectorAll('.crate-card-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('Supprimer ce smart crate ?')) return;
+      const id = parseInt(btn.dataset.id);
+      const crate = cratesData.find(c => c.id === id);
+      const ok = await confirmModal('Supprimer ce Smart Crate ?', `"${crate?.name || 'Crate'}" et ses règles seront supprimés.`, { danger: true });
+      if (!ok) return;
       try {
-        if (window.cueforge?.api?.crates?.delete) await window.cueforge.api.crates.delete(parseInt(btn.dataset.id));
-        toast('Crate supprimé', 'success');
+        if (window.cueforge?.api?.crates?.delete) await window.cueforge.api.crates.delete(id);
+        toast('Smart Crate supprimé', 'success');
         initCrates();
-      } catch (e) { toast('Erreur', 'error'); }
+      } catch (e) { toast('Erreur lors de la suppression', 'error'); }
     });
   });
 }
@@ -431,7 +524,7 @@ function renderCratesList() {
 async function loadCrateTracks(crateId) {
   const body = document.getElementById('crateBody' + crateId);
   if (!body) return;
-  body.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px">Chargement…</div>';
+  showLoading(body, 'Chargement des tracks…');
   try {
     let crate;
     if (window.cueforge?.api?.crates?.get) {
@@ -685,9 +778,10 @@ function renderGigPrep() {
 
   // Bind add item
   content.querySelectorAll('.gig-add-item-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const ci = parseInt(btn.dataset.cat);
-      const label = prompt('Nom de l\'élément :');
+      const catName = gig.checklist[ci].cat.split(' ').slice(1).join(' ');
+      const label = await promptModal('Ajouter un élément', `Nouvel élément dans "${catName}"`, 'Ex: Vérifier les câbles…');
       if (!label) return;
       gig.checklist[ci].items.push({ label, checked: false });
       saveGigs();
@@ -707,8 +801,8 @@ function renderGigPrep() {
 }
 
 function setupGigPrepEvents() {
-  const createGig = () => {
-    const name = prompt('Nom du gig :');
+  const createGig = async () => {
+    const name = await promptModal('Nouveau Gig', 'Donne un nom à ton gig', 'Ex: Warehouse Party, Club XYZ…');
     if (!name) return;
     gigs.push({
       name,
