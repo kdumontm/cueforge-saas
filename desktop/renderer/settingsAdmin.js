@@ -120,6 +120,9 @@ const Settings = {
 
     // DJ Prefs
     DJPrefs.initUI();
+
+    // Load profile immediately to populate name, email, plan
+    this.loadProfile();
   },
 
   async loadProfile() {
@@ -134,7 +137,7 @@ const Settings = {
       document.getElementById('accountName2').textContent = this.profile.name || '—';
       document.getElementById('accountEmail2').textContent = this.profile.email || '—';
 
-      const plan = this.profile.subscription_plan || 'free';
+      const plan = this.profile.subscription_plan || this.profile.plan || 'free';
       const badge = document.getElementById('accountPlanBadge');
       badge.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
       badge.className = `plan-badge-lg plan-${plan}`;
@@ -259,6 +262,13 @@ const AdminPanel = {
 
   async loadDashboard() {
     try {
+      const cards = document.getElementById('adminStatCards');
+      const distrib = document.getElementById('adminPlanDistrib');
+      if (!cards || !distrib) {
+        console.warn('Admin DOM not ready, retrying in 200ms...');
+        setTimeout(() => this.loadDashboard(), 200);
+        return;
+      }
       const data = await window.cueforge.getAdminDashboard();
       const cards = document.getElementById('adminStatCards');
       const distrib = document.getElementById('adminPlanDistrib');
@@ -473,6 +483,17 @@ const UpdateChecker = {
       if (label) label.textContent = `v${version}`;
     } catch (err) {
       console.warn('Could not get app version:', err);
+      // Fallback: retry after DOM is fully ready
+      setTimeout(async () => {
+        try {
+          const version = await window.cueforge.getAppVersion();
+          const label = document.getElementById('currentVersionLabel');
+          if (label) label.textContent = `v${version}`;
+        } catch (e) {
+          const label = document.getElementById('currentVersionLabel');
+          if (label) label.textContent = 'v2.7.3';
+        }
+      }, 1000);
     }
   },
 

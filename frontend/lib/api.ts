@@ -99,7 +99,15 @@ export async function login(identifier: string, password: string): Promise<AuthR
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
   });
-  if (!response.ok) throw new Error('Invalid username or password');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    if (response.status === 403) {
+      const error = new Error(err.detail || 'Email non vérifié');
+      (error as any).status = 403;
+      throw error;
+    }
+    throw new Error(err.detail || 'Identifiants invalides');
+  }
   const data: AuthResponse = await response.json();
   setToken(data.access_token);
   return data;

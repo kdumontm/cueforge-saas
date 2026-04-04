@@ -2,7 +2,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Music2, Eye, EyeOff, Loader2, Check } from 'lucide-react';
+import { Music2, Eye, EyeOff, Loader2, Check, X } from 'lucide-react';
 import { register, login } from '@/lib/api';
 
 export default function RegisterPage() {
@@ -22,7 +22,7 @@ export default function RegisterPage() {
     e.preventDefault();
     if (!username.trim()) { setError('Le nom d\'utilisateur est requis'); return; }
     if (!pwdMatch) { setError('Les mots de passe ne correspondent pas'); return; }
-    if (!pwdStrong) { setError('Mot de passe trop court (min. 8 caract\u00e8res)'); return; }
+    if (!pwdStrong) { setError('Mot de passe trop court (min. 8 caractères)'); return; }
     setLoading(true);
     setError('');
     try {
@@ -30,7 +30,7 @@ export default function RegisterPage() {
       await login(username, password);
       router.push('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Inscription \u00e9chou\u00e9e');
+      setError(err instanceof Error ? err.message : 'Inscription échouée');
     } finally {
       setLoading(false);
     }
@@ -49,10 +49,10 @@ export default function RegisterPage() {
             </div>
             <span className="text-2xl font-bold text-white">CueForge</span>
           </Link>
-          <p className="text-slate-400 mt-3 text-sm">Cr\u00e9e ton compte gratuit en 30 secondes.</p>
+          <p className="text-slate-400 mt-3 text-sm">Crée ton compte gratuit en 30 secondes.</p>
         </div>
         <div className="bg-bg-secondary border border-slate-800/60 rounded-2xl p-8">
-          <h1 className="text-xl font-bold text-white mb-6">Cr\u00e9er un compte</h1>
+          <h1 className="text-xl font-bold text-white mb-6">Créer un compte</h1>
           <div className="flex gap-4 mb-6">
             {['BPM auto', 'Cue points', 'Export XML'].map(f => (
               <div key={f} className="flex items-center gap-1 text-xs text-slate-400">
@@ -67,7 +67,7 @@ export default function RegisterPage() {
             {/* Username */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Nom d&apos;utilisateur <span className="text-slate-500 text-xs">(utilis\u00e9 pour te connecter)</span>
+                Nom d&apos;utilisateur <span className="text-slate-500 text-xs">(utilisé pour te connecter)</span>
               </label>
               <input
                 type="text"
@@ -82,7 +82,7 @@ export default function RegisterPage() {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Email <span className="text-slate-500 text-xs">(pour r\u00e9cup\u00e9rer ton compte)</span>
+                Email <span className="text-slate-500 text-xs">(pour récupérer ton compte)</span>
               </label>
               <input
                 type="email"
@@ -102,7 +102,7 @@ export default function RegisterPage() {
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Minimum 8 caract\u00e8res"
+                  placeholder="Minimum 8 caractères"
                   required
                   className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm pr-12 transition-colors"
                 />
@@ -112,7 +112,7 @@ export default function RegisterPage() {
               </div>
               {password.length > 0 && (
                 <div className={`mt-1 text-xs flex items-center gap-1 ${pwdStrong ? 'text-green-400' : 'text-orange-400'}`}>
-                  <Check size={11} /> {pwdStrong ? 'Mot de passe valide' : 'Trop court (min. 8 caract\u00e8res)'}
+                  {pwdStrong ? <Check size={11} /> : <X size={11} />} {pwdStrong ? 'Mot de passe valide' : 'Trop court (min. 8 caractères)'}
                 </div>
               )}
             </div>
@@ -123,25 +123,25 @@ export default function RegisterPage() {
                 type={showPwd ? 'text' : 'password'}
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
-                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                placeholder="••••••••"
                 required
                 className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
               />
               {confirm.length > 0 && (
                 <div className={`mt-1 text-xs flex items-center gap-1 ${pwdMatch ? 'text-green-400' : 'text-red-400'}`}>
-                  <Check size={11} /> {pwdMatch ? 'Les mots de passe correspondent' : 'Ne correspondent pas'}
+                  {pwdMatch ? <Check size={11} /> : <X size={11} />} {pwdMatch ? 'Les mots de passe correspondent' : 'Ne correspondent pas'}
                 </div>
               )}
             </div>
             <button type="submit" disabled={loading}
               className="w-full py-3 bg-accent-purple hover:bg-accent-purple-light disabled:opacity-50 text-white font-semibold rounded-xl transition-all hover:shadow-lg hover:shadow-purple-900/40 flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? (<><Loader2 size={18} className="animate-spin" /> Cr\u00e9ation...</>) : 'Cr\u00e9er mon compte'}
+              {loading ? (<><Loader2 size={18} className="animate-spin" /> Création...</>) : 'Créer mon compte'}
             </button>
           </form>
         </div>
         <p className="text-center text-slate-500 text-sm mt-6">
-          D\u00e9j\u00e0 un compte ?{' '}
+          Déjà un compte ?{' '}
           <Link href="/login" className="text-accent-purple-light hover:text-accent-purple font-medium transition-colors">Se connecter</Link>
         </p>
       </div>

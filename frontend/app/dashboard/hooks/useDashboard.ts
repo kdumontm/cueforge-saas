@@ -1,7 +1,8 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, useContext } from 'react';
+import { LangContext } from '@/components/LangProvider';
 import {
   Upload, Music2, Loader2, CheckCircle2, XCircle, Download, Trash2, Clock,
   Activity, Hash, Disc3, ChevronDown, ChevronUp, ExternalLink, User, Tag,
@@ -529,8 +530,10 @@ export function useDashboard() {
   const [showBeatGrid, setShowBeatGrid] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
 
-  // ── Language ──
-  const [lang, setLang] = useState<string>('fr');
+  // ── Language (synced with global LangProvider) ──
+  const langCtx = useContext(LangContext);
+  const lang = langCtx.lang;
+  const setLang = langCtx.setLang;
   const t = (k: string) => TR[lang]?.[k] || k;
 
   // ── Bulk Operations ──
