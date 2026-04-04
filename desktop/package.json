@@ -27,7 +27,6 @@
     "productName": "CueForge",
     "afterPack": "./scripts/afterPack.js",
     "npmRebuild": true,
-    "buildDependenciesFromSource": true,
     "asar": true,
     "asarUnpack": [
       "**/better-sqlite3/**/*",
