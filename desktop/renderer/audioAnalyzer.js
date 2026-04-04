@@ -74,6 +74,7 @@ async function analyzeAudio(arrayBuffer, onProgress = () => {}) {
     bpm:       Math.round(bpm * 10) / 10,
     key_name,
     energy:    Math.round(energy * 1000) / 10,
+    duration_ms: Math.round(duration * 1000),
     cue_points,
   };
 }

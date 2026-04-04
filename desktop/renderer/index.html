@@ -409,10 +409,14 @@
 
     /* ── Notification Panel ─────────────────────────────────── */
     .notif-panel {
-      display: none; position: absolute; right: 0; top: 42px;
-      width: 320px; background: var(--bg-card);
-      border: 1px solid var(--border-default); border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4); z-index: 50; overflow: hidden;
+      display: none; position: absolute; top: 40px; right: 80px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 280px;
+      z-index: 1000;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
     .notif-panel.show { display: block; animation: dropdownIn 0.15s ease; }
     .notif-header {
@@ -2695,8 +2699,16 @@
           const t = titles[view] || [view, ''];
           document.getElementById('topbarTitle').textContent = t[0];
           document.getElementById('topbarSubtitle').textContent = t[1];
+          if (view === 'settings' && typeof initSettingsAdmin === 'function') { initSettingsAdmin(); Settings.init(); }
           if (typeof onViewSwitch === 'function') onViewSwitch(view);
         });
+      });
+
+      // Global search bar handler
+      document.getElementById('globalSearch')?.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        const trackSearch = document.getElementById('trackSearch');
+        if (trackSearch) { trackSearch.value = e.target.value; trackSearch.dispatchEvent(new Event('input')); }
       });
 
       // Tab switching

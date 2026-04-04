@@ -66,6 +66,16 @@ function formatTimeMs(ms) {
   return formatTime(ms / 1000);
 }
 
+// Handle both seconds and milliseconds automatically
+function formatDuration(value) {
+  if (!value) return '0:00';
+  // If value > 3600 (1 hour in seconds), assume it's milliseconds
+  if (typeof value === 'number' && value > 3600) {
+    return formatTime(value / 1000);
+  }
+  return formatTime(value);
+}
+
 function parseDuration(d) {
   if (!d) return 0;
   if (typeof d === 'number') return d;
@@ -313,7 +323,7 @@ const CueForgeApp = {
                 album: meta.album || '',
                 bpm: meta.bpm || null,
                 key: meta.key || null,
-                duration: meta.duration ? formatTime(meta.duration) : '0:00',
+                duration: meta.duration ? formatDuration(meta.duration) : '0:00',
                 format: meta.format || fileName.split('.').pop()?.toUpperCase() || '',
                 file_size: meta.fileSize || 0,
               });
@@ -335,7 +345,7 @@ const CueForgeApp = {
             bpm: trackResult?.bpm || meta.bpm || null,
             key: trackResult?.key_name || trackResult?.key || meta.key || null,
             energy: trackResult?.energy || null,
-            duration: meta.duration ? formatTime(meta.duration) : (trackResult?.duration || '0:00'),
+            duration: meta.duration ? formatDuration(meta.duration) : (trackResult?.duration || '0:00'),
             rating: 0, tags: [], analyzed: false, color: null,
             filePath, cuePoints: [],
           };
@@ -1827,12 +1837,12 @@ const CueForgeApp = {
                 const result = await window.cueforge.data.tracks.upload(filePath);
                 trackResult = result?.data;
               } else if (window.cueforge?.upsertTrack) {
-                const localId = await window.cueforge.upsertTrack({ file_path: filePath, file_name: fileName, title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu', album: meta.album || '', bpm: meta.bpm, key: meta.key, duration: meta.duration ? formatTime(meta.duration) : '0:00', format: meta.format || '', file_size: meta.fileSize || 0 });
+                const localId = await window.cueforge.upsertTrack({ file_path: filePath, file_name: fileName, title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu', album: meta.album || '', bpm: meta.bpm, key: meta.key, duration: meta.duration ? formatDuration(meta.duration) : '0:00', format: meta.format || '', file_size: meta.fileSize || 0 });
                 trackResult = { id: localId, title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu' };
               }
             } catch { trackResult = { id: Date.now(), title: meta.title || baseName, artist: meta.artist || 'Artiste inconnu' }; }
             if (!this.tracks.find(t => t.filePath === filePath)) {
-              this.tracks.push({ id: trackResult?.remote_id || trackResult?.id || Date.now(), localId: trackResult?.id, title: trackResult?.title || meta.title || baseName, artist: trackResult?.artist || meta.artist || 'Artiste inconnu', genre: meta.genre || '', bpm: meta.bpm || null, key: meta.key || null, energy: null, duration: meta.duration ? formatTime(meta.duration) : '0:00', rating: 0, tags: [], analyzed: false, color: null, filePath, cuePoints: [] });
+              this.tracks.push({ id: trackResult?.remote_id || trackResult?.id || Date.now(), localId: trackResult?.id, title: trackResult?.title || meta.title || baseName, artist: trackResult?.artist || meta.artist || 'Artiste inconnu', genre: meta.genre || '', bpm: meta.bpm || null, key: meta.key || null, energy: null, duration: meta.duration ? formatDuration(meta.duration) : '0:00', rating: 0, tags: [], analyzed: false, color: null, filePath, cuePoints: [] });
               imported++;
             }
           } catch (err) { console.warn('Drop import error:', err); }

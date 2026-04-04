@@ -552,6 +552,7 @@ async function loadCrateTracks(crateId) {
 function setupCrateEvents() {
   const newBtn = document.getElementById('newCratePageBtn');
   const emptyBtn = document.getElementById('cratesEmptyBtn');
+  const addCrateBtn = document.getElementById('addCrateBtn');
   const form = document.getElementById('crateCreateForm');
   const cancelBtn = document.getElementById('crateCreateCancel');
   const okBtn = document.getElementById('crateCreateOk');
@@ -562,6 +563,7 @@ function setupCrateEvents() {
   const showForm = () => { form?.classList.add('show'); renderRules(); };
   newBtn?.addEventListener('click', showForm);
   emptyBtn?.addEventListener('click', showForm);
+  addCrateBtn?.addEventListener('click', showForm);
   cancelBtn?.addEventListener('click', () => { form?.classList.remove('show'); crateRules = []; });
   addRuleBtn?.addEventListener('click', () => {
     crateRules.push({ field: 'bpm', operator: '=', value: '' });
