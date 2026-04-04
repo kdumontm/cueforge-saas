@@ -55,6 +55,9 @@
       "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
+      "entitlements": "./scripts/entitlements.plist",
+      "entitlementsInherit": "./scripts/entitlements.plist",
+      "signIgnore": ".*",
       "darkModeSupport": true
     },
     "win": {
