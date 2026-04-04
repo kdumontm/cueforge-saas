@@ -133,3 +133,59 @@ input:focus, textarea:focus {
 .theme-transition * {
   transition: background-color 0.25s ease, color 0.2s ease, border-color 0.25s ease;
 }
+
+/* ═══════════════════════════════════════════════ */
+/* ANIMATIONS (aligned with desktop)              */
+/* ═══════════════════════════════════════════════ */
+
+/* Modal overlay fade + content scale-in */
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalContentIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-overlay-animate {
+  animation: modalOverlayIn 0.15s ease;
+}
+.modal-content-animate {
+  animation: modalContentIn 0.2s ease;
+}
+
+/* Dropdown scale-in */
+@keyframes dropdownIn {
+  from { opacity: 0; transform: scaleY(0.9); transform-origin: top; }
+  to { opacity: 1; transform: scaleY(1); }
+}
+.dropdown-animate {
+  animation: dropdownIn 0.15s ease;
+}
+
+/* Toast slide-up */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast-animate {
+  animation: toastIn 0.3s ease;
+}
+
+/* Page content fade-in */
+@keyframes pageIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-animate {
+  animation: pageIn 0.2s ease;
+}
+
+/* Auto-apply modal animations to common overlay patterns */
+.fixed.inset-0[class*="bg-black"] {
+  animation: modalOverlayIn 0.15s ease;
+}
+.fixed.inset-0[class*="bg-black"] > div:first-child,
+.fixed.inset-0[class*="bg-black"] > [class*="rounded"] {
+  animation: modalContentIn 0.2s ease;
+}
