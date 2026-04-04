@@ -194,28 +194,38 @@ export default function DownloadPage() {
                     <ol className="space-y-2 text-sm text-zinc-500">
                       <li className="flex items-start gap-2">
                         <span className="text-purple-400 font-mono mt-0.5">1.</span>
-                        Téléchargez le fichier .dmg
+                        Téléchargez le fichier .dmg et ouvrez-le
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-purple-400 font-mono mt-0.5">2.</span>
-                        Ouvrez-le et glissez CueForge dans Applications
+                        Glissez CueForge dans le dossier Applications
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-purple-400 font-mono mt-0.5">3.</span>
                         <span>
-                          <strong className="text-zinc-300">Premier lancement :</strong> faites clic-droit sur CueForge
-                          dans Applications → &quot;Ouvrir&quot;, puis confirmez dans la fenêtre qui s&apos;affiche
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-purple-400 font-mono mt-0.5">4.</span>
-                        <span>
-                          Si macOS affiche &quot;endommagé&quot; : allez dans
-                          <strong className="text-zinc-300"> Réglages Système → Confidentialité et sécurité</strong> et
-                          cliquez &quot;Ouvrir quand même&quot;
+                          <strong className="text-zinc-300">Premier lancement :</strong> faites <strong className="text-zinc-300">clic-droit</strong> sur CueForge
+                          dans Applications → <strong className="text-zinc-300">&quot;Ouvrir&quot;</strong> → confirmez dans la fenêtre
                         </span>
                       </li>
                     </ol>
+
+                    {/* Bloc fix "endommagé" */}
+                    <div className="mt-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                      <p className="text-amber-400 text-xs font-medium mb-2">
+                        macOS affiche &quot;endommagé&quot; ou bloque l&apos;ouverture ?
+                      </p>
+                      <p className="text-zinc-500 text-xs mb-2">
+                        Ouvrez <strong className="text-zinc-300">Terminal</strong> et collez cette commande :
+                      </p>
+                      <div className="relative">
+                        <code className="block text-xs bg-zinc-950 rounded px-3 py-2 text-green-400 font-mono select-all">
+                          xattr -cr /Applications/CueForge.app && open /Applications/CueForge.app
+                        </code>
+                      </div>
+                      <p className="text-zinc-600 text-xs mt-2">
+                        Cette commande supprime le blocage de sécurité. Nécessaire une seule fois.
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
