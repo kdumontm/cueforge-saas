@@ -109,6 +109,9 @@ const MOCK_TRACKS = [
 function generateWaveformSVG(width, height, color1 = '#2563eb', color2 = '#3b82f6', color3 = '#60a5fa') {
   const bars = Math.floor(width / 3);
   let paths = '';
+  // Spectral colors: red (low freq) -> orange -> yellow -> green (mid) -> cyan -> blue -> purple (high freq)
+  const spectralColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7'];
+
   for (let i = 0; i < bars; i++) {
     const x = i * 3;
     const h1 = (Math.sin(i * 0.15) * 0.4 + 0.5) * height * 0.4 + Math.random() * height * 0.1;
@@ -117,9 +120,17 @@ function generateWaveformSVG(width, height, color1 = '#2563eb', color2 = '#3b82f
     const y1 = height / 2 - h1 / 2;
     const y2 = height / 2 - h2 / 2;
     const y3 = height / 2 - h3 / 2;
-    paths += `<rect x="${x}" y="${y3}" width="2" height="${h3}" fill="${color3}" opacity="0.4" rx="1"/>`;
-    paths += `<rect x="${x}" y="${y2}" width="2" height="${h2}" fill="${color2}" opacity="0.6" rx="1"/>`;
-    paths += `<rect x="${x}" y="${y1}" width="2" height="${h1}" fill="${color1}" opacity="0.8" rx="1"/>`;
+
+    // Use spectral color based on bar position (frequency distribution)
+    const colorIndex = Math.floor((i / bars) * spectralColors.length);
+    const spectralColor = spectralColors[Math.min(colorIndex, spectralColors.length - 1)];
+
+    // High frequencies (purple/blue) - thin outer bars
+    paths += `<rect x="${x}" y="${y3}" width="2" height="${h3}" fill="${spectralColor}" opacity="0.4" rx="1"/>`;
+    // Mid frequencies (green/cyan) - middle bars
+    paths += `<rect x="${x}" y="${y2}" width="2" height="${h2}" fill="${spectralColor}" opacity="0.6" rx="1"/>`;
+    // Low frequencies (red/orange) - main bars
+    paths += `<rect x="${x}" y="${y1}" width="2" height="${h1}" fill="${spectralColor}" opacity="0.8" rx="1"/>`;
   }
   return `<svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${paths}</svg>`;
 }
@@ -192,6 +203,7 @@ const CueForgeApp = {
   // ═══════════════════════════════════════════════════════════
   init() {
     this.tracks = MOCK_TRACKS.slice();
+    this.updateAnalysisBadge();
     this.loadRealTracks();
     this.initFilterPanel();
     this.renderTrackList();
@@ -231,6 +243,7 @@ const CueForgeApp = {
             cuePoints: t.cuePoints || [],
           }));
           this.tracks = mapped;
+          this.updateAnalysisBadge();
           this.renderTrackList();
           const src = result?.source === 'cloud' ? '☁️' : '💾';
           showToast(`${src} ${mapped.length} tracks chargées`, 'success');
@@ -256,6 +269,7 @@ const CueForgeApp = {
             cuePoints: t.cuePoints || [],
           }));
           this.tracks = mapped;
+          this.updateAnalysisBadge();
           this.renderTrackList();
           showToast(`💾 ${mapped.length} tracks chargées (local)`, 'success');
         }
@@ -471,11 +485,11 @@ const CueForgeApp = {
       badges.innerHTML = html;
     }
 
-    // Waveform
+    // Waveform with spectral colors
     const overview = document.getElementById('waveformOverview');
     const detail = document.getElementById('waveformDetail');
-    if (overview) overview.innerHTML = generateWaveformSVG(800, 56, track.color || '#2563eb', '#3b82f680', '#60a5fa60');
-    if (detail) detail.innerHTML = generateWaveformSVG(800, 90, track.color || '#2563eb', '#3b82f6', '#60a5fa');
+    if (overview) overview.innerHTML = generateWaveformSVG(800, 56);
+    if (detail) detail.innerHTML = generateWaveformSVG(800, 90);
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -673,6 +687,20 @@ const CueForgeApp = {
     const badge = document.getElementById('filterBadge');
     if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
     document.getElementById('filterToggleBtn')?.classList.toggle('active', count > 0 || document.getElementById('filterPanel')?.classList.contains('open'));
+  },
+
+  updateAnalysisBadge() {
+    const unanalyzedCount = this.tracks.filter(t => !t.analyzed).length;
+    const btn = document.getElementById('btnAnalyzeAll');
+    const label = document.getElementById('unanalyzedCountLabel');
+    if (label) label.textContent = unanalyzedCount;
+    if (btn) {
+      if (unanalyzedCount > 0) {
+        btn.style.display = 'flex';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
   },
 
   getFilteredTracks() {
@@ -979,6 +1007,11 @@ const CueForgeApp = {
 
     const maxMs = Math.max(1, ...cues.map(c => c.position_ms || 0), parseDuration(track.duration) * 1000);
 
+    // Auto-generate button
+    const autoGenHtml = `<div class="cue-auto-gen-area">
+      <button class="cue-auto-gen-btn" id="btnAutoGenCues">✨ Auto-générer les cue points</button>
+    </div>`;
+
     // Timeline
     let timelineHtml = '';
     if (cues.length > 0) {
@@ -1006,7 +1039,7 @@ const CueForgeApp = {
     // Cue list
     let listHtml = '';
     if (cues.length === 0) {
-      listHtml = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px">Aucun cue — positionne le playhead puis clique le bouton</div>';
+      listHtml = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:12px">Aucun cue — utilise le bouton Auto-générer ou ajoute manuellement</div>';
     } else {
       listHtml = '<div class="cue-list">';
       cues.forEach((cue, idx) => {
@@ -1034,7 +1067,7 @@ const CueForgeApp = {
       `<span class="cue-legend-pill" style="background:${t.color}12;border:1px solid ${t.color}25;color:${t.color}cc">${t.icon} ${t.label}</span>`
     ).join('')}</div>`;
 
-    pane.innerHTML = timelineHtml + addHtml + listHtml + legendHtml;
+    pane.innerHTML = autoGenHtml + timelineHtml + addHtml + listHtml + legendHtml;
   },
 
   // ─── Beatgrid Tab ───────────────────────────────────────

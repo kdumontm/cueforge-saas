@@ -152,7 +152,10 @@ const Settings = {
       const sidebarUsername = document.getElementById('sidebarUsername');
       const sidebarPlan = document.getElementById('sidebarPlan');
       if (sidebarUsername) sidebarUsername.textContent = this.profile.name || this.profile.email;
-      if (sidebarPlan) sidebarPlan.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+      if (sidebarPlan) {
+        const planDisplay = `Plan ${plan.charAt(0).toUpperCase() + plan.slice(1)}`;
+        sidebarPlan.textContent = planDisplay;
+      }
 
     } catch (err) {
       console.error('Failed to load profile:', err);
