@@ -1,12 +1,10 @@
 """
 Router pour la gestion des téléchargements de l'app desktop.
 Accès contrôlé par le plan d'abonnement de l'utilisateur.
-L'admin peut configurer quels plans ont accès au téléchargement.
-Supporte macOS (.dmg) et Windows (.exe).
+Supporte macOS (arm64 + Intel) et Windows.
 
 La version et les URLs sont récupérées automatiquement depuis
-GitHub Releases (cache 5 min) — plus besoin de modifier ce fichier
-à chaque nouvelle release.
+GitHub Releases (cache 5 min).
 """
 
 import time
@@ -31,31 +29,26 @@ GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 CACHE_TTL = 300  # 5 minutes
 
 DEFAULT_ALLOWED_PLANS = ["pro", "unlimited"]
-
-# Plans autorisés (modifiable via admin endpoint)
 _allowed_plans: List[str] = DEFAULT_ALLOWED_PLANS.copy()
 
 # ─── Cache GitHub Release ───────────────────────────────────
 _release_cache: Optional[dict] = None
 _release_cache_time: float = 0
 
-# Fallback si GitHub est injoignable
 _FALLBACK = {
     "version": "2.8.0",
     "release_notes": "CueForge Desktop v2.8.0",
-    "dmg_url": f"https://github.com/{GITHUB_REPO}/releases/download/v2.8.0/CueForge-2.8.0-arm64.dmg",
-    "dmg_size": "~99 MB",
+    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v2.8.0/CueForge-2.8.0-arm64.dmg",
+    "dmg_arm64_size": "~99 MB",
+    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v2.8.0/CueForge-2.8.0-x64.dmg",
+    "dmg_x64_size": "~99 MB",
     "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v2.8.0/CueForge-2.8.0-x64.exe",
     "exe_size": "~82 MB",
 }
 
 
 async def _fetch_latest_release() -> dict:
-    """
-    Récupère la dernière release depuis GitHub API.
-    Parse les assets pour trouver le .dmg et le .exe.
-    Cache le résultat pendant CACHE_TTL secondes.
-    """
+    """Récupère la dernière release depuis GitHub API avec cache."""
     global _release_cache, _release_cache_time
 
     now = time.time()
@@ -71,13 +64,14 @@ async def _fetch_latest_release() -> dict:
             resp.raise_for_status()
             data = resp.json()
 
-        tag = data.get("tag_name", "")  # ex: "v2.8.0"
-        version = tag.lstrip("v")       # ex: "2.8.0"
+        tag = data.get("tag_name", "")
+        version = tag.lstrip("v")
         body = data.get("body", "") or f"CueForge Desktop v{version}"
 
-        # Parser les assets pour trouver les fichiers
+        # Parser les assets — distinguer arm64 vs x64
         assets = data.get("assets", [])
-        dmg_url, dmg_size = None, None
+        dmg_arm64_url, dmg_arm64_size = None, None
+        dmg_x64_url, dmg_x64_size = None, None
         exe_url, exe_size = None, None
 
         for asset in assets:
@@ -87,38 +81,47 @@ async def _fetch_latest_release() -> dict:
             size_mb = f"~{size_bytes // (1024 * 1024)} MB" if size_bytes else ""
 
             if name.endswith(".dmg"):
-                dmg_url = url
-                dmg_size = size_mb
+                if "arm64" in name:
+                    dmg_arm64_url = url
+                    dmg_arm64_size = size_mb
+                elif "x64" in name or "x86" in name or "intel" in name:
+                    dmg_x64_url = url
+                    dmg_x64_size = size_mb
+                else:
+                    # DMG sans arch spécifiée → considérer comme universel/arm64
+                    dmg_arm64_url = dmg_arm64_url or url
+                    dmg_arm64_size = dmg_arm64_size or size_mb
             elif name.endswith(".exe"):
                 exe_url = url
                 exe_size = size_mb
 
-        # Si pas d'assets trouvés, construire les URLs par convention
+        # Construire les URLs par convention si pas trouvées
         base = f"https://github.com/{GITHUB_REPO}/releases/download/v{version}"
-        if not dmg_url:
-            dmg_url = f"{base}/CueForge-{version}-arm64.dmg"
-            dmg_size = ""
+        if not dmg_arm64_url:
+            dmg_arm64_url = f"{base}/CueForge-{version}-arm64.dmg"
+        if not dmg_x64_url:
+            dmg_x64_url = f"{base}/CueForge-{version}-x64.dmg"
         if not exe_url:
             exe_url = f"{base}/CueForge-{version}-x64.exe"
-            exe_size = ""
 
         result = {
             "version": version,
             "release_notes": body,
-            "dmg_url": dmg_url,
-            "dmg_size": dmg_size or "~99 MB",
+            "dmg_arm64_url": dmg_arm64_url,
+            "dmg_arm64_size": dmg_arm64_size or "~99 MB",
+            "dmg_x64_url": dmg_x64_url,
+            "dmg_x64_size": dmg_x64_size or "~99 MB",
             "exe_url": exe_url,
             "exe_size": exe_size or "~82 MB",
         }
 
         _release_cache = result
         _release_cache_time = now
-        logger.info(f"[downloads] GitHub release cache mis à jour : v{version}")
+        logger.info(f"[downloads] GitHub release cache : v{version}")
         return result
 
     except Exception as e:
         logger.warning(f"[downloads] GitHub API indisponible, fallback : {e}")
-        # Retourner le cache périmé s'il existe, sinon le fallback
         if _release_cache:
             return _release_cache
         return _FALLBACK
@@ -131,9 +134,11 @@ class DownloadInfo(BaseModel):
     allowed_plans: List[str]
     latest_version: str
     release_notes: str
-    # macOS
-    dmg_url: Optional[str] = None
-    dmg_size: Optional[str] = None
+    # macOS — deux architectures
+    dmg_arm64_url: Optional[str] = None
+    dmg_arm64_size: Optional[str] = None
+    dmg_x64_url: Optional[str] = None
+    dmg_x64_size: Optional[str] = None
     min_macos: str
     # Windows
     exe_url: Optional[str] = None
@@ -145,17 +150,13 @@ class DownloadConfigUpdate(BaseModel):
     allowed_plans: Optional[List[str]] = None
 
 
-# ─── GET /downloads — Info + accès pour l'utilisateur ────────
+# ─── GET /downloads ─────────────────────────────────────────
 @router.get("/downloads", response_model=DownloadInfo)
 async def get_download_info(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Retourne les infos de téléchargement pour macOS et Windows.
-    Version et URLs récupérées automatiquement depuis GitHub Releases.
-    Les URLs ne sont incluses que si l'utilisateur a le bon plan ou est admin.
-    """
+    """Retourne les infos de téléchargement (arm64 + x64 pour macOS)."""
     release = await _fetch_latest_release()
 
     user_plan = current_user.subscription_plan or "free"
@@ -169,8 +170,10 @@ async def get_download_info(
         latest_version=release["version"],
         release_notes=release["release_notes"],
         # macOS
-        dmg_url=release["dmg_url"] if has_access else None,
-        dmg_size=release["dmg_size"] if has_access else None,
+        dmg_arm64_url=release["dmg_arm64_url"] if has_access else None,
+        dmg_arm64_size=release["dmg_arm64_size"] if has_access else None,
+        dmg_x64_url=release["dmg_x64_url"] if has_access else None,
+        dmg_x64_size=release["dmg_x64_size"] if has_access else None,
         min_macos="12.0",
         # Windows
         exe_url=release["exe_url"] if has_access else None,
@@ -179,17 +182,14 @@ async def get_download_info(
     )
 
 
-# ─── PUT /downloads/config — Admin: configurer les plans ─────
+# ─── PUT /downloads/config ──────────────────────────────────
 @router.put("/downloads/config")
 async def update_download_config(
     config: DownloadConfigUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Admin uniquement : met à jour les plans autorisés au téléchargement.
-    La version et les URLs sont gérées automatiquement via GitHub Releases.
-    """
+    """Admin uniquement : met à jour les plans autorisés."""
     global _allowed_plans
 
     if not current_user.is_admin:
@@ -216,7 +216,7 @@ async def update_download_config(
     }
 
 
-# ─── GET /downloads/config — Admin: voir la config actuelle ──
+# ─── GET /downloads/config ──────────────────────────────────
 @router.get("/downloads/config")
 async def get_download_config(
     current_user: User = Depends(get_current_user),
@@ -229,13 +229,10 @@ async def get_download_config(
             detail="Accès réservé aux administrateurs"
         )
     release = await _fetch_latest_release()
-    return {
-        "allowed_plans": _allowed_plans,
-        "current_release": release,
-    }
+    return {"allowed_plans": _allowed_plans, "current_release": release}
 
 
-# ─── POST /downloads/refresh-cache — Admin: forcer le refresh ──
+# ─── POST /downloads/refresh-cache ──────────────────────────
 @router.post("/downloads/refresh-cache")
 async def refresh_release_cache(
     current_user: User = Depends(get_current_user),
@@ -248,6 +245,6 @@ async def refresh_release_cache(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé aux administrateurs"
         )
-    _release_cache_time = 0  # Invalider le cache
+    _release_cache_time = 0
     release = await _fetch_latest_release()
     return {"message": "Cache rafraîchi", "release": release}

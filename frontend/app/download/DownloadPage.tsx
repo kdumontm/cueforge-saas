@@ -12,9 +12,13 @@ interface DownloadInfo {
   allowed_plans: string[];
   latest_version: string;
   release_notes: string;
-  dmg_url: string | null;
-  dmg_size: string | null;
+  // macOS — deux architectures
+  dmg_arm64_url: string | null;
+  dmg_arm64_size: string | null;
+  dmg_x64_url: string | null;
+  dmg_x64_size: string | null;
   min_macos: string;
+  // Windows
   exe_url: string | null;
   exe_size: string | null;
   min_windows: string;
@@ -168,16 +172,37 @@ export default function DownloadPage() {
                     macOS {info.min_macos}+ requis {info.dmg_size && `· ${info.dmg_size}`}
                   </p>
 
-                  {info.dmg_url ? (
-                    <a
-                      href={info.dmg_url}
-                      className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold text-lg hover:from-purple-500 hover:to-purple-400 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5"
-                    >
-                      <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                      </svg>
-                      Télécharger le .dmg
-                    </a>
+                  {(info.dmg_arm64_url || info.dmg_x64_url) ? (
+                    <div className="space-y-3">
+                      <p className="text-zinc-500 text-sm mb-4">Choisissez votre processeur :</p>
+                      <div className="flex gap-3 justify-center">
+                        {info.dmg_arm64_url && (
+                          <a
+                            href={info.dmg_arm64_url}
+                            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold hover:from-purple-500 hover:to-purple-400 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                          >
+                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                            </svg>
+                            Apple Silicon
+                          </a>
+                        )}
+                        {info.dmg_x64_url && (
+                          <a
+                            href={info.dmg_x64_url}
+                            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold hover:from-purple-500 hover:to-purple-400 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                          >
+                            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                            </svg>
+                            Intel
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-zinc-600 text-xs">
+                        Pas sûr ? → Menu Pomme → &quot;À propos de ce Mac&quot; → Puce/Processeur
+                      </p>
+                    </div>
                   ) : (
                     <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-zinc-800 text-zinc-400">
                       <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
