@@ -4,9 +4,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-produc
 // ── Token management ────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'cueforge_token';
+const REFRESH_KEY = 'cueforge_refresh';
 
 export function setToken(token: string): void {
   if (typeof window !== 'undefined') localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function setRefreshToken(token: string): void {
+  if (typeof window !== 'undefined') localStorage.setItem(REFRESH_KEY, token);
 }
 
 export function getToken(): string | null {
@@ -14,11 +19,44 @@ export function getToken(): string | null {
   return null;
 }
 
-export function clearToken(): void {
-  if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
+export function getRefreshToken(): string | null {
+  if (typeof window !== 'undefined') return localStorage.getItem(REFRESH_KEY);
+  return null;
 }
 
-// ── Authenticated fetch with auto-logout on 401 ───────────────────────────────
+export function clearToken(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+  }
+}
+
+// ── Auto-refresh on 401 ─────────────────────────────────────────────────────
+
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+
+  try {
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setToken(data.access_token);
+    if (data.refresh_token) setRefreshToken(data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Authenticated fetch with auto-refresh on 401 ────────────────────────────
 
 async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = getToken();
@@ -26,16 +64,46 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
     throw new Error('Not authenticated');
   }
 
+  // Injecte automatiquement le Bearer token
+  const mergedOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...(options?.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  };
+
   let response: Response;
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, mergedOptions);
   } catch (networkError) {
     throw new Error('Network error — check your connection');
   }
 
   if (response.status === 401) {
+    // Tente un refresh silencieux avant de déconnecter
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = tryRefresh();
+    }
+    const refreshed = await refreshPromise;
+    isRefreshing = false;
+    refreshPromise = null;
+
+    if (refreshed) {
+      // Rejoue la requête avec le nouveau token
+      const retryOptions: RequestInit = {
+        ...options,
+        headers: {
+          ...(options?.headers || {}),
+          Authorization: `Bearer ${getToken()}`,
+        },
+      };
+      return fetch(url, retryOptions);
+    }
+
+    // Refresh échoué — session vraiment expirée
     clearToken();
-    // Don't do a hard redirect — let the layout/router handle it gracefully
     throw new Error('Session expired');
   }
   return response;
@@ -68,6 +136,7 @@ export interface User {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
   user: User;
 }
@@ -110,6 +179,7 @@ export async function login(identifier: string, password: string): Promise<AuthR
   }
   const data: AuthResponse = await response.json();
   setToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
   return data;
 }
 
@@ -129,6 +199,7 @@ export async function register(
   }
   const data: AuthResponse = await response.json();
   setToken(data.access_token);
+  if (data.refresh_token) setRefreshToken(data.refresh_token);
   return data;
 }
 
@@ -144,17 +215,11 @@ export async function getCurrentUser(): Promise<User> {
   return response.json();
 }
 
-export async function refreshToken(): Promise<AuthResponse> {
-  const response = await authFetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { ...authHeaders() },
-  });
-  if (!response.ok) throw new Error('Token refresh failed');
-  return response.json();
-}
+// refreshToken() est maintenant géré automatiquement par authFetch() via tryRefresh()
+// Pas besoin de l'appeler manuellement — le 401 déclenche un refresh silencieux
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
-  const response = await authFetch(`${API_URL}/auth/forgot-password`, {
+  const response = await fetch(`${API_URL}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -164,7 +229,7 @@ export async function forgotPassword(email: string): Promise<{ message: string }
 }
 
 export async function resetPassword(token: string, new_password: string): Promise<{ message: string }> {
-  const response = await authFetch(`${API_URL}/auth/reset-password`, {
+  const response = await fetch(`${API_URL}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, new_password }),
