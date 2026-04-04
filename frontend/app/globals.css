@@ -181,6 +181,45 @@ input:focus, textarea:focus {
   animation: pageIn 0.2s ease;
 }
 
+/* Skeleton loader (aligned with desktop) */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+.skeleton-line { height: 14px; margin-bottom: 8px; }
+.skeleton-card { height: 120px; border-radius: 12px; }
+
+/* Toast notification (aligned with desktop) */
+.toast {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  animation: toastIn 0.3s ease;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100;
+}
+.toast-success {
+  background: rgba(16,185,129,0.15);
+  border: 1px solid rgba(16,185,129,0.3);
+  color: #34d399;
+}
+.toast-error {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171;
+}
+.toast-info {
+  background: rgba(59,130,246,0.15);
+  border: 1px solid rgba(59,130,246,0.3);
+  color: #60a5fa;
+}
+
 /* Auto-apply modal animations to common overlay patterns */
 .fixed.inset-0[class*="bg-black"] {
   animation: modalOverlayIn 0.15s ease;
