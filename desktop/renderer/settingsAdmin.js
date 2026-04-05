@@ -273,8 +273,6 @@ const AdminPanel = {
         return;
       }
       const data = await window.cueforge.getAdminDashboard();
-      const cards = document.getElementById('adminStatCards');
-      const distrib = document.getElementById('adminPlanDistrib');
 
       const stats = data.stats || data;
       cards.innerHTML = `
