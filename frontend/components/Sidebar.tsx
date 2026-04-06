@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -19,17 +21,17 @@ interface SidebarProps {
   onLogout?: () => void;
 }
 
-const navItems = [
-  { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
-  { href: '/dashboard/set-builder', icon: LayoutGrid, label: 'Set Builder' },
-  { href: '/dashboard/compatible', icon: GitBranch, label: 'Mix compatible' },
-  { href: '/dashboard/playlists', icon: ListMusic, label: 'Playlists' },
-  { href: '/dashboard/crates', icon: Layers, label: 'Smart Crates' },
-  { href: '/dashboard/gig-prep', icon: Zap, label: 'Prépa Gig' },
-  { href: '/dashboard/tools', icon: Wrench, label: 'Outils DJ' },
-  { href: '/dashboard/upload', icon: Upload, label: 'Importer' },
-  { href: '/dashboard/export', icon: Download, label: 'Exporter' },
-  { href: '/download', icon: Monitor, label: 'App Desktop' },
+const getNavItems = (lang: string) => [
+  { href: '/dashboard', icon: BarChart3, labelKey: 'sidebar.dashboard' },
+  { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder' },
+  { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible' },
+  { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists' },
+  { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates' },
+  { href: '/dashboard/gig-prep', icon: Zap, labelKey: 'sidebar.gig_prep' },
+  { href: '/dashboard/tools', icon: Wrench, labelKey: 'sidebar.dj_tools' },
+  { href: '/dashboard/upload', icon: Upload, labelKey: 'sidebar.upload' },
+  { href: '/dashboard/export', icon: Download, labelKey: 'sidebar.export' },
+  { href: '/download', icon: Monitor, labelKey: 'sidebar.desktop_app' },
 ];
 
 const DEFAULT_CRATES = [
@@ -39,6 +41,7 @@ const DEFAULT_CRATES = [
 ];
 
 export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
+  const { lang } = useLang();
   const pathname = usePathname();
   const router = useRouter();
   const { collapsed, toggleCollapsed, activeSection, setActiveSection } = useDashboardContext();
@@ -100,8 +103,9 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
     if (activeSection === playlistId) setActiveSection('all');
   }
 
-  const NavLink = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
+  const NavLink = ({ href, icon: Icon, labelKey }: { href: string; icon: any; labelKey: string }) => {
     const isActive = pathname === href;
+    const label = tr(labelKey, lang);
     return (
       <Link
         href={href}
@@ -122,9 +126,9 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   };
 
   const libraryItems = [
-    { id: 'all', icon: Music, label: 'Toutes les tracks' },
-    { id: 'recent', icon: Clock, label: 'Récemment ajoutés' },
-    { id: 'unanalyzed', icon: Zap, label: 'Non analysés' },
+    { id: 'all', icon: Music, labelKey: 'sidebar.library' },
+    { id: 'recent', icon: Clock, labelKey: 'tracks.sort_date' },
+    { id: 'unanalyzed', icon: Zap, labelKey: 'tracks.analyzed_only' },
   ];
 
   return (
@@ -143,7 +147,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
         <button
           onClick={toggleCollapsed}
           className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0.5"
-          title={collapsed ? 'Déplier' : 'Replier'}
+          title={collapsed ? 'Expand' : 'Collapse'}
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -151,13 +155,14 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
 
       <nav className="px-1.5 py-2 flex-1 overflow-y-auto custom-scrollbar">
         {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Navigation</div>}
-        {navItems.map((item) => <NavLink key={item.href} {...item} />)}
+        {getNavItems(lang).map((item) => <NavLink key={item.href} {...item} />)}
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
 
-        {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Bibliothèque</div>}
-        {libraryItems.map(({ id, icon: Icon, label }) => {
+        {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">{tr('sidebar.library', lang)}</div>}
+        {libraryItems.map(({ id, icon: Icon, labelKey }) => {
           const isActive = activeSection === id;
+          const label = tr(labelKey, lang);
           return (
             <button
               key={id}
@@ -177,7 +182,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
         {!collapsed && (
           <>
             <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
-            <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Smart Crates</div>
+            <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">{tr('sidebar.smart_crates', lang)}</div>
             {smartCrates.map((crate) => {
               const isActive = activeSection === crate.id;
               return (
@@ -202,8 +207,8 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           <>
             <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
             <div className="flex items-center justify-between px-2.5 py-1">
-              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Playlists</span>
-              <button onClick={() => setShowNewPlaylist(true)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0" title="Nouvelle playlist">
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{tr('sidebar.playlists', lang)}</span>
+              <button onClick={() => setShowNewPlaylist(true)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none p-0" title={tr('sidebar.new_playlist', lang)}>
                 <Plus size={13} />
               </button>
             </div>
@@ -214,10 +219,10 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
                   value={newPlaylistName}
                   onChange={(e) => setNewPlaylistName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreatePlaylist(); if (e.key === 'Escape') setShowNewPlaylist(false); }}
-                  placeholder="Nom…"
+                  placeholder={tr('sidebar.new_playlist', lang)}
                   className="flex-1 px-2 py-1 rounded text-xs bg-[var(--bg-primary)] border border-[var(--border-default)] text-[var(--text-primary)] outline-none"
                 />
-                <button onClick={handleCreatePlaylist} className="text-blue-400 text-xs bg-transparent border-none cursor-pointer">OK</button>
+                <button onClick={handleCreatePlaylist} className="text-blue-400 text-xs bg-transparent border-none cursor-pointer">{tr('sidebar.create', lang)}</button>
                 <button onClick={() => setShowNewPlaylist(false)} className="text-[var(--text-muted)] bg-transparent border-none cursor-pointer"><X size={12} /></button>
               </div>
             )}
@@ -240,7 +245,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeletePlaylist(pl.id); }}
                       className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-red-400 bg-transparent border-none cursor-pointer p-0 transition-opacity"
-                      title="Supprimer"
+                      title={tr('general.delete', lang)}
                     >
                       <Trash2 size={11} />
                     </button>
@@ -253,8 +258,8 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
         {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Compte</div>}
-        <NavLink href="/settings" icon={Settings} label="Paramètres" />
-        {isAdmin && <NavLink href="/admin" icon={Shield} label="Admin" />}
+        <NavLink href="/settings" icon={Settings} labelKey="sidebar.settings" />
+        {isAdmin && <NavLink href="/admin" icon={Shield} labelKey="sidebar.admin" />}
       </nav>
 
       {/* User section */}
@@ -271,7 +276,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
             </div>
           )}
           {!collapsed && onLogout && (
-            <button onClick={onLogout} className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none" title="Déconnexion">
+            <button onClick={onLogout} className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-none" title={tr('sidebar.logout', lang)}>
               <LogOut size={13} />
             </button>
           )}

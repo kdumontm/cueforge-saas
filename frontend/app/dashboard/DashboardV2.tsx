@@ -6,6 +6,8 @@ import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download }
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 import PlayerCard from '@/components/player/PlayerCard';
 import TrackList from '@/components/tracks/TrackList';
@@ -30,7 +32,10 @@ import MetadataEnrichModal from '@/components/MetadataEnrichModal';
 import OnboardingTour from '@/components/OnboardingTour';
 import AnalysisProgress from '@/components/AnalysisProgress';
 
-const TabFallback = () => <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">Chargement…</div>;
+const TabFallback = () => {
+  const { lang } = useLang();
+  return <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">{tr('general.loading', lang)}</div>;
+};
 
 // ── Energy helpers ─────────────────────────────────────────────────────
 function energyColor(energy: number | null | undefined): string {
@@ -75,18 +80,18 @@ function formatDuration(seconds: number | null | undefined): string {
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'info',      label: 'Info',   icon: '📝' },
-  { id: 'cues',      label: 'Cues',   icon: '🎯' },
-  { id: 'beatgrid',  label: 'Grid',   icon: '🥁' },
-  { id: 'mix',       label: 'Mix',    icon: '🎡' },
-  { id: 'eq',        label: 'EQ',     icon: '〰' },
-  { id: 'fx',        label: 'FX',     icon: '✨' },
-  { id: 'stems',     label: 'Stems',  icon: '🎸', desktopOnly: true },
-  { id: 'compare',   label: 'VS',     icon: '⚖️' },
-  { id: 'playlists', label: 'Lists',  icon: '📂', global: true },
-  { id: 'stats',     label: 'Stats',  icon: '📊', global: true },
-  { id: 'history',   label: 'Hist.',  icon: '🕒', global: true },
-  { id: 'notes',     label: 'Notes',  icon: '📋', global: true },
+  { id: 'info',      labelKey: 'tab.info',      icon: '📝' },
+  { id: 'cues',      labelKey: 'tab.cues',      icon: '🎯' },
+  { id: 'beatgrid',  labelKey: 'tab.beatgrid',  icon: '🥁' },
+  { id: 'mix',       labelKey: 'tab.mix',       icon: '🎡' },
+  { id: 'eq',        labelKey: 'tab.eq',        icon: '〰' },
+  { id: 'fx',        labelKey: 'tab.fx',        icon: '✨' },
+  { id: 'stems',     labelKey: 'tab.stems',     icon: '🎸', desktopOnly: true },
+  { id: 'compare',   labelKey: 'tab.compare',   icon: '⚖️' },
+  { id: 'playlists', labelKey: 'tab.playlists',icon: '📂', global: true },
+  { id: 'stats',     labelKey: 'tab.stats',     icon: '📊', global: true },
+  { id: 'history',   labelKey: 'tab.history',   icon: '🕒', global: true },
+  { id: 'notes',     labelKey: 'tab.notes',     icon: '📋', global: true },
 ];
 
 const GLOBAL_TABS: string[] = [];
@@ -121,6 +126,7 @@ const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
 
 // ── Main Component ─────────────────────────────────────────────────────
 export default function DashboardV2() {
+  const { lang } = useLang();
   const {
     activeSection, globalSearch, registerImportHandler, registerExportHandler,
     autoAnalyze, setAutoAnalyze,
@@ -429,7 +435,7 @@ export default function DashboardV2() {
           deleteTrack(selectedTrack.id).then(() => {
             loadTracks();
             setSelectedTrack(null, 'keyboard:Delete');
-          }).catch(() => addToast('Erreur suppression track', 'error'));
+          }).catch(() => addToast(tr('toast.deleted', lang), 'error'));
         }
         return;
       }
@@ -816,9 +822,9 @@ export default function DashboardV2() {
       });
       const updated = await getTrackCuePoints(selectedTrack.id);
       setCuePoints(updated);
-      addToast('Cue point créé', 'success');
+      addToast(tr('toast.cue_created', lang), 'success');
     } catch (e) {
-      addToast('Erreur création cue point', 'error');
+      addToast(tr('toast.cue_error', lang), 'error');
     }
   }
 
@@ -826,9 +832,9 @@ export default function DashboardV2() {
     try {
       await deleteCuePoint(cueId);
       setCuePoints(prev => prev.filter(c => c.id !== cueId));
-      addToast('Cue point supprimé', 'success');
+      addToast(tr('toast.cue_deleted', lang), 'success');
     } catch (e) {
-      addToast('Erreur suppression cue point', 'error');
+      addToast(tr('toast.cue_error', lang), 'error');
     }
   }
 
@@ -907,12 +913,12 @@ export default function DashboardV2() {
         setStemsStatus(null);
         setStemsCheckKey(k => k + 1); // force re-check du useEffect
       }
-      addToast(`${title} analysé !`, 'success');
+      addToast(`${title} ${tr('toast.analyzed', lang)}`, 'success');
       setContextMenu(null);
     } catch (e) {
       setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
       setAnalysisProgress(prev => { const n = { ...prev }; delete n[trackId]; return n; });
-      addToast('Erreur d\'analyse', 'error');
+      addToast(tr('toast.analysis_error', lang), 'error');
     }
   }
 
@@ -922,7 +928,7 @@ export default function DashboardV2() {
       await deleteTrack(trackId);
       await loadTracks();
       setSelectedTrack(null, 'contextMenu:delete');
-      addToast('Track deleted', 'success');
+      addToast(tr('toast.deleted', lang), 'success');
       setContextMenu(null);
     } catch (e) {
       addToast('Delete failed', 'error');
@@ -1040,7 +1046,7 @@ export default function DashboardV2() {
       } catch {}
       addToast(result.message || 'Cue points générés !', 'success');
     } catch (e: any) {
-      addToast(e.message || 'Erreur génération cues', 'error');
+      addToast(e.message || tr('toast.cue_error', lang), 'error');
     }
   }
 
@@ -1093,7 +1099,7 @@ export default function DashboardV2() {
               setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: prev[id]?.isLocal ?? false } }));
               setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
               setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
-              addToast(`${fname} analysé !`, 'success');
+              addToast(`${fname} ${tr('toast.analyzed', lang)}`, 'success');
               await loadTracks();
               // Recharger cues si c'est le track sélectionné
               if (selectedTrack?.id === id) {
@@ -1401,7 +1407,7 @@ export default function DashboardV2() {
           onDeleteTrack={async (trackId) => {
             await deleteTrack(trackId);
             await loadTracks();
-            addToast('Doublon supprimé', 'success');
+            addToast(tr('toast.duplicate_removed', lang), 'success');
           }}
           onSelectTrack={(track) => {
             const dt = toDisplayTrack(track);
@@ -1532,7 +1538,7 @@ export default function DashboardV2() {
                     <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r" />
                   )}
                   <span className="text-base leading-none">{t.icon}</span>
-                  <span className="text-[8px] font-semibold uppercase tracking-wider leading-none">{t.label}</span>
+                  <span className="text-[8px] font-semibold uppercase tracking-wider leading-none">{tr((t as any).labelKey, lang)}</span>
                   {(t as any).desktopOnly && (
                     <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded">PRO</span>
                   )}
@@ -1548,7 +1554,7 @@ export default function DashboardV2() {
                 track={selectedRawTrack}
                 onSave={async (trackId, data) => {
                   await updateTrack(trackId, data);
-                  addToast('Infos sauvegardées', 'success');
+                  addToast(tr('toast.saved', lang), 'success');
                   await loadTracks();
                 }}
               />
@@ -1643,10 +1649,10 @@ export default function DashboardV2() {
                           bass_url:   abs(d.bass_url),
                           other_url:  abs(d.other_url),
                         });
-                        addToast('Stems prêts !', 'success');
+                        addToast(tr('toast.saved', lang), 'success');
                       } else if (d.status === 'failed') {
                         setStemsStatus({ status: 'failed', error: d.error || null });
-                        addToast(d.error || 'Erreur séparation stems', 'error');
+                        addToast(d.error || tr('toast.error', lang), 'error');
                       } else {
                         setTimeout(poll, 5000);
                       }
@@ -1654,7 +1660,7 @@ export default function DashboardV2() {
                     setTimeout(poll, 5000);
                   } catch (e: any) {
                     setStemsStatus({ status: 'failed', error: e.message || null });
-                    addToast(e.message || 'Erreur stems', 'error');
+                    addToast(e.message || tr('toast.error', lang), 'error');
                   }
                 }}
               />
@@ -1700,8 +1706,8 @@ export default function DashboardV2() {
                       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                       body: JSON.stringify(bg),
                     });
-                    addToast('Beatgrid mis à jour', 'success');
-                  } catch { addToast('Erreur beatgrid', 'error'); }
+                    addToast(tr('toast.saved', lang), 'success');
+                  } catch { addToast(tr('toast.error', lang), 'error'); }
                 }}
               />
               </Suspense>
@@ -1719,14 +1725,14 @@ export default function DashboardV2() {
                     const pl = await createPlaylist(name);
                     setPlaylists(prev => [...prev, pl]);
                     addToast(`"${name}" créée`, 'success');
-                  } catch { addToast('Erreur création playlist', 'error'); }
+                  } catch { addToast(tr('toast.error', lang), 'error'); }
                 }}
                 onDelete={async (id) => {
                   try {
                     await apiDeletePlaylist(id);
                     setPlaylists(prev => prev.filter(p => p.id !== id));
                     addToast('Playlist supprimée', 'success');
-                  } catch { addToast('Erreur suppression', 'error'); }
+                  } catch { addToast(tr('toast.error', lang), 'error'); }
                 }}
               />
               </Suspense>
@@ -1975,7 +1981,7 @@ export default function DashboardV2() {
                       await addTracksToPlaylist(pl.id, [contextMenu.trackId]);
                       addToast(`Ajouté à "${pl.name}"`, 'success');
                       setContextMenu(null);
-                    } catch { addToast('Erreur ajout playlist', 'error'); }
+                    } catch { addToast(tr('toast.error', lang), 'error'); }
                   }}
                   className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
                 >

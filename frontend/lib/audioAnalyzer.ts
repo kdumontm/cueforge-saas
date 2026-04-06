@@ -102,21 +102,24 @@ function detectBPM(samples: Float32Array, sr: number): number {
   if (onsets.length < 8) return 120;
 
   // Histogram via intervalles inter-onsets (avec harmoniques)
-  const hist = new Float32Array(141); // 60-200 BPM
+  // v3.0: étendu à 60-220 BPM pour supporter techno/hardcore/D&B
+  const histSize = 161; // 60-220 BPM
+  const hist = new Float32Array(histSize);
   for (let i = 1; i < Math.min(onsets.length, 400); i++) {
     const interval = onsets[i] - onsets[i - 1];
     if (interval < 0.01) continue;
     for (let mult = 1; mult <= 4; mult++) {
       const bpm = 60 / (interval * mult);
       const idx = Math.round(bpm) - 60;
-      if (idx >= 0 && idx <= 140) hist[idx] += 1 / mult;
+      if (idx >= 0 && idx < histSize) hist[idx] += 1 / mult;
     }
   }
 
-  // Lissage + peak (plage DJ: 80-175)
+  // Lissage + peak (plage DJ étendue: 70-210 BPM)
+  // v3.0: couverture complète pour techno (145-160), D&B (170-180), hardcore (160-200+)
   let maxVal = 0, maxIdx = 60;
-  for (let i = 20; i <= 115; i++) {
-    const v = (hist[i - 1] + hist[i] * 2 + hist[i + 1]) / 4;
+  for (let i = 10; i <= 150; i++) { // indices 10-150 → BPM 70-210
+    const v = (hist[Math.max(0, i - 1)] + hist[i] * 2 + hist[Math.min(histSize - 1, i + 1)]) / 4;
     if (v > maxVal) { maxVal = v; maxIdx = i; }
   }
 
@@ -124,15 +127,23 @@ function detectBPM(samples: Float32Array, sr: number): number {
   const rawBPM = maxIdx + 60;
   let bestBPM = rawBPM;
   let bestCorr = -1;
-  for (let trial = rawBPM - 0.5; trial <= rawBPM + 0.5; trial += 0.1) {
-    const beatInterval = 60 / trial;
-    let corr = 0;
-    for (const onset of onsets) {
-      const nearestBeat = Math.round(onset / beatInterval) * beatInterval;
-      const dist = Math.abs(onset - nearestBeat);
-      if (dist < beatInterval * 0.15) corr += 1;
+
+  // v3.0: tester aussi le double-time si rawBPM < 100 (détection half-time fréquente)
+  const candidates = [rawBPM];
+  if (rawBPM < 100 && rawBPM * 2 <= 210) candidates.push(rawBPM * 2);
+  if (rawBPM > 160 && rawBPM / 2 >= 70) candidates.push(rawBPM / 2);
+
+  for (const candidate of candidates) {
+    for (let trial = candidate - 0.5; trial <= candidate + 0.5; trial += 0.1) {
+      const beatInterval = 60 / trial;
+      let corr = 0;
+      for (const onset of onsets) {
+        const nearestBeat = Math.round(onset / beatInterval) * beatInterval;
+        const dist = Math.abs(onset - nearestBeat);
+        if (dist < beatInterval * 0.15) corr += 1;
+      }
+      if (corr > bestCorr) { bestCorr = corr; bestBPM = trial; }
     }
-    if (corr > bestCorr) { bestCorr = corr; bestBPM = trial; }
   }
 
   return Math.round(bestBPM * 10) / 10;
