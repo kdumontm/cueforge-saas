@@ -169,7 +169,7 @@ export default function DownloadPage() {
                   <h2 className="text-2xl font-bold text-white mb-2">CueForge pour macOS</h2>
                   <p className="text-zinc-400 mb-1">Version {info.latest_version}</p>
                   <p className="text-zinc-500 text-sm mb-8">
-                    macOS {info.min_macos}+ requis {info.dmg_size && `· ${info.dmg_size}`}
+                    macOS {info.min_macos}+ requis {info.dmg_arm64_size && `· ${info.dmg_arm64_size}`}
                   </p>
 
                   {(info.dmg_arm64_url || info.dmg_x64_url) ? (
