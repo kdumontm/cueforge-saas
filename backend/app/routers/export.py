@@ -12,6 +12,8 @@ import json
 from app.database import get_db
 from app.models import Track, CuePoint, LoopMarker
 from app.services.rekordbox_export import export_tracks_to_rekordbox, generate_rekordbox_xml
+from app.services.serato_export import generate_serato_crate, generate_serato_csv, generate_serato_markers_csv
+from app.services.traktor_export import generate_traktor_nml
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -280,5 +282,178 @@ async def export_set_m3u(
         media_type="audio/x-mpegurl",
         headers={
             "Content-Disposition": f'attachment; filename="{dj_set.name}.m3u"'
+        },
+    )
+
+
+# ── v3: Serato Export ──────────────────────────────────────────────────
+
+@router.get("/{track_id}/serato")
+async def export_single_track_serato(track_id: int, db: Session = Depends(get_db)):
+    """Export a single track to Serato .crate format."""
+    track = db.query(Track).filter(Track.id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    crate_bytes = generate_serato_crate([track_dict], crate_name=track_dict["title"])
+
+    return Response(
+        content=crate_bytes,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{track_dict["title"]}.crate"'
+        },
+    )
+
+
+@router.post("/serato/batch")
+async def export_batch_serato(
+    track_ids: List[int],
+    crate_name: str = "CueForge Export",
+    db: Session = Depends(get_db),
+):
+    """Export multiple tracks to a Serato .crate file."""
+    tracks = db.query(Track).filter(Track.id.in_(track_ids)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    crate_bytes = generate_serato_crate(track_dicts, crate_name=crate_name)
+
+    return Response(
+        content=crate_bytes,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{crate_name}.crate"'
+        },
+    )
+
+
+@router.get("/{track_id}/serato/csv")
+async def export_single_track_serato_csv(track_id: int, db: Session = Depends(get_db)):
+    """Export a single track to Serato-compatible CSV."""
+    track = db.query(Track).filter(Track.id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    csv_content = generate_serato_csv([track_dict])
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{track_dict["title"]}_serato.csv"'
+        },
+    )
+
+
+@router.post("/serato/csv/batch")
+async def export_batch_serato_csv(
+    track_ids: List[int],
+    db: Session = Depends(get_db),
+):
+    """Export multiple tracks to Serato CSV with cue point data."""
+    tracks = db.query(Track).filter(Track.id.in_(track_ids)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    csv_content = generate_serato_markers_csv(track_dicts)
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="CueForge_Serato_Export.csv"'
+        },
+    )
+
+
+@router.get("/serato/all")
+async def export_all_serato(
+    crate_name: str = "CueForge Full Library",
+    db: Session = Depends(get_db),
+):
+    """Export all tracks to Serato .crate file."""
+    tracks = db.query(Track).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    crate_bytes = generate_serato_crate(track_dicts, crate_name=crate_name)
+
+    return Response(
+        content=crate_bytes,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{crate_name}.crate"'
+        },
+    )
+
+
+# ── v3: Traktor NML Export ─────────────────────────────────────────────
+
+@router.get("/{track_id}/traktor")
+async def export_single_track_traktor(track_id: int, db: Session = Depends(get_db)):
+    """Export a single track to Traktor NML format."""
+    track = db.query(Track).filter(Track.id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    nml_xml = generate_traktor_nml([track_dict], collection_name=track_dict["title"])
+
+    return Response(
+        content=nml_xml,
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{track_dict["title"]}.nml"'
+        },
+    )
+
+
+@router.post("/traktor/batch")
+async def export_batch_traktor(
+    track_ids: List[int],
+    collection_name: str = "CueForge Export",
+    db: Session = Depends(get_db),
+):
+    """Export multiple tracks to a Traktor NML file."""
+    tracks = db.query(Track).filter(Track.id.in_(track_ids)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    nml_xml = generate_traktor_nml(track_dicts, collection_name=collection_name)
+
+    return Response(
+        content=nml_xml,
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{collection_name}.nml"'
+        },
+    )
+
+
+@router.get("/traktor/all")
+async def export_all_traktor(
+    collection_name: str = "CueForge Full Library",
+    db: Session = Depends(get_db),
+):
+    """Export all tracks to Traktor NML format."""
+    tracks = db.query(Track).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    nml_xml = generate_traktor_nml(track_dicts, collection_name=collection_name)
+
+    return Response(
+        content=nml_xml,
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{collection_name}.nml"'
         },
     )

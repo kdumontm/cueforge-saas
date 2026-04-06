@@ -21,11 +21,13 @@ const MixTab        = lazy(() => import('@/components/tabs/MixTab'));
 const PlaylistsTab  = lazy(() => import('@/components/tabs/PlaylistsTab'));
 const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
 const HistoryTab    = lazy(() => import('@/components/tabs/HistoryTab'));
+const CompareTab    = lazy(() => import('@/components/tabs/CompareTab'));
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
 import { isDesktopApp } from '@/lib/electron';
 import DuplicateDetector from '@/components/DuplicateDetector';
 import MetadataEnrichModal from '@/components/MetadataEnrichModal';
+import OnboardingTour from '@/components/OnboardingTour';
 
 const TabFallback = () => <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">Chargement…</div>;
 
@@ -79,6 +81,7 @@ const TABS = [
   { id: 'eq',        label: 'EQ',     icon: '〰' },
   { id: 'fx',        label: 'FX',     icon: '✨' },
   { id: 'stems',     label: 'Stems',  icon: '🎸', desktopOnly: true },
+  { id: 'compare',   label: 'VS',     icon: '⚖️' },
   { id: 'playlists', label: 'Lists',  icon: '📂', global: true },
   { id: 'stats',     label: 'Stats',  icon: '📊', global: true },
   { id: 'history',   label: 'Hist.',  icon: '🕒', global: true },
@@ -1292,6 +1295,9 @@ export default function DashboardV2() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
+      {/* ── Onboarding Tour — première visite ── */}
+      <OnboardingTour />
+
       {/* ── Drag & Drop Overlay ── */}
       {isDragging && (
         <div className="absolute inset-0 z-[9998] bg-cyan-500/10 backdrop-blur-sm border-2 border-dashed border-cyan-400/60 rounded-xl flex items-center justify-center pointer-events-none">
@@ -1335,8 +1341,8 @@ export default function DashboardV2() {
         />
       )}
 
-      {/* Player + Tabs — flex row */}
-      <div className="flex gap-3 items-stretch">
+      {/* Player + Tabs — flex row, stacks on mobile */}
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
 
         {/* Left: Player (waveform) + TrackList directement dessous */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
@@ -1433,8 +1439,8 @@ export default function DashboardV2() {
           </div>
         </div>
 
-        {/* Right: Tab panel vertical */}
-        <div className="w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden">
+        {/* Right: Tab panel vertical — full width on mobile */}
+        <div className="w-full lg:w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[50vh] lg:max-h-none">
 
           {/* Onglets verticaux */}
           <div className="w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
@@ -1505,6 +1511,21 @@ export default function DashboardV2() {
                         // Simple seek to cue position
                         playerRef.current?.seekTo?.(cue.position_ms);
                       }
+                    }}
+                    onPreviewCue={(cue) => {
+                      const posMs = cue.position_ms ?? cue.time_ms ?? 0;
+                      playerRef.current?.seekTo?.(posMs);
+                      // Start playback
+                      const audio = playerRef.current?.getAudio?.();
+                      if (audio && audio.paused) {
+                        audio.play().catch(() => {});
+                      }
+                      // Stop after 5 seconds
+                      if ((window as any).__cuePreviewTimer) clearTimeout((window as any).__cuePreviewTimer);
+                      (window as any).__cuePreviewTimer = setTimeout(() => {
+                        const a = playerRef.current?.getAudio?.();
+                        if (a && !a.paused) a.pause();
+                      }, 5000);
                     }}
                   />
                 </div>
@@ -1585,6 +1606,7 @@ export default function DashboardV2() {
               </Suspense>
             )}
             {activeTab === 'mix' && <Suspense fallback={<TabFallback />}><MixTab track={selectedRawTrack} tracks={rawTracksForTabs} /></Suspense>}
+            {activeTab === 'compare' && <Suspense fallback={<TabFallback />}><CompareTab trackA={selectedRawTrack} allTracks={rawTracksForTabs} onSelectTrack={(t) => handleSelectTrack(t)} /></Suspense>}
             {activeTab === 'beatgrid' && (
               <Suspense fallback={<TabFallback />}>
               <BeatgridTab

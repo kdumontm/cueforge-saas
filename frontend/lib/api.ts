@@ -270,6 +270,36 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
 }
 
 /**
+ * Upload avec barre de progression via XMLHttpRequest.
+ * onProgress reçoit un pourcentage 0-100.
+ */
+export function uploadTracksWithProgress(
+  formData: FormData,
+  onProgress: (pct: number) => void,
+): Promise<TrackUploadResponse[]> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_URL}/tracks/`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve([]); }
+      } else {
+        let detail = 'Upload failed';
+        try { detail = JSON.parse(xhr.responseText)?.detail || detail; } catch {}
+        reject(new Error(detail));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
+  });
+}
+
+/**
  * Analyse un track — hybride :
  *   • Desktop (Electron) → analyse locale via Web Audio API (CPU utilisateur)
  *   • Web → analyse cloud via le backend (POST /tracks/:id/analyze)
@@ -396,6 +426,14 @@ export async function exportSerato(trackId: number): Promise<Blob> {
     headers: { ...authHeaders() },
   });
   if (!response.ok) throw new Error('Failed to export Serato');
+  return response.blob();
+}
+
+export async function exportTraktor(trackId: number): Promise<Blob> {
+  const response = await authFetch(`${API_URL}/export/${trackId}/traktor`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to export Traktor');
   return response.blob();
 }
 

@@ -36,13 +36,13 @@ _release_cache: Optional[dict] = None
 _release_cache_time: float = 0
 
 _FALLBACK = {
-    "version": "3.4.0",
-    "release_notes": "CueForge Desktop v3.4.0 — Cue points v2.0 sur les mesures + fix stems",
-    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.4.0/CueForge-3.4.0-arm64.dmg",
+    "version": "3.5.0",
+    "release_notes": "CueForge Desktop v3.5.0 — Cue points v2.0 sur les mesures + fix stems",
+    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-arm64.dmg",
     "dmg_arm64_size": "~80 MB",
-    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.4.0/CueForge-3.4.0-x64.dmg",
+    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-x64.dmg",
     "dmg_x64_size": "~80 MB",
-    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.4.0/CueForge-3.4.0-x64.exe",
+    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-x64.exe",
     "exe_size": "~65 MB",
 }
 

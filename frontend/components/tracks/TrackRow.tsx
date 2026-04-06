@@ -4,6 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen, Disc3, Music2 } from 'lucide-react';
 import type { Track } from '@/types';
 import { useElectron } from '@/lib/electron';
+import { mixScore } from '@/lib/camelot';
 
 interface TrackRowProps {
   track: Track;
@@ -13,6 +14,7 @@ interface TrackRowProps {
   isPlaying: boolean;
   isFavorite: boolean;
   isAnalyzing?: boolean;
+  referenceTrack?: Track | null;
   onSelect: (track: Track, e?: React.MouseEvent) => void;
   onDoubleClick: (track: Track) => void;
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
@@ -49,6 +51,7 @@ export const TrackRow = React.memo(function TrackRow({
   isMultiSelected = false,
   isFavorite,
   isAnalyzing = false,
+  referenceTrack,
   onSelect,
   onDoubleClick,
   onContextMenu,
@@ -78,7 +81,7 @@ export const TrackRow = React.memo(function TrackRow({
       onDoubleClick={handleDblClick}
       onContextMenu={handleContextMenu}
       className={`
-        grid grid-cols-[40px_40px_2fr_80px_80px_120px_100px_80px_40px_40px] gap-3 px-4 py-2
+        grid grid-cols-[40px_40px_2fr_80px_80px_50px_120px_100px_80px_40px_40px] gap-3 px-4 py-2
         items-center border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)]
         transition-colors cursor-pointer
         ${isSelected ? 'bg-[var(--bg-secondary)] border-l-4 border-l-[var(--accent)]' : ''}
@@ -126,6 +129,34 @@ export const TrackRow = React.memo(function TrackRow({
           </span>
         ) : (
           <span className="text-xs text-[var(--text-secondary)]">—</span>
+        )}
+      </div>
+
+      {/* Mix Score */}
+      <div className="flex justify-center">
+        {referenceTrack && referenceTrack.id !== track.id && track.key && referenceTrack.key ? (
+          (() => {
+            const ms = mixScore(
+              referenceTrack.bpm || 0, referenceTrack.key || '',
+              referenceTrack.energy || 0,
+              track.bpm || 0, track.key || '', track.energy || 0,
+            );
+            return (
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{
+                  color: ms.color,
+                  background: `${ms.color}18`,
+                  border: `1px solid ${ms.color}30`,
+                }}
+                title={`${ms.label} — ${ms.score}%`}
+              >
+                {ms.score}
+              </span>
+            );
+          })()
+        ) : (
+          <span className="text-[10px] text-[var(--text-muted)]">—</span>
         )}
       </div>
 

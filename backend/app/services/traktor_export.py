@@ -1,0 +1,212 @@
+"""
+CueForge — Traktor NML export service.
+
+Generates Traktor DJ Pro compatible .nml (XML) collection files.
+NML format is based on the Native Instruments collection XML schema.
+"""
+
+from typing import List, Optional
+from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.dom.minidom import parseString
+
+
+# ── Traktor key mapping ─────────────────────────────────────────────────
+# Traktor uses Open Key notation internally (mapped to integer KEY_VALUE)
+
+MUSICAL_KEY_TO_TRAKTOR = {
+    "C major": 0,  "Cm": 20,    "C minor": 20,
+    "Db major": 1, "C#m": 21,   "C# minor": 21, "Db minor": 21,
+    "D major": 2,  "Dm": 22,    "D minor": 22,
+    "Eb major": 3, "D#m": 23,   "D# minor": 23, "Eb minor": 23,
+    "E major": 4,  "Em": 0,     "E minor": 0,     # Traktor KEY_VALUE wraps
+    "F major": 5,  "Fm": 1,     "F minor": 1,
+    "F# major": 6, "Gb major": 6, "F#m": 2, "F# minor": 2, "Gb minor": 2,
+    "G major": 7,  "Gm": 3,     "G minor": 3,
+    "Ab major": 8, "G# major": 8, "G#m": 4, "G# minor": 4, "Ab minor": 4,
+    "A major": 9,  "Am": 5,     "A minor": 5,
+    "Bb major": 10, "A# major": 10, "A#m": 6, "A# minor": 6, "Bb minor": 6,
+    "B major": 11, "Bm": 7,     "B minor": 7,
+}
+
+# Traktor cue type mapping
+TRAKTOR_CUE_TYPES = {
+    'hot_cue': 0,    # CUE
+    'fade_in': 1,    # FADE_IN
+    'fade_out': 2,   # FADE_OUT
+    'load': 3,       # LOAD
+    'loop': 4,       # LOOP
+    'drop': 0,       # mapped to CUE
+    'phrase': 0,     # mapped to CUE
+    'section': 0,    # mapped to CUE
+}
+
+
+def _ms_to_seconds(ms: float) -> str:
+    """Convert milliseconds to seconds string for Traktor."""
+    return f"{ms / 1000:.6f}"
+
+
+def _hex_to_traktor_color(hex_color: str) -> int:
+    """Convert hex color to Traktor's integer color format (0xAARRGGBB with alpha)."""
+    hex_color = (hex_color or '#22c55e').lstrip('#')
+    try:
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+    except (ValueError, IndexError):
+        r, g, b = 0x22, 0xC5, 0x5E  # green fallback
+    return (0xFF << 24) | (r << 16) | (g << 8) | b
+
+
+def generate_traktor_nml(
+    tracks: List[dict],
+    collection_name: str = "CueForge Export",
+) -> str:
+    """
+    Generate a Traktor-compatible .nml XML file.
+
+    Each track dict should have:
+      - title, artist, album, genre, bpm, key, duration_ms, file_path
+      - cue_points: list of {position_ms, label/name, color, type, end_position_ms}
+      - loop_markers: list of {start_ms, end_ms, name, color, number}
+      - analysis: dict with extra data
+
+    Returns: XML string
+    """
+    nml = Element('NML', VERSION="19")
+
+    # HEAD section
+    head = SubElement(nml, 'HEAD', COMPANY="www.native-instruments.com", PROGRAM="Traktor Pro 3")
+
+    # MUSICFOLDERS (empty placeholder)
+    SubElement(nml, 'MUSICFOLDERS')
+
+    # COLLECTION
+    collection = SubElement(nml, 'COLLECTION', ENTRIES=str(len(tracks)))
+
+    for track in tracks:
+        bpm = track.get('bpm', 0) or 0
+        key = track.get('key', '')
+        duration_s = (track.get('duration_ms', 0) or 0) / 1000
+        title = track.get('title', 'Unknown')
+        artist = track.get('artist', '')
+        file_path = track.get('file_path', '')
+
+        entry = SubElement(collection, 'ENTRY',
+            MODIFIED_DATE="",
+            MODIFIED_TIME="0",
+            AUDIO_ID="",
+            TITLE=title,
+            ARTIST=artist,
+        )
+
+        # ALBUM
+        if track.get('album'):
+            SubElement(entry, 'ALBUM', TITLE=track['album'])
+
+        # LOCATION
+        # Traktor uses volume + dir + file format
+        dir_parts = file_path.rsplit('/', 1) if '/' in file_path else file_path.rsplit('\\', 1)
+        if len(dir_parts) == 2:
+            directory = dir_parts[0] + '/'
+            filename = dir_parts[1]
+        else:
+            directory = '/'
+            filename = file_path
+
+        SubElement(entry, 'LOCATION',
+            DIR=directory.replace('/', '/:'),
+            FILE=filename,
+            VOLUME="",
+            VOLUMEID="",
+        )
+
+        # INFO
+        info_attrs = {}
+        if track.get('genre'):
+            info_attrs['GENRE'] = track['genre']
+        if track.get('label'):
+            info_attrs['LABEL'] = track['label']
+        if track.get('comment'):
+            info_attrs['COMMENT'] = track['comment']
+        info_attrs['PLAYTIME'] = str(int(duration_s))
+        info_attrs['PLAYTIME_FLOAT'] = f"{duration_s:.6f}"
+        info_attrs['IMPORT_DATE'] = ""
+        SubElement(entry, 'INFO', **info_attrs)
+
+        # TEMPO
+        tempo_attrs = {
+            'BPM': f"{bpm:.6f}" if bpm else "0.000000",
+            'BPM_QUALITY': "100.000000",
+        }
+        SubElement(entry, 'TEMPO', **tempo_attrs)
+
+        # MUSICAL_KEY
+        if key:
+            key_value = MUSICAL_KEY_TO_TRAKTOR.get(key, -1)
+            if key_value >= 0:
+                SubElement(entry, 'MUSICAL_KEY', VALUE=str(key_value))
+
+        # CUE_V2 entries (cue points)
+        cue_points = track.get('cue_points', [])
+        for i, cp in enumerate(cue_points):
+            pos_ms = cp.get('position_ms', 0) or 0
+            cue_type_str = cp.get('type') or cp.get('cue_type', 'hot_cue')
+            cue_type = TRAKTOR_CUE_TYPES.get(cue_type_str, 0)
+            name = cp.get('label') or cp.get('name', f'Cue {i+1}')
+            color = _hex_to_traktor_color(cp.get('color'))
+
+            cue_attrs = {
+                'NAME': name,
+                'DISPL_ORDER': str(i),
+                'TYPE': str(cue_type),
+                'START': _ms_to_seconds(pos_ms),
+                'LEN': "0.000000",
+                'REPEATS': "-1",
+                'HOTCUE': str(i),
+            }
+
+            # Loop: set LEN to duration
+            end_ms = cp.get('end_position_ms')
+            if cue_type == 4 and end_ms:  # LOOP type
+                cue_attrs['LEN'] = _ms_to_seconds(end_ms - pos_ms)
+
+            SubElement(entry, 'CUE_V2', **cue_attrs)
+
+        # LOUDNESS (placeholder)
+        SubElement(entry, 'LOUDNESS',
+            PEAK_DB="0.000000",
+            PERCEIVED_DB="0.000000",
+            ANALYZED_DB="0.000000",
+        )
+
+    # SETS (empty)
+    SubElement(nml, 'SETS', ENTRIES="0")
+
+    # PLAYLISTS with one playlist
+    playlists = SubElement(nml, 'PLAYLISTS')
+    root_node = SubElement(playlists, 'NODE', TYPE="FOLDER", NAME="$ROOT")
+    playlist_node = SubElement(root_node, 'SUBNODES', COUNT="1")
+    pl_entry = SubElement(playlist_node, 'NODE', TYPE="PLAYLIST", NAME=collection_name)
+    pl_sub = SubElement(pl_entry, 'PLAYLIST', ENTRIES=str(len(tracks)), TYPE="LIST", UUID="")
+
+    for i, track in enumerate(tracks):
+        file_path = track.get('file_path', '')
+        dir_parts = file_path.rsplit('/', 1) if '/' in file_path else file_path.rsplit('\\', 1)
+        if len(dir_parts) == 2:
+            directory = dir_parts[0] + '/'
+            filename = dir_parts[1]
+        else:
+            directory = '/'
+            filename = file_path
+
+        entry_el = SubElement(pl_sub, 'ENTRY')
+        SubElement(entry_el, 'PRIMARYKEY', TYPE="TRACK", KEY=f"{directory}{filename}")
+
+    # Pretty-print XML
+    raw_xml = tostring(nml, encoding='unicode')
+    try:
+        pretty = parseString(raw_xml).toprettyxml(indent="  ", encoding="UTF-8")
+        return pretty.decode('utf-8')
+    except Exception:
+        return f'<?xml version="1.0" encoding="UTF-8"?>\n{raw_xml}'

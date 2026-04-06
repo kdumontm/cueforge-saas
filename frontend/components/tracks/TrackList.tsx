@@ -70,6 +70,7 @@ const COLUMN_HEADERS = [
   { key: 'title', label: 'Titre', width: '2fr' },
   { key: 'bpm', label: 'BPM', width: '80px' },
   { key: 'key', label: 'Tonalité', width: '80px' },
+  { key: 'mix', label: 'Mix', width: '50px' },
   { key: 'energy', label: 'Énergie', width: '120px' },
   { key: 'genre', label: 'Genre', width: '100px' },
   { key: 'duration', label: 'Durée', width: '80px' },
@@ -324,6 +325,7 @@ export const TrackList = React.memo(function TrackList({
                 isPlaying={playingTrackId === track.id}
                 isFavorite={favoriteIds.has(track.id)}
                 isAnalyzing={analyzingIds.has(track.id)}
+                referenceTrack={selectedTrack}
                 onSelect={onSelect}
                 onDoubleClick={onDoubleClick}
                 onContextMenu={onContextMenu}

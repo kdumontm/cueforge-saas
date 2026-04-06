@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
-import { Trash2, Plus, GripVertical, ChevronDown, Zap } from 'lucide-react';
+import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
 
 const CUE_TYPES = [
   { value: 'hot_cue',   label: 'Hot Cue',   icon: '🎯', color: '#22c55e' },
@@ -25,6 +25,7 @@ interface CuesTabProps {
   onCreateCue?: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number; end_position_ms?: number }) => void;
   onDeleteCue?: (cueId: number) => void;
   onCueClick?: (cue: CuePoint) => void;
+  onPreviewCue?: (cue: CuePoint) => void;
   initialPositionMs?: number | null;
 }
 
@@ -34,6 +35,7 @@ export function CuesTab({
   onCreateCue,
   onDeleteCue,
   onCueClick,
+  onPreviewCue,
   initialPositionMs,
 }: CuesTabProps) {
   const [localOrder, setLocalOrder] = useState<number[]>([]);
@@ -410,6 +412,16 @@ export function CuesTab({
                       )}
                     </div>
                   </div>
+
+                  {/* Preview (play 5s) */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onPreviewCue?.(cue); }}
+                    className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
+                    style={{ opacity: isHovered ? 1 : 0.4 }}
+                    title="Pré-écouter (5s)"
+                  >
+                    <Play size={11} fill="currentColor" />
+                  </button>
 
                   {/* Glow dot */}
                   <div
