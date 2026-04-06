@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2 } from 'lucide-react';
+import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen } from 'lucide-react';
 import type { Track } from '@/types';
+import { useElectron } from '@/lib/electron';
 
 interface TrackRowProps {
   track: Track;
@@ -54,6 +55,7 @@ export const TrackRow = React.memo(function TrackRow({
   onFavoriteToggle,
   onRatingChange,
 }: TrackRowProps) {
+  const { isDesktop, files } = useElectron();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -195,8 +197,14 @@ export const TrackRow = React.memo(function TrackRow({
               { icon: Copy, label: 'Copier le titre', action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
               { icon: Tag, label: 'Ajouter un tag', action: () => {} },
               { icon: Star, label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris', action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
+              // Desktop only : ouvrir le fichier dans le Finder / Explorateur
+              ...(isDesktop && files && (track as any).file_path ? [{
+                icon: FolderOpen,
+                label: 'Révéler dans le Finder',
+                action: () => { files.revealInFinder((track as any).file_path); setShowContextMenu(false); },
+              }] : []),
               { icon: Trash2, label: 'Supprimer', action: () => {}, danger: true },
-            ].map(({ icon: Icon, label, action, danger }) => (
+            ].map(({ icon: Icon, label, action, danger }: any) => (
               <button
                 key={label}
                 onClick={action}

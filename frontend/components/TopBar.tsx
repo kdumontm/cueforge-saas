@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Sun, Moon, Bell, X, Upload, Download } from 'lucide-react';
+import { Search, Sun, Moon, Bell, X, Upload, Download, RefreshCw } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { useLang } from './LangProvider';
 import { tr } from '@/lib/i18n';
+import { useAutoUpdate, useElectron } from '@/lib/electron';
 
 interface TopBarProps {
   title: string;
@@ -26,6 +27,8 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const { isDesktop } = useElectron();
+  const updateState = useAutoUpdate();
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -174,6 +177,16 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             </button>
           ))}
         </div>
+
+        {/* Desktop only : mise à jour disponible */}
+        {isDesktop && updateState.available && (
+          <div className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-400 text-[11px] font-semibold whitespace-nowrap animate-pulse flex-shrink-0">
+            <RefreshCw size={12} />
+            {updateState.downloaded
+              ? (lang === 'en' ? 'Restart to update' : 'Redémarrer pour mettre à jour')
+              : (lang === 'en' ? 'Updating...' : 'Mise à jour...')}
+          </div>
+        )}
 
         {/* Theme toggle */}
         <button

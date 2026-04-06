@@ -268,7 +268,41 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
   return response.json();
 }
 
-export async function analyzeTrack(trackId: number): Promise<AnalyzeResponse> {
+/**
+ * Analyse un track — hybride :
+ *   • Desktop (Electron) → analyse locale via Web Audio API (CPU utilisateur)
+ *   • Web → analyse cloud via le backend (POST /tracks/:id/analyze)
+ *
+ * Sur desktop, après l'analyse locale, on envoie les résultats au backend
+ * pour les persister en BDD, comme ça les données restent synchronisées.
+ */
+export async function analyzeTrack(
+  trackId: number,
+  options?: { localFile?: { path: string }; onProgress?: (pct: number) => void }
+): Promise<AnalyzeResponse> {
+  const { isDesktopApp } = await import('@/lib/electron');
+  const isDesktop = isDesktopApp();
+
+  // ── Desktop : analyse locale puis sync vers le backend ──────────────────
+  if (isDesktop && options?.localFile?.path) {
+    const bridge = (window as any).cueforge;
+    if (bridge?.files?.readBuffer) {
+      const { analyzeAudioLocal } = await import('@/lib/audioAnalyzer');
+      const buffer = await bridge.files.readBuffer(options.localFile.path);
+      const result = await analyzeAudioLocal(buffer, options?.onProgress ?? (() => {}));
+
+      // Envoyer les résultats au backend pour persistance
+      const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze-local`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(result),
+      });
+      // Fallback : si l'endpoint local n'existe pas encore, on utilise l'analyse cloud
+      if (response.ok) return response.json();
+    }
+  }
+
+  // ── Web (ou fallback) : analyse cloud ───────────────────────────────────
   const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze`, {
     method: 'POST',
     headers: { ...authHeaders() },
