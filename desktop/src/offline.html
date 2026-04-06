@@ -118,7 +118,7 @@
         dot.classList.add('online');
         text.textContent = 'Connecté ! Rechargement...';
         setTimeout(() => {
-          window.location.href = 'https://cueforge-saas-production.up.railway.app';
+          window.location.href = 'https://exquisite-art-production-f4c6.up.railway.app/dashboard';
         }, 500);
       } else {
         text.textContent = 'Toujours hors ligne';
@@ -129,7 +129,7 @@
     setInterval(async () => {
       const online = await window.cueforge.checkOnline();
       if (online) {
-        window.location.href = 'https://cueforge-saas-production.up.railway.app';
+        window.location.href = 'https://exquisite-art-production-f4c6.up.railway.app/dashboard';
       }
     }, 10000);
   </script>

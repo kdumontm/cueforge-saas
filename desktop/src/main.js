@@ -16,7 +16,7 @@ const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
 // ── URL du site web ─────────────────────────────────────────────────────────
-const WEB_URL = 'https://cueforge-saas-production.up.railway.app';
+const WEB_URL = 'https://exquisite-art-production-f4c6.up.railway.app';
 
 // ── Services locaux (exports DJ uniquement) ─────────────────────────────────
 let rekordboxExport, seratoExport;
