@@ -50,11 +50,11 @@ interface Section {
   sort_order: number;
   is_visible: boolean;
   background_color?: string;
-  padding_top?: number;
-  padding_bottom?: number;
+  padding_top?: string;
+  padding_bottom?: string;
   max_width?: string;
   custom_css_class?: string;
-  settings_json?: Record<string, any>;
+  settings?: Record<string, any>;
   components: Component[];
 }
 
@@ -292,8 +292,8 @@ function PageEditorPage() {
         sort_order: (page.sections?.length || 0) + 1,
         is_visible: true,
         background_color: "#ffffff",
-        padding_top: 40,
-        padding_bottom: 40,
+        padding_top: "py-10",
+        padding_bottom: "pb-10",
         max_width: "100%",
       });
       setPage({
@@ -659,19 +659,19 @@ function SectionEditor({
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Padding haut"
-              value={String(section.padding_top || 0)}
+              value={section.padding_top || "py-16"}
               onChange={(v) =>
-                onUpdate(section.id, { padding_top: parseInt(v) || 0 })
+                onUpdate(section.id, { padding_top: v })
               }
-              type="number"
+              placeholder="py-16, py-8, etc."
             />
             <Input
               label="Padding bas"
-              value={String(section.padding_bottom || 0)}
+              value={section.padding_bottom || "pb-16"}
               onChange={(v) =>
-                onUpdate(section.id, { padding_bottom: parseInt(v) || 0 })
+                onUpdate(section.id, { padding_bottom: v })
               }
-              type="number"
+              placeholder="pb-16, pb-8, etc."
             />
           </div>
           <Input
@@ -973,10 +973,8 @@ function PagePreview({
           key={section.id}
           style={{
             backgroundColor: section.background_color || "#ffffff",
-            paddingTop: section.padding_top || 0,
-            paddingBottom: section.padding_bottom || 0,
           }}
-          className="border-b border-gray-200"
+          className={`border-b border-gray-200 ${section.padding_top || ""} ${section.padding_bottom || ""}`}
         >
           <div
             style={{
