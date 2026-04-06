@@ -217,7 +217,7 @@ export default function PlayerCard({
 
   if (!track) {
     return (
-      <div className="bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-default)] rounded-[14px] p-10 flex flex-col items-center gap-4 mb-3">
+      <div className="bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-default)] rounded-[14px] p-6 sm:p-10 flex flex-col items-center gap-3 sm:gap-4 mb-3">
         <div className="text-5xl opacity-25">🎵</div>
         <div className="text-base font-semibold text-[var(--text-secondary)]">Glisse tes tracks ici</div>
         <div className="text-[13px] text-[var(--text-muted)]">ou sélectionne un track dans la liste ci-dessous</div>
@@ -236,9 +236,9 @@ export default function PlayerCard({
   return (
     <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] mb-3 overflow-hidden">
       {/* Track info row */}
-      <div className="flex items-center gap-4 px-[18px] pt-[14px] pb-[10px]">
+      <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-[18px] pt-3 sm:pt-[14px] pb-2 sm:pb-[10px]">
         <div
-          className="w-11 h-11 rounded-[10px] flex items-center justify-center text-xl flex-shrink-0"
+          className="w-9 h-9 sm:w-11 sm:h-11 rounded-[10px] flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
           style={{
             background: track.color ? track.color + '30' : 'var(--bg-elevated)',
             border: `1px solid ${track.color || 'var(--border-default)'}40`,
@@ -247,12 +247,12 @@ export default function PlayerCard({
           🎵
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-bold text-[var(--text-primary)] truncate">{track.title}</div>
+          <div className="text-[13px] sm:text-[15px] font-bold text-[var(--text-primary)] truncate">{track.title}</div>
           <div className="text-xs text-[var(--text-secondary)]">
             {track.artist}{track.genre ? ` · ${track.genre}` : ''}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           {track.bpm && (
             <span className="inline-flex items-center px-[7px] py-[2px] rounded-[5px] text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
               {typeof track.bpm === 'number' ? track.bpm.toFixed(1) : track.bpm} BPM
@@ -262,28 +262,28 @@ export default function PlayerCard({
           {track.key && <KeyBadge camelotKey={track.key} />}
           {track.energy != null && <EnergyBar energy={track.energy} showValue width={50} />}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={onPrev}
             disabled={!onPrev}
-            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1.5 sm:p-1 disabled:opacity-30 disabled:cursor-not-allowed"
             title="Track précédent"
           >
-            <SkipBack size={18} />
+            <SkipBack size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
           <button
             onClick={onNext}
             disabled={!onNext}
-            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="bg-transparent border-none cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1.5 sm:p-1 disabled:opacity-30 disabled:cursor-not-allowed"
             title="Track suivant"
           >
-            <SkipForward size={18} />
+            <SkipForward size={16} className="sm:w-[18px] sm:h-[18px]" />
           </button>
         </div>
       </div>
 
       {/* WaveSurfer — wrapped in ErrorBoundary pour ne pas crasher la page */}
-      <div className="px-[18px] pb-2">
+      <div className="px-3 sm:px-[18px] pb-2">
         <WaveSurferErrorBoundary trackId={track.id}>
           <WaveSurferPlayer
             key={`ws-${track.id}-${playerKey}`}
@@ -322,7 +322,7 @@ export default function PlayerCard({
       </div>
 
       {/* Loop / Zoom / Rate / Theme row */}
-      <div className="flex items-center gap-2 px-[18px] py-[6px] pb-[10px] border-t border-[var(--border-subtle)] flex-wrap">
+      <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-[18px] py-[6px] pb-2 sm:pb-[10px] border-t border-[var(--border-subtle)] flex-wrap">
         {/* Loop controls */}
         <button
           onClick={() => wsPlayerRef.current?.setLoopIn?.()}
@@ -440,12 +440,12 @@ export default function PlayerCard({
         </div>
 
         {/* Zoom buttons */}
-        <span className="text-[10px] text-[var(--text-muted)]">Zoom:</span>
+        <span className="hidden sm:inline text-[10px] text-[var(--text-muted)]">Zoom:</span>
         {ZOOM_LEVELS.map(z => (
           <button
             key={z}
             onClick={() => setZoom(z)}
-            className={`px-[7px] py-[2px] rounded-[5px] border text-[10px] cursor-pointer transition-colors ${
+            className={`hidden sm:inline-block px-[7px] py-[2px] rounded-[5px] border text-[10px] cursor-pointer transition-colors ${
               zoom === z
                 ? 'border-blue-500/60 bg-blue-600/25 text-blue-400 font-semibold'
                 : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'

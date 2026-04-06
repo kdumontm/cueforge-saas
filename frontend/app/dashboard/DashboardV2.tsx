@@ -1504,7 +1504,7 @@ export default function DashboardV2() {
 
   return (
     <div
-      className="p-4 space-y-3 relative"
+      className="p-2 sm:p-4 space-y-2 sm:space-y-3 relative"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={(e) => e.preventDefault()}
@@ -1573,7 +1573,7 @@ export default function DashboardV2() {
       )}
 
       {/* Player + Tabs — flex row, stacks on mobile */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-2 sm:gap-3 items-stretch">
 
         {/* Left: Player (waveform) + TrackList directement dessous */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
@@ -1591,7 +1591,7 @@ export default function DashboardV2() {
             playerRef={playerRef}
           />
           {/* TrackList sous le waveform */}
-          <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ minHeight: 220 }}>
+          <div className="bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] overflow-hidden flex flex-col" style={{ minHeight: 180 }}>
             {/* Barre outils bibliothèque */}
             {!isDemo && tracks.length > 0 && selectedIds.size === 0 && (
               <div className="flex items-center justify-end px-3 py-1.5 border-b border-[var(--border-subtle)]">
@@ -1688,10 +1688,10 @@ export default function DashboardV2() {
         </div>
 
         {/* Right: Tab panel vertical — full width on mobile */}
-        <div className="w-full lg:w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[50vh] lg:max-h-none">
+        <div className="w-full lg:w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[60vh] sm:max-h-[50vh] lg:max-h-none">
 
           {/* Onglets verticaux */}
-          <div className="w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
+          <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
             {TABS.filter(t => !(t as any).desktopOnly || isDesktopApp()).map(t => {
               const disabled = !selectedTrack && !(t as any).global;
               return (
@@ -1699,7 +1699,7 @@ export default function DashboardV2() {
                   key={t.id}
                   onClick={() => !disabled && setActiveTab(t.id)}
                   disabled={disabled}
-                  className={`relative flex flex-col items-center gap-1 py-3 px-1 transition-all border-none ${
+                  className={`relative flex flex-col items-center gap-0.5 sm:gap-1 py-2 sm:py-3 px-0.5 sm:px-1 transition-all border-none ${
                     activeTab === t.id
                       ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
                       : disabled
@@ -1711,7 +1711,7 @@ export default function DashboardV2() {
                     <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r" />
                   )}
                   <span className="text-base leading-none">{t.icon}</span>
-                  <span className="text-[8px] font-semibold uppercase tracking-wider leading-none">{tr((t as any).labelKey, lang)}</span>
+                  <span className="text-[7px] sm:text-[8px] font-semibold uppercase tracking-wider leading-none">{tr((t as any).labelKey, lang)}</span>
                   {(t as any).desktopOnly && (
                     <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded">PRO</span>
                   )}

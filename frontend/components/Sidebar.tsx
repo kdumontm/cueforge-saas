@@ -19,6 +19,8 @@ interface SidebarProps {
   username?: string;
   plan?: string;
   onLogout?: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const getNavItems = (lang: string) => [
@@ -40,7 +42,7 @@ const DEFAULT_CRATES = [
   { id: 'crate_vocal', label: 'Avec voix', color: '#8b5cf6' },
 ];
 
-export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
+export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout, mobileOpen = false, onMobileClose }: SidebarProps) {
   const { lang } = useLang();
   const pathname = usePathname();
   const router = useRouter();
@@ -132,10 +134,20 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   ];
 
   return (
-    <aside
-      className="h-screen bg-[var(--bg-secondary)] border-r border-[var(--border-subtle)] flex flex-col flex-shrink-0 fixed left-0 top-0 z-50 transition-all duration-250"
-      style={{ width: W, minWidth: W, maxWidth: W }}
-    >
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[49] md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+      <aside
+        className={`h-screen bg-[var(--bg-secondary)] border-r border-[var(--border-subtle)] flex flex-col flex-shrink-0 fixed left-0 top-0 z-50 transition-all duration-300 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+        style={{ width: W, minWidth: W, maxWidth: W }}
+      >
       {/* Logo */}
       <div className={`flex items-center border-b border-[var(--border-subtle)] ${collapsed ? 'px-3 py-4 justify-center' : 'px-3.5 py-4 justify-between'}`}>
         <div className="flex items-center gap-2">
@@ -282,6 +294,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
           )}
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

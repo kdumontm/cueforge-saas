@@ -68,7 +68,7 @@ export default function BatchActionBar({
   }, [showTagMenu, showCategoryMenu, showColorMenu]);
 
   return (
-    <div ref={containerRef} className="sticky top-0 z-40 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-4 py-2.5 flex items-center gap-3 backdrop-blur-sm">
+    <div ref={containerRef} className="sticky top-0 z-40 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-2.5 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 backdrop-blur-sm flex-wrap">
       {/* Selection info */}
       <div className="flex items-center gap-2">
         <CheckSquare size={16} className="text-blue-400" />
@@ -86,7 +86,7 @@ export default function BatchActionBar({
       <div className="h-4 w-px bg-[var(--border-subtle)]" />
 
       {/* Quick actions */}
-      <div className="flex items-center gap-1.5 flex-1">
+      <div className="flex items-center gap-1 sm:gap-1.5 flex-1 flex-wrap">
         {/* Tag */}
         <div className="relative">
           <button
@@ -189,7 +189,7 @@ export default function BatchActionBar({
         </div>
 
         {/* Rating */}
-        <div className="flex items-center gap-0.5 px-2">
+        <div className="hidden sm:flex items-center gap-0.5 px-2">
           {[1, 2, 3, 4, 5].map(star => (
             <button
               key={star}
@@ -215,9 +215,9 @@ export default function BatchActionBar({
         {onBatchEnrich && (
           <button
             onClick={onBatchEnrich}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all cursor-pointer"
           >
-            🔍 Enrichir
+            🔍 <span className="hidden sm:inline">Enrichir</span>
           </button>
         )}
 

@@ -200,7 +200,7 @@ export const TrackList = React.memo(function TrackList({
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
       {/* Toolbar compact */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+      <div className="flex items-center gap-2 px-2 sm:px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-secondary)] flex-wrap">
         {/* Search Input */}
         <div className="flex-1 relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
@@ -217,7 +217,7 @@ export const TrackList = React.memo(function TrackList({
         <select
           value={sortBy}
           onChange={handleSortChange}
-          className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+          className="px-1.5 sm:px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] max-w-[100px] sm:max-w-none"
         >
           {getSortOptions(lang).map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -253,7 +253,7 @@ export const TrackList = React.memo(function TrackList({
       </div>
 
       {/* Track Count + Auto-analyze indicator */}
-      <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center gap-2">
+      <div className="px-3 sm:px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center gap-2 flex-wrap">
         <span>
           {filteredTracks.length} {filteredTracks.length === 1 ? tr('tracks.no_tracks', lang) : tr('tracks.files', lang)}
           {tracks.length !== filteredTracks.length && ` (${tracks.length} total)`}
@@ -315,27 +315,28 @@ export const TrackList = React.memo(function TrackList({
         ) : (
           // List View
           <div className="flex flex-col">
-            {/* Column Headers */}
-            <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 py-2">
-              <div
-                className="grid gap-3 text-xs font-medium text-[var(--text-secondary)]"
-                style={{ gridTemplateColumns: getColumnHeaders(lang).map((h) => h.width).join(' ') }}
-              >
-                {getColumnHeaders(lang).map((header) => (
-                  <button
-                    key={header.key}
-                    onClick={() => {
-                      if (header.key !== 'index' && header.key !== 'play') {
-                        onSortChange(header.key);
-                      }
-                    }}
-                    className={`text-left hover:text-[var(--text-primary)] transition-colors ${
-                      header.key === 'index' || header.key === 'play' ? 'cursor-default' : 'cursor-pointer'
-                    }`}
-                  >
-                    {header.label}
-                  </button>
-                ))}
+            {/* Column Headers — responsive grid matching TrackRow */}
+            <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-3 sm:px-4 py-2">
+              <div className="grid grid-cols-[28px_1fr_40px] sm:grid-cols-[32px_32px_2fr_60px_60px_40px] lg:grid-cols-[40px_40px_2fr_80px_80px_50px_120px_100px_80px_40px_40px] gap-2 sm:gap-3 text-xs font-medium text-[var(--text-secondary)]">
+                {getColumnHeaders(lang).map((header) => {
+                  const hiddenOnMobile = ['play', 'bpm', 'key'].includes(header.key);
+                  const hiddenBelowLg = ['mix', 'energy', 'genre', 'duration', 'rating'].includes(header.key);
+                  return (
+                    <button
+                      key={header.key}
+                      onClick={() => {
+                        if (header.key !== 'index' && header.key !== 'play') {
+                          onSortChange(header.key);
+                        }
+                      }}
+                      className={`text-left hover:text-[var(--text-primary)] transition-colors ${
+                        header.key === 'index' || header.key === 'play' ? 'cursor-default' : 'cursor-pointer'
+                      } ${hiddenOnMobile ? 'hidden sm:block' : ''} ${hiddenBelowLg ? 'hidden lg:block' : ''}`}
+                    >
+                      {header.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
