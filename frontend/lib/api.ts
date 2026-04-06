@@ -151,6 +151,7 @@ export interface TrackUploadResponse {
 export interface AnalyzeResponse {
   status: string;
   message: string;
+  usedLocal?: boolean;  // true si analyse exécutée sur le CPU local (desktop)
 }
 
 export interface TrackListResponse {
@@ -348,7 +349,10 @@ export async function analyzeTrack(
           headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify(result),
         });
-        if (response.ok) return response.json();
+        if (response.ok) {
+          const json = await response.json();
+          return { ...json, usedLocal: true };
+        }
       }
     } catch (e) {
       console.warn('[CueForge] Analyse locale échouée, fallback cloud:', e);
