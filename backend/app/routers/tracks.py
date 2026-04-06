@@ -627,15 +627,7 @@ async def analyze_track_local(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Mettre à jour les champs du track
-    if payload.bpm is not None:
-        track.bpm = payload.bpm
-    if payload.key_name is not None:
-        track.key = payload.key_name
-    if payload.energy is not None:
-        track.energy = payload.energy
-
-    # Créer ou mettre à jour l'analyse
+    # Créer ou mettre à jour l'analyse (bpm/key/energy vivent sur TrackAnalysis, PAS Track)
     analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
     if not analysis:
         analysis = TrackAnalysis(track_id=track_id)

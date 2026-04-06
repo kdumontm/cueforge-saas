@@ -849,17 +849,20 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 # ══════════════════════════════════════════════════════════════════════════
 
 def _apply_drop_cue(track, analysis, cue_points, slot):
-    if not analysis.drops:
+    drops = analysis.drop_positions or []
+    if not drops:
         return cue_points, slot
-    for drop in analysis.drops:
+    for drop_ms in drops:
         if slot >= 8:
             break
+        drop_count = len([c for c in cue_points if 'DROP' in (c.name or '')])
         cue = CuePoint(
             track_id=track.id,
-            time=drop["time"],
-            label=f"DROP {len([c for c in cue_points if 'DROP' in (c.label or '')]) + 1}",
-            hot_cue_slot=slot,
-            color=CUE_COLOR_RGB.get("red", "#FF0000"),
+            position_ms=int(drop_ms),
+            name=f"DROP {drop_count + 1}",
+            number=slot,
+            color="#E13535",
+            cue_type="drop",
         )
         cue_points.append(cue)
         slot += 1
@@ -867,25 +870,28 @@ def _apply_drop_cue(track, analysis, cue_points, slot):
 
 
 def _apply_section_cue(track, analysis, cue_points, slot):
-    if not analysis.sections:
+    sections = analysis.section_labels or []
+    if not sections:
         return cue_points, slot
     color_map = {
-        "INTRO": CUE_COLOR_RGB.get("blue", "#0000FF"),
-        "BUILD": CUE_COLOR_RGB.get("green", "#00FF00"),
-        "DROP": CUE_COLOR_RGB.get("red", "#FF0000"),
-        "BREAKDOWN": CUE_COLOR_RGB.get("yellow", "#FFFF00"),
-        "OUTRO": CUE_COLOR_RGB.get("purple", "#800080"),
+        "INTRO": "#2B7FFF",
+        "BUILD": "#FF8C00",
+        "DROP": "#E13535",
+        "BREAKDOWN": "#E2D420",
+        "OUTRO": "#A855F7",
     }
-    for section in analysis.sections:
+    for section in sections:
         if slot >= 8:
             break
-        color = color_map.get(section["label"], CUE_COLOR_RGB.get("white", "#FFFFFF"))
+        label = section.get("label", "SECTION")
+        color = color_map.get(label, "#FFFFFF")
         cue = CuePoint(
             track_id=track.id,
-            time=section["time"],
-            label=section["label"],
-            hot_cue_slot=slot,
+            position_ms=int(section.get("time_ms", 0)),
+            name=label,
+            number=slot,
             color=color,
+            cue_type="section",
         )
         cue_points.append(cue)
         slot += 1
@@ -893,17 +899,19 @@ def _apply_section_cue(track, analysis, cue_points, slot):
 
 
 def _apply_phrase_cue(track, analysis, cue_points, slot):
-    if not analysis.phrases:
+    phrases = analysis.phrase_positions or []
+    if not phrases:
         return cue_points, slot
-    for i, phrase in enumerate(analysis.phrases):
+    for i, phrase_ms in enumerate(phrases):
         if slot >= 8:
             break
         cue = CuePoint(
             track_id=track.id,
-            time=phrase["start_time"],
-            label=f"PHRASE {i + 1}",
-            hot_cue_slot=slot,
-            color=CUE_COLOR_RGB.get("cyan", "#00FFFF"),
+            position_ms=int(phrase_ms),
+            name=f"PHRASE {i + 1}",
+            number=slot,
+            color="#1DB954",
+            cue_type="phrase",
         )
         cue_points.append(cue)
         slot += 1
@@ -911,19 +919,21 @@ def _apply_phrase_cue(track, analysis, cue_points, slot):
 
 
 def _apply_beat_cue(track, analysis, cue_points, slot, beat_interval=4):
-    if not analysis.beats:
+    beats = analysis.beat_positions or []
+    if not beats:
         return cue_points, slot
-    for i, beat_time in enumerate(analysis.beats):
+    for i, beat_ms in enumerate(beats):
         if i % beat_interval != 0:
             continue
         if slot >= 8:
             break
         cue = CuePoint(
             track_id=track.id,
-            time=float(beat_time),
-            label=f"BEAT {i}",
-            hot_cue_slot=slot,
-            color=CUE_COLOR_RGB.get("white", "#FFFFFF"),
+            position_ms=int(beat_ms),
+            name=f"BEAT {i}",
+            number=slot,
+            color="#FFFFFF",
+            cue_type="phrase",
         )
         cue_points.append(cue)
         slot += 1

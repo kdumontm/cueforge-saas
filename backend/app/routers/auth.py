@@ -193,7 +193,6 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     refresh = create_refresh_token({"sub": str(new_user.id)})
 
     # Store hashed refresh token (only hash in DB, plaintext returned to client)
-    new_user.refresh_token = _hash_token(refresh)
     # 🔴 FIX (faille 8) : Stocke le HASH SHA-256 du refresh token, pas le token brut
     new_user.refresh_token = _hash_token(refresh)
     db.commit()
@@ -274,7 +273,6 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})
 
-    user.refresh_token = _hash_token(refresh)
     # 🔴 FIX (faille 8) : Stocke le HASH SHA-256, pas le token brut
     user.refresh_token = _hash_token(refresh)
     user.last_login_at = datetime.utcnow()
@@ -496,8 +494,8 @@ async def export_my_data(user: User = Depends(get_current_user), db: Session = D
                 "artist": t.artist,
                 "title": t.title,
                 "genre": t.genre,
-                "bpm": t.bpm,
-                "key": t.musical_key if hasattr(t, "musical_key") else None,
+                "bpm": t.analysis.bpm if t.analysis else None,
+                "key": t.analysis.key if t.analysis else None,
                 "created_at": str(t.created_at) if hasattr(t, "created_at") and t.created_at else None,
             }
             for t in tracks
