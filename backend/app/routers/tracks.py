@@ -625,6 +625,14 @@ class LocalAnalysisPayload(BaseModel):
     auto_loops: Optional[list] = None          # [{start_ms, end_ms, duration_bars, confidence}]
     waveform_peaks: Optional[list] = None      # [float, ...] — 800 peaks
     spectral_energy: Optional[dict] = None     # {sub_bass, bass, low_mid, mid, high_mid, high}
+    # v3.1: données stem-enhanced (Demucs local)
+    stem_enhanced: Optional[bool] = None
+    stem_model: Optional[str] = None
+    vocal_sections: Optional[list] = None      # [{start_ms, end_ms, energy, label}]
+    vocal_percentage: Optional[float] = None
+    drum_energy_curve: Optional[list] = None   # [float, ...] énergie drums par mesure
+    bass_energy_curve: Optional[list] = None   # [float, ...] énergie bass par mesure
+    vocal_energy_curve: Optional[list] = None  # [float, ...] énergie vocals par mesure
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -687,6 +695,10 @@ async def analyze_track_local(
         analysis.waveform_peaks = payload.waveform_peaks
     if payload.spectral_energy:
         analysis.spectral_energy = payload.spectral_energy
+
+    # v3.1: données stem-enhanced (Demucs local)
+    if payload.vocal_percentage is not None:
+        analysis.vocal_percentage = payload.vocal_percentage
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)
@@ -794,36 +806,38 @@ async def analyze_track_local(
     track.status = TrackStatus.completed
     db.commit()
 
-    # ── Mode pro desktop : lancer Demucs en thread daemon si stems activés ──
-    # Même logique que le flow cloud — l'utilisateur a la puissance CPU locale
-    # pour l'analyse, et le serveur gère Demucs en arrière-plan pour les stems.
-    try:
-        user = db.query(User).filter(User.id == current_user.id).first()
-        if user and getattr(user, 'use_stem_separation', False):
-            from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
-            from app.routers.advanced import _stems_jobs
-            import threading as _threading
+    # ── Stems : si l'analyse locale n'a PAS fait Demucs (pas installé sur le
+    # PC de l'utilisateur), le serveur peut lancer Demucs en fallback cloud.
+    # Si stem_enhanced=True, le desktop a déjà tout fait → pas besoin.
+    if not payload.stem_enhanced:
+        try:
+            user = db.query(User).filter(User.id == current_user.id).first()
+            if user and getattr(user, 'use_stem_separation', False):
+                from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
+                from app.routers.advanced import _stems_jobs
+                import threading as _threading
 
-            if not stems_already_exist(track_id):
-                _stems_jobs[track_id] = {"status": "processing", "error": None}
-                _fp = track.file_path
+                if not stems_already_exist(track_id):
+                    _stems_jobs[track_id] = {"status": "processing", "error": None}
+                    _fp = track.file_path
 
-                def _auto_demucs():
-                    try:
-                        _demucs_sep(track_id, _fp)
-                        _stems_jobs[track_id] = {"status": "completed", "error": None}
-                        logger.info(f"[STEM] Demucs terminé (desktop) pour track {track_id}")
-                    except Exception as _e:
-                        _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
-                        logger.error(f"[STEM] Demucs échoué (desktop) pour track {track_id}: {_e}")
+                    def _auto_demucs():
+                        try:
+                            _demucs_sep(track_id, _fp)
+                            _stems_jobs[track_id] = {"status": "completed", "error": None}
+                            logger.info(f"[STEM] Demucs fallback serveur terminé pour track {track_id}")
+                        except Exception as _e:
+                            _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
+                            logger.error(f"[STEM] Demucs fallback serveur échoué pour track {track_id}: {_e}")
 
-                t = _threading.Thread(target=_auto_demucs, daemon=True)
-                t.start()
-                logger.info(f"[STEM] Thread Demucs lancé (desktop) pour track {track_id}")
-            else:
-                logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
-    except Exception as _stem_err:
-        logger.warning(f"[STEM] Impossible de lancer Demucs (desktop): {_stem_err}")
+                    t = _threading.Thread(target=_auto_demucs, daemon=True)
+                    t.start()
+                else:
+                    logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
+        except Exception as _stem_err:
+            logger.warning(f"[STEM] Impossible de lancer Demucs fallback: {_stem_err}")
+    else:
+        logger.info(f"[STEM] Stems analysés localement (desktop Demucs) pour track {track_id}")
 
     return AnalyzeResponse(status="completed", message="Local analysis saved")
 

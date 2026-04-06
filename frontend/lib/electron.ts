@@ -31,12 +31,24 @@ export interface CueForgeUpdater {
   onProgress: (cb: (data: { percent: number }) => void) => void;
 }
 
+export interface CueForgeStems {
+  checkAvailable: () => Promise<{ available: boolean; python: string | null }>;
+  separate: (filePath: string) => Promise<{
+    stemDir: string;
+    stems: Record<string, { path: string; buffer: ArrayBuffer }>;
+    model: string;
+  }>;
+  readBuffer: (stemPath: string) => Promise<ArrayBuffer | null>;
+  onProgress: (cb: (pct: number) => void) => void;
+}
+
 export interface CueForgeBridge {
   isDesktop: true;
   getAppVersion: () => Promise<string>;
   files: CueForgeFiles;
   export: CueForgeExport;
   updater: CueForgeUpdater;
+  stems: CueForgeStems;
 }
 
 // ── Détection ────────────────────────────────────────────────────────────────
@@ -85,6 +97,9 @@ export function useElectron() {
 
     /** Auto-updater de l'app */
     updater: bridge?.updater ?? null,
+
+    /** Séparation de stems (Demucs local) */
+    stems: bridge?.stems ?? null,
 
     /** Version de l'app Electron */
     getAppVersion: bridge?.getAppVersion ?? null,

@@ -152,6 +152,102 @@ function setupIPC() {
 
   // ── App info ────────────────────────────────────────────────────────────
   ipcMain.handle('get-app-version', () => app.getVersion());
+
+  // ── Stem separation (Demucs local — utilise le CPU/GPU de l'utilisateur) ──
+  // Nécessite Python + demucs installés sur la machine de l'utilisateur.
+  // Retourne les chemins des 4 stems (drums, bass, vocals, other) en WAV.
+
+  ipcMain.handle('check-demucs', async () => {
+    // Vérifier si Python + demucs sont installés
+    const { exec } = require('child_process');
+    return new Promise((resolve) => {
+      exec('python3 -m demucs --help', { timeout: 10000 }, (err) => {
+        if (!err) return resolve({ available: true, python: 'python3' });
+        exec('python -m demucs --help', { timeout: 10000 }, (err2) => {
+          resolve({ available: !err2, python: err2 ? null : 'python' });
+        });
+      });
+    });
+  });
+
+  ipcMain.handle('run-demucs', async (_, filePath) => {
+    const { exec } = require('child_process');
+    const os = require('os');
+
+    // Déterminer le dossier de sortie
+    const outputDir = path.join(os.tmpdir(), 'cueforge-stems');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+    // Trouver Python
+    const python = await new Promise((resolve) => {
+      exec('python3 --version', { timeout: 5000 }, (err) => {
+        resolve(err ? 'python' : 'python3');
+      });
+    });
+
+    // Lancer Demucs (htdemucs = modèle hybride rapide, 4 stems)
+    // --two-stems ne sert pas ici, on veut les 4 stems complets
+    const cmd = `${python} -m demucs --out "${outputDir}" -n htdemucs --mp3 "${filePath}"`;
+
+    return new Promise((resolve, reject) => {
+      const child = exec(cmd, {
+        timeout: 20 * 60 * 1000, // 20 min max
+        maxBuffer: 50 * 1024 * 1024,
+      }, (err, stdout, stderr) => {
+        if (err) {
+          return reject(new Error(`Demucs failed: ${stderr || err.message}`));
+        }
+
+        // Demucs écrit dans outputDir/htdemucs/<basename>/
+        const basename = path.parse(filePath).name;
+        const stemDir = path.join(outputDir, 'htdemucs', basename);
+
+        if (!fs.existsSync(stemDir)) {
+          return reject(new Error(`Stem directory not found: ${stemDir}`));
+        }
+
+        // Lire les 4 stems
+        const stems = {};
+        for (const stem of ['drums', 'bass', 'vocals', 'other']) {
+          // Demucs en mode --mp3 crée des .mp3, sinon .wav
+          const mp3Path = path.join(stemDir, `${stem}.mp3`);
+          const wavPath = path.join(stemDir, `${stem}.wav`);
+          const stemPath = fs.existsSync(mp3Path) ? mp3Path : wavPath;
+
+          if (fs.existsSync(stemPath)) {
+            const buffer = fs.readFileSync(stemPath);
+            stems[stem] = {
+              path: stemPath,
+              buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+            };
+          }
+        }
+
+        resolve({
+          stemDir,
+          stems,
+          model: 'htdemucs',
+        });
+      });
+
+      // Envoyer la progression via IPC (Demucs écrit sur stderr)
+      if (child.stderr) {
+        child.stderr.on('data', (data) => {
+          const match = data.toString().match(/(\d+)%/);
+          if (match && mainWindow) {
+            mainWindow.webContents.send('demucs-progress', parseInt(match[1]));
+          }
+        });
+      }
+    });
+  });
+
+  // Lire un stem déjà séparé (retourne l'ArrayBuffer)
+  ipcMain.handle('read-stem-buffer', async (_, stemPath) => {
+    if (!fs.existsSync(stemPath)) return null;
+    const buffer = fs.readFileSync(stemPath);
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

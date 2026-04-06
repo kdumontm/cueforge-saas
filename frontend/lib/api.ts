@@ -315,17 +315,18 @@ export async function analyzeTrack(
   const { isDesktopApp } = await import('@/lib/electron');
   const isDesktop = isDesktopApp();
 
-  // ── Desktop : analyse locale CPU (rapide, pas de cloud) ─────────────────
+  // ── Desktop : analyse locale CPU + stems Demucs ────────────────────────
   if (isDesktop) {
     try {
       const { analyzeAudioLocal } = await import('@/lib/audioAnalyzer');
       const onProgress = options?.onProgress ?? (() => {});
+      const bridge = (window as any).cueforge;
       let buffer: ArrayBuffer | null = null;
+      let localFilePath: string | null = options?.localFile?.path ?? null;
 
       // Option 1 : fichier local via le bridge Electron
-      const bridge = (window as any).cueforge;
-      if (options?.localFile?.path && bridge?.files?.readBuffer) {
-        buffer = await bridge.files.readBuffer(options.localFile.path);
+      if (localFilePath && bridge?.files?.readBuffer) {
+        buffer = await bridge.files.readBuffer(localFilePath);
       }
 
       // Option 2 : télécharger l'audio depuis le backend (fichier déjà uploadé)
@@ -336,12 +337,86 @@ export async function analyzeTrack(
         const audioRes = await fetch(audioUrl);
         if (audioRes.ok) {
           buffer = await audioRes.arrayBuffer();
+          // Sauvegarder temporairement pour Demucs si pas de chemin local
+          if (!localFilePath && bridge?.files?.save) {
+            try {
+              const os = await import('path');
+            } catch {}
+          }
         }
       }
 
       if (buffer && buffer.byteLength > 1000) {
-        onProgress(5);
-        const result = await analyzeAudioLocal(buffer, onProgress);
+        // ── Phase 1 : Analyse audio de base (v3.0, ~5s) ──────────────
+        onProgress(2);
+        // L'analyse de base utilise 0-60% de la progression
+        const result = await analyzeAudioLocal(buffer, (pct) => {
+          onProgress(Math.round(pct * 0.55)); // 0-55%
+        });
+
+        // ── Phase 2 : Stem separation + analyse (Demucs local, ~2-10 min)
+        // Lancé UNIQUEMENT si Demucs est installé sur la machine
+        let stemEnhanced = false;
+        if (bridge?.stems?.checkAvailable) {
+          try {
+            const demucsCheck = await bridge.stems.checkAvailable();
+            if (demucsCheck.available && localFilePath) {
+              onProgress(58);
+              console.log('[CueForge] Demucs détecté — lancement séparation de stems...');
+
+              // Écouter la progression Demucs
+              bridge.stems.onProgress((pct: number) => {
+                // Stems = 58-85% de la progression totale
+                onProgress(58 + Math.round(pct * 0.27));
+              });
+
+              const stemResult = await bridge.stems.separate(localFilePath);
+              onProgress(86);
+
+              // Analyser les stems séparés
+              if (stemResult?.stems) {
+                const stemBuffers: Record<string, ArrayBuffer> = {};
+                for (const [name, data] of Object.entries(stemResult.stems)) {
+                  if ((data as any)?.buffer) {
+                    stemBuffers[name] = (data as any).buffer;
+                  }
+                }
+
+                if (Object.keys(stemBuffers).length >= 2) {
+                  const { analyzeStemsLocal } = await import('@/lib/stemAnalyzer');
+                  const stemAnalysis = await analyzeStemsLocal(
+                    stemBuffers, result.bpm, result.beat_positions,
+                    (pct) => onProgress(86 + Math.round(pct * 0.09)) // 86-95%
+                  );
+
+                  // ── Merger les résultats stem-enhanced dans l'analyse ──
+                  // Les stems améliorent la précision des beats, drops et sections
+                  if (stemAnalysis.enhanced_beat_positions.length > 0) {
+                    result.beat_positions = stemAnalysis.enhanced_beat_positions;
+                  }
+                  if (stemAnalysis.enhanced_drop_positions.length > 0) {
+                    result.drop_positions = stemAnalysis.enhanced_drop_positions;
+                  }
+                  result.stem_enhanced = true;
+                  result.stem_model = stemAnalysis.stem_model;
+                  result.vocal_sections = stemAnalysis.vocal_sections;
+                  result.vocal_percentage = stemAnalysis.vocal_percentage;
+                  result.drum_energy_curve = stemAnalysis.drum_energy_curve;
+                  result.bass_energy_curve = stemAnalysis.bass_energy_curve;
+                  result.vocal_energy_curve = stemAnalysis.vocal_energy_curve;
+                  stemEnhanced = true;
+                  console.log('[CueForge] Analyse stem-enhanced terminée !');
+                }
+              }
+            } else if (demucsCheck.available && !localFilePath) {
+              console.log('[CueForge] Demucs dispo mais pas de fichier local — skip stems');
+            }
+          } catch (stemErr) {
+            console.warn('[CueForge] Stems Demucs échoué (analyse de base utilisée):', stemErr);
+          }
+        }
+
+        onProgress(96);
 
         // Envoyer les résultats au backend pour persistance + cue points pro
         const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze-local`, {

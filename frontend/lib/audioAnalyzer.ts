@@ -82,6 +82,14 @@ export interface AnalysisResult {
     high_mid: number;
     high: number;
   };
+  // v3.1: données stem-enhanced (optionnelles, si Demucs disponible)
+  stem_enhanced?: boolean;
+  stem_model?: string;
+  vocal_sections?: { start_ms: number; end_ms: number; energy: number; label: string }[];
+  vocal_percentage?: number;
+  drum_energy_curve?: number[];
+  bass_energy_curve?: number[];
+  vocal_energy_curve?: number[];
 }
 
 export interface CuePointResult {

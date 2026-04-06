@@ -35,6 +35,18 @@ contextBridge.exposeInMainWorld('cueforge', {
     onError:      (cb) => ipcRenderer.on('update-error',      (_, msg)  => cb(msg)),
   },
 
+  // ── Séparation de stems (Demucs local — CPU/GPU de l'utilisateur) ────
+  stems: {
+    /** Vérifie si Python + Demucs sont installés */
+    checkAvailable: ()        => ipcRenderer.invoke('check-demucs'),
+    /** Lance Demucs sur un fichier audio, retourne les 4 stems */
+    separate:       (filePath) => ipcRenderer.invoke('run-demucs', filePath),
+    /** Lit un stem déjà séparé (ArrayBuffer) */
+    readBuffer:     (stemPath) => ipcRenderer.invoke('read-stem-buffer', stemPath),
+    /** Callback progression Demucs (0-100%) */
+    onProgress:     (cb)       => ipcRenderer.on('demucs-progress', (_, pct) => cb(pct)),
+  },
+
   // ── Connectivité (pour offline.html) ───────────────────────────────────
   checkOnline: async () => {
     try {
