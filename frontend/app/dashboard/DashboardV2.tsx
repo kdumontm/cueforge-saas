@@ -883,20 +883,29 @@ export default function DashboardV2() {
     try {
       const t = tracks.find(t => t.id === trackId);
       const title = t?.title || t?.original_filename || 'Track';
+      const desktop = typeof window !== 'undefined' && (window as any).cueforge?.isDesktop;
       setAnalyzingIds(prev => new Set(prev).add(trackId));
-      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 0, title, isLocal: false } }));
+      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 2, title, isLocal: !!desktop } }));
 
       await analyzeTrack(trackId, {
-        onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct, title, isLocal: true } })),
+        onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct, title, isLocal: prev[trackId]?.isLocal ?? !!desktop } })),
       });
-      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 90, title, isLocal: prev[trackId]?.isLocal ?? false } }));
+      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 60, title, isLocal: prev[trackId]?.isLocal ?? false } }));
+
+      // Simuler une montée progressive pendant le polling cloud
+      let cloudPct = 15;
+      const cloudTimer = setInterval(() => {
+        cloudPct = Math.min(55, cloudPct + 2 + Math.random() * 3);
+        setAnalysisProgress(prev => ({ ...prev, [trackId]: { ...prev[trackId], pct: Math.round(cloudPct), title } }));
+      }, 1500);
 
       await pollTrackUntilDone(trackId, () => {
         setAnalysisProgress(prev => {
           const cur = prev[trackId]?.pct ?? 0;
-          return { ...prev, [trackId]: { ...prev[trackId], pct: Math.min(98, cur + 3), title } };
+          return { ...prev, [trackId]: { ...prev[trackId], pct: Math.min(98, Math.max(cur, 60) + 3), title } };
         });
       });
+      clearInterval(cloudTimer);
 
       setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 100, title, isLocal: prev[trackId]?.isLocal ?? false } }));
       setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
@@ -1081,17 +1090,23 @@ export default function DashboardV2() {
           setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
 
           // Lancer l'analyse en arrière-plan (pas d'await → non-bloquant)
+          let uploadCloudPct = 5;
+          const uploadCloudTimer = setInterval(() => {
+            uploadCloudPct = Math.min(55, uploadCloudPct + 2 + Math.random() * 3);
+            setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct: Math.round(uploadCloudPct), title: fname } }));
+          }, 1500);
+
           analyzeTrack(id, {
-            onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: true } })),
+            onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: prev[id]?.isLocal ?? false } })),
           })
             .then(() => {
-              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 90, title: fname, isLocal: prev[id]?.isLocal ?? false } }));
+              clearInterval(uploadCloudTimer);
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 60, title: fname, isLocal: prev[id]?.isLocal ?? false } }));
               return pollTrackUntilDone(id, (updated) => {
                 setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
-                // Simuler progression cloud pendant le polling
                 setAnalysisProgress(prev => {
                   const cur = prev[id]?.pct ?? 0;
-                  return { ...prev, [id]: { ...prev[id], pct: Math.min(98, cur + 3), title: fname } };
+                  return { ...prev, [id]: { ...prev[id], pct: Math.min(98, Math.max(cur, 60) + 3), title: fname } };
                 });
               });
             })
