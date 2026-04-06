@@ -109,6 +109,7 @@ export const TrackList = React.memo(function TrackList({
   onAnalyzeAll,
   analyzingIds = new Set(),
 }: TrackListProps) {
+  const { lang } = useLang();
   const [showFilters, setShowFilters] = useState(false);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,7 +199,7 @@ export const TrackList = React.memo(function TrackList({
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="text"
-            placeholder="Rechercher..."
+            placeholder={tr('tracks.search', lang)}
             value={searchQuery}
             onChange={handleSearchChange}
             className="w-full pl-8 pr-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
@@ -211,7 +212,7 @@ export const TrackList = React.memo(function TrackList({
           onChange={handleSortChange}
           className="px-2 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
         >
-          {SORT_OPTIONS.map((option) => (
+          {getSortOptions(lang).map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
@@ -246,7 +247,7 @@ export const TrackList = React.memo(function TrackList({
 
       {/* Track Count */}
       <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
-        {filteredTracks.length} morceau{filteredTracks.length !== 1 ? 'x' : ''}
+        {filteredTracks.length} {filteredTracks.length === 1 ? tr('tracks.no_tracks', lang) : tr('tracks.files', lang)}
         {tracks.length !== filteredTracks.length && ` (${tracks.length} total)`}
       </div>
 
@@ -264,15 +265,15 @@ export const TrackList = React.memo(function TrackList({
           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
             <Upload size={48} className="text-[var(--text-secondary)] opacity-50" />
             <div>
-              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">Aucun morceau</h3>
-              <p className="text-sm text-[var(--text-secondary)]">Commencez par importer vos pistes audio</p>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-1">{tr('tracks.no_tracks', lang)}</h3>
+              <p className="text-sm text-[var(--text-secondary)]">{tr('tracks.import_hint', lang)}</p>
             </div>
             {onImportClick && (
               <button
                 onClick={onImportClick}
                 className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm font-semibold hover:bg-[var(--accent-hover)] transition-colors cursor-pointer"
               >
-                Importer des tracks
+                {tr('sidebar.upload', lang)}
               </button>
             )}
           </div>
@@ -296,9 +297,9 @@ export const TrackList = React.memo(function TrackList({
             <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-4 py-2">
               <div
                 className="grid gap-3 text-xs font-medium text-[var(--text-secondary)]"
-                style={{ gridTemplateColumns: COLUMN_HEADERS.map((h) => h.width).join(' ') }}
+                style={{ gridTemplateColumns: getColumnHeaders(lang).map((h) => h.width).join(' ') }}
               >
-                {COLUMN_HEADERS.map((header) => (
+                {getColumnHeaders(lang).map((header) => (
                   <button
                     key={header.key}
                     onClick={() => {

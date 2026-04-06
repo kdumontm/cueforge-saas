@@ -2,6 +2,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen, Disc3, Music2 } from 'lucide-react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 import type { Track } from '@/types';
 import { useElectron } from '@/lib/electron';
 import { mixScore } from '@/lib/camelot';
@@ -59,6 +61,7 @@ export const TrackRow = React.memo(function TrackRow({
   onRatingChange,
 }: TrackRowProps) {
   const { isDesktop, files, export: localExport } = useElectron();
+  const { lang } = useLang();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -110,7 +113,7 @@ export const TrackRow = React.memo(function TrackRow({
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
           {isAnalyzing && (
-            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" title="Analyse en cours…" />
+            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" title={tr('analysis.in_progress', lang)} />
           )}
         </div>
         <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
@@ -224,30 +227,30 @@ export const TrackRow = React.memo(function TrackRow({
             onClick={(e) => e.stopPropagation()}
           >
             {[
-              { icon: Zap, label: 'Re-analyser', action: () => {} },
-              { icon: Copy, label: 'Copier le titre', action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
-              { icon: Tag, label: 'Ajouter un tag', action: () => {} },
-              { icon: Star, label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris', action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
+              { icon: Zap, label: tr('ctx.reanalyze', lang), action: () => {} },
+              { icon: Copy, label: tr('ctx.copy_title', lang), action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
+              { icon: Tag, label: tr('ctx.add_tag', lang), action: () => {} },
+              { icon: Star, label: isFavorite ? tr('ctx.remove_fav', lang) : tr('ctx.add_fav', lang), action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
               // Desktop only : ouvrir le fichier dans le Finder / Explorateur
               ...(isDesktop && files && (track as any).file_path ? [{
                 icon: FolderOpen,
-                label: 'Révéler dans le Finder',
+                label: tr('ctx.reveal_finder', lang),
                 action: () => { files.revealInFinder((track as any).file_path); setShowContextMenu(false); },
               }] : []),
               // Desktop only : exports DJ
               ...(isDesktop && localExport ? [
                 {
                   icon: Disc3,
-                  label: 'Exporter Rekordbox',
+                  label: tr('ctx.export_rekordbox', lang),
                   action: () => { localExport.rekordbox([track]); setShowContextMenu(false); },
                 },
                 {
                   icon: Music2,
-                  label: 'Exporter Serato',
+                  label: tr('ctx.export_serato', lang),
                   action: () => { localExport.serato([track]); setShowContextMenu(false); },
                 },
               ] : []),
-              { icon: Trash2, label: 'Supprimer', action: () => {}, danger: true },
+              { icon: Trash2, label: tr('ctx.delete', lang), action: () => {}, danger: true },
             ].map(({ icon: Icon, label, action, danger }: any) => (
               <button
                 key={label}
