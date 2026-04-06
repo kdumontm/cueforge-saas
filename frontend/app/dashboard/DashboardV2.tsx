@@ -23,6 +23,7 @@ const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
 const HistoryTab    = lazy(() => import('@/components/tabs/HistoryTab'));
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
+import { isDesktopApp } from '@/lib/electron';
 import DuplicateDetector from '@/components/DuplicateDetector';
 import MetadataEnrichModal from '@/components/MetadataEnrichModal';
 
@@ -77,7 +78,7 @@ const TABS = [
   { id: 'mix',       label: 'Mix',    icon: '🎡' },
   { id: 'eq',        label: 'EQ',     icon: '〰' },
   { id: 'fx',        label: 'FX',     icon: '✨' },
-  { id: 'stems',     label: 'Stems',  icon: '🎸' },
+  { id: 'stems',     label: 'Stems',  icon: '🎸', desktopOnly: true },
   { id: 'playlists', label: 'Lists',  icon: '📂', global: true },
   { id: 'stats',     label: 'Stats',  icon: '📊', global: true },
   { id: 'history',   label: 'Hist.',  icon: '🕒', global: true },
@@ -1426,7 +1427,7 @@ export default function DashboardV2() {
 
           {/* Onglets verticaux */}
           <div className="w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
-            {TABS.map(t => {
+            {TABS.filter(t => !(t as any).desktopOnly || isDesktopApp()).map(t => {
               const disabled = !selectedTrack && !(t as any).global;
               return (
                 <button
@@ -1446,6 +1447,9 @@ export default function DashboardV2() {
                   )}
                   <span className="text-base leading-none">{t.icon}</span>
                   <span className="text-[8px] font-semibold uppercase tracking-wider leading-none">{t.label}</span>
+                  {(t as any).desktopOnly && (
+                    <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded">PRO</span>
+                  )}
                 </button>
               );
             })}

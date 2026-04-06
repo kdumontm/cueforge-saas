@@ -646,15 +646,23 @@ async def analyze_track_local(
 
     # Cue points
     if payload.cue_points:
-        # Supprimer les anciens cue points
-        db.query(CuePoint).filter(CuePoint.track_id == track_id).delete()
-        for cp in payload.cue_points:
+        # Supprimer les anciens cue points auto-générés (garder les manuels)
+        db.query(CuePoint).filter(
+            CuePoint.track_id == track_id,
+            CuePoint.cue_type != "manual",
+        ).delete()
+        for i, cp in enumerate(payload.cue_points):
             if isinstance(cp, dict):
+                # Le frontend envoie { time (sec), name, color }
+                position_ms = int(cp.get('time', 0) * 1000) if 'time' in cp else cp.get('position_ms', 0)
                 db.add(CuePoint(
                     track_id=track_id,
-                    time_ms=cp.get('time_ms', 0),
-                    label=cp.get('label', ''),
-                    type=cp.get('type', 'cue'),
+                    position_ms=position_ms,
+                    name=cp.get('name', cp.get('label', f'Cue {i+1}')),
+                    cue_type=cp.get('cue_type', 'section'),
+                    color=cp.get('color', '#FF0000'),
+                    number=i + 1,
+                    confidence=cp.get('confidence'),
                 ))
 
     # Détecter le genre à partir de l'analyse

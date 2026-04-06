@@ -36,13 +36,13 @@ _release_cache: Optional[dict] = None
 _release_cache_time: float = 0
 
 _FALLBACK = {
-    "version": "3.0.2",
-    "release_notes": "CueForge Desktop v3.0.2 — Migration vers coquille web + bridge local",
-    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.0.2/CueForge-3.0.2-arm64.dmg",
+    "version": "3.1.0",
+    "release_notes": "CueForge Desktop v3.1.0 — Migration vers coquille web + bridge local",
+    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.1.0/CueForge-3.1.0-arm64.dmg",
     "dmg_arm64_size": "~80 MB",
-    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.0.2/CueForge-3.0.2-x64.dmg",
+    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.1.0/CueForge-3.1.0-x64.dmg",
     "dmg_x64_size": "~80 MB",
-    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.0.2/CueForge-3.0.2-x64.exe",
+    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.1.0/CueForge-3.1.0-x64.exe",
     "exe_size": "~65 MB",
 }
 
