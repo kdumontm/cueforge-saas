@@ -794,6 +794,37 @@ async def analyze_track_local(
     track.status = TrackStatus.completed
     db.commit()
 
+    # ── Mode pro desktop : lancer Demucs en thread daemon si stems activés ──
+    # Même logique que le flow cloud — l'utilisateur a la puissance CPU locale
+    # pour l'analyse, et le serveur gère Demucs en arrière-plan pour les stems.
+    try:
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if user and getattr(user, 'use_stem_separation', False):
+            from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
+            from app.routers.advanced import _stems_jobs
+            import threading as _threading
+
+            if not stems_already_exist(track_id):
+                _stems_jobs[track_id] = {"status": "processing", "error": None}
+                _fp = track.file_path
+
+                def _auto_demucs():
+                    try:
+                        _demucs_sep(track_id, _fp)
+                        _stems_jobs[track_id] = {"status": "completed", "error": None}
+                        logger.info(f"[STEM] Demucs terminé (desktop) pour track {track_id}")
+                    except Exception as _e:
+                        _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
+                        logger.error(f"[STEM] Demucs échoué (desktop) pour track {track_id}: {_e}")
+
+                t = _threading.Thread(target=_auto_demucs, daemon=True)
+                t.start()
+                logger.info(f"[STEM] Thread Demucs lancé (desktop) pour track {track_id}")
+            else:
+                logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
+    except Exception as _stem_err:
+        logger.warning(f"[STEM] Impossible de lancer Demucs (desktop): {_stem_err}")
+
     return AnalyzeResponse(status="completed", message="Local analysis saved")
 
 
