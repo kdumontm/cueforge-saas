@@ -34,4 +34,16 @@ contextBridge.exposeInMainWorld('cueforge', {
     onDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_, info) => cb(info)),
     onError:      (cb) => ipcRenderer.on('update-error',      (_, msg)  => cb(msg)),
   },
+
+  // ── Connectivité (pour offline.html) ───────────────────────────────────
+  checkOnline: async () => {
+    try {
+      const res = await fetch('https://cueforge-saas-production.up.railway.app/api/v1/health', {
+        method: 'HEAD', mode: 'no-cors', cache: 'no-store',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 });

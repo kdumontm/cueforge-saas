@@ -5,6 +5,7 @@ import { Search, Grid3x3, List, Upload } from 'lucide-react';
 import { FilterPanel } from './FilterPanel';
 import { TrackRow } from './TrackRow';
 import { TrackGrid } from './TrackGrid';
+import ExportDJ from '@/components/ExportDJ';
 import type { Track } from '@/types';
 
 interface TrackListProps {
@@ -227,6 +228,9 @@ export const TrackList = React.memo(function TrackList({
             <Grid3x3 size={13} />
           </button>
         </div>
+
+        {/* Export DJ — desktop only (ne rend rien sur le web) */}
+        <ExportDJ tracks={filteredTracks} />
 
         {/* Filter Panel inline */}
         <FilterPanel

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen } from 'lucide-react';
+import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen, Disc3, Music2 } from 'lucide-react';
 import type { Track } from '@/types';
 import { useElectron } from '@/lib/electron';
 
@@ -55,7 +55,7 @@ export const TrackRow = React.memo(function TrackRow({
   onFavoriteToggle,
   onRatingChange,
 }: TrackRowProps) {
-  const { isDesktop, files } = useElectron();
+  const { isDesktop, files, export: localExport } = useElectron();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -203,6 +203,19 @@ export const TrackRow = React.memo(function TrackRow({
                 label: 'Révéler dans le Finder',
                 action: () => { files.revealInFinder((track as any).file_path); setShowContextMenu(false); },
               }] : []),
+              // Desktop only : exports DJ
+              ...(isDesktop && localExport ? [
+                {
+                  icon: Disc3,
+                  label: 'Exporter Rekordbox',
+                  action: () => { localExport.rekordbox([track]); setShowContextMenu(false); },
+                },
+                {
+                  icon: Music2,
+                  label: 'Exporter Serato',
+                  action: () => { localExport.serato([track]); setShowContextMenu(false); },
+                },
+              ] : []),
               { icon: Trash2, label: 'Supprimer', action: () => {}, danger: true },
             ].map(({ icon: Icon, label, action, danger }: any) => (
               <button

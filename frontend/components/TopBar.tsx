@@ -178,14 +178,26 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           ))}
         </div>
 
-        {/* Desktop only : mise à jour disponible */}
+        {/* Desktop only : mise à jour disponible / cliquable pour installer */}
         {isDesktop && updateState.available && (
-          <div className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-400 text-[11px] font-semibold whitespace-nowrap animate-pulse flex-shrink-0">
-            <RefreshCw size={12} />
+          <button
+            onClick={() => {
+              if (updateState.downloaded) {
+                const bridge = (window as any).cueforge;
+                bridge?.updater?.install?.();
+              }
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border text-[11px] font-semibold whitespace-nowrap flex-shrink-0 transition-all ${
+              updateState.downloaded
+                ? 'border-green-500/40 bg-green-500/10 text-green-400 cursor-pointer hover:bg-green-500/20'
+                : 'border-blue-500/40 bg-blue-500/10 text-blue-400 animate-pulse cursor-default'
+            }`}
+          >
+            <RefreshCw size={12} className={!updateState.downloaded ? 'animate-spin' : ''} />
             {updateState.downloaded
-              ? (lang === 'en' ? 'Restart to update' : 'Redémarrer pour mettre à jour')
-              : (lang === 'en' ? 'Updating...' : 'Mise à jour...')}
-          </div>
+              ? (lang === 'en' ? 'Click to restart & update' : 'Cliquer pour redémarrer')
+              : `${lang === 'en' ? 'Downloading' : 'Téléchargement'}… ${Math.round(updateState.progress)}%`}
+          </button>
         )}
 
         {/* Theme toggle */}
