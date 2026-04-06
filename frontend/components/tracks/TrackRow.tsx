@@ -90,7 +90,7 @@ export const TrackRow = React.memo(function TrackRow({
       onDoubleClick={handleDblClick}
       onContextMenu={handleContextMenu}
       className={`
-        grid grid-cols-[40px_40px_2fr_80px_80px_50px_120px_100px_80px_40px_40px] gap-3 px-4 py-2
+        grid grid-cols-[28px_1fr_40px] sm:grid-cols-[32px_32px_2fr_60px_60px_40px] lg:grid-cols-[40px_40px_2fr_80px_80px_50px_120px_100px_80px_40px_40px] gap-2 sm:gap-3 px-3 sm:px-4 py-2
         items-center border-b border-[var(--border-color)] hover:bg-[var(--bg-tertiary)]
         transition-colors cursor-pointer
         ${isSelected ? 'bg-[var(--bg-secondary)] border-l-4 border-l-[var(--accent)]' : ''}
@@ -106,7 +106,7 @@ export const TrackRow = React.memo(function TrackRow({
       </div>
 
       {/* Play Indicator */}
-      <div className="flex justify-center">
+      <div className="hidden sm:flex justify-center">
         {isPlaying ? (
           <EqBars isAnimating={true} />
         ) : (
@@ -123,15 +123,20 @@ export const TrackRow = React.memo(function TrackRow({
           )}
         </div>
         <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
+        <div className="flex items-center gap-2 sm:hidden mt-0.5">
+          {track.bpm ? <span className="text-[10px] font-mono text-cyan-400">{Math.round(track.bpm)} BPM</span> : null}
+          {track.key ? <span className="text-[10px] font-mono text-blue-400">{track.key}</span> : null}
+          {track.genre ? <span className="text-[10px] text-[var(--text-muted)]">{track.genre}</span> : null}
+        </div>
       </div>
 
       {/* BPM */}
-      <div className="text-sm font-mono text-[var(--text-primary)] text-right">
+      <div className="hidden sm:block text-sm font-mono text-[var(--text-primary)] text-right">
         {track.bpm ? Math.round(track.bpm) : '—'}
       </div>
 
       {/* Key */}
-      <div>
+      <div className="hidden sm:block">
         {track.key ? (
           <span className="inline-block px-2 py-0.5 bg-[var(--accent)] bg-opacity-20 text-[var(--accent)] rounded text-xs font-medium">
             {track.key}
@@ -142,7 +147,7 @@ export const TrackRow = React.memo(function TrackRow({
       </div>
 
       {/* Mix Score */}
-      <div className="flex justify-center">
+      <div className="hidden lg:flex justify-center">
         {referenceTrack && referenceTrack.id !== track.id && track.key && referenceTrack.key ? (
           (() => {
             const ms = mixScore(
@@ -170,7 +175,7 @@ export const TrackRow = React.memo(function TrackRow({
       </div>
 
       {/* Energy Bar */}
-      <div className="w-full">
+      <div className="hidden lg:block w-full">
         {track.energy !== undefined ? (
           <div className="w-full h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
             <div
@@ -184,10 +189,10 @@ export const TrackRow = React.memo(function TrackRow({
       </div>
 
       {/* Genre */}
-      <div className="text-xs text-[var(--text-secondary)] truncate">{track.genre || '—'}</div>
+      <div className="hidden lg:block text-xs text-[var(--text-secondary)] truncate">{track.genre || '—'}</div>
 
       {/* Duration */}
-      <div className="text-xs font-mono text-[var(--text-primary)] text-right">
+      <div className="hidden lg:block text-xs font-mono text-[var(--text-primary)] text-right">
         {typeof (track as any).duration === 'string'
           ? (track as any).duration
           : track.analysis?.duration_ms
@@ -196,7 +201,7 @@ export const TrackRow = React.memo(function TrackRow({
       </div>
 
       {/* Rating — Stars */}
-      <div className="flex justify-center gap-0.5" onMouseLeave={handleRatingLeave}>
+      <div className="hidden lg:flex justify-center gap-0.5" onMouseLeave={handleRatingLeave}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
