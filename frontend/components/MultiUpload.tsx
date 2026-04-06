@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { uploadTracks } from '@/lib/api';
 import type { TrackUploadResponse } from '@/lib/api';
+import { useElectron } from '@/lib/electron';
 
 interface FileProgress {
   file: File;
@@ -20,10 +21,44 @@ const ALLOWED_FORMATS = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aiff', 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aiff', '.ogg', '.m4a'];
 
 export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
+  const { isDesktop, files: desktopFiles } = useElectron();
   const [files, setFiles] = useState<FileProgress[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Desktop : ouvrir le sélecteur de fichiers natif via Electron
+  const handleDesktopFileSelect = async () => {
+    if (!desktopFiles?.openDialog) return;
+    try {
+      const paths: string[] = await desktopFiles.openDialog({
+        filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'aiff', 'ogg', 'm4a'] }],
+        multiple: true,
+      });
+      if (!paths || paths.length === 0) return;
+      // On lit les fichiers via le bridge et on les convertit en File objects
+      const newFiles: FileProgress[] = [];
+      for (const filePath of paths) {
+        const name = filePath.split(/[\\/]/).pop() || filePath;
+        if (!files.some(f => f.file.name === name)) {
+          const buffer = await desktopFiles.readBuffer(filePath);
+          const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+          const mimeMap: Record<string, string> = {
+            '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.flac': 'audio/flac',
+            '.aiff': 'audio/aiff', '.ogg': 'audio/ogg', '.m4a': 'audio/x-m4a',
+          };
+          const blob = new Blob([buffer], { type: mimeMap[ext] || 'audio/mpeg' });
+          const file = new File([blob], name, { type: blob.type });
+          // Stocker le chemin local pour l'analyse locale plus tard
+          (file as any).__localPath = filePath;
+          newFiles.push({ file, progress: 0, status: 'pending' });
+        }
+      }
+      setFiles(prev => [...prev, ...newFiles]);
+    } catch (err) {
+      onError?.('Erreur lors de la sélection des fichiers');
+    }
+  };
 
   const isValidFile = (file: File): boolean => {
     const fileExt = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
@@ -82,10 +117,18 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
       >
         <p className="text-sm font-medium text-gray-900 mb-2">Drag audio files here or click to browse</p>
         <p className="text-xs text-gray-500 mb-4">Supported: MP3, WAV, FLAC, AIFF, OGG, M4A</p>
-        <button type="button" onClick={() => fileInputRef.current?.click()}
-          className="px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-          Select Files
-        </button>
+        <div className="flex gap-2 justify-center">
+          <button type="button" onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+            Select Files
+          </button>
+          {isDesktop && desktopFiles && (
+            <button type="button" onClick={handleDesktopFileSelect}
+              className="px-4 py-2 text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+              📂 Importer depuis l'ordinateur
+            </button>
+          )}
+        </div>
         <input ref={fileInputRef} type="file" multiple accept={ALLOWED_EXTENSIONS.join(',')}
           onChange={(e) => handleFileSelect(e.currentTarget.files || new FileList())} className="hidden" />
       </div>

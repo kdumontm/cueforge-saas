@@ -597,6 +597,80 @@ async def analyze_track(
     return AnalyzeResponse(status="started", message="Analysis started in background")
 
 
+# ── Analyse locale (desktop) ─────────────────────────────────────────────────
+
+class LocalAnalysisPayload(BaseModel):
+    bpm: Optional[float] = None
+    key_name: Optional[str] = None
+    energy: Optional[float] = None
+    duration_ms: Optional[float] = None
+    cue_points: Optional[list] = None
+
+
+@router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
+async def analyze_track_local(
+    track_id: int,
+    payload: LocalAnalysisPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reçoit les résultats d'une analyse locale (desktop Electron) et les persiste."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Mettre à jour les champs du track
+    if payload.bpm is not None:
+        track.bpm = payload.bpm
+    if payload.key_name is not None:
+        track.key = payload.key_name
+    if payload.energy is not None:
+        track.energy = payload.energy
+
+    # Créer ou mettre à jour l'analyse
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+    if not analysis:
+        analysis = TrackAnalysis(track_id=track_id)
+        db.add(analysis)
+    if payload.bpm is not None:
+        analysis.bpm = payload.bpm
+    if payload.key_name is not None:
+        analysis.key = payload.key_name
+    if payload.energy is not None:
+        analysis.energy = payload.energy
+    if payload.duration_ms is not None:
+        analysis.duration_ms = payload.duration_ms
+
+    # Cue points
+    if payload.cue_points:
+        # Supprimer les anciens cue points
+        db.query(CuePoint).filter(CuePoint.track_id == track_id).delete()
+        for cp in payload.cue_points:
+            if isinstance(cp, dict):
+                db.add(CuePoint(
+                    track_id=track_id,
+                    time_ms=cp.get('time_ms', 0),
+                    label=cp.get('label', ''),
+                    type=cp.get('type', 'cue'),
+                ))
+
+    # Détecter le genre à partir de l'analyse
+    try:
+        genre = detect_genre_from_analysis(payload.bpm, payload.key_name, payload.energy)
+        if genre:
+            track.genre = genre
+    except Exception:
+        pass
+
+    track.status = TrackStatus.completed
+    db.commit()
+
+    return AnalyzeResponse(status="completed", message="Local analysis saved")
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=TrackListResponse)
