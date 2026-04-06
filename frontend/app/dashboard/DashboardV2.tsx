@@ -1790,6 +1790,45 @@ export default function DashboardV2() {
           >
             <RefreshCw size={14} /> Analyze
           </button>
+          {isDesktopApp() && (
+            <button
+              onClick={async () => {
+                const trackId = contextMenu.trackId;
+                setContextMenu(null);
+                addToast('Analyse Pro en cours… Stems IA + Cue Points', 'info');
+                const { getToken } = await import('@/lib/api');
+                const token = getToken();
+                const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+                try {
+                  // 1. Lancer la séparation stems
+                  const stemsRes = await fetch(`${BASE}/advanced/stems/${trackId}`, { method: 'POST', headers });
+                  if (!stemsRes.ok) throw new Error((await stemsRes.json().catch(() => ({}))).detail || 'Erreur stems');
+                  // 2. Attendre la fin des stems
+                  const waitStems = async (): Promise<void> => {
+                    const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
+                    const d = await r.json();
+                    if (d.status === 'completed') return;
+                    if (d.status === 'failed') throw new Error(d.error || 'Stems échoué');
+                    await new Promise(res => setTimeout(res, 5000));
+                    return waitStems();
+                  };
+                  await waitStems();
+                  addToast('Stems terminés ! Génération des cue points IA…', 'success');
+                  // 3. Régénérer les cue points pro
+                  const cueRes = await fetch(`${BASE}/cues/${trackId}/generate`, { method: 'POST', headers });
+                  if (!cueRes.ok) throw new Error('Erreur génération cues');
+                  addToast('Analyse Pro terminée !', 'success');
+                  await loadTracks();
+                } catch (e: any) {
+                  addToast(e.message || 'Erreur Analyse Pro', 'error');
+                }
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 font-medium"
+            >
+              <Zap size={14} /> Analyse Pro (Stems IA)
+            </button>
+          )}
           <button
             onClick={() => {
               const t = rawTracksForTabs.find(t => t.id === contextMenu.trackId);

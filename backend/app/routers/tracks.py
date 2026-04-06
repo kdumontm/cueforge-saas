@@ -666,12 +666,49 @@ async def analyze_track_local(
                 ))
 
     # Détecter le genre à partir de l'analyse
+    genre = None
     try:
         genre = detect_genre_from_analysis(payload.bpm, payload.key_name, payload.energy)
         if genre:
             track.genre = genre
     except Exception:
         pass
+
+    # Tenter de générer des cue points pro via l'algorithme IA
+    # (remplace les cue points basiques de l'analyse locale si possible)
+    try:
+        from app.services.cue_generator import generate_cue_points
+        analysis_data = {
+            "bpm": analysis.bpm,
+            "key": analysis.key,
+            "energy": analysis.energy,
+            "duration_ms": analysis.duration_ms or 0,
+            "drop_positions": analysis.drop_positions or [],
+            "phrase_positions": analysis.phrase_positions or [],
+            "beat_positions": analysis.beat_positions or [],
+            "section_labels": analysis.section_labels or [],
+            "genre": genre or track.genre,
+        }
+        generated = generate_cue_points(analysis_data)
+        if generated and len(generated) >= 2:
+            # Supprimer les cue points basiques et utiliser les pro
+            db.query(CuePoint).filter(
+                CuePoint.track_id == track_id,
+                CuePoint.cue_type != "manual",
+            ).delete()
+            for cp in generated:
+                db.add(CuePoint(
+                    track_id=track_id,
+                    position_ms=cp["position_ms"],
+                    name=cp["name"],
+                    number=cp.get("number"),
+                    color=cp.get("color", "#FF0000"),
+                    cue_type=cp.get("cue_type", "hot_cue"),
+                    confidence=cp.get("confidence"),
+                ))
+            logger.info(f"[analyze-local] {len(generated)} cue points pro générés pour track {track_id}")
+    except Exception as e:
+        logger.warning(f"[analyze-local] Fallback cues basiques pour track {track_id}: {e}")
 
     track.status = TrackStatus.completed
     db.commit()
