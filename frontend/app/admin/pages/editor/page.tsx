@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Input,
@@ -108,7 +108,15 @@ const LAYOUT_OPTIONS = [
   { value: "sidebar", label: "Avec barre latérale" },
 ];
 
-export default function PageEditorPage() {
+export default function PageEditorWrapper() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <PageEditorPage />
+    </Suspense>
+  );
+}
+
+function PageEditorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Plus, ExternalLink, Menu, Footer } from "lucide-react";
+import { GripVertical, ChevronUp, ChevronDown, Eye, EyeOff, Plus, ExternalLink, Menu, PanelBottom } from "lucide-react";
 import {
   Input,
   Toggle,
@@ -189,7 +189,7 @@ export default function NavigationPage() {
 
   const tabs = [
     { id: "menu", label: "Menu principal", icon: Menu },
-    { id: "footer", label: "Footer", icon: Footer },
+    { id: "footer", label: "Footer", icon: PanelBottom },
   ];
 
   return (
@@ -358,7 +358,7 @@ export default function NavigationPage() {
             {publishedPages.length === 0 ? (
               <div className="p-6">
                 <EmptyState
-                  icon={Footer}
+                  icon={PanelBottom}
                   title="Aucune page publiée"
                   description="Publiez des pages pour les afficher dans le footer."
                 />
