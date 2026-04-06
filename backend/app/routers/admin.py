@@ -1252,3 +1252,91 @@ async def clear_all_tracks(
             "play_history": deleted_play_history,
         },
     }
+
+
+# ═══════════════════════════════════════════════
+# NAVIGATION (batch update nav settings)
+# ═══════════════════════════════════════════════
+
+class NavItemUpdate(BaseModel):
+    id: int
+    show_in_nav: Optional[bool] = None
+    nav_label: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+@router.get("/navigation")
+async def get_navigation(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Récupère toutes les pages avec infos de navigation."""
+    pages = db.query(Page).order_by(Page.sort_order, Page.id).all()
+    return {
+        "nav_items": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "slug": p.slug,
+                "nav_label": p.nav_label,
+                "show_in_nav": p.show_in_nav,
+                "is_published": p.is_published,
+                "sort_order": p.sort_order,
+            }
+            for p in pages
+        ],
+    }
+
+
+@router.put("/navigation")
+async def update_navigation(
+    items: list[NavItemUpdate],
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Met à jour les réglages de navigation pour plusieurs pages d'un coup."""
+    updated = 0
+    for item in items:
+        page = db.query(Page).filter(Page.id == item.id).first()
+        if not page:
+            continue
+        data = item.model_dump(exclude_unset=True, exclude={"id"})
+        for key, value in data.items():
+            setattr(page, key, value)
+        updated += 1
+
+    db.commit()
+    return {"message": f"{updated} page(s) mises à jour", "updated": updated}
+
+
+# ═══════════════════════════════════════════════
+# ACTIVITY LOG
+# ═══════════════════════════════════════════════
+
+@router.get("/activity")
+async def list_activity(
+    limit: int = Query(50, le=200),
+    skip: int = Query(0, ge=0),
+    action: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Récupère les logs d'activité admin (usage_log + actions récentes)."""
+    from app.models.organization import UsageLog
+
+    query = db.query(UsageLog).order_by(UsageLog.created_at.desc())
+    if action:
+        query = query.filter(UsageLog.action == action)
+
+    logs = query.offset(skip).limit(limit).all()
+    return [
+        {
+            "id": log.id,
+            "user_id": log.user_id,
+            "organization_id": log.organization_id,
+            "action": log.action,
+            "metadata": log.metadata_json,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        }
+        for log in logs
+    ]
