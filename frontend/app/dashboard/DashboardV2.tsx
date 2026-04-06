@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -72,7 +72,7 @@ function toCamelot(key: string | null | undefined): string | null {
 }
 
 function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || isNaN(seconds)) return '—';
+  if (seconds == null || isNaN(seconds) || seconds <= 0) return '—';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -1478,8 +1478,12 @@ export default function DashboardV2() {
   async function handleBatchDeleteSelected() {
     const ids = Array.from(selectedIds);
     if (!window.confirm(`Supprimer ${ids.length} tracks ?`)) return;
-    for (const id of ids) {
-      try { await deleteTrack(id); } catch {}
+    try {
+      await batchDeleteTracks(ids);
+    } catch {
+      for (const id of ids) {
+        try { await deleteTrack(id); } catch {}
+      }
     }
     setSelectedIds(new Set());
     setSelectedTrack(null, 'batchDelete');
@@ -1492,14 +1496,23 @@ export default function DashboardV2() {
     if (realTracks.length === 0) { addToast('Bibliothèque déjà vide', 'info'); return; }
     if (!window.confirm(`⚠️ Supprimer les ${realTracks.length} tracks de ta bibliothèque ?\n\nCette action est irréversible.`)) return;
     addToast(`Suppression de ${realTracks.length} tracks…`, 'info');
-    let done = 0;
-    for (const t of realTracks) {
-      try { await deleteTrack(t.id); done++; } catch {}
+    try {
+      const result = await batchDeleteTracks(realTracks.map(t => t.id));
+      setSelectedIds(new Set());
+      setSelectedTrack(null);
+      await loadTracks();
+      addToast(`✓ ${result.deleted_count} tracks supprimées`, 'success');
+    } catch (err) {
+      // Fallback: supprimer un par un
+      let done = 0;
+      for (const t of realTracks) {
+        try { await deleteTrack(t.id); done++; } catch {}
+      }
+      setSelectedIds(new Set());
+      setSelectedTrack(null);
+      await loadTracks();
+      addToast(done > 0 ? `✓ ${done} tracks supprimées` : '❌ Erreur lors de la suppression', done > 0 ? 'success' : 'error');
     }
-    setSelectedIds(new Set());
-    setSelectedTrack(null);
-    await loadTracks();
-    addToast(`✓ ${done} tracks supprimées`, 'success');
   }
 
   return (

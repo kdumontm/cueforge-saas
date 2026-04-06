@@ -965,9 +965,56 @@ def delete_track(
         except OSError:
             pass
 
+    # Supprimer manuellement les dépendances FK (au cas où la DB n'a pas ondelete=CASCADE)
+    _delete_track_dependencies(db, track_id)
     db.delete(track)
     db.commit()
     return {"status": "deleted", "track_id": track_id}
+
+
+def _delete_track_dependencies(db: Session, track_id: int):
+    """Supprimer toutes les lignes liées à un track avant sa suppression."""
+    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule
+    from app.models.library import PlaylistTrack, SetTrack, PlayHistory, LibraryEntry
+    db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session=False)
+    db.query(LoopMarker).filter(LoopMarker.track_id == track_id).delete(synchronize_session=False)
+    db.query(CueRule).filter(CueRule.track_id == track_id).delete(synchronize_session=False)
+    db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).delete(synchronize_session=False)
+    db.query(PlaylistTrack).filter(PlaylistTrack.track_id == track_id).delete(synchronize_session=False)
+    db.query(SetTrack).filter(SetTrack.track_id == track_id).delete(synchronize_session=False)
+    db.query(PlayHistory).filter(PlayHistory.track_id == track_id).delete(synchronize_session=False)
+    db.query(LibraryEntry).filter(LibraryEntry.track_id == track_id).delete(synchronize_session=False)
+
+
+class BatchDeleteRequest(BaseModel):
+    track_ids: list[int]
+
+
+@router.post("/batch-delete")
+def batch_delete_tracks(
+    req: BatchDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Supprimer plusieurs tracks en une seule requête."""
+    tracks = db.query(Track).filter(
+        Track.id.in_(req.track_ids),
+        Track.user_id == current_user.id,
+    ).all()
+
+    deleted_ids = []
+    for track in tracks:
+        if track.file_path and os.path.exists(track.file_path):
+            try:
+                os.remove(track.file_path)
+            except OSError:
+                pass
+        _delete_track_dependencies(db, track.id)
+        db.delete(track)
+        deleted_ids.append(track.id)
+
+    db.commit()
+    return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
 
 
 # ── Metadata Editing ─────────────────────────────────────────────────────

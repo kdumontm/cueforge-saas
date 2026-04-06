@@ -500,6 +500,16 @@ export async function deleteTrack(trackId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete track');
 }
 
+export async function batchDeleteTracks(trackIds: number[]): Promise<{ deleted_count: number; deleted_ids: number[] }> {
+  const response = await authFetch(`${API_URL}/tracks/batch-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ track_ids: trackIds }),
+  });
+  if (!response.ok) throw new Error('Failed to batch delete tracks');
+  return response.json();
+}
+
 // ── Export API ───────────────────────────────────────────────────────────────
 
 export async function exportRekordbox(trackId: number): Promise<Blob> {

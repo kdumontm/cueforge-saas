@@ -126,6 +126,7 @@ export const TrackRow = React.memo(function TrackRow({
         <div className="flex items-center gap-2 sm:hidden mt-0.5">
           {track.bpm ? <span className="text-[10px] font-mono text-cyan-400">{Math.round(track.bpm)} BPM</span> : null}
           {track.key ? <span className="text-[10px] font-mono text-blue-400">{track.key}</span> : null}
+          {(track as any).duration && (track as any).duration !== '—' ? <span className="text-[10px] font-mono text-[var(--text-muted)]">{(track as any).duration}</span> : null}
           {track.genre ? <span className="text-[10px] text-[var(--text-muted)]">{track.genre}</span> : null}
         </div>
       </div>
