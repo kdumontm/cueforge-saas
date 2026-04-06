@@ -19,12 +19,19 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       return;
     }
     getCurrentUser()
-      .then((u) => setUser(u))
-      .catch((err) => {
-        if (err?.message === 'Session expired' || err?.message === 'Not authenticated') {
+      .then((u) => {
+        if (!u || !u.id) {
+          // Réponse invalide — session corrompue
           clearToken();
           router.push('/login');
+          return;
         }
+        setUser(u);
+      })
+      .catch(() => {
+        // Token expiré et refresh échoué → redirection login
+        clearToken();
+        router.push('/login');
       });
   }, [router]);
 

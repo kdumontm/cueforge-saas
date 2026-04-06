@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
     SECRET_KEY: str = "cueforge-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 jours — session longue (desktop + web)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 90      # 3 mois — refresh token longue durée
 
     # Database
     DATABASE_URL: str = "sqlite:///./cueforge.db"

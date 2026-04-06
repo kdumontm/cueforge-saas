@@ -192,6 +192,12 @@ function setupAutoUpdater() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 app.whenReady().then(() => {
+  // Persister les données de session (localStorage, cookies) entre les redémarrages
+  const ses = session.defaultSession;
+  ses.setPermissionRequestHandler((webContents, permission, callback) => {
+    callback(true); // Autoriser toutes les permissions (notifications, etc.)
+  });
+
   loadServices();
   setupIPC();
   setupAutoUpdater();
