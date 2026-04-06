@@ -228,3 +228,36 @@ input:focus, textarea:focus {
 .fixed.inset-0[class*="bg-black"] > [class*="rounded"] {
   animation: modalContentIn 0.2s ease;
 }
+
+/* ═══════════════════════════════════════════════ */
+/* MOBILE RESPONSIVE                              */
+/* ═══════════════════════════════════════════════ */
+
+/* Smaller scrollbars on mobile */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+
+  /* Toast repositioned for mobile */
+  .toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    font-size: 13px;
+  }
+
+  /* Touch-friendly focus */
+  input:focus, textarea:focus, select:focus, button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+  }
+}
+
+/* Safe area padding for notched phones */
+@supports (padding: max(0px)) {
+  .safe-area-bottom {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .safe-area-top {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
