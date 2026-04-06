@@ -1274,6 +1274,42 @@ export default function DashboardV2() {
     }
   }
 
+  async function handleExportAllSerato() {
+    addToast('Export Serato en cours…', 'info');
+    setShowExport(false);
+    try {
+      const { exportAllSerato } = await import('@/lib/api');
+      const blob = await exportAllSerato();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'CueForge_Library_serato.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(`Export Serato — ${tracks.length} tracks`, 'success');
+    } catch (e: any) {
+      addToast(`Erreur export: ${e.message || 'inconnue'}`, 'error');
+    }
+  }
+
+  async function handleExportAllTraktor() {
+    addToast('Export Traktor en cours…', 'info');
+    setShowExport(false);
+    try {
+      const { exportAllTraktor } = await import('@/lib/api');
+      const blob = await exportAllTraktor();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'CueForge_Library_traktor.nml';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(`Export Traktor — ${tracks.length} tracks`, 'success');
+    } catch (e: any) {
+      addToast(`Erreur export: ${e.message || 'inconnue'}`, 'error');
+    }
+  }
+
   const unanalyzedCount = tracks.filter(t => t.status !== 'completed').length;
 
   // Sync unanalyzedCount to context so TopBar can read it
@@ -1610,6 +1646,12 @@ export default function DashboardV2() {
               onDoubleClick={handleSelectTrack}
               onContextMenu={handleContextMenu}
               onFavoriteToggle={handleFavorite}
+              onRatingChange={async (trackId: number, rating: number) => {
+                try {
+                  await updateTrack(trackId, { rating });
+                  setTracks(prev => prev.map(t => t.id === trackId ? { ...t, rating } : t));
+                } catch {}
+              }}
               onGridToggle={setGridView}
               onSearchChange={setSearchQuery}
               onSortChange={setSortBy}
@@ -1618,6 +1660,17 @@ export default function DashboardV2() {
               isLoading={loading}
               onImportClick={() => fileRef.current?.click()}
               analyzingIds={analyzingIds}
+              unanalyzedCount={unanalyzedCount}
+              autoAnalyze={autoAnalyze}
+              onToggleAutoAnalyze={() => setAutoAnalyze(prev => !prev)}
+              onAnalyzeAll={handleBatchAnalyze}
+              onReanalyzeTrack={handleReanalyzeTrack}
+              onDeleteTrack={handleDeleteTrack}
+              onAddTagTrack={(trackId) => {
+                // Ouvrir l'onglet Info pour le track sélectionné (tag editing)
+                const t = displayTracks.find((dt: any) => dt.id === trackId);
+                if (t) { handleSelectTrack(t); setActiveTab('info'); }
+              }}
             />
             {/* Charger plus */}
             {hasMoreTracks && (
@@ -1969,6 +2022,8 @@ export default function DashboardV2() {
             <div className="space-y-2.5">
               {[
                 { label: 'Rekordbox XML', desc: 'Compatible Pioneer DJ, rekordbox 5/6', color: 'cyan', action: handleExportAllRekordbox },
+                { label: 'Serato CSV', desc: 'Compatible Serato DJ Pro', color: 'blue', action: handleExportAllSerato },
+                { label: 'Traktor NML', desc: 'Compatible Traktor Pro 3', color: 'orange', action: handleExportAllTraktor },
                 { label: 'CSV Tracklist', desc: 'Titre, Artiste, BPM, Key, Genre, Energy…', color: 'emerald', action: handleExportAllCSV },
                 { label: 'Tracklist TXT', desc: 'Format texte numéroté', color: 'violet', action: handleExportAllTXT },
               ].map(opt => (

@@ -1307,6 +1307,40 @@ export async function exportPlaylistM3U(playlistId: number): Promise<Blob> {
   return r.blob();
 }
 
+// ── Batch/All Serato ─────────────────────────────────────────────────────────
+export async function exportBatchSerato(trackIds: number[]): Promise<Blob> {
+  const r = await authFetch(`${API_URL}/export/serato/batch`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds }),
+  });
+  if (!r.ok) throw new Error('Failed to batch export Serato');
+  return r.blob();
+}
+
+export async function exportAllSerato(): Promise<Blob> {
+  const r = await authFetch(`${API_URL}/export/serato/all`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Failed to export all tracks as Serato');
+  return r.blob();
+}
+
+// ── Batch/All Traktor ────────────────────────────────────────────────────────
+export async function exportBatchTraktor(trackIds: number[]): Promise<Blob> {
+  const r = await authFetch(`${API_URL}/export/traktor/batch`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds }),
+  });
+  if (!r.ok) throw new Error('Failed to batch export Traktor NML');
+  return r.blob();
+}
+
+export async function exportAllTraktor(): Promise<Blob> {
+  const r = await authFetch(`${API_URL}/export/traktor/all`, { headers: authHeaders() });
+  if (!r.ok) throw new Error('Failed to export all tracks as Traktor NML');
+  return r.blob();
+}
+
 // ── v2: DJ Sets API ──────────────────────────────────────────────────────────
 
 export interface DJSet {

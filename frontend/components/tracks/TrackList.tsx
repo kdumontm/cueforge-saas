@@ -48,6 +48,10 @@ interface TrackListProps {
   autoAnalyze?: boolean;
   onToggleAutoAnalyze?: () => void;
   onAnalyzeAll?: () => void;
+  // TrackRow context menu callbacks
+  onReanalyzeTrack?: (trackId: number) => void;
+  onDeleteTrack?: (trackId: number) => void;
+  onAddTagTrack?: (trackId: number) => void;
 }
 
 const getSortOptions = (lang: 'fr' | 'en') => [
@@ -108,6 +112,9 @@ export const TrackList = React.memo(function TrackList({
   onToggleAutoAnalyze,
   onAnalyzeAll,
   analyzingIds = new Set(),
+  onReanalyzeTrack,
+  onDeleteTrack,
+  onAddTagTrack,
 }: TrackListProps) {
   const { lang } = useLang();
   const [showFilters, setShowFilters] = useState(false);
@@ -245,10 +252,25 @@ export const TrackList = React.memo(function TrackList({
         />
       </div>
 
-      {/* Track Count */}
-      <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
-        {filteredTracks.length} {filteredTracks.length === 1 ? tr('tracks.no_tracks', lang) : tr('tracks.files', lang)}
-        {tracks.length !== filteredTracks.length && ` (${tracks.length} total)`}
+      {/* Track Count + Auto-analyze indicator */}
+      <div className="px-4 py-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center gap-2">
+        <span>
+          {filteredTracks.length} {filteredTracks.length === 1 ? tr('tracks.no_tracks', lang) : tr('tracks.files', lang)}
+          {tracks.length !== filteredTracks.length && ` (${tracks.length} total)`}
+        </span>
+        {unanalyzedCount > 0 && (
+          <span className="ml-auto flex items-center gap-1.5">
+            <span className="text-[10px] text-orange-400">{unanalyzedCount} {tr('topbar.to_analyze', lang)}</span>
+            {onAnalyzeAll && (
+              <button
+                onClick={onAnalyzeAll}
+                className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors cursor-pointer"
+              >
+                Analyser tout
+              </button>
+            )}
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -334,6 +356,9 @@ export const TrackList = React.memo(function TrackList({
                 onContextMenu={onContextMenu}
                 onFavoriteToggle={onFavoriteToggle}
                 onRatingChange={onRatingChange}
+                onReanalyze={onReanalyzeTrack}
+                onDelete={onDeleteTrack}
+                onAddTag={onAddTagTrack}
               />
             ))}
           </div>
