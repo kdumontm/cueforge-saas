@@ -605,6 +605,11 @@ class LocalAnalysisPayload(BaseModel):
     energy: Optional[float] = None
     duration_ms: Optional[float] = None
     cue_points: Optional[list] = None
+    # v2.0: données structurelles pour le cue_generator pro
+    beat_positions: Optional[list] = None      # [ms, ms, ...] — grille de beats
+    drop_positions: Optional[list] = None      # [ms, ms, ...] — drops détectés
+    phrase_positions: Optional[list] = None     # [ms, ms, ...] — limites de phrases
+    section_labels: Optional[list] = None       # [{time_ms, label, energy, duration_ms}]
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -644,6 +649,16 @@ async def analyze_track_local(
     if payload.duration_ms is not None:
         analysis.duration_ms = payload.duration_ms
 
+    # v2.0: sauvegarder les données structurelles du frontend
+    if payload.beat_positions:
+        analysis.beat_positions = payload.beat_positions
+    if payload.drop_positions:
+        analysis.drop_positions = payload.drop_positions
+    if payload.phrase_positions:
+        analysis.phrase_positions = payload.phrase_positions
+    if payload.section_labels:
+        analysis.section_labels = payload.section_labels
+
     # Cue points
     if payload.cue_points:
         # Supprimer les anciens cue points auto-générés (garder les manuels)
@@ -675,18 +690,31 @@ async def analyze_track_local(
         pass
 
     # Tenter de générer des cue points pro via l'algorithme IA
-    # (remplace les cue points basiques de l'analyse locale si possible)
+    # Utilise les données structurelles fraîches du payload (pas les anciennes de la DB)
     try:
         from app.services.cue_generator import generate_cue_points
+
+        # Priorité : données du payload > données existantes en DB
+        beat_pos = payload.beat_positions or analysis.beat_positions or []
+        drop_pos = payload.drop_positions or analysis.drop_positions or []
+        phrase_pos = payload.phrase_positions or analysis.phrase_positions or []
+        sect_labels = payload.section_labels or analysis.section_labels or []
+
+        # Si pas de beat grid, en synthétiser un à partir du BPM
+        if not beat_pos and analysis.bpm and analysis.duration_ms:
+            beat_ms = 60000 / max(analysis.bpm, 60)
+            beat_pos = [int(i * beat_ms) for i in range(int(analysis.duration_ms / beat_ms))]
+            analysis.beat_positions = beat_pos
+
         analysis_data = {
             "bpm": analysis.bpm,
             "key": analysis.key,
             "energy": analysis.energy,
             "duration_ms": analysis.duration_ms or 0,
-            "drop_positions": analysis.drop_positions or [],
-            "phrase_positions": analysis.phrase_positions or [],
-            "beat_positions": analysis.beat_positions or [],
-            "section_labels": analysis.section_labels or [],
+            "drop_positions": drop_pos,
+            "phrase_positions": phrase_pos,
+            "beat_positions": beat_pos,
+            "section_labels": sect_labels,
             "genre": genre or track.genre,
         }
         generated = generate_cue_points(analysis_data)

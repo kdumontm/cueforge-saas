@@ -649,9 +649,15 @@ export default function DashboardV2() {
   }, []);
 
   // handleStemTimeUpdate: drift correction + volume enforcement continu
+  // SEULEMENT quand le player joue (pas en pause) pour éviter les sons parasites
   const handleStemTimeUpdate = useCallback((ms: number) => {
     stemLastTimeRef.current = ms / 1000;
     if (!stemsLoadedRef.current) return;
+
+    // Vérifier que le player est RÉELLEMENT en lecture (pas en pause/seek)
+    const audio = playerRef.current?.getAudio?.();
+    if (!audio || audio.paused) return; // ← NE RIEN FAIRE si en pause
+
     // Keep WaveSurfer muted tant que les stems jouent (CRITIQUE — sans ça = double audio)
     playerRef.current?.setVolume?.(0);
     // Drift correction si dérive > 0.4s
@@ -665,17 +671,22 @@ export default function DashboardV2() {
 
   const toggleStemMute = useCallback((key: string) => {
     const audio = stemAudioMapRef.current[key];
+    const mainAudio = playerRef.current?.getAudio?.();
+    const isPlaying = mainAudio && !mainAudio.paused;
+
     setStemMuted(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
-        // Réactiver — relancer en sync avec les autres stems
+        // Réactiver — relancer en sync SEULEMENT si le player joue
         next.delete(key);
         if (audio) {
-          // Chercher un stem qui joue pour se caler dessus
           const refAudio = Object.entries(stemAudioMapRef.current)
             .find(([k, a]) => !next.has(k) && !a.paused)?.[1];
           audio.currentTime = refAudio ? refAudio.currentTime : stemLastTimeRef.current;
-          audio.play().catch(() => {});
+          // Ne lancer le play que si le player principal est en lecture
+          if (isPlaying) {
+            audio.play().catch(() => {});
+          }
         }
       } else {
         // Couper — pause complète (plus fiable que volume=0)

@@ -257,48 +257,59 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     """
     Snap a position to the nearest downbeat (every 4 beats = 1 bar).
     Professional DJ cue points ALWAYS land on a downbeat.
-    Tolerance is BPM-adaptive instead of fixed 3s.
+
+    v2.0: Tolérance très large — on force TOUJOURS le snap sur un downbeat.
+    Un cue point qui ne tombe pas sur une mesure est inutilisable pour un DJ.
     """
     if not beats:
-        return pos_ms
+        # Même sans beats, calculer le downbeat le plus proche depuis le BPM
+        beat_ms = 60000 / max(bpm, 60)
+        bar_ms = beat_ms * 4
+        nearest_bar = round(pos_ms / bar_ms) * bar_ms
+        return int(nearest_bar)
 
     downbeats = [beats[i] for i in range(0, len(beats), 4)]
     if not downbeats:
         return pos_ms
 
     nearest_db = min(downbeats, key=lambda b: abs(b - pos_ms))
-    tolerance = _bpm_snap_tolerance(bpm, 1.5)
+    # Tolérance très large — on snap TOUJOURS sur un downbeat
+    tolerance = _bpm_snap_tolerance(bpm, 4.0)  # 4 bars de tolérance
 
     if abs(nearest_db - pos_ms) < tolerance:
         return nearest_db
 
-    # Fallback: snap to nearest beat with tighter tolerance
+    # Fallback: snap to nearest beat
     nearest_beat = min(beats, key=lambda b: abs(b - pos_ms))
-    beat_tolerance = _bpm_snap_tolerance(bpm, 0.75)
-    if abs(nearest_beat - pos_ms) < beat_tolerance:
-        return nearest_beat
-
-    return pos_ms
+    return nearest_beat
 
 
 def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     """
     Snap to nearest 4-bar boundary (every 16 beats in 4/4).
-    Tolerance is BPM-adaptive.
+
+    v2.0: Priorité absolue au snap 4-bar. Si pas possible, snap downbeat.
+    Un DJ travaille en phrases de 4, 8, 16 mesures — JAMAIS entre.
     """
     if not beats:
-        return pos_ms
+        # Calculer depuis le BPM
+        beat_ms = 60000 / max(bpm, 60)
+        bar_4_ms = beat_ms * 16  # 4 mesures = 16 beats
+        nearest_4bar = round(pos_ms / bar_4_ms) * bar_4_ms
+        return int(nearest_4bar)
 
     boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
     if not boundaries_16:
         return _snap_to_downbeat(pos_ms, beats, bpm)
 
     nearest = min(boundaries_16, key=lambda b: abs(b - pos_ms))
-    tolerance = _bpm_snap_tolerance(bpm, 2.5)  # ~2.5 bars tolerance for 4-bar snap
+    # Tolérance très large — 6 bars, pour être sûr de snapper
+    tolerance = _bpm_snap_tolerance(bpm, 6.0)
 
     if abs(nearest - pos_ms) < tolerance:
         return nearest
 
+    # Fallback: au moins snapper sur un downbeat (1 bar)
     return _snap_to_downbeat(pos_ms, beats, bpm)
 
 
@@ -411,6 +422,15 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     duration_ms = analysis_data.get("duration_ms", 0)
     bpm = analysis_data.get("bpm", 128)
     genre = analysis_data.get("genre")
+
+    # ── GARANTIR un beat grid — CRITIQUE pour le snap sur les mesures ──
+    # Si pas de beats détectés, synthétiser une grille parfaite depuis le BPM
+    if not beats and bpm and duration_ms > 0:
+        beat_ms = 60000 / max(bpm, 60)
+        beats = [int(i * beat_ms) for i in range(int(duration_ms / beat_ms) + 1)]
+
+    # Convertir en int (au cas où le frontend envoie des floats)
+    beats = [int(b) for b in beats] if beats else []
 
     # ── v5: Stem data (may be empty if stem analysis disabled) ──
     has_stems = analysis_data.get("stem_analysis", False)

@@ -64,17 +64,34 @@ const STEM_CONFIG = [
   },
 ];
 
-function downloadAll(stemsStatus: StemsStatus, mutedStems: Set<string>, trackTitle: string) {
-  STEM_CONFIG.forEach(({ key, name }) => {
-    if (mutedStems.has(key)) return; // skip muted
-    const url = stemsStatus[key as keyof StemsStatus];
-    if (!url || typeof url !== 'string') return;
+async function downloadStem(url: string, filename: string) {
+  try {
+    // Télécharger avec le token d'auth
+    const { getToken } = await import('@/lib/api');
+    const token = getToken();
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${trackTitle}_${name.toLowerCase()}.mp3`;
+    a.href = blobUrl;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+  } catch (e) {
+    console.error('[CueForge] Download stem failed:', e);
+  }
+}
+
+function downloadAll(stemsStatus: StemsStatus, mutedStems: Set<string>, trackTitle: string) {
+  STEM_CONFIG.forEach(({ key, name }) => {
+    if (mutedStems.has(key)) return;
+    const url = stemsStatus[key as keyof StemsStatus];
+    if (!url || typeof url !== 'string') return;
+    downloadStem(url, `${trackTitle}_${name.toLowerCase()}.mp3`);
   });
 }
 
@@ -184,20 +201,21 @@ export function StemsTab({
 
                   {/* Individual download — apparaît au survol */}
                   {avail && (
-                    <a
-                      href={url as string}
-                      download={`${track?.title ?? 'track'}_${name.toLowerCase()}.mp3`}
+                    <button
                       title={`Télécharger ${name}`}
-                      onClick={e => e.stopPropagation()}
+                      onClick={e => {
+                        e.stopPropagation();
+                        downloadStem(url as string, `${track?.title ?? 'track'}_${name.toLowerCase()}.mp3`);
+                      }}
                       className="
                         absolute bottom-2 right-2 p-1 rounded-md
                         bg-black/40 border border-white/10
                         text-white/50 hover:text-white hover:bg-black/60
-                        transition-all opacity-0 group-hover:opacity-100 z-10
+                        transition-all opacity-0 group-hover:opacity-100 z-10 cursor-pointer
                       "
                     >
                       <Download size={11} />
-                    </a>
+                    </button>
                   )}
                 </div>
               );
