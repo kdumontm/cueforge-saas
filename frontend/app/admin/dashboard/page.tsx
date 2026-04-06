@@ -20,18 +20,18 @@ import { StatCard, Card, Badge, PageWrapper, SectionHeader, LoadingScreen } from
 import { adminApi } from "../_components/api";
 
 interface DashboardStats {
-  total_users: number;
-  verified_users: number;
-  admin_count: number;
-  plans: {
-    free: number;
-    pro: number;
-    unlimited: number;
+  users: {
+    total: number;
+    verified: number;
+    admins: number;
+    by_plan: Record<string, number>;
   };
   organizations: number;
-  total_pages: number;
-  published_pages: number;
-  total_media: number;
+  pages: {
+    total: number;
+    published: number;
+  };
+  media: number;
 }
 
 export default function AdminDashboard() {
@@ -67,7 +67,9 @@ export default function AdminDashboard() {
     );
   }
 
-  const totalPlans = stats.plans.free + stats.plans.pro + stats.plans.unlimited;
+  const plans = stats.users.by_plan || {};
+  const totalPlans = (plans.free || 0) + (plans.pro || 0) + (plans.unlimited || 0);
+  const verifyPct = stats.users.total > 0 ? Math.round((stats.users.verified / stats.users.total) * 100) : 0;
 
   return (
     <PageWrapper>
@@ -82,20 +84,20 @@ export default function AdminDashboard() {
         <StatCard
           icon={Users}
           label="Utilisateurs totaux"
-          value={stats.total_users}
+          value={stats.users.total}
           color="#3b82f6"
         />
         <StatCard
           icon={CheckCircle2}
           label="Utilisateurs vérifiés"
-          value={stats.verified_users}
+          value={stats.users.verified}
           color="#10b981"
-          sub={`${Math.round((stats.verified_users / stats.total_users) * 100)}% de vérification`}
+          sub={`${verifyPct}% de vérification`}
         />
         <StatCard
           icon={Shield}
           label="Administrateurs"
-          value={stats.admin_count}
+          value={stats.users.admins}
           color="#f59e0b"
         />
         <StatCard
@@ -107,14 +109,14 @@ export default function AdminDashboard() {
         <StatCard
           icon={FileText}
           label="Pages publiées"
-          value={stats.published_pages}
+          value={stats.pages.published}
           color="#06b6d4"
-          sub={`sur ${stats.total_pages} pages`}
+          sub={`sur ${stats.pages.total} pages`}
         />
         <StatCard
           icon={Image}
           label="Médias"
-          value={stats.total_media}
+          value={stats.media}
           color="#ec4899"
         />
       </div>
@@ -132,18 +134,18 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-text-primary">Plan Gratuit</span>
-                <Badge variant="info">{stats.plans.free} utilisateurs</Badge>
+                <Badge variant="info">{plans.free || 0} utilisateurs</Badge>
               </div>
               <div className="w-full bg-bg-secondary rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-blue-500 h-full rounded-full"
                   style={{
-                    width: totalPlans > 0 ? `${(stats.plans.free / totalPlans) * 100}%` : "0%",
+                    width: totalPlans > 0 ? `${((plans.free || 0) / totalPlans) * 100}%` : "0%",
                   }}
                 />
               </div>
               <p className="text-xs text-text-muted mt-1">
-                {totalPlans > 0 ? `${Math.round((stats.plans.free / totalPlans) * 100)}%` : "0%"} du total
+                {totalPlans > 0 ? `${Math.round(((plans.free || 0) / totalPlans) * 100)}%` : "0%"} du total
               </p>
             </div>
 
@@ -151,18 +153,18 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-text-primary">Plan Pro</span>
-                <Badge variant="purple">{stats.plans.pro} utilisateurs</Badge>
+                <Badge variant="purple">{plans.pro || 0} utilisateurs</Badge>
               </div>
               <div className="w-full bg-bg-secondary rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-purple-500 h-full rounded-full"
                   style={{
-                    width: totalPlans > 0 ? `${(stats.plans.pro / totalPlans) * 100}%` : "0%",
+                    width: totalPlans > 0 ? `${((plans.pro || 0) / totalPlans) * 100}%` : "0%",
                   }}
                 />
               </div>
               <p className="text-xs text-text-muted mt-1">
-                {totalPlans > 0 ? `${Math.round((stats.plans.pro / totalPlans) * 100)}%` : "0%"} du total
+                {totalPlans > 0 ? `${Math.round(((plans.pro || 0) / totalPlans) * 100)}%` : "0%"} du total
               </p>
             </div>
 
@@ -170,18 +172,18 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-text-primary">Plan Illimité</span>
-                <Badge variant="success">{stats.plans.unlimited} utilisateurs</Badge>
+                <Badge variant="success">{plans.unlimited || 0} utilisateurs</Badge>
               </div>
               <div className="w-full bg-bg-secondary rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-emerald-500 h-full rounded-full"
                   style={{
-                    width: totalPlans > 0 ? `${(stats.plans.unlimited / totalPlans) * 100}%` : "0%",
+                    width: totalPlans > 0 ? `${((plans.unlimited || 0) / totalPlans) * 100}%` : "0%",
                   }}
                 />
               </div>
               <p className="text-xs text-text-muted mt-1">
-                {totalPlans > 0 ? `${Math.round((stats.plans.unlimited / totalPlans) * 100)}%` : "0%"} du total
+                {totalPlans > 0 ? `${Math.round(((plans.unlimited || 0) / totalPlans) * 100)}%` : "0%"} du total
               </p>
             </div>
           </div>
