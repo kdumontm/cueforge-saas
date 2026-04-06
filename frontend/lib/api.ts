@@ -283,22 +283,44 @@ export async function analyzeTrack(
   const { isDesktopApp } = await import('@/lib/electron');
   const isDesktop = isDesktopApp();
 
-  // ── Desktop : analyse locale puis sync vers le backend ──────────────────
-  if (isDesktop && options?.localFile?.path) {
-    const bridge = (window as any).cueforge;
-    if (bridge?.files?.readBuffer) {
+  // ── Desktop : analyse locale CPU (rapide, pas de cloud) ─────────────────
+  if (isDesktop) {
+    try {
       const { analyzeAudioLocal } = await import('@/lib/audioAnalyzer');
-      const buffer = await bridge.files.readBuffer(options.localFile.path);
-      const result = await analyzeAudioLocal(buffer, options?.onProgress ?? (() => {}));
+      const onProgress = options?.onProgress ?? (() => {});
+      let buffer: ArrayBuffer | null = null;
 
-      // Envoyer les résultats au backend pour persistance
-      const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze-local`, {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(result),
-      });
-      // Fallback : si l'endpoint local n'existe pas encore, on utilise l'analyse cloud
-      if (response.ok) return response.json();
+      // Option 1 : fichier local via le bridge Electron
+      const bridge = (window as any).cueforge;
+      if (options?.localFile?.path && bridge?.files?.readBuffer) {
+        buffer = await bridge.files.readBuffer(options.localFile.path);
+      }
+
+      // Option 2 : télécharger l'audio depuis le backend (fichier déjà uploadé)
+      if (!buffer) {
+        onProgress(1);
+        const token = getToken();
+        const audioUrl = `${API_URL}/tracks/${trackId}/audio${token ? `?token=${token}` : ''}`;
+        const audioRes = await fetch(audioUrl);
+        if (audioRes.ok) {
+          buffer = await audioRes.arrayBuffer();
+        }
+      }
+
+      if (buffer && buffer.byteLength > 1000) {
+        onProgress(5);
+        const result = await analyzeAudioLocal(buffer, onProgress);
+
+        // Envoyer les résultats au backend pour persistance + cue points pro
+        const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze-local`, {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(result),
+        });
+        if (response.ok) return response.json();
+      }
+    } catch (e) {
+      console.warn('[CueForge] Analyse locale échouée, fallback cloud:', e);
     }
   }
 
