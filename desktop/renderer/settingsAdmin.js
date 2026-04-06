@@ -249,16 +249,21 @@ const AdminPanel = {
       });
     });
 
-    // User search
-    document.getElementById('btnAdminRefreshUsers').addEventListener('click', () => this.loadUsers());
-    document.getElementById('adminUserSearch').addEventListener('keydown', (e) => {
+    // User search (éléments présents uniquement dans la vue Admin)
+    const btnRefresh = document.getElementById('btnAdminRefreshUsers');
+    if (btnRefresh) btnRefresh.addEventListener('click', () => this.loadUsers());
+    const userSearch = document.getElementById('adminUserSearch');
+    if (userSearch) userSearch.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.loadUsers();
     });
-    document.getElementById('adminUserPlanFilter').addEventListener('change', () => this.loadUsers());
+    const planFilter = document.getElementById('adminUserPlanFilter');
+    if (planFilter) planFilter.addEventListener('change', () => this.loadUsers());
 
     // Add feature
-    document.getElementById('btnAdminAddFeature').addEventListener('click', () => this.addFeature());
-    document.getElementById('adminNewFeatureName').addEventListener('keydown', (e) => {
+    const btnAddFeature = document.getElementById('btnAdminAddFeature');
+    if (btnAddFeature) btnAddFeature.addEventListener('click', () => this.addFeature());
+    const featureName = document.getElementById('adminNewFeatureName');
+    if (featureName) featureName.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.addFeature();
     });
   },
@@ -501,6 +506,7 @@ const UpdateChecker = {
   async check() {
     const btn = document.getElementById('btnCheckUpdates');
     const result = document.getElementById('updateCheckResult');
+    if (!btn || !result) return;
     btn.disabled = true;
     btn.innerHTML = '<span>⏳</span> Vérification en cours…';
     result.style.display = 'none';
