@@ -3,7 +3,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -94,7 +94,7 @@ const TABS = [
   { id: 'notes',     labelKey: 'tab.notes',     icon: '📋', global: true },
 ];
 
-const GLOBAL_TABS: string[] = [];
+const GLOBAL_TABS: string[] = ['playlists', 'stats', 'history', 'notes'];
 
 // ── Demo data (full Track objects + flat display objects) ──────────────
 const DEMO_CUE_POINTS = [
@@ -109,12 +109,12 @@ function makeDemoAnalysis(bpm: number, key: string, energy: number, durationMs: 
 }
 
 const DEMO_RAW_TRACKS: Track[] = [
-  { id: -1, filename: 'shed_my_skin.mp3', original_filename: 'Shed My Skin.mp3', status: 'analyzed', created_at: '2025-03-28T10:00:00Z', title: 'Shed My Skin', artist: 'Ben Bohmer', genre: 'Melodic House', rating: 5, tags: 'peak,vocal', category: 'Peak Time', cue_points: DEMO_CUE_POINTS, analysis: makeDemoAnalysis(124, '6A', 0.72, 402000) },
-  { id: -2, filename: 'lost_highway.mp3', original_filename: 'Lost Highway.mp3', status: 'analyzed', created_at: '2025-03-27T09:00:00Z', title: 'Lost Highway', artist: 'Stephan Bodzin', genre: 'Techno', rating: 4, tags: 'dark,peak', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(134, '10B', 0.88, 495000) },
-  { id: -3, filename: 'equinox.mp3', original_filename: 'Equinox.mp3', status: 'analyzed', created_at: '2025-03-26T08:00:00Z', title: 'Equinox', artist: 'Solomun', genre: 'Deep House', rating: 4, tags: 'warmup', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(122, '3A', 0.65, 450000) },
-  { id: -4, filename: 'disco_volante.mp3', original_filename: 'Disco Volante.mp3', status: 'analyzed', created_at: '2025-03-25T07:00:00Z', title: 'Disco Volante', artist: 'ANNA', genre: 'Techno', rating: 5, tags: 'peak,dark', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(136, '8A', 0.91, 425000) },
-  { id: -5, filename: 'dreamer.mp3', original_filename: 'Dreamer.mp3', status: 'analyzed', created_at: '2025-03-24T06:00:00Z', title: 'Dreamer', artist: 'Tale Of Us', genre: 'Melodic House', rating: 3, tags: 'warmup,vocal', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(120, '1A', 0.58, 550000) },
-  { id: -6, filename: 'bangalore.mp3', original_filename: 'Bangalore.mp3', status: 'analyzed', created_at: '2025-03-23T05:00:00Z', title: 'Bangalore', artist: 'Bicep', genre: 'House', rating: 4, tags: 'festival', category: 'Build Up', cue_points: [], analysis: makeDemoAnalysis(128, '4B', 0.80, 355000) },
+  { id: -1, filename: 'shed_my_skin.mp3', original_filename: 'Shed My Skin.mp3', status: 'completed', created_at: '2025-03-28T10:00:00Z', title: 'Shed My Skin', artist: 'Ben Bohmer', genre: 'Melodic House', rating: 5, tags: 'peak,vocal', category: 'Peak Time', cue_points: DEMO_CUE_POINTS, analysis: makeDemoAnalysis(124, '6A', 0.72, 402000) },
+  { id: -2, filename: 'lost_highway.mp3', original_filename: 'Lost Highway.mp3', status: 'completed', created_at: '2025-03-27T09:00:00Z', title: 'Lost Highway', artist: 'Stephan Bodzin', genre: 'Techno', rating: 4, tags: 'dark,peak', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(134, '10B', 0.88, 495000) },
+  { id: -3, filename: 'equinox.mp3', original_filename: 'Equinox.mp3', status: 'completed', created_at: '2025-03-26T08:00:00Z', title: 'Equinox', artist: 'Solomun', genre: 'Deep House', rating: 4, tags: 'warmup', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(122, '3A', 0.65, 450000) },
+  { id: -4, filename: 'disco_volante.mp3', original_filename: 'Disco Volante.mp3', status: 'completed', created_at: '2025-03-25T07:00:00Z', title: 'Disco Volante', artist: 'ANNA', genre: 'Techno', rating: 5, tags: 'peak,dark', category: 'Peak Time', cue_points: [], analysis: makeDemoAnalysis(136, '8A', 0.91, 425000) },
+  { id: -5, filename: 'dreamer.mp3', original_filename: 'Dreamer.mp3', status: 'completed', created_at: '2025-03-24T06:00:00Z', title: 'Dreamer', artist: 'Tale Of Us', genre: 'Melodic House', rating: 3, tags: 'warmup,vocal', category: 'Warm Up', cue_points: [], analysis: makeDemoAnalysis(120, '1A', 0.58, 550000) },
+  { id: -6, filename: 'bangalore.mp3', original_filename: 'Bangalore.mp3', status: 'completed', created_at: '2025-03-23T05:00:00Z', title: 'Bangalore', artist: 'Bicep', genre: 'House', rating: 4, tags: 'festival', category: 'Build Up', cue_points: [], analysis: makeDemoAnalysis(128, '4B', 0.80, 355000) },
 ];
 
 const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
@@ -335,10 +335,11 @@ export default function DashboardV2() {
   const rawTracksForTabs = isDemo ? DEMO_RAW_TRACKS : sectionFilteredTracks;
 
   // Find the raw Track for the selected display track (needed by tabs)
+  // Search in ALL tracks first, fallback to section-filtered — avoids null when section changes
   const selectedRawTrack = useMemo(() => {
     if (!selectedTrack) return null;
-    return rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
-  }, [selectedTrack, rawTracksForTabs]);
+    return tracks.find(t => t.id === selectedTrack.id) || rawTracksForTabs.find(t => t.id === selectedTrack.id) || null;
+  }, [selectedTrack, tracks, rawTracksForTabs]);
 
   // Cache current track index to avoid N findIndex calls per render
   const selectedTrackIdx = useMemo(() => {
@@ -740,7 +741,7 @@ export default function DashboardV2() {
       duration: formatDuration(analysis.duration_ms ? analysis.duration_ms / 1000 : null),
       rating: t.rating || 0,
       tags: t.tags ? (typeof t.tags === 'string' ? t.tags.split(',').filter(Boolean) : t.tags) : [],
-      analyzed: t.status === 'analyzed',
+      analyzed: t.status === 'completed',
       color: null,
       waveformPeaks: analysis.waveform_peaks || null,
     };
@@ -919,9 +920,19 @@ export default function DashboardV2() {
       setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
       setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[trackId]; return n; }), 2000);
 
-      await loadTracks();
+      // Refresh only the analyzed track in-place (avoid full list reload → no flash)
+      try {
+        const fresh = await getTrack(trackId);
+        setTracks(prev => prev.map(t => t.id === trackId ? fresh : t));
+        if (selectedTrackIdRef.current === trackId) {
+          setSelectedTrack(toDisplayTrack(fresh), 'reanalyze:complete');
+        }
+      } catch {
+        // Fallback: full reload only if single-track fetch fails
+        await loadTracks();
+      }
       // Recharger les cue points si c'est le track sélectionné (évite doublons stale)
-      if (selectedTrack?.id === trackId) {
+      if (selectedTrackIdRef.current === trackId) {
         try {
           const freshCues = await getTrackCuePoints(trackId);
           setCuePoints(freshCues);
@@ -1077,71 +1088,100 @@ export default function DashboardV2() {
       setSelectedTrack(displayTracks[selectedTrackIdx + 1], 'nav:next');
   }
 
-  // File upload
+  // File upload — parallel uploads + parallel analyses
   async function handleFiles(files: FileList) {
-    for (const file of Array.from(files)) {
-      try {
-        setUploading(true);
-        const uploaded = await uploadTrack(file);
-        setUploading(false);
-        if (!uploaded?.id) continue;
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
 
-        // Afficher immédiatement le track dans la liste
-        await loadTracks();
-        addToast(`${file.name} importé`, 'info');
+    setUploading(true);
+    addToast(`Import de ${fileArray.length} fichier${fileArray.length > 1 ? 's' : ''}…`, 'info');
 
-        if (autoAnalyze) {
-          const id = uploaded.id;
-          const fname = file.name;
-          // Marquer comme "en analyse" → roue dans la liste
-          setAnalyzingIds(prev => new Set(prev).add(id));
-          setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
-
-          // Lancer l'analyse en arrière-plan (pas d'await → non-bloquant)
-          analyzeTrack(id, {
-            onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: prev[id]?.isLocal ?? false } })),
-          })
-            .then(async (result) => {
-              if (result.usedLocal) {
-                // ── Desktop : analyse locale terminée, pas de polling ──
-                setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: true } }));
-              } else {
-                // ── Web : polling cloud nécessaire ──
-                setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 15, title: fname, isLocal: false } }));
-                let uploadCloudPct = 15;
-                const uploadCloudTimer = setInterval(() => {
-                  uploadCloudPct = Math.min(55, uploadCloudPct + 2 + Math.random() * 3);
-                  setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct: Math.round(uploadCloudPct), title: fname } }));
-                }, 1500);
-                await pollTrackUntilDone(id, (updated) => {
-                  setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
-                  setAnalysisProgress(prev => {
-                    const cur = prev[id]?.pct ?? 0;
-                    return { ...prev, [id]: { ...prev[id], pct: Math.min(98, Math.max(cur, 60) + 3), title: fname } };
-                  });
-                });
-                clearInterval(uploadCloudTimer);
-                setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: false } }));
-              }
-
-              setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-              setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
-              addToast(`${fname} ${tr('toast.analyzed', lang)}`, 'success');
-              await loadTracks();
-              // Recharger cues si c'est le track sélectionné
-              if (selectedTrack?.id === id) {
-                try { setCuePoints(await getTrackCuePoints(id)); } catch {}
-              }
-            })
-            .catch(() => {
-              setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-              setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
-              addToast(`Erreur analyse: ${fname}`, 'error');
-            });
+    // Phase 1: Upload all files in parallel (max 3 concurrent)
+    const CONCURRENCY = 3;
+    const uploaded: { file: File; result: any }[] = [];
+    const chunks: File[][] = [];
+    for (let i = 0; i < fileArray.length; i += CONCURRENCY) {
+      chunks.push(fileArray.slice(i, i + CONCURRENCY));
+    }
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(chunk.map(f => uploadTrack(f)));
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value?.id) {
+          uploaded.push({ file: chunk[i], result: r.value });
+        } else {
+          addToast(`Erreur upload: ${chunk[i].name}`, 'error');
         }
-      } catch {
-        setUploading(false);
-        addToast(`Erreur upload: ${file.name}`, 'error');
+      });
+    }
+    setUploading(false);
+
+    if (uploaded.length === 0) return;
+
+    // Refresh track list once after all uploads
+    await loadTracks();
+    addToast(`${uploaded.length} fichier${uploaded.length > 1 ? 's' : ''} importé${uploaded.length > 1 ? 's' : ''}`, 'success');
+
+    // Phase 2: Auto-analyze all uploaded tracks in parallel
+    if (autoAnalyze && uploaded.length > 0) {
+      // Launch ALL analyses concurrently (non-blocking)
+      for (const { file, result: up } of uploaded) {
+        const id = up.id;
+        const fname = file.name;
+        setAnalyzingIds(prev => new Set(prev).add(id));
+        setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
+
+        // Fire-and-forget each analysis
+        (async () => {
+          try {
+            const result = await analyzeTrack(id, {
+              onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: prev[id]?.isLocal ?? false } })),
+            });
+
+            if (result.usedLocal) {
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: true } }));
+            } else {
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 15, title: fname, isLocal: false } }));
+              let cloudPct = 15;
+              const cloudTimer = setInterval(() => {
+                cloudPct = Math.min(55, cloudPct + 2 + Math.random() * 3);
+                setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct: Math.round(cloudPct), title: fname } }));
+              }, 1500);
+              await pollTrackUntilDone(id, (updated) => {
+                // Update single track in-place without full reload
+                setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+                setAnalysisProgress(prev => {
+                  const cur = prev[id]?.pct ?? 0;
+                  return { ...prev, [id]: { ...prev[id], pct: Math.min(98, Math.max(cur, 60) + 3), title: fname } };
+                });
+              });
+              clearInterval(cloudTimer);
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: false } }));
+            }
+
+            // Clean up progress state
+            setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+            setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
+            addToast(`${fname} ${tr('toast.analyzed', lang)}`, 'success');
+
+            // Refresh the single track in-place instead of full loadTracks
+            try {
+              const fresh = await getTrack(id);
+              setTracks(prev => prev.map(t => t.id === id ? fresh : t));
+              // Refresh display track if selected
+              if (selectedTrackIdRef.current === id) {
+                setSelectedTrack(toDisplayTrack(fresh), 'analysis:complete');
+              }
+            } catch {}
+            // Reload cues if selected
+            if (selectedTrackIdRef.current === id) {
+              try { setCuePoints(await getTrackCuePoints(id)); } catch {}
+            }
+          } catch {
+            setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+            setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+            addToast(`Erreur analyse: ${fname}`, 'error');
+          }
+        })();
       }
     }
   }
@@ -1220,14 +1260,21 @@ export default function DashboardV2() {
   async function handleExportAllRekordbox() {
     addToast('Export Rekordbox en cours…', 'info');
     setShowExport(false);
-    let ok = 0;
-    for (const t of tracks) {
-      try { await exportRekordbox(t.id); ok++; } catch {}
+    try {
+      const blob = await exportAllRekordbox();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'CueForge_Library_rekordbox.xml';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(`Export Rekordbox — ${tracks.length} tracks`, 'success');
+    } catch (e: any) {
+      addToast(`Erreur export: ${e.message || 'inconnue'}`, 'error');
     }
-    addToast(`Export Rekordbox — ${ok} tracks`, 'success');
   }
 
-  const unanalyzedCount = tracks.filter(t => t.status !== 'analyzed').length;
+  const unanalyzedCount = tracks.filter(t => t.status !== 'completed').length;
 
   // Sync unanalyzedCount to context so TopBar can read it
   useEffect(() => {
@@ -1235,21 +1282,45 @@ export default function DashboardV2() {
   }, [unanalyzedCount, isDemo, setUnanalyzedCount]);
 
   async function handleBatchAnalyze() {
-    const unanalyzed = tracks.filter(t => t.status !== 'analyzed');
+    const unanalyzed = tracks.filter(t => t.status !== 'completed');
     if (unanalyzed.length === 0) {
-      addToast('No unanalyzed tracks', 'info');
+      addToast('Toutes les tracks sont déjà analysées', 'info');
       return;
     }
-    addToast(`Analyzing ${unanalyzed.length} tracks...`, 'info');
+    addToast(`Analyse de ${unanalyzed.length} tracks en parallèle…`, 'info');
+
+    // Mark all as analyzing immediately
     for (const track of unanalyzed) {
-      try {
-        const result = await analyzeTrack(track.id);
-        if (!result.usedLocal) await pollTrackUntilDone(track.id);
-      } catch (e) {
-      }
+      const title = track.title || track.original_filename || 'Track';
+      setAnalyzingIds(prev => new Set(prev).add(track.id));
+      setAnalysisProgress(prev => ({ ...prev, [track.id]: { pct: 0, title, isLocal: false } }));
     }
-    await loadTracks();
-    addToast(`Analyzed ${unanalyzed.length} tracks!`, 'success');
+
+    // Run all analyses in parallel
+    let ok = 0;
+    const results = await Promise.allSettled(unanalyzed.map(async (track) => {
+      const title = track.title || track.original_filename || 'Track';
+      const id = track.id;
+      try {
+        const result = await analyzeTrack(id, {
+          onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title, isLocal: prev[id]?.isLocal ?? false } })),
+        });
+        if (!result.usedLocal) {
+          await pollTrackUntilDone(id, (updated) => {
+            setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+          });
+        }
+        // Update single track in-place
+        const fresh = await getTrack(id);
+        setTracks(prev => prev.map(t => t.id === id ? fresh : t));
+        ok++;
+      } finally {
+        setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+        setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+      }
+    }));
+
+    addToast(`${ok}/${unanalyzed.length} tracks analysées !`, ok === unanalyzed.length ? 'success' : 'error');
   }
 
   // Register handleBatchAnalyze in context so TopBar can call it
@@ -1276,74 +1347,96 @@ export default function DashboardV2() {
 
   async function handleBatchTag(tag: string) {
     const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try {
-        const track = tracks.find(t => t.id === id);
-        const currentTags = track?.tags ? String(track.tags).split(',').map(t => t.trim()).filter(Boolean) : [];
-        if (!currentTags.includes(tag)) {
-          currentTags.push(tag);
-          await updateTrack(id, { tags: currentTags.join(',') });
-        }
-      } catch {}
-    }
-    await loadTracks();
-    addToast(`Tag "${tag}" ajouté à ${ids.length} tracks`, 'success');
+    let ok = 0;
+    await Promise.allSettled(ids.map(async (id) => {
+      const track = tracks.find(t => t.id === id);
+      const currentTags = track?.tags ? String(track.tags).split(',').map(t => t.trim()).filter(Boolean) : [];
+      if (!currentTags.includes(tag)) {
+        currentTags.push(tag);
+        await updateTrack(id, { tags: currentTags.join(',') });
+        setTracks(prev => prev.map(t => t.id === id ? { ...t, tags: currentTags.join(',') } : t));
+        ok++;
+      }
+    }));
+    addToast(`Tag "${tag}" ajouté à ${ok} tracks`, 'success');
   }
 
   async function handleBatchCategory(category: string) {
     const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try { await updateTrack(id, { category }); } catch {}
-    }
-    await loadTracks();
+    await Promise.allSettled(ids.map(async (id) => {
+      await updateTrack(id, { category });
+      setTracks(prev => prev.map(t => t.id === id ? { ...t, category } as any : t));
+    }));
     addToast(`Catégorie "${category}" appliquée`, 'success');
   }
 
   async function handleBatchRating(rating: number) {
     const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try { await updateTrack(id, { rating }); } catch {}
-    }
-    await loadTracks();
+    await Promise.allSettled(ids.map(async (id) => {
+      await updateTrack(id, { rating });
+      setTracks(prev => prev.map(t => t.id === id ? { ...t, rating } : t));
+    }));
     addToast(`${ids.length} tracks notées ${rating}⭐`, 'success');
   }
 
   async function handleBatchColor(color: string) {
     const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try { await updateTrack(id, { color_code: color }); } catch {}
-    }
-    await loadTracks();
+    await Promise.allSettled(ids.map(async (id) => {
+      await updateTrack(id, { color_code: color });
+      setTracks(prev => prev.map(t => t.id === id ? { ...t, color_code: color } as any : t));
+    }));
     addToast(`Couleur appliquée à ${ids.length} tracks`, 'success');
   }
 
   async function handleBatchAnalyzeSelected() {
     const ids = Array.from(selectedIds);
-    addToast(`Analyse de ${ids.length} tracks...`, 'info');
+    addToast(`Analyse de ${ids.length} tracks en parallèle…`, 'info');
+
+    // Mark all as analyzing
     for (const id of ids) {
-      try {
-        const result = await analyzeTrack(id);
-        if (!result.usedLocal) await pollTrackUntilDone(id);
-      } catch {}
+      const t = tracks.find(t => t.id === id);
+      const title = t?.title || t?.original_filename || 'Track';
+      setAnalyzingIds(prev => new Set(prev).add(id));
+      setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title, isLocal: false } }));
     }
-    await loadTracks();
-    addToast(`${ids.length} tracks analysées!`, 'success');
+
+    let ok = 0;
+    await Promise.allSettled(ids.map(async (id) => {
+      try {
+        const result = await analyzeTrack(id, {
+          onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct } })),
+        });
+        if (!result.usedLocal) {
+          await pollTrackUntilDone(id, (updated) => {
+            setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+          });
+        }
+        const fresh = await getTrack(id);
+        setTracks(prev => prev.map(t => t.id === id ? fresh : t));
+        ok++;
+      } finally {
+        setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+        setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+      }
+    }));
+
+    addToast(`${ok}/${ids.length} tracks analysées !`, ok === ids.length ? 'success' : 'error');
   }
 
   async function handleBatchExportSelected() {
     const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try {
-        const blob = await exportRekordbox(id);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `track_${id}.xml`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch {}
+    try {
+      const blob = await exportBatchRekordbox(ids);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CueForge_${ids.length}_tracks_rekordbox.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(`${ids.length} tracks exportées en Rekordbox XML`, 'success');
+    } catch (e: any) {
+      addToast(`Erreur export: ${e.message || 'inconnue'}`, 'error');
     }
-    addToast(`${ids.length} tracks exportées`, 'success');
   }
 
   async function handleBatchDeleteSelected() {

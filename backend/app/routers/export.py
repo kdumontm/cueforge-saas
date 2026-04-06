@@ -132,7 +132,7 @@ async def export_batch_rekordbox(
 
     track_dicts = [track_to_dict(t) for t in tracks]
     playlist_name = payload.name or "CueForge Export"
-    result = export_tracks_to_rekordbox(track_dicts)
+    result = export_tracks_to_rekordbox(track_dicts, playlist_name=playlist_name)
 
     return Response(
         content=result["xml"],

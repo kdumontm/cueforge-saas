@@ -465,7 +465,8 @@ export async function pollTrackUntilDone(
     if (!response.ok) throw new Error('Failed to fetch track status');
     const track: Track = await response.json();
     if (onUpdate) onUpdate(track);
-    if (track.status === 'completed' || track.status === 'failed') return track;
+    if (track.status === 'completed') return track;
+    if (track.status === 'failed') throw new Error(`Analysis failed for track ${trackId}`);
     await new Promise(r => setTimeout(r, intervalMs));
   }
   throw new Error('Analysis timed out');
