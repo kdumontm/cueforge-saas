@@ -258,7 +258,7 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     Snap a position to the nearest downbeat (every 4 beats = 1 bar).
     Professional DJ cue points ALWAYS land on a downbeat.
 
-    v2.0: Tolérance très large — on force TOUJOURS le snap sur un downbeat.
+    v3.0: TOUJOURS snapper sur le downbeat le plus proche — pas de tolérance.
     Un cue point qui ne tombe pas sur une mesure est inutilisable pour un DJ.
     """
     if not beats:
@@ -272,24 +272,17 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     if not downbeats:
         return pos_ms
 
-    nearest_db = min(downbeats, key=lambda b: abs(b - pos_ms))
-    # Tolérance très large — on snap TOUJOURS sur un downbeat
-    tolerance = _bpm_snap_tolerance(bpm, 4.0)  # 4 bars de tolérance
-
-    if abs(nearest_db - pos_ms) < tolerance:
-        return nearest_db
-
-    # Fallback: snap to nearest beat
-    nearest_beat = min(beats, key=lambda b: abs(b - pos_ms))
-    return nearest_beat
+    # v3.0: snap TOUJOURS — on prend le downbeat le plus proche sans condition
+    return min(downbeats, key=lambda b: abs(b - pos_ms))
 
 
 def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     """
     Snap to nearest 4-bar boundary (every 16 beats in 4/4).
 
-    v2.0: Priorité absolue au snap 4-bar. Si pas possible, snap downbeat.
+    v3.0: Snap TOUJOURS sur une frontière de 4 mesures.
     Un DJ travaille en phrases de 4, 8, 16 mesures — JAMAIS entre.
+    Si le beat grid est disponible, on snap directement sur un point de la grille.
     """
     if not beats:
         # Calculer depuis le BPM
@@ -298,19 +291,16 @@ def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> i
         nearest_4bar = round(pos_ms / bar_4_ms) * bar_4_ms
         return int(nearest_4bar)
 
+    # Extraire les frontières de 4 mesures (toutes les 16 beats)
     boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
     if not boundaries_16:
         return _snap_to_downbeat(pos_ms, beats, bpm)
 
     nearest = min(boundaries_16, key=lambda b: abs(b - pos_ms))
-    # Tolérance très large — 6 bars, pour être sûr de snapper
-    tolerance = _bpm_snap_tolerance(bpm, 6.0)
 
-    if abs(nearest - pos_ms) < tolerance:
-        return nearest
-
-    # Fallback: au moins snapper sur un downbeat (1 bar)
-    return _snap_to_downbeat(pos_ms, beats, bpm)
+    # v3.0: TOUJOURS snapper — pas de tolérance, on prend le plus proche
+    # L'ancienne tolérance pouvait laisser passer des positions hors-grille
+    return nearest
 
 
 # ══════════════════════════════════════════════════════════════════════════

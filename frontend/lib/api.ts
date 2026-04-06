@@ -356,11 +356,25 @@ export async function analyzeTrack(
   }
 
   // ── Web (ou fallback) : analyse cloud ───────────────────────────────────
+  const onProgress = options?.onProgress ?? (() => {});
+  // Simuler une progression pour l'UX pendant que le cloud analyse
+  onProgress(5);
+  const cloudProgressSteps = [10, 20, 30, 40, 50];
+  let stepIdx = 0;
+  const cloudTimer = setInterval(() => {
+    if (stepIdx < cloudProgressSteps.length) {
+      onProgress(cloudProgressSteps[stepIdx]);
+      stepIdx++;
+    }
+  }, 2000);
+
   const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze`, {
     method: 'POST',
     headers: { ...authHeaders() },
   });
+  clearInterval(cloudTimer);
   if (!response.ok) throw new Error('Failed to start analysis');
+  onProgress(60);
   return response.json();
 }
 

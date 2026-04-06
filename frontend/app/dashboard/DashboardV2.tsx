@@ -28,6 +28,7 @@ import { isDesktopApp } from '@/lib/electron';
 import DuplicateDetector from '@/components/DuplicateDetector';
 import MetadataEnrichModal from '@/components/MetadataEnrichModal';
 import OnboardingTour from '@/components/OnboardingTour';
+import AnalysisProgress from '@/components/AnalysisProgress';
 
 const TabFallback = () => <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">Chargement…</div>;
 
@@ -194,6 +195,9 @@ export default function DashboardV2() {
   // IDs des tracks en cours d'analyse (roue de chargement dans la liste)
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
 
+  // Progression d'analyse par track
+  const [analysisProgress, setAnalysisProgress] = useState<Record<number, { pct: number; title: string; isLocal: boolean }>>({});
+
   // Drag & drop overlay
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
@@ -207,6 +211,7 @@ export default function DashboardV2() {
     bass_url?: string | null;
     other_url?: string | null;
   } | null>(null);
+  const [stemsCheckKey, setStemsCheckKey] = useState(0); // incrémenté pour forcer re-check
 
   // Stems audio sync — audio elements live here, synced with WaveSurfer
   const stemAudioMapRef = useRef<Record<string, HTMLAudioElement>>({});
@@ -770,8 +775,6 @@ export default function DashboardV2() {
     if (!selectedTrack || selectedTrack.id < 0) return;
     // Ne rien faire si on a déjà un statut valide pour ce track
     if (stemsStatus?.status === 'completed' || stemsStatus?.status === 'processing') return;
-    // Déclencher seulement quand l'onglet Stems est ouvert ou quand le track change
-    // (on vérifie silencieusement si les stems existent déjà sur le serveur)
     const trackId = selectedTrack.id;
     const check = async () => {
       try {
@@ -792,12 +795,14 @@ export default function DashboardV2() {
             bass_url:   abs(d.bass_url),
             other_url:  abs(d.other_url),
           });
+        } else if (d.status === 'processing') {
+          setStemsStatus({ status: 'processing' });
         }
       } catch { /* silencieux — les stems n'existent pas encore, pas grave */ }
     };
     check();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTrack?.id, activeTab]);
+  }, [selectedTrack?.id, activeTab, stemsCheckKey]);
 
   async function handleCreateCue(data: { name: string; position_ms: number; color: string; cue_type: string; number?: number }) {
     if (!selectedTrack || selectedTrack.id < 0) return;
@@ -870,14 +875,44 @@ export default function DashboardV2() {
 
   async function handleReanalyzeTrack(trackId: number) {
     try {
-      addToast('Analyzing track...', 'info');
-      await analyzeTrack(trackId);
-      await pollTrackUntilDone(trackId);
+      const t = tracks.find(t => t.id === trackId);
+      const title = t?.title || t?.original_filename || 'Track';
+      setAnalyzingIds(prev => new Set(prev).add(trackId));
+      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 0, title, isLocal: false } }));
+
+      await analyzeTrack(trackId, {
+        onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct, title, isLocal: true } })),
+      });
+      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 90, title, isLocal: prev[trackId]?.isLocal ?? false } }));
+
+      await pollTrackUntilDone(trackId, () => {
+        setAnalysisProgress(prev => {
+          const cur = prev[trackId]?.pct ?? 0;
+          return { ...prev, [trackId]: { ...prev[trackId], pct: Math.min(98, cur + 3), title } };
+        });
+      });
+
+      setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 100, title, isLocal: prev[trackId]?.isLocal ?? false } }));
+      setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
+      setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[trackId]; return n; }), 2000);
+
       await loadTracks();
-      addToast('Track analyzed!', 'success');
+      // Recharger les cue points si c'est le track sélectionné (évite doublons stale)
+      if (selectedTrack?.id === trackId) {
+        try {
+          const freshCues = await getTrackCuePoints(trackId);
+          setCuePoints(freshCues);
+        } catch {}
+        // Vérifier si des stems ont été générés par l'analyse pro
+        setStemsStatus(null);
+        setStemsCheckKey(k => k + 1); // force re-check du useEffect
+      }
+      addToast(`${title} analysé !`, 'success');
       setContextMenu(null);
     } catch (e) {
-      addToast('Analysis failed', 'error');
+      setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
+      setAnalysisProgress(prev => { const n = { ...prev }; delete n[trackId]; return n; });
+      addToast('Erreur d\'analyse', 'error');
     }
   }
 
@@ -1034,23 +1069,41 @@ export default function DashboardV2() {
 
         if (autoAnalyze) {
           const id = uploaded.id;
+          const fname = file.name;
           // Marquer comme "en analyse" → roue dans la liste
           setAnalyzingIds(prev => new Set(prev).add(id));
+          setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
 
           // Lancer l'analyse en arrière-plan (pas d'await → non-bloquant)
-          analyzeTrack(id)
-            .then(() => pollTrackUntilDone(id, (updated) => {
-              // Mettre à jour le track en temps réel dans la liste
-              setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
-            }))
+          analyzeTrack(id, {
+            onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: true } })),
+          })
             .then(() => {
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 90, title: fname, isLocal: prev[id]?.isLocal ?? false } }));
+              return pollTrackUntilDone(id, (updated) => {
+                setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+                // Simuler progression cloud pendant le polling
+                setAnalysisProgress(prev => {
+                  const cur = prev[id]?.pct ?? 0;
+                  return { ...prev, [id]: { ...prev[id], pct: Math.min(98, cur + 3), title: fname } };
+                });
+              });
+            })
+            .then(async () => {
+              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: prev[id]?.isLocal ?? false } }));
               setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-              addToast(`${file.name} analysé !`, 'success');
-              loadTracks(); // Refresh final pour récupérer toutes les données
+              setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
+              addToast(`${fname} analysé !`, 'success');
+              await loadTracks();
+              // Recharger cues si c'est le track sélectionné
+              if (selectedTrack?.id === id) {
+                try { setCuePoints(await getTrackCuePoints(id)); } catch {}
+              }
             })
             .catch(() => {
               setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-              addToast(`Erreur analyse: ${file.name}`, 'error');
+              setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+              addToast(`Erreur analyse: ${fname}`, 'error');
             });
         }
       } catch {
@@ -1322,6 +1375,22 @@ export default function DashboardV2() {
           >
             Importer
           </button>
+        </div>
+      )}
+
+      {/* ── Barre de progression d'analyse ── */}
+      {Object.keys(analysisProgress).length > 0 && (
+        <div className="space-y-2">
+          {Object.entries(analysisProgress).map(([id, info]) => (
+            <AnalysisProgress
+              key={id}
+              trackTitle={info.title}
+              progress={info.pct}
+              isLocal={info.isLocal}
+              queueSize={Object.keys(analysisProgress).length}
+              queuePosition={Object.keys(analysisProgress).indexOf(id) + 1}
+            />
+          ))}
         </div>
       )}
 
@@ -1598,9 +1667,14 @@ export default function DashboardV2() {
                 fxParams={fxParams}
                 onFxChange={(effect, value) => {
                   setFxParams(prev => ({ ...prev, [effect]: value }));
+                  playerRef.current?.setFX?.(effect, value);
                 }}
                 onResetAll={() => {
                   setFxParams({});
+                  // Reset tous les FX à 0
+                  ['reverb', 'delay', 'filter_lp', 'filter_hp', 'flanger', 'phaser', 'distortion', 'compressor'].forEach(fx => {
+                    playerRef.current?.setFX?.(fx, 0);
+                  });
                 }}
               />
               </Suspense>

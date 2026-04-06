@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { Search, Grid3x3, List, Upload } from 'lucide-react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 import { FilterPanel } from './FilterPanel';
 import { TrackRow } from './TrackRow';
 import { TrackGrid } from './TrackGrid';
@@ -48,15 +50,15 @@ interface TrackListProps {
   onAnalyzeAll?: () => void;
 }
 
-const SORT_OPTIONS = [
-  { value: 'date', label: 'Date (récent)' },
-  { value: 'bpm', label: 'BPM' },
-  { value: 'key', label: 'Tonalité' },
-  { value: 'title', label: 'Titre' },
-  { value: 'energy', label: 'Énergie' },
-  { value: 'genre', label: 'Genre' },
-  { value: 'duration', label: 'Durée' },
-  { value: 'rating', label: 'Évaluation' },
+const getSortOptions = (lang: 'fr' | 'en') => [
+  { value: 'date', label: tr('tracks.sort_date', lang) },
+  { value: 'bpm', label: tr('tracks.sort_bpm', lang) },
+  { value: 'key', label: tr('tracks.sort_key', lang) },
+  { value: 'title', label: tr('tracks.sort_title', lang) },
+  { value: 'energy', label: tr('tracks.sort_energy', lang) },
+  { value: 'genre', label: tr('tracks.sort_genre', lang) },
+  { value: 'duration', label: tr('tracks.sort_duration', lang) },
+  { value: 'rating', label: tr('tracks.sort_rating', lang) },
 ];
 
 const formatTime = (seconds: number): string => {
@@ -64,16 +66,16 @@ const formatTime = (seconds: number): string => {
   return m + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
 };
 
-const COLUMN_HEADERS = [
+const getColumnHeaders = (lang: 'fr' | 'en') => [
   { key: 'index', label: '#', width: '40px' },
   { key: 'play', label: '', width: '40px' },
-  { key: 'title', label: 'Titre', width: '2fr' },
-  { key: 'bpm', label: 'BPM', width: '80px' },
-  { key: 'key', label: 'Tonalité', width: '80px' },
-  { key: 'mix', label: 'Mix', width: '50px' },
-  { key: 'energy', label: 'Énergie', width: '120px' },
-  { key: 'genre', label: 'Genre', width: '100px' },
-  { key: 'duration', label: 'Durée', width: '80px' },
+  { key: 'title', label: tr('tracks.title', lang), width: '2fr' },
+  { key: 'bpm', label: tr('tracks.bpm', lang), width: '80px' },
+  { key: 'key', label: tr('tracks.key', lang), width: '80px' },
+  { key: 'mix', label: tr('tracks.mix', lang), width: '50px' },
+  { key: 'energy', label: tr('tracks.energy', lang), width: '120px' },
+  { key: 'genre', label: tr('tracks.genre', lang), width: '100px' },
+  { key: 'duration', label: tr('tracks.duration', lang), width: '80px' },
   { key: 'rating', label: '', width: '40px' },
   { key: 'actions', label: '', width: '40px' },
 ];

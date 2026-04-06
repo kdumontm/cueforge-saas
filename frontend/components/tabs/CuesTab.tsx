@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 const CUE_TYPES = [
   { value: 'hot_cue',   label: 'Hot Cue',   icon: '🎯', color: '#22c55e' },
@@ -38,6 +40,7 @@ export function CuesTab({
   onPreviewCue,
   initialPositionMs,
 }: CuesTabProps) {
+  const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -117,7 +120,7 @@ export function CuesTab({
   if (!track) {
     return (
       <div className="flex items-center justify-center h-32 text-[var(--text-muted)] text-sm">
-        Sélectionne un morceau
+        {tr('cues.select_track', lang)}
       </div>
     );
   }
@@ -229,7 +232,7 @@ export function CuesTab({
             }}
           >
             <Zap size={11} />
-            Cue @ {posLabel}
+            {tr('cues.add_at', lang)} {posLabel}
           </button>
           <button
             onClick={() => setShowAddForm(p => !p)}
@@ -238,7 +241,7 @@ export function CuesTab({
                 ? 'border-blue-500/50 bg-blue-500/15 text-blue-400'
                 : 'border-[var(--border-default)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
             }`}
-            title="Options avancées"
+            title={tr('cues.advanced', lang)}
           >
             <ChevronDown size={13} className={`transition-transform ${showAddForm ? 'rotate-180' : ''}`} />
           </button>
@@ -275,7 +278,7 @@ export function CuesTab({
             </div>
             {newCueType === 'loop' && (
               <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/25">
-                <span className="text-[10px] text-blue-400 font-semibold whitespace-nowrap">🔁 Durée loop</span>
+                <span className="text-[10px] text-blue-400 font-semibold whitespace-nowrap">🔁 {tr('cues.loop_duration', lang)}</span>
                 <div className="flex gap-1 flex-wrap">
                   {[1, 2, 4, 8, 16, 32].map(bars => (
                     <button
@@ -299,7 +302,7 @@ export function CuesTab({
                   value={loopDurationSec}
                   onChange={e => setLoopDurationSec(parseFloat(e.target.value) || 1)}
                   className="w-14 px-1.5 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 text-right"
-                  title="Durée en secondes"
+                  title={tr('cues.loop_duration', lang)}
                 />
                 <span className="text-[10px] text-[var(--text-muted)]">sec</span>
               </div>
@@ -318,7 +321,7 @@ export function CuesTab({
               onClick={handleAddCue}
               className="w-full px-2 py-1.5 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
             >
-              {selectedTypeInfo.icon} Ajouter {selectedTypeInfo.label} @ {posLabel} · Slot #{newCueSlot}
+              {selectedTypeInfo.icon} {tr('cues.add_type', lang)} {selectedTypeInfo.label} @ {posLabel} · {tr('cues.slot', lang)} #{newCueSlot}
             </button>
           </div>
         )}
@@ -328,7 +331,7 @@ export function CuesTab({
       <div className="flex-1 overflow-y-auto">
         {cues.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-20 text-[var(--text-muted)] text-xs gap-1 p-4">
-            <span>Aucun cue — positionne le playhead puis clique le bouton</span>
+            <span>{tr('cues.no_cue', lang)}</span>
           </div>
         ) : (
           <div className="p-2 flex flex-col gap-1">
@@ -418,7 +421,7 @@ export function CuesTab({
                     onClick={(e) => { e.stopPropagation(); onPreviewCue?.(cue); }}
                     className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
                     style={{ opacity: isHovered ? 1 : 0.4 }}
-                    title="Pré-écouter (5s)"
+                    title={tr('cues.preview', lang)}
                   >
                     <Play size={11} fill="currentColor" />
                   </button>
@@ -437,6 +440,7 @@ export function CuesTab({
                     onClick={(e) => { e.stopPropagation(); onDeleteCue?.(cue.id); }}
                     className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                     style={{ opacity: isHovered ? 1 : 0 }}
+                    title={tr('cues.delete', lang)}
                   >
                     <Trash2 size={11} />
                   </button>

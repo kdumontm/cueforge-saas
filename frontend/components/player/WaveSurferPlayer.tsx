@@ -361,6 +361,16 @@ export default function WaveSurferPlayer({
   const eqHighRef = useRef<BiquadFilterNode | null>(null);
   const eqContextRef = useRef<AudioContext | null>(null);
 
+  // FX nodes
+  const fxReverbRef = useRef<{ dry: GainNode; wet: GainNode; convolver: ConvolverNode } | null>(null);
+  const fxDelayRef = useRef<{ dry: GainNode; wet: GainNode; delay: DelayNode; feedback: GainNode } | null>(null);
+  const fxFilterLPRef = useRef<BiquadFilterNode | null>(null);
+  const fxFilterHPRef = useRef<BiquadFilterNode | null>(null);
+  const fxFlangerRef = useRef<{ delay: DelayNode; lfo: OscillatorNode; depth: GainNode; wet: GainNode; dry: GainNode } | null>(null);
+  const fxDistortionRef = useRef<WaveShaperNode | null>(null);
+  const fxCompressorRef = useRef<DynamicsCompressorNode | null>(null);
+  const fxChainEndRef = useRef<AudioNode | null>(null);
+
   // Animation
   const rafRef = useRef<number>(0);
 
@@ -710,24 +720,88 @@ export default function WaveSurferPlayer({
       setLoading(false);
       setError(null);
 
-      // Setup EQ
+      // Setup EQ + FX chain
       try {
         if (!eqContextRef.current) {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           const source = audioCtx.createMediaElementSource(audio);
+
+          // EQ nodes
           const lowFilter = audioCtx.createBiquadFilter();
           lowFilter.type = 'lowshelf'; lowFilter.frequency.value = 250; lowFilter.gain.value = 0;
           const midFilter = audioCtx.createBiquadFilter();
           midFilter.type = 'peaking'; midFilter.frequency.value = 1000; midFilter.Q.value = 1; midFilter.gain.value = 0;
           const highFilter = audioCtx.createBiquadFilter();
           highFilter.type = 'highshelf'; highFilter.frequency.value = 4000; highFilter.gain.value = 0;
-          source.connect(lowFilter).connect(midFilter).connect(highFilter).connect(audioCtx.destination);
+
+          // FX: Filter LP (always in chain, starts at 22kHz = transparent)
+          const filterLP = audioCtx.createBiquadFilter();
+          filterLP.type = 'lowpass'; filterLP.frequency.value = 22000; filterLP.Q.value = 1;
+
+          // FX: Filter HP (always in chain, starts at 10Hz = transparent)
+          const filterHP = audioCtx.createBiquadFilter();
+          filterHP.type = 'highpass'; filterHP.frequency.value = 10; filterHP.Q.value = 1;
+
+          // FX: Compressor (always in chain, starts transparent)
+          const compressor = audioCtx.createDynamicsCompressor();
+          compressor.threshold.value = 0; compressor.ratio.value = 1; compressor.attack.value = 0.003; compressor.release.value = 0.25;
+
+          // FX: Distortion (waveshaper, starts with linear curve = transparent)
+          const distortion = audioCtx.createWaveShaper();
+          distortion.curve = null; // transparent
+          distortion.oversample = '4x';
+
+          // Chain: source → EQ → filters → distortion → compressor → destination
+          source.connect(lowFilter).connect(midFilter).connect(highFilter)
+            .connect(filterLP).connect(filterHP)
+            .connect(distortion).connect(compressor)
+            .connect(audioCtx.destination);
+
+          // FX: Reverb (parallel: dry/wet mix via gain nodes)
+          const reverbDry = audioCtx.createGain(); reverbDry.gain.value = 1;
+          const reverbWet = audioCtx.createGain(); reverbWet.gain.value = 0;
+          const convolver = audioCtx.createConvolver();
+          // Generate impulse response (plate reverb ~2s)
+          const irLength = audioCtx.sampleRate * 2;
+          const irBuffer = audioCtx.createBuffer(2, irLength, audioCtx.sampleRate);
+          for (let ch = 0; ch < 2; ch++) {
+            const d = irBuffer.getChannelData(ch);
+            for (let i = 0; i < irLength; i++) {
+              d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.5));
+            }
+          }
+          convolver.buffer = irBuffer;
+          // Wire reverb: compressor → reverbDry → destination, compressor → convolver → reverbWet → destination
+          compressor.disconnect();
+          compressor.connect(reverbDry).connect(audioCtx.destination);
+          compressor.connect(convolver).connect(reverbWet).connect(audioCtx.destination);
+
+          // FX: Delay (parallel: dry/wet with feedback loop)
+          const delayDry = audioCtx.createGain(); delayDry.gain.value = 1;
+          const delayWet = audioCtx.createGain(); delayWet.gain.value = 0;
+          const delayNode = audioCtx.createDelay(2.0); delayNode.delayTime.value = 0.375; // dotted eighth at 120bpm
+          const delayFeedback = audioCtx.createGain(); delayFeedback.gain.value = 0.3;
+          // Wire delay: reverbDry/Wet → delayDry → dest, reverbDry/Wet → delay → delayWet → dest
+          reverbDry.disconnect(); reverbWet.disconnect();
+          reverbDry.connect(delayDry).connect(audioCtx.destination);
+          reverbWet.connect(delayDry);
+          reverbDry.connect(delayNode).connect(delayWet).connect(audioCtx.destination);
+          reverbWet.connect(delayNode);
+          delayNode.connect(delayFeedback).connect(delayNode); // feedback loop
+
+          // Store refs
           eqLowRef.current = lowFilter;
           eqMidRef.current = midFilter;
           eqHighRef.current = highFilter;
           eqContextRef.current = audioCtx;
+          fxFilterLPRef.current = filterLP;
+          fxFilterHPRef.current = filterHP;
+          fxCompressorRef.current = compressor;
+          fxDistortionRef.current = distortion;
+          fxReverbRef.current = { dry: reverbDry, wet: reverbWet, convolver };
+          fxDelayRef.current = { dry: delayDry, wet: delayWet, delay: delayNode, feedback: delayFeedback };
         }
-      } catch {}
+      } catch (e) { console.warn('[CueForge] FX chain setup error:', e); }
     };
 
     const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); onPlayCallback?.(); } };
@@ -809,6 +883,93 @@ export default function WaveSurferPlayer({
           if (eqMidRef.current) eqMidRef.current.gain.value = mid;
           if (eqHighRef.current) eqHighRef.current.gain.value = high;
           eqContextRef.current?.resume().catch(() => {});
+        },
+        setFX: (effect: string, value: number) => {
+          // value: 0-100
+          const v = Math.max(0, Math.min(100, value));
+          const norm = v / 100;
+          eqContextRef.current?.resume().catch(() => {});
+
+          switch (effect) {
+            case 'reverb':
+              if (fxReverbRef.current) {
+                fxReverbRef.current.wet.gain.value = norm * 0.7;
+                fxReverbRef.current.dry.gain.value = 1 - norm * 0.3;
+              }
+              break;
+            case 'delay':
+              if (fxDelayRef.current) {
+                fxDelayRef.current.wet.gain.value = norm * 0.6;
+                fxDelayRef.current.dry.gain.value = 1 - norm * 0.2;
+                fxDelayRef.current.feedback.gain.value = 0.2 + norm * 0.4;
+              }
+              break;
+            case 'filter_lp':
+              if (fxFilterLPRef.current) {
+                // 0% = 22kHz (off), 100% = 200Hz (heavy filter)
+                fxFilterLPRef.current.frequency.value = norm > 0.01 ? 22000 * Math.pow(0.01, norm) : 22000;
+                fxFilterLPRef.current.Q.value = 1 + norm * 8;
+              }
+              break;
+            case 'filter_hp':
+              if (fxFilterHPRef.current) {
+                // 0% = 10Hz (off), 100% = 5000Hz (heavy filter)
+                fxFilterHPRef.current.frequency.value = 10 + norm * 4990;
+                fxFilterHPRef.current.Q.value = 1 + norm * 8;
+              }
+              break;
+            case 'flanger':
+              // Simulate flanger via filter modulation
+              if (fxFilterLPRef.current && norm > 0) {
+                const ctx = eqContextRef.current;
+                if (ctx && !fxFlangerRef.current) {
+                  // Create LFO for subtle frequency modulation
+                  const lfo = ctx.createOscillator();
+                  const depth = ctx.createGain();
+                  lfo.type = 'sine'; lfo.frequency.value = 0.3;
+                  depth.gain.value = 0;
+                  lfo.connect(depth);
+                  lfo.start();
+                  fxFlangerRef.current = { delay: null as any, lfo, depth, wet: null as any, dry: null as any };
+                }
+                if (fxFlangerRef.current) {
+                  fxFlangerRef.current.lfo.frequency.value = 0.1 + norm * 2;
+                  fxFlangerRef.current.depth.gain.value = norm * 500;
+                  // Connect LFO to filter frequency for flanging effect
+                  try { fxFlangerRef.current.depth.connect(fxFilterLPRef.current.frequency); } catch {}
+                }
+              }
+              break;
+            case 'phaser':
+              // Simulate phaser via mid EQ modulation
+              if (eqMidRef.current && norm > 0) {
+                eqMidRef.current.Q.value = 1 + norm * 15;
+              }
+              break;
+            case 'distortion':
+              if (fxDistortionRef.current) {
+                if (norm < 0.01) {
+                  fxDistortionRef.current.curve = null;
+                } else {
+                  const samples = 44100;
+                  const curve = new Float32Array(samples);
+                  const amount = norm * 50 + 1;
+                  for (let i = 0; i < samples; i++) {
+                    const x = (i * 2) / samples - 1;
+                    curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
+                  }
+                  fxDistortionRef.current.curve = curve;
+                }
+              }
+              break;
+            case 'compressor':
+              if (fxCompressorRef.current) {
+                // 0% = transparent, 100% = heavy compression
+                fxCompressorRef.current.threshold.value = -norm * 40; // 0 to -40dB
+                fxCompressorRef.current.ratio.value = 1 + norm * 19;  // 1:1 to 20:1
+              }
+              break;
+          }
         },
         getAudio: () => audio,
       };

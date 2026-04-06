@@ -4,6 +4,8 @@ import React, { useState, useRef } from 'react';
 import { uploadTracksWithProgress } from '@/lib/api';
 import type { TrackUploadResponse } from '@/lib/api';
 import { useElectron } from '@/lib/electron';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 import { Upload, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react';
 
 interface FileProgress {
@@ -23,6 +25,7 @@ const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aiff', '.ogg', '.m4a'];
 
 export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
   const { isDesktop, files: desktopFiles } = useElectron();
+  const { lang } = useLang();
   const [files, setFiles] = useState<FileProgress[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -55,7 +58,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
       }
       setFiles(prev => [...prev, ...newFiles]);
     } catch (err) {
-      onError?.('Erreur lors de la sélection des fichiers');
+      onError?.(tr('upload.file_error', lang));
     }
   };
 
@@ -142,10 +145,10 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
       >
         <Upload size={32} className="mx-auto mb-3 text-[var(--text-muted)] opacity-60" />
         <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
-          Glisse tes fichiers audio ici
+          {tr('upload.drag_here', lang)}
         </p>
         <p className="text-xs text-[var(--text-muted)] mb-4">
-          MP3, WAV, FLAC, AIFF, OGG, M4A
+          {tr('upload.formats', lang)}
         </p>
         <div className="flex gap-2 justify-center">
           <button
@@ -154,7 +157,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
             className="px-4 py-2 text-xs font-semibold rounded-lg text-white transition-all cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
           >
-            Parcourir
+            {tr('upload.browse', lang)}
           </button>
           {isDesktop && desktopFiles && (
             <button
@@ -162,7 +165,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
               onClick={handleDesktopFileSelect}
               className="px-4 py-2 text-xs font-semibold rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition-all cursor-pointer"
             >
-              Importer depuis l'ordinateur
+              {tr('upload.desktop_import', lang)}
             </button>
           )}
         </div>
@@ -187,7 +190,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
               </span>
             </h3>
             {completedCount > 0 && (
-              <span className="text-xs text-green-400 font-semibold">{completedCount} terminé{completedCount > 1 ? 's' : ''}</span>
+              <span className="text-xs text-green-400 font-semibold">{completedCount} {tr('upload.done', lang)}</span>
             )}
           </div>
 
@@ -197,7 +200,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                 <span className="flex items-center gap-1.5">
                   <Loader2 size={12} className="animate-spin text-blue-400" />
-                  Upload en cours...
+                  {tr('upload.uploading', lang)}
                 </span>
                 <span className="font-mono text-blue-400">{globalProgress}%</span>
               </div>
@@ -278,7 +281,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
                 boxShadow: isUploading ? 'none' : '0 4px 12px rgba(59,130,246,0.3)',
               }}
             >
-              {isUploading ? `Upload en cours… ${globalProgress}%` : `Uploader ${pendingCount} fichier${pendingCount > 1 ? 's' : ''}`}
+              {isUploading ? `${tr('upload.uploading', lang)} ${globalProgress}%` : `${tr('upload.start', lang)} ${pendingCount} ${pendingCount === 1 ? tr('tracks.files', lang).slice(0, -1) : tr('tracks.files', lang)}`}
             </button>
           )}
         </div>

@@ -376,7 +376,7 @@ def _run_analysis(track_id: int):
         old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
         if old_analysis:
             db.delete(old_analysis)
-        db.query(CuePoint).filter(CuePoint.track_id == track.id).delete()
+        db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
         db.flush()
 
         # ── Step 1: Audio analysis ──────────────────────────────────────
@@ -651,26 +651,13 @@ async def analyze_track_local(
     if payload.section_labels:
         analysis.section_labels = payload.section_labels
 
-    # Cue points
-    if payload.cue_points:
-        # Supprimer les anciens cue points auto-générés (garder les manuels)
-        db.query(CuePoint).filter(
-            CuePoint.track_id == track_id,
-            CuePoint.cue_type != "manual",
-        ).delete()
-        for i, cp in enumerate(payload.cue_points):
-            if isinstance(cp, dict):
-                # Le frontend envoie { time (sec), name, color }
-                position_ms = int(cp.get('time', 0) * 1000) if 'time' in cp else cp.get('position_ms', 0)
-                db.add(CuePoint(
-                    track_id=track_id,
-                    position_ms=position_ms,
-                    name=cp.get('name', cp.get('label', f'Cue {i+1}')),
-                    cue_type=cp.get('cue_type', 'section'),
-                    color=cp.get('color', '#FF0000'),
-                    number=i + 1,
-                    confidence=cp.get('confidence'),
-                ))
+    # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
+    # (évite les doublons si le pro-generator échoue partiellement)
+    db.query(CuePoint).filter(
+        CuePoint.track_id == track_id,
+        CuePoint.cue_type != "manual",
+    ).delete(synchronize_session='fetch')
+    db.flush()
 
     # Détecter le genre à partir de l'analyse
     genre = None
@@ -683,6 +670,7 @@ async def analyze_track_local(
 
     # Tenter de générer des cue points pro via l'algorithme IA
     # Utilise les données structurelles fraîches du payload (pas les anciennes de la DB)
+    generated_pro = False
     try:
         from app.services.cue_generator import generate_cue_points
 
@@ -711,11 +699,6 @@ async def analyze_track_local(
         }
         generated = generate_cue_points(analysis_data)
         if generated and len(generated) >= 2:
-            # Supprimer les cue points basiques et utiliser les pro
-            db.query(CuePoint).filter(
-                CuePoint.track_id == track_id,
-                CuePoint.cue_type != "manual",
-            ).delete()
             for cp in generated:
                 db.add(CuePoint(
                     track_id=track_id,
@@ -726,9 +709,25 @@ async def analyze_track_local(
                     cue_type=cp.get("cue_type", "hot_cue"),
                     confidence=cp.get("confidence"),
                 ))
+            generated_pro = True
             logger.info(f"[analyze-local] {len(generated)} cue points pro générés pour track {track_id}")
     except Exception as e:
         logger.warning(f"[analyze-local] Fallback cues basiques pour track {track_id}: {e}")
+
+    # Fallback : si le pro-generator a échoué, utiliser les cue points basiques du frontend
+    if not generated_pro and payload.cue_points:
+        for i, cp in enumerate(payload.cue_points):
+            if isinstance(cp, dict):
+                position_ms = int(cp.get('time', 0) * 1000) if 'time' in cp else cp.get('position_ms', 0)
+                db.add(CuePoint(
+                    track_id=track_id,
+                    position_ms=position_ms,
+                    name=cp.get('name', cp.get('label', f'Cue {i+1}')),
+                    cue_type=cp.get('cue_type', 'section'),
+                    color=cp.get('color', '#FF0000'),
+                    number=i + 1,
+                    confidence=cp.get('confidence'),
+                ))
 
     track.status = TrackStatus.completed
     db.commit()
