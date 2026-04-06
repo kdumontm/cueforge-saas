@@ -52,34 +52,34 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
   }, [showNotifications, setShowNotifications]);
 
   return (
-    <header className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/90 backdrop-blur-xl sticky top-0 z-40 transition-colors duration-300">
-      <div>
-        <h1 className="text-[17px] font-bold text-[var(--text-primary)] m-0">{title}</h1>
-        {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{subtitle}</p>}
+    <header className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/90 backdrop-blur-xl sticky top-0 z-40 transition-colors duration-300">
+      <div className="pl-10 md:pl-0">
+        <h1 className="text-[15px] sm:text-[17px] font-bold text-[var(--text-primary)] m-0">{title}</h1>
+        {subtitle && <p className="text-[11px] text-[var(--text-muted)] mt-0.5 hidden sm:block">{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-2">
-        {/* Import / Export — popup, sans changer de page */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Import / Export — hidden text on mobile, icon only */}
         <button
           onClick={triggerImport}
-          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
+          className="flex items-center gap-1.5 px-2 sm:px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
           title={lang === 'en' ? 'Import tracks' : 'Importer des tracks'}
         >
           <Upload size={12} />
-          {tr('topbar.import', lang)}
+          <span className="hidden sm:inline">{tr('topbar.import', lang)}</span>
         </button>
         <button
           onClick={triggerExport}
-          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
+          className="flex items-center gap-1.5 px-2 sm:px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
           title={lang === 'en' ? 'Export' : 'Exporter'}
         >
           <Download size={12} />
-          {tr('topbar.export', lang)}
+          <span className="hidden sm:inline">{tr('topbar.export', lang)}</span>
         </button>
 
-        {/* Auto-analyse toggle */}
+        {/* Auto-analyse toggle — hide text on mobile */}
         <button
           onClick={() => setAutoAnalyze(p => !p)}
-          className={`flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border text-[11px] whitespace-nowrap cursor-pointer transition-all flex-shrink-0 ${
+          className={`hidden sm:flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border text-[11px] whitespace-nowrap cursor-pointer transition-all flex-shrink-0 ${
             autoAnalyze
               ? 'bg-emerald-600/15 border-emerald-500/40 text-emerald-400 font-semibold'
               : 'bg-[var(--bg-card)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:border-[var(--border-default)]'
@@ -94,19 +94,19 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           {tr('topbar.auto', lang)}
         </button>
 
-        {/* Tracks à analyser */}
+        {/* Tracks à analyser — compact on mobile */}
         {unanalyzedCount > 0 && (
           <button
             onClick={triggerAnalyzeAll}
-            className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[11px] font-semibold whitespace-nowrap cursor-pointer hover:bg-amber-500/20 transition-colors flex-shrink-0"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
             {unanalyzedCount} {tr('topbar.to_analyze', lang)}
           </button>
         )}
 
-        {/* Search */}
-        <div className={`flex items-center gap-1.5 bg-[var(--bg-card)] border rounded-lg px-2.5 py-[5px] min-w-[200px] transition-colors ${searchFocused ? 'border-blue-500' : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'}`}>
+        {/* Search — responsive width */}
+        <div className={`flex items-center gap-1.5 bg-[var(--bg-card)] border rounded-lg px-2 sm:px-2.5 py-[5px] min-w-[120px] sm:min-w-[200px] transition-colors ${searchFocused ? 'border-blue-500' : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'}`}>
           <Search size={13} className="text-[var(--text-muted)]" />
           <input
             ref={searchRef}
@@ -121,7 +121,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           {globalSearch ? (
             <button onClick={() => setGlobalSearch('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-transparent border-none cursor-pointer p-0"><X size={12} /></button>
           ) : (
-            <kbd className="text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-default)]">⌘K</kbd>
+            <kbd className="hidden sm:inline text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border-default)]">⌘K</kbd>
           )}
         </div>
 
@@ -129,7 +129,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         <div ref={notifRef} className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer"
+            className="relative flex items-center justify-center w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer"
           >
             <Bell size={15} />
           </button>
@@ -161,7 +161,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         </div>
 
         {/* Language toggle FR / EN */}
-        <div className="flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] overflow-hidden">
+        <div className="hidden sm:flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] overflow-hidden">
           {(['fr', 'en'] as const).map((l) => (
             <button
               key={l}
@@ -181,13 +181,12 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         {/* Reload pour appliquer les MAJ du frontend */}
         <button
           onClick={() => {
-            // Vider le cache du service worker puis recharger
             if ('caches' in window) {
               caches.keys().then(names => names.forEach(n => caches.delete(n)));
             }
             window.location.reload();
           }}
-          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
           title={lang === 'en' ? 'Reload to apply updates' : 'Recharger pour appliquer les mises à jour'}
         >
           <RefreshCw size={12} />
@@ -220,7 +219,7 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
         <button
           onClick={toggle}
           title={isDark ? (lang === 'en' ? 'Light mode' : 'Mode clair') : (lang === 'en' ? 'Dark mode' : 'Mode sombre')}
-          className={`flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] cursor-pointer transition-colors hover:border-[var(--border-default)] ${isDark ? 'text-amber-400 hover:text-amber-300' : 'text-blue-600 hover:text-blue-500'}`}
+          className={`flex items-center justify-center w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] cursor-pointer transition-colors hover:border-[var(--border-default)] ${isDark ? 'text-amber-400 hover:text-amber-300' : 'text-blue-600 hover:text-blue-500'}`}
         >
           {isDark ? <Sun size={15} /> : <Moon size={15} />}
         </button>
