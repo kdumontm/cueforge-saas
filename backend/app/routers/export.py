@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models import Track, CuePoint, LoopMarker
 from app.middleware.auth import get_current_user
@@ -103,7 +104,7 @@ async def export_single_track(
     current_user: User = Depends(get_current_user),
 ):
     """Export a single track to Rekordbox XML format."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -126,7 +127,7 @@ async def export_batch_rekordbox(
     current_user: User = Depends(get_current_user),
 ):
     """Export multiple tracks to a single Rekordbox XML file."""
-    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
@@ -149,7 +150,7 @@ async def export_all_rekordbox(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Rekordbox XML."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 
@@ -172,7 +173,7 @@ async def export_track_json(
     current_user: User = Depends(get_current_user),
 ):
     """Get track export data as JSON (for frontend preview)."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -194,7 +195,7 @@ async def export_all_formats(
     current_user: User = Depends(get_current_user),
 ):
     """Export a single track to all formats — returns JSON with download URLs."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -231,20 +232,31 @@ async def export_playlist_m3u(
     if not pl:
         raise HTTPException(status_code=404, detail="Playlist not found")
 
+    # Single query with eager loading (no N+1)
     entries = (
         db.query(PlaylistTrack)
         .filter(PlaylistTrack.playlist_id == playlist_id)
         .order_by(PlaylistTrack.position.asc())
         .all()
     )
+    track_ids = [e.track_id for e in entries]
+    tracks_map = {}
+    if track_ids:
+        loaded = (
+            db.query(Track)
+            .filter(Track.id.in_(track_ids))
+            .options(selectinload(Track.analysis))
+            .all()
+        )
+        tracks_map = {t.id: t for t in loaded}
 
     lines = ["#EXTM3U", f"# Playlist: {pl.name}", "# Exported by CueForge"]
     for entry in entries:
-        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        track = tracks_map.get(entry.track_id)
         if not track:
             continue
-        analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
-        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis else -1
+        analysis = track.analysis
+        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis and hasattr(analysis, 'duration_ms') else -1
         display = f"{track.artist or 'Unknown'} - {track.title or track.original_filename}"
         lines.append(f"#EXTINF:{duration_s},{display}")
         lines.append(track.original_filename or track.filename)
@@ -281,9 +293,25 @@ async def export_set_rekordbox(
         .all()
     )
 
+    # Eager load all tracks in one query (no N+1)
+    track_ids = [e.track_id for e in entries]
+    tracks_map = {}
+    if track_ids:
+        loaded = (
+            db.query(Track)
+            .filter(Track.id.in_(track_ids))
+            .options(
+                selectinload(Track.analysis),
+                selectinload(Track.cue_points),
+                selectinload(Track.loop_markers),
+            )
+            .all()
+        )
+        tracks_map = {t.id: t for t in loaded}
+
     tracks_data = []
     for entry in entries:
-        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        track = tracks_map.get(entry.track_id)
         if track:
             tracks_data.append(track_to_dict(track))
 
@@ -304,7 +332,6 @@ async def export_set_m3u(
 ):
     """Export a DJ set as M3U file."""
     from app.models.library import DJSet, DJSetTrack
-    from app.models.track import TrackAnalysis
 
     dj_set = db.query(DJSet).filter(DJSet.id == set_id).first()
     if not dj_set:
@@ -317,13 +344,25 @@ async def export_set_m3u(
         .all()
     )
 
+    # Eager load all tracks in one query (no N+1)
+    track_ids = [e.track_id for e in entries]
+    tracks_map = {}
+    if track_ids:
+        loaded = (
+            db.query(Track)
+            .filter(Track.id.in_(track_ids))
+            .options(selectinload(Track.analysis))
+            .all()
+        )
+        tracks_map = {t.id: t for t in loaded}
+
     lines = ["#EXTM3U", f"# DJ Set: {dj_set.name}", "# Exported by CueForge"]
     for entry in entries:
-        track = db.query(Track).filter(Track.id == entry.track_id).first()
+        track = tracks_map.get(entry.track_id)
         if not track:
             continue
-        analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
-        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis else -1
+        analysis = track.analysis
+        duration_s = int((analysis.duration_ms or 0) / 1000) if analysis and hasattr(analysis, 'duration_ms') else -1
         display = f"{track.artist or 'Unknown'} - {track.title or track.original_filename}"
         lines.append(f"#EXTINF:{duration_s},{display}")
         lines.append(track.original_filename or track.filename)
@@ -347,7 +386,7 @@ async def export_single_track_serato(
     current_user: User = Depends(get_current_user),
 ):
     """Export a single track to Serato .crate format."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -368,7 +407,7 @@ async def export_batch_serato(
     current_user: User = Depends(get_current_user),
 ):
     """Export multiple tracks to a Serato .crate file."""
-    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
@@ -390,7 +429,7 @@ async def export_single_track_serato_csv(
     current_user: User = Depends(get_current_user),
 ):
     """Export a single track to Serato-compatible CSV."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -411,7 +450,7 @@ async def export_batch_serato_csv(
     current_user: User = Depends(get_current_user),
 ):
     """Export multiple tracks to Serato CSV with cue point data."""
-    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
@@ -431,7 +470,7 @@ async def export_all_serato(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Serato .crate file."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 
@@ -456,7 +495,7 @@ async def export_single_track_traktor(
     current_user: User = Depends(get_current_user),
 ):
     """Export a single track to Traktor NML format."""
-    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -477,7 +516,7 @@ async def export_batch_traktor(
     current_user: User = Depends(get_current_user),
 ):
     """Export multiple tracks to a Traktor NML file."""
-    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
@@ -498,7 +537,7 @@ async def export_all_traktor(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Traktor NML format."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 

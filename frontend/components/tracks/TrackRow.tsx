@@ -22,6 +22,9 @@ interface TrackRowProps {
   onContextMenu: (track: Track, e: React.MouseEvent) => void;
   onFavoriteToggle: (trackId: number) => void;
   onRatingChange?: (trackId: number, rating: number) => void;
+  onReanalyze?: (trackId: number) => void;
+  onDelete?: (trackId: number) => void;
+  onAddTag?: (trackId: number) => void;
 }
 
 const formatTime = (seconds: number): string => {
@@ -59,6 +62,9 @@ export const TrackRow = React.memo(function TrackRow({
   onContextMenu,
   onFavoriteToggle,
   onRatingChange,
+  onReanalyze,
+  onDelete,
+  onAddTag,
 }: TrackRowProps) {
   const { isDesktop, files, export: localExport } = useElectron();
   const { lang } = useLang();
@@ -227,9 +233,9 @@ export const TrackRow = React.memo(function TrackRow({
             onClick={(e) => e.stopPropagation()}
           >
             {[
-              { icon: Zap, label: tr('ctx.reanalyze', lang), action: () => {} },
+              { icon: Zap, label: tr('ctx.reanalyze', lang), action: () => { onReanalyze?.(track.id); setShowContextMenu(false); } },
               { icon: Copy, label: tr('ctx.copy_title', lang), action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
-              { icon: Tag, label: tr('ctx.add_tag', lang), action: () => {} },
+              { icon: Tag, label: tr('ctx.add_tag', lang), action: () => { onAddTag?.(track.id); setShowContextMenu(false); } },
               { icon: Star, label: isFavorite ? tr('ctx.remove_fav', lang) : tr('ctx.add_fav', lang), action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
               // Desktop only : ouvrir le fichier dans le Finder / Explorateur
               ...(isDesktop && files && (track as any).file_path ? [{
@@ -250,7 +256,7 @@ export const TrackRow = React.memo(function TrackRow({
                   action: () => { localExport.serato([track]); setShowContextMenu(false); },
                 },
               ] : []),
-              { icon: Trash2, label: tr('ctx.delete', lang), action: () => {}, danger: true },
+              { icon: Trash2, label: tr('ctx.delete', lang), action: () => { onDelete?.(track.id); setShowContextMenu(false); }, danger: true },
             ].map(({ icon: Icon, label, action, danger }: any) => (
               <button
                 key={label}

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Tag, Trash2, Download, Zap, Palette, FolderOpen, Star, CheckSquare } from 'lucide-react';
 import { CATEGORY_PRESETS } from '@/types';
 
@@ -47,11 +47,28 @@ export default function BatchActionBar({
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [customTag, setCustomTag] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   if (selectedCount === 0) return null;
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowTagMenu(false);
+        setShowCategoryMenu(false);
+        setShowColorMenu(false);
+      }
+    };
+    if (showTagMenu || showCategoryMenu || showColorMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showTagMenu, showCategoryMenu, showColorMenu]);
+
   return (
-    <div className="sticky top-0 z-40 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-4 py-2.5 flex items-center gap-3 backdrop-blur-sm">
+    <div ref={containerRef} className="sticky top-0 z-40 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl px-4 py-2.5 flex items-center gap-3 backdrop-blur-sm">
       {/* Selection info */}
       <div className="flex items-center gap-2">
         <CheckSquare size={16} className="text-blue-400" />
@@ -178,7 +195,7 @@ export default function BatchActionBar({
               key={star}
               onClick={() => onBatchRating(star)}
               className="p-0.5 hover:bg-[var(--bg-hover)] rounded cursor-pointer bg-transparent border-none transition-colors"
-              title={`${star} étoile${star > 1 ? 's' : ''}`}
+              title={`${star} étoile${star > 1 ? 's' : ''} (⭐)`}
             >
               <Star size={14} className="text-[var(--text-muted)] hover:text-yellow-500 hover:fill-yellow-500 transition-colors" />
             </button>
@@ -189,6 +206,7 @@ export default function BatchActionBar({
         <button
           onClick={onBatchAnalyze}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition-all cursor-pointer"
+          title="Analyser (Ctrl+A)"
         >
           <Zap size={12} /> Analyser
         </button>
@@ -207,18 +225,43 @@ export default function BatchActionBar({
         <button
           onClick={onBatchExport}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all cursor-pointer"
+          title="Exporter (Ctrl+E)"
         >
           <Download size={12} /> Exporter
         </button>
       </div>
 
       {/* Delete & Close */}
-      <button
-        onClick={onBatchDelete}
-        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-      >
-        <Trash2 size={12} /> Supprimer
-      </button>
+      <div className="relative">
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+            title="Supprimer (Ctrl+D)"
+          >
+            <Trash2 size={12} /> Supprimer
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-[10px]">
+            <span className="font-semibold">Confirmer suppression ?</span>
+            <button
+              onClick={() => {
+                onBatchDelete();
+                setShowDeleteConfirm(false);
+              }}
+              className="px-2 py-0.5 rounded bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors cursor-pointer border-none"
+            >
+              Oui
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-2 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={onClearSelection}

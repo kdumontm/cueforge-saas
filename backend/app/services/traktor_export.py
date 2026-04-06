@@ -14,18 +14,24 @@ from xml.dom.minidom import parseString
 # Traktor uses Open Key notation internally (mapped to integer KEY_VALUE)
 
 MUSICAL_KEY_TO_TRAKTOR = {
-    "C major": 0,  "Cm": 20,    "C minor": 20,
-    "Db major": 1, "C#m": 21,   "C# minor": 21, "Db minor": 21,
-    "D major": 2,  "Dm": 22,    "D minor": 22,
-    "Eb major": 3, "D#m": 23,   "D# minor": 23, "Eb minor": 23,
-    "E major": 4,  "Em": 0,     "E minor": 0,     # Traktor KEY_VALUE wraps
-    "F major": 5,  "Fm": 1,     "F minor": 1,
-    "F# major": 6, "Gb major": 6, "F#m": 2, "F# minor": 2, "Gb minor": 2,
-    "G major": 7,  "Gm": 3,     "G minor": 3,
-    "Ab major": 8, "G# major": 8, "G#m": 4, "G# minor": 4, "Ab minor": 4,
-    "A major": 9,  "Am": 5,     "A minor": 5,
-    "Bb major": 10, "A# major": 10, "A#m": 6, "A# minor": 6, "Bb minor": 6,
-    "B major": 11, "Bm": 7,     "B minor": 7,
+    # Traktor Open Key: majors 0-11, minors 12-23
+    "C major": 0,  "C": 0,   "Cm": 12,   "C minor": 12,
+    "Db major": 1, "Db": 1,  "C#m": 13,  "C# minor": 13, "Db minor": 13,
+    "D major": 2,  "D": 2,   "Dm": 14,   "D minor": 14,
+    "Eb major": 3, "Eb": 3,  "D#m": 15,  "D# minor": 15, "Eb minor": 15,
+    "E major": 4,  "E": 4,   "Em": 16,   "E minor": 16,
+    "F major": 5,  "F": 5,   "Fm": 17,   "F minor": 17,
+    "F# major": 6, "F#": 6,  "Gb major": 6, "F#m": 18, "F# minor": 18, "Gb minor": 18,
+    "G major": 7,  "G": 7,   "Gm": 19,   "G minor": 19,
+    "Ab major": 8, "Ab": 8,  "G# major": 8, "G#m": 20, "G# minor": 20, "Ab minor": 20,
+    "A major": 9,  "A": 9,   "Am": 21,   "A minor": 21,
+    "Bb major": 10, "Bb": 10, "A# major": 10, "A#m": 22, "A# minor": 22, "Bb minor": 22,
+    "B major": 11, "B": 11,  "Bm": 23,   "B minor": 23,
+    # Camelot notation support
+    "1A": 21, "1B": 11, "2A": 18, "2B": 6, "3A": 13, "3B": 1,
+    "4A": 20, "4B": 8,  "5A": 15, "5B": 3, "6A": 19, "6B": 7,
+    "7A": 14, "7B": 2,  "8A": 21, "8B": 0, "9A": 16, "9B": 7,
+    "10A": 23, "10B": 2, "11A": 18, "11B": 9, "12A": 13, "12B": 4,
 }
 
 # Traktor cue type mapping
