@@ -1,6 +1,6 @@
 {
   "name": "cueforge",
-  "version": "2.9.1",
+  "version": "3.0.0",
   "description": "CueForge — App desktop pour DJs. Analyse audio locale, cue points, export Rekordbox/Serato.",
   "main": "src/main.js",
   "author": {
@@ -28,10 +28,6 @@
     "afterPack": "./scripts/afterPack.js",
     "npmRebuild": true,
     "asar": true,
-    "asarUnpack": [
-      "**/better-sqlite3/**/*",
-      "**/node_modules/better-sqlite3/**/*"
-    ],
     "mac": {
       "category": "public.app-category.music",
       "icon": "assets/icon.png",
@@ -105,7 +101,6 @@
     },
     "files": [
       "src/**/*",
-      "renderer/**/*",
       "services/**/*",
       "assets/**/*",
       "node_modules/**/*"
@@ -121,7 +116,6 @@
     }
   },
   "dependencies": {
-    "better-sqlite3": "^11.5.0",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.3.9",
     "music-metadata": "^10.5.0"
