@@ -178,23 +178,21 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
           ))}
         </div>
 
-        {/* Desktop only : reload pour appliquer les MAJ du frontend */}
-        {isDesktop && (
-          <button
-            onClick={() => {
-              // Vider le cache du service worker puis recharger
-              if ('caches' in window) {
-                caches.keys().then(names => names.forEach(n => caches.delete(n)));
-              }
-              window.location.reload();
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
-            title={lang === 'en' ? 'Reload to apply updates' : 'Recharger pour appliquer les mises à jour'}
-          >
-            <RefreshCw size={12} />
-            {lang === 'en' ? 'Reload' : 'Recharger'}
-          </button>
-        )}
+        {/* Reload pour appliquer les MAJ du frontend */}
+        <button
+          onClick={() => {
+            // Vider le cache du service worker puis recharger
+            if ('caches' in window) {
+              caches.keys().then(names => names.forEach(n => caches.delete(n)));
+            }
+            window.location.reload();
+          }}
+          className="flex items-center gap-1.5 px-2.5 py-[5px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] text-[11px] whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer"
+          title={lang === 'en' ? 'Reload to apply updates' : 'Recharger pour appliquer les mises à jour'}
+        >
+          <RefreshCw size={12} />
+          {lang === 'en' ? 'Reload' : 'MAJ'}
+        </button>
 
         {/* Desktop only : mise à jour disponible / cliquable pour installer */}
         {isDesktop && updateState.available && (
