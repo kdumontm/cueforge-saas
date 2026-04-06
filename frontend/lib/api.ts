@@ -1232,6 +1232,11 @@ export async function deleteCrate(id: number): Promise<void> {
   if (!r.ok) throw new Error('Failed to delete crate');
 }
 
+export async function getCrateTracks(crateId: number): Promise<{ tracks: any[] }> {
+  const detail = await getCrate(crateId);
+  return { tracks: detail.tracks || [] };
+}
+
 // ── v2: Compatible tracks API ───────────────────────────────────────────────
 
 export interface CompatibleTrack {
