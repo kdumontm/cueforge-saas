@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models.track import Track, TrackStatus, TrackAnalysis, CuePoint
+from app.models.track import Track, TrackStatus, TrackAnalysis, CuePoint, LoopMarker
 from app.models.user import User
 from app.schemas.track import (
     TrackResponse, TrackUploadResponse, TrackListResponse, AnalyzeResponse
@@ -610,6 +610,21 @@ class LocalAnalysisPayload(BaseModel):
     drop_positions: Optional[list] = None      # [ms, ms, ...] — drops détectés
     phrase_positions: Optional[list] = None     # [ms, ms, ...] — limites de phrases
     section_labels: Optional[list] = None       # [{time_ms, label, energy, duration_ms}]
+    # v3.0: analyses avancées desktop (parité+ avec le cloud)
+    key_confidence: Optional[float] = None
+    key_secondary: Optional[str] = None
+    genre: Optional[str] = None
+    subgenre: Optional[str] = None
+    genre_confidence: Optional[float] = None
+    mood: Optional[str] = None
+    danceability: Optional[float] = None
+    loudness_lufs: Optional[float] = None
+    loudness_range_lu: Optional[float] = None
+    bpm_stable: Optional[bool] = None
+    bpm_map: Optional[list] = None             # [{position_ms, bpm}]
+    auto_loops: Optional[list] = None          # [{start_ms, end_ms, duration_bars, confidence}]
+    waveform_peaks: Optional[list] = None      # [float, ...] — 800 peaks
+    spectral_energy: Optional[dict] = None     # {sub_bass, bass, low_mid, mid, high_mid, high}
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -651,6 +666,28 @@ async def analyze_track_local(
     if payload.section_labels:
         analysis.section_labels = payload.section_labels
 
+    # v3.0: analyses avancées desktop
+    if payload.key_confidence is not None:
+        analysis.key_confidence = payload.key_confidence
+    if payload.key_secondary is not None:
+        analysis.key_secondary = payload.key_secondary
+    if payload.mood is not None:
+        analysis.mood = payload.mood
+    if payload.danceability is not None:
+        analysis.danceability = payload.danceability
+    if payload.loudness_lufs is not None:
+        analysis.loudness_lufs = payload.loudness_lufs
+    if payload.loudness_range_lu is not None:
+        analysis.loudness_range_lu = payload.loudness_range_lu
+    if payload.bpm_stable is not None:
+        analysis.bpm_stable = payload.bpm_stable
+    if payload.bpm_map:
+        analysis.bpm_map = payload.bpm_map
+    if payload.waveform_peaks:
+        analysis.waveform_peaks = payload.waveform_peaks
+    if payload.spectral_energy:
+        analysis.spectral_energy = payload.spectral_energy
+
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)
     db.query(CuePoint).filter(
@@ -659,14 +696,20 @@ async def analyze_track_local(
     ).delete(synchronize_session='fetch')
     db.flush()
 
-    # Détecter le genre à partir de l'analyse
+    # Genre: priorité au genre détecté par le desktop (v3.0), fallback sur heuristique
     genre = None
-    try:
-        genre = detect_genre_from_analysis(payload.bpm, payload.key_name, payload.energy)
-        if genre:
-            track.genre = genre
-    except Exception:
-        pass
+    if payload.genre:
+        genre = payload.genre
+        track.genre = payload.genre
+        if payload.subgenre:
+            track.subgenre = payload.subgenre if hasattr(track, 'subgenre') else None
+    else:
+        try:
+            genre = detect_genre_from_analysis(payload.bpm, payload.key_name, payload.energy)
+            if genre:
+                track.genre = genre
+        except Exception:
+            pass
 
     # Tenter de générer des cue points pro via l'algorithme IA
     # Utilise les données structurelles fraîches du payload (pas les anciennes de la DB)
@@ -728,6 +771,25 @@ async def analyze_track_local(
                     number=i + 1,
                     confidence=cp.get('confidence'),
                 ))
+
+    # v3.0: sauvegarder les auto-loops détectés par le desktop
+    if payload.auto_loops:
+        try:
+            # Supprimer les anciens auto-loops
+            db.query(LoopMarker).filter(LoopMarker.track_id == track_id).delete(synchronize_session='fetch')
+            for lp in payload.auto_loops:
+                if isinstance(lp, dict) and 'start_ms' in lp and 'end_ms' in lp:
+                    db.add(LoopMarker(
+                        track_id=track_id,
+                        start_ms=int(lp['start_ms']),
+                        end_ms=int(lp['end_ms']),
+                        name=f"Loop {lp.get('duration_bars', 4)} bars",
+                        color="#00FF88",
+                        auto_generated=True,
+                        length_beats=lp.get('duration_bars', 4) * 4,
+                    ))
+        except Exception as e:
+            logger.warning(f"[analyze-local] Auto-loops save failed: {e}")
 
     track.status = TrackStatus.completed
     db.commit()
