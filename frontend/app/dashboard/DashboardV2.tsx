@@ -1586,10 +1586,10 @@ export default function DashboardV2() {
       )}
 
       {/* Player + Tabs — flex row, stacks on mobile */}
-      <div className="flex flex-col lg:flex-row gap-2 sm:gap-3 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-2 sm:gap-3 items-stretch" style={{ minHeight: 0 }}>
 
         {/* Left: Player (waveform) + TrackList directement dessous */}
-        <div className="flex-1 min-w-0 flex flex-col gap-3">
+        <div className="flex-1 min-w-0 flex flex-col gap-3" style={{ flexBasis: '0%' }}>
           <PlayerCard
             track={selectedTrack}
             cuePoints={effectiveCuePoints}
@@ -1700,8 +1700,8 @@ export default function DashboardV2() {
           </div>
         </div>
 
-        {/* Right: Tab panel vertical — full width on mobile */}
-        <div className="w-full lg:w-[300px] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[60vh] sm:max-h-[50vh] lg:max-h-none">
+        {/* Right: Tab panel vertical — full width on mobile, fluid on desktop */}
+        <div className="w-full lg:w-[clamp(260px,25vw,380px)] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[60vh] sm:max-h-[50vh] lg:max-h-none">
 
           {/* Onglets verticaux */}
           <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">

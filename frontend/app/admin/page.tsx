@@ -1571,7 +1571,7 @@ function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: email, password }),
+        body: JSON.stringify({ identifier: email, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Identifiants invalides");

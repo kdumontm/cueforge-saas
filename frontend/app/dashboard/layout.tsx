@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAuthenticated, clearToken, getCurrentUser } from '@/lib/api';
 import type { User } from '@/lib/api';
@@ -12,16 +12,26 @@ import { Menu, X } from 'lucide-react';
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const { collapsed } = useDashboardContext();
+  const { collapsed, toggleCollapsed } = useDashboardContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const prevWidthRef = useRef(typeof window !== 'undefined' ? window.innerWidth : 1200);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => {
+      const w = window.innerWidth;
+      const prev = prevWidthRef.current;
+      setIsMobile(w < 768);
+      // Auto-collapse sidebar when window shrinks below 1024px (not already collapsed)
+      if (w < 1024 && prev >= 1024 && !collapsed) {
+        toggleCollapsed();
+      }
+      prevWidthRef.current = w;
+    };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  }, []);
+  }, [collapsed, toggleCollapsed]);
 
   // Close mobile menu on route change
   useEffect(() => { setMobileMenuOpen(false); }, [children]);
@@ -51,7 +61,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     router.push('/');
   }
 
-  const sidebarWidth = isMobile ? 0 : (collapsed ? 56 : 210);
+  const sidebarWidth = isMobile ? 0 : (collapsed ? 56 : 220);
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] flex transition-colors duration-300">
@@ -92,14 +102,14 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
       </div>
 
       <div
-        className="flex-1 min-h-screen bg-[var(--bg-primary)] transition-all duration-250"
+        className="flex-1 min-h-screen min-w-0 bg-[var(--bg-primary)] transition-all duration-250"
         style={{ marginLeft: sidebarWidth }}
       >
         <TopBar
           title="Dashboard"
           subtitle="Analyse et prépare tes sets"
         />
-        <main className="flex-1 w-full">
+        <main className="flex-1 w-full overflow-x-hidden">
           {children}
         </main>
       </div>
