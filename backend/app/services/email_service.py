@@ -132,7 +132,7 @@ def send_invite_email(to_email: str, org_name: str, inviter_name: str, token: st
     _send_email(to_email, f"CueForge — Invitation à rejoindre {org_name}", html)
 
 
-# ─── Welcome email (NEW) ───────────────────────────────────
+# ─── Welcome email (NEW) ───────────────────────────────────────
 
 
 def send_welcome_email(to_email: str, name: str) -> None:
@@ -153,3 +153,95 @@ def send_welcome_email(to_email: str, name: str) -> None:
         </a>
     """)
     _send_email(to_email, "Bienvenue sur CueForge ! 🎵", html)
+
+
+# ─── Analysis complete (NEW) ────────────────────────────────────
+
+
+def send_analysis_complete_email(to_email: str, track_name: str) -> None:
+    """Send email when track analysis completes."""
+    html = f"""
+    <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+        </div>
+        <h2 style="color: white;">🔍 Analyse terminée !</h2>
+        <p>Ton track <strong>« {track_name} »</strong> a été analysé avec succès.</p>
+        <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 8px 0; color: #a855f7;"><strong>Les résultats sont maintenant disponibles :</strong></p>
+            <ul style="margin: 12px 0; color: #e2e8f0; line-height: 1.8;">
+                <li>🎵 BPM et clé détectés</li>
+                <li>⚡ Énergie et dynamique analysées</li>
+                <li>🎯 Cue points générés automatiquement</li>
+            </ul>
+        </div>
+        <p style="color: #cbd5e1;">💡 <strong>Astuce pro :</strong> Utilise le Set Builder pour trouver des tracks compatibles en clé et BPM pour des transitions parfaites.</p>
+        <div style="text-align: center; margin-top: 24px;">
+            <a href="{FRONTEND_URL}/dashboard" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                Voir l'analyse →
+            </a>
+        </div>
+    </div>
+    """
+    _send_email(to_email, f"🎵 {track_name} — Analyse terminée", html)
+
+
+# ─── Payment failed (NEW) ──────────────────────────────────────
+
+
+def send_payment_failed_email(to_email: str, plan_name: str) -> None:
+    """Send email when Stripe payment fails."""
+    html = f"""
+    <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+        </div>
+        <h2 style="color: #f87171;">⚠️ Paiement échoué</h2>
+        <p>Nous n'avons pas pu traiter ton paiement pour le plan <strong>{plan_name}</strong>.</p>
+        <div style="background: #1a1a2e; border-left: 4px solid #f87171; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0; color: #fca5a5;"><strong>Action requise</strong></p>
+            <p style="margin: 8px 0; color: #e2e8f0;">Mets à jour tes informations de paiement pour continuer à profiter de CueForge.</p>
+        </div>
+        <div style="text-align: center; margin-top: 24px;">
+            <a href="{FRONTEND_URL}/billing" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                Mettre à jour mon paiement →
+            </a>
+        </div>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">
+            Si tu as des questions, <a href="mailto:support@cueforge.com" style="color: #a855f7; text-decoration: none;">contacte notre support</a>.
+        </p>
+    </div>
+    """
+    _send_email(to_email, "⚠️ Paiement échoué — Action requise", html)
+
+
+# ─── Upgrade email (NEW) ───────────────────────────────────────
+
+
+def send_upgrade_email(to_email: str, plan_name: str) -> None:
+    """Send email when user upgrades their plan."""
+    html = f"""
+    <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+        </div>
+        <h2 style="color: white;">🚀 Bienvenue sur {plan_name} !</h2>
+        <p>Ton upgrade est activé. Voici ce que tu peux maintenant utiliser :</p>
+        <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <ul style="margin: 0; color: #e2e8f0; line-height: 2;">
+                <li>✅ Analyses illimitées pour ce mois</li>
+                <li>✅ Export vers Serato, Traktor, VirtualDJ</li>
+                <li>✅ Lookup Spotify (pochettes & genres)</li>
+                <li>✅ Export batch — toute ta bibliothèque</li>
+                <li>✅ Support prioritaire</li>
+            </ul>
+        </div>
+        <p style="color: #cbd5e1;">Merci de supporter CueForge ! 🎉 Profite bien de ton nouveau plan.</p>
+        <div style="text-align: center; margin-top: 24px;">
+            <a href="{FRONTEND_URL}/dashboard" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                Accéder au dashboard →
+            </a>
+        </div>
+    </div>
+    """
+    _send_email(to_email, f"🚀 Bienvenue sur le plan {plan_name} !", html)

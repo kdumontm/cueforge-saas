@@ -10,6 +10,7 @@ Enhanced:
 - Webhook handles more events (invoice.paid, invoice.payment_failed, subscription.updated)
 - Usage tracking integration
 """
+import logging
 import uuid
 from typing import Optional, List
 from datetime import datetime, timedelta
@@ -22,6 +23,8 @@ from app.database import get_db
 from app.models import User
 from app.models.organization import UsageLog
 from app.middleware.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -429,9 +432,34 @@ def _handle_subscription_deleted(data: dict, db: Session):
 
 
 def _handle_payment_failed(data: dict, db: Session):
-    """Payment failed — could send notification or flag account."""
-    # For now just log; later add email notification
-    pass
+    """Payment failed — notify user via email + notification."""
+    customer_id = data.get("customer")
+    if not customer_id:
+        return
+
+    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    if not user:
+        return
+
+    # Create notification in DB
+    from app.models.notification import Notification
+    plan_name = PLANS.get(user.subscription_plan or "pro", {}).get("name", "Plan")
+    notif = Notification(
+        user_id=user.id,
+        type="payment_failed",
+        title="Paiement échoué",
+        message=f"Ton dernier paiement pour le plan {plan_name} a échoué. Mets à jour tes informations de paiement pour continuer à profiter de CueForge.",
+        link="/billing",
+    )
+    db.add(notif)
+    db.commit()
+
+    # Send email notification
+    try:
+        from app.services.email_service import send_payment_failed_email
+        send_payment_failed_email(user.email, plan_name)
+    except Exception as e:
+        logger.error(f"Failed to send payment_failed email to {user.email}: {e}")
 
 
 def _plan_max_members(plan: str) -> int:
