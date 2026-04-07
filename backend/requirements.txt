@@ -27,3 +27,8 @@ email-validator>=2.1.0
 # Stem separation (Demucs)
 diffq>=0.2.4
 demucs>=4.0.0
+# 2FA (TOTP)
+pyotp>=2.9.0
+qrcode>=7.4.2
+# Notifications & Social
+python-secrets>=2.0.0

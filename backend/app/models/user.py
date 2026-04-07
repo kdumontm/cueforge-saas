@@ -64,6 +64,11 @@ class User(Base):
     # ── v5: Analysis settings ──
     use_stem_separation = Column(Boolean, default=False, nullable=False)  # Demucs stem analysis (slower but 10x more precise)
 
+    # ── 2FA (TOTP) ──
+    totp_secret = Column(String, nullable=True)
+    totp_enabled = Column(Boolean, default=False, nullable=False)
+    totp_pending_secret = Column(String, nullable=True)  # Temporary secret during setup
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

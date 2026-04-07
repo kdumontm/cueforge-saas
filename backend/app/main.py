@@ -17,6 +17,8 @@ from app.models import user, track  # noqa: F401 — registers models with Base
 from app.models import site_settings  # noqa: F401 — registers PageConfig with Base
 from app.models import organization as org_model  # noqa: F401 — registers Organization with Base
 from app.models import library as library_model  # noqa: F401 — registers v2 library models
+from app.models import notification  # noqa: F401 — registers Notification with Base
+from app.models import shared  # noqa: F401 — registers SharedLink with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -169,6 +171,8 @@ from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, 
 # v4 routers
 from app.routers import analytics, mix_analyzer  # noqa: E402
 from app.routers import downloads  # noqa: E402
+# v5 routers
+from app.routers import two_factor, notifications, sharing  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -193,3 +197,7 @@ app.include_router(analytics.router, prefix="/api/v1", tags=["analytics"])
 app.include_router(mix_analyzer.router, prefix="/api/v1", tags=["mix-analyzer"])
 # Desktop app downloads
 app.include_router(downloads.router, prefix="/api/v1", tags=["downloads"])
+# v5 routers
+app.include_router(two_factor.router, prefix="/api/v1", tags=["2fa"])
+app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
+app.include_router(sharing.router, prefix="/api/v1", tags=["sharing"])
