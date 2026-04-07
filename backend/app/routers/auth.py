@@ -332,6 +332,13 @@ async def logout(user: User = Depends(get_current_user), db: Session = Depends(g
     db.commit()
 
 
+@router.delete("/sessions", status_code=204)
+async def logout_all_sessions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Invalidate all sessions (logout everywhere)."""
+    user.refresh_token = None
+    db.commit()
+
+
 # ─── Profile ─────────────────────────────────────────────────────
 
 

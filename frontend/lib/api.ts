@@ -1605,3 +1605,71 @@ export async function getMixStatus(jobId: string): Promise<MixJobStatus> {
   if (!r.ok) throw new Error('Failed to get mix status');
   return r.json();
 }
+
+// ── Billing API ────────────────────────────────────────────────────────────
+
+export interface Plan {
+  id: string;
+  name: string;
+  price_monthly: number;
+  price_yearly: number;
+  max_tracks_per_day: number;
+  max_cue_points: number;
+  max_members: number;
+  max_storage_gb: number;
+  features: Record<string, boolean>;
+}
+
+export interface UsageStats {
+  tracks_today: number;
+  tracks_limit: number;
+  cue_points_used: number;
+  cue_points_limit: number;
+  storage_used_mb: number;
+  storage_limit_gb: number;
+  members_count: number;
+  members_limit: number;
+}
+
+export interface CurrentPlan {
+  plan: Plan;
+  subscription_status: string | null;
+  current_period_end: string | null;
+}
+
+export async function getPlans(): Promise<Plan[]> {
+  const res = await authFetch(`${API_URL}/billing/plans`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error('Failed to fetch plans');
+  return res.json();
+}
+
+export async function getCurrentPlan(): Promise<CurrentPlan> {
+  const res = await authFetch(`${API_URL}/billing/current`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error('Failed to fetch current plan');
+  return res.json();
+}
+
+export async function getUsage(): Promise<UsageStats> {
+  const res = await authFetch(`${API_URL}/billing/usage`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error('Failed to fetch usage');
+  return res.json();
+}
+
+export async function subscribe(plan_id: string, interval: string = 'monthly'): Promise<{ checkout_url: string }> {
+  const res = await authFetch(`${API_URL}/billing/subscribe`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan_id, interval }),
+  });
+  if (!res.ok) throw new Error('Failed to create checkout');
+  return res.json();
+}
+
+export async function getBillingPortal(): Promise<{ url: string }> {
+  const res = await authFetch(`${API_URL}/billing/portal`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to open billing portal');
+  return res.json();
+}

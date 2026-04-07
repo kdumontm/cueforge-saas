@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Lock, CreditCard, Disc3, Keyboard, ArrowLeft, Save, ChevronRight, Music2, Download, Zap, Palette, Bell } from "lucide-react";
+import { User, Lock, CreditCard, Disc3, Keyboard, ArrowLeft, Save, ChevronRight, Music2, Download, Zap, Palette, Bell, Shield } from "lucide-react";
 import { getMyProfile, updateMyProfile, updateUserSettings, UserProfile } from "@/lib/api";
 
 export default function SettingsPage() {
@@ -32,6 +32,10 @@ export default function SettingsPage() {
     waveformStyle: 'gradient',
     theme: 'dark',
   });
+
+  // Delete account confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem("cueforge_token");
@@ -130,6 +134,7 @@ export default function SettingsPage() {
     { id: "subscription", icon: CreditCard, label: "Abonnement" },
     { id: "dj", icon: Disc3, label: "Préférences DJ" },
     { id: "shortcuts", icon: Keyboard, label: "Raccourcis" },
+    { id: "privacy", icon: Shield, label: "Confidentialité" },
   ];
 
   if (loading) {
@@ -169,14 +174,17 @@ export default function SettingsPage() {
       <div className="max-w-4xl mx-auto px-6 py-8 flex gap-6">
         {/* Tab Navigation */}
         <div className="w-48 flex-shrink-0">
-          <nav className="space-y-1">
+          <nav className="space-y-1" role="tablist">
             {TABS.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all bg-transparent border-none cursor-pointer ${
+                  role="tab"
+                  aria-current={activeTab === tab.id ? "page" : undefined}
+                  aria-selected={activeTab === tab.id}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all bg-transparent border-none cursor-pointer min-h-[44px] ${
                     activeTab === tab.id
                       ? "bg-blue-600/10 text-blue-400"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
@@ -224,24 +232,55 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-bold mb-4">Changer le mot de passe</h2>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Mot de passe actuel</label>
-                    <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required
+                    <label htmlFor="currentPassword" className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Mot de passe actuel</label>
+                    <input id="currentPassword" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} required autoFocus
+                      aria-label="Mot de passe actuel"
                       className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] focus:border-blue-500 focus:outline-none transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Nouveau mot de passe</label>
-                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6}
+                    <label htmlFor="newPassword" className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Nouveau mot de passe</label>
+                    <input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6}
+                      aria-label="Nouveau mot de passe"
                       className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] focus:border-blue-500 focus:outline-none transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Confirmer</label>
-                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6}
+                    <label htmlFor="confirmPassword" className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Confirmer</label>
+                    <input id="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6}
+                      aria-label="Confirmer le mot de passe"
                       className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] focus:border-blue-500 focus:outline-none transition-colors" />
                   </div>
                 </div>
                 <button type="submit" disabled={saving}
                   className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors">
                   <Lock size={14} /> {saving ? "Modification..." : "Changer le mot de passe"}
+                </button>
+              </div>
+
+              <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-4">Gestion des sessions</h2>
+                <p className="text-sm text-[var(--text-muted)] mb-4">
+                  Déconnectez-vous de tous les appareils et fermerez toutes les sessions actives.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('cueforge_token');
+                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                      await fetch(`${API_URL}/auth/sessions`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      localStorage.clear();
+                      showMessage('success', 'Déconnecté de tous les appareils');
+                      setTimeout(() => router.push('/login'), 1500);
+                    } catch {
+                      showMessage('error', 'Erreur lors de la déconnexion');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors"
+                >
+                  Déconnecter tous les appareils
                 </button>
               </div>
             </form>
@@ -469,6 +508,104 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Privacy / GDPR */}
+          {activeTab === "privacy" && (
+            <div className="space-y-6">
+              {/* Data Export */}
+              <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-2">Exporter mes données</h2>
+                <p className="text-sm text-[var(--text-muted)] mb-4">
+                  Téléchargez une copie de toutes vos données personnelles (RGPD Art. 20).
+                </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('cueforge_token');
+                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                      const res = await fetch(`${API_URL}/auth/me/export`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const data = await res.json();
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `cueforge-data-export-${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showMessage('success', 'Données exportées !');
+                    } catch {
+                      showMessage('error', 'Erreur lors de l\'export');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors"
+                >
+                  <Download size={14} /> Télécharger mes données
+                </button>
+              </div>
+
+              {/* Delete Account */}
+              <div className="bg-[var(--bg-card)] border border-red-500/20 rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-2 text-red-400">Supprimer mon compte</h2>
+                <p className="text-sm text-[var(--text-muted)] mb-4">
+                  Cette action est irréversible. Toutes vos données, tracks et analyses seront supprimées définitivement.
+                </p>
+                {!showDeleteConfirm ? (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-sm font-semibold cursor-pointer transition-colors"
+                  >
+                    Supprimer mon compte
+                  </button>
+                ) : (
+                  <div className="space-y-3 p-4 bg-red-500/5 border border-red-500/20 rounded-lg">
+                    <p className="text-sm text-red-400 font-medium">
+                      Tapez SUPPRIMER pour confirmer :
+                    </p>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="SUPPRIMER"
+                      aria-label="Tapez SUPPRIMER pour confirmer la suppression du compte"
+                      className="w-full bg-[var(--bg-primary)] border border-red-500/30 rounded-lg px-4 py-2.5 text-red-400 placeholder-red-400/30 focus:border-red-500 focus:outline-none"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={async () => {
+                          if (deleteConfirmText !== 'SUPPRIMER') return;
+                          try {
+                            const token = localStorage.getItem('cueforge_token');
+                            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                            await fetch(`${API_URL}/auth/me`, {
+                              method: 'DELETE',
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            localStorage.clear();
+                            showMessage('success', 'Compte supprimé');
+                            setTimeout(() => router.push('/'), 1500);
+                          } catch {
+                            showMessage('error', 'Erreur lors de la suppression');
+                          }
+                        }}
+                        disabled={deleteConfirmText !== 'SUPPRIMER'}
+                        className="px-5 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-30 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-all"
+                      >
+                        Confirmer la suppression
+                      </button>
+                      <button
+                        onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                        className="px-5 py-2.5 bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg text-sm font-medium cursor-pointer border-none hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
