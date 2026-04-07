@@ -13,7 +13,25 @@ interface TopBarProps {
   subtitle?: string;
 }
 
-const NOTIFICATIONS: { id: number; text: string; time: string; read: boolean }[] = [];
+interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  link?: string;
+  created_at: string;
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+
+function timeAgo(date: string): string {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (seconds < 60) return 'à l\'instant';
+  if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)}min`;
+  if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)}h`;
+  return `il y a ${Math.floor(seconds / 86400)}j`;
+}
 
 export default function TopBar({ title, subtitle }: TopBarProps) {
   const { toggle, isDark } = useTheme();
@@ -29,6 +47,104 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const { isDesktop } = useElectron();
   const updateState = useAutoUpdate();
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const token = localStorage.getItem('cueforge_token');
+      const response = await fetch(`${API_URL}/notifications?limit=20&offset=0`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Fetch unread count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (id: number) => {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const response = await fetch(`${API_URL}/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        setNotifications(prev =>
+          prev.map(n => n.id === id ? { ...n, read: true } : n)
+        );
+        await fetchUnreadCount();
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const response = await fetch(`${API_URL}/notifications/read-all`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
+  // Fetch unread count on mount and every 30 seconds
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (showNotifications) {
+      fetchNotifications();
+    }
+  }, [showNotifications]);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -132,6 +248,11 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
             className="relative flex items-center justify-center w-[30px] h-[30px] sm:w-[34px] sm:h-[34px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors cursor-pointer"
           >
             <Bell size={15} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
           {showNotifications && (
             <div className="absolute right-0 top-10 w-80 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-xl shadow-2xl z-50 overflow-hidden">
@@ -139,20 +260,47 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
                 <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {lang === 'en' ? 'Notifications' : 'Notifications'}
                 </span>
-                <span className="text-[10px] text-blue-400 cursor-pointer">
-                  {lang === 'en' ? 'Mark all as read' : 'Tout marquer comme lu'}
-                </span>
+                {unreadCount > 0 && (
+                  <span
+                    onClick={markAllAsRead}
+                    className="text-[10px] text-blue-400 cursor-pointer hover:text-blue-300 transition-colors"
+                  >
+                    {lang === 'en' ? 'Mark all as read' : 'Tout marquer comme lu'}
+                  </span>
+                )}
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {NOTIFICATIONS.length === 0 && (
+                {loadingNotifications && (
+                  <div className="px-4 py-6 text-xs text-[var(--text-muted)] text-center">
+                    {lang === 'en' ? 'Loading...' : 'Chargement...'}
+                  </div>
+                )}
+                {!loadingNotifications && notifications.length === 0 && (
                   <div className="px-4 py-6 text-xs text-[var(--text-muted)] text-center">
                     {lang === 'en' ? 'No notifications' : 'Aucune notification'}
                   </div>
                 )}
-                {NOTIFICATIONS.map(n => (
-                  <div key={n.id} className={`px-4 py-3 border-b border-[var(--border-subtle)] last:border-b-0 ${!n.read ? 'bg-blue-500/5' : ''} hover:bg-[var(--bg-hover)] cursor-pointer`}>
-                    <div className="text-xs text-[var(--text-primary)]">{n.text}</div>
-                    <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{n.time}</div>
+                {notifications.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) {
+                        markAsRead(n.id);
+                      }
+                      if (n.link) {
+                        window.location.href = n.link;
+                      }
+                    }}
+                    className={`px-4 py-3 border-b border-[var(--border-subtle)] last:border-b-0 ${!n.read ? 'bg-blue-500/5' : ''} hover:bg-[var(--bg-hover)] cursor-pointer transition-colors`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold text-[var(--text-primary)]">{n.title}</div>
+                        <div className="text-xs text-[var(--text-muted)] mt-0.5">{n.message}</div>
+                      </div>
+                      {!n.read && <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-1.5" />}
+                    </div>
+                    <div className="text-[10px] text-[var(--text-muted)] mt-1.5">{timeAgo(n.created_at)}</div>
                   </div>
                 ))}
               </div>
