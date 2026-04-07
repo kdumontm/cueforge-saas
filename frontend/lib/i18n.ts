@@ -22,6 +22,7 @@ export const t: Record<string, Record<Lang, string>> = {
   'sidebar.upload':           { fr: 'Importer',              en: 'Upload' },
   'sidebar.export':           { fr: 'Exporter',              en: 'Export' },
   'sidebar.desktop_app':      { fr: 'App Desktop',           en: 'Desktop App' },
+  'sidebar.referrals':        { fr: 'Inviter',               en: 'Invite' },
   'sidebar.settings':         { fr: 'Réglages',              en: 'Settings' },
   'sidebar.admin':            { fr: 'Admin',                 en: 'Admin' },
   'sidebar.logout':           { fr: 'Déconnexion',           en: 'Logout' },

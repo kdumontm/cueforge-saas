@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, Settings, Image, Users, Zap,
   Navigation, LayoutGrid, Shield, ChevronLeft, ChevronRight,
   LogOut, Sun, Moon, Menu, X, Bell, ChevronDown,
-  Home, Palette, Database, Search, PanelLeftClose, PanelLeft,
+  Home, Palette, Database, Search, PanelLeftClose, PanelLeft, BarChart3,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -28,6 +28,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Général",
     items: [
       { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard, href: "/admin/dashboard" },
+      { id: "analytics", label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
     ],
   },
   {

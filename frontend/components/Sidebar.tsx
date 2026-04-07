@@ -7,7 +7,7 @@ import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
   Music, Clock, Zap, LayoutGrid, X, Trash2, Wrench,
-  ListMusic, Layers, GitBranch, Monitor,
+  ListMusic, Layers, GitBranch, Monitor, Users,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
@@ -259,6 +259,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
         {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Compte</div>}
+        <NavLink href="/dashboard/referrals" icon={Users} labelKey="sidebar.referrals" />
         <NavLink href="/settings" icon={Settings} labelKey="sidebar.settings" />
         {isAdmin && <NavLink href="/admin" icon={Shield} labelKey="sidebar.admin" />}
       </nav>
