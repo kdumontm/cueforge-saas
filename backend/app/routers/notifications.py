@@ -8,6 +8,8 @@ Endpoints:
 - POST /notifications/read-all → mark all notifications as read
 - DELETE /notifications/{id} → delete one notification
 """
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -28,7 +30,7 @@ class NotificationSchema(BaseModel):
     title: str
     message: str
     read: bool
-    link: str | None = None
+    link: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -37,7 +39,7 @@ class NotificationSchema(BaseModel):
 
 class NotificationListResponse(BaseModel):
     """Response schema for notification list."""
-    notifications: list[NotificationSchema]
+    notifications: List[NotificationSchema]
     total: int
     page: int
     page_size: int

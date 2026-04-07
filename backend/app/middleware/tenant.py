@@ -6,6 +6,8 @@ Provides FastAPI dependencies for multi-tenant filtering:
 - require_org_member: ensures user belongs to an org
 - require_org_admin: ensures user has admin+ role in their org
 """
+from typing import Optional
+
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -25,7 +27,7 @@ async def get_current_org(
 
 async def get_optional_org(
     user: User = Depends(get_current_user),
-) -> int | None:
+) -> Optional[int]:
     """Get the org ID if the user belongs to one, else None."""
     return user.organization_id
 

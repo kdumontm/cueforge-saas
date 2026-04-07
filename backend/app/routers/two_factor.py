@@ -8,6 +8,8 @@ Endpoints:
 - POST /2fa/verify { code } → verify TOTP during login
 - POST /2fa/disable { code } → disable 2FA
 """
+from typing import List, Optional
+
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -34,7 +36,7 @@ class TOTPCodeRequest(BaseModel):
 class TOTPStatusResponse(BaseModel):
     """Response showing 2FA status."""
     enabled: bool
-    backup_codes: list[str] | None = None
+    backup_codes: Optional[List[str]] = None
 
 
 @router.post("/setup", response_model=TOTPSetupResponse)
