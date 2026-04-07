@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, desc, extract
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -90,7 +90,9 @@ def get_analytics(
     """Full DJ analytics dashboard data."""
 
     # Base query: user's tracks
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(
+        selectinload(Track.analysis),
+    ).all()
     total = len(tracks)
 
     if total == 0:

@@ -35,10 +35,9 @@ const nextConfig = {
     ];
   },
   experimental: {
-    workerThreads: false,
-    cpus: 1,
+    workerThreads: true,
     // Optimise le chargement des packages les plus lourds
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    optimizePackageImports: ['lucide-react'],
   },
 };
 

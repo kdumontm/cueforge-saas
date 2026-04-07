@@ -96,6 +96,10 @@ class Track(Base):
         Index("ix_tracks_user_created",  "user_id", "created_at"),
         Index("ix_tracks_org_id",        "org_id"),
         Index("ix_tracks_camelot",       "camelot_code"),
+        # Performance: filtres fréquents dans le dashboard DJ
+        Index("ix_tracks_user_genre",    "user_id", "genre"),
+        Index("ix_tracks_user_artist",   "user_id", "artist"),
+        Index("ix_tracks_user_rating",   "user_id", "rating"),
     )
     analysis = relationship(
         "TrackAnalysis", back_populates="track",
@@ -149,6 +153,12 @@ class TrackAnalysis(Base):
     danceability = Column(Float, nullable=True)            # v3: 0.0 to 1.0
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
+
+    __table_args__ = (
+        Index("ix_analysis_track_bpm",    "track_id", "bpm"),
+        Index("ix_analysis_track_key",    "track_id", "key"),
+        Index("ix_analysis_track_energy", "track_id", "energy"),
+    )
 
 
 class CuePoint(Base):

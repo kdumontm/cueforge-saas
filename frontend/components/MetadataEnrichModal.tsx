@@ -398,7 +398,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                   </p>
                   <div className="w-16 h-16 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] overflow-hidden mb-4 flex items-center justify-center">
                     {currentTrack.artwork_url
-                      ? <img src={currentTrack.artwork_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={currentTrack.artwork_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       : <Music size={22} className="text-[var(--text-muted)]" />
                     }
                   </div>
@@ -426,7 +426,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                   {/* Artwork */}
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden mb-4 border border-[var(--border-subtle)]">
                     {r.artwork_url
-                      ? <img src={r.artwork_url} alt="" className="w-full h-full object-cover" />
+                      ? <img src={r.artwork_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       : <div className="w-full h-full bg-[var(--bg-card)] flex items-center justify-center"><Music size={22} className="text-[var(--text-muted)]" /></div>
                     }
                     {r.artwork_url && (

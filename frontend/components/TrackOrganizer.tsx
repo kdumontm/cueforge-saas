@@ -169,7 +169,7 @@ export default function TrackOrganizer({ track, onClose, onUpdate }: TrackOrgani
       <div className="px-4 py-3 border-b border-slate-800/30 flex-shrink-0">
         <div className="flex items-center gap-3">
           {track.artwork_url ? (
-            <img src={track.artwork_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+            <img src={track.artwork_url} alt="" className="w-12 h-12 rounded-lg object-cover" loading="lazy" decoding="async" />
           ) : (
             <div className="w-12 h-12 rounded-lg bg-bg-elevated flex items-center justify-center"><Disc3 size={20} className="text-slate-600" /></div>
           )}
