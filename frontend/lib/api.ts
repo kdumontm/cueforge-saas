@@ -811,6 +811,45 @@ export async function identifyTrack(trackId: number): Promise<{
   return response.json();
 }
 
+// ── Spotify Integration ─────────────────────────────────────────────────────
+
+export interface SpotifyResult {
+  track_name?: string;
+  artist_name?: string;
+  album_name?: string;
+  album_art_url?: string;
+  genre?: string;
+  popularity?: number;
+  spotify_id?: string;
+  spotify_url?: string;
+  release_date?: string;
+}
+
+export async function spotifyLookup(trackId: number): Promise<{
+  status: string;
+  result: SpotifyResult | null;
+  message?: string;
+}> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/spotify-lookup`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Spotify lookup failed');
+  return response.json();
+}
+
+export async function spotifyApply(trackId: number): Promise<{
+  status: string;
+  message?: string;
+}> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/spotify-apply`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Spotify apply failed');
+  return response.json();
+}
+
 export async function identifyTrackBySearch(trackId: number, query: string): Promise<{
   status: 'found' | 'not_found';
   message?: string;

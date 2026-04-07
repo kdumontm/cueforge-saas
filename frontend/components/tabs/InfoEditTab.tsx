@@ -2,9 +2,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, RotateCcw, Check, X, Star } from 'lucide-react';
+import { Save, RotateCcw, Check, X, Star, Music } from 'lucide-react';
 import type { Track } from '@/types';
 import { CATEGORY_PRESETS } from '@/types';
+import SpotifyLookupModal from '@/components/modals/SpotifyLookupModal';
 
 interface InfoEditTabProps {
   track: Track | null;
@@ -51,6 +52,7 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false);
 
   useEffect(() => {
     if (!track) return;
@@ -112,6 +114,12 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
     setDirty(false);
   };
 
+  const handleSpotifyApply = () => {
+    // Refresh the track data by calling onSave to trigger parent update
+    // The modal will close automatically
+    window.location.reload();
+  };
+
   const toggleTag = (tag: string) => {
     const tags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
     const idx = tags.indexOf(tag);
@@ -139,6 +147,13 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border-subtle)] flex-shrink-0">
           <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Informations</span>
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setSpotifyModalOpen(true)}
+              className="p-1 rounded text-[var(--text-muted)] hover:text-green-500 hover:bg-green-500/10 transition-colors"
+              title="Enrichir via Spotify"
+            >
+              <Music size={11} />
+            </button>
             {dirty && (
               <button onClick={handleReset} className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors" title="Annuler">
                 <RotateCcw size={11} />
@@ -276,6 +291,15 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
           </div>
 
         </div>
+
+        {/* Spotify Lookup Modal */}
+        {spotifyModalOpen && track && track.id >= 0 && (
+          <SpotifyLookupModal
+            trackId={track.id}
+            onClose={() => setSpotifyModalOpen(false)}
+            onApply={handleSpotifyApply}
+          />
+        )}
     </div>
   );
 }
