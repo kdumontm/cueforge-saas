@@ -1,7 +1,7 @@
 """Compare two tracks for compatibility."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.database import get_db
 from app.models.track import Track
@@ -10,7 +10,7 @@ from app.middleware.auth import get_current_user
 router = APIRouter(prefix="/tracks", tags=["compare"])
 
 
-def camelot_compatible(key_a: str | None, key_b: str | None) -> bool:
+def camelot_compatible(key_a: Optional[str], key_b: Optional[str]) -> bool:
     """
     Check if two keys are harmonically compatible using Camelot wheel rules.
     Compatible keys: same key, +1 semitone, relative minor/major
@@ -56,12 +56,12 @@ def camelot_compatible(key_a: str | None, key_b: str | None) -> bool:
 
 
 def calculate_compatibility_score(
-    bpm_a: int | None,
-    bpm_b: int | None,
-    key_a: str | None,
-    key_b: str | None,
-    energy_a: int | None,
-    energy_b: int | None,
+    bpm_a: Optional[int],
+    bpm_b: Optional[int],
+    key_a: Optional[str],
+    key_b: Optional[str],
+    energy_a: Optional[int],
+    energy_b: Optional[int],
 ) -> tuple[int, int, bool, int]:
     """
     Calculate compatibility score (0-100) between two tracks.

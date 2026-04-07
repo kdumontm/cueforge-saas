@@ -1,4 +1,5 @@
 """Job queue endpoints for async operations."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -17,8 +18,8 @@ class JobResponse(BaseModel):
     job_type: str
     status: str
     progress: float
-    result: dict | None
-    error: str | None
+    result: Optional[dict]
+    error: Optional[str]
     created_at: str
     updated_at: str
 

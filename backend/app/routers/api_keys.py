@@ -10,6 +10,7 @@ Endpoints:
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/v1/api-keys", tags=["API Keys"])
 class CreateApiKeyRequest(BaseModel):
     name: str
     permissions: list[str] = []
-    expires_in_days: int | None = None
+    expires_in_days: Optional[int] = None
 
 
 class ApiKeyResponse(BaseModel):
@@ -35,8 +36,8 @@ class ApiKeyResponse(BaseModel):
     permissions: list[str]
     is_active: bool
     created_at: datetime
-    last_used_at: datetime | None
-    expires_at: datetime | None
+    last_used_at: Optional[datetime]
+    expires_at: Optional[datetime]
 
     class Config:
         from_attributes = True

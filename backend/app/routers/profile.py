@@ -1,4 +1,5 @@
 """Profile endpoints — user preferences and profile management."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -12,15 +13,15 @@ router = APIRouter()
 
 class PreferencesUpdate(BaseModel):
     """Schema for updating user preferences."""
-    dj_style: str | None = None
-    dj_software: str | None = None
-    onboarding_completed: bool | None = None
+    dj_style: Optional[str] = None
+    dj_software: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
 
 
 class PreferencesResponse(BaseModel):
     """Schema for preferences response."""
-    dj_style: str | None
-    dj_software: str | None
+    dj_style: Optional[str]
+    dj_software: Optional[str]
     onboarding_completed: bool
 
     class Config:
