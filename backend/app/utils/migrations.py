@@ -30,6 +30,14 @@ PENDING_MIGRATIONS = {
         "last_login_at": "TIMESTAMP",
         # v5: Analysis settings
         "use_stem_separation": "BOOLEAN NOT NULL DEFAULT FALSE",
+        # 2FA (TOTP)
+        "totp_secret": "VARCHAR(255)",
+        "totp_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "totp_pending_secret": "VARCHAR(255)",
+        # Onboarding & Preferences
+        "dj_style": "VARCHAR(100)",
+        "dj_software": "VARCHAR(100)",
+        "onboarding_completed": "BOOLEAN NOT NULL DEFAULT FALSE",
     },
     "cue_points": {
         # Cue customization columns
