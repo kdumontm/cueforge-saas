@@ -84,3 +84,5 @@ class User(Base):
         back_populates="members",
         foreign_keys=[organization_id],
     )
+    api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")

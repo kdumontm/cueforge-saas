@@ -20,6 +20,8 @@ from app.models import library as library_model  # noqa: F401 — registers v2 l
 from app.models import notification  # noqa: F401 — registers Notification with Base
 from app.models import shared  # noqa: F401 — registers SharedLink with Base
 from app.models import feedback  # noqa: F401 — registers Feedback with Base
+from app.models import api_key  # noqa: F401 — registers ApiKey with Base
+from app.models import webhook  # noqa: F401 — registers Webhook with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -165,7 +167,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)  # 🔴 FIX (faille 9) : headers HTTP sécurité
 
 # Routers
-from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization  # noqa: E402
+from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks  # noqa: E402
 from app.routers import org_management  # noqa: E402
 # v2 routers
 from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
@@ -180,6 +182,8 @@ from app.routers import profile, user_stats, jobs  # noqa: E402
 from app.routers import seo  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
+app.include_router(api_keys.router, tags=["api-keys"])
+app.include_router(webhooks.router, tags=["webhooks"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
 app.include_router(cues.router, prefix="/api/v1/cues", tags=["cues"])
 app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
