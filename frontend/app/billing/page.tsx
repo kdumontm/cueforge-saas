@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, AlertCircle, Loader2, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -16,6 +16,14 @@ import {
 } from '@/lib/api';
 
 export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 text-purple-400 animate-spin" /></div>}>
+      <BillingContent />
+    </Suspense>
+  );
+}
+
+function BillingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
