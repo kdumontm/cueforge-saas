@@ -29,6 +29,8 @@ export const t: Record<string, Record<Lang, string>> = {
   'sidebar.new_playlist':     { fr: 'Nouvelle playlist...',  en: 'New playlist...' },
   'sidebar.create':           { fr: 'Créer',                 en: 'Create' },
   'sidebar.activity':         { fr: 'Historique',            en: 'Activity' },
+  'sidebar.favorites':        { fr: 'Favoris',               en: 'Favorites' },
+  'sidebar.duplicates':       { fr: 'Doublons',              en: 'Duplicates' },
 
   // Track list
   'tracks.title':             { fr: 'Titre',                 en: 'Title' },

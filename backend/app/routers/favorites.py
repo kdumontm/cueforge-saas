@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.favorite import Favorite
 from app.models.track import Track
 from app.models.user import User
 from app.middleware.auth import get_current_user
-from app.schemas.track import TrackResponse
 
 router = APIRouter()
 
@@ -58,10 +56,10 @@ async def get_favorites(
     """
     Get all favorite tracks for the current user with full track details.
     """
+    from sqlalchemy.orm import joinedload
+
     favorites = db.query(Favorite).filter(
         Favorite.user_id == current_user.id
-    ).options(
-        selectinload(Favorite.__table__.columns)
     ).all()
 
     # Get associated tracks
@@ -72,11 +70,26 @@ async def get_favorites(
     tracks = db.query(Track).filter(
         Track.id.in_(track_ids),
         Track.user_id == current_user.id,
+    ).options(
+        joinedload(Track.analysis)
     ).all()
 
-    tracks_data = [
-        TrackResponse.from_orm(t).__dict__ for t in tracks
-    ]
+    # Convert to dict representation
+    tracks_data = []
+    for track in tracks:
+        track_dict = {
+            'id': track.id,
+            'title': track.title,
+            'artist': track.artist,
+            'album': track.album,
+            'bpm': getattr(track.analysis, 'bpm', None) if track.analysis else None,
+            'key': getattr(track.analysis, 'key', None) if track.analysis else None,
+            'duration': getattr(track.analysis, 'duration_ms', None) if track.analysis else None,
+            'genre': track.genre,
+            'artwork_url': track.artwork_url,
+            'year': track.year,
+        }
+        tracks_data.append(track_dict)
 
     return {
         "tracks": tracks_data,

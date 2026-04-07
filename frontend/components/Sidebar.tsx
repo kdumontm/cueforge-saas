@@ -7,7 +7,7 @@ import {
   BarChart3, Upload, Download, Settings, Shield,
   Disc3, LogOut, Crown, ChevronLeft, ChevronRight, Plus,
   Music, Clock, Zap, LayoutGrid, X, Trash2, Wrench,
-  ListMusic, Layers, GitBranch, Monitor, Users,
+  ListMusic, Layers, GitBranch, Monitor, Users, Heart, GitMerge,
 } from 'lucide-react';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
 import { listPlaylists, createPlaylist, deletePlaylist, listCrates, type Playlist, type SmartCrate } from '@/lib/api';
@@ -24,7 +24,9 @@ interface SidebarProps {
 const getNavItems = (lang: string) => [
   { href: '/dashboard', icon: BarChart3, labelKey: 'sidebar.dashboard' },
   { href: '/dashboard/stats', icon: BarChart3, labelKey: 'sidebar.stats' },
+  { href: '/dashboard/favorites', icon: Heart, labelKey: 'sidebar.favorites' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder' },
+  { href: '/dashboard/duplicates', icon: GitMerge, labelKey: 'sidebar.duplicates' },
   { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible' },
   { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists' },
   { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates' },

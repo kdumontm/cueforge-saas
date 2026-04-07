@@ -7,7 +7,6 @@ from app.database import get_db
 from app.models.track import Track
 from app.models.user import User
 from app.middleware.auth import get_current_user
-from app.schemas.track import TrackResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -98,9 +97,25 @@ def detect_duplicates(tracks: List[Track]) -> List[dict]:
 
             if confidence > 0:
                 processed_pairs.add(pair_key)
+
+                # Convert tracks to dict
+                def track_to_dict(track):
+                    return {
+                        'id': track.id,
+                        'title': track.title,
+                        'artist': track.artist,
+                        'album': track.album,
+                        'bpm': getattr(track.analysis, 'bpm', None) if track.analysis else None,
+                        'key': getattr(track.analysis, 'key', None) if track.analysis else None,
+                        'duration': getattr(track.analysis, 'duration_ms', None) if track.analysis else None,
+                        'genre': track.genre,
+                        'artwork_url': track.artwork_url,
+                        'year': track.year,
+                    }
+
                 duplicates.append({
-                    "track_a": TrackResponse.from_orm(track_a).__dict__,
-                    "track_b": TrackResponse.from_orm(track_b).__dict__,
+                    "track_a": track_to_dict(track_a),
+                    "track_b": track_to_dict(track_b),
                     "confidence": confidence,
                     "match_reasons": match_reasons,
                 })
@@ -119,8 +134,12 @@ async def detect_track_duplicates(
     Detect potential duplicates in the user's track library.
     Returns array of duplicate pairs with confidence and match reasons.
     """
+    from sqlalchemy.orm import joinedload
+
     # Get all tracks for the user
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(
+        joinedload(Track.analysis)
+    ).all()
 
     if not tracks:
         return {"duplicates": [], "count": 0}
