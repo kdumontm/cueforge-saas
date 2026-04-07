@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { X, Loader2, Music } from 'lucide-react';
-import { spotifyLookup, spotifyApply, type SpotifyResult } from '@/lib/api';
+import { spotifyLookup, spotifyApply, type SpotifyApplyData } from '@/lib/api';
 
 interface SpotifyLookupModalProps {
   trackId: number;
@@ -11,19 +11,38 @@ interface SpotifyLookupModalProps {
   onApply: () => void;
 }
 
+interface SpotifyTrack {
+  name?: string;
+  artists?: Array<{ name: string }>;
+  album?: {
+    name: string;
+    images?: Array<{ url: string }>;
+    release_date?: string;
+  };
+  popularity?: number;
+  genres?: string[];
+  id?: string;
+  external_urls?: { spotify?: string };
+}
+
 export default function SpotifyLookupModal({ trackId, onClose, onApply }: SpotifyLookupModalProps) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<SpotifyResult | null>(null);
+  const [selectedResult, setSelectedResult] = useState<SpotifyTrack | null>(null);
+  const [results, setResults] = useState<SpotifyTrack[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLookup = async () => {
     setLoading(true);
     setError(null);
+    setResults([]);
+    setSelectedResult(null);
     try {
-      const data = await spotifyLookup(trackId);
-      if (data.status === 'found' && data.result) {
-        setResult(data.result);
+      const data = await spotifyLookup(trackId, searchQuery || undefined);
+      if (data.status === 'success' && data.results && data.results.length > 0) {
+        setResults(data.results);
+        setSelectedResult(data.results[0]);
       } else {
         setError(data.message || 'Aucune correspondance trouvée sur Spotify');
       }
@@ -35,10 +54,19 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
   };
 
   const handleApply = async () => {
-    if (!result) return;
+    if (!selectedResult) return;
     setApplying(true);
     try {
-      await spotifyApply(trackId);
+      const applyData: SpotifyApplyData = {
+        spotify_id: selectedResult.id || '',
+        title: selectedResult.name,
+        artist: selectedResult.artists?.[0]?.name,
+        album: selectedResult.album?.name,
+        year: selectedResult.album?.release_date ? parseInt(selectedResult.album.release_date.split('-')[0]) : undefined,
+        artwork_url: selectedResult.album?.images?.[0]?.url,
+        spotify_url: selectedResult.external_urls?.spotify,
+      };
+      await spotifyApply(trackId, applyData);
       onApply();
       onClose();
     } catch (err: any) {
@@ -67,9 +95,22 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-          {!result && !error && (
-            <div className="text-center py-6">
-              <p className="text-xs text-[var(--text-muted)] mb-4">
+          {results.length === 0 && (
+            <>
+              <div className="space-y-2">
+                <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest">
+                  Recherche (optionnel)
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Ex: artiste - titre"
+                  className="w-full px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-md text-xs text-[var(--text-primary)] focus:outline-none focus:border-blue-500 transition-colors"
+                  onKeyPress={(e) => e.key === 'Enter' && handleLookup()}
+                />
+              </div>
+              <p className="text-xs text-[var(--text-muted)]">
                 Rechercher les informations de ce morceau sur Spotify
               </p>
               <button
@@ -84,7 +125,7 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
                 {loading && <Loader2 size={14} className="animate-spin" />}
                 {loading ? 'Recherche...' : 'Rechercher sur Spotify'}
               </button>
-            </div>
+            </>
           )}
 
           {error && (
@@ -93,13 +134,13 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
             </div>
           )}
 
-          {result && (
+          {results.length > 0 && selectedResult && (
             <div className="space-y-3">
               {/* Album Art */}
-              {result.album_art_url && (
+              {selectedResult.album?.images?.[0]?.url && (
                 <div className="flex justify-center">
                   <img
-                    src={result.album_art_url}
+                    src={selectedResult.album.images[0].url}
                     alt="Album"
                     className="w-32 h-32 rounded-lg shadow-md"
                   />
@@ -108,52 +149,43 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
 
               {/* Track Info */}
               <div className="space-y-2 text-xs">
-                {result.track_name && (
+                {selectedResult.name && (
                   <div>
                     <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
                       Titre
                     </label>
-                    <p className="text-[var(--text-primary)]">{result.track_name}</p>
+                    <p className="text-[var(--text-primary)]">{selectedResult.name}</p>
                   </div>
                 )}
 
-                {result.artist_name && (
+                {selectedResult.artists?.[0]?.name && (
                   <div>
                     <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
                       Artiste
                     </label>
-                    <p className="text-[var(--text-primary)]">{result.artist_name}</p>
+                    <p className="text-[var(--text-primary)]">{selectedResult.artists.map(a => a.name).join(', ')}</p>
                   </div>
                 )}
 
-                {result.album_name && (
+                {selectedResult.album?.name && (
                   <div>
                     <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
                       Album
                     </label>
-                    <p className="text-[var(--text-primary)]">{result.album_name}</p>
+                    <p className="text-[var(--text-primary)]">{selectedResult.album.name}</p>
                   </div>
                 )}
 
-                {result.release_date && (
+                {selectedResult.album?.release_date && (
                   <div>
                     <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
                       Date de sortie
                     </label>
-                    <p className="text-[var(--text-primary)]">{result.release_date}</p>
+                    <p className="text-[var(--text-primary)]">{selectedResult.album.release_date}</p>
                   </div>
                 )}
 
-                {result.genre && (
-                  <div>
-                    <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
-                      Genre
-                    </label>
-                    <p className="text-[var(--text-primary)]">{result.genre}</p>
-                  </div>
-                )}
-
-                {result.popularity !== undefined && (
+                {selectedResult.popularity !== undefined && (
                   <div>
                     <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
                       Popularité
@@ -162,18 +194,18 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
                       <div className="flex-1 h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-green-500"
-                          style={{ width: `${result.popularity}%` }}
+                          style={{ width: `${selectedResult.popularity}%` }}
                         />
                       </div>
-                      <span className="text-[var(--text-secondary)]">{result.popularity}%</span>
+                      <span className="text-[var(--text-secondary)]">{selectedResult.popularity}%</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {result.spotify_url && (
+              {selectedResult.external_urls?.spotify && (
                 <a
-                  href={result.spotify_url}
+                  href={selectedResult.external_urls.spotify}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[11px] text-green-500 hover:text-green-400 underline block text-center"
@@ -181,12 +213,34 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
                   Ouvrir sur Spotify
                 </a>
               )}
+
+              {results.length > 1 && (
+                <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                  <label className="block text-[9px] font-semibold text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                    Autres résultats
+                  </label>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {results.slice(1).map((track, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedResult(track)}
+                        className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-[var(--bg-primary)] transition-colors"
+                      >
+                        <p className="text-[var(--text-primary)]">{track.name}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">
+                          {track.artists?.[0]?.name} • {track.album?.name}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        {result && (
+        {results.length > 0 && selectedResult && (
           <div className="flex items-center gap-2 px-4 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-primary)]">
             <button
               onClick={onClose}
