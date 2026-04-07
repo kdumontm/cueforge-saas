@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Optional, Dict
 from enum import Enum
 
-from app.services.cache_service import redis_client
+from app.services.cache_service import _get_redis
 
 
 class JobStatus(str, Enum):
@@ -81,8 +81,17 @@ class JobQueue:
     """Simple job queue backed by Redis or in-memory fallback."""
 
     def __init__(self):
-        self.use_redis = redis_client is not None
+        self._redis = _get_redis()
+        self.use_redis = self._redis is not None
         self.in_memory_jobs: Dict[str, Job] = {}
+
+    @property
+    def redis_client(self):
+        """Lazy re-check Redis availability."""
+        if self._redis is None:
+            self._redis = _get_redis()
+            self.use_redis = self._redis is not None
+        return self._redis
 
     def enqueue(self, job_type: str, payload: Dict[str, Any], user_id: int) -> str:
         """Enqueue a new job.
@@ -102,9 +111,9 @@ class JobQueue:
         if self.use_redis:
             try:
                 key = f"job:{job_id}"
-                redis_client.set(key, json.dumps(job.to_dict()), ex=86400)  # 24h expiry
+                self.redis_client.set(key, json.dumps(job.to_dict()), ex=86400)  # 24h expiry
                 # Add to user's job list
-                redis_client.lpush(f"user_jobs:{user_id}", job_id)
+                self.redis_client.lpush(f"user_jobs:{user_id}", job_id)
                 return job_id
             except Exception:
                 # Fallback to in-memory
@@ -123,7 +132,7 @@ class JobQueue:
         if self.use_redis:
             try:
                 key = f"job:{job_id}"
-                job_data = redis_client.get(key)
+                job_data = self.redis_client.get(key)
                 if job_data:
                     return json.loads(job_data)
             except Exception:
@@ -162,7 +171,7 @@ class JobQueue:
         if self.use_redis:
             try:
                 key = f"job:{job_id}"
-                redis_client.set(key, json.dumps(job.to_dict()), ex=86400)
+                self.redis_client.set(key, json.dumps(job.to_dict()), ex=86400)
                 return True
             except Exception:
                 pass
@@ -177,7 +186,7 @@ class JobQueue:
 
         if self.use_redis:
             try:
-                job_ids = redis_client.lrange(f"user_jobs:{user_id}", 0, limit - 1)
+                job_ids = self.redis_client.lrange(f"user_jobs:{user_id}", 0, limit - 1)
                 for job_id in job_ids:
                     job_data = self.get_status(job_id.decode() if isinstance(job_id, bytes) else job_id)
                     if job_data:

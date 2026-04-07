@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import PushSubscription
-from app.services.auth_service import get_current_user
+from app.middleware.auth import get_current_user
 from app.services.push_service import send_push_notification
 
 router = APIRouter(prefix="/api/v1/push", tags=["push_notifications"])

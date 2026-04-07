@@ -16,7 +16,7 @@ class ActivityLog(Base):
     action = Column(String(100), nullable=False, index=True)  # e.g., "track.uploaded", "playlist.created"
     resource_type = Column(String(100), nullable=True, index=True)  # e.g., "track", "playlist"
     resource_id = Column(Integer, nullable=True, index=True)
-    metadata = Column(JSON, nullable=True)  # Extra data as JSON
+    extra_data = Column("metadata", JSON, nullable=True)  # Extra data as JSON
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships

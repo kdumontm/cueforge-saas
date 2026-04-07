@@ -31,7 +31,7 @@ def log_activity(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        metadata=metadata,
+        extra_data=metadata,
     )
     db.add(log)
     try:

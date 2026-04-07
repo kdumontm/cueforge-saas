@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import SessionLocal
-from app.services.auth_service import get_current_user
+from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.track import Track
 

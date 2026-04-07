@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.activity_log import ActivityLog
@@ -23,10 +23,10 @@ class ActivityLogResponse(BaseModel):
     action: str
     resource_type: Optional[str] = None
     resource_id: Optional[int] = None
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(None, validation_alias="extra_data")
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class ActivitySummaryResponse(BaseModel):

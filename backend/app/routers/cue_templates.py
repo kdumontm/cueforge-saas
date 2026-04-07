@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import CueTemplate, User
-from app.services.auth_service import get_current_user
+from app.middleware.auth import get_current_user
 from app.schemas.cue_template import (
     CueTemplateCreate,
     CueTemplateUpdate,

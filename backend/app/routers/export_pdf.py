@@ -23,7 +23,7 @@ except ImportError:
 from app.database import get_db
 from app.models.track import Track
 from app.models.library import Playlist
-from app.dependencies import get_current_user
+from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/export", tags=["export"])
 

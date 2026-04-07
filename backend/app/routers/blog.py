@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models import BlogPost, User
-from app.services.auth_service import get_current_user
+from app.middleware.auth import get_current_user
 from app.schemas.blog_post import (
     BlogPostCreate,
     BlogPostUpdate,
