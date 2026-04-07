@@ -176,6 +176,8 @@ from app.routers import downloads  # noqa: E402
 from app.routers import two_factor, notifications, sharing, feedback  # noqa: E402
 # v6 routers
 from app.routers import profile, user_stats, jobs  # noqa: E402
+# SEO
+from app.routers import seo  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
@@ -209,3 +211,5 @@ app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
 app.include_router(user_stats.router, prefix="/api/v1", tags=["user-stats"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
+# SEO
+app.include_router(seo.router)
