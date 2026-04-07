@@ -1359,6 +1359,55 @@ export default function DashboardV2() {
     addToast(`${ok}/${unanalyzed.length} tracks analysées !`, ok === unanalyzed.length ? 'success' : 'error');
   }
 
+  // ── Ré-analyser TOUS les tracks (même completed) — nouveau BPM v2 ──
+  async function handleReanalyzeAll() {
+    const completed = tracks.filter(t => t.status === 'completed');
+    if (completed.length === 0) {
+      addToast('Aucun track à ré-analyser', 'info');
+      return;
+    }
+    if (!confirm(`Ré-analyser ${completed.length} tracks avec le nouvel algo BPM ? Ça peut prendre quelques minutes.`)) return;
+
+    addToast(`Ré-analyse de ${completed.length} tracks lancée…`, 'info');
+
+    for (const track of completed) {
+      const title = track.title || track.original_filename || 'Track';
+      setAnalyzingIds(prev => new Set(prev).add(track.id));
+      setAnalysisProgress(prev => ({ ...prev, [track.id]: { pct: 0, title, isLocal: false } }));
+    }
+
+    let ok = 0;
+    // Process in batches of 3 to avoid overload
+    for (let i = 0; i < completed.length; i += 3) {
+      const batch = completed.slice(i, i + 3);
+      await Promise.allSettled(batch.map(async (track) => {
+        const id = track.id;
+        try {
+          const result = await analyzeTrack(id, {
+            onProgress: (pct) => setAnalysisProgress(prev => ({
+              ...prev, [id]: { pct, title: track.title || 'Track', isLocal: false }
+            })),
+          });
+          if (!result.usedLocal) {
+            await pollTrackUntilDone(id, () => {
+              setAnalysisProgress(prev => ({
+                ...prev, [id]: { ...prev[id], pct: Math.min(98, (prev[id]?.pct ?? 0) + 5) }
+              }));
+            });
+          }
+          const fresh = await getTrack(id);
+          setTracks(prev => prev.map(t => t.id === id ? fresh : t));
+          ok++;
+        } finally {
+          setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+          setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+        }
+      }));
+    }
+
+    addToast(`${ok}/${completed.length} tracks ré-analysées avec le nouveau BPM !`, ok === completed.length ? 'success' : 'error');
+  }
+
   // Register handleBatchAnalyze in context so TopBar can call it
   useEffect(() => {
     registerAnalyzeAllHandler(handleBatchAnalyze);
@@ -1614,6 +1663,13 @@ export default function DashboardV2() {
                   title="Supprimer tous les tracks du compte"
                 >
                   <Trash2 size={12} /> Vider la bibliothèque
+                </button>
+                <button
+                  onClick={handleReanalyzeAll}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-cyan-500/30 text-cyan-400/70 hover:bg-cyan-500/15 hover:text-cyan-400 hover:border-cyan-500/50 transition-all cursor-pointer bg-transparent"
+                  title="Ré-analyser tous les tracks avec le nouvel algo BPM v2"
+                >
+                  <RefreshCw size={12} /> Ré-analyser tout (BPM v2)
                 </button>
               </div>
             )}

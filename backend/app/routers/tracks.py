@@ -609,6 +609,38 @@ async def analyze_track(
     return AnalyzeResponse(status="started", message="Analysis started in background")
 
 
+@router.post("/reanalyze-all")
+async def reanalyze_all_tracks(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Ré-analyser TOUS les tracks du user (BPM, beat grid, cues).
+    Utile après une mise à jour de l'algo d'analyse.
+    Les tracks sont traitées en arrière-plan une par une.
+    """
+    tracks = db.query(Track).filter(
+        Track.user_id == current_user.id,
+        Track.status == TrackStatus.completed,
+    ).all()
+
+    if not tracks:
+        return {"status": "no_tracks", "message": "Aucun track à ré-analyser", "count": 0}
+
+    count = 0
+    for track in tracks:
+        if track.file_path and os.path.exists(track.file_path):
+            background_tasks.add_task(_run_analysis, track.id)
+            count += 1
+
+    return {
+        "status": "started",
+        "message": f"Ré-analyse lancée pour {count} tracks",
+        "count": count,
+    }
+
+
 # ── SSE: stream du statut d'analyse en temps réel ────────────────────────────
 
 @router.get("/{track_id}/status-stream")
