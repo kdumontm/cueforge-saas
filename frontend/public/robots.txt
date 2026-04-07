@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /settings/
+Disallow: /api/
+Sitemap: https://cueforge.app/sitemap.xml

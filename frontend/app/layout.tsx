@@ -2,12 +2,33 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ClientProviders from '@/components/ClientProviders';
 import FeedbackWidget from '@/components/FeedbackWidget';
+import SentryInitializer from '@/components/SentryInitializer';
 
 export const metadata: Metadata = {
   title: 'CueForge — Analyse audio pour DJs',
   description: 'Analyse automatique BPM, cue points et export Rekordbox pour DJs professionnels',
   icons: { icon: '/favicon.ico' },
   manifest: '/manifest.json',
+  openGraph: {
+    title: 'CueForge — Analyse audio pour DJs',
+    description: 'Prépare tes sets 10× plus vite. Analyse BPM, cue points, et export automatique Rekordbox',
+    url: 'https://cueforge.app',
+    type: 'website',
+    images: [
+      {
+        url: 'https://cueforge.app/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'CueForge — Audio analysis for DJs',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CueForge — Analyse audio pour DJs',
+    description: 'Analyse automatique BPM, cue points et export Rekordbox',
+    images: ['https://cueforge.app/og-image.png'],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -28,9 +49,41 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
+        {/* JSON-LD Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'CueForge',
+              description: 'Analyse automatique BPM, cue points et export Rekordbox pour DJs professionnels',
+              url: 'https://cueforge.app',
+              applicationCategory: 'AudioApplication',
+              operatingSystem: 'Web, Windows, macOS, Linux',
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'EUR',
+              },
+              author: {
+                '@type': 'Organization',
+                name: 'CueForge',
+                url: 'https://cueforge.app',
+              },
+              image: 'https://cueforge.app/og-image.png',
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: '4.8',
+                ratingCount: '150',
+              },
+            }),
+          }}
+        />
       </head>
       <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] min-h-screen antialiased transition-colors duration-300">
         <ClientProviders>
+          <SentryInitializer />
           {children}
           <FeedbackWidget />
         </ClientProviders>

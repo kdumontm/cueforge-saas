@@ -5,14 +5,18 @@ Fixes:
 - Login réduit à 5/min (était 60 — permettait le brute-force)
 - X-Forwarded-For : utilise le dernier IP de confiance (pas le premier, spoofable)
 - Sliding window par IP réelle
+- Support du rate limiting par plan utilisateur (free, pro, unlimited)
 """
 import time
+import logging
 from collections import defaultdict
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response, JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class _RateBucket:
@@ -52,6 +56,13 @@ RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "/auth/refresh":         (20, 60),   # 20 refresh / minute
 }
 
+# Limites par plan — pour les endpoints non-auth
+PLAN_RATE_LIMITS: Dict[str, Tuple[int, int]] = {
+    "free":      (30, 60),       # 30 requêtes/min
+    "pro":       (120, 60),      # 120 requêtes/min
+    "unlimited": (600, 60),      # 600 requêtes/min
+}
+
 
 def _get_client_ip(request: Request) -> str:
     """
@@ -69,8 +80,31 @@ def _get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _get_user_plan_from_token(request: Request) -> Optional[str]:
+    """
+    Extrait le plan utilisateur du JWT token dans le header Authorization.
+    Retourne 'free' par défaut si le token n'est pas présent ou invalide.
+    """
+    try:
+        from jose import jwt
+        from app.config import get_settings
+
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return "free"
+
+        token = auth_header[7:]  # Enlever "Bearer "
+        settings = get_settings()
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        plan = payload.get("subscription_plan", "free")
+        return plan if plan in PLAN_RATE_LIMITS else "free"
+    except Exception:
+        # Invalide, expiré, etc. — utiliser le plan par défaut
+        return "free"
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Middleware FastAPI qui applique les limites par IP + endpoint."""
+    """Middleware FastAPI qui applique les limites par IP + endpoint + plan utilisateur."""
 
     _cleanup_counter = 0
 
@@ -84,6 +118,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         client_ip = _get_client_ip(request)
 
+        # 1. Vérifier les limites d'authentification strictes (5/min)
         for prefix, (max_hits, window) in RATE_LIMITS.items():
             if prefix in path:
                 key = f"{client_ip}:{prefix}"
@@ -94,6 +129,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         headers={"Retry-After": str(window)},
                     )
                 break
+        else:
+            # 2. Pour les autres endpoints, appliquer le rate limit par plan
+            user_plan = _get_user_plan_from_token(request)
+            if user_plan in PLAN_RATE_LIMITS:
+                max_hits, window = PLAN_RATE_LIMITS[user_plan]
+                # Clé = IP + plan (pas de path, global par plan)
+                key = f"{client_ip}:plan:{user_plan}"
+                if not _bucket.is_allowed(key, max_hits, window):
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "detail": f"Limite {user_plan} dépassée ({max_hits} req/min). Réessayez dans {window // 60} minute(s)."
+                        },
+                        headers={"Retry-After": str(window)},
+                    )
 
         # Nettoyage périodique (toutes les 1000 requêtes)
         RateLimitMiddleware._cleanup_counter += 1

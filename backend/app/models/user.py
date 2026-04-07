@@ -69,6 +69,11 @@ class User(Base):
     totp_enabled = Column(Boolean, default=False, nullable=False)
     totp_pending_secret = Column(String, nullable=True)  # Temporary secret during setup
 
+    # ── Onboarding & Preferences ──
+    dj_style = Column(String, nullable=True)  # Club, Mariage, Radio, Festival, Autre
+    dj_software = Column(String, nullable=True)  # Rekordbox, Serato, Traktor, VirtualDJ, Autre
+    onboarding_completed = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
