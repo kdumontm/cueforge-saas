@@ -597,6 +597,88 @@ async def analyze_track(
     return AnalyzeResponse(status="started", message="Analysis started in background")
 
 
+# ── SSE: stream du statut d'analyse en temps réel ────────────────────────────
+
+@router.get("/{track_id}/status-stream")
+async def stream_track_status(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Server-Sent Events (SSE) — envoie le statut de la track en temps réel.
+    Remplace le polling côté client (2s interval → push immédiat).
+    Le stream se ferme automatiquement quand status = completed | failed.
+    """
+    import asyncio
+    import json as _json
+
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    async def event_generator():
+        from app.database import SessionLocal
+        last_status = None
+        check_interval = 1.0  # 1s au lieu de 2s — mais côté serveur, pas HTTP
+        max_duration = 300    # 5 minutes max
+
+        elapsed = 0.0
+        while elapsed < max_duration:
+            poll_db = SessionLocal()
+            try:
+                t = poll_db.query(Track).filter(Track.id == track_id).options(
+                    selectinload(Track.analysis),
+                ).first()
+                if not t:
+                    yield f"data: {_json.dumps({'status': 'not_found'})}\n\n"
+                    return
+
+                current_status = t.status.value if hasattr(t.status, 'value') else str(t.status)
+
+                # Envoyer seulement si changement de statut
+                if current_status != last_status:
+                    payload = {
+                        "status": current_status,
+                        "error_message": t.error_message,
+                    }
+                    # Inclure les données d'analyse si terminé
+                    if current_status == "completed" and t.analysis:
+                        payload["analysis"] = {
+                            "bpm": t.analysis.bpm,
+                            "key": t.analysis.key,
+                            "energy": t.analysis.energy,
+                            "duration_ms": t.analysis.duration_ms,
+                        }
+                    yield f"data: {_json.dumps(payload, ensure_ascii=False)}\n\n"
+                    last_status = current_status
+
+                # Fin du stream si terminal
+                if current_status in ("completed", "failed"):
+                    return
+            finally:
+                poll_db.close()
+
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+
+        # Timeout
+        yield f"data: {_json.dumps({'status': 'timeout'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
 # ── Analyse locale (desktop) ─────────────────────────────────────────────────
 
 class LocalAnalysisPayload(BaseModel):
@@ -1320,6 +1402,12 @@ async def identify_track(
         search_itunes,
         search_musicbrainz_by_text,
     )
+    from app.services.cache_service import (
+        get_cached_identification,
+        set_cached_identification,
+        get_cached_text_search,
+        set_cached_text_search,
+    )
 
     def _json_response(data: dict) -> JSONResponse:
         content = _json.dumps(data, ensure_ascii=False)
@@ -1361,6 +1449,11 @@ async def identify_track(
         # Step 1a — Fingerprint (blocking subprocess → thread pool)
         fingerprint, duration = await loop.run_in_executor(None, fingerprint_file, file_path)
         if fingerprint and duration:
+            # ── Cache check: fingerprint déjà vu ? ──
+            cached = get_cached_identification(fingerprint, duration)
+            if cached:
+                logger.info(f"Cache HIT pour track {track_id} — skip API calls")
+                return _json_response({"status": "found", "result": cached})
             # Step 2 — AcoustID (lowered threshold: 0.3 instead of 0.4)
             acoustid_result = await loop.run_in_executor(None, lookup_acoustid, fingerprint, duration)
         else:
@@ -1373,6 +1466,11 @@ async def identify_track(
     if not acoustid_result:
         text_query = _build_text_query()
         if text_query:
+            # ── Cache check: recherche texte déjà faite ? ──
+            cached_text = get_cached_text_search(text_query)
+            if cached_text:
+                logger.info(f"Cache HIT (text) pour track {track_id}")
+                return _json_response({"status": "found", "result": cached_text})
             logger.info(f"AcoustID failed ({fingerprint_error or 'no match'}), trying MusicBrainz text: '{text_query}'")
             mb_text_result = await loop.run_in_executor(None, search_musicbrainz_by_text, text_query)
 
@@ -1446,6 +1544,14 @@ async def identify_track(
             if not result["year"]        and it.get("year"):        result["year"]        = it["year"]
             if "+itunes" not in result["source"]:
                 result["source"] = result["source"] + "+itunes"
+
+    # ── Cache: sauvegarder le résultat pour les prochains appels ──
+    if fingerprint and duration:
+        set_cached_identification(fingerprint, duration, result)
+    elif not acoustid_result and mb_text_result:
+        text_query = _build_text_query()
+        if text_query:
+            set_cached_text_search(text_query, result)
 
     return _json_response({
         "status": "found",

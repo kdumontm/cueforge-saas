@@ -458,6 +458,15 @@ export async function pollTrackUntilDone(
   intervalMs = 2000,
   maxAttempts = 120
 ): Promise<Track> {
+  // ── Essayer SSE d'abord (moins de requêtes, temps réel) ──
+  try {
+    const result = await _pollViaSSE(trackId, onUpdate);
+    if (result) return result;
+  } catch (e) {
+    console.warn('SSE fallback to polling:', e);
+  }
+
+  // ── Fallback: polling classique ──
   for (let i = 0; i < maxAttempts; i++) {
     const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
       headers: { ...authHeaders() },
@@ -470,6 +479,60 @@ export async function pollTrackUntilDone(
     await new Promise(r => setTimeout(r, intervalMs));
   }
   throw new Error('Analysis timed out');
+}
+
+async function _pollViaSSE(
+  trackId: number,
+  onUpdate?: (track: Track) => void,
+): Promise<Track | null> {
+  const token = getToken();
+  if (!token) return null;
+
+  const url = `${API_URL}/tracks/${trackId}/status-stream`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok || !response.body) return null;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.status === 'completed') {
+          // Fetch le track complet pour avoir toutes les relations
+          const track = await getTrack(trackId);
+          if (onUpdate) onUpdate(track);
+          return track;
+        }
+        if (data.status === 'failed') {
+          throw new Error(`Analysis failed for track ${trackId}`);
+        }
+        if (data.status === 'timeout' || data.status === 'not_found') {
+          return null; // fallback au polling
+        }
+        // Status intermédiaire — notifier avec un track partiel
+        if (onUpdate) {
+          onUpdate({ id: trackId, status: data.status } as Track);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('Analysis failed')) throw e;
+        // JSON parse error — skip
+      }
+    }
+  }
+  return null;
 }
 
 export async function listTracks(
