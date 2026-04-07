@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Lock, CreditCard, Disc3, Keyboard, ArrowLeft, Save, ChevronRight, Music2, Download, Zap, Palette, Bell, Shield } from "lucide-react";
+import { User, Lock, CreditCard, Disc3, Keyboard, ArrowLeft, Save, ChevronRight, Music2, Download, Zap, Palette, Bell, Shield, ShieldCheck } from "lucide-react";
 import { getMyProfile, updateMyProfile, updateUserSettings, UserProfile } from "@/lib/api";
 
 export default function SettingsPage() {
@@ -37,6 +37,12 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
+  // 2FA state
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFASetup, setTwoFASetup] = useState<{ secret: string; uri: string } | null>(null);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem("cueforge_token");
     if (!token) {
@@ -44,6 +50,7 @@ export default function SettingsPage() {
       return;
     }
     loadProfile();
+    loadTwoFAStatus();
     // Load DJ prefs from localStorage
     const savedPrefs = localStorage.getItem("cueforge_dj_prefs");
     if (savedPrefs) {
@@ -72,6 +79,22 @@ export default function SettingsPage() {
       showMessage("error", "Impossible de charger le profil");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadTwoFAStatus() {
+    try {
+      const token = localStorage.getItem('cueforge_token');
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+      const res = await fetch(`${API_URL}/2fa/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTwoFAEnabled(data.enabled);
+      }
+    } catch {
+      // Silently fail if 2FA check fails
     }
   }
 
@@ -282,6 +305,206 @@ export default function SettingsPage() {
                 >
                   Déconnecter tous les appareils
                 </button>
+              </div>
+
+              {/* Two-Factor Authentication */}
+              <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <ShieldCheck size={20} className="text-green-400" /> Authentification à deux facteurs
+                </h2>
+
+                {/* Status Indicator */}
+                <div className="mb-6 flex items-center gap-3 p-4 rounded-lg" style={{
+                  background: twoFAEnabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                  border: `1px solid ${twoFAEnabled ? 'rgba(34, 197, 94, 0.3)' : 'rgba(107, 114, 128, 0.3)'}`
+                }}>
+                  <div className={`w-3 h-3 rounded-full ${twoFAEnabled ? 'bg-green-500' : 'bg-slate-400'}`} />
+                  <span className={`font-semibold text-sm ${twoFAEnabled ? 'text-green-400' : 'text-slate-400'}`}>
+                    {twoFAEnabled ? 'Authentification 2FA activée' : 'Authentification 2FA désactivée'}
+                  </span>
+                </div>
+
+                {!twoFAEnabled && !twoFASetup && (
+                  <div>
+                    <p className="text-sm text-[var(--text-muted)] mb-4">
+                      Activez l'authentification à deux facteurs pour sécuriser votre compte. Vous recevrez un code à 6 chiffres à saisir lors de chaque connexion.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setTwoFALoading(true);
+                        try {
+                          const token = localStorage.getItem('cueforge_token');
+                          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                          const res = await fetch(`${API_URL}/2fa/setup`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setTwoFASetup({ secret: data.secret, uri: data.uri });
+                          } else {
+                            showMessage('error', 'Erreur lors de la configuration 2FA');
+                          }
+                        } catch {
+                          showMessage('error', 'Erreur lors de la configuration 2FA');
+                        } finally {
+                          setTwoFALoading(false);
+                        }
+                      }}
+                      disabled={twoFALoading}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors"
+                    >
+                      <ShieldCheck size={14} /> {twoFALoading ? 'Configuration...' : 'Configurer 2FA'}
+                    </button>
+                  </div>
+                )}
+
+                {twoFASetup && !twoFAEnabled && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-blue-600/10 border border-blue-500/30">
+                      <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Clé secrète</p>
+                      <div className="font-mono text-sm text-[var(--text-primary)] p-2 bg-[var(--bg-primary)] rounded border border-[var(--border-subtle)] break-all">
+                        {twoFASetup.secret}
+                      </div>
+                      <p className="text-xs text-blue-400/70 mt-2">
+                        Sauvegardez cette clé en lieu sûr. Vous en aurez besoin si vous perdez votre authenticateur.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-purple-600/10 border border-purple-500/30">
+                      <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Code QR (otpauth URL)</p>
+                      <div className="font-mono text-xs text-[var(--text-primary)] p-2 bg-[var(--bg-primary)] rounded border border-[var(--border-subtle)] break-all overflow-auto max-h-20">
+                        {twoFASetup.uri}
+                      </div>
+                      <p className="text-xs text-purple-400/70 mt-2">
+                        Scannez ce code avec une application d'authentification (Google Authenticator, Authy, Microsoft Authenticator, etc.)
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                        Code de vérification (6 chiffres)
+                      </label>
+                      <input
+                        type="text"
+                        value={twoFACode}
+                        onChange={e => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        maxLength={6}
+                        placeholder="000000"
+                        aria-label="Code de vérification 2FA"
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] focus:border-blue-500 focus:outline-none transition-colors text-center tracking-widest font-mono text-lg"
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (twoFACode.length !== 6) {
+                            showMessage('error', 'Entrez un code à 6 chiffres');
+                            return;
+                          }
+                          setTwoFALoading(true);
+                          try {
+                            const token = localStorage.getItem('cueforge_token');
+                            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                            const res = await fetch(`${API_URL}/2fa/enable`, {
+                              method: 'POST',
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ secret: twoFASetup.secret, code: twoFACode }),
+                            });
+                            if (res.ok) {
+                              setTwoFAEnabled(true);
+                              setTwoFASetup(null);
+                              setTwoFACode('');
+                              showMessage('success', 'Authentification 2FA activée !');
+                            } else {
+                              showMessage('error', 'Code invalide. Réessayez.');
+                            }
+                          } catch {
+                            showMessage('error', 'Erreur lors de l\'activation 2FA');
+                          } finally {
+                            setTwoFALoading(false);
+                          }
+                        }}
+                        disabled={twoFALoading || twoFACode.length !== 6}
+                        className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors"
+                      >
+                        {twoFALoading ? 'Activation...' : 'Activer'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setTwoFASetup(null); setTwoFACode(''); }}
+                        className="flex-1 px-5 py-2.5 bg-[var(--bg-elevated)] text-[var(--text-secondary)] rounded-lg text-sm font-medium cursor-pointer border-none hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {twoFAEnabled && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Votre compte est protégé par authentification à deux facteurs. Entrez votre code à 6 chiffres actuel pour désactiver 2FA.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">
+                        Code de vérification (6 chiffres)
+                      </label>
+                      <input
+                        type="text"
+                        value={twoFACode}
+                        onChange={e => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        maxLength={6}
+                        placeholder="000000"
+                        aria-label="Code de vérification 2FA pour désactivation"
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] focus:border-blue-500 focus:outline-none transition-colors text-center tracking-widest font-mono text-lg"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (twoFACode.length !== 6) {
+                          showMessage('error', 'Entrez un code à 6 chiffres');
+                          return;
+                        }
+                        setTwoFALoading(true);
+                        try {
+                          const token = localStorage.getItem('cueforge_token');
+                          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                          const res = await fetch(`${API_URL}/2fa/disable`, {
+                            method: 'POST',
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ code: twoFACode }),
+                          });
+                          if (res.ok) {
+                            setTwoFAEnabled(false);
+                            setTwoFACode('');
+                            showMessage('success', 'Authentification 2FA désactivée');
+                          } else {
+                            showMessage('error', 'Code invalide. Réessayez.');
+                          }
+                        } catch {
+                          showMessage('error', 'Erreur lors de la désactivation 2FA');
+                        } finally {
+                          setTwoFALoading(false);
+                        }
+                      }}
+                      disabled={twoFALoading || twoFACode.length !== 6}
+                      className="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold cursor-pointer border-none transition-colors"
+                    >
+                      {twoFALoading ? 'Désactivation...' : 'Désactiver 2FA'}
+                    </button>
+                  </div>
+                )}
               </div>
             </form>
           )}
