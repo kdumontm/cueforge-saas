@@ -10,11 +10,12 @@ from app.models.push_subscription import PushSubscription
 from app.models.cue_template import CueTemplate
 from app.models.blog_post import BlogPost
 from app.models.referral import Referral
+from app.models.favorite import Favorite
 
 __all__ = [
     "User", "Track", "TrackAnalysis", "CuePoint", "CueRule", "LoopMarker", "CUE_COLOR_RGB",
     "PageConfig", "DEFAULT_PAGES", "PlanFeature", "DEFAULT_PLAN_FEATURES", "DEFAULT_PLAN_CONFIGS",
     "Organization", "OrgInvite", "UsageLog", "Subscription",
     "SiteSettings", "Page", "Section", "Component", "MediaAsset",
-    "ApiKey", "Webhook", "PushSubscription", "CueTemplate", "BlogPost", "Referral",
+    "ApiKey", "Webhook", "PushSubscription", "CueTemplate", "BlogPost", "Referral", "Favorite",
 ]

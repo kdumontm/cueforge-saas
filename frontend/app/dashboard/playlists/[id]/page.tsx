@@ -9,6 +9,7 @@ import {
 import { getPlaylist, removeTrackFromPlaylist, listTracks } from '@/lib/api';
 import type { PlaylistDetail, PlaylistTrackItem } from '@/lib/api';
 import type { Track } from '@/types';
+import DragDropList from '@/components/DragDropList';
 
 function msToMin(ms: number | null | undefined) {
   if (!ms) return '—';
@@ -22,6 +23,8 @@ export default function PlaylistDetailPage() {
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => { load(); }, [id]);
 
@@ -46,6 +49,35 @@ export default function PlaylistDetailPage() {
       } : null);
     } catch {}
     setRemovingId(null);
+  }
+
+  async function handleReorder(newTracks: any[]) {
+    if (!playlist) return;
+    setPlaylist(prev => prev ? {
+      ...prev,
+      tracks: newTracks,
+    } : null);
+  }
+
+  async function handleSaveReorder() {
+    if (!playlist) return;
+    setReordering(true);
+    try {
+      const trackIds = playlist.tracks.map(t => t.track_id);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/playlists/${playlist.id}/reorder`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ track_ids: trackIds }),
+          credentials: 'include',
+        }
+      );
+      if (response.ok) {
+        setReorderMode(false);
+      }
+    } catch {}
+    setReordering(false);
   }
 
   if (loading) return (
@@ -85,13 +117,44 @@ export default function PlaylistDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <a
-            href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '')}/api/v1/export/playlist/${playlist.id}/m3u`}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-lg transition-colors"
-            download
-          >
-            <Download size={13} /> M3U
-          </a>
+          {reorderMode && (
+            <>
+              <button
+                onClick={handleSaveReorder}
+                disabled={reordering}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors disabled:opacity-50 border-none cursor-pointer"
+              >
+                {reordering ? <Loader2 size={13} className="animate-spin" /> : '✓'} Sauvegarder
+              </button>
+              <button
+                onClick={() => {
+                  setReorderMode(false);
+                  load();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-lg transition-colors"
+              >
+                Annuler
+              </button>
+            </>
+          )}
+          {!reorderMode && (
+            <>
+              <button
+                onClick={() => setReorderMode(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-lg transition-colors"
+                title="Réorganiser les tracks"
+              >
+                <GripVertical size={13} />
+              </button>
+              <a
+                href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '')}/api/v1/export/playlist/${playlist.id}/m3u`}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-lg transition-colors"
+                download
+              >
+                <Download size={13} /> M3U
+              </a>
+            </>
+          )}
         </div>
       </div>
 
@@ -103,6 +166,36 @@ export default function PlaylistDetailPage() {
           <p className="text-[12px] text-[var(--text-muted)] mt-1">
             Ajoute des tracks depuis le dashboard principal
           </p>
+        </div>
+      ) : reorderMode ? (
+        <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-[28px_1fr_80px_40px] gap-3 px-4 py-2.5 border-b border-[var(--border-subtle)] text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+            <span></span>
+            <span>Titre</span>
+            <span className="text-right">Durée</span>
+            <span></span>
+          </div>
+          <DragDropList
+            items={playlist.tracks}
+            onReorder={handleReorder}
+            renderItem={(entry, idx) => (
+              <div className="group grid grid-cols-[28px_1fr_80px_40px] gap-3 items-center px-4 py-3 hover:bg-[var(--bg-hover)] border-b border-[var(--border-subtle)] last:border-b-0 transition-colors cursor-move">
+                <div className="flex items-center justify-center text-[var(--text-muted)] hover:text-blue-400 transition-colors">
+                  <GripVertical size={14} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[var(--text-primary)] truncate">
+                    {entry.title || entry.filename || `Track ${entry.track_id}`}
+                  </p>
+                  {entry.artist && (
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">{entry.artist}</p>
+                  )}
+                </div>
+                <span className="text-[12px] text-[var(--text-muted)] font-mono text-right">—</span>
+                <div className="text-[12px] text-[var(--text-muted)]">{idx + 1}</div>
+              </div>
+            )}
+          />
         </div>
       ) : (
         <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden">

@@ -88,3 +88,5 @@ class User(Base):
     webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")
     cue_templates = relationship("CueTemplate", back_populates="user", cascade="all, delete-orphan")
     push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan")
+    tags = relationship("Tag", back_populates="user", cascade="all, delete-orphan")
+    activity_logs = relationship("ActivityLog", back_populates="user", cascade="all, delete-orphan")

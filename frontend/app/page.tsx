@@ -21,6 +21,9 @@ export default function LandingPage() {
           <span className="text-xl font-bold text-white">CueForge</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/testimonials" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
+            Témoignages
+          </Link>
           <Link href="/pricing" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
             Tarifs
           </Link>

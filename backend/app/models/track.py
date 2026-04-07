@@ -117,6 +117,10 @@ class Track(Base):
         "LoopMarker", back_populates="track",
         cascade="all, delete-orphan", order_by="LoopMarker.start_ms",
     )
+    track_tags = relationship(
+        "TrackTag", back_populates="track",
+        cascade="all, delete-orphan",
+    )
 
 
 class TrackAnalysis(Base):

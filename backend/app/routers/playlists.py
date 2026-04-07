@@ -53,6 +53,10 @@ class PlaylistTrackReorder(BaseModel):
     position: int
 
 
+class PlaylistReorderByIds(BaseModel):
+    track_ids: List[int]
+
+
 class PlaylistTrackResponse(BaseModel):
     id: int
     track_id: int
@@ -280,6 +284,25 @@ def reorder_playlist_tracks(
         ).first()
         if entry:
             entry.position = item.position
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.put("/{playlist_id}/reorder")
+def reorder_playlist_tracks_by_ids(
+    playlist_id: int,
+    body: PlaylistReorderByIds,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _get_user_playlist(playlist_id, current_user, db)
+    for position, track_id in enumerate(body.track_ids):
+        entry = db.query(PlaylistTrack).filter(
+            PlaylistTrack.playlist_id == playlist_id,
+            PlaylistTrack.track_id == track_id,
+        ).first()
+        if entry:
+            entry.position = position
     db.commit()
     return {"status": "ok"}
 

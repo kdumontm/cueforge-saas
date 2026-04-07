@@ -28,6 +28,7 @@ export const t: Record<string, Record<Lang, string>> = {
   'sidebar.logout':           { fr: 'Déconnexion',           en: 'Logout' },
   'sidebar.new_playlist':     { fr: 'Nouvelle playlist...',  en: 'New playlist...' },
   'sidebar.create':           { fr: 'Créer',                 en: 'Create' },
+  'sidebar.activity':         { fr: 'Historique',            en: 'Activity' },
 
   // Track list
   'tracks.title':             { fr: 'Titre',                 en: 'Title' },

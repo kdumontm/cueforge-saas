@@ -1736,3 +1736,23 @@ export async function getBillingPortal(): Promise<{ url: string }> {
   if (!res.ok) throw new Error('Failed to open billing portal');
   return res.json();
 }
+
+// ── Compare Tracks ──────────────────────────────────────────────────────────
+
+export async function getTracks(): Promise<{ tracks: Track[] }> {
+  const res = await authFetch(`${API_URL}/tracks`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to fetch tracks');
+  return res.json();
+}
+
+export async function compareTracksAPI(trackIdA: string, trackIdB: string): Promise<any> {
+  const res = await authFetch(`${API_URL}/tracks/compare?track_a=${trackIdA}&track_b=${trackIdB}`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to compare tracks');
+  return res.json();
+}

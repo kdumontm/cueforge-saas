@@ -29,6 +29,7 @@ const getNavItems = (lang: string) => [
   { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists' },
   { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates' },
   { href: '/dashboard/gig-prep', icon: Zap, labelKey: 'sidebar.gig_prep' },
+  { href: '/dashboard/activity', icon: Clock, labelKey: 'sidebar.activity' },
   { href: '/dashboard/tools', icon: Wrench, labelKey: 'sidebar.dj_tools' },
   { href: '/dashboard/upload', icon: Upload, labelKey: 'sidebar.upload' },
   { href: '/dashboard/export', icon: Download, labelKey: 'sidebar.export' },

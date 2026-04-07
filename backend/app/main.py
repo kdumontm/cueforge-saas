@@ -25,6 +25,9 @@ from app.models import webhook  # noqa: F401 — registers Webhook with Base
 from app.models import cue_template  # noqa: F401 — registers CueTemplate with Base
 from app.models import blog_post  # noqa: F401 — registers BlogPost with Base
 from app.models import push_subscription  # noqa: F401 — registers PushSubscription with Base
+from app.models import favorite  # noqa: F401 — registers Favorite with Base
+from app.models import tag  # noqa: F401 — registers Tag and TrackTag with Base
+from app.models import activity_log  # noqa: F401 — registers ActivityLog with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -170,7 +173,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)  # 🔴 FIX (faille 9) : headers HTTP sécurité
 
 # Routers
-from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks  # noqa: E402
+from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks, favorites, duplicates, compare, export_pdf  # noqa: E402
 from app.routers import org_management  # noqa: E402
 # v2 routers
 from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
@@ -185,15 +188,21 @@ from app.routers import profile, user_stats, jobs, push_notifications  # noqa: E
 from app.routers import cue_templates, blog  # noqa: E402
 # v8 routers
 from app.routers import referrals, admin_stats  # noqa: E402
+# v9 routers
+from app.routers import tags, activity  # noqa: E402
 # SEO
 from app.routers import seo  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(api_keys.router, tags=["api-keys"])
 app.include_router(webhooks.router, tags=["webhooks"])
+app.include_router(favorites.router, tags=["favorites"])
+app.include_router(duplicates.router, tags=["duplicates"])
 app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
+app.include_router(compare.router, prefix="/api/v1", tags=["compare"])
 app.include_router(cues.router, prefix="/api/v1/cues", tags=["cues"])
 app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
+app.include_router(export_pdf.router, prefix="/api/v1", tags=["export-pdf"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
 app.include_router(admin.public_router, prefix="/api/v1", tags=["site"])
@@ -229,5 +238,8 @@ app.include_router(blog.router, tags=["blog"])
 # v8 routers
 app.include_router(referrals.router, tags=["referrals"])
 app.include_router(admin_stats.router, tags=["admin"])
+# v9 routers
+app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
+app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
 # SEO
 app.include_router(seo.router)
