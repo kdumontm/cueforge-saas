@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Music2, Eye, EyeOff, Loader2, Check, X } from 'lucide-react';
 import { register, login } from '@/lib/api';
+import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -156,6 +157,7 @@ export default function RegisterPage() {
                   {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <PasswordStrengthMeter password={password} />
               {password.length > 0 && (
                 <div id="pwdStrengthHelp" className={`mt-1 text-xs flex items-center gap-1 ${pwdStrong ? 'text-green-400' : 'text-orange-400'}`}>
                   {pwdStrong ? <Check size={11} /> : <X size={11} />} {pwdStrong ? 'Mot de passe valide' : 'Trop court (min. 8 caractères)'}

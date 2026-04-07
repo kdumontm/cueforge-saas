@@ -5,6 +5,7 @@ import { isAuthenticated, clearToken, getCurrentUser } from '@/lib/api';
 import type { User } from '@/lib/api';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { DashboardProvider, useDashboardContext } from './DashboardContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Menu, X } from 'lucide-react';
@@ -109,6 +110,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           title="Dashboard"
           subtitle="Analyse et prépare tes sets"
         />
+        <Breadcrumbs />
         <main className="flex-1 w-full overflow-x-hidden">
           {children}
         </main>
