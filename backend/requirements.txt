@@ -26,11 +26,12 @@ pylast==5.3.0
 email-validator>=2.1.0
 # Cache (optional — fallback in-memory si Redis non configuré)
 redis>=5.0.0
-# Stem separation (Demucs)
-diffq>=0.2.4
-demucs>=4.0.0
+# Stem separation (Demucs) — installé séparément dans le Dockerfile
+# avec torch CPU-only pour minimiser la taille de l'image
+# diffq>=0.2.4
+# demucs>=4.0.0
 # 2FA (TOTP)
 pyotp>=2.9.0
 qrcode>=7.4.2
 # Notifications & Social
-python-secrets>=2.0.0
+# (secrets est un module built-in Python, pas besoin de package externe)
