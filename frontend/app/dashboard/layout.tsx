@@ -9,6 +9,9 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { DashboardProvider, useDashboardContext } from './DashboardContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Menu, X } from 'lucide-react';
+import { useKeyboardShortcuts } from '@/lib/keyboardShortcuts';
+import { CommandPalette } from '@/components/CommandPalette';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -17,6 +20,9 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const prevWidthRef = useRef(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  // Initialize global keyboard shortcuts
+  useKeyboardShortcuts();
 
   useEffect(() => {
     const check = () => {
@@ -66,6 +72,12 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] flex transition-colors duration-300">
+      {/* Command Palette */}
+      <CommandPalette />
+
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+
       {/* Mobile hamburger */}
       {isMobile && (
         <button

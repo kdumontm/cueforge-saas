@@ -86,3 +86,5 @@ class User(Base):
     )
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
     webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")
+    cue_templates = relationship("CueTemplate", back_populates="user", cascade="all, delete-orphan")
+    push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan")

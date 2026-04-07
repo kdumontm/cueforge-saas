@@ -33,6 +33,8 @@ redis>=5.0.0
 # 2FA (TOTP)
 pyotp>=2.9.0
 qrcode>=7.4.2
+# Web Push Notifications
+pywebpush>=2.0.0
 # Notifications & Social
 # (secrets est un module built-in Python, pas besoin de package externe)
 # Error monitoring

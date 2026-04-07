@@ -7,6 +7,7 @@ import { tr } from '@/lib/i18n';
 import { FilterPanel } from './FilterPanel';
 import { TrackRow } from './TrackRow';
 import { TrackGrid } from './TrackGrid';
+import { VirtualTrackList } from './VirtualTrackList';
 import ExportDJ from '@/components/ExportDJ';
 import type { Track } from '@/types';
 
@@ -313,10 +314,10 @@ export const TrackList = React.memo(function TrackList({
             onRatingChange={onRatingChange}
           />
         ) : (
-          // List View
-          <div className="flex flex-col">
+          // List View — with virtual scrolling for large lists
+          <div className="flex flex-col h-full">
             {/* Column Headers — responsive grid matching TrackRow */}
-            <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-3 sm:px-4 py-2">
+            <div className="sticky top-0 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] px-3 sm:px-4 py-2 z-10">
               <div className="grid grid-cols-[28px_1fr_40px] sm:grid-cols-[32px_32px_2fr_60px_60px_40px] lg:grid-cols-[40px_40px_2fr_80px_80px_50px_120px_100px_80px_40px_40px] gap-2 sm:gap-3 text-xs font-medium text-[var(--text-secondary)]">
                 {getColumnHeaders(lang).map((header) => {
                   const hiddenOnMobile = ['play', 'bpm', 'key'].includes(header.key);
@@ -340,28 +341,51 @@ export const TrackList = React.memo(function TrackList({
               </div>
             </div>
 
-            {/* Rows */}
-            {filteredTracks.map((track, index) => (
-              <TrackRow
-                key={track.id}
-                track={track}
-                index={index}
-                isSelected={selectedTrack?.id === track.id}
-                isMultiSelected={selectedIds.has(track.id)}
-                isPlaying={playingTrackId === track.id}
-                isFavorite={favoriteIds.has(track.id)}
-                isAnalyzing={analyzingIds.has(track.id)}
-                referenceTrack={selectedTrack}
+            {/* Rows — use virtual scrolling for lists with 100+ tracks */}
+            {filteredTracks.length > 100 ? (
+              <VirtualTrackList
+                tracks={filteredTracks}
+                selectedTrack={selectedTrack}
+                playingTrackId={playingTrackId}
+                favoriteIds={favoriteIds}
+                selectedIds={selectedIds}
+                analyzingIds={analyzingIds}
+                rowHeight={60}
+                containerHeight={window.innerHeight - 300}
                 onSelect={onSelect}
                 onDoubleClick={onDoubleClick}
                 onContextMenu={onContextMenu}
                 onFavoriteToggle={onFavoriteToggle}
                 onRatingChange={onRatingChange}
-                onReanalyze={onReanalyzeTrack}
-                onDelete={onDeleteTrack}
-                onAddTag={onAddTagTrack}
+                onReanalyzeTrack={onReanalyzeTrack}
+                onDeleteTrack={onDeleteTrack}
+                onAddTagTrack={onAddTagTrack}
               />
-            ))}
+            ) : (
+              <div className="flex flex-col">
+                {filteredTracks.map((track, index) => (
+                  <TrackRow
+                    key={track.id}
+                    track={track}
+                    index={index}
+                    isSelected={selectedTrack?.id === track.id}
+                    isMultiSelected={selectedIds.has(track.id)}
+                    isPlaying={playingTrackId === track.id}
+                    isFavorite={favoriteIds.has(track.id)}
+                    isAnalyzing={analyzingIds.has(track.id)}
+                    referenceTrack={selectedTrack}
+                    onSelect={onSelect}
+                    onDoubleClick={onDoubleClick}
+                    onContextMenu={onContextMenu}
+                    onFavoriteToggle={onFavoriteToggle}
+                    onRatingChange={onRatingChange}
+                    onReanalyze={onReanalyzeTrack}
+                    onDelete={onDeleteTrack}
+                    onAddTag={onAddTagTrack}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -22,6 +22,9 @@ from app.models import shared  # noqa: F401 — registers SharedLink with Base
 from app.models import feedback  # noqa: F401 — registers Feedback with Base
 from app.models import api_key  # noqa: F401 — registers ApiKey with Base
 from app.models import webhook  # noqa: F401 — registers Webhook with Base
+from app.models import cue_template  # noqa: F401 — registers CueTemplate with Base
+from app.models import blog_post  # noqa: F401 — registers BlogPost with Base
+from app.models import push_subscription  # noqa: F401 — registers PushSubscription with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -177,7 +180,11 @@ from app.routers import downloads  # noqa: E402
 # v5 routers
 from app.routers import two_factor, notifications, sharing, feedback  # noqa: E402
 # v6 routers
-from app.routers import profile, user_stats, jobs  # noqa: E402
+from app.routers import profile, user_stats, jobs, push_notifications  # noqa: E402
+# v7 routers
+from app.routers import cue_templates, blog  # noqa: E402
+# v8 routers
+from app.routers import referrals, admin_stats  # noqa: E402
 # SEO
 from app.routers import seo  # noqa: E402
 
@@ -215,5 +222,12 @@ app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
 app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
 app.include_router(user_stats.router, prefix="/api/v1", tags=["user-stats"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
+app.include_router(push_notifications.router, tags=["push-notifications"])
+# v7 routers
+app.include_router(cue_templates.router, tags=["cue-templates"])
+app.include_router(blog.router, tags=["blog"])
+# v8 routers
+app.include_router(referrals.router, tags=["referrals"])
+app.include_router(admin_stats.router, tags=["admin"])
 # SEO
 app.include_router(seo.router)

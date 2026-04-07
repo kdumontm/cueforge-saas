@@ -137,6 +137,22 @@ export const CATEGORY_PRESETS = [
   'B2B', 'Special', 'Edit', 'Mashup',
 ] as const;
 
+// Blog post
+export interface BlogPost {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content?: string;
+  author?: string;
+  cover_image_url?: string;
+  tags: string[];
+  published: boolean;
+  published_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 // Rekordbox color palette for cue points
 export const REKORDBOX_CUE_COLORS: Record<string, string> = {
   red: '#C02626',
