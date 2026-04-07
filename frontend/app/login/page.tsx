@@ -111,7 +111,7 @@ export default function LoginPage() {
         <div className="bg-bg-secondary border border-slate-800/60 rounded-2xl p-8">
           <h1 className="text-xl font-bold text-white mb-6">Connexion</h1>
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm" role="alert">
               {error}
             </div>
           )}
@@ -124,12 +124,14 @@ export default function LoginPage() {
                 Renvoyer le lien de vérification
               </p>
               <input
+                id="resendEmail"
                 type="email"
                 value={resendEmail}
                 onChange={e => setResendEmail(e.target.value)}
                 placeholder="ton@email.com"
                 required
-                className="w-full px-3 py-2.5 bg-bg-primary border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 text-sm transition-colors"
+                aria-label="Adresse email pour renvoyer le lien"
+                className="w-full px-3 py-2.5 bg-bg-primary border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 text-sm transition-colors min-h-[44px]"
               />
               <button
                 type="submit"
@@ -150,34 +152,42 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Email ou pseudo
               </label>
               <input
+                id="username"
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="ton@email.com ou ton_pseudo"
                 required
                 autoComplete="username"
-                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
+                autoFocus
+                aria-label="Email ou pseudo"
+                aria-required="true"
+                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors min-h-[44px]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Mot de passe</label>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1.5">Mot de passe</label>
               <div className="relative">
                 <input
+                  id="password"
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm pr-12 transition-colors"
+                  aria-label="Mot de passe"
+                  aria-required="true"
+                  className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm pr-12 transition-colors min-h-[44px]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
                   {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

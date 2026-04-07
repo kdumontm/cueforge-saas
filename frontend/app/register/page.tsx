@@ -94,74 +94,91 @@ export default function RegisterPage() {
             ))}
           </div>
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">{error}</div>
+            <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm" role="alert">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Nom d&apos;utilisateur <span className="text-slate-500 text-xs">(utilisé pour te connecter)</span>
               </label>
               <input
+                id="username"
                 type="text"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 placeholder="ton_pseudo"
                 required
                 autoComplete="username"
-                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
+                autoFocus
+                aria-label="Nom d'utilisateur"
+                aria-required="true"
+                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors min-h-[44px]"
               />
             </div>
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Email <span className="text-slate-500 text-xs">(pour récupérer ton compte)</span>
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="ton@email.com"
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
+                aria-label="Email"
+                aria-required="true"
+                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors min-h-[44px]"
               />
             </div>
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Mot de passe</label>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1.5">Mot de passe</label>
               <div className="relative">
                 <input
+                  id="password"
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Minimum 8 caractères"
                   required
-                  className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm pr-12 transition-colors"
+                  aria-label="Mot de passe"
+                  aria-required="true"
+                  aria-describedby="pwdStrengthHelp"
+                  className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm pr-12 transition-colors min-h-[44px]"
                 />
-                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                <button type="button" onClick={() => setShowPwd(!showPwd)}
+                  aria-label={showPwd ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
                   {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {password.length > 0 && (
-                <div className={`mt-1 text-xs flex items-center gap-1 ${pwdStrong ? 'text-green-400' : 'text-orange-400'}`}>
+                <div id="pwdStrengthHelp" className={`mt-1 text-xs flex items-center gap-1 ${pwdStrong ? 'text-green-400' : 'text-orange-400'}`}>
                   {pwdStrong ? <Check size={11} /> : <X size={11} />} {pwdStrong ? 'Mot de passe valide' : 'Trop court (min. 8 caractères)'}
                 </div>
               )}
             </div>
             {/* Confirm */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirmer le mot de passe</label>
+              <label htmlFor="confirm" className="block text-sm font-medium text-slate-300 mb-1.5">Confirmer le mot de passe</label>
               <input
+                id="confirm"
                 type={showPwd ? 'text' : 'password'}
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors"
+                aria-label="Confirmer le mot de passe"
+                aria-required="true"
+                aria-describedby="pwdMatchHelp"
+                className="w-full px-4 py-3 bg-bg-primary border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm transition-colors min-h-[44px]"
               />
               {confirm.length > 0 && (
-                <div className={`mt-1 text-xs flex items-center gap-1 ${pwdMatch ? 'text-green-400' : 'text-red-400'}`}>
+                <div id="pwdMatchHelp" className={`mt-1 text-xs flex items-center gap-1 ${pwdMatch ? 'text-green-400' : 'text-red-400'}`}>
                   {pwdMatch ? <Check size={11} /> : <X size={11} />} {pwdMatch ? 'Les mots de passe correspondent' : 'Ne correspondent pas'}
                 </div>
               )}

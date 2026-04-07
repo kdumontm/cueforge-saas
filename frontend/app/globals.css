@@ -259,6 +259,93 @@ input:focus, textarea:focus {
   input:focus, textarea:focus, select:focus, button:focus-visible {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
   }
+
+  /* Minimum touch target size (WCAG) */
+  button, input, select, textarea, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Sidebar collapse on mobile */
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    transition: left 0.3s ease;
+    z-index: 999;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* Better font sizes on mobile */
+  body {
+    font-size: 16px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  h2 {
+    font-size: 20px;
+  }
+  h3 {
+    font-size: 18px;
+  }
+
+  /* Card padding adjustments */
+  .bg-card, .card {
+    padding: 16px;
+  }
+
+  /* Reduce padding on forms */
+  input, textarea, select {
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  /* Better spacing for mobile layout */
+  .max-w-4xl {
+    padding: 16px;
+  }
+}
+
+/* Tablet responsiveness */
+@media (max-width: 1024px) {
+  /* Settings sidebar becomes horizontal tabs on tablet */
+  .settings-sidebar {
+    width: 100%;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+  }
+}
+
+/* Accessibility improvements */
+/* Better contrast on placeholder text */
+input::placeholder, textarea::placeholder, select::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* Enhanced focus visibility */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  border-radius: 4px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Safe area padding for notched phones */
