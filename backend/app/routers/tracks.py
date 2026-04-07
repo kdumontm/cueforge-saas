@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models.track import Track, TrackStatus, TrackAnalysis, CuePoint, LoopMarker
 from app.models.user import User
+from app.models.notification import Notification
 from app.schemas.track import (
     TrackResponse, TrackUploadResponse, TrackListResponse, AnalyzeResponse
 )
@@ -532,6 +533,17 @@ def _run_analysis(track_id: int):
         db.commit()
         logger.info(f"Track {track_id} analysis complete")
 
+        # ── Create notification ──────────────────────────────────────────
+        notif = Notification(
+            user_id=track.user_id,
+            type="analysis_complete",
+            title="Analyse terminée",
+            message=f"L'analyse de « {track.title or track.original_filename} » est terminée.",
+            link=f"/dashboard?track={track.id}",
+        )
+        db.add(notif)
+        db.commit()
+
         # ── Mode pro : lancer Demucs en thread daemon après analyse ─────
         # On utilise stems_service.separate_stems (CLI subprocess, timeout 15 min)
         # plutôt qu'une intégration Python inline, bien plus robuste sur Railway CPU.
@@ -886,6 +898,17 @@ async def analyze_track_local(
             logger.warning(f"[analyze-local] Auto-loops save failed: {e}")
 
     track.status = TrackStatus.completed
+    db.commit()
+
+    # ── Create notification ──────────────────────────────────────────
+    notif = Notification(
+        user_id=track.user_id,
+        type="analysis_complete",
+        title="Analyse terminée",
+        message=f"L'analyse de « {track.title or track.original_filename} » est terminée.",
+        link=f"/dashboard?track={track.id}",
+    )
+    db.add(notif)
     db.commit()
 
     # ── Stems : si l'analyse locale n'a PAS fait Demucs (pas installé sur le

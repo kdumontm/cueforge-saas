@@ -373,6 +373,19 @@ def _handle_checkout_completed(data: dict, db: Session):
 
     db.commit()
 
+    # ── Create welcome/upgrade notification ──────────────────────────────
+    from app.models.notification import Notification
+    plan_name = PLANS.get(plan_id, {}).get("name", "Plan")
+    notif = Notification(
+        user_id=user.id,
+        type="subscription_upgraded",
+        title="Bienvenue sur le plan " + plan_name,
+        message=f"Ton upgrade vers {plan_name} est activé ! Profite de tous les avantages.",
+        link="/dashboard",
+    )
+    db.add(notif)
+    db.commit()
+
 
 def _handle_subscription_updated(data: dict, db: Session):
     """Subscription was updated (upgrade/downgrade/renewal)."""
