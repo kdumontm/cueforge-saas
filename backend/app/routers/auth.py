@@ -142,6 +142,7 @@ class ResetPasswordRequest(BaseModel):
 
 _ALLOWED_REDIRECT_PREFIXES = (
     "https://exquisite-art-production-f4c6.up.railway.app",
+    "https://cueforge-saas-production.up.railway.app",
     "http://localhost",   # dev only
     "http://127.0.0.1",  # dev only
 )

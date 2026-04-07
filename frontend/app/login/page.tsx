@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Music2, Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { login } from '@/lib/api';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
 
 export default function LoginPage() {
   const router = useRouter();

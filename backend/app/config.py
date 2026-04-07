@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     ENTERPRISE_MAX_CUES: int = 128
 
     # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
-    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app"
+    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://cueforge-saas-production.up.railway.app,http://localhost:3000,http://127.0.0.1:3000"
 
     class Config:
         env_file = ".env"
