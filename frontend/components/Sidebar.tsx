@@ -23,6 +23,7 @@ interface SidebarProps {
 
 const getNavItems = (lang: string) => [
   { href: '/dashboard', icon: BarChart3, labelKey: 'sidebar.dashboard' },
+  { href: '/dashboard/stats', icon: BarChart3, labelKey: 'sidebar.stats' },
   { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder' },
   { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible' },
   { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists' },

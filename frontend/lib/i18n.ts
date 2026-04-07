@@ -12,6 +12,7 @@ export const t: Record<string, Record<Lang, string>> = {
   // Sidebar
   'sidebar.library':          { fr: 'Bibliothèque',          en: 'Library' },
   'sidebar.dashboard':        { fr: 'Dashboard',             en: 'Dashboard' },
+  'sidebar.stats':            { fr: 'Statistiques',          en: 'Statistics' },
   'sidebar.set_builder':      { fr: 'Set Builder',           en: 'Set Builder' },
   'sidebar.mix_compatible':   { fr: 'Mix compatible',        en: 'Compatible Mix' },
   'sidebar.playlists':        { fr: 'Playlists',             en: 'Playlists' },
