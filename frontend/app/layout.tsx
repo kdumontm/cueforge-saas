@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ClientProviders from '@/components/ClientProviders';
 import FeedbackWidget from '@/components/FeedbackWidget';
+import CookieConsent from '@/components/CookieConsent';
 import SentryInitializer from '@/components/SentryInitializer';
 
 export const metadata: Metadata = {
@@ -86,6 +87,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SentryInitializer />
           {children}
           <FeedbackWidget />
+          <CookieConsent />
         </ClientProviders>
       </body>
     </html>
