@@ -401,13 +401,152 @@ def detect_loops(
 #   BPM / BEAT DETECTION
 # ══════════════════════════════════════════════════════════════════════════
 
-def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
-    """Detect BPM and beat positions using Ellis dynamic programming."""
+def _fold_bpm_dj_range(bpm: float, lo: float = 70.0, hi: float = 180.0) -> float:
+    """
+    Fold a BPM value into the standard DJ range [70–180].
+    Librosa often returns double (256) or half (64) tempo.
+    """
+    if bpm <= 0:
+        return 128.0
+    while bpm < lo:
+        bpm *= 2
+    while bpm > hi:
+        bpm /= 2
+    return bpm
+
+
+def _round_bpm_smart(bpm: float) -> float:
+    """
+    Smart BPM rounding for DJ use.
+    - If within 0.3 of an integer, round to integer (128.2 → 128.0)
+    - Otherwise round to 0.1 precision (127.65 → 127.7)
+    Common DJ BPMs (120, 124, 126, 128, 130, 132, 140, 150, 170, 174, 175)
+    get extra snap gravity within ±0.5.
+    """
+    COMMON = [80, 85, 90, 95, 100, 105, 110, 115, 118, 120, 122, 124,
+              125, 126, 128, 130, 132, 134, 136, 138, 140, 142, 145,
+              148, 150, 155, 160, 165, 170, 172, 174, 175, 176]
+    for c in COMMON:
+        if abs(bpm - c) < 0.5:
+            return float(c)
+    if abs(bpm - round(bpm)) < 0.3:
+        return float(round(bpm))
+    return round(bpm, 1)
+
+
+def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
+    """
+    Detect the downbeat phase (0-3) among the first beats.
+    Returns the offset so that beats[offset::4] are the actual downbeats.
+    Uses onset strength: downbeats tend to be the loudest in a 4-beat cycle.
+    """
+    if len(beats) < 8:
+        return 0
     try:
-        tempo, beats_frames = librosa.beat.beat_track(y=y, sr=sr)
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
+        # Measure average onset strength at each phase (0,1,2,3)
+        strengths = [0.0, 0.0, 0.0, 0.0]
+        counts = [0, 0, 0, 0]
+        for i, bt in enumerate(beats[:min(64, len(beats))]):
+            frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
+            if 0 <= frame < len(onset_env):
+                phase = i % 4
+                strengths[phase] += onset_env[frame]
+                counts[phase] += 1
+        for j in range(4):
+            if counts[j] > 0:
+                strengths[j] /= counts[j]
+        return int(np.argmax(strengths))
+    except Exception:
+        return 0
+
+
+def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
+    """
+    Detect BPM and beat positions — v5.2 multi-method with DJ correction.
+
+    1. Ellis DP beat tracker (primary)
+    2. Onset autocorrelation (secondary, for validation)
+    3. Fold into DJ range [70–180 BPM]
+    4. Smart rounding toward common DJ tempos
+    5. Downbeat phase alignment (so beats[0::4] are actual bar starts)
+    """
+    try:
+        # ── Method 1: Ellis DP beat tracker ──
+        tempo_ellis, beats_frames = librosa.beat.beat_track(y=y, sr=sr)
+        bpm_ellis = float(tempo_ellis) if not hasattr(tempo_ellis, '__len__') else float(tempo_ellis[0])
+
+        # ── Method 2: Onset-based tempo estimation ──
+        try:
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+            tempo_onset = librosa.feature.tempo(
+                onset_envelope=onset_env, sr=sr, aggregate=None
+            )
+            # tempo_onset may return multiple candidates
+            if hasattr(tempo_onset, '__len__') and len(tempo_onset) > 0:
+                bpm_onset = float(tempo_onset[0])
+            else:
+                bpm_onset = float(tempo_onset)
+        except Exception:
+            bpm_onset = bpm_ellis
+
+        # ── Fold both into DJ range ──
+        bpm_ellis_dj = _fold_bpm_dj_range(bpm_ellis)
+        bpm_onset_dj = _fold_bpm_dj_range(bpm_onset)
+
+        # ── Consensus: if both methods agree (within 4%), use average;
+        #    otherwise prefer Ellis (more reliable for EDM) ──
+        diff_pct = abs(bpm_ellis_dj - bpm_onset_dj) / max(bpm_ellis_dj, 1)
+        if diff_pct < 0.04:
+            bpm_raw = (bpm_ellis_dj + bpm_onset_dj) / 2
+        else:
+            bpm_raw = bpm_ellis_dj
+
+        # ── Smart rounding ──
+        bpm = _round_bpm_smart(bpm_raw)
+
+        # ── Beat times ──
         beats = librosa.frames_to_time(beats_frames, sr=sr).tolist()
-        bpm = float(tempo) if not hasattr(tempo, '__len__') else float(tempo[0])
-        return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames.tolist()}
+
+        # ── Validate inter-beat intervals against detected BPM ──
+        # If Ellis beat grid implies a very different BPM than our final,
+        # resynthesize beats from the corrected BPM starting at the first beat
+        if beats and bpm > 0:
+            expected_ibi = 60.0 / bpm  # seconds per beat
+            actual_ibis = np.diff(beats)
+            if len(actual_ibis) > 4:
+                median_ibi = float(np.median(actual_ibis))
+                ibi_error = abs(median_ibi - expected_ibi) / expected_ibi
+                if ibi_error > 0.08:
+                    # Beat grid is inconsistent with BPM — resynthesize
+                    logger.info(
+                        f"[BPM] Resynthesizing beat grid: median IBI={median_ibi:.3f}s "
+                        f"vs expected={expected_ibi:.3f}s (error={ibi_error:.1%})"
+                    )
+                    first_beat = beats[0]
+                    duration = beats[-1] + expected_ibi * 4  # extend a bit
+                    beats = []
+                    t = first_beat
+                    while t <= duration:
+                        beats.append(t)
+                        t += expected_ibi
+                    beats_frames = librosa.time_to_frames(
+                        np.array(beats), sr=sr, hop_length=HOP_LENGTH
+                    ).tolist()
+
+        # ── Downbeat phase alignment ──
+        # Shift beat indices so beats[0::4] align with actual musical downbeats
+        offset = _detect_downbeat_offset(y, sr, beats)
+        if offset > 0 and offset < len(beats):
+            beats = beats[offset:]
+            beats_frames = beats_frames[offset:] if isinstance(beats_frames, list) else beats_frames
+
+        logger.info(
+            f"[BPM] Final: {bpm} BPM (Ellis raw={bpm_ellis:.1f}, onset={bpm_onset:.1f}, "
+            f"folded={bpm_raw:.1f}, downbeat_offset={offset})"
+        )
+
+        return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames if isinstance(beats_frames, list) else beats_frames.tolist()}
     except Exception as e:
         raise Exception(f"Error detecting BPM and beats: {str(e)}")
 
@@ -1299,12 +1438,22 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         duration_ms = int(len(y) / sr_loaded * 1000)
 
-    # BPM and beats
+    # BPM and beats — v5.2 multi-method detection
     bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded)
     bpm = bpm_data["bpm"]
     beats = bpm_data["beats"]
     beat_frames = bpm_data.get("beat_frames", [])
     beat_positions = [int(b * 1000) for b in beats]
+
+    # BPM confidence: based on inter-beat interval regularity
+    bpm_confidence = 0.5
+    if len(beats) > 8:
+        ibis = np.diff(beats)
+        expected_ibi = 60.0 / max(bpm, 60)
+        ibi_errors = np.abs(ibis - expected_ibi) / expected_ibi
+        # Proportion of beats within 5% of expected interval
+        good_ratio = float(np.mean(ibi_errors < 0.05))
+        bpm_confidence = round(min(1.0, good_ratio * 0.8 + 0.2), 2)
 
     # Key detection — v4 hybrid (KS + Temperley + Energy)
     try:
@@ -1460,7 +1609,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 
     result = {
         "bpm": bpm,
-        "bpm_confidence": key_confidence,
+        "bpm_confidence": bpm_confidence,
         "key": key,
         "key_secondary": key_secondary,
         "key_confidence": key_confidence,

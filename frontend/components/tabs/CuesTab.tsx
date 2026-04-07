@@ -64,7 +64,8 @@ export function CuesTab({
   }, [cuePoints.length]);
 
   // Calculate max position for timeline scaling
-  const maxMs = Math.max(1, ...cuePoints.map(c => c.position_ms ?? c.time_ms ?? 0), ...(track?.duration_ms ? [track.duration_ms] : []));
+  const trackDurationMs = track?.analysis?.duration_ms ?? (track as any)?.duration_ms ?? 0;
+  const maxMs = Math.max(1, ...cuePoints.map(c => c.position_ms ?? c.time_ms ?? 0), ...(trackDurationMs ? [trackDurationMs] : []));
 
   const handleAddCue = () => {
     const posMs = initialPositionMs ?? 0;

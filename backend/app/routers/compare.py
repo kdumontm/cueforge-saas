@@ -157,14 +157,20 @@ async def compare_tracks(
     if not track_a_obj or not track_b_obj:
         raise HTTPException(status_code=404, detail="One or both tracks not found")
 
+    # Raccourcis vers les analyses
+    analysis_a = track_a_obj.analysis
+    analysis_b = track_b_obj.analysis
+
+    bpm_a = analysis_a.bpm if analysis_a else None
+    bpm_b = analysis_b.bpm if analysis_b else None
+    key_a = analysis_a.key if analysis_a else None
+    key_b = analysis_b.key if analysis_b else None
+    energy_a = analysis_a.energy if analysis_a else None
+    energy_b = analysis_b.energy if analysis_b else None
+
     # Calculate compatibility
     score, bpm_diff, key_compatible, energy_diff = calculate_compatibility_score(
-        track_a_obj.bpm,
-        track_b_obj.bpm,
-        track_a_obj.key,
-        track_b_obj.key,
-        track_a_obj.energy,
-        track_b_obj.energy,
+        bpm_a, bpm_b, key_a, key_b, energy_a, energy_b,
     )
 
     # Generate tips
@@ -183,12 +189,12 @@ async def compare_tracks(
             "title": track_a_obj.title,
             "artist": track_a_obj.artist,
             "album": track_a_obj.album,
-            "bpm": track_a_obj.bpm,
-            "key": track_a_obj.key,
-            "energy": track_a_obj.energy,
+            "bpm": bpm_a,
+            "key": key_a,
+            "energy": energy_a,
             "genre": track_a_obj.genre,
-            "duration": track_a_obj.duration,
-            "cue_points": [{"name": cp.name, "position": cp.position, "type": cp.type}
+            "duration": analysis_a.duration_ms if analysis_a else None,
+            "cue_points": [{"name": cp.name, "position_ms": cp.position_ms, "cue_type": cp.cue_type}
                           for cp in track_a_obj.cue_points] if track_a_obj.cue_points else [],
         },
         "track_b_details": {
@@ -196,12 +202,12 @@ async def compare_tracks(
             "title": track_b_obj.title,
             "artist": track_b_obj.artist,
             "album": track_b_obj.album,
-            "bpm": track_b_obj.bpm,
-            "key": track_b_obj.key,
-            "energy": track_b_obj.energy,
+            "bpm": bpm_b,
+            "key": key_b,
+            "energy": energy_b,
             "genre": track_b_obj.genre,
-            "duration": track_b_obj.duration,
-            "cue_points": [{"name": cp.name, "position": cp.position, "type": cp.type}
+            "duration": analysis_b.duration_ms if analysis_b else None,
+            "cue_points": [{"name": cp.name, "position_ms": cp.position_ms, "cue_type": cp.cue_type}
                           for cp in track_b_obj.cue_points] if track_b_obj.cue_points else [],
         },
         "compatibility_score": score,

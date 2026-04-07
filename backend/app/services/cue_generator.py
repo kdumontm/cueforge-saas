@@ -422,6 +422,22 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     # Convertir en int (au cas où le frontend envoie des floats)
     beats = [int(b) for b in beats] if beats else []
 
+    # ── v5.2: Valider la cohérence beat grid ↔ BPM ──
+    # Si le beat grid ne correspond pas au BPM (erreur > 10%), re-synthétiser
+    if beats and bpm and len(beats) > 8:
+        ibis = [beats[i+1] - beats[i] for i in range(min(32, len(beats)-1))]
+        median_ibi = sorted(ibis)[len(ibis)//2]
+        expected_ibi_ms = 60000 / max(bpm, 60)
+        ibi_error = abs(median_ibi - expected_ibi_ms) / expected_ibi_ms
+        if ibi_error > 0.10:
+            # Beat grid is off — resynthesize from BPM starting at first beat
+            first_beat = beats[0]
+            beats = []
+            t = first_beat
+            while t <= duration_ms:
+                beats.append(int(t))
+                t += expected_ibi_ms
+
     # ── v5: Stem data (may be empty if stem analysis disabled) ──
     has_stems = analysis_data.get("stem_analysis", False)
     stem_validated_drops = analysis_data.get("stem_validated_drops", [])

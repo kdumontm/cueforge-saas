@@ -241,7 +241,7 @@ export default function ComparePage() {
                   {comparison.track_a_details.duration && (
                     <div>
                       <span className="text-xs text-slate-500 uppercase">Durée</span>
-                      <p className="text-white font-mono">{Math.floor(comparison.track_a_details.duration / 60)}:{String(Math.floor(comparison.track_a_details.duration % 60)).padStart(2, '0')}</p>
+                      <p className="text-white font-mono">{Math.floor(comparison.track_a_details.duration / 60000)}:{String(Math.floor((comparison.track_a_details.duration % 60000) / 1000)).padStart(2, '0')}</p>
                     </div>
                   )}
 
@@ -311,7 +311,7 @@ export default function ComparePage() {
                   {comparison.track_b_details.duration && (
                     <div>
                       <span className="text-xs text-slate-500 uppercase">Durée</span>
-                      <p className="text-white font-mono">{Math.floor(comparison.track_b_details.duration / 60)}:{String(Math.floor(comparison.track_b_details.duration % 60)).padStart(2, '0')}</p>
+                      <p className="text-white font-mono">{Math.floor(comparison.track_b_details.duration / 60000)}:{String(Math.floor((comparison.track_b_details.duration % 60000) / 1000)).padStart(2, '0')}</p>
                     </div>
                   )}
 

@@ -72,10 +72,11 @@ export default function FavoritesPage() {
     }
   }
 
-  function formatDuration(seconds?: number) {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = (seconds % 60).toString().padStart(2, '0');
+  function formatDuration(ms?: number) {
+    if (!ms) return '--:--';
+    const totalSec = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = (totalSec % 60).toString().padStart(2, '0');
     return `${mins}:${secs}`;
   }
 
