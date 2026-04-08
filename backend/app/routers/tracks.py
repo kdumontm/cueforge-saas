@@ -1253,6 +1253,8 @@ def _delete_track_dependencies(db: Session, track_id: int):
     """Supprimer toutes les lignes liées à un track avant sa suppression."""
     from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule
     from app.models.library import PlaylistTrack, DJSetTrack, PlayHistory
+    from app.models.favorite import Favorite
+    from app.models.tag import TrackTag
     db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session=False)
     db.query(LoopMarker).filter(LoopMarker.track_id == track_id).delete(synchronize_session=False)
     db.query(CueRule).filter(CueRule.track_id == track_id).delete(synchronize_session=False)
@@ -1260,6 +1262,8 @@ def _delete_track_dependencies(db: Session, track_id: int):
     db.query(PlaylistTrack).filter(PlaylistTrack.track_id == track_id).delete(synchronize_session=False)
     db.query(DJSetTrack).filter(DJSetTrack.track_id == track_id).delete(synchronize_session=False)
     db.query(PlayHistory).filter(PlayHistory.track_id == track_id).delete(synchronize_session=False)
+    db.query(Favorite).filter(Favorite.track_id == track_id).delete(synchronize_session=False)
+    db.query(TrackTag).filter(TrackTag.track_id == track_id).delete(synchronize_session=False)
 
 
 class BatchDeleteRequest(BaseModel):
