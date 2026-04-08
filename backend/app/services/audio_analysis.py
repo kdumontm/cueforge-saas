@@ -520,22 +520,45 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
         except Exception:
             bpm_onset = bpm_ellis
 
-        # ── Fold both into DJ range ──
+        # ── Method 3: BPM from median inter-beat interval (most reliable) ──
+        # librosa's tempo estimator can disagree with its own beat positions.
+        # The median IBI is the ground truth for what BPM the beats actually land at.
+        raw_beats_times = librosa.frames_to_time(beats_frames, sr=sr)
+        bpm_ibi = 0.0
+        if len(raw_beats_times) > 8:
+            ibis = np.diff(raw_beats_times)
+            median_ibi = float(np.median(ibis))
+            if median_ibi > 0:
+                bpm_ibi = 60.0 / median_ibi
+
+        # ── Fold all into DJ range ──
         bpm_ellis_dj = _fold_bpm_dj_range(bpm_ellis)
         bpm_onset_dj = _fold_bpm_dj_range(bpm_onset)
+        bpm_ibi_dj = _fold_bpm_dj_range(bpm_ibi) if bpm_ibi > 0 else 0.0
 
-        # ── Consensus: if both agree (within 4%), average; else prefer Ellis ──
-        diff_pct = abs(bpm_ellis_dj - bpm_onset_dj) / max(bpm_ellis_dj, 1)
-        if diff_pct < 0.04:
-            bpm_raw = (bpm_ellis_dj + bpm_onset_dj) / 2
+        # ── Choose best BPM ──
+        # Priority: IBI-based (ground truth from actual beat positions) > consensus
+        # IBI is trusted when it's in a reasonable range and not wildly different
+        if bpm_ibi_dj > 0:
+            # Use IBI as primary, validate against tempo estimators
+            bpm_raw = bpm_ibi_dj
+            logger.info(
+                f"[BPM] Using IBI-based BPM={bpm_ibi_dj:.1f} "
+                f"(Ellis={bpm_ellis_dj:.1f}, onset={bpm_onset_dj:.1f})"
+            )
         else:
-            bpm_raw = bpm_ellis_dj
+            # Fallback: consensus of tempo estimators
+            diff_pct = abs(bpm_ellis_dj - bpm_onset_dj) / max(bpm_ellis_dj, 1)
+            if diff_pct < 0.04:
+                bpm_raw = (bpm_ellis_dj + bpm_onset_dj) / 2
+            else:
+                bpm_raw = bpm_ellis_dj
 
         # ── Smart rounding ──
         bpm = _round_bpm_smart(bpm_raw)
 
-        # ── Raw beat times from librosa ──
-        raw_beats = librosa.frames_to_time(beats_frames, sr=sr).tolist()
+        # ── Raw beat times from librosa (already computed above) ──
+        raw_beats = raw_beats_times.tolist()
 
         # ── Synthesize a perfectly even grid ──
         # DJ software uses BPM + first-beat-offset for a mathematically
