@@ -418,18 +418,18 @@ def _fold_bpm_dj_range(bpm: float, lo: float = 70.0, hi: float = 180.0) -> float
 def _round_bpm_smart(bpm: float) -> float:
     """
     Smart BPM rounding for DJ use.
-    - If within 0.3 of an integer, round to integer (128.2 → 128.0)
-    - Otherwise round to 0.1 precision (127.65 → 127.7)
-    Common DJ BPMs (120, 124, 126, 128, 130, 132, 140, 150, 170, 174, 175)
-    get extra snap gravity within ±0.5.
+    - Snap to common DJ BPMs within ±0.6 (most tracks are produced at integer BPMs)
+    - If within 0.5 of any integer, round to integer
+    - Otherwise round to 0.1 precision
     """
-    COMMON = [80, 85, 90, 95, 100, 105, 110, 115, 118, 120, 122, 124,
-              125, 126, 128, 130, 132, 134, 136, 138, 140, 142, 145,
+    COMMON = [80, 85, 90, 95, 100, 105, 110, 115, 116, 117, 118, 119,
+              120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,
+              131, 132, 133, 134, 135, 136, 138, 140, 142, 145,
               148, 150, 155, 160, 165, 170, 172, 174, 175, 176]
     for c in COMMON:
-        if abs(bpm - c) < 0.5:
+        if abs(bpm - c) <= 0.6:
             return float(c)
-    if abs(bpm - round(bpm)) < 0.3:
+    if abs(bpm - round(bpm)) <= 0.5:
         return float(round(bpm))
     return round(bpm, 1)
 
@@ -461,15 +461,54 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
         return 0
 
 
+def _refine_first_beat(y: np.ndarray, sr: int, raw_first_beat: float, bpm: float) -> float:
+    """
+    Refine the first beat position using onset detection.
+
+    librosa's beat tracker can be off by 20-50ms on the first beat.
+    We find the strongest onset near the raw first beat and use that
+    as the anchor for the perfect grid.
+    """
+    try:
+        expected_ibi = 60.0 / bpm
+        search_window = expected_ibi * 0.4  # look ±40% of one beat
+
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
+        onset_times = librosa.times_like(onset_env, sr=sr, hop_length=HOP_LENGTH)
+
+        # Find onsets near the raw first beat
+        mask = (onset_times >= raw_first_beat - search_window) & \
+               (onset_times <= raw_first_beat + search_window)
+        if not np.any(mask):
+            return raw_first_beat
+
+        local_strengths = onset_env[mask]
+        local_times = onset_times[mask]
+
+        # Pick the strongest onset in the window
+        best_idx = np.argmax(local_strengths)
+        refined = float(local_times[best_idx])
+
+        logger.info(
+            f"[BPM] First beat refined: {raw_first_beat:.4f}s → {refined:.4f}s "
+            f"(delta={abs(refined - raw_first_beat)*1000:.1f}ms)"
+        )
+        return refined
+    except Exception:
+        return raw_first_beat
+
+
 def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
     """
-    Detect BPM and beat positions — v5.2 multi-method with DJ correction.
+    Detect BPM and beat positions — v5.3 precision DJ grid.
 
-    1. Ellis DP beat tracker (primary)
+    1. Ellis DP beat tracker (primary BPM + raw beats)
     2. Onset autocorrelation (secondary, for validation)
     3. Fold into DJ range [70–180 BPM]
     4. Smart rounding toward common DJ tempos
-    5. Downbeat phase alignment (so beats[0::4] are actual bar starts)
+    5. Onset-refined first beat anchor
+    6. Perfect mathematically even grid (like Rekordbox/Traktor/Serato)
+    7. Downbeat phase alignment (beats[0::4] = bar starts)
     """
     try:
         # ── Method 1: Ellis DP beat tracker ──
@@ -482,7 +521,6 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
             tempo_onset = librosa.feature.tempo(
                 onset_envelope=onset_env, sr=sr, aggregate=None
             )
-            # tempo_onset may return multiple candidates
             if hasattr(tempo_onset, '__len__') and len(tempo_onset) > 0:
                 bpm_onset = float(tempo_onset[0])
             else:
@@ -494,8 +532,7 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
         bpm_ellis_dj = _fold_bpm_dj_range(bpm_ellis)
         bpm_onset_dj = _fold_bpm_dj_range(bpm_onset)
 
-        # ── Consensus: if both methods agree (within 4%), use average;
-        #    otherwise prefer Ellis (more reliable for EDM) ──
+        # ── Consensus: if both agree (within 4%), average; else prefer Ellis ──
         diff_pct = abs(bpm_ellis_dj - bpm_onset_dj) / max(bpm_ellis_dj, 1)
         if diff_pct < 0.04:
             bpm_raw = (bpm_ellis_dj + bpm_onset_dj) / 2
@@ -505,23 +542,24 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
         # ── Smart rounding ──
         bpm = _round_bpm_smart(bpm_raw)
 
-        # ── Beat times ──
-        beats = librosa.frames_to_time(beats_frames, sr=sr).tolist()
+        # ── Raw beat times from librosa ──
+        raw_beats = librosa.frames_to_time(beats_frames, sr=sr).tolist()
 
-        # ── ALWAYS resynthesize a perfectly even beat grid ──
-        # DJ tools (Rekordbox, Traktor, Serato) use mathematically perfect grids:
-        # one BPM + one first-beat offset = perfectly regular spacing.
-        # librosa's raw beat positions are jittery (±30ms), which causes cues
-        # to land off the actual musical beats. We keep librosa's first beat
-        # as the anchor and generate a clean grid from the detected BPM.
-        if beats and bpm > 0:
+        # ── Synthesize a perfectly even grid ──
+        # DJ software uses BPM + first-beat-offset for a mathematically
+        # perfect grid. We only use librosa for the BPM value and
+        # approximate first beat, then refine and generate a clean grid.
+        if raw_beats and bpm > 0:
             expected_ibi = 60.0 / bpm  # seconds per beat
-            first_beat = beats[0]
-            # Use the track duration (last librosa beat + a few beats of margin)
-            end_time = beats[-1] + expected_ibi * 4
+
+            # Refine first beat position using onset strength
+            first_beat = _refine_first_beat(y, sr, raw_beats[0], bpm)
+
+            # Generate grid covering the full track
+            end_time = raw_beats[-1] + expected_ibi * 4
             logger.info(
                 f"[BPM] Synthesizing perfect grid: BPM={bpm}, "
-                f"first_beat={first_beat:.3f}s, IBI={expected_ibi:.4f}s"
+                f"first_beat={first_beat:.4f}s, IBI={expected_ibi:.4f}s"
             )
             beats = []
             t = first_beat
@@ -531,9 +569,11 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
             beats_frames = librosa.time_to_frames(
                 np.array(beats), sr=sr, hop_length=HOP_LENGTH
             ).tolist()
+        else:
+            beats = raw_beats
+            beats_frames = beats_frames.tolist() if hasattr(beats_frames, 'tolist') else list(beats_frames)
 
         # ── Downbeat phase alignment ──
-        # Shift beat indices so beats[0::4] align with actual musical downbeats
         offset = _detect_downbeat_offset(y, sr, beats)
         if offset > 0 and offset < len(beats):
             beats = beats[offset:]
