@@ -99,6 +99,30 @@ export function BeatgridTab({
     }
   };
 
+  const handleBpmNudge = (delta: number) => {
+    const currentBpm = beatgrid?.bpm || 0;
+    if (currentBpm > 0) {
+      const newBpm = Math.round((currentBpm + delta) * 10) / 10;
+      onUpdateBeatgrid?.({
+        bpm: newBpm,
+        downbeat_ms: downbeatOffset,
+        locked: isLocked,
+      });
+    }
+  };
+
+  const handleDirectBpmInput = (value: string) => {
+    const newBpm = parseFloat(value);
+    if (!isNaN(newBpm) && newBpm > 0) {
+      const roundedBpm = Math.round(newBpm * 10) / 10;
+      onUpdateBeatgrid?.({
+        bpm: roundedBpm,
+        downbeat_ms: downbeatOffset,
+        locked: isLocked,
+      });
+    }
+  };
+
   const duration = track.analysis?.duration_ms || 0;
   const displayDuration = formatDuration(duration);
   const bars = beatgrid?.bpm ? Math.floor((duration / (60000 / beatgrid.bpm)) / 4) : 0;
@@ -132,23 +156,92 @@ export function BeatgridTab({
           </button>
         </div>
 
-        {/* Double/Half BPM buttons */}
+        {/* BPM Nudge Buttons */}
         {beatgrid?.bpm && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleBpmChange(0.5)}
-              className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
-              title="Diviser par 2"
-            >
-              ÷2
-            </button>
-            <button
-              onClick={() => handleBpmChange(2)}
-              className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
-              title="Multiplier par 2"
-            >
-              ×2
-            </button>
+          <div className="space-y-3">
+            {/* Fine-grained nudge controls */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => handleBpmNudge(-1)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Diminuer de 1 BPM"
+              >
+                -1
+              </button>
+              <button
+                onClick={() => handleBpmNudge(-0.5)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Diminuer de 0.5 BPM"
+              >
+                -0.5
+              </button>
+              <button
+                onClick={() => handleBpmNudge(-0.1)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Diminuer de 0.1 BPM"
+              >
+                -0.1
+              </button>
+              <button
+                onClick={() => handleBpmNudge(0.1)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Augmenter de 0.1 BPM"
+              >
+                +0.1
+              </button>
+              <button
+                onClick={() => handleBpmNudge(0.5)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Augmenter de 0.5 BPM"
+              >
+                +0.5
+              </button>
+              <button
+                onClick={() => handleBpmNudge(1)}
+                className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-xs font-medium transition-colors"
+                title="Augmenter de 1 BPM"
+              >
+                +1
+              </button>
+            </div>
+
+            {/* Direct BPM input */}
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-[var(--text-muted)] w-16">BPM direct:</label>
+              <input
+                type="number"
+                step="0.1"
+                min="1"
+                max="300"
+                defaultValue={beatgrid?.bpm?.toFixed(1) || ''}
+                onBlur={(e) => handleDirectBpmInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleDirectBpmInput((e.target as HTMLInputElement).value);
+                  }
+                }}
+                className="flex-1 px-2 py-1.5 rounded bg-[var(--bg-primary)] text-[var(--text-primary)] text-sm font-mono border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent)]"
+                placeholder="Entrez BPM"
+              />
+            </div>
+
+            {/* Double/Half BPM buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleBpmChange(0.5)}
+                className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
+                title="Diviser par 2"
+              >
+                ÷2
+              </button>
+              <button
+                onClick={() => handleBpmChange(2)}
+                className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
+                title="Multiplier par 2"
+              >
+                ×2
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -188,10 +281,13 @@ export function BeatgridTab({
       {/* Offset du downbeat */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
         <div className="text-sm font-semibold text-[var(--text-secondary)]">Offset du downbeat</div>
-        <div className="flex items-center gap-3">
+
+        {/* Coarse controls */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => handleOffsetChange(-100)}
             className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
+            title="Diminuer de 100ms"
           >
             -100ms
           </button>
@@ -200,17 +296,58 @@ export function BeatgridTab({
             min="-500"
             max="500"
             value={downbeatOffset}
-            onChange={(e) => setDownbeatOffset(parseInt(e.target.value))}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              setDownbeatOffset(value);
+              onUpdateBeatgrid?.({
+                bpm: beatgrid?.bpm || 0,
+                downbeat_ms: value,
+                locked: isLocked,
+              });
+            }}
             className="flex-1"
           />
           <button
             onClick={() => handleOffsetChange(100)}
             className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
+            title="Augmenter de 100ms"
           >
             +100ms
           </button>
         </div>
-        <div className="text-xs text-[var(--text-muted)] text-center">{downbeatOffset}ms</div>
+
+        {/* Fine-tune controls */}
+        <div className="flex gap-1 text-xs">
+          <button
+            onClick={() => handleOffsetChange(-5)}
+            className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium transition-colors"
+            title="Diminuer de 5ms"
+          >
+            -5ms
+          </button>
+          <button
+            onClick={() => handleOffsetChange(-1)}
+            className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium transition-colors"
+            title="Diminuer de 1ms"
+          >
+            -1ms
+          </button>
+          <div className="flex-1 text-center text-[var(--text-muted)]">{downbeatOffset}ms</div>
+          <button
+            onClick={() => handleOffsetChange(1)}
+            className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium transition-colors"
+            title="Augmenter de 1ms"
+          >
+            +1ms
+          </button>
+          <button
+            onClick={() => handleOffsetChange(5)}
+            className="px-2 py-1.5 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-medium transition-colors"
+            title="Augmenter de 5ms"
+          >
+            +5ms
+          </button>
+        </div>
       </div>
 
       {/* Tap Tempo */}

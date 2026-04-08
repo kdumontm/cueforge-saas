@@ -510,11 +510,13 @@ def _run_analysis(track_id: int):
             metadata = get_track_metadata(file_path)
             if metadata:
                 spotify_bpm = metadata.pop("spotify_bpm", None)
+                spotify_sections = metadata.pop("spotify_sections", None)
                 for key, value in metadata.items():
                     if hasattr(track, key) and value is not None:
                         setattr(track, key, value)
         except Exception as e:
             logger.warning(f"Metadata lookup failed for track {track_id} (non-critical): {e}")
+            spotify_sections = None
 
         # ── Step 3a: BPM correction from Spotify ─────────────────────
         # Spotify's BPM is highly accurate (computed from the master audio).
@@ -572,7 +574,13 @@ def _run_analysis(track_id: int):
 
                 db.flush()
 
-        # ── Step 3b: Auto remix/version detection (v4) ─────────────────
+        # ── Step 3b: Use Spotify sections for better cue placement ───────
+        if spotify_sections and analysis:
+            # Store in analysis_data for cue regeneration
+            analysis_data["spotify_sections"] = spotify_sections
+            logger.info(f"[META] {len(spotify_sections)} Spotify sections available for cue generation")
+
+        # ── Step 3c: Auto remix/version detection (v4) ─────────────────
         try:
             from app.services.remix_detection import detect_remix_info
             title_to_parse = track.title or track.original_filename or ""

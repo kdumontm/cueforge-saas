@@ -272,6 +272,36 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
         except Exception as e:
             logger.debug(f"Spotify audio_features failed: {e}")
 
+        # Audio analysis — get section information for DJ cue placement
+        try:
+            audio_analysis = sp.audio_analysis(track_id)
+            if audio_analysis and audio_analysis.get("sections"):
+                spotify_sections = []
+                for s in audio_analysis["sections"]:
+                    spotify_sections.append({
+                        "start_ms": int(s.get("start", 0) * 1000),
+                        "duration_ms": int(s.get("duration", 0) * 1000),
+                        "confidence": round(s.get("confidence", 0), 2),
+                        "loudness": round(s.get("loudness", 0), 1),
+                        "tempo": round(s.get("tempo", 0), 1),
+                    })
+                if spotify_sections:
+                    logger.info(f"Spotify: {len(spotify_sections)} sections found")
+                    # Build result first, then add sections
+                    logger.info(f"Spotify: found {track['name']} by {track['artists'][0]['name']}, genres={genres[:3]}")
+                    result = {
+                        "spotify_id": track_id,
+                        "spotify_url": track["external_urls"].get("spotify", ""),
+                        "artwork_url": artwork_url,
+                        "genre": genre,
+                        "spotify_sections": spotify_sections,
+                    }
+                    if spotify_bpm and spotify_bpm > 0:
+                        result["spotify_bpm"] = spotify_bpm
+                    return result
+        except Exception as e:
+            logger.debug(f"Spotify audio_analysis failed: {e}")
+
         logger.info(f"Spotify: found {track['name']} by {track['artists'][0]['name']}, genres={genres[:3]}")
         result = {
             "spotify_id": track_id,
@@ -463,6 +493,8 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                     metadata["genre"] = sp["genre"]
                 if sp.get("spotify_bpm"):
                     metadata["spotify_bpm"] = sp["spotify_bpm"]
+                if sp.get("spotify_sections"):
+                    metadata["spotify_sections"] = sp["spotify_sections"]
 
         # Step 5 — iTunes fallback (artwork + genre, gratuit, sans clé, excellent pour FR)
         if artist and title and (not metadata.get("artwork_url") or not metadata.get("genre")):

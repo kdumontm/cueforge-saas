@@ -37,6 +37,39 @@ from app.database import SessionLocal
 logger = logging.getLogger(__name__)
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#   ALLIN1 DEEP LEARNING STRUCTURE DETECTION
+# ══════════════════════════════════════════════════════════════════════════
+
+def _detect_structure_allin1(file_path: str) -> Optional[List[Dict]]:
+    """
+    Detect music structure using allin1 (deep learning, ISMIR 2023).
+    Returns sections with labels: intro, verse, chorus, bridge, outro, etc.
+    Falls back to None if allin1 is not installed.
+    """
+    try:
+        import allin1
+        result = allin1.analyze(file_path)
+        sections = []
+        if hasattr(result, 'segments') and result.segments:
+            for seg in result.segments:
+                sections.append({
+                    "label": seg.label if hasattr(seg, 'label') else "unknown",
+                    "start_ms": int(seg.start * 1000) if hasattr(seg, 'start') else 0,
+                    "end_ms": int(seg.end * 1000) if hasattr(seg, 'end') else 0,
+                    "duration_ms": int((seg.end - seg.start) * 1000) if hasattr(seg, 'end') and hasattr(seg, 'start') else 0,
+                })
+            if sections:
+                logger.info(f"[ALLIN1] Detected {len(sections)} sections: {[s['label'] for s in sections]}")
+        return sections if sections else None
+    except ImportError:
+        logger.debug("[ALLIN1] allin1 not installed — skipping")
+        return None
+    except Exception as e:
+        logger.warning(f"[ALLIN1] Structure detection failed: {e}")
+        return None
+
+
 # ── Constants ──────────────────────────────────────────────────────────────
 SR = 22050
 HOP_LENGTH = 512
@@ -1641,15 +1674,28 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 
     # Sections (SSM novelty-based segmentation)
     sections = []  # Initialize before try so it's always defined
+
+    # v5.4: Try allin1 deep learning structure detection first
+    allin1_sections = _detect_structure_allin1(file_path)
+    if allin1_sections:
+        sections = allin1_sections
+        logger.info(f"[ANALYSIS] Using allin1 sections ({len(sections)} segments)")
+    else:
+        # Fallback to existing librosa-based detection
+        try:
+            sections = detect_sections_ssm(
+                y, sr_loaded, beats, beat_frames, drops, rms_sync
+            )
+        except Exception:
+            sections = []
+
+    # Format sections for output
     try:
-        sections = detect_sections_ssm(
-            y, sr_loaded, beats, beat_frames, drops, rms_sync
-        )
         section_labels = [
             {
-                "time_ms": int(s["time"] * 1000),
-                "label": s["label"],
-                "duration_ms": int(s["duration"] * 1000),
+                "time_ms": int(s.get("time", s.get("start_ms", 0)) * 1000) if "time" in s else s.get("start_ms", 0),
+                "label": s.get("label", "UNKNOWN"),
+                "duration_ms": int(s.get("duration", s.get("duration_ms", 0)) * 1000) if "duration" in s else s.get("duration_ms", 0),
                 "energy": s.get("energy", 0.5),
             }
             for s in sections
