@@ -508,31 +508,29 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
         # ── Beat times ──
         beats = librosa.frames_to_time(beats_frames, sr=sr).tolist()
 
-        # ── Validate inter-beat intervals against detected BPM ──
-        # If Ellis beat grid implies a very different BPM than our final,
-        # resynthesize beats from the corrected BPM starting at the first beat
+        # ── ALWAYS resynthesize a perfectly even beat grid ──
+        # DJ tools (Rekordbox, Traktor, Serato) use mathematically perfect grids:
+        # one BPM + one first-beat offset = perfectly regular spacing.
+        # librosa's raw beat positions are jittery (±30ms), which causes cues
+        # to land off the actual musical beats. We keep librosa's first beat
+        # as the anchor and generate a clean grid from the detected BPM.
         if beats and bpm > 0:
             expected_ibi = 60.0 / bpm  # seconds per beat
-            actual_ibis = np.diff(beats)
-            if len(actual_ibis) > 4:
-                median_ibi = float(np.median(actual_ibis))
-                ibi_error = abs(median_ibi - expected_ibi) / expected_ibi
-                if ibi_error > 0.08:
-                    # Beat grid is inconsistent with BPM — resynthesize
-                    logger.info(
-                        f"[BPM] Resynthesizing beat grid: median IBI={median_ibi:.3f}s "
-                        f"vs expected={expected_ibi:.3f}s (error={ibi_error:.1%})"
-                    )
-                    first_beat = beats[0]
-                    duration = beats[-1] + expected_ibi * 4  # extend a bit
-                    beats = []
-                    t = first_beat
-                    while t <= duration:
-                        beats.append(t)
-                        t += expected_ibi
-                    beats_frames = librosa.time_to_frames(
-                        np.array(beats), sr=sr, hop_length=HOP_LENGTH
-                    ).tolist()
+            first_beat = beats[0]
+            # Use the track duration (last librosa beat + a few beats of margin)
+            end_time = beats[-1] + expected_ibi * 4
+            logger.info(
+                f"[BPM] Synthesizing perfect grid: BPM={bpm}, "
+                f"first_beat={first_beat:.3f}s, IBI={expected_ibi:.4f}s"
+            )
+            beats = []
+            t = first_beat
+            while t <= end_time:
+                beats.append(round(t, 6))
+                t += expected_ibi
+            beats_frames = librosa.time_to_frames(
+                np.array(beats), sr=sr, hop_length=HOP_LENGTH
+            ).tolist()
 
         # ── Downbeat phase alignment ──
         # Shift beat indices so beats[0::4] align with actual musical downbeats
