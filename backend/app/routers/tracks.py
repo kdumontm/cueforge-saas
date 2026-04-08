@@ -504,15 +504,73 @@ def _run_analysis(track_id: int):
             logger.warning(f"Genre detection failed for track {track_id}: {e}")
 
         # ── Step 3: Metadata lookup (non-critical) ──────────────────────
+        spotify_bpm = None
         try:
             from app.services.metadata_service import get_track_metadata
             metadata = get_track_metadata(file_path)
             if metadata:
+                spotify_bpm = metadata.pop("spotify_bpm", None)
                 for key, value in metadata.items():
                     if hasattr(track, key) and value is not None:
                         setattr(track, key, value)
         except Exception as e:
             logger.warning(f"Metadata lookup failed for track {track_id} (non-critical): {e}")
+
+        # ── Step 3a: BPM correction from Spotify ─────────────────────
+        # Spotify's BPM is highly accurate (computed from the master audio).
+        # If it differs significantly from librosa's detection, trust Spotify
+        # and regenerate the beat grid + cue points.
+        if spotify_bpm and spotify_bpm > 0 and analysis:
+            librosa_bpm = analysis.bpm or 0
+            bpm_diff = abs(spotify_bpm - librosa_bpm)
+            if bpm_diff >= 1.0:
+                corrected_bpm = round(spotify_bpm)
+                logger.info(
+                    f"[BPM] Spotify correction: {librosa_bpm} → {corrected_bpm} "
+                    f"(Spotify raw={spotify_bpm}, diff={bpm_diff:.1f})"
+                )
+                # Update BPM
+                analysis.bpm = corrected_bpm
+                analysis.bpm_confidence = 0.98  # Spotify is very reliable
+
+                # Regenerate perfect beat grid with corrected BPM
+                old_beats = analysis.beat_positions or []
+                if old_beats:
+                    expected_ibi_ms = 60000.0 / corrected_bpm
+                    first_beat_ms = old_beats[0]
+                    duration_ms = analysis.duration_ms or (old_beats[-1] + expected_ibi_ms * 4)
+                    new_beats = []
+                    t = float(first_beat_ms)
+                    while t <= duration_ms:
+                        new_beats.append(round(t))
+                        t += expected_ibi_ms
+                    analysis.beat_positions = new_beats
+                    logger.info(f"[BPM] Beat grid regenerated: {len(new_beats)} beats at {corrected_bpm} BPM")
+
+                    # Regenerate cue points with corrected grid
+                    try:
+                        db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
+                        corrected_analysis_data = dict(analysis_data)
+                        corrected_analysis_data["bpm"] = corrected_bpm
+                        corrected_analysis_data["beat_positions"] = new_beats
+                        cue_points_data = cue_svc.generate_cue_points(corrected_analysis_data)
+                        for cp in cue_points_data:
+                            cue = CuePoint(
+                                track_id=track.id,
+                                position_ms=cp["position_ms"],
+                                end_position_ms=cp.get("end_position_ms"),
+                                cue_type=cp["cue_type"],
+                                name=cp["name"],
+                                color=cp.get("color", "red"),
+                                number=cp.get("number"),
+                                confidence=cp.get("confidence"),
+                            )
+                            db.add(cue)
+                        logger.info(f"[BPM] Cue points regenerated with Spotify BPM={corrected_bpm}")
+                    except Exception as e:
+                        logger.warning(f"Cue regeneration after BPM correction failed: {e}")
+
+                db.flush()
 
         # ── Step 3b: Auto remix/version detection (v4) ─────────────────
         try:

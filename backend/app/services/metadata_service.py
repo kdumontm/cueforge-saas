@@ -261,13 +261,27 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
         genres = artist_data.get("genres", [])
         genre = ", ".join(g.title() for g in genres[:3])
 
+        # Audio features (BPM, energy, key) — highly accurate reference
+        spotify_bpm = None
+        try:
+            features = sp.audio_features([track_id])
+            if features and features[0]:
+                spotify_bpm = round(features[0].get("tempo", 0), 1)
+                if spotify_bpm and spotify_bpm > 0:
+                    logger.info(f"Spotify: BPM={spotify_bpm} for '{title}'")
+        except Exception as e:
+            logger.debug(f"Spotify audio_features failed: {e}")
+
         logger.info(f"Spotify: found {track['name']} by {track['artists'][0]['name']}, genres={genres[:3]}")
-        return {
+        result = {
             "spotify_id": track_id,
             "spotify_url": track["external_urls"].get("spotify", ""),
             "artwork_url": artwork_url,
             "genre": genre,
         }
+        if spotify_bpm and spotify_bpm > 0:
+            result["spotify_bpm"] = spotify_bpm
+        return result
     except ImportError:
         logger.warning("spotipy not installed — pip install spotipy")
     except Exception as e:
@@ -418,6 +432,8 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                     metadata["spotify_url"] = sp["spotify_url"]
                 if not metadata.get("genre") and sp.get("genre"):
                     metadata["genre"] = sp["genre"]
+                if sp.get("spotify_bpm"):
+                    metadata["spotify_bpm"] = sp["spotify_bpm"]
 
         # Step 5 — iTunes fallback (artwork + genre, gratuit, sans clé, excellent pour FR)
         if artist and title and (not metadata.get("artwork_url") or not metadata.get("genre")):
