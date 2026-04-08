@@ -156,7 +156,7 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok", "version": "4.1.0", "db": db_status}
+    response = {"status": "ok", "version": "5.4.0-madmom", "db": db_status}
     if db_error:
         response["db_error"] = db_error
     return response
