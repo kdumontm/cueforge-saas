@@ -486,26 +486,60 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
         return 0
 
 
+def _detect_bpm_beat_this(file_path: str) -> Optional[Dict]:
+    """
+    Detect BPM and beat positions using beat_this (CPJKU, PyTorch).
+    State-of-the-art beat tracking, 100% PyTorch (no C compilation).
+    Returns None if beat_this is not installed or fails.
+    """
+    try:
+        from beat_this.inference import File2Beats
+
+        # Run inference on CPU
+        file2beats = File2Beats(device="cpu", dbn=False)
+        beats, downbeats = file2beats(file_path)
+
+        beats = [float(b) for b in beats]
+        if len(beats) < 8:
+            return None
+
+        # BPM from median IBI
+        ibis = np.diff(beats)
+        median_ibi = float(np.median(ibis))
+        if median_ibi <= 0:
+            return None
+        bpm_raw = 60.0 / median_ibi
+        bpm = _fold_bpm_dj_range(bpm_raw)
+        bpm = _round_bpm_smart(bpm)
+
+        logger.info(f"[BEAT_THIS] Detected {bpm} BPM, {len(beats)} beats (median IBI={median_ibi*1000:.1f}ms)")
+        return {"bpm": bpm, "beats": beats, "downbeats": [float(d) for d in downbeats], "source": "beat_this"}
+    except ImportError:
+        logger.debug("[BEAT_THIS] beat_this not installed — skipping")
+        return None
+    except Exception as e:
+        logger.warning(f"[BEAT_THIS] Failed: {e}")
+        return None
+
+
 def _detect_bpm_madmom(file_path: str) -> Optional[Dict]:
     """
     Detect BPM and beat positions using madmom (deep learning).
-    Much more accurate than librosa for complex rhythms (swing, syncopation).
+    Fallback if beat_this is not available.
     Returns None if madmom is not installed or fails.
     """
     try:
         import madmom
         from madmom.features.beats import RNNBeatProcessor, DBNBeatTrackingProcessor
 
-        # RNN beat processor → DBN beat tracker (state of the art)
         proc = RNNBeatProcessor()
         act = proc(file_path)
         beat_proc = DBNBeatTrackingProcessor(fps=100)
-        beats = beat_proc(act).tolist()  # list of beat times in seconds
+        beats = beat_proc(act).tolist()
 
         if len(beats) < 8:
             return None
 
-        # BPM from median IBI
         ibis = np.diff(beats)
         median_ibi = float(np.median(ibis))
         if median_ibi <= 0:
@@ -574,12 +608,16 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
     7. Downbeat phase alignment (beats[0::4] = bar starts)
     """
     try:
-        # ── Try madmom first (deep learning — much more accurate) ──
+        # ── Try beat_this first (CPJKU PyTorch — state of the art) ──
         if file_path:
-            madmom_result = _detect_bpm_madmom(file_path)
-            if madmom_result:
-                bpm = madmom_result["bpm"]
-                raw_beats = madmom_result["beats"]
+            dl_result = _detect_bpm_beat_this(file_path)
+            if not dl_result:
+                # Fallback to madmom if beat_this not available
+                dl_result = _detect_bpm_madmom(file_path)
+            if dl_result:
+                bpm = dl_result["bpm"]
+                raw_beats = dl_result["beats"]
+                source = dl_result["source"]
                 expected_ibi = 60.0 / bpm
                 first_beat = _refine_first_beat(y, sr, raw_beats[0], bpm)
                 end_time = raw_beats[-1] + expected_ibi * 4
@@ -596,10 +634,10 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 if offset > 0 and offset < len(beats):
                     beats = beats[offset:]
                     beats_frames = beats_frames[offset:]
-                logger.info(f"[BPM] Using madmom: {bpm} BPM, {len(beats)} beats")
-                return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": "madmom"}
+                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats")
+                return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": source}
 
-        # ── Fallback: librosa (if madmom unavailable or failed) ──
+        # ── Fallback: librosa (if beat_this/madmom unavailable) ──
 
         # ── Method 1: Ellis DP beat tracker ──
         tempo_ellis, beats_frames = librosa.beat.beat_track(y=y, sr=sr)

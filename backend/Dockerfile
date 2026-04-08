@@ -6,21 +6,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     libchromaprint-tools \
     ffmpeg \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Étape 2: PyTorch CPU-only (requis AVANT allin1 + demucs) ──────────
+# ── PyTorch CPU-only (requis AVANT beat_this + demucs) ────────────────
 RUN pip install --no-cache-dir \
     torch torchaudio \
     --index-url https://download.pytorch.org/whl/cpu \
     && python -c "import torch; print(f'torch={torch.__version__} OK')" \
     || echo "WARNING: PyTorch install failed"
 
-# NOTE: madmom et allin1 désactivés — compilation C cause crash sur Railway.
-# Le code gère leur absence via ImportError → fallback librosa.
-# Alternative future: BeatNet (PyTorch natif, pas de compilation C)
+# ── beat_this — CPJKU deep learning beat tracking (PyTorch pur) ───────
+# Même labo que madmom mais 100% PyTorch, pas de compilation C
+RUN pip install --no-cache-dir tqdm einops soxr rotary-embedding-torch \
+    && pip install --no-cache-dir "git+https://github.com/CPJKU/beat_this.git" \
+    && python -c "from beat_this.inference import File2Beats; print('beat_this OK')" \
+    || echo "WARNING: beat_this install failed — will use librosa for beat tracking"
 
 # ── Étape 5: Demucs stem separation ───────────────────────────────────
 RUN pip install --no-cache-dir "demucs>=4.0.0" \
