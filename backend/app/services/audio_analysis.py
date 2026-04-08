@@ -629,8 +629,27 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 beats_frames = librosa.time_to_frames(
                     np.array(beats), sr=sr, hop_length=HOP_LENGTH
                 ).tolist()
-                # Downbeat alignment
-                offset = _detect_downbeat_offset(y, sr, beats)
+
+                # ── Downbeat alignment ──
+                # beat_this fournit les vrais downbeats — on les utilise en priorité
+                dl_downbeats = dl_result.get("downbeats", [])
+                if dl_downbeats and len(dl_downbeats) >= 2:
+                    # Trouver le beat de la grille le plus proche du premier downbeat
+                    first_db = dl_downbeats[0]
+                    best_offset = 0
+                    best_dist = abs(beats[0] - first_db) if beats else 999
+                    for off in range(min(4, len(beats))):
+                        dist = abs(beats[off] - first_db)
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_offset = off
+                    offset = best_offset
+                    logger.info(f"[BPM] Downbeat alignment from {source}: offset={offset} "
+                                f"(first downbeat={first_db:.3f}s, grid beat[{offset}]={beats[offset] if offset < len(beats) else '?'})")
+                else:
+                    # Fallback: heuristique énergie (moins fiable)
+                    offset = _detect_downbeat_offset(y, sr, beats)
+
                 if offset > 0 and offset < len(beats):
                     beats = beats[offset:]
                     beats_frames = beats_frames[offset:]
