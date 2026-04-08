@@ -418,20 +418,12 @@ def _fold_bpm_dj_range(bpm: float, lo: float = 70.0, hi: float = 180.0) -> float
 def _round_bpm_smart(bpm: float) -> float:
     """
     Smart BPM rounding for DJ use.
-    - Snap to common DJ BPMs within ±0.6 (most tracks are produced at integer BPMs)
-    - If within 0.5 of any integer, round to integer
-    - Otherwise round to 0.1 precision
+    Most tracks are produced at integer BPMs, so we round to the nearest
+    integer. This prevents cumulative drift over long tracks.
     """
-    COMMON = [80, 85, 90, 95, 100, 105, 110, 115, 116, 117, 118, 119,
-              120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130,
-              131, 132, 133, 134, 135, 136, 138, 140, 142, 145,
-              148, 150, 155, 160, 165, 170, 172, 174, 175, 176]
-    for c in COMMON:
-        if abs(bpm - c) <= 0.6:
-            return float(c)
-    if abs(bpm - round(bpm)) <= 0.5:
-        return float(round(bpm))
-    return round(bpm, 1)
+    # Simply round to nearest integer — this is what Rekordbox does
+    # for constant-BPM tracks. 117.5 → 118, 127.3 → 127, etc.
+    return float(round(bpm))
 
 
 def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
