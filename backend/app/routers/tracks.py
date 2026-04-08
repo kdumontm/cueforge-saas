@@ -4,7 +4,7 @@ import logging
 import mimetypes
 import subprocess
 import shutil
-from typing import Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session, selectinload
@@ -667,6 +667,53 @@ async def analyze_track(
     return AnalyzeResponse(status="started", message="Analysis started in background")
 
 
+# ── Batch analysis state (in-memory, per-process) ─────────────────────────────
+_batch_jobs: Dict[int, Dict] = {}  # user_id → {total, completed, failed, running, status}
+
+MAX_PARALLEL_ANALYSES = 3  # Nombre de tracks analysées simultanément
+
+
+def _run_batch_analysis(track_ids: List[int], user_id: int):
+    """
+    Analyse plusieurs tracks en parallèle (ThreadPoolExecutor).
+    librosa/numpy relâchent le GIL → vrai parallélisme sur les FFT.
+    """
+    import concurrent.futures
+
+    total = len(track_ids)
+    _batch_jobs[user_id] = {
+        "total": total, "completed": 0, "failed": 0,
+        "running": True, "status": "in_progress",
+    }
+    logger.info(f"[BATCH] Starting parallel analysis: {total} tracks, {MAX_PARALLEL_ANALYSES} workers")
+
+    def _analyze_one(tid):
+        try:
+            _run_analysis(tid)
+            return ("ok", tid)
+        except Exception as e:
+            logger.error(f"[BATCH] Track {tid} failed: {e}")
+            return ("fail", tid)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_ANALYSES) as pool:
+        futures = {pool.submit(_analyze_one, tid): tid for tid in track_ids}
+        for future in concurrent.futures.as_completed(futures):
+            result, tid = future.result()
+            if result == "ok":
+                _batch_jobs[user_id]["completed"] += 1
+            else:
+                _batch_jobs[user_id]["failed"] += 1
+            done = _batch_jobs[user_id]["completed"] + _batch_jobs[user_id]["failed"]
+            logger.info(f"[BATCH] Progress: {done}/{total}")
+
+    _batch_jobs[user_id]["running"] = False
+    _batch_jobs[user_id]["status"] = "completed"
+    logger.info(
+        f"[BATCH] Done: {_batch_jobs[user_id]['completed']} OK, "
+        f"{_batch_jobs[user_id]['failed']} failed out of {total}"
+    )
+
+
 @router.post("/reanalyze-all")
 async def reanalyze_all_tracks(
     background_tasks: BackgroundTasks,
@@ -675,8 +722,7 @@ async def reanalyze_all_tracks(
 ):
     """
     Ré-analyser TOUS les tracks du user (BPM, beat grid, cues).
-    Utile après une mise à jour de l'algo d'analyse.
-    Les tracks sont traitées en arrière-plan une par une.
+    Traitement parallèle : 3 tracks simultanément.
     """
     tracks = db.query(Track).filter(
         Track.user_id == current_user.id,
@@ -686,16 +732,43 @@ async def reanalyze_all_tracks(
     if not tracks:
         return {"status": "no_tracks", "message": "Aucun track à ré-analyser", "count": 0}
 
-    count = 0
-    for track in tracks:
-        if track.file_path and os.path.exists(track.file_path):
-            background_tasks.add_task(_run_analysis, track.id)
-            count += 1
+    track_ids = [t.id for t in tracks if t.file_path and os.path.exists(t.file_path)]
+    if not track_ids:
+        return {"status": "no_tracks", "message": "Aucun fichier audio trouvé sur le disque", "count": 0}
+
+    # Check if a batch is already running
+    existing = _batch_jobs.get(current_user.id)
+    if existing and existing.get("running"):
+        return {
+            "status": "already_running",
+            "message": f"Analyse en cours : {existing['completed']}/{existing['total']}",
+            "total": existing["total"],
+            "completed": existing["completed"],
+        }
+
+    background_tasks.add_task(_run_batch_analysis, track_ids, current_user.id)
 
     return {
         "status": "started",
-        "message": f"Ré-analyse lancée pour {count} tracks",
-        "count": count,
+        "message": f"Ré-analyse lancée pour {len(track_ids)} tracks ({MAX_PARALLEL_ANALYSES} en parallèle)",
+        "count": len(track_ids),
+    }
+
+
+@router.get("/batch-status")
+async def batch_analysis_status(
+    current_user: User = Depends(get_current_user),
+):
+    """Statut de la ré-analyse en cours."""
+    job = _batch_jobs.get(current_user.id)
+    if not job:
+        return {"status": "idle", "message": "Aucune analyse en cours"}
+    return {
+        "status": job["status"],
+        "total": job["total"],
+        "completed": job["completed"],
+        "failed": job["failed"],
+        "running": job["running"],
     }
 
 

@@ -382,46 +382,75 @@ def get_lastfm_genre(artist: str, title: str) -> Optional[str]:
 
 # ── Main pipeline ──────────────────────────────────────────────────────────────
 
+def _parse_artist_title_from_filename(file_path: str) -> tuple:
+    """
+    Extract artist and title from filename patterns like:
+    - "Artist - Title.flac"
+    - "01 Artist - Title.mp3"
+    - "15 Typically Her - Kaytranada Edition.flac"
+    Returns (artist_or_title, title_or_empty)
+    """
+    import re
+    basename = os.path.splitext(os.path.basename(file_path))[0]
+    # Remove leading track number
+    basename = re.sub(r'^\d+[\s._-]+', '', basename).strip()
+    # Try "Artist - Title" pattern
+    if ' - ' in basename:
+        parts = basename.split(' - ', 1)
+        return parts[0].strip(), parts[1].strip()
+    return basename.strip(), ""
+
+
 def get_track_metadata(file_path: str) -> Dict[str, Any]:
     """
     Full metadata pipeline:
-    1. fpcalc fingerprint
-    2. AcoustID identification
-    3. MusicBrainz enrichment
-    4. Spotify artwork + genre
-    5. Last.fm genre fallback
+    1. fpcalc fingerprint → AcoustID → MusicBrainz
+    2. Fallback: parse filename for artist/title
+    3. Spotify artwork + genre + BPM
+    4. iTunes / Last.fm genre fallback
 
     Returns a dict with any fields found. Never raises.
     """
     metadata: Dict[str, Any] = {}
 
     try:
-        # Step 1 — Fingerprint
+        artist: str = ""
+        title: str = ""
+
+        # Step 1 — Fingerprint + AcoustID
         fingerprint, duration = fingerprint_file(file_path)
-        if not fingerprint or not duration:
-            return metadata
+        acoustid_result = None
+        if fingerprint and duration:
+            acoustid_result = lookup_acoustid(fingerprint, duration)
 
-        # Step 2 — AcoustID
-        acoustid_result = lookup_acoustid(fingerprint, duration)
-        if not acoustid_result:
-            return metadata
+        if acoustid_result:
+            artist = acoustid_result.get("artist") or ""
+            title = acoustid_result.get("title") or ""
+            metadata["artist"] = artist
+            metadata["title"] = title
 
-        artist: str = acoustid_result.get("artist") or ""
-        title: str = acoustid_result.get("title") or ""
-        metadata["artist"] = artist
-        metadata["title"] = title
+            # Step 2b — MusicBrainz enrichment
+            recording_id: Optional[str] = acoustid_result.get("recording_id")
+            if recording_id:
+                mb = lookup_musicbrainz(recording_id)
+                if mb:
+                    metadata.update({k: v for k, v in mb.items() if v})
+                    artist = mb.get("artist") or artist
+                    title = mb.get("title") or title
 
-        # Step 3 — MusicBrainz
-        recording_id: Optional[str] = acoustid_result.get("recording_id")
-        if recording_id:
-            mb = lookup_musicbrainz(recording_id)
-            if mb:
-                metadata.update({k: v for k, v in mb.items() if v})
-                artist = mb.get("artist") or artist
-                title = mb.get("title") or title
+        # Step 2c — Fallback: parse filename if AcoustID didn't identify
+        if not artist and not title:
+            fn_artist, fn_title = _parse_artist_title_from_filename(file_path)
+            if fn_title:
+                artist = fn_artist
+                title = fn_title
+            else:
+                # Single name — use as search query
+                title = fn_artist
+            logger.info(f"[META] Using filename fallback: artist='{artist}', title='{title}'")
 
-        # Step 4 — Spotify
-        if artist and title:
+        # Step 3 — Spotify
+        if artist or title:
             sp = search_spotify(artist, title)
             if sp:
                 if sp.get("artwork_url"):

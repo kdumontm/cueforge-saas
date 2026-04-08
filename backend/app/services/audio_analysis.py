@@ -453,6 +453,44 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
         return 0
 
 
+def _detect_bpm_madmom(file_path: str) -> Optional[Dict]:
+    """
+    Detect BPM and beat positions using madmom (deep learning).
+    Much more accurate than librosa for complex rhythms (swing, syncopation).
+    Returns None if madmom is not installed or fails.
+    """
+    try:
+        import madmom
+        from madmom.features.beats import RNNBeatProcessor, DBNBeatTrackingProcessor
+
+        # RNN beat processor → DBN beat tracker (state of the art)
+        proc = RNNBeatProcessor()
+        act = proc(file_path)
+        beat_proc = DBNBeatTrackingProcessor(fps=100)
+        beats = beat_proc(act).tolist()  # list of beat times in seconds
+
+        if len(beats) < 8:
+            return None
+
+        # BPM from median IBI
+        ibis = np.diff(beats)
+        median_ibi = float(np.median(ibis))
+        if median_ibi <= 0:
+            return None
+        bpm_raw = 60.0 / median_ibi
+        bpm = _fold_bpm_dj_range(bpm_raw)
+        bpm = _round_bpm_smart(bpm)
+
+        logger.info(f"[MADMOM] Detected {bpm} BPM, {len(beats)} beats (median IBI={median_ibi*1000:.1f}ms)")
+        return {"bpm": bpm, "beats": beats, "source": "madmom"}
+    except ImportError:
+        logger.debug("[MADMOM] madmom not installed — skipping")
+        return None
+    except Exception as e:
+        logger.warning(f"[MADMOM] Failed: {e}")
+        return None
+
+
 def _refine_first_beat(y: np.ndarray, sr: int, raw_first_beat: float, bpm: float) -> float:
     """
     Refine the first beat position using onset detection.
@@ -490,9 +528,9 @@ def _refine_first_beat(y: np.ndarray, sr: int, raw_first_beat: float, bpm: float
         return raw_first_beat
 
 
-def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
+def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -> Dict:
     """
-    Detect BPM and beat positions — v5.3 precision DJ grid.
+    Detect BPM and beat positions — v5.4 precision DJ grid.
 
     1. Ellis DP beat tracker (primary BPM + raw beats)
     2. Onset autocorrelation (secondary, for validation)
@@ -503,6 +541,33 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int) -> Dict:
     7. Downbeat phase alignment (beats[0::4] = bar starts)
     """
     try:
+        # ── Try madmom first (deep learning — much more accurate) ──
+        if file_path:
+            madmom_result = _detect_bpm_madmom(file_path)
+            if madmom_result:
+                bpm = madmom_result["bpm"]
+                raw_beats = madmom_result["beats"]
+                expected_ibi = 60.0 / bpm
+                first_beat = _refine_first_beat(y, sr, raw_beats[0], bpm)
+                end_time = raw_beats[-1] + expected_ibi * 4
+                beats = []
+                t = first_beat
+                while t <= end_time:
+                    beats.append(round(t, 6))
+                    t += expected_ibi
+                beats_frames = librosa.time_to_frames(
+                    np.array(beats), sr=sr, hop_length=HOP_LENGTH
+                ).tolist()
+                # Downbeat alignment
+                offset = _detect_downbeat_offset(y, sr, beats)
+                if offset > 0 and offset < len(beats):
+                    beats = beats[offset:]
+                    beats_frames = beats_frames[offset:]
+                logger.info(f"[BPM] Using madmom: {bpm} BPM, {len(beats)} beats")
+                return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": "madmom"}
+
+        # ── Fallback: librosa (if madmom unavailable or failed) ──
+
         # ── Method 1: Ellis DP beat tracker ──
         tempo_ellis, beats_frames = librosa.beat.beat_track(y=y, sr=sr)
         bpm_ellis = float(tempo_ellis) if not hasattr(tempo_ellis, '__len__') else float(tempo_ellis[0])
@@ -1491,8 +1556,8 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         duration_ms = int(len(y) / sr_loaded * 1000)
 
-    # BPM and beats — v5.2 multi-method detection
-    bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded)
+    # BPM and beats — v5.4 madmom + librosa fallback
+    bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded, file_path=file_path)
     bpm = bpm_data["bpm"]
     beats = bpm_data["beats"]
     beat_frames = bpm_data.get("beat_frames", [])
