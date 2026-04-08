@@ -156,7 +156,18 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok", "version": "5.5.0-full", "db": db_status}
+    # Check optional ML libs
+    ml_libs = {}
+    for lib in ["madmom", "allin1", "torch", "demucs"]:
+        try:
+            mod = __import__(lib)
+            ml_libs[lib] = getattr(mod, "__version__", "ok")
+        except ImportError:
+            ml_libs[lib] = "not installed"
+        except Exception as e:
+            ml_libs[lib] = f"error: {e}"
+
+    response = {"status": "ok", "version": "5.5.1-diag", "db": db_status, "ml": ml_libs}
     if db_error:
         response["db_error"] = db_error
     return response
