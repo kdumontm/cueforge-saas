@@ -26,14 +26,14 @@ RUN pip install --no-cache-dir \
     || echo "WARNING: PyTorch install failed"
 
 # ── Étape 3: madmom — deep learning beat tracking ─────────────────────
-# Compile les extensions C avec Cython (besoin de build-essential)
-RUN pip install --no-cache-dir "madmom>=0.16.1" \
+# --no-build-isolation = utilise le Cython système au lieu d'un env isolé
+RUN pip install --no-cache-dir --no-build-isolation "madmom>=0.16.1" \
     && python -c "import madmom; print(f'madmom={madmom.__version__} OK')" \
     || echo "WARNING: madmom install failed — will use librosa for beat tracking"
 
 # ── Étape 4: allin1 — deep learning structure detection (ISMIR 2023) ──
 # Nécessite torch déjà installé
-RUN pip install --no-cache-dir "allin1>=1.0.0" \
+RUN pip install --no-cache-dir --no-build-isolation "allin1>=1.0.0" \
     && python -c "import allin1; print('allin1 OK')" \
     || echo "WARNING: allin1 install failed — will use librosa for structure detection"
 
