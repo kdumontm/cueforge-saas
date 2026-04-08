@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     pkg-config \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Étape 1: Cython + numpy (requis AVANT madmom) ─────────────────────
@@ -26,14 +27,18 @@ RUN pip install --no-cache-dir \
     || echo "WARNING: PyTorch install failed"
 
 # ── Étape 3: madmom — deep learning beat tracking ─────────────────────
-# --no-build-isolation = utilise le Cython système au lieu d'un env isolé
-RUN pip install --no-cache-dir --no-build-isolation "madmom>=0.16.1" \
-    && python -c "import madmom; print(f'madmom={madmom.__version__} OK')" \
+# Version dev depuis GitHub = meilleur support Python 3.11 + numpy 1.26
+# --no-build-isolation pour utiliser le Cython système
+RUN pip install --no-cache-dir --no-build-isolation \
+    "setuptools>=65.0" "mido" "scipy>=1.0" \
+    && pip install --no-cache-dir --no-build-isolation \
+    "git+https://github.com/CPJKU/madmom.git" \
+    && python -c "import madmom; print(f'madmom OK')" \
     || echo "WARNING: madmom install failed — will use librosa for beat tracking"
 
 # ── Étape 4: allin1 — deep learning structure detection (ISMIR 2023) ──
 # Nécessite torch déjà installé
-RUN pip install --no-cache-dir --no-build-isolation "allin1>=1.0.0" \
+RUN pip install --no-cache-dir "allin1>=1.0.0" \
     && python -c "import allin1; print('allin1 OK')" \
     || echo "WARNING: allin1 install failed — will use librosa for structure detection"
 
