@@ -258,49 +258,76 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     Snap a position to the nearest downbeat (every 4 beats = 1 bar).
     Professional DJ cue points ALWAYS land on a downbeat.
 
-    v3.0: TOUJOURS snapper sur le downbeat le plus proche — pas de tolérance.
-    Un cue point qui ne tombe pas sur une mesure est inutilisable pour un DJ.
+    v5.5: Snap en 2 passes:
+      1. Trouver le BEAT le plus proche (précision maximale)
+      2. Depuis ce beat, reculer jusqu'au downbeat le plus proche
+    Cela garantit qu'on tombe sur un vrai downbeat même si pos_ms est
+    entre deux mesures.
     """
     if not beats:
-        # Même sans beats, calculer le downbeat le plus proche depuis le BPM
         beat_ms = 60000 / max(bpm, 60)
         bar_ms = beat_ms * 4
         nearest_bar = round(pos_ms / bar_ms) * bar_ms
         return int(nearest_bar)
 
-    downbeats = [beats[i] for i in range(0, len(beats), 4)]
-    if not downbeats:
-        return pos_ms
+    # Passe 1: trouver le beat le plus proche
+    nearest_beat_idx = min(range(len(beats)), key=lambda i: abs(beats[i] - pos_ms))
 
-    # v3.0: snap TOUJOURS — on prend le downbeat le plus proche sans condition
-    return min(downbeats, key=lambda b: abs(b - pos_ms))
+    # Passe 2: reculer jusqu'au downbeat (index multiple de 4)
+    # On cherche le downbeat le plus proche (avant ou après)
+    downbeat_before = (nearest_beat_idx // 4) * 4
+    downbeat_after = downbeat_before + 4
+
+    candidates = []
+    if 0 <= downbeat_before < len(beats):
+        candidates.append(beats[downbeat_before])
+    if 0 <= downbeat_after < len(beats):
+        candidates.append(beats[downbeat_after])
+
+    if not candidates:
+        return beats[nearest_beat_idx]
+
+    return min(candidates, key=lambda b: abs(b - pos_ms))
 
 
 def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     """
     Snap to nearest 4-bar boundary (every 16 beats in 4/4).
 
-    v3.0: Snap TOUJOURS sur une frontière de 4 mesures.
-    Un DJ travaille en phrases de 4, 8, 16 mesures — JAMAIS entre.
-    Si le beat grid est disponible, on snap directement sur un point de la grille.
+    v5.5: Snap hiérarchique avec fallback:
+      1. Essayer 4-bar boundary (16 beats) — idéal pour les sections
+      2. Si trop loin (> 2 mesures), fallback sur 2-bar (8 beats)
+      3. En dernier recours, downbeat (4 beats)
+    Un DJ travaille en phrases de 4, 8, 16 mesures — le snap doit respecter
+    la hiérarchie métrique sans sauter trop loin du point détecté.
     """
     if not beats:
-        # Calculer depuis le BPM
         beat_ms = 60000 / max(bpm, 60)
-        bar_4_ms = beat_ms * 16  # 4 mesures = 16 beats
+        bar_4_ms = beat_ms * 16
         nearest_4bar = round(pos_ms / bar_4_ms) * bar_4_ms
         return int(nearest_4bar)
 
-    # Extraire les frontières de 4 mesures (toutes les 16 beats)
+    beat_ms = 60000 / max(bpm, 60)
+    bar_ms = beat_ms * 4
+    max_jump_ms = bar_ms * 2.5  # Ne pas sauter plus de 2.5 mesures
+
+    # Niveau 1: frontières de 4 mesures (16 beats)
     boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
-    if not boundaries_16:
-        return _snap_to_downbeat(pos_ms, beats, bpm)
+    if boundaries_16:
+        nearest_16 = min(boundaries_16, key=lambda b: abs(b - pos_ms))
+        if abs(nearest_16 - pos_ms) <= max_jump_ms:
+            return nearest_16
 
-    nearest = min(boundaries_16, key=lambda b: abs(b - pos_ms))
+    # Niveau 2: frontières de 2 mesures (8 beats) — pour les morceaux
+    # avec des sections qui ne tombent pas pile sur 4 mesures
+    boundaries_8 = [beats[i] for i in range(0, len(beats), 8)]
+    if boundaries_8:
+        nearest_8 = min(boundaries_8, key=lambda b: abs(b - pos_ms))
+        if abs(nearest_8 - pos_ms) <= max_jump_ms:
+            return nearest_8
 
-    # v3.0: TOUJOURS snapper — pas de tolérance, on prend le plus proche
-    # L'ancienne tolérance pouvait laisser passer des positions hors-grille
-    return nearest
+    # Niveau 3: fallback sur le downbeat le plus proche
+    return _snap_to_downbeat(pos_ms, beats, bpm)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -355,23 +382,31 @@ def _compute_confidence(
 
 
 def _snap_quality(original_ms: int, snapped_ms: int, beats: List[int], bpm: float) -> float:
-    """How well did the position snap? 1.0 = perfect 4-bar, 0.3 = no snap."""
+    """How well did the position snap? 1.0 = perfect 4-bar, 0.3 = no snap.
+
+    v5.5: Utilise une tolérance de ±2ms au lieu de comparaison exacte.
+    Les arrondis int/round peuvent créer des écarts de 1ms qui faussaient
+    le score de snap alors que le cue est parfaitement sur le beat.
+    """
     if not beats:
         return 0.3
-    beat_ms = 60000 / max(bpm, 60)
+    TOL = 2  # tolérance en ms pour "sur le beat"
 
-    # Check if on a 4-bar boundary
-    boundaries_16 = set(beats[i] for i in range(0, len(beats), 16))
-    if snapped_ms in boundaries_16:
+    def _on_grid(pos: int, grid: List[int]) -> bool:
+        return any(abs(pos - g) <= TOL for g in grid)
+
+    # Check if on a 4-bar boundary (every 16 beats)
+    boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
+    if _on_grid(snapped_ms, boundaries_16):
         return 1.0
 
-    # Check if on a downbeat
-    downbeats = set(beats[i] for i in range(0, len(beats), 4))
-    if snapped_ms in downbeats:
+    # Check if on a downbeat (every 4 beats)
+    downbeats = [beats[i] for i in range(0, len(beats), 4)]
+    if _on_grid(snapped_ms, downbeats):
         return 0.85
 
     # Check if on any beat
-    if snapped_ms in set(beats):
+    if _on_grid(snapped_ms, beats):
         return 0.65
 
     # Unsnapped
@@ -841,6 +876,33 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             fb_conf = _compute_confidence("phrase", 0.1, 0.5, False, profile)
             _add_cue(target, "phrase", fallback_name, CUE_COLORS["green"],
                      snap_4bar=True, confidence=fb_conf)
+
+    # ── POST-GENERATION VALIDATION — v5.5 ──────────────────────────
+    # Vérifier que CHAQUE cue point tombe sur un beat de la grille.
+    # Si un cue est hors-grille (> 1/2 beat de distance), le re-snapper
+    # sur le beat exact le plus proche.
+    if beats:
+        beats_set = set(beats)
+        half_beat_ms = max(1, int(beat_ms / 2))
+
+        for cp in cue_points:
+            pos = cp["position_ms"]
+            if pos in beats_set:
+                continue  # Déjà sur un beat exact ✓
+
+            # Trouver le beat le plus proche
+            nearest = min(beats, key=lambda b: abs(b - pos))
+            dist = abs(nearest - pos)
+
+            if dist > half_beat_ms:
+                # Ce cue est à plus d'un demi-beat du beat le plus proche
+                # → le forcer sur le beat exact
+                cp["position_ms"] = nearest
+                # Réduire la confiance car on a dû corriger
+                cp["confidence"] = round(max(0.1, cp.get("confidence", 0.5) * 0.85), 2)
+            elif dist > 0:
+                # Petit décalage (< demi-beat) → snapper silencieusement
+                cp["position_ms"] = nearest
 
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])

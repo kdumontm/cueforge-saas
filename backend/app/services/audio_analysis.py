@@ -463,25 +463,105 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
     """
     Detect the downbeat phase (0-3) among the first beats.
     Returns the offset so that beats[offset::4] are the actual downbeats.
-    Uses onset strength: downbeats tend to be the loudest in a 4-beat cycle.
+
+    v5.5 — Multi-signal voting:
+      1. Onset strength (accent rythmique global)
+      2. Low-frequency energy (kick drum = downbeat signature)
+      3. Spectral flux (changement timbral plus marqué sur le "1")
+    Chaque signal vote pour une phase, le gagnant est la phase majoritaire.
+    En cas d'égalité, l'onset strength départage (signal le plus fiable).
     """
     if len(beats) < 8:
         return 0
     try:
+        n_beats = min(64, len(beats))
+
+        # ── Signal 1: Onset strength (global accent) ──
         onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
-        # Measure average onset strength at each phase (0,1,2,3)
-        strengths = [0.0, 0.0, 0.0, 0.0]
+        onset_scores = [0.0, 0.0, 0.0, 0.0]
         counts = [0, 0, 0, 0]
-        for i, bt in enumerate(beats[:min(64, len(beats))]):
+        for i, bt in enumerate(beats[:n_beats]):
             frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
             if 0 <= frame < len(onset_env):
                 phase = i % 4
-                strengths[phase] += onset_env[frame]
+                onset_scores[phase] += onset_env[frame]
                 counts[phase] += 1
         for j in range(4):
             if counts[j] > 0:
-                strengths[j] /= counts[j]
-        return int(np.argmax(strengths))
+                onset_scores[j] /= counts[j]
+
+        # ── Signal 2: Low-frequency energy (kick drum, < 150 Hz) ──
+        # Le kick tombe presque toujours sur le "1" en musique DJ
+        bass_scores = [0.0, 0.0, 0.0, 0.0]
+        try:
+            # Filtre passe-bas à 150 Hz pour isoler le kick
+            from scipy.signal import butter, sosfilt
+            sos = butter(4, 150, btype='low', fs=sr, output='sos')
+            y_bass = sosfilt(sos, y)
+            bass_env = np.abs(y_bass)
+            # Sous-échantillonner pour accélérer
+            hop_samples = HOP_LENGTH
+            bass_env_ds = np.array([
+                np.max(bass_env[max(0, i*hop_samples):min(len(bass_env), (i+1)*hop_samples)])
+                for i in range(len(bass_env) // hop_samples)
+            ])
+            bass_counts = [0, 0, 0, 0]
+            for i, bt in enumerate(beats[:n_beats]):
+                frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
+                if 0 <= frame < len(bass_env_ds):
+                    phase = i % 4
+                    bass_scores[phase] += bass_env_ds[frame]
+                    bass_counts[phase] += 1
+            for j in range(4):
+                if bass_counts[j] > 0:
+                    bass_scores[j] /= bass_counts[j]
+        except Exception:
+            bass_scores = onset_scores[:]  # fallback to onset
+
+        # ── Signal 3: Spectral flux (changement timbral) ──
+        spec_scores = [0.0, 0.0, 0.0, 0.0]
+        try:
+            S = np.abs(librosa.stft(y, hop_length=HOP_LENGTH))
+            spec_diff = np.sum(np.maximum(0, np.diff(S, axis=1)), axis=0)
+            spec_counts = [0, 0, 0, 0]
+            for i, bt in enumerate(beats[:n_beats]):
+                frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
+                if 0 <= frame < len(spec_diff):
+                    phase = i % 4
+                    spec_scores[phase] += spec_diff[frame]
+                    spec_counts[phase] += 1
+            for j in range(4):
+                if spec_counts[j] > 0:
+                    spec_scores[j] /= spec_counts[j]
+        except Exception:
+            spec_scores = onset_scores[:]  # fallback to onset
+
+        # ── Voting: chaque signal vote pour sa phase gagnante ──
+        vote_onset = int(np.argmax(onset_scores))
+        vote_bass = int(np.argmax(bass_scores))
+        vote_spec = int(np.argmax(spec_scores))
+
+        votes = [0, 0, 0, 0]
+        # Pondération: bass=2 (kick est le signal le plus fort pour les downbeats DJ),
+        # onset=1.5, spectral=1
+        votes[vote_bass] += 2.0
+        votes[vote_onset] += 1.5
+        votes[vote_spec] += 1.0
+
+        winner = int(np.argmax(votes))
+
+        # ── Confidence check: si le gagnant n'est pas clairement dominant,
+        # vérifier que l'onset strength confirme ──
+        total_votes = sum(votes)
+        if total_votes > 0 and votes[winner] / total_votes < 0.5:
+            # Pas de consensus clair → utiliser onset (le plus fiable en général)
+            winner = vote_onset
+
+        logger.info(
+            f"[DOWNBEAT] votes={votes}, onset={vote_onset}, bass={vote_bass}, "
+            f"spec={vote_spec} → offset={winner}"
+        )
+        return winner
     except Exception:
         return 0
 
@@ -1651,7 +1731,9 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     bpm = bpm_data["bpm"]
     beats = bpm_data["beats"]
     beat_frames = bpm_data.get("beat_frames", [])
-    beat_positions = [int(b * 1000) for b in beats]
+    # CRITICAL: round() au lieu de int() pour éviter la dérive cumulative.
+    # int() tronque vers 0 → perte de ~0.5ms/beat → ~100ms de dérive en fin de track.
+    beat_positions = [round(b * 1000) for b in beats]
 
     # BPM confidence: based on inter-beat interval regularity
     bpm_confidence = 0.5
@@ -1710,7 +1792,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Drops (6-factor detection with downbeat snapping)
     try:
         drops = detect_drops_from_y(y, sr_loaded, beats)
-        drop_positions = [int(d["time"] * 1000) for d in drops]
+        drop_positions = [round(d["time"] * 1000) for d in drops]
     except Exception:
         drops = []
         drop_positions = []
