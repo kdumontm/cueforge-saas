@@ -6,10 +6,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     libchromaprint-tools \
     ffmpeg \
+    build-essential \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
+
+# Cython needed BEFORE madmom (madmom's setup.py imports it)
+RUN pip install --no-cache-dir Cython numpy==1.26.4
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# madmom (deep learning beat tracking) — optional, falls back to librosa
+RUN pip install --no-cache-dir madmom>=0.16.1 \
+    && python -c "import madmom; print(f'madmom={madmom.__version__} OK')" \
+    || echo "WARNING: madmom install failed — will use librosa for beat tracking"
+
+# allin1 (deep learning structure detection) — optional, falls back to librosa SSM
+RUN pip install --no-cache-dir allin1>=1.0.0 \
+    && python -c "import allin1; print('allin1 OK')" \
+    || echo "WARNING: allin1 install failed — will use librosa for structure detection"
 
 # PyTorch CPU-only + Demucs for stem separation (optional — analysis works without it)
 # Uses CPU-only torch to minimize image size (~800MB vs ~2GB)

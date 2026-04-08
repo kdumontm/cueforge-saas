@@ -10,8 +10,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 librosa==0.10.1
-madmom>=0.16.1
-allin1>=1.0.0
+# madmom et allin1 installés séparément dans le Dockerfile (nécessitent Cython + build tools)
 numpy==1.26.4
 scipy==1.12.0
 soundfile==0.12.1
