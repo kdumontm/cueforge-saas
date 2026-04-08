@@ -505,6 +505,7 @@ def _run_analysis(track_id: int):
 
         # ── Step 3: Metadata lookup (non-critical) ──────────────────────
         spotify_bpm = None
+        spotify_sections = None
         try:
             from app.services.metadata_service import get_track_metadata
             metadata = get_track_metadata(file_path)
