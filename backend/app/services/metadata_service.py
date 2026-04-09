@@ -1,6 +1,9 @@
 """
 Metadata service: fingerprint audio and look up track info from
-AcoustID, MusicBrainz, Spotify, and Last.fm.
+AcoustID, MusicBrainz, Discogs, Spotify, iTunes, and Last.fm.
+
+Pipeline order (optimisé pour musique électronique):
+  AcoustID → MusicBrainz → Discogs → Spotify → iTunes → Last.fm
 
 All lookups are optional — if a service fails or isn't configured,
 the pipeline continues silently.
@@ -319,6 +322,87 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# ── Discogs — excellent pour la musique électronique (labels, sous-genres) ────
+
+DISCOGS_TOKEN = os.getenv("DISCOGS_TOKEN", "")
+
+
+def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
+    """
+    Search Discogs for a track. Free API (60 req/min with token).
+    Excellent coverage for electronic music: labels indé, sous-genres précis,
+    catalogue vinyl, etc.
+    Returns dict with genre, style (sub-genre), label, year, artwork or None.
+    """
+    if not DISCOGS_TOKEN:
+        logger.debug("Discogs not configured — skipping (set DISCOGS_TOKEN)")
+        return None
+    try:
+        import urllib.request
+        import urllib.parse
+
+        query = f"{artist} {title}".strip()
+        if not query:
+            return None
+
+        url = (
+            "https://api.discogs.com/database/search"
+            f"?q={urllib.parse.quote(query)}&type=release&per_page=5"
+            f"&token={DISCOGS_TOKEN}"
+        )
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        results = data.get("results", [])
+        if not results:
+            logger.info(f"Discogs: no result for '{query}'")
+            return None
+
+        # Pick the best result (first one, Discogs ranks by relevance)
+        release = results[0]
+
+        # Genre — Discogs distingue "genre" (large) et "style" (sous-genre précis)
+        genres = release.get("genre", [])
+        styles = release.get("style", [])
+        # Prefer styles (more specific) for electronic music
+        genre_str = ", ".join(styles[:3]) if styles else ", ".join(genres[:3])
+
+        # Label
+        labels = release.get("label", [])
+        label = labels[0] if labels else None
+
+        # Year
+        year_str = str(release.get("year", ""))
+        year = int(year_str) if year_str and year_str.isdigit() else None
+
+        # Artwork (cover_image is high-res, thumb is small)
+        artwork = release.get("cover_image", "") or release.get("thumb", "")
+
+        # Title parsing — Discogs format is "Artist - Title"
+        discogs_title = release.get("title", "")
+
+        logger.info(
+            f"Discogs: '{discogs_title}' — genre={genre_str}, "
+            f"label={label}, year={year}"
+        )
+        return {
+            "genre": genre_str or None,
+            "label": label,
+            "year": year,
+            "artwork_url": artwork or None,
+            "discogs_id": str(release.get("id", "")),
+            "discogs_url": f"https://www.discogs.com{release.get('resource_url', '').replace('https://api.discogs.com', '')}",
+            "source": "discogs",
+        }
+    except Exception as e:
+        logger.warning(f"Discogs lookup failed: {e}")
+    return None
+
+
 # ── iTunes Search API (Apple Music) — gratuit, sans clé, excellent pour la musique FR ──
 
 def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
@@ -479,7 +563,20 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                 title = fn_artist
             logger.info(f"[META] Using filename fallback: artist='{artist}', title='{title}'")
 
-        # Step 3 — Spotify
+        # Step 3 — Discogs (prioritaire pour l'électro: labels, sous-genres précis)
+        if artist or title:
+            discogs = search_discogs(artist, title)
+            if discogs:
+                if not metadata.get("genre") and discogs.get("genre"):
+                    metadata["genre"] = discogs["genre"]
+                if not metadata.get("label") and discogs.get("label"):
+                    metadata["label"] = discogs["label"]
+                if not metadata.get("year") and discogs.get("year"):
+                    metadata["year"] = discogs["year"]
+                if not metadata.get("artwork_url") and discogs.get("artwork_url"):
+                    metadata["artwork_url"] = discogs["artwork_url"]
+
+        # Step 4 — Spotify
         if artist or title:
             sp = search_spotify(artist, title)
             if sp:
@@ -496,7 +593,7 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                 if sp.get("spotify_sections"):
                     metadata["spotify_sections"] = sp["spotify_sections"]
 
-        # Step 5 — iTunes fallback (artwork + genre, gratuit, sans clé, excellent pour FR)
+        # Step 5 — iTunes fallback (artwork + genre, gratuit, excellent pour FR)
         if artist and title and (not metadata.get("artwork_url") or not metadata.get("genre")):
             it = search_itunes(artist, title)
             if it:
