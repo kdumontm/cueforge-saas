@@ -1104,3 +1104,40 @@ async def get_public_features(db: Session = Depends(get_db)):
     """Liste des features par plan pour la page pricing."""
     features = db.query(PlanFeature).filter(PlanFeature.is_enabled == True).all()
     return [_serialize_feature(f) for f in features]
+
+
+@router.get("/plan-features")
+async def get_plan_features(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Retourne toutes les features groupées par plan (pour le dashboard).
+    Format: { features: { free: { feat_name: true/false, ... }, ... }, feature_labels: { feat_name: "Label" } }
+    """
+    all_features = db.query(PlanFeature).order_by(PlanFeature.plan_name, PlanFeature.id).all()
+    features: dict[str, dict[str, bool]] = {}
+    labels: dict[str, str] = {}
+
+    for f in all_features:
+        if f.plan_name not in features:
+            features[f.plan_name] = {}
+        features[f.plan_name][f.feature_name] = f.is_enabled
+        if f.label:
+            labels[f.feature_name] = f.label
+
+    return {"features": features, "feature_labels": labels}
+
+
+@public_router.get("/plan-features/{plan_name}")
+async def get_plan_features_public(plan_name: str, db: Session = Depends(get_db)):
+    """Retourne les features activées pour un plan donné (endpoint public pour le dashboard user)."""
+    all_features = db.query(PlanFeature).filter(PlanFeature.plan_name == plan_name).all()
+    result: dict[str, bool] = {}
+    labels: dict[str, str] = {}
+
+    for f in all_features:
+        result[f.feature_name] = f.is_enabled
+        if f.label:
+            labels[f.feature_name] = f.label
+
+    return {"plan": plan_name, "features": result, "feature_labels": labels}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Zap, Search, Music2, Loader2, ChevronDown } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 import { listTracks } from '@/lib/api';
 import CompatibleTracks from '@/components/CompatibleTracks';
 import type { Track } from '@/types';
@@ -29,6 +30,7 @@ export default function CompatiblePage() {
   const filtered = tracks.filter(t => {
     const q = search.toLowerCase();
     return (
+    <FeatureGate featureKey="mix_compatible">
       (t.title || '').toLowerCase().includes(q) ||
       (t.artist || '').toLowerCase().includes(q) ||
       t.original_filename.toLowerCase().includes(q)
@@ -194,5 +196,6 @@ export default function CompatiblePage() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

@@ -23,18 +23,18 @@ interface SidebarProps {
 
 const getNavItems = (lang: string) => [
   { href: '/dashboard', icon: BarChart3, labelKey: 'sidebar.dashboard' },
-  { href: '/dashboard/stats', icon: BarChart3, labelKey: 'sidebar.stats' },
-  { href: '/dashboard/favorites', icon: Heart, labelKey: 'sidebar.favorites' },
-  { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder' },
-  { href: '/dashboard/duplicates', icon: GitMerge, labelKey: 'sidebar.duplicates' },
-  { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible' },
-  { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists' },
-  { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates' },
-  { href: '/dashboard/gig-prep', icon: Zap, labelKey: 'sidebar.gig_prep' },
-  { href: '/dashboard/activity', icon: Clock, labelKey: 'sidebar.activity' },
-  { href: '/dashboard/tools', icon: Wrench, labelKey: 'sidebar.dj_tools' },
-  { href: '/dashboard/upload', icon: Upload, labelKey: 'sidebar.upload' },
-  { href: '/dashboard/export', icon: Download, labelKey: 'sidebar.export' },
+  { href: '/dashboard/stats', icon: BarChart3, labelKey: 'sidebar.stats', featureKey: 'stats' },
+  { href: '/dashboard/favorites', icon: Heart, labelKey: 'sidebar.favorites', featureKey: 'favorites' },
+  { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder', featureKey: 'set_builder' },
+  { href: '/dashboard/duplicates', icon: GitMerge, labelKey: 'sidebar.duplicates', featureKey: 'duplicates' },
+  { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible', featureKey: 'mix_compatible' },
+  { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists', featureKey: 'playlists' },
+  { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates', featureKey: 'smart_crates' },
+  { href: '/dashboard/gig-prep', icon: Zap, labelKey: 'sidebar.gig_prep', featureKey: 'gig_prep' },
+  { href: '/dashboard/activity', icon: Clock, labelKey: 'sidebar.activity', featureKey: 'activity' },
+  { href: '/dashboard/tools', icon: Wrench, labelKey: 'sidebar.dj_tools', featureKey: 'dj_tools' },
+  { href: '/dashboard/upload', icon: Upload, labelKey: 'sidebar.upload', featureKey: 'upload' },
+  { href: '/dashboard/export', icon: Download, labelKey: 'sidebar.export', featureKey: 'export' },
   { href: '/download', icon: Monitor, labelKey: 'sidebar.desktop_app' },
 ];
 
@@ -48,7 +48,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   const { lang } = useLang();
   const pathname = usePathname();
   const router = useRouter();
-  const { collapsed, toggleCollapsed, activeSection, setActiveSection } = useDashboardContext();
+  const { collapsed, toggleCollapsed, activeSection, setActiveSection, isFeatureEnabled } = useDashboardContext();
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [playlists, setPlaylists] = useState<{ id: string; label: string; count: number }[]>([]);
@@ -159,7 +159,9 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
 
       <nav className="px-1.5 py-2 flex-1 overflow-y-auto custom-scrollbar">
         {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Navigation</div>}
-        {getNavItems(lang).map((item) => <NavLink key={item.href} {...item} />)}
+        {getNavItems(lang)
+          .filter((item) => !(item as any).featureKey || isFeatureEnabled((item as any).featureKey))
+          .map((item) => <NavLink key={item.href} {...item} />)}
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />
 

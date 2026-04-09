@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BarChart3, Music, Disc3, Zap, Calendar, HardDrive } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 import { useLang } from '@/components/LangProvider';
 
 interface StatsOverview {
@@ -79,6 +80,7 @@ export default function StatsPage() {
   const maxKeyCount = Math.max(...stats.key_distribution.map((k) => k.count), 1);
 
   return (
+    <FeatureGate featureKey="stats">
     <div className="p-8 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -246,5 +248,6 @@ export default function StatsPage() {
         </div>
       </div>
     </div>
+    </FeatureGate>
   );
 }

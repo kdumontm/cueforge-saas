@@ -7,6 +7,7 @@ import {
   Calendar, ChevronDown, ChevronUp, Headphones, AlertTriangle,
   Zap, Save, Sparkles,
 } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface ChecklistItem {
@@ -186,6 +187,7 @@ export default function GigPrepPage() {
   });
 
   return (
+    <FeatureGate featureKey="gig_prep">
     <div className="p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -463,5 +465,6 @@ export default function GigPrepPage() {
         </>
       )}
     </div>
+    </FeatureGate>
   );
 }

@@ -81,15 +81,15 @@ function formatDuration(seconds: number | null | undefined): string {
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
   { id: 'info',      labelKey: 'tab.info',      icon: '📝' },
-  { id: 'cues',      labelKey: 'tab.cues',      icon: '🎯' },
-  { id: 'beatgrid',  labelKey: 'tab.beatgrid',  icon: '🥁' },
-  { id: 'mix',       labelKey: 'tab.mix',       icon: '🎡' },
-  { id: 'eq',        labelKey: 'tab.eq',        icon: '〰' },
-  { id: 'fx',        labelKey: 'tab.fx',        icon: '✨' },
-  { id: 'stems',     labelKey: 'tab.stems',     icon: '🎸', desktopOnly: true },
-  { id: 'compare',   labelKey: 'tab.compare',   icon: '⚖️' },
-  { id: 'playlists', labelKey: 'tab.playlists',icon: '📂', global: true },
-  { id: 'stats',     labelKey: 'tab.stats',     icon: '📊', global: true },
+  { id: 'cues',      labelKey: 'tab.cues',      icon: '🎯', featureKey: 'cue_generation' },
+  { id: 'beatgrid',  labelKey: 'tab.beatgrid',  icon: '🥁', featureKey: 'beatgrid' },
+  { id: 'mix',       labelKey: 'tab.mix',       icon: '🎡', featureKey: 'mix_analysis' },
+  { id: 'eq',        labelKey: 'tab.eq',        icon: '〰', featureKey: 'eq_analysis' },
+  { id: 'fx',        labelKey: 'tab.fx',        icon: '✨', featureKey: 'fx_suggestions' },
+  { id: 'stems',     labelKey: 'tab.stems',     icon: '🎸', desktopOnly: true, featureKey: 'stems' },
+  { id: 'compare',   labelKey: 'tab.compare',   icon: '⚖️', featureKey: 'compare' },
+  { id: 'playlists', labelKey: 'tab.playlists',icon: '📂', global: true, featureKey: 'playlists' },
+  { id: 'stats',     labelKey: 'tab.stats',     icon: '📊', global: true, featureKey: 'stats' },
   { id: 'history',   labelKey: 'tab.history',   icon: '🕒', global: true },
   { id: 'notes',     labelKey: 'tab.notes',     icon: '📋', global: true },
 ];
@@ -132,6 +132,7 @@ export default function DashboardV2() {
     autoAnalyze, setAutoAnalyze,
     setUnanalyzedCount, registerAnalyzeAllHandler,
     persistedTrackId, setPersistedTrackId,
+    isFeatureEnabled, userPlan,
   } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, _setSelectedTrack] = useState<any | null>(null);
@@ -1769,26 +1770,34 @@ export default function DashboardV2() {
           {/* Onglets verticaux */}
           <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
             {TABS.filter(t => !(t as any).desktopOnly || isDesktopApp()).map(t => {
-              const disabled = !selectedTrack && !(t as any).global;
+              const noTrack = !selectedTrack && !(t as any).global;
+              const featureLocked = (t as any).featureKey && !isFeatureEnabled((t as any).featureKey);
+              const disabled = noTrack || featureLocked;
               return (
                 <button
                   key={t.id}
                   onClick={() => !disabled && setActiveTab(t.id)}
                   disabled={disabled}
+                  title={featureLocked ? `Upgrade vers ${userPlan === 'free' ? 'Pro' : 'Unlimited'} pour débloquer` : undefined}
                   className={`relative flex flex-col items-center gap-0.5 sm:gap-1 py-2 sm:py-3 px-0.5 sm:px-1 transition-all border-none ${
                     activeTab === t.id
                       ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-                      : disabled
-                        ? 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
-                        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer'
+                      : featureLocked
+                        ? 'text-[var(--text-muted)] opacity-25 cursor-not-allowed'
+                        : noTrack
+                          ? 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer'
                   }`}
                 >
                   {activeTab === t.id && (
                     <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r" />
                   )}
-                  <span className="text-base leading-none">{t.icon}</span>
+                  <span className="text-base leading-none">{featureLocked ? '🔒' : t.icon}</span>
                   <span className="text-[7px] sm:text-[8px] font-semibold uppercase tracking-wider leading-none">{tr((t as any).labelKey, lang)}</span>
-                  {(t as any).desktopOnly && (
+                  {featureLocked && (
+                    <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded">PRO</span>
+                  )}
+                  {!featureLocked && (t as any).desktopOnly && (
                     <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded">PRO</span>
                   )}
                 </button>
@@ -1798,6 +1807,32 @@ export default function DashboardV2() {
 
           {/* Contenu de l'onglet */}
           <div className="flex-1 min-w-0 overflow-y-auto">
+            {/* Overlay verrouillé si la feature de l'onglet actif est désactivée */}
+            {(() => {
+              const activeTabDef = TABS.find(t => t.id === activeTab);
+              const locked = activeTabDef && (activeTabDef as any).featureKey && !isFeatureEnabled((activeTabDef as any).featureKey);
+              if (locked) {
+                const upgradePlan = userPlan === 'free' ? 'Pro' : 'Unlimited';
+                return (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+                    <div className="text-4xl">🔒</div>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      Fonctionnalité verrouillée
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] max-w-[200px]">
+                      Passe au plan <span className="text-amber-400 font-bold">{upgradePlan}</span> pour débloquer cette fonctionnalité.
+                    </p>
+                    <a
+                      href="/billing"
+                      className="mt-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold hover:opacity-90 transition-opacity no-underline"
+                    >
+                      Voir les plans
+                    </a>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             {activeTab === 'info' && (
               <InfoEditTab
                 track={selectedRawTrack}

@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import { getCurrentUser, getToken } from '@/lib/api';
 
 export type LibraryFilter = 'all' | 'recent' | 'unanalyzed';
 export type SidebarSection = LibraryFilter | string;
@@ -42,6 +43,11 @@ interface DashboardContextValue {
   // Selected track ID — lives in context so it survives DashboardV2 remounts
   persistedTrackId: number | null;
   setPersistedTrackId: (id: number | null) => void;
+
+  // Feature flags — contrôle les fonctionnalités visibles selon le plan
+  isFeatureEnabled: (featureName: string) => boolean;
+  userPlan: string;
+  featuresLoaded: boolean;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -57,6 +63,43 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [unanalyzedCount, setUnanalyzedCount] = useState(0);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
   const [persistedTrackId, setPersistedTrackId] = useState<number | null>(null);
+
+  // Feature flags
+  const [planFeatures, setPlanFeatures] = useState<Record<string, boolean>>({});
+  const [userPlan, setUserPlan] = useState('free');
+  const [featuresLoaded, setFeaturesLoaded] = useState(false);
+
+  // Charge les features du plan de l'utilisateur
+  useEffect(() => {
+    const loadPlanFeatures = async () => {
+      try {
+        const user = await getCurrentUser();
+        const plan = (user as any)?.subscription_plan || 'free';
+        setUserPlan(plan);
+
+        const token = getToken();
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+        const res = await fetch(`${apiBase}/plan-features/${plan}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPlanFeatures(data.features || {});
+        }
+      } catch (e) {
+        console.error('Failed to load plan features:', e);
+      } finally {
+        setFeaturesLoaded(true);
+      }
+    };
+    loadPlanFeatures();
+  }, []);
+
+  // Si la feature n'existe pas en DB, elle est autorisée par défaut
+  const isFeatureEnabled = useCallback((featureName: string) => {
+    if (!featuresLoaded) return true; // Pas encore chargé → autorisé
+    return planFeatures[featureName] ?? true; // Pas configuré → autorisé
+  }, [planFeatures, featuresLoaded]);
 
   // Use a ref to store the handler — updating it never triggers a re-render
   const analyzeAllHandlerRef = useRef<(() => void) | null>(null);
@@ -99,6 +142,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       autoAnalyze, setAutoAnalyze,
       triggerAnalyzeAll, registerAnalyzeAllHandler,
       persistedTrackId, setPersistedTrackId,
+      isFeatureEnabled, userPlan, featuresLoaded,
     }}>
       {children}
     </DashboardContext.Provider>

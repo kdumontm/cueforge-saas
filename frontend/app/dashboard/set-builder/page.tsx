@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Wand2, Download, Trash2, GripVertical, Music, ChevronDown, Loader2, Disc3, Clock, Zap, ArrowRight, AlertTriangle, CheckCircle2, ArrowUpDown } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 import KeyBadge from '@/components/ui/KeyBadge';
 import EnergyFlow from '@/components/tools/EnergyFlow';
 import {
@@ -215,6 +216,7 @@ export default function SetBuilderPage() {
 
   if (loading) {
     return (
+    <FeatureGate featureKey="set_builder">
       <div className="p-5 flex items-center justify-center h-64">
         <Loader2 size={24} className="text-blue-400 animate-spin" />
       </div>
@@ -541,5 +543,6 @@ export default function SetBuilderPage() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

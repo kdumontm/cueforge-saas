@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GitMerge, Trash2, Check } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 import { useLang } from '@/components/LangProvider';
 
 interface TrackData {
@@ -136,6 +137,7 @@ export default function DuplicatesPage() {
 
   if (loading) {
     return (
+    <FeatureGate featureKey="duplicates">
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
@@ -339,5 +341,6 @@ export default function DuplicatesPage() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }

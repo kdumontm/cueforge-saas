@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Download, FileText, Music, Database, Tag, Disc3, FileJson, FileSpreadsheet, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import FeatureGate from '@/components/FeatureGate';
 import {
   exportAllRekordbox, exportBatchRekordbox, exportPlaylistM3U,
   listTracks, listPlaylists, downloadBlob,
@@ -114,6 +115,7 @@ export default function ExportPage() {
   const formatStatus = (key: string) => status[key] || 'idle';
 
   return (
+    <FeatureGate featureKey="export">
     <div className="p-5 space-y-4">
       <div className="flex items-center gap-2 mb-2">
         <Download size={18} className="text-[var(--text-secondary)]" />
@@ -170,5 +172,6 @@ export default function ExportPage() {
         </div>
       )}
     </div>
+    </FeatureGate>
   );
 }
