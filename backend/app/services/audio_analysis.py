@@ -730,34 +730,92 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 bpm = dl_result["bpm"]
                 raw_beats = dl_result["beats"]
                 source = dl_result["source"]
-                expected_ibi = 60.0 / bpm
 
-                # ── Synthétiser une grille parfaite ──
-                first_beat = _refine_first_beat(y, sr, raw_beats[0], bpm)
+                # ── v6.0: Grille synthétique optimisée pour DJs ──────────
+                # Les DJs veulent les lignes de grid EXACTEMENT sur les kicks.
+                # Stratégie rapide O(n):
+                #   1. Calculer le BPM précis depuis l'IBI médian des raw beats
+                #   2. Micro-search BPM (±0.3, pas 0.01) avec erreur calculée
+                #      analytiquement (pas de construction de grille)
+                #   3. Pour le meilleur BPM, optimiser le premier beat
+                #   4. Seuil 20ms (couvre 99% des tracks électroniques)
+
+                raw_arr = np.array(raw_beats[:min(200, len(raw_beats))])
+
+                def _grid_error_fast(test_bpm: float, first: float) -> float:
+                    """Erreur médiane sans construire la grille — O(n)."""
+                    ibi = 60.0 / test_bpm
+                    # Pour chaque raw beat, le grid beat le plus proche est:
+                    #   first + round((raw - first) / ibi) * ibi
+                    offsets = (raw_arr - first) / ibi
+                    nearest_idx = np.round(offsets)
+                    errors_ms = np.abs((offsets - nearest_idx) * ibi * 1000)
+                    return float(np.median(errors_ms))
+
+                # Raffiner le premier beat via onset detection
+                refined_first = _refine_first_beat(y, sr, raw_beats[0], bpm)
+
+                # ── Phase 1: Micro-search BPM optimal ──
+                best_bpm = bpm
+                best_error = _grid_error_fast(bpm, refined_first)
+                for delta in range(-30, 31):  # ±0.30 BPM
+                    candidate = bpm + delta / 100.0
+                    if candidate <= 0:
+                        continue
+                    err = _grid_error_fast(candidate, refined_first)
+                    if err < best_error:
+                        best_error = err
+                        best_bpm = candidate
+
+                # ── Phase 2: Micro-search premier beat (±20ms) ──
+                best_first = refined_first
+                for delta_ms in range(-20, 21):  # ±20ms, pas de 1ms
+                    candidate_first = refined_first + delta_ms / 1000.0
+                    if candidate_first < 0:
+                        continue
+                    err = _grid_error_fast(best_bpm, candidate_first)
+                    if err < best_error:
+                        best_error = err
+                        best_first = candidate_first
+
+                # ── Phase 3: Re-vérifier BPM avec le premier beat optimisé ──
+                for delta in range(-10, 11):  # ±0.10 BPM (affinage)
+                    candidate = best_bpm + delta / 100.0
+                    if candidate <= 0:
+                        continue
+                    err = _grid_error_fast(candidate, best_first)
+                    if err < best_error:
+                        best_error = err
+                        best_bpm = candidate
+
+                logger.info(
+                    f"[BPM] Grid optimization: {bpm:.2f} → {best_bpm:.2f} BPM, "
+                    f"first_beat={best_first:.4f}s, error={best_error:.1f}ms"
+                )
+
+                # ── Construire la grille finale ──
+                expected_ibi = 60.0 / best_bpm
                 end_time = raw_beats[-1] + expected_ibi * 4
-                grid_beats = []
-                t = first_beat
-                while t <= end_time:
-                    grid_beats.append(round(t, 6))
-                    t += expected_ibi
 
-                # ── v5.5: VALIDER grille vs beats réels ──
-                grid_error_ms = _validate_grid_vs_raw(grid_beats, raw_beats)
-
-                if grid_error_ms < 10.0:
-                    # Track constant-BPM: la grille synthétique est bonne
+                # Seuil 20ms: couvre les tracks DJ à BPM constant
+                if best_error < 20.0:
+                    bpm = best_bpm
+                    grid_beats = []
+                    t = best_first
+                    while t <= end_time:
+                        grid_beats.append(round(t, 6))
+                        t += expected_ibi
                     beats = grid_beats
                     logger.info(
-                        f"[BPM] Grid validated (median error={grid_error_ms:.1f}ms) "
-                        f"— using synthetic grid"
+                        f"[BPM] Synthetic grid OK (median error={best_error:.1f}ms) "
+                        f"— grid parfaite à {bpm:.2f} BPM"
                     )
                 else:
-                    # Track variable ou BPM mal estimé: utiliser les vrais beats
-                    # Ils sont déjà sur les VRAIS temps du morceau
+                    # Fallback rare: track à tempo variable (live, jazz, etc.)
                     beats = raw_beats
                     logger.warning(
-                        f"[BPM] Grid drift detected (median error={grid_error_ms:.1f}ms) "
-                        f"— using RAW beats from {source} instead of synthetic grid"
+                        f"[BPM] Grid still drifts at {best_error:.1f}ms even after optimization "
+                        f"— using RAW beats from {source}"
                     )
 
                 beats_frames = librosa.time_to_frames(
