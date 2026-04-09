@@ -105,7 +105,6 @@ const DEFS: ModDef[] = [
   { id:"set-builder",     label:"Set Builder",      icon:Library,      color:"#14b8a6", category:"navigation", desc:"Construction de set" },
   { id:"harmonic-wheel",  label:"Roue harmo.",      icon:Piano,        color:"#22c55e", category:"tools", desc:"Roue de Camelot" },
   { id:"energy-flow",     label:"Energy Flow",      icon:Flame,        color:"#ef4444", category:"tools", desc:"Courbe d'énergie du set" },
-  { id:"quick-notes",     label:"Notes rapides",    icon:NotebookPen,  color:"#a855f7", category:"tools", desc:"Bloc-notes rapide" },
   { id:"bpm-tap",         label:"BPM Tap",          icon:Clock,        color:"#06b6d4", category:"tools", desc:"BPM par tap" },
   { id:"duplicate-finder",label:"Doublons",         icon:GitBranch,    color:"#f59e0b", category:"tools", desc:"Détecter les doublons" },
   { id:"ai-analysis",     label:"Analyse IA",       icon:BrainCircuit, color:"#ec4899", category:"tools", desc:"Analyse IA avancée" },
