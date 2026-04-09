@@ -101,13 +101,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Si la feature n'existe pas en DB, elle est autorisée par défaut
   const isFeatureEnabled = useCallback((featureName: string) => {
-    if (!featuresLoaded) return true;
+    if (!featuresLoaded) return false;
     return planFeatures[featureName] ?? true;
   }, [planFeatures, featuresLoaded]);
 
   // Retourne le mode d'affichage : "visible", "hidden" ou "locked"
+  // Pendant le chargement, masquer les modules pour éviter un flash
   const getFeatureDisplayMode = useCallback((featureName: string): 'hidden' | 'locked' | 'visible' => {
-    if (!featuresLoaded) return 'visible';
+    if (!featuresLoaded) return 'hidden';
     const enabled = planFeatures[featureName] ?? true;
     if (enabled) return 'visible';
     return (displayModes[featureName] as 'hidden' | 'locked') || 'locked';

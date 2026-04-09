@@ -19,8 +19,8 @@ export default function FeatureGate({ featureKey, children }: FeatureGateProps) 
   const { getFeatureDisplayMode, userPlan, featuresLoaded } = useDashboardContext();
   const router = useRouter();
 
-  // Pas encore chargé → afficher le contenu (éviter flash)
-  if (!featuresLoaded) return <>{children}</>;
+  // Pas encore chargé → ne rien afficher pour éviter le flash de modules non autorisés
+  if (!featuresLoaded) return null;
 
   const mode = getFeatureDisplayMode(featureKey);
 
