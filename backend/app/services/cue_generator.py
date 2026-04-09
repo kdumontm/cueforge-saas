@@ -877,32 +877,41 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             _add_cue(target, "phrase", fallback_name, CUE_COLORS["green"],
                      snap_4bar=True, confidence=fb_conf)
 
-    # ── POST-GENERATION VALIDATION — v5.5 ──────────────────────────
-    # Vérifier que CHAQUE cue point tombe sur un beat de la grille.
-    # Si un cue est hors-grille (> 1/2 beat de distance), le re-snapper
-    # sur le beat exact le plus proche.
+    # ── POST-GENERATION VALIDATION — v6.0 ──────────────────────────
+    # Vérifier que CHAQUE cue point tombe sur un DOWNBEAT (temps fort,
+    # beat 1 de la mesure). Les DJs veulent les cues sur les TEMPS,
+    # pas sur un beat quelconque (beat 2/3/4).
+    #
+    # Hiérarchie de snap:
+    #   1. Déjà sur un downbeat → ne rien toucher
+    #   2. Sur un beat non-downbeat → re-snapper sur le downbeat le plus proche
+    #   3. Hors grille → re-snapper sur le downbeat le plus proche
     if beats:
+        # Construire l'ensemble des downbeats (chaque 4e beat = temps 1)
+        downbeat_indices = list(range(0, len(beats), 4))
+        downbeats_set = set(beats[i] for i in downbeat_indices if i < len(beats))
         beats_set = set(beats)
-        half_beat_ms = max(1, int(beat_ms / 2))
+        downbeats_list = sorted(downbeats_set)
 
         for cp in cue_points:
             pos = cp["position_ms"]
-            if pos in beats_set:
-                continue  # Déjà sur un beat exact ✓
 
-            # Trouver le beat le plus proche
-            nearest = min(beats, key=lambda b: abs(b - pos))
-            dist = abs(nearest - pos)
+            # Déjà sur un downbeat exact → parfait ✓
+            if pos in downbeats_set:
+                continue
 
-            if dist > half_beat_ms:
-                # Ce cue est à plus d'un demi-beat du beat le plus proche
-                # → le forcer sur le beat exact
-                cp["position_ms"] = nearest
-                # Réduire la confiance car on a dû corriger
-                cp["confidence"] = round(max(0.1, cp.get("confidence", 0.5) * 0.85), 2)
+            # Trouver le downbeat le plus proche (pas n'importe quel beat)
+            nearest_db = min(downbeats_list, key=lambda b: abs(b - pos))
+            dist = abs(nearest_db - pos)
+
+            if pos in beats_set and pos not in downbeats_set:
+                # Sur un beat mais pas un downbeat → forcer sur le downbeat
+                cp["position_ms"] = nearest_db
+                cp["confidence"] = round(max(0.1, cp.get("confidence", 0.5) * 0.9), 2)
             elif dist > 0:
-                # Petit décalage (< demi-beat) → snapper silencieusement
-                cp["position_ms"] = nearest
+                # Hors grille → snapper sur le downbeat le plus proche
+                cp["position_ms"] = nearest_db
+                cp["confidence"] = round(max(0.1, cp.get("confidence", 0.5) * 0.85), 2)
 
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])
