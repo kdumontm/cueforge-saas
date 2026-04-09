@@ -22,7 +22,7 @@ const FXTab         = lazy(() => import('@/components/tabs/FXTab'));
 const MixTab        = lazy(() => import('@/components/tabs/MixTab'));
 const PlaylistsTab  = lazy(() => import('@/components/tabs/PlaylistsTab'));
 const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
-const HistoryTab    = lazy(() => import('@/components/tabs/HistoryTab'));
+// HistoryTab retiré
 const CompareTab    = lazy(() => import('@/components/tabs/CompareTab'));
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
@@ -90,11 +90,10 @@ const TABS = [
   { id: 'compare',   labelKey: 'tab.compare',   icon: '⚖️', featureKey: 'compare' },
   { id: 'playlists', labelKey: 'tab.playlists',icon: '📂', global: true, featureKey: 'playlists' },
   { id: 'stats',     labelKey: 'tab.stats',     icon: '📊', global: true, featureKey: 'stats' },
-  { id: 'history',   labelKey: 'tab.history',   icon: '🕒', global: true },
   { id: 'notes',     labelKey: 'tab.notes',     icon: '📋', global: true },
 ];
 
-const GLOBAL_TABS: string[] = ['playlists', 'stats', 'history', 'notes'];
+const GLOBAL_TABS: string[] = ['playlists', 'stats', 'notes'];
 
 // ── Demo data (full Track objects + flat display objects) ──────────────
 const DEMO_CUE_POINTS = [
@@ -715,16 +714,10 @@ export default function DashboardV2() {
   }, []);
   // ──────────────────────────────────────────────────────────────────────────
 
-  // Record play event — met à jour l'historique local + backend
+  // Record play event — enregistre côté backend uniquement
   const handleTrackPlay = useCallback(() => {
     if (!selectedTrackIdRef.current || selectedTrackIdRef.current < 0) return;
     const trackId = selectedTrackIdRef.current;
-    const entry = { trackId, timestamp: new Date().toISOString() };
-    setPlayHistory(prev => {
-      const next = [entry, ...prev].slice(0, 100);
-      try { localStorage.setItem('cueforge_play_history', JSON.stringify(next)); } catch {}
-      return next;
-    });
     recordPlay(trackId, 'dashboard').catch(() => {});
   }, []);
 
@@ -756,10 +749,6 @@ export default function DashboardV2() {
   const [tracksPage, setTracksPage] = useState(1);
   const [hasMoreTracks, setHasMoreTracks] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  // Historique de lecture (persisté en localStorage)
-  const [playHistory, setPlayHistory] = useState<{trackId: number; timestamp: string}[]>(() => {
-    try { return JSON.parse(localStorage.getItem('cueforge_play_history') || '[]'); } catch { return []; }
-  });
 
   // En mode démo, utiliser les cue points du raw track; sinon, utiliser l'état API
   // IMPORTANT: doit être déclaré APRÈS cuePoints (évite TDZ dans la dep array)
@@ -2030,18 +2019,6 @@ export default function DashboardV2() {
               </Suspense>
             )}
             {activeTab === 'stats' && <Suspense fallback={<TabFallback />}><StatsTab tracks={tracks} /></Suspense>}
-            {activeTab === 'history' && (
-              <Suspense fallback={<TabFallback />}>
-              <HistoryTab
-                tracks={tracks}
-                history={playHistory}
-                onHistoryCleared={() => {
-                  setPlayHistory([]);
-                  try { localStorage.removeItem('cueforge_play_history'); } catch {}
-                }}
-              />
-              </Suspense>
-            )}
             {activeTab === 'notes' && (
               <div className="flex flex-col h-full p-3 gap-2">
                 <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">Notes de session</div>
