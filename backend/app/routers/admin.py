@@ -151,6 +151,7 @@ class PlanFeatureCreate(BaseModel):
     feature_name: str    # module identifier
     is_enabled: bool = True
     label: Optional[str] = None
+    display_mode: str = "locked"  # "hidden" ou "locked"
 
 
 class PlanFeatureUpdate(BaseModel):
@@ -158,6 +159,7 @@ class PlanFeatureUpdate(BaseModel):
     feature_name: Optional[str] = None
     is_enabled: Optional[bool] = None
     label: Optional[str] = None
+    display_mode: Optional[str] = None  # "hidden" ou "locked"
 
 
 # ── Users ──
@@ -267,6 +269,7 @@ def _serialize_feature(f: PlanFeature) -> dict:
         "feature_name": f.feature_name,
         "is_enabled": f.is_enabled,
         "label": f.label,
+        "display_mode": getattr(f, "display_mode", "locked") or "locked",
     }
 
 
@@ -1130,14 +1133,16 @@ async def get_plan_features(
 
 @public_router.get("/plan-features/{plan_name}")
 async def get_plan_features_public(plan_name: str, db: Session = Depends(get_db)):
-    """Retourne les features activées pour un plan donné (endpoint public pour le dashboard user)."""
+    """Retourne les features pour un plan donné (endpoint public pour le dashboard user)."""
     all_features = db.query(PlanFeature).filter(PlanFeature.plan_name == plan_name).all()
     result: dict[str, bool] = {}
     labels: dict[str, str] = {}
+    display_modes: dict[str, str] = {}
 
     for f in all_features:
         result[f.feature_name] = f.is_enabled
+        display_modes[f.feature_name] = getattr(f, "display_mode", "locked") or "locked"
         if f.label:
             labels[f.feature_name] = f.label
 
-    return {"plan": plan_name, "features": result, "feature_labels": labels}
+    return {"plan": plan_name, "features": result, "feature_labels": labels, "display_modes": display_modes}

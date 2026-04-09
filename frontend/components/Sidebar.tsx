@@ -48,7 +48,7 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   const { lang } = useLang();
   const pathname = usePathname();
   const router = useRouter();
-  const { collapsed, toggleCollapsed, activeSection, setActiveSection, isFeatureEnabled } = useDashboardContext();
+  const { collapsed, toggleCollapsed, activeSection, setActiveSection, getFeatureDisplayMode } = useDashboardContext();
   const [showNewPlaylist, setShowNewPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [playlists, setPlaylists] = useState<{ id: string; label: string; count: number }[]>([]);
@@ -160,7 +160,11 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
       <nav className="px-1.5 py-2 flex-1 overflow-y-auto custom-scrollbar">
         {!collapsed && <div className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider px-2.5 py-1">Navigation</div>}
         {getNavItems(lang)
-          .filter((item) => !(item as any).featureKey || isFeatureEnabled((item as any).featureKey))
+          .filter((item) => {
+            const fk = (item as any).featureKey;
+            if (!fk) return true;
+            return getFeatureDisplayMode(fk) !== 'hidden';
+          })
           .map((item) => <NavLink key={item.href} {...item} />)}
 
         <div className="h-px bg-[var(--border-subtle)] mx-2 my-2" />

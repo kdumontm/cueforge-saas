@@ -216,7 +216,6 @@ export default function SetBuilderPage() {
 
   if (loading) {
     return (
-    <FeatureGate featureKey="set_builder">
       <div className="p-5 flex items-center justify-center h-64">
         <Loader2 size={24} className="text-blue-400 animate-spin" />
       </div>
@@ -224,6 +223,7 @@ export default function SetBuilderPage() {
   }
 
   return (
+    <FeatureGate featureKey="set_builder">
     <div className="p-5 space-y-4">
       {/* Set selector */}
       <div className="flex items-center gap-3">

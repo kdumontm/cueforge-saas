@@ -16,7 +16,7 @@ import {
   useToast,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
-import { Plus, Trash2, Package, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Trash2, Package, ToggleLeft, ToggleRight, Eye, EyeOff, Lock } from "lucide-react";
 
 interface Feature {
   id: number;
@@ -24,6 +24,7 @@ interface Feature {
   feature_name: string;
   label: string;
   is_enabled: boolean;
+  display_mode: 'hidden' | 'locked';
 }
 
 const PLANS = [
@@ -47,6 +48,7 @@ export default function FeaturesPage() {
   const [newFeatureName, setNewFeatureName] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newEnabled, setNewEnabled] = useState(true);
+  const [newDisplayMode, setNewDisplayMode] = useState<'hidden' | 'locked'>('locked');
 
   // Load features
   const loadFeatures = useCallback(async () => {
@@ -150,6 +152,26 @@ export default function FeaturesPage() {
     }
   }
 
+  // Toggle display mode (hidden ↔ locked) — optimistic
+  async function toggleDisplayMode(feature: Feature) {
+    const newMode = feature.display_mode === 'hidden' ? 'locked' : 'hidden';
+    setFeatures((prev) =>
+      prev.map((f) => (f.id === feature.id ? { ...f, display_mode: newMode } : f))
+    );
+    try {
+      await adminApi.updateFeature(feature.id, { display_mode: newMode });
+      toast(
+        `Mode: ${newMode === 'hidden' ? 'Masqué (disparaît)' : 'Verrouillé (grisé)'}`,
+        "success"
+      );
+    } catch (err: any) {
+      setFeatures((prev) =>
+        prev.map((f) => (f.id === feature.id ? { ...f, display_mode: feature.display_mode } : f))
+      );
+      toast(err.message || "Erreur", "error");
+    }
+  }
+
   // Add new feature
   async function addFeature() {
     if (!newFeatureName.trim()) {
@@ -167,6 +189,7 @@ export default function FeaturesPage() {
         feature_name: newFeatureName,
         label: newLabel,
         is_enabled: newEnabled,
+        display_mode: newDisplayMode,
       });
       toast("Fonctionnalité ajoutée avec succès", "success");
       setShowAddModal(false);
@@ -201,6 +224,7 @@ export default function FeaturesPage() {
     setNewFeatureName("");
     setNewLabel("");
     setNewEnabled(true);
+    setNewDisplayMode('locked');
   }
 
   function openDeleteConfirm(feature: Feature) {
@@ -323,6 +347,18 @@ export default function FeaturesPage() {
                               onToggle={() => !isBusy && toggleFeature(feature)}
                               disabled={isBusy}
                             />
+                            {/* Display mode : hidden (disparaît) ou locked (grisé) */}
+                            {!feature.is_enabled && (
+                              <Btn
+                                small
+                                variant={feature.display_mode === 'hidden' ? 'warning' : 'default'}
+                                icon={feature.display_mode === 'hidden' ? EyeOff : Lock}
+                                onClick={() => !isBusy && toggleDisplayMode(feature)}
+                                disabled={isBusy}
+                              >
+                                {feature.display_mode === 'hidden' ? 'Masqué' : 'Grisé'}
+                              </Btn>
+                            )}
                             <Btn
                               variant="danger"
                               icon={Trash2}
@@ -385,6 +421,16 @@ export default function FeaturesPage() {
                 </div>
                 <Toggle on={newEnabled} onToggle={() => setNewEnabled(!newEnabled)} />
               </div>
+
+              <Select
+                label="Si désactivée, affichage"
+                value={newDisplayMode}
+                onChange={(v) => setNewDisplayMode(v as 'hidden' | 'locked')}
+                options={[
+                  { value: 'locked', label: '🔒 Grisé (verrouillé avec CTA upgrade)' },
+                  { value: 'hidden', label: '👁 Masqué (disparaît complètement)' },
+                ]}
+              />
             </div>
 
             {/* Actions */}

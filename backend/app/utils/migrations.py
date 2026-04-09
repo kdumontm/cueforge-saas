@@ -112,7 +112,11 @@ PENDING_MIGRATIONS = {
     "site_settings": {
         # Theme config — full CSS variable overrides for dark/light modes
         "theme_config": "TEXT",
-    }
+    },
+    "plan_features": {
+        # Display mode: "hidden" (disparaît) ou "locked" (grisé avec CTA upgrade)
+        "display_mode": "VARCHAR(20) NOT NULL DEFAULT 'locked'",
+    },
 }
 
 

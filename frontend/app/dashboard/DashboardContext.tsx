@@ -46,6 +46,8 @@ interface DashboardContextValue {
 
   // Feature flags — contrôle les fonctionnalités visibles selon le plan
   isFeatureEnabled: (featureName: string) => boolean;
+  /** Retourne "hidden" si la feature doit disparaître, "locked" si elle doit être grisée */
+  getFeatureDisplayMode: (featureName: string) => 'hidden' | 'locked' | 'visible';
   userPlan: string;
   featuresLoaded: boolean;
 }
@@ -66,6 +68,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Feature flags
   const [planFeatures, setPlanFeatures] = useState<Record<string, boolean>>({});
+  const [displayModes, setDisplayModes] = useState<Record<string, string>>({});
   const [userPlan, setUserPlan] = useState('free');
   const [featuresLoaded, setFeaturesLoaded] = useState(false);
 
@@ -85,6 +88,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setPlanFeatures(data.features || {});
+          setDisplayModes(data.display_modes || {});
         }
       } catch (e) {
         console.error('Failed to load plan features:', e);
@@ -97,9 +101,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   // Si la feature n'existe pas en DB, elle est autorisée par défaut
   const isFeatureEnabled = useCallback((featureName: string) => {
-    if (!featuresLoaded) return true; // Pas encore chargé → autorisé
-    return planFeatures[featureName] ?? true; // Pas configuré → autorisé
+    if (!featuresLoaded) return true;
+    return planFeatures[featureName] ?? true;
   }, [planFeatures, featuresLoaded]);
+
+  // Retourne le mode d'affichage : "visible", "hidden" ou "locked"
+  const getFeatureDisplayMode = useCallback((featureName: string): 'hidden' | 'locked' | 'visible' => {
+    if (!featuresLoaded) return 'visible';
+    const enabled = planFeatures[featureName] ?? true;
+    if (enabled) return 'visible';
+    return (displayModes[featureName] as 'hidden' | 'locked') || 'locked';
+  }, [planFeatures, displayModes, featuresLoaded]);
 
   // Use a ref to store the handler — updating it never triggers a re-render
   const analyzeAllHandlerRef = useRef<(() => void) | null>(null);
@@ -142,7 +154,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       autoAnalyze, setAutoAnalyze,
       triggerAnalyzeAll, registerAnalyzeAllHandler,
       persistedTrackId, setPersistedTrackId,
-      isFeatureEnabled, userPlan, featuresLoaded,
+      isFeatureEnabled, getFeatureDisplayMode, userPlan, featuresLoaded,
     }}>
       {children}
     </DashboardContext.Provider>

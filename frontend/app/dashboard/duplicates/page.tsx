@@ -137,7 +137,6 @@ export default function DuplicatesPage() {
 
   if (loading) {
     return (
-    <FeatureGate featureKey="duplicates">
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
@@ -145,6 +144,7 @@ export default function DuplicatesPage() {
   }
 
   return (
+    <FeatureGate featureKey="duplicates">
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       {/* Header */}
       <div className="space-y-2">

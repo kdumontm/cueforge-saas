@@ -132,7 +132,7 @@ export default function DashboardV2() {
     autoAnalyze, setAutoAnalyze,
     setUnanalyzedCount, registerAnalyzeAllHandler,
     persistedTrackId, setPersistedTrackId,
-    isFeatureEnabled, userPlan,
+    isFeatureEnabled, getFeatureDisplayMode, userPlan,
   } = useDashboardContext();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, _setSelectedTrack] = useState<any | null>(null);
@@ -1769,9 +1769,16 @@ export default function DashboardV2() {
 
           {/* Onglets verticaux */}
           <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
-            {TABS.filter(t => !(t as any).desktopOnly || isDesktopApp()).map(t => {
+            {TABS.filter(t => {
+              if ((t as any).desktopOnly && !isDesktopApp()) return false;
+              // Mode hidden → l'onglet disparaît complètement
+              const fk = (t as any).featureKey;
+              if (fk && getFeatureDisplayMode(fk) === 'hidden') return false;
+              return true;
+            }).map(t => {
               const noTrack = !selectedTrack && !(t as any).global;
-              const featureLocked = (t as any).featureKey && !isFeatureEnabled((t as any).featureKey);
+              const fk = (t as any).featureKey;
+              const featureLocked = fk ? getFeatureDisplayMode(fk) === 'locked' : false;
               const disabled = noTrack || featureLocked;
               return (
                 <button
@@ -1810,7 +1817,8 @@ export default function DashboardV2() {
             {/* Overlay verrouillé si la feature de l'onglet actif est désactivée */}
             {(() => {
               const activeTabDef = TABS.find(t => t.id === activeTab);
-              const locked = activeTabDef && (activeTabDef as any).featureKey && !isFeatureEnabled((activeTabDef as any).featureKey);
+              const fk = activeTabDef && (activeTabDef as any).featureKey;
+              const locked = fk && getFeatureDisplayMode(fk) === 'locked';
               if (locked) {
                 const upgradePlan = userPlan === 'free' ? 'Pro' : 'Unlimited';
                 return (

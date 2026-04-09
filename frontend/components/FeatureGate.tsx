@@ -7,32 +7,32 @@ import type { ReactNode } from 'react';
 interface FeatureGateProps {
   featureKey: string;
   children: ReactNode;
-  /** Si true, redirige vers /dashboard au lieu d'afficher l'overlay */
-  redirect?: boolean;
 }
 
 /**
  * Bloque l'accès à une section si la feature est désactivée pour le plan de l'utilisateur.
- * - Mode overlay (par défaut) : affiche un écran verrouillé avec CTA upgrade
- * - Mode redirect : renvoie vers /dashboard
+ * - Mode "hidden" → redirige vers /dashboard (la page n'existe pas pour l'utilisateur)
+ * - Mode "locked" → affiche un overlay verrouillé avec CTA upgrade
+ * - Mode "visible" → affiche le contenu normalement
  */
-export default function FeatureGate({ featureKey, children, redirect }: FeatureGateProps) {
-  const { isFeatureEnabled, userPlan, featuresLoaded } = useDashboardContext();
+export default function FeatureGate({ featureKey, children }: FeatureGateProps) {
+  const { getFeatureDisplayMode, userPlan, featuresLoaded } = useDashboardContext();
   const router = useRouter();
 
   // Pas encore chargé → afficher le contenu (éviter flash)
   if (!featuresLoaded) return <>{children}</>;
 
-  const enabled = isFeatureEnabled(featureKey);
-  if (enabled) return <>{children}</>;
+  const mode = getFeatureDisplayMode(featureKey);
 
-  // Redirect mode
-  if (redirect) {
+  if (mode === 'visible') return <>{children}</>;
+
+  // Hidden → redirect silencieux
+  if (mode === 'hidden') {
     router.push('/dashboard');
     return null;
   }
 
-  // Overlay mode
+  // Locked → overlay verrouillé
   const upgradePlan = userPlan === 'free' ? 'Pro' : 'Unlimited';
 
   return (

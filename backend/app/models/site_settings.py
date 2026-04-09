@@ -32,6 +32,7 @@ class PlanFeature(Base):
     feature_name = Column(String(100), nullable=False)  # module identifier
     is_enabled = Column(Boolean, default=False, nullable=False)
     label = Column(String(255), nullable=True)  # display name
+    display_mode = Column(String(20), default="locked", nullable=False)  # "hidden" ou "locked"
 
     def __repr__(self):
         return f"<PlanFeature {self.plan_name}:{self.feature_name} enabled={self.is_enabled}>"

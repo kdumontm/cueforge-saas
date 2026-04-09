@@ -30,7 +30,6 @@ export default function CompatiblePage() {
   const filtered = tracks.filter(t => {
     const q = search.toLowerCase();
     return (
-    <FeatureGate featureKey="mix_compatible">
       (t.title || '').toLowerCase().includes(q) ||
       (t.artist || '').toLowerCase().includes(q) ||
       t.original_filename.toLowerCase().includes(q)
@@ -44,6 +43,7 @@ export default function CompatiblePage() {
   }
 
   return (
+    <FeatureGate featureKey="mix_compatible">
     <div className="p-6 max-w-4xl">
       {/* Header */}
       <div className="mb-6">
