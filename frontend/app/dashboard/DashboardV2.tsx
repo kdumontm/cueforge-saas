@@ -1646,6 +1646,7 @@ export default function DashboardV2() {
         {/* Left: Player (waveform) + TrackList directement dessous */}
         <div className="flex-1 min-w-0 flex flex-col gap-3" style={{ flexBasis: '0%' }}>
           <PlayerCard
+            key={`pc-${selectedTrack?.id}-${selectedTrack?.analyzed ? 'done' : 'pending'}-${selectedTrack?.bpm ?? 0}`}
             track={selectedTrack}
             cuePoints={effectiveCuePoints}
             beatPositions={(selectedTrack as any)?.analysis?.beat_positions ?? []}
