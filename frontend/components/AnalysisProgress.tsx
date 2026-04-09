@@ -54,92 +54,60 @@ export default function AnalysisProgress({
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="rounded-lg overflow-hidden shadow-lg backdrop-blur-sm"
       style={{
-        background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))',
-        border: '1px solid rgba(99,102,241,0.15)',
+        background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.92))',
+        border: '1px solid rgba(99,102,241,0.2)',
       }}
     >
-      <div className="px-4 py-3 space-y-2.5">
-        {/* Header */}
+      <div className="px-3 py-2 space-y-1.5">
+        {/* Header row: label + badge + percentage */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Loader2 size={14} className="animate-spin" style={{ color }} />
-            <span className="text-xs font-semibold text-[var(--text-primary)]">
+          <div className="flex items-center gap-1.5">
+            <Loader2 size={11} className="animate-spin" style={{ color }} />
+            <span className="text-[10px] font-semibold text-[var(--text-primary)]">
               {tr('analysis.in_progress', lang)}
             </span>
-            {isLocal && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25 font-medium">
-                {tr('analysis.local', lang)}
-              </span>
-            )}
-            {!isLocal && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25 font-medium">
-                {tr('analysis.cloud', lang)}
-              </span>
-            )}
+            <span className={`text-[8px] px-1 py-px rounded-full font-medium ${
+              isLocal
+                ? 'bg-purple-500/15 text-purple-400 border border-purple-500/25'
+                : 'bg-blue-500/15 text-blue-400 border border-blue-500/25'
+            }`}>
+              {isLocal ? tr('analysis.local', lang) : tr('analysis.cloud', lang)}
+            </span>
           </div>
-          <span className="text-xs font-mono font-bold" style={{ color }}>
+          <span className="text-[10px] font-mono font-bold" style={{ color }}>
             {pct}%
           </span>
         </div>
 
         {/* Track name */}
         {trackTitle && (
-          <div className="text-[11px] text-[var(--text-secondary)] truncate font-medium">
+          <div className="text-[9px] text-[var(--text-muted)] truncate">
             {trackTitle}
             {queueSize > 1 && (
-              <span className="text-[var(--text-muted)] ml-1">
+              <span className="ml-1 opacity-60">
                 ({queuePosition}/{queueSize})
               </span>
             )}
           </div>
         )}
 
-        {/* Progress bar */}
-        <div className="relative w-full h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
+        {/* Progress bar — compact */}
+        <div className="relative w-full h-1.5 bg-[var(--bg-primary)] rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"
             style={{
               width: `${pct}%`,
               background: `linear-gradient(90deg, ${color}80, ${color})`,
-              boxShadow: `0 0 8px ${color}40`,
+              boxShadow: `0 0 6px ${color}30`,
             }}
           />
-          {/* Shimmer effect */}
-          {pct < 100 && (
-            <div
-              className="absolute inset-0 overflow-hidden rounded-full"
-              style={{ width: `${pct}%` }}
-            >
-              <div
-                className="h-full w-20 absolute top-0 animate-pulse"
-                style={{
-                  background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)`,
-                  right: 0,
-                }}
-              />
-            </div>
-          )}
         </div>
 
-        {/* Step labels */}
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-[var(--text-muted)]">
-            {pct >= 100 ? '✓ ' + tr('analysis.done', lang) : tr(currentStep.key, lang)}
-          </span>
-          {/* Mini step indicators */}
-          <div className="flex gap-0.5">
-            {ANALYSIS_STEPS.map((s, i) => (
-              <div
-                key={i}
-                className="w-1.5 h-1.5 rounded-full transition-all"
-                style={{
-                  background: pct >= s.max ? color : pct >= s.min ? `${color}60` : 'rgba(255,255,255,0.08)',
-                }}
-              />
-            ))}
-          </div>
+        {/* Step label */}
+        <div className="text-[9px] text-[var(--text-muted)]">
+          {pct >= 100 ? '✓ ' + tr('analysis.done', lang) : tr(currentStep.key, lang)}
         </div>
       </div>
     </div>

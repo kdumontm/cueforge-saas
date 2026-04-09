@@ -1613,9 +1613,9 @@ export default function DashboardV2() {
         </div>
       )}
 
-      {/* ── Barre de progression d'analyse ── */}
+      {/* ── Barre de progression d'analyse (bottom-right mini popup) ── */}
       {Object.keys(analysisProgress).length > 0 && (
-        <div className="space-y-2">
+        <div className="fixed bottom-4 right-4 z-[9990] w-72 space-y-2">
           {Object.entries(analysisProgress).map(([id, info]) => (
             <AnalysisProgress
               key={id}
