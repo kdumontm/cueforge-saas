@@ -91,6 +91,8 @@ class TrackAnalysisResponse(BaseModel):
     mood: Optional[str] = None
     danceability: Optional[float] = None
     analyzed_at: Optional[datetime] = None
+    waveform_peaks: Optional[List[float]] = None
+    spectral_energy: Optional[Dict[str, Any]] = None
 
     @field_validator('drop_positions', 'phrase_positions', 'beat_positions', mode='before')
     @classmethod
