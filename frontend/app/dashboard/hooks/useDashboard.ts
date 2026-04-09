@@ -1245,8 +1245,8 @@ export function useDashboard() {
         minPxPerSec: 1,
         autoScroll: true,
         autoCenter: true,
-        interact: true,
-        dragToSeek: true,
+        interact: false,
+        dragToSeek: false,
         hideScrollbar: false,
         barWidth: 0,
         barGap: 0,
@@ -1312,12 +1312,58 @@ export function useDashboard() {
       });
 
       wavesurferRef.current = ws;
+
+      // ── Drag-to-seek uniquement (pas de seek au clic simple) ──
+      const container = waveformRef.current!;
+      let isDragging = false;
+      let startX = 0;
+      const DRAG_THRESHOLD = 3; // px minimum pour considérer un drag
+
+      const seekFromEvent = (e: PointerEvent) => {
+        const rect = container.getBoundingClientRect();
+        const scrollContainer = container.querySelector('div[style*="overflow"]') as HTMLElement;
+        const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        const clickX = e.clientX - rect.left + scrollLeft;
+        const totalWidth = scrollContainer ? scrollContainer.scrollWidth : rect.width;
+        const progress = Math.max(0, Math.min(1, clickX / totalWidth));
+        ws.seekTo(progress);
+      };
+
+      const onPointerDown = (e: PointerEvent) => {
+        startX = e.clientX;
+        isDragging = false;
+        container.setPointerCapture(e.pointerId);
+      };
+      const onPointerMove = (e: PointerEvent) => {
+        if (!container.hasPointerCapture(e.pointerId)) return;
+        if (!isDragging && Math.abs(e.clientX - startX) >= DRAG_THRESHOLD) {
+          isDragging = true;
+        }
+        if (isDragging) seekFromEvent(e);
+      };
+      const onPointerUp = (e: PointerEvent) => {
+        container.releasePointerCapture(e.pointerId);
+        isDragging = false;
+      };
+
+      container.addEventListener('pointerdown', onPointerDown);
+      container.addEventListener('pointermove', onPointerMove);
+      container.addEventListener('pointerup', onPointerUp);
+
+      (ws as any).__dragCleanup = () => {
+        container.removeEventListener('pointerdown', onPointerDown);
+        container.removeEventListener('pointermove', onPointerMove);
+        container.removeEventListener('pointerup', onPointerUp);
+      };
     }
 
     initWavesurfer();
     return () => {
       destroyed = true;
-      if (ws) ws.destroy();
+      if (ws) {
+        if ((ws as any).__dragCleanup) (ws as any).__dragCleanup();
+        ws.destroy();
+      }
     };
   }, []);
 
