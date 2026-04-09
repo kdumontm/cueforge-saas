@@ -19,7 +19,7 @@ import secrets
 import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 from typing import Annotated
 from pydantic import BaseModel, EmailStr, field_validator, Field
@@ -165,15 +165,16 @@ class OAuthCallbackRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == user_data.email).first():
+    email_lower = user_data.email.strip().lower()
+    if db.query(User).filter(func.lower(User.email) == email_lower).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    if db.query(User).filter(User.name == user_data.name).first():
+    if db.query(User).filter(func.lower(User.name) == user_data.name.strip().lower()).first():
         raise HTTPException(status_code=400, detail="Username already taken")
 
     verify_token = generate_email_verify_token()
 
     new_user = User(
-        email=user_data.email,
+        email=email_lower,
         name=user_data.name,
         password_hash=hash_password(user_data.password),
         email_verify_token=_hash_token(verify_token),
@@ -240,7 +241,7 @@ async def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
 
 @router.post("/resend-verify")
 async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email).first()
+    user = db.query(User).filter(func.lower(User.email) == req.email.strip().lower()).first()
     if user and not user.email_verified:
         token = generate_email_verify_token()
         user.email_verify_token = _hash_token(token)
@@ -259,9 +260,13 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login by username or email. Returns access + refresh tokens."""
+    """Login by username or email (case-insensitive). Returns access + refresh tokens."""
+    identifier_lower = credentials.identifier.strip().lower()
     user = db.query(User).filter(
-        or_(User.name == credentials.identifier, User.email == credentials.identifier)
+        or_(
+            func.lower(User.name) == identifier_lower,
+            func.lower(User.email) == identifier_lower,
+        )
     ).first()
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -355,11 +360,12 @@ async def update_me(
     db: Session = Depends(get_db),
 ):
     if user_data.name:
-        if db.query(User).filter(User.name == user_data.name, User.id != user.id).first():
+        if db.query(User).filter(func.lower(User.name) == user_data.name.strip().lower(), User.id != user.id).first():
             raise HTTPException(status_code=400, detail="Username already taken")
         user.name = user_data.name
     if user_data.email:
-        existing = db.query(User).filter(User.email == user_data.email, User.id != user.id).first()
+        email_lower = user_data.email.strip().lower()
+        existing = db.query(User).filter(func.lower(User.email) == email_lower, User.id != user.id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Email already in use")
         user.email = user_data.email
@@ -403,7 +409,7 @@ async def update_settings(
 
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email).first()
+    user = db.query(User).filter(func.lower(User.email) == req.email.strip().lower()).first()
     if user:
         token = secrets.token_urlsafe(32)
         user.reset_token = _hash_token(token)
@@ -464,7 +470,7 @@ async def setup_admin(req: AdminSetupRequest, db: Session = Depends(get_db)):
     key = os.getenv("ADMIN_SETUP_KEY")
     if not key or req.secret != key:
         raise HTTPException(status_code=403, detail="Invalid setup key")
-    user = db.query(User).filter(User.email == req.email).first()
+    user = db.query(User).filter(func.lower(User.email) == req.email.strip().lower()).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_admin = True
@@ -642,8 +648,8 @@ async def _oauth_login_or_register(
         )
 
     if not user and email:
-        # Check if email already exists (link accounts)
-        user = db.query(User).filter(User.email == email).first()
+        # Check if email already exists (link accounts) — case-insensitive
+        user = db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
         if user:
             user.oauth_provider = provider
             user.oauth_id = provider_id

@@ -37,6 +37,23 @@ from app.utils.migrations import run_migrations
 logger = logging.getLogger(__name__)
 
 
+def _normalize_emails():
+    """One-shot migration: normalise tous les emails en minuscules.
+    Idempotent — ne fait rien si les emails sont déjà en minuscules.
+    """
+    from sqlalchemy import func as sa_func
+    db = SessionLocal()
+    try:
+        users_to_fix = db.query(User).filter(User.email != sa_func.lower(User.email)).all()
+        for u in users_to_fix:
+            u.email = u.email.strip().lower()
+        if users_to_fix:
+            db.commit()
+            logger.info("📧 %d email(s) normalisé(s) en minuscules.", len(users_to_fix))
+    finally:
+        db.close()
+
+
 def _ensure_admin_account():
     """Create the default kenin admin account if it does not exist yet.
     Le mot de passe est lu depuis ADMIN_PASSWORD (env var) — jamais hardcodé.
@@ -198,6 +215,12 @@ async def lifespan(app: FastAPI):
         run_migrations(engine)
     except Exception as exc:
         logger.error("⚠️  run_migrations échoué (non bloquant) : %s", exc)
+
+    # 2b. Normaliser les emails en minuscules — one-shot, idempotent
+    try:
+        _normalize_emails()
+    except Exception as exc:
+        logger.error("⚠️  _normalize_emails échoué (non bloquant) : %s", exc)
 
     # 3. Compte admin par défaut — non bloquant
     try:
