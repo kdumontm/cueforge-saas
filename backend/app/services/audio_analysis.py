@@ -450,13 +450,31 @@ def _fold_bpm_dj_range(bpm: float, lo: float = 70.0, hi: float = 180.0) -> float
 
 def _round_bpm_smart(bpm: float) -> float:
     """
-    Smart BPM rounding for DJ use.
-    Most tracks are produced at integer BPMs, so we round to the nearest
-    integer. This prevents cumulative drift over long tracks.
+    Smart BPM rounding for DJ use — v5.5
+
+    Rekordbox/Traktor/Serato utilisent TOUS un BPM à 2 décimales (ex: 127.50).
+    Arrondir à l'entier cause une dérive catastrophique de la grille :
+      - 0.5 BPM d'erreur à 128 BPM → 1.84ms/beat → 1.47s de dérive sur 6 min !
+
+    Stratégie:
+    1. Tester si le BPM est "proche" d'un entier (±0.08 BPM) → arrondir à l'entier
+       (la plupart des productions EDM sont à BPM entier exact)
+    2. Tester si le BPM est "proche" d'un demi (±0.08 BPM) → arrondir au .5
+       (certains morceaux sont à 127.5, 132.5, etc.)
+    3. Sinon → garder 2 décimales (round à 0.01)
     """
-    # Simply round to nearest integer — this is what Rekordbox does
-    # for constant-BPM tracks. 117.5 → 118, 127.3 → 127, etc.
-    return float(round(bpm))
+    # Cas 1: très proche d'un entier? (ex: 127.95 → 128.0)
+    nearest_int = round(bpm)
+    if abs(bpm - nearest_int) < 0.08:
+        return float(nearest_int)
+
+    # Cas 2: très proche d'un demi? (ex: 127.47 → 127.5)
+    nearest_half = round(bpm * 2) / 2
+    if abs(bpm - nearest_half) < 0.08:
+        return float(nearest_half)
+
+    # Cas 3: garder la précision à 2 décimales
+    return round(bpm, 2)
 
 
 def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
@@ -675,46 +693,80 @@ def _refine_first_beat(y: np.ndarray, sr: int, raw_first_beat: float, bpm: float
         return raw_first_beat
 
 
+def _validate_grid_vs_raw(grid_beats: List[float], raw_beats: List[float]) -> float:
+    """
+    Mesure la précision d'une grille synthétique par rapport aux beats réels.
+    Retourne l'erreur médiane en ms.
+    """
+    if not grid_beats or not raw_beats:
+        return 999.0
+    errors = []
+    for rb in raw_beats[:min(100, len(raw_beats))]:
+        nearest = min(grid_beats, key=lambda g: abs(g - rb))
+        errors.append(abs(nearest - rb) * 1000)  # en ms
+    return float(np.median(errors))
+
+
 def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -> Dict:
     """
-    Detect BPM and beat positions — v5.4 precision DJ grid.
+    Detect BPM and beat positions — v5.5 precision DJ grid.
 
-    1. Ellis DP beat tracker (primary BPM + raw beats)
-    2. Onset autocorrelation (secondary, for validation)
-    3. Fold into DJ range [70–180 BPM]
-    4. Smart rounding toward common DJ tempos
-    5. Onset-refined first beat anchor
-    6. Perfect mathematically even grid (like Rekordbox/Traktor/Serato)
-    7. Downbeat phase alignment (beats[0::4] = bar starts)
+    v5.5 — Stratégie hybride grille/beats réels:
+    1. Détecter les vrais beats (beat_this > madmom > librosa)
+    2. Calculer le BPM précis à 2 décimales depuis l'IBI médian
+    3. Synthétiser une grille parfaite depuis ce BPM précis
+    4. VALIDER la grille contre les beats réels:
+       - Si erreur médiane < 10ms → grille OK (track constant-BPM)
+       - Si erreur médiane ≥ 10ms → utiliser les VRAIS beats
+    5. Downbeat alignment
     """
     try:
         # ── Try beat_this first (CPJKU PyTorch — state of the art) ──
         if file_path:
             dl_result = _detect_bpm_beat_this(file_path)
             if not dl_result:
-                # Fallback to madmom if beat_this not available
                 dl_result = _detect_bpm_madmom(file_path)
             if dl_result:
                 bpm = dl_result["bpm"]
                 raw_beats = dl_result["beats"]
                 source = dl_result["source"]
                 expected_ibi = 60.0 / bpm
+
+                # ── Synthétiser une grille parfaite ──
                 first_beat = _refine_first_beat(y, sr, raw_beats[0], bpm)
                 end_time = raw_beats[-1] + expected_ibi * 4
-                beats = []
+                grid_beats = []
                 t = first_beat
                 while t <= end_time:
-                    beats.append(round(t, 6))
+                    grid_beats.append(round(t, 6))
                     t += expected_ibi
+
+                # ── v5.5: VALIDER grille vs beats réels ──
+                grid_error_ms = _validate_grid_vs_raw(grid_beats, raw_beats)
+
+                if grid_error_ms < 10.0:
+                    # Track constant-BPM: la grille synthétique est bonne
+                    beats = grid_beats
+                    logger.info(
+                        f"[BPM] Grid validated (median error={grid_error_ms:.1f}ms) "
+                        f"— using synthetic grid"
+                    )
+                else:
+                    # Track variable ou BPM mal estimé: utiliser les vrais beats
+                    # Ils sont déjà sur les VRAIS temps du morceau
+                    beats = raw_beats
+                    logger.warning(
+                        f"[BPM] Grid drift detected (median error={grid_error_ms:.1f}ms) "
+                        f"— using RAW beats from {source} instead of synthetic grid"
+                    )
+
                 beats_frames = librosa.time_to_frames(
                     np.array(beats), sr=sr, hop_length=HOP_LENGTH
                 ).tolist()
 
                 # ── Downbeat alignment ──
-                # beat_this fournit les vrais downbeats — on les utilise en priorité
                 dl_downbeats = dl_result.get("downbeats", [])
                 if dl_downbeats and len(dl_downbeats) >= 2:
-                    # Trouver le beat de la grille le plus proche du premier downbeat
                     first_db = dl_downbeats[0]
                     best_offset = 0
                     best_dist = abs(beats[0] - first_db) if beats else 999
@@ -727,13 +779,12 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                     logger.info(f"[BPM] Downbeat alignment from {source}: offset={offset} "
                                 f"(first downbeat={first_db:.3f}s, grid beat[{offset}]={beats[offset] if offset < len(beats) else '?'})")
                 else:
-                    # Fallback: heuristique énergie (moins fiable)
                     offset = _detect_downbeat_offset(y, sr, beats)
 
                 if offset > 0 and offset < len(beats):
                     beats = beats[offset:]
                     beats_frames = beats_frames[offset:]
-                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats")
+                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats, grid_error={grid_error_ms:.1f}ms")
                 return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": source}
 
         # ── Fallback: librosa (if beat_this/madmom unavailable) ──
@@ -1828,13 +1879,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         except Exception:
             sections = []
 
-    # Format sections for output
+    # Format sections for output — round() au lieu de int() pour éviter la dérive
     try:
         section_labels = [
             {
-                "time_ms": int(s.get("time", s.get("start_ms", 0)) * 1000) if "time" in s else s.get("start_ms", 0),
+                "time_ms": round(s.get("time", s.get("start_ms", 0)) * 1000) if "time" in s else s.get("start_ms", 0),
                 "label": s.get("label", "UNKNOWN"),
-                "duration_ms": int(s.get("duration", s.get("duration_ms", 0)) * 1000) if "duration" in s else s.get("duration_ms", 0),
+                "duration_ms": round(s.get("duration", s.get("duration_ms", 0)) * 1000) if "duration" in s else s.get("duration_ms", 0),
                 "energy": s.get("energy", 0.5),
             }
             for s in sections
@@ -1845,7 +1896,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Phrases (8-bar grid)
     try:
         phrases = detect_phrases(beats)
-        phrase_positions = [int(p["start_time"] * 1000) for p in phrases]
+        phrase_positions = [round(p["start_time"] * 1000) for p in phrases]
     except Exception:
         phrase_positions = []
 
