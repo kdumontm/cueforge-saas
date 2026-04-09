@@ -101,6 +101,56 @@ def _seed_default_pages():
         db.close()
 
 
+def _seed_plan_features():
+    """Synchronise les PlanFeature en DB avec DEFAULT_PLAN_FEATURES.
+
+    - Ajoute les features manquantes pour chaque plan
+    - Supprime les features obsolètes (noms qui n'existent plus dans la liste canonique)
+    - Préserve l'état is_enabled/display_mode des features existantes
+    """
+    from app.models.site_settings import PlanFeature, DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_CONFIGS
+
+    canonical_names = {f["feature_name"] for f in DEFAULT_PLAN_FEATURES}
+    label_map = {f["feature_name"]: f["label"] for f in DEFAULT_PLAN_FEATURES}
+
+    db = SessionLocal()
+    try:
+        for plan_name, enabled_list in DEFAULT_PLAN_CONFIGS.items():
+            enabled_set = set(enabled_list)
+            existing = db.query(PlanFeature).filter(PlanFeature.plan_name == plan_name).all()
+            existing_map = {f.feature_name: f for f in existing}
+
+            # Supprimer les features obsolètes (noms qui ne matchent plus le frontend)
+            for f in existing:
+                if f.feature_name not in canonical_names:
+                    logger.info("🗑️  Suppression feature obsolète: %s/%s", plan_name, f.feature_name)
+                    db.delete(f)
+
+            # Ajouter les features manquantes
+            for feat_name in canonical_names:
+                if feat_name not in existing_map:
+                    new_feat = PlanFeature(
+                        plan_name=plan_name,
+                        feature_name=feat_name,
+                        is_enabled=feat_name in enabled_set,
+                        label=label_map.get(feat_name, feat_name),
+                        display_mode="locked",
+                    )
+                    db.add(new_feat)
+                    logger.info("➕ Ajout feature: %s/%s (enabled=%s)", plan_name, feat_name, feat_name in enabled_set)
+                else:
+                    # Mettre à jour le label si changé
+                    ef = existing_map[feat_name]
+                    new_label = label_map.get(feat_name, feat_name)
+                    if ef.label != new_label:
+                        ef.label = new_label
+
+        db.commit()
+        logger.info("✅ Plan features synchronisées.")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Créer les tables manquantes — non bloquant si ça échoue
@@ -126,6 +176,12 @@ async def lifespan(app: FastAPI):
         _seed_default_pages()
     except Exception as exc:
         logger.error("⚠️  _seed_default_pages échoué (non bloquant) : %s", exc)
+
+    # 5. Plan features — sync avec la liste canonique du frontend
+    try:
+        _seed_plan_features()
+    except Exception as exc:
+        logger.error("⚠️  _seed_plan_features échoué (non bloquant) : %s", exc)
 
     logger.info("✅ CueForge backend démarré.")
     yield

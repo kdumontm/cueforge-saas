@@ -39,29 +39,36 @@ class PlanFeature(Base):
 
 
 # All features that can be gated per plan
+# ⚠️ Les feature_name DOIVENT correspondre EXACTEMENT aux featureKey du frontend
+# (Sidebar.tsx, DashboardV2.tsx TABS, FeatureGate wraps)
 DEFAULT_PLAN_FEATURES = [
-    # Core modules
-    {"feature_name": "analysis", "label": "Audio Analysis (BPM, Key, Energy)"},
-    {"feature_name": "cue_points", "label": "Cue Points Detection"},
-    {"feature_name": "waveform", "label": "Waveform Display"},
-    {"feature_name": "eq", "label": "EQ Module"},
-    {"feature_name": "fx", "label": "FX Module"},
-    {"feature_name": "mix", "label": "Mix Compatibility"},
-    {"feature_name": "camelot_wheel", "label": "Camelot Wheel"},
-    {"feature_name": "playlists", "label": "Playlists"},
-    {"feature_name": "history", "label": "History"},
-    {"feature_name": "stats", "label": "Statistics"},
-    # Export
-    {"feature_name": "rekordbox_export", "label": "Rekordbox XML Export"},
-    # Advanced
-    {"feature_name": "batch_analysis", "label": "Batch Analysis"},
-    {"feature_name": "genre_detection", "label": "Genre Detection"},
-    {"feature_name": "watch_folder", "label": "Watch Folder"},
+    # ── Sidebar items ──
+    {"feature_name": "stats",           "label": "Statistiques"},
+    {"feature_name": "favorites",       "label": "Favoris"},
+    {"feature_name": "set_builder",     "label": "Set Builder"},
+    {"feature_name": "duplicates",      "label": "Détection de doublons"},
+    {"feature_name": "mix_compatible",  "label": "Mix Compatible"},
+    {"feature_name": "playlists",       "label": "Playlists"},
+    {"feature_name": "smart_crates",    "label": "Smart Crates"},
+    {"feature_name": "gig_prep",        "label": "Préparation de set"},
+    {"feature_name": "activity",        "label": "Historique d'activité"},
+    {"feature_name": "dj_tools",        "label": "Outils DJ"},
+    {"feature_name": "upload",          "label": "Upload de fichiers"},
+    {"feature_name": "export",          "label": "Export"},
+    # ── Dashboard tabs ──
+    {"feature_name": "cue_generation",  "label": "Génération de cue points"},
+    {"feature_name": "beatgrid",        "label": "Beatgrid"},
+    {"feature_name": "mix_analysis",    "label": "Analyse de mix"},
+    {"feature_name": "eq_analysis",     "label": "Analyse EQ"},
+    {"feature_name": "fx_suggestions",  "label": "Suggestions FX"},
+    {"feature_name": "stems",           "label": "Stems (Desktop)"},
+    {"feature_name": "compare",         "label": "Comparer des pistes"},
 ]
 
 # Default plan configs (what each plan gets by default)
+ALL_FEATURES = [f["feature_name"] for f in DEFAULT_PLAN_FEATURES]
 DEFAULT_PLAN_CONFIGS = {
-    "free": ["analysis", "cue_points", "waveform", "playlists", "history"],
-    "pro": ["analysis", "cue_points", "waveform", "eq", "fx", "mix", "camelot_wheel", "playlists", "history", "stats", "rekordbox_export", "genre_detection"],
-    "unlimited": ["analysis", "cue_points", "waveform", "eq", "fx", "mix", "camelot_wheel", "playlists", "history", "stats", "rekordbox_export", "batch_analysis", "genre_detection", "watch_folder"],
+    "free": ["upload", "cue_generation", "playlists", "favorites", "activity"],
+    "pro": ALL_FEATURES.copy(),   # Pro = tout activé par défaut
+    "unlimited": ALL_FEATURES.copy(),  # Unlimited = tout activé par défaut
 }

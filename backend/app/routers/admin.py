@@ -1120,15 +1120,18 @@ async def get_plan_features(
     all_features = db.query(PlanFeature).order_by(PlanFeature.plan_name, PlanFeature.id).all()
     features: dict[str, dict[str, bool]] = {}
     labels: dict[str, str] = {}
+    display_modes: dict[str, dict[str, str]] = {}
 
     for f in all_features:
         if f.plan_name not in features:
             features[f.plan_name] = {}
+            display_modes[f.plan_name] = {}
         features[f.plan_name][f.feature_name] = f.is_enabled
+        display_modes[f.plan_name][f.feature_name] = getattr(f, "display_mode", "locked") or "locked"
         if f.label:
             labels[f.feature_name] = f.label
 
-    return {"features": features, "feature_labels": labels}
+    return {"features": features, "feature_labels": labels, "display_modes": display_modes}
 
 
 @public_router.get("/plan-features/{plan_name}")
