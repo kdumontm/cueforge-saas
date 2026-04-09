@@ -101,6 +101,40 @@ def _seed_default_pages():
         db.close()
 
 
+def _seed_feature_locks():
+    """Crée les FeatureLock manquants pour chaque feature canonique."""
+    from app.models.site_settings import FeatureLock, DEFAULT_PLAN_FEATURES
+
+    db = SessionLocal()
+    try:
+        label_map = {f["feature_name"]: f["label"] for f in DEFAULT_PLAN_FEATURES}
+        existing = {lk.feature_name for lk in db.query(FeatureLock).all()}
+
+        for feat in DEFAULT_PLAN_FEATURES:
+            if feat["feature_name"] not in existing:
+                db.add(FeatureLock(
+                    feature_name=feat["feature_name"],
+                    label=feat["label"],
+                    is_locked=False,
+                ))
+            else:
+                # Mettre à jour le label si changé
+                lk = db.query(FeatureLock).filter(FeatureLock.feature_name == feat["feature_name"]).first()
+                if lk and lk.label != feat["label"]:
+                    lk.label = feat["label"]
+
+        # Supprimer les locks obsolètes
+        canonical_names = {f["feature_name"] for f in DEFAULT_PLAN_FEATURES}
+        for lk in db.query(FeatureLock).all():
+            if lk.feature_name not in canonical_names:
+                db.delete(lk)
+
+        db.commit()
+        logger.info("✅ Feature locks synchronisés.")
+    finally:
+        db.close()
+
+
 def _seed_plan_features():
     """Synchronise les PlanFeature en DB avec DEFAULT_PLAN_FEATURES.
 
@@ -182,6 +216,12 @@ async def lifespan(app: FastAPI):
         _seed_plan_features()
     except Exception as exc:
         logger.error("⚠️  _seed_plan_features échoué (non bloquant) : %s", exc)
+
+    # 6. Feature locks — créer les entrées manquantes
+    try:
+        _seed_feature_locks()
+    except Exception as exc:
+        logger.error("⚠️  _seed_feature_locks échoué (non bloquant) : %s", exc)
 
     logger.info("✅ CueForge backend démarré.")
     yield

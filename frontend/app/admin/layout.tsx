@@ -7,6 +7,7 @@ import {
   Navigation, LayoutGrid, Shield, ChevronLeft, ChevronRight,
   LogOut, Sun, Moon, Menu, X, Bell, ChevronDown,
   Home, Palette, Database, Search, PanelLeftClose, PanelLeft, BarChart3,
+  Lock,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "modules", label: "Modules Dashboard", icon: LayoutGrid, href: "/admin/modules" },
       { id: "features", label: "Features & Plans", icon: Zap, href: "/admin/features" },
+      { id: "locks", label: "Verrouillage Code", icon: Lock, href: "/admin/locks" },
     ],
   },
   {

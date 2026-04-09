@@ -52,6 +52,19 @@ python3 scripts/diagnose.py --url https://<app>.railway.app --key <DIAGNOSTICS_K
 - Être action-oriented: coder d'abord, expliquer après
 - Toujours commiter avec un message clair en français décrivant le "pourquoi"
 
+## Verrouillage des features (OBLIGATOIRE)
+**Avant de modifier le code d'une feature, TOUJOURS vérifier si elle est verrouillée.**
+
+```bash
+curl -s "https://cueforge-saas-production.up.railway.app/api/v1/site/feature-locks" | python3 -m json.tool
+```
+
+Si la feature est dans la liste (= verrouillée), **NE PAS toucher au code** et informer Kevin :
+> "⚠️ La feature [nom] est verrouillée. Tu veux que je la déverrouille avant de modifier ?"
+
+Kevin gère les verrous depuis Admin → Verrouillage Code.
+Les features verrouillées sont celles qu'il considère comme terminées et stables.
+
 ## Architecture Desktop (v3.0+)
 L'app desktop = coquille Electron qui charge le site web via `loadURL()`.
 - **Un seul code UI** : tout dans `frontend/`, jamais d'UI dans `desktop/`

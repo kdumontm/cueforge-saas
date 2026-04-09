@@ -79,6 +79,13 @@ export const adminApi = {
   deleteFeature: (id: number) => api(`/admin/features/${id}`, { method: "DELETE" }),
   bulkToggleFeatures: (planName: string, isEnabled: boolean) =>
     api(`/admin/features/plan/${planName}`, { method: "PATCH", body: { is_enabled: isEnabled } }),
+  bulkSetDisplayMode: (planName: string, displayMode: 'hidden' | 'locked') =>
+    api(`/admin/features/plan/${planName}/display-mode`, { method: "PATCH", body: { display_mode: displayMode } }),
+
+  // Feature Locks (verrouillage du code)
+  listFeatureLocks: () => api("/admin/feature-locks"),
+  toggleFeatureLock: (featureName: string) =>
+    api(`/admin/feature-locks/${featureName}`, { method: "PATCH" }),
 
   // Users
   listUsers: (params?: { search?: string; plan?: string; skip?: number; limit?: number }) => {

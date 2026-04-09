@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from datetime import datetime
 from app.database import Base
 
 
@@ -42,27 +43,27 @@ class PlanFeature(Base):
 # ⚠️ Les feature_name DOIVENT correspondre EXACTEMENT aux featureKey du frontend
 # (Sidebar.tsx, DashboardV2.tsx TABS, FeatureGate wraps)
 DEFAULT_PLAN_FEATURES = [
-    # ── Sidebar items ──
-    {"feature_name": "stats",           "label": "Statistiques"},
-    {"feature_name": "favorites",       "label": "Favoris"},
-    {"feature_name": "set_builder",     "label": "Set Builder"},
-    {"feature_name": "duplicates",      "label": "Détection de doublons"},
-    {"feature_name": "mix_compatible",  "label": "Mix Compatible"},
-    {"feature_name": "playlists",       "label": "Playlists"},
-    {"feature_name": "smart_crates",    "label": "Smart Crates"},
-    {"feature_name": "gig_prep",        "label": "Préparation de set"},
-    {"feature_name": "activity",        "label": "Historique d'activité"},
-    {"feature_name": "dj_tools",        "label": "Outils DJ"},
-    {"feature_name": "upload",          "label": "Upload de fichiers"},
-    {"feature_name": "export",          "label": "Export"},
-    # ── Dashboard tabs ──
-    {"feature_name": "cue_generation",  "label": "Génération de cue points"},
-    {"feature_name": "beatgrid",        "label": "Beatgrid"},
-    {"feature_name": "mix_analysis",    "label": "Analyse de mix"},
-    {"feature_name": "eq_analysis",     "label": "Analyse EQ"},
-    {"feature_name": "fx_suggestions",  "label": "Suggestions FX"},
-    {"feature_name": "stems",           "label": "Stems (Desktop)"},
-    {"feature_name": "compare",         "label": "Comparer des pistes"},
+    # ── Pages / Sidebar ──
+    {"feature_name": "stats",           "label": "📊 Statistiques"},
+    {"feature_name": "favorites",       "label": "❤️ Favoris"},
+    {"feature_name": "set_builder",     "label": "🎚️ Constructeur de set"},
+    {"feature_name": "duplicates",      "label": "🔍 Doublons"},
+    {"feature_name": "mix_compatible",  "label": "🎵 Mix compatible"},
+    {"feature_name": "playlists",       "label": "📂 Playlists"},
+    {"feature_name": "smart_crates",    "label": "📦 Bacs intelligents"},
+    {"feature_name": "gig_prep",        "label": "⚡ Prépa Gig"},
+    {"feature_name": "activity",        "label": "🕐 Historique"},
+    {"feature_name": "dj_tools",        "label": "🔧 Outils DJ"},
+    {"feature_name": "upload",          "label": "📤 Upload"},
+    {"feature_name": "export",          "label": "📥 Export"},
+    # ── Onglets analyse ──
+    {"feature_name": "cue_generation",  "label": "🎯 Cue Points"},
+    {"feature_name": "beatgrid",        "label": "🥁 Beatgrid"},
+    {"feature_name": "mix_analysis",    "label": "🎡 Analyse Mix"},
+    {"feature_name": "eq_analysis",     "label": "〰️ Analyse EQ"},
+    {"feature_name": "fx_suggestions",  "label": "✨ Suggestions FX"},
+    {"feature_name": "stems",           "label": "🎸 Stems (Desktop)"},
+    {"feature_name": "compare",         "label": "⚖️ Comparer"},
 ]
 
 # Default plan configs (what each plan gets by default)
@@ -72,3 +73,22 @@ DEFAULT_PLAN_CONFIGS = {
     "pro": ALL_FEATURES.copy(),   # Pro = tout activé par défaut
     "unlimited": ALL_FEATURES.copy(),  # Unlimited = tout activé par défaut
 }
+
+
+class FeatureLock(Base):
+    """Verrouillage de code par feature.
+
+    Quand is_locked=True, Claude ne doit PAS modifier le code de cette feature.
+    Kevin active le verrou quand il considère qu'une feature est terminée et stable.
+    """
+    __tablename__ = "feature_locks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feature_name = Column(String(100), unique=True, nullable=False, index=True)
+    label = Column(String(255), nullable=True)
+    is_locked = Column(Boolean, default=False, nullable=False)
+    locked_at = Column(DateTime, nullable=True)
+    note = Column(String(500), nullable=True)  # raison du verrouillage
+
+    def __repr__(self):
+        return f"<FeatureLock {self.feature_name} locked={self.is_locked}>"

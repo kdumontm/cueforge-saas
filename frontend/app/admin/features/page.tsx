@@ -117,10 +117,8 @@ export default function FeaturesPage() {
   // Bulk toggle — active/désactive toutes les features d'un plan
   async function bulkToggle(planName: string, enable: boolean) {
     const planFeatures = features.filter((f) => f.plan_name === planName);
-    // Snapshot for rollback
     const snapshot = planFeatures.map((f) => ({ id: f.id, is_enabled: f.is_enabled }));
 
-    // Optimistic update
     setFeatures((prev) =>
       prev.map((f) => (f.plan_name === planName ? { ...f, is_enabled: enable } : f))
     );
@@ -133,7 +131,6 @@ export default function FeaturesPage() {
         "success"
       );
     } catch (err: any) {
-      // Rollback
       setFeatures((prev) => {
         const oldMap = new Map(snapshot.map((s) => [s.id, s.is_enabled]));
         return prev.map((f) =>
@@ -143,6 +140,41 @@ export default function FeaturesPage() {
         );
       });
       toast(err.message || "Erreur lors de la mise à jour en masse", "error");
+    } finally {
+      setBusyPlans((prev) => {
+        const s = new Set(prev);
+        s.delete(planName);
+        return s;
+      });
+    }
+  }
+
+  // Bulk display mode — tout masquer ou tout griser d'un plan
+  async function bulkDisplayMode(planName: string, mode: 'hidden' | 'locked') {
+    const planFeatures = features.filter((f) => f.plan_name === planName);
+    const snapshot = planFeatures.map((f) => ({ id: f.id, display_mode: f.display_mode }));
+
+    setFeatures((prev) =>
+      prev.map((f) => (f.plan_name === planName ? { ...f, display_mode: mode } : f))
+    );
+    setBusyPlans((prev) => new Set([...prev, planName]));
+
+    try {
+      await adminApi.bulkSetDisplayMode(planName, mode);
+      toast(
+        mode === 'hidden' ? 'Tout masqué (disparaît)' : 'Tout grisé (verrouillé)',
+        "success"
+      );
+    } catch (err: any) {
+      setFeatures((prev) => {
+        const oldMap = new Map(snapshot.map((s) => [s.id, s.display_mode]));
+        return prev.map((f) =>
+          f.plan_name === planName && oldMap.has(f.id)
+            ? { ...f, display_mode: (oldMap.get(f.id) as 'hidden' | 'locked') }
+            : f
+        );
+      });
+      toast(err.message || "Erreur", "error");
     } finally {
       setBusyPlans((prev) => {
         const s = new Set(prev);
@@ -292,27 +324,51 @@ export default function FeaturesPage() {
 
                 {/* Bulk Toggle Buttons */}
                 {planFeatures.length > 0 && (
-                  <div className="flex gap-2 mb-4">
-                    <Btn
-                      small
-                      variant={allEnabled ? "danger" : "default"}
-                      icon={ToggleLeft}
-                      loading={isBusyPlan}
-                      disabled={allDisabled || isBusyPlan}
-                      onClick={() => bulkToggle(plan.id, false)}
-                    >
-                      Tout désactiver
-                    </Btn>
-                    <Btn
-                      small
-                      variant={allDisabled ? "success" : "default"}
-                      icon={ToggleRight}
-                      loading={isBusyPlan}
-                      disabled={allEnabled || isBusyPlan}
-                      onClick={() => bulkToggle(plan.id, true)}
-                    >
-                      Tout activer
-                    </Btn>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex gap-2">
+                      <Btn
+                        small
+                        variant={allEnabled ? "danger" : "default"}
+                        icon={ToggleLeft}
+                        loading={isBusyPlan}
+                        disabled={allDisabled || isBusyPlan}
+                        onClick={() => bulkToggle(plan.id, false)}
+                      >
+                        Tout désactiver
+                      </Btn>
+                      <Btn
+                        small
+                        variant={allDisabled ? "success" : "default"}
+                        icon={ToggleRight}
+                        loading={isBusyPlan}
+                        disabled={allEnabled || isBusyPlan}
+                        onClick={() => bulkToggle(plan.id, true)}
+                      >
+                        Tout activer
+                      </Btn>
+                    </div>
+                    <div className="flex gap-2">
+                      <Btn
+                        small
+                        variant="warning"
+                        icon={EyeOff}
+                        loading={isBusyPlan}
+                        disabled={isBusyPlan}
+                        onClick={() => bulkDisplayMode(plan.id, 'hidden')}
+                      >
+                        Tout masquer
+                      </Btn>
+                      <Btn
+                        small
+                        variant="default"
+                        icon={Lock}
+                        loading={isBusyPlan}
+                        disabled={isBusyPlan}
+                        onClick={() => bulkDisplayMode(plan.id, 'locked')}
+                      >
+                        Tout griser
+                      </Btn>
+                    </div>
                   </div>
                 )}
 

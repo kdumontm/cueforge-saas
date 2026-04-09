@@ -839,6 +839,32 @@ async def bulk_toggle_features(
     return [_serialize_feature(f) for f in features]
 
 
+class BulkDisplayModeUpdate(BaseModel):
+    display_mode: str  # "hidden" ou "locked"
+
+
+@router.patch("/features/plan/{plan_name}/display-mode")
+async def bulk_set_display_mode(
+    plan_name: str,
+    data: BulkDisplayModeUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Change le mode d'affichage de toutes les features d'un plan (masqué ou grisé)."""
+    if data.display_mode not in ("hidden", "locked"):
+        raise HTTPException(status_code=400, detail="display_mode doit être 'hidden' ou 'locked'")
+
+    features = db.query(PlanFeature).filter(PlanFeature.plan_name == plan_name).all()
+    if not features:
+        raise HTTPException(status_code=404, detail=f"Aucune feature pour le plan '{plan_name}'")
+
+    for f in features:
+        f.display_mode = data.display_mode
+    db.commit()
+
+    return [_serialize_feature(f) for f in features]
+
+
 @router.delete("/features/{feature_id}")
 async def delete_feature(
     feature_id: int,
@@ -852,7 +878,61 @@ async def delete_feature(
 
     db.delete(feature)
     db.commit()
-    return {"message": f"Feature '{feature.feature_key}' supprimée"}
+    return {"message": f"Feature supprimée"}
+
+
+# ═══════════════════════════════════════════════
+# FEATURE LOCKS — Verrouillage du code par feature
+# ═══════════════════════════════════════════════
+
+from app.models.site_settings import FeatureLock
+from datetime import datetime
+
+
+@router.get("/feature-locks")
+async def list_feature_locks(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Liste tous les verrous de features."""
+    locks = db.query(FeatureLock).order_by(FeatureLock.feature_name).all()
+    return [_serialize_lock(lk) for lk in locks]
+
+
+@router.patch("/feature-locks/{feature_name}")
+async def toggle_feature_lock(
+    feature_name: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    """Bascule le verrou d'une feature (locked ↔ unlocked)."""
+    lock = db.query(FeatureLock).filter(FeatureLock.feature_name == feature_name).first()
+    if not lock:
+        raise HTTPException(status_code=404, detail=f"Feature lock '{feature_name}' non trouvé")
+
+    lock.is_locked = not lock.is_locked
+    lock.locked_at = datetime.utcnow() if lock.is_locked else None
+    db.commit()
+    db.refresh(lock)
+    return _serialize_lock(lock)
+
+
+@public_router.get("/feature-locks")
+async def get_feature_locks_public(db: Session = Depends(get_db)):
+    """Endpoint public pour que Claude puisse vérifier les verrous avant de coder."""
+    locks = db.query(FeatureLock).filter(FeatureLock.is_locked == True).all()
+    return {lk.feature_name: {"label": lk.label, "locked_at": str(lk.locked_at) if lk.locked_at else None, "note": lk.note} for lk in locks}
+
+
+def _serialize_lock(lk: FeatureLock) -> dict:
+    return {
+        "id": lk.id,
+        "feature_name": lk.feature_name,
+        "label": lk.label,
+        "is_locked": lk.is_locked,
+        "locked_at": str(lk.locked_at) if lk.locked_at else None,
+        "note": lk.note,
+    }
 
 
 # ═══════════════════════════════════════════════
