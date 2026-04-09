@@ -913,13 +913,6 @@ async def toggle_feature_lock(
     return _serialize_lock(lock)
 
 
-@public_router.get("/feature-locks")
-async def get_feature_locks_public(db: Session = Depends(get_db)):
-    """Endpoint public pour que Claude puisse vérifier les verrous avant de coder."""
-    locks = db.query(FeatureLock).filter(FeatureLock.is_locked == True).all()
-    return {lk.feature_name: {"label": lk.label, "locked_at": str(lk.locked_at) if lk.locked_at else None, "note": lk.note} for lk in locks}
-
-
 def _serialize_lock(lk: FeatureLock) -> dict:
     return {
         "id": lk.id,
@@ -1225,3 +1218,10 @@ async def get_plan_features_public(plan_name: str, db: Session = Depends(get_db)
             labels[f.feature_name] = f.label
 
     return {"plan": plan_name, "features": result, "feature_labels": labels, "display_modes": display_modes}
+
+
+@public_router.get("/feature-locks")
+async def get_feature_locks_public(db: Session = Depends(get_db)):
+    """Endpoint public pour que Claude puisse vérifier les verrous avant de coder."""
+    locks = db.query(FeatureLock).filter(FeatureLock.is_locked == True).all()
+    return {lk.feature_name: {"label": lk.label, "locked_at": str(lk.locked_at) if lk.locked_at else None, "note": lk.note} for lk in locks}
