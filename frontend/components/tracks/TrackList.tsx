@@ -330,7 +330,9 @@ export const TrackList = React.memo(function TrackList({
                           onSortChange(header.key);
                         }
                       }}
-                      className={`text-left hover:text-[var(--text-primary)] transition-colors ${
+                      className={`hover:text-[var(--text-primary)] transition-colors ${
+                        ['bpm', 'duration'].includes(header.key) ? 'text-right' : 'text-left'
+                      } ${
                         header.key === 'index' || header.key === 'play' ? 'cursor-default' : 'cursor-pointer'
                       } ${hiddenOnMobile ? 'hidden sm:block' : ''} ${hiddenBelowLg ? 'hidden lg:block' : ''}`}
                     >
