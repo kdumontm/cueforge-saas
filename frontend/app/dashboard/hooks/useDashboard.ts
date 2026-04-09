@@ -672,7 +672,6 @@ export function useDashboard() {
     { label: 'Rechercher Metadata (Spotify)', icon: Sparkles, action: 'analyze_metadata' },
     { label: 'Générer les Cue Points', icon: Disc3, action: 'cue_points', separator: true },
     { label: 'Organiser (Catégorie/Tags)', icon: Folder, action: 'organize', separator: true },
-    { label: 'Export Rekordbox XML', icon: Download, action: 'export_rekordbox' },
     { label: 'Supprimer', icon: Trash2, action: 'delete', separator: true },
   ];
 
@@ -1044,12 +1043,6 @@ export function useDashboard() {
         break;
       case 'organize':
         setOrganizerTrack(track);
-        break;
-      case 'export_rekordbox':
-        try {
-          await exportRekordbox(track.id);
-          showToast('Export Rekordbox XML téléchargé', 'success');
-        } catch { showToast('Erreur export Rekordbox', 'error'); }
         break;
       case 'delete':
         if (!confirm('Supprimer ce morceau ?')) return;
