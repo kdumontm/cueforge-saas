@@ -25,7 +25,7 @@ from app.models.user import User
 from app.models.cms import (
     SiteSettings, Page, Section, Component, MediaAsset,
 )
-from app.models.site_settings import PageConfig, PlanFeature
+from app.models.site_settings import PageConfig, PlanFeature, FeatureLock
 from app.middleware.admin import require_admin
 from app.services.media_service import upload_media_file, delete_media_file
 
@@ -884,10 +884,6 @@ async def delete_feature(
 # ═══════════════════════════════════════════════
 # FEATURE LOCKS — Verrouillage du code par feature
 # ═══════════════════════════════════════════════
-
-from app.models.site_settings import FeatureLock
-from datetime import datetime
-
 
 @router.get("/feature-locks")
 async def list_feature_locks(
