@@ -1523,17 +1523,21 @@ export default function DashboardV2() {
   async function handleBatchDeleteSelected() {
     const ids = Array.from(selectedIds);
     if (!window.confirm(`Supprimer ${ids.length} tracks ?`)) return;
+    let deletedCount = ids.length;
     try {
-      await batchDeleteTracks(ids);
+      const result = await batchDeleteTracks(ids);
+      deletedCount = result.deleted_count;
     } catch {
+      // Fallback: supprimer un par un
+      deletedCount = 0;
       for (const id of ids) {
-        try { await deleteTrack(id); } catch {}
+        try { await deleteTrack(id); deletedCount++; } catch {}
       }
     }
     setSelectedIds(new Set());
     setSelectedTrack(null, 'batchDelete');
     await loadTracks();
-    addToast(`${ids.length} tracks supprimées`, 'success');
+    addToast(deletedCount > 0 ? `✓ ${deletedCount} tracks supprimées` : '❌ Erreur lors de la suppression', deletedCount > 0 ? 'success' : 'error');
   }
 
   async function handleDeleteAllTracks() {
