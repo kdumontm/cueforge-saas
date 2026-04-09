@@ -82,7 +82,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
         const token = getToken();
         const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-        const res = await fetch(`${apiBase}/plan-features/${plan}`, {
+        const res = await fetch(`${apiBase}/site/plan-features/${plan}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (res.ok) {
