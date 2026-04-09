@@ -943,10 +943,16 @@ export default function DashboardV2() {
       }
       addToast(`${title} ${tr('toast.analyzed', lang)}`, 'success');
       setContextMenu(null);
-    } catch (e) {
+    } catch (e: any) {
       setAnalyzingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
       setAnalysisProgress(prev => { const n = { ...prev }; delete n[trackId]; return n; });
-      addToast(tr('toast.analysis_error', lang), 'error');
+      const msg = e?.message || '';
+      if (msg.includes('not found') || msg.includes('404')) {
+        addToast('Fichier audio introuvable — ré-uploade le track', 'error');
+      } else {
+        addToast(tr('toast.analysis_error', lang), 'error');
+      }
+      console.error('[CueForge] Reanalyze failed:', e);
     }
   }
 
@@ -2141,7 +2147,9 @@ export default function DashboardV2() {
         >
           <button
             onClick={() => {
-              handleReanalyzeTrack(contextMenu.trackId);
+              const trackId = contextMenu.trackId;
+              setContextMenu(null);
+              handleReanalyzeTrack(trackId);
             }}
             className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
           >

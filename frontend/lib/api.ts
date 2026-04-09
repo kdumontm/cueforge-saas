@@ -475,7 +475,10 @@ export async function pollTrackUntilDone(
     const track: Track = await response.json();
     if (onUpdate) onUpdate(track);
     if (track.status === 'completed') return track;
-    if (track.status === 'failed') throw new Error(`Analysis failed for track ${trackId}`);
+    if (track.status === 'failed') {
+      const errMsg = (track as any).error_message || '';
+      throw new Error(errMsg.includes('not found') ? 'Audio file not found' : `Analysis failed for track ${trackId}`);
+    }
     await new Promise(r => setTimeout(r, intervalMs));
   }
   throw new Error('Analysis timed out');
