@@ -948,14 +948,18 @@ export default function DashboardV2() {
 
   async function handleDeleteTrack(trackId: number) {
     if (!window.confirm('Delete this track?')) return;
+    // Suppression optimiste : retirer du state immédiatement
+    const previousTracks = tracks;
+    setTracks(prev => prev.filter(t => t.id !== trackId));
+    setSelectedTrack(null, 'contextMenu:delete');
+    setContextMenu(null);
+    addToast(tr('toast.deleted', lang), 'success');
     try {
       await deleteTrack(trackId);
-      await loadTracks();
-      setSelectedTrack(null, 'contextMenu:delete');
-      addToast(tr('toast.deleted', lang), 'success');
-      setContextMenu(null);
     } catch (e) {
-      addToast('Delete failed', 'error');
+      // Rollback si l'API échoue
+      setTracks(previousTracks);
+      addToast('Échec de la suppression', 'error');
     }
   }
 
@@ -1523,44 +1527,51 @@ export default function DashboardV2() {
   async function handleBatchDeleteSelected() {
     const ids = Array.from(selectedIds);
     if (!window.confirm(`Supprimer ${ids.length} tracks ?`)) return;
-    let deletedCount = ids.length;
-    try {
-      const result = await batchDeleteTracks(ids);
-      deletedCount = result.deleted_count;
-    } catch {
-      // Fallback: supprimer un par un
-      deletedCount = 0;
-      for (const id of ids) {
-        try { await deleteTrack(id); deletedCount++; } catch {}
-      }
-    }
+    // Suppression optimiste : retirer du state immédiatement
+    const previousTracks = tracks;
+    const idSet = new Set(ids);
+    setTracks(prev => prev.filter(t => !idSet.has(t.id)));
     setSelectedIds(new Set());
     setSelectedTrack(null, 'batchDelete');
-    await loadTracks();
-    addToast(deletedCount > 0 ? `✓ ${deletedCount} tracks supprimées` : '❌ Erreur lors de la suppression', deletedCount > 0 ? 'success' : 'error');
+    addToast(`✓ ${ids.length} tracks supprimées`, 'success');
+    try {
+      await batchDeleteTracks(ids);
+    } catch {
+      // Fallback: supprimer un par un
+      try {
+        for (const id of ids) {
+          try { await deleteTrack(id); } catch {}
+        }
+      } catch {
+        setTracks(previousTracks);
+        addToast('❌ Erreur lors de la suppression', 'error');
+      }
+    }
   }
 
   async function handleDeleteAllTracks() {
     const realTracks = tracks.filter(t => t.id > 0);
     if (realTracks.length === 0) { addToast('Bibliothèque déjà vide', 'info'); return; }
     if (!window.confirm(`⚠️ Supprimer les ${realTracks.length} tracks de ta bibliothèque ?\n\nCette action est irréversible.`)) return;
-    addToast(`Suppression de ${realTracks.length} tracks…`, 'info');
+    // Suppression optimiste
+    const previousTracks = tracks;
+    const count = realTracks.length;
+    setTracks(prev => prev.filter(t => t.id <= 0));
+    setSelectedIds(new Set());
+    setSelectedTrack(null);
+    addToast(`✓ ${count} tracks supprimées`, 'success');
     try {
-      const result = await batchDeleteTracks(realTracks.map(t => t.id));
-      setSelectedIds(new Set());
-      setSelectedTrack(null);
-      await loadTracks();
-      addToast(`✓ ${result.deleted_count} tracks supprimées`, 'success');
+      await batchDeleteTracks(realTracks.map(t => t.id));
     } catch (err) {
       // Fallback: supprimer un par un
-      let done = 0;
-      for (const t of realTracks) {
-        try { await deleteTrack(t.id); done++; } catch {}
+      try {
+        for (const t of realTracks) {
+          try { await deleteTrack(t.id); } catch {}
+        }
+      } catch {
+        setTracks(previousTracks);
+        addToast('❌ Erreur lors de la suppression', 'error');
       }
-      setSelectedIds(new Set());
-      setSelectedTrack(null);
-      await loadTracks();
-      addToast(done > 0 ? `✓ ${done} tracks supprimées` : '❌ Erreur lors de la suppression', done > 0 ? 'success' : 'error');
     }
   }
 

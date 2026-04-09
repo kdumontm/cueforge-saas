@@ -1266,6 +1266,23 @@ def _delete_track_dependencies(db: Session, track_id: int):
     db.query(TrackTag).filter(TrackTag.track_id == track_id).delete(synchronize_session=False)
 
 
+def _bulk_delete_track_dependencies(db: Session, track_ids: list[int]):
+    """Supprimer toutes les dépendances de plusieurs tracks en bulk (IN clauses)."""
+    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule
+    from app.models.library import PlaylistTrack, DJSetTrack, PlayHistory
+    from app.models.favorite import Favorite
+    from app.models.tag import TrackTag
+    db.query(CuePoint).filter(CuePoint.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(LoopMarker).filter(LoopMarker.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(CueRule).filter(CueRule.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(TrackAnalysis).filter(TrackAnalysis.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(PlaylistTrack).filter(PlaylistTrack.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(DJSetTrack).filter(DJSetTrack.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(PlayHistory).filter(PlayHistory.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(Favorite).filter(Favorite.track_id.in_(track_ids)).delete(synchronize_session=False)
+    db.query(TrackTag).filter(TrackTag.track_id.in_(track_ids)).delete(synchronize_session=False)
+
+
 class BatchDeleteRequest(BaseModel):
     track_ids: list[int]
 
@@ -1276,23 +1293,27 @@ def batch_delete_tracks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Supprimer plusieurs tracks en une seule requête."""
+    """Supprimer plusieurs tracks en une seule requête (optimisé bulk)."""
     tracks = db.query(Track).filter(
         Track.id.in_(req.track_ids),
         Track.user_id == current_user.id,
     ).all()
 
-    deleted_ids = []
+    deleted_ids = [track.id for track in tracks]
+
+    # Suppression des fichiers (non-bloquant pour la DB)
     for track in tracks:
         if track.file_path and os.path.exists(track.file_path):
             try:
                 os.remove(track.file_path)
             except OSError:
                 pass
-        _delete_track_dependencies(db, track.id)
-        db.delete(track)
-        deleted_ids.append(track.id)
 
+    # Bulk delete des dépendances en 9 requêtes au lieu de 9 × N
+    _bulk_delete_track_dependencies(db, deleted_ids)
+
+    # Bulk delete des tracks
+    db.query(Track).filter(Track.id.in_(deleted_ids)).delete(synchronize_session=False)
     db.commit()
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
 
