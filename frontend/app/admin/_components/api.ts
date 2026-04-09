@@ -77,6 +77,8 @@ export const adminApi = {
   createFeature: (data: any) => api("/admin/features", { method: "POST", body: data }),
   updateFeature: (id: number, data: any) => api(`/admin/features/${id}`, { method: "PUT", body: data }),
   deleteFeature: (id: number) => api(`/admin/features/${id}`, { method: "DELETE" }),
+  bulkToggleFeatures: (planName: string, isEnabled: boolean) =>
+    api(`/admin/features/plan/${planName}`, { method: "PATCH", body: { is_enabled: isEnabled } }),
 
   // Users
   listUsers: (params?: { search?: string; plan?: string; skip?: number; limit?: number }) => {

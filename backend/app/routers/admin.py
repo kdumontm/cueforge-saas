@@ -60,7 +60,6 @@ class SiteSettingsUpdate(BaseModel):
     maintenance_mode: Optional[bool] = None
     maintenance_message: Optional[str] = None
     google_analytics_id: Optional[str] = None
-    theme_config: Optional[dict] = None
 
 
 # ── Pages ──
@@ -312,7 +311,6 @@ async def get_site_settings(
         "maintenance_mode": settings.maintenance_mode,
         "maintenance_message": settings.maintenance_message,
         "google_analytics_id": settings.google_analytics_id,
-        "theme_config": json.loads(settings.theme_config) if settings.theme_config else None,
         "updated_at": settings.updated_at.isoformat() if settings.updated_at else None,
     }
 
@@ -331,10 +329,7 @@ async def update_site_settings(
 
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        if key == "theme_config" and isinstance(value, dict):
-            setattr(settings, key, json.dumps(value, ensure_ascii=False))
-        else:
-            setattr(settings, key, value)
+        setattr(settings, key, value)
 
     settings.updated_by = admin.id
     db.commit()
@@ -344,102 +339,7 @@ async def update_site_settings(
 
 
 # ═══════════════════════════════════════════════
-# PUBLIC SETTINGS (no auth required)
-# ═══════════════════════════════════════════════
-
-@router.get("/public/demo-mode")
-async def get_demo_mode(db: Session = Depends(get_db)):
-    """Renvoie l'état du mode démo — endpoint public, pas d'auth requise."""
-    from app.models.site_settings import PageConfig, DEFAULT_PAGES
-    cfg = db.query(PageConfig).filter(PageConfig.page_name == "demo_mode").first()
-    if cfg is None:
-        # Seed si absent
-        cfg = PageConfig(page_name="demo_mode", label="Mode Démo", is_enabled=False)
-        db.add(cfg)
-        db.commit()
-        db.refresh(cfg)
-    return {"demo_mode": cfg.is_enabled}
-
-
-# ═══════════════════════════════════════════════
-# PAGE CONFIGS (toggle pages on/off)
-# ═══════════════════════════════════════════════
-
-@router.get("/settings/pages")
-async def list_page_configs(
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Liste les page configs (pricing, cgu, etc.) avec leur statut on/off."""
-    from app.models.site_settings import DEFAULT_PAGES
-    configs = db.query(PageConfig).order_by(PageConfig.id).all()
-    if not configs:
-        for p in DEFAULT_PAGES:
-            pc = PageConfig(**p)
-            db.add(pc)
-        db.commit()
-        configs = db.query(PageConfig).order_by(PageConfig.id).all()
-    return [{"id": c.id, "page_name": c.page_name, "label": c.label, "is_enabled": c.is_enabled} for c in configs]
-
-
-@router.post("/settings/pages", status_code=201)
-async def create_page_config(
-    data: dict,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Crée une nouvelle page config."""
-    existing = db.query(PageConfig).filter(PageConfig.page_name == data.get("page_name")).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="Page config existe déjà")
-    pc = PageConfig(
-        page_name=data["page_name"],
-        label=data.get("label", data["page_name"]),
-        is_enabled=data.get("is_enabled", True),
-    )
-    db.add(pc)
-    db.commit()
-    db.refresh(pc)
-    return {"id": pc.id, "page_name": pc.page_name, "label": pc.label, "is_enabled": pc.is_enabled}
-
-
-@router.patch("/settings/pages/{page_name}")
-async def toggle_page_config(
-    page_name: str,
-    data: dict,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Toggle une page on/off."""
-    pc = db.query(PageConfig).filter(PageConfig.page_name == page_name).first()
-    if not pc:
-        raise HTTPException(status_code=404, detail="Page config non trouvée")
-    if "is_enabled" in data:
-        pc.is_enabled = data["is_enabled"]
-    if "label" in data:
-        pc.label = data["label"]
-    db.commit()
-    db.refresh(pc)
-    return {"id": pc.id, "page_name": pc.page_name, "label": pc.label, "is_enabled": pc.is_enabled}
-
-
-@router.delete("/settings/pages/{page_name}")
-async def delete_page_config(
-    page_name: str,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Supprime une page config."""
-    pc = db.query(PageConfig).filter(PageConfig.page_name == page_name).first()
-    if not pc:
-        raise HTTPException(status_code=404, detail="Page config non trouvée")
-    db.delete(pc)
-    db.commit()
-    return {"message": f"Page config '{page_name}' supprimée"}
-
-
-# ═══════════════════════════════════════════════
-# PAGES (CMS)
+# PAGES
 # ═══════════════════════════════════════════════
 
 @router.get("/pages")
@@ -913,6 +813,29 @@ async def update_feature(
     return _serialize_feature(feature)
 
 
+class BulkFeatureUpdate(BaseModel):
+    is_enabled: bool
+
+
+@router.patch("/features/plan/{plan_name}")
+async def bulk_toggle_features(
+    plan_name: str,
+    data: BulkFeatureUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Active ou désactive toutes les features d'un plan d'un coup."""
+    features = db.query(PlanFeature).filter(PlanFeature.plan_name == plan_name).all()
+    if not features:
+        raise HTTPException(status_code=404, detail=f"Aucune feature pour le plan '{plan_name}'")
+
+    for f in features:
+        f.is_enabled = data.is_enabled
+    db.commit()
+
+    return [_serialize_feature(f) for f in features]
+
+
 @router.delete("/features/{feature_id}")
 async def delete_feature(
     feature_id: int,
@@ -1143,7 +1066,6 @@ async def get_public_settings(db: Session = Depends(get_db)):
         "youtube_url": settings.youtube_url,
         "maintenance_mode": settings.maintenance_mode,
         "maintenance_message": settings.maintenance_message,
-        "theme_config": json.loads(settings.theme_config) if settings.theme_config else None,
     }
 
 
@@ -1182,161 +1104,3 @@ async def get_public_features(db: Session = Depends(get_db)):
     """Liste des features par plan pour la page pricing."""
     features = db.query(PlanFeature).filter(PlanFeature.is_enabled == True).all()
     return [_serialize_feature(f) for f in features]
-
-
-# ═══════════════════════════════════════════════
-# Maintenance / Test utilities
-# ═══════════════════════════════════════════════
-
-class ClearTracksRequest(BaseModel):
-    confirm: str  # doit valoir "CONFIRMER" pour éviter les fausses manœuvres
-
-
-@router.delete("/maintenance/clear-tracks")
-async def clear_all_tracks(
-    req: ClearTracksRequest,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """
-    ⚠️  SUPPRIME toutes les pistes de la BDD (tests seulement).
-    Nécessite is_admin == True + body {"confirm": "CONFIRMER"}.
-    Supprime dans l'ordre : track_analyses, cue_points, cue_rules, hot_cues, play_history, tracks.
-    """
-    if req.confirm != "CONFIRMER":
-        raise HTTPException(
-            status_code=400,
-            detail='Passe {"confirm": "CONFIRMER"} pour valider la suppression.',
-        )
-
-    from sqlalchemy import text as sql_text
-    from app.models.track import Track, TrackAnalysis, CuePoint, CueRule
-    from app.models.library import HotCue, PlayHistory
-    from app.models.organization import UsageLog
-
-    # Supprimer dans l'ordre des dépendances FK
-    deleted_analyses   = db.query(TrackAnalysis).delete(synchronize_session=False)
-    deleted_cue_points = db.query(CuePoint).delete(synchronize_session=False)
-    deleted_cue_rules  = db.query(CueRule).delete(synchronize_session=False)
-
-    # HotCue et PlayHistory ont ondelete CASCADE mais on les supprime explicitement
-    try:
-        deleted_hot_cues = db.query(HotCue).delete(synchronize_session=False)
-    except Exception:
-        deleted_hot_cues = 0
-    try:
-        deleted_play_history = db.query(PlayHistory).delete(synchronize_session=False)
-    except Exception:
-        deleted_play_history = 0
-
-    # Usage logs liés aux uploads (optionnel — on remet le compteur à zéro)
-    db.query(UsageLog).filter(UsageLog.action == "upload").delete(synchronize_session=False)
-
-    # Remettre tracks_today à 0 sur tous les users
-    from app.models.user import User as UserModel
-    db.query(UserModel).update({"tracks_today": 0}, synchronize_session=False)
-
-    # Enfin les tracks
-    deleted_tracks = db.query(Track).delete(synchronize_session=False)
-
-    db.commit()
-
-    return {
-        "message": "✅ Base de données nettoyée pour les tests.",
-        "deleted": {
-            "tracks": deleted_tracks,
-            "analyses": deleted_analyses,
-            "cue_points": deleted_cue_points,
-            "cue_rules": deleted_cue_rules,
-            "hot_cues": deleted_hot_cues,
-            "play_history": deleted_play_history,
-        },
-    }
-
-
-# ═══════════════════════════════════════════════
-# NAVIGATION (batch update nav settings)
-# ═══════════════════════════════════════════════
-
-class NavItemUpdate(BaseModel):
-    id: int
-    show_in_nav: Optional[bool] = None
-    nav_label: Optional[str] = None
-    sort_order: Optional[int] = None
-
-
-@router.get("/navigation")
-async def get_navigation(
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Récupère toutes les pages avec infos de navigation."""
-    pages = db.query(Page).order_by(Page.sort_order, Page.id).all()
-    return {
-        "nav_items": [
-            {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "nav_label": p.nav_label,
-                "show_in_nav": p.show_in_nav,
-                "is_published": p.is_published,
-                "sort_order": p.sort_order,
-            }
-            for p in pages
-        ],
-    }
-
-
-@router.put("/navigation")
-async def update_navigation(
-    items: list[NavItemUpdate],
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Met à jour les réglages de navigation pour plusieurs pages d'un coup."""
-    updated = 0
-    for item in items:
-        page = db.query(Page).filter(Page.id == item.id).first()
-        if not page:
-            continue
-        data = item.model_dump(exclude_unset=True, exclude={"id"})
-        for key, value in data.items():
-            setattr(page, key, value)
-        updated += 1
-
-    db.commit()
-    return {"message": f"{updated} page(s) mises à jour", "updated": updated}
-
-
-# ═══════════════════════════════════════════════
-# ACTIVITY LOG
-# ═══════════════════════════════════════════════
-
-@router.get("/activity")
-async def list_activity(
-    limit: int = Query(50, le=200),
-    skip: int = Query(0, ge=0),
-    action: Optional[str] = None,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Récupère les logs d'activité admin (usage_log + actions récentes)."""
-    from app.models.organization import UsageLog
-
-    query = db.query(UsageLog).order_by(UsageLog.created_at.desc())
-    if action:
-        query = query.filter(UsageLog.action == action)
-
-    logs = query.offset(skip).limit(limit).all()
-    return [
-        {
-            "id": log.id,
-            "user_id": log.user_id,
-            "organization_id": log.organization_id,
-            "action": log.action,
-            "metadata": log.metadata_json,
-            "created_at": log.created_at.isoformat() if log.created_at else None,
-        }
-        for log in logs
-    ]

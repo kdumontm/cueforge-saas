@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Input,
   Select,
@@ -16,7 +16,7 @@ import {
   useToast,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
-import { Plus, Trash2, Package } from "lucide-react";
+import { Plus, Trash2, Package, ToggleLeft, ToggleRight } from "lucide-react";
 
 interface Feature {
   id: number;
@@ -36,10 +36,11 @@ export default function FeaturesPage() {
   const { toast } = useToast();
   const [features, setFeatures] = useState<Feature[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
+  const [busyPlans, setBusyPlans] = useState<Set<string>>(new Set());
 
   // Form state for adding new feature
   const [newPlan, setNewPlan] = useState("free");
@@ -48,21 +49,21 @@ export default function FeaturesPage() {
   const [newEnabled, setNewEnabled] = useState(true);
 
   // Load features
-  useEffect(() => {
-    loadFeatures();
-  }, []);
-
-  async function loadFeatures() {
+  const loadFeatures = useCallback(async () => {
     try {
       setLoading(true);
       const data = await adminApi.listFeatures();
-      setFeatures(Array.isArray(data) ? data : data.items || []);
+      setFeatures(Array.isArray(data) ? data : (data as any).items || []);
     } catch (err: any) {
       toast(err.message || "Erreur lors du chargement des fonctionnalités", "error");
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    loadFeatures();
+  }, [loadFeatures]);
 
   // Group features by plan
   function groupByPlan() {
@@ -79,19 +80,73 @@ export default function FeaturesPage() {
     return grouped;
   }
 
-  // Quick toggle
+  // Toggle optimiste — mise à jour locale immédiate, pas de rechargement
   async function toggleFeature(feature: Feature) {
+    const newVal = !feature.is_enabled;
+    // Update local state immediately
+    setFeatures((prev) =>
+      prev.map((f) => (f.id === feature.id ? { ...f, is_enabled: newVal } : f))
+    );
+    setBusyIds((prev) => new Set([...prev, feature.id]));
+
     try {
-      setSaving(true);
-      await adminApi.updateFeature(feature.id, {
-        is_enabled: !feature.is_enabled,
-      });
-      toast("Fonctionnalité mise à jour avec succès", "success");
-      await loadFeatures();
+      await adminApi.updateFeature(feature.id, { is_enabled: newVal });
+      toast(
+        `${feature.label || feature.feature_name} ${newVal ? "activée" : "désactivée"}`,
+        "success"
+      );
     } catch (err: any) {
+      // Rollback on error
+      setFeatures((prev) =>
+        prev.map((f) =>
+          f.id === feature.id ? { ...f, is_enabled: feature.is_enabled } : f
+        )
+      );
       toast(err.message || "Erreur lors de la mise à jour", "error");
     } finally {
-      setSaving(false);
+      setBusyIds((prev) => {
+        const s = new Set(prev);
+        s.delete(feature.id);
+        return s;
+      });
+    }
+  }
+
+  // Bulk toggle — active/désactive toutes les features d'un plan
+  async function bulkToggle(planName: string, enable: boolean) {
+    const planFeatures = features.filter((f) => f.plan_name === planName);
+    // Snapshot for rollback
+    const snapshot = planFeatures.map((f) => ({ id: f.id, is_enabled: f.is_enabled }));
+
+    // Optimistic update
+    setFeatures((prev) =>
+      prev.map((f) => (f.plan_name === planName ? { ...f, is_enabled: enable } : f))
+    );
+    setBusyPlans((prev) => new Set([...prev, planName]));
+
+    try {
+      await adminApi.bulkToggleFeatures(planName, enable);
+      toast(
+        `Toutes les features ${planName} ${enable ? "activées" : "désactivées"}`,
+        "success"
+      );
+    } catch (err: any) {
+      // Rollback
+      setFeatures((prev) => {
+        const oldMap = new Map(snapshot.map((s) => [s.id, s.is_enabled]));
+        return prev.map((f) =>
+          f.plan_name === planName && oldMap.has(f.id)
+            ? { ...f, is_enabled: oldMap.get(f.id)! }
+            : f
+        );
+      });
+      toast(err.message || "Erreur lors de la mise à jour en masse", "error");
+    } finally {
+      setBusyPlans((prev) => {
+        const s = new Set(prev);
+        s.delete(planName);
+        return s;
+      });
     }
   }
 
@@ -107,7 +162,6 @@ export default function FeaturesPage() {
     }
 
     try {
-      setSaving(true);
       await adminApi.createFeature({
         plan_name: newPlan,
         feature_name: newFeatureName,
@@ -120,25 +174,25 @@ export default function FeaturesPage() {
       await loadFeatures();
     } catch (err: any) {
       toast(err.message || "Erreur lors de l'ajout", "error");
-    } finally {
-      setSaving(false);
     }
   }
 
-  // Delete feature
+  // Delete feature (optimistic)
   async function deleteFeature() {
     if (!selectedFeature) return;
+    const toDelete = selectedFeature;
+    // Optimistic remove
+    setFeatures((prev) => prev.filter((f) => f.id !== toDelete.id));
+    setShowDeleteConfirm(false);
+    setSelectedFeature(null);
+
     try {
-      setSaving(true);
-      await adminApi.deleteFeature(selectedFeature.id);
+      await adminApi.deleteFeature(toDelete.id);
       toast("Fonctionnalité supprimée avec succès", "success");
-      setShowDeleteConfirm(false);
-      setSelectedFeature(null);
-      await loadFeatures();
     } catch (err: any) {
+      // Rollback
+      setFeatures((prev) => [...prev, toDelete]);
       toast(err.message || "Erreur lors de la suppression", "error");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -195,11 +249,15 @@ export default function FeaturesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {PLANS.map((plan) => {
             const planFeatures = grouped[plan.id] || [];
+            const allEnabled = planFeatures.length > 0 && planFeatures.every((f) => f.is_enabled);
+            const allDisabled = planFeatures.length > 0 && planFeatures.every((f) => !f.is_enabled);
+            const isBusyPlan = busyPlans.has(plan.id);
             const badgeVariant = plan.color as "default" | "success" | "warning" | "error" | "info" | "purple" | "pink";
+
             return (
               <Card key={plan.id} className="p-6">
                 {/* Plan Header */}
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-border-subtle">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border-subtle">
                   <h3 className="text-lg font-bold text-text-primary">
                     {plan.name}
                   </h3>
@@ -208,6 +266,32 @@ export default function FeaturesPage() {
                   </Badge>
                 </div>
 
+                {/* Bulk Toggle Buttons */}
+                {planFeatures.length > 0 && (
+                  <div className="flex gap-2 mb-4">
+                    <Btn
+                      small
+                      variant={allEnabled ? "danger" : "default"}
+                      icon={ToggleLeft}
+                      loading={isBusyPlan}
+                      disabled={allDisabled || isBusyPlan}
+                      onClick={() => bulkToggle(plan.id, false)}
+                    >
+                      Tout désactiver
+                    </Btn>
+                    <Btn
+                      small
+                      variant={allDisabled ? "success" : "default"}
+                      icon={ToggleRight}
+                      loading={isBusyPlan}
+                      disabled={allEnabled || isBusyPlan}
+                      onClick={() => bulkToggle(plan.id, true)}
+                    >
+                      Tout activer
+                    </Btn>
+                  </div>
+                )}
+
                 {/* Features List */}
                 {planFeatures.length === 0 ? (
                   <p className="text-xs text-text-muted text-center py-8">
@@ -215,36 +299,41 @@ export default function FeaturesPage() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {planFeatures.map((feature) => (
-                      <div
-                        key={feature.id}
-                        className="flex items-center justify-between p-3 bg-bg-secondary rounded-lg border border-border-subtle hover:border-accent/30 transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-text-primary break-words">
-                            {feature.label || feature.feature_name}
-                          </p>
-                          <p className="text-xs text-text-muted font-mono">
-                            {feature.feature_name}
-                          </p>
-                        </div>
+                    {planFeatures.map((feature) => {
+                      const isBusy = busyIds.has(feature.id) || isBusyPlan;
+                      return (
+                        <div
+                          key={feature.id}
+                          className={`flex items-center justify-between p-3 bg-bg-secondary rounded-lg border border-border-subtle hover:border-accent/30 transition-all ${
+                            isBusy ? "opacity-60" : ""
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-text-primary break-words">
+                              {feature.label || feature.feature_name}
+                            </p>
+                            <p className="text-xs text-text-muted font-mono">
+                              {feature.feature_name}
+                            </p>
+                          </div>
 
-                        <div className="flex items-center gap-2 ml-3">
-                          <Toggle
-                            on={feature.is_enabled}
-                            onToggle={() => toggleFeature(feature)}
-                            disabled={saving}
-                          />
-                          <Btn
-                            variant="danger"
-                            icon={Trash2}
-                            small
-                            onClick={() => openDeleteConfirm(feature)}
-                            disabled={saving}
-                          />
+                          <div className="flex items-center gap-2 ml-3">
+                            <Toggle
+                              on={feature.is_enabled}
+                              onToggle={() => !isBusy && toggleFeature(feature)}
+                              disabled={isBusy}
+                            />
+                            <Btn
+                              variant="danger"
+                              icon={Trash2}
+                              small
+                              onClick={() => openDeleteConfirm(feature)}
+                              disabled={isBusy}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </Card>
@@ -306,14 +395,12 @@ export default function FeaturesPage() {
                   setShowAddModal(false);
                   resetForm();
                 }}
-                disabled={saving}
               >
                 Annuler
               </Btn>
               <Btn
                 variant="primary"
                 onClick={addFeature}
-                loading={saving}
               >
                 Ajouter
               </Btn>
