@@ -63,15 +63,20 @@ DEFAULT_PLAN_FEATURES = [
     {"feature_name": "eq_analysis",     "label": "Analyse EQ"},
     {"feature_name": "fx_suggestions",  "label": "Suggestions FX"},
     {"feature_name": "stems",           "label": "Stems (Desktop)"},
+    {"feature_name": "pro_stems",       "label": "Pro Stems (Séparation de stems Web)"},
     {"feature_name": "compare",         "label": "Comparer"},
 ]
 
 # Default plan configs (what each plan gets by default)
 ALL_FEATURES = [f["feature_name"] for f in DEFAULT_PLAN_FEATURES]
+
+# Features désactivées globalement (visibles uniquement par les admins)
+ADMIN_ONLY_FEATURES = {"pro_stems"}
+
 DEFAULT_PLAN_CONFIGS = {
     "free": ["upload", "cue_generation", "playlists", "favorites", "activity"],
-    "pro": ALL_FEATURES.copy(),   # Pro = tout activé par défaut
-    "unlimited": ALL_FEATURES.copy(),  # Unlimited = tout activé par défaut
+    "pro": [f for f in ALL_FEATURES if f not in ADMIN_ONLY_FEATURES],
+    "unlimited": [f for f in ALL_FEATURES if f not in ADMIN_ONLY_FEATURES],
 }
 
 

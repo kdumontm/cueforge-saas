@@ -25,8 +25,9 @@ from app.models.user import User
 from app.models.cms import (
     SiteSettings, Page, Section, Component, MediaAsset,
 )
-from app.models.site_settings import PageConfig, PlanFeature, FeatureLock
+from app.models.site_settings import PageConfig, PlanFeature, FeatureLock, DEFAULT_PLAN_FEATURES, ADMIN_ONLY_FEATURES
 from app.middleware.admin import require_admin
+from app.middleware.auth import get_current_user
 from app.services.media_service import upload_media_file, delete_media_file
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -1176,6 +1177,42 @@ async def get_public_features(db: Session = Depends(get_db)):
     """Liste des features par plan pour la page pricing."""
     features = db.query(PlanFeature).filter(PlanFeature.is_enabled == True).all()
     return [_serialize_feature(f) for f in features]
+
+
+@public_router.get("/features/check")
+async def check_user_features(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Retourne les features actives pour l'utilisateur connecté.
+
+    - Admin : TOUTES les features sont activées (bypass complet, y compris pro_stems).
+    - Utilisateur normal : uniquement les features activées pour son plan.
+
+    Réponse : { features: { "audio_analysis": true, ... }, is_admin: bool }
+    """
+    all_feature_names = [f["feature_name"] for f in DEFAULT_PLAN_FEATURES]
+
+    # Admin → tout est activé (y compris les features admin-only comme pro_stems)
+    if getattr(user, "is_admin", False):
+        return {
+            "features": {name: True for name in all_feature_names},
+            "is_admin": True,
+        }
+
+    # Utilisateur normal → on regarde les features de son plan
+    plan = getattr(user, "subscription_plan", "free") or "free"
+    plan_features = db.query(PlanFeature).filter(
+        PlanFeature.plan_name == plan,
+    ).all()
+
+    enabled_set = {f.feature_name for f in plan_features if f.is_enabled}
+
+    return {
+        "features": {name: (name in enabled_set) for name in all_feature_names},
+        "is_admin": False,
+    }
 
 
 @router.get("/plan-features")

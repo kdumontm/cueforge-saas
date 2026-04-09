@@ -259,13 +259,14 @@ def seed_plan_features(db: Session) -> list[PlanFeature]:
     # Utilise les configs existantes de site_settings.py
     features = []
     feature_labels = {f["feature_name"]: f["label"] for f in DEFAULT_PLAN_FEATURES}
+    all_feature_names = [f["feature_name"] for f in DEFAULT_PLAN_FEATURES]
 
     for plan_name, enabled_features in DEFAULT_PLAN_CONFIGS.items():
-        for feature_name in enabled_features:
+        for feature_name in all_feature_names:
             features.append(PlanFeature(
                 plan_name=plan_name,
                 feature_name=feature_name,
-                is_enabled=True,
+                is_enabled=(feature_name in enabled_features),
                 label=feature_labels.get(feature_name, feature_name),
             ))
 
