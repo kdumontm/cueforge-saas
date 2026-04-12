@@ -39,4 +39,5 @@ COPY app/ ./app/
 
 EXPOSE 8000
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# ⚡ 2 workers pour paralléliser les requêtes (adapté à la RAM Railway ~512MB)
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2 --limit-concurrency 50

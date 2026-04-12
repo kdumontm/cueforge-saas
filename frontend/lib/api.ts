@@ -540,10 +540,37 @@ async function _pollViaSSE(
 
 export async function listTracks(
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  genre?: string,
+  artist?: string,
+  bpm_min?: number,
+  bpm_max?: number,
+  key?: string,
+  energy_min?: number,
+  energy_max?: number,
+  rating_min?: number,
+  search?: string,
+  sort_by?: string,
+  sort_dir?: string,
 ): Promise<TrackListResponse> {
+  // ⚡ Construit l'URL avec tous les filtres supportés par le backend
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('limit', String(limit));
+  if (genre) params.set('genre', genre);
+  if (artist) params.set('artist', artist);
+  if (bpm_min != null) params.set('bpm_min', String(bpm_min));
+  if (bpm_max != null) params.set('bpm_max', String(bpm_max));
+  if (key) params.set('key', key);
+  if (energy_min != null) params.set('energy_min', String(energy_min));
+  if (energy_max != null) params.set('energy_max', String(energy_max));
+  if (rating_min != null) params.set('rating_min', String(rating_min));
+  if (search) params.set('search', search);
+  if (sort_by) params.set('sort_by', sort_by);
+  if (sort_dir) params.set('sort_dir', sort_dir);
+
   const response = await authFetch(
-    `${API_URL}/tracks?page=${page}&limit=${limit}`,
+    `${API_URL}/tracks?${params.toString()}`,
     { headers: { ...authHeaders() } }
   );
   if (!response.ok) throw new Error('Failed to fetch tracks');

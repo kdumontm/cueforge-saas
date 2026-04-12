@@ -100,6 +100,9 @@ class Track(Base):
         Index("ix_tracks_user_genre",    "user_id", "genre"),
         Index("ix_tracks_user_artist",   "user_id", "artist"),
         Index("ix_tracks_user_rating",   "user_id", "rating"),
+        # ⚡ Index pour la recherche textuelle (title, filename)
+        Index("ix_tracks_user_title",    "user_id", "title"),
+        Index("ix_tracks_user_filename", "user_id", "original_filename"),
     )
     analysis = relationship(
         "TrackAnalysis", back_populates="track",

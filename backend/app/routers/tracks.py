@@ -1140,10 +1140,10 @@ def list_tracks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # ⚡ Ne charge que analysis + cue_points (pas loop_markers pour le listing)
     q = db.query(Track).filter(Track.user_id == current_user.id).options(
         selectinload(Track.analysis),
         selectinload(Track.cue_points),
-        selectinload(Track.loop_markers),
     )
 
     # v2: Apply filters
@@ -1195,8 +1195,10 @@ def list_tracks(
     offset = (page - 1) * limit
     tracks = q.offset(offset).limit(limit).all()
 
+    # ⚡ Utilise TrackListItemResponse (sans waveform/spectral/beats/loop_markers)
+    from app.schemas.track import TrackListItemResponse
     return TrackListResponse(
-        tracks=[TrackResponse.model_validate(t) for t in tracks],
+        tracks=[TrackListItemResponse.model_validate(t) for t in tracks],
         total=total,
         page=page,
         pages=(total + limit - 1) // limit,

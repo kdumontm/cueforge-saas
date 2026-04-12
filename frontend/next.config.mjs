@@ -36,9 +36,11 @@ const nextConfig = {
   },
   experimental: {
     workerThreads: true,
-    // Optimise le chargement des packages les plus lourds
-    optimizePackageImports: ['lucide-react'],
+    // ⚡ Optimise le tree-shaking des packages les plus lourds
+    optimizePackageImports: ['lucide-react', 'wavesurfer.js'],
   },
+  // ⚡ Power-header pour les réponses de page
+  poweredByHeader: false,
 };
 
 export default nextConfig;

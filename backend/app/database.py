@@ -22,8 +22,9 @@ def _create_engine_with_retry(url: str, max_retries: int = 5, delay: float = 3.0
             url,
             pool_pre_ping=True,       # teste la connexion avant chaque utilisation
             pool_recycle=300,          # recycle les connexions toutes les 5 min
-            pool_size=5,
-            max_overflow=10,
+            pool_size=10,             # ⚡ 5→10 : évite la saturation sous charge
+            max_overflow=20,          # ⚡ 10→20 : headroom pour les pics
+            pool_timeout=20,          # ⚡ timeout explicite pour les connexions en attente
             connect_args={"connect_timeout": 10},
             **common_kwargs,
         )

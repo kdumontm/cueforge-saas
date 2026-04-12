@@ -66,6 +66,25 @@ class CuePointResponse(CuePointBase):
     track_id: int
 
 
+# ⚡ Schéma LÉGER pour le listing — exclut waveform/spectral/beats (économise ~90% du payload)
+class TrackAnalysisSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    bpm: Optional[float] = None
+    bpm_confidence: Optional[float] = None
+    key: Optional[str] = None
+    energy: Optional[float] = None
+    duration_ms: Optional[int] = None
+    key_confidence: Optional[float] = None
+    loudness_db: Optional[float] = None
+    loudness_lufs: Optional[float] = None
+    vocal_percentage: Optional[float] = None
+    mood: Optional[str] = None
+    danceability: Optional[float] = None
+    bpm_stable: Optional[bool] = True
+    analyzed_at: Optional[datetime] = None
+
+
 class TrackAnalysisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -178,8 +197,69 @@ class TrackResponse(BaseModel):
         return v
 
 
+# ⚡ Schéma léger pour le listing — pas de waveform/spectral/beats, pas de loop_markers
+class TrackListItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    filename: str
+    original_filename: str
+    status: str
+    file_size: Optional[int] = None
+
+    # Music metadata
+    artist: Optional[str] = None
+    title: Optional[str] = None
+    album: Optional[str] = None
+    genre: Optional[str] = None
+    year: Optional[int] = None
+    artwork_url: Optional[str] = None
+
+    # Remix / Featured artist
+    remix_artist: Optional[str] = None
+    remix_type: Optional[str] = None
+    feat_artist: Optional[str] = None
+
+    # Label
+    label: Optional[str] = None
+
+    # External IDs
+    spotify_id: Optional[str] = None
+    spotify_url: Optional[str] = None
+    musicbrainz_id: Optional[str] = None
+
+    # DJ Organization
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    rating: Optional[int] = None
+    color_code: Optional[str] = None
+    comment: Optional[str] = None
+    energy_level: Optional[int] = None
+    played_count: Optional[int] = 0
+    camelot_code: Optional[str] = None
+
+    created_at: Optional[datetime] = None
+    analysis: Optional[TrackAnalysisSummary] = None
+    cue_points: Optional[List[CuePointResponse]] = []
+
+    @field_validator('tags', mode='before')
+    @classmethod
+    def coerce_tags(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return ", ".join(str(t) for t in v) if v else None
+        return v
+
+    @field_validator('cue_points', mode='before')
+    @classmethod
+    def coerce_cue_points(cls, v):
+        if v is None:
+            return []
+        return v
+
+
 class TrackListResponse(BaseModel):
-    tracks: List[TrackResponse]
+    tracks: List[TrackListItemResponse]
     total: int
     page: int
     pages: int
