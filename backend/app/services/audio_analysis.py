@@ -126,12 +126,18 @@ def detect_key_hybrid(y: np.ndarray, sr: int) -> Dict:
 
     Returns primary key, secondary key (for modulating tracks), and confidence.
     Approach inspired by Mixed In Key's multi-method voting system.
+
+    v6.1 — Harmonic separation: use harmonic component for chroma
+    to avoid percussive transients contaminating key detection.
     """
     try:
-        # CQT chroma (better for bass-heavy electronic music)
-        chroma_cqt = librosa.feature.chroma_cqt(y=y, sr=sr, n_chroma=12)
-        # STFT chroma (better for melodic content)
-        chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, n_chroma=12)
+        # v6.1: Extract harmonic component — percussion confuses key detection
+        y_harmonic = librosa.effects.harmonic(y, margin=4.0)
+
+        # CQT chroma on harmonic signal (better for bass-heavy electronic music)
+        chroma_cqt = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, n_chroma=12)
+        # STFT chroma on harmonic signal (better for melodic content)
+        chroma_stft = librosa.feature.chroma_stft(y=y_harmonic, sr=sr, n_chroma=12)
         # Weighted blend: CQT for bass-heavy, STFT for mids/highs
         chroma = 0.6 * chroma_cqt + 0.4 * chroma_stft
         chroma_mean = np.mean(chroma, axis=1)
@@ -494,16 +500,29 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
     try:
         n_beats = min(64, len(beats))
 
+        # ── Position-based weighting: beats in the middle of the track ──
+        # are more representative than intro/outro (which may be sparse)
+        def _position_weight(beat_idx: int, total: int) -> float:
+            """Weight beats: low at edges, high in middle 40-80% of track."""
+            if total <= 1:
+                return 1.0
+            pos = beat_idx / total
+            if pos < 0.15 or pos > 0.85:
+                return 0.5  # intro/outro less reliable
+            return 1.0
+
         # ── Signal 1: Onset strength (global accent) ──
         onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
         onset_scores = [0.0, 0.0, 0.0, 0.0]
-        counts = [0, 0, 0, 0]
+        counts = [0.0, 0.0, 0.0, 0.0]
+        total_beats = len(beats)
         for i, bt in enumerate(beats[:n_beats]):
             frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
             if 0 <= frame < len(onset_env):
                 phase = i % 4
-                onset_scores[phase] += onset_env[frame]
-                counts[phase] += 1
+                w = _position_weight(i, total_beats)
+                onset_scores[phase] += onset_env[frame] * w
+                counts[phase] += w
         for j in range(4):
             if counts[j] > 0:
                 onset_scores[j] /= counts[j]
@@ -523,13 +542,14 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
                 np.max(bass_env[max(0, i*hop_samples):min(len(bass_env), (i+1)*hop_samples)])
                 for i in range(len(bass_env) // hop_samples)
             ])
-            bass_counts = [0, 0, 0, 0]
+            bass_counts = [0.0, 0.0, 0.0, 0.0]
             for i, bt in enumerate(beats[:n_beats]):
                 frame = librosa.time_to_frames(bt, sr=sr, hop_length=HOP_LENGTH)
                 if 0 <= frame < len(bass_env_ds):
                     phase = i % 4
-                    bass_scores[phase] += bass_env_ds[frame]
-                    bass_counts[phase] += 1
+                    w = _position_weight(i, total_beats)
+                    bass_scores[phase] += bass_env_ds[frame] * w
+                    bass_counts[phase] += w
             for j in range(4):
                 if bass_counts[j] > 0:
                     bass_scores[j] /= bass_counts[j]
@@ -842,7 +862,7 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 if offset > 0 and offset < len(beats):
                     beats = beats[offset:]
                     beats_frames = beats_frames[offset:]
-                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats, grid_error={grid_error_ms:.1f}ms")
+                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats, grid_error={best_error:.1f}ms")
                 return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": source}
 
         # ── Fallback: librosa (if beat_this/madmom unavailable) ──
@@ -1032,12 +1052,22 @@ def compute_ssm_novelty(features: np.ndarray, kernel_size: int = 16) -> np.ndarr
     kernel[half:, half:] = -1   # bottom-right quadrant
     # Top-right and bottom-left stay +1
 
-    # Apply kernel along the main diagonal — vectorized for speed
+    # Apply kernel along the main diagonal — fully vectorized with stride_tricks
     n_ssm = S.shape[0]
     novelty_ds = np.zeros(n_ssm)
-    # Vectorized: extract all diagonal patches at once
-    for i in range(half, n_ssm - half):
-        novelty_ds[i] = np.sum(S[i - half:i + half, i - half:i + half] * kernel)
+    if n_ssm > kernel_size:
+        # Build all diagonal patches at once using stride_tricks
+        # For each position i, extract S[i-half:i+half, i-half:i+half]
+        from numpy.lib.stride_tricks import as_strided
+        row_stride, col_stride = S.strides
+        # Create a 3D view: patches[i] = S[i:i+ks, i:i+ks] for i in 0..n_ssm-ks
+        n_patches = n_ssm - kernel_size + 1
+        patches = as_strided(
+            S, shape=(n_patches, kernel_size, kernel_size),
+            strides=(row_stride + col_stride, row_stride, col_stride)
+        )
+        # Multiply all patches by kernel at once and sum
+        novelty_ds[half:half + n_patches] = np.einsum('ijk,jk->i', patches, kernel)
 
     # Half-wave rectify (only positive = boundaries)
     novelty_ds = np.maximum(novelty_ds, 0)
@@ -1319,14 +1349,23 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         gc.collect()
 
         # 6. Energy contrast (before vs after — key indicator of drops)
+        # Vectorized O(n) using cumulative sum instead of O(n×w) loop
         n_frames = len(rms_norm)
         window_sec = 4.0
         window_frames = int(window_sec * sr / hop)
+        # Running mean via uniform_filter1d (O(n) — constant time per sample)
+        rms_smoothed = uniform_filter1d(rms_norm, size=max(1, window_frames * 2), mode='nearest')
+        # Shift to compute before/after difference
         energy_contrast = np.zeros(n_frames)
-        for i in range(window_frames, n_frames - window_frames):
-            before = np.mean(rms_norm[max(0, i - window_frames):i])
-            after = np.mean(rms_norm[i:min(n_frames, i + window_frames)])
-            energy_contrast[i] = max(0, after - before)
+        if window_frames < n_frames:
+            shift = window_frames
+            # after_mean - before_mean approximated by shifted smoothed signal
+            after_vals = np.roll(rms_smoothed, -shift)
+            before_vals = np.roll(rms_smoothed, shift)
+            energy_contrast = np.maximum(0, after_vals - before_vals)
+            # Zero out edges where roll wraps around
+            energy_contrast[:shift] = 0
+            energy_contrast[-shift:] = 0
         ec_max = np.max(energy_contrast)
         if ec_max > 0:
             energy_contrast = energy_contrast / ec_max
@@ -1573,32 +1612,39 @@ def analyze_track_background(track_id: int, db: Session) -> None:
 #   MAIN ANALYSIS PIPELINE — v3.0
 # ══════════════════════════════════════════════════════════════════════════
 
-def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
+def detect_genre(y: np.ndarray, sr: int, bpm: float,
+                  precomputed_S: np.ndarray = None,
+                  precomputed_rms: np.ndarray = None) -> Dict:
     """
     Professional DJ genre detection using audio features.
     Combines tempo, spectral, rhythm pattern and energy analysis.
     Returns: {genre, subgenre, confidence, genre_scores}
+
+    v6.1 — accepts precomputed STFT (S) and RMS to avoid redundant computation.
+    When called from analyze_audio(), these are already available from drop detection.
     """
     import warnings
     warnings.filterwarnings('ignore')
 
-    # -- Spectral features --
-    spec_cent = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
-    spec_bw = np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr))
-    spec_flat = np.mean(librosa.feature.spectral_flatness(y=y))
-    spec_rolloff = np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr))
+    # Reuse precomputed STFT if available (~2s saved on a 6min track)
+    S = precomputed_S if precomputed_S is not None else np.abs(librosa.stft(y))
+
+    # -- Spectral features (from STFT, avoid recomputation) --
+    spec_cent = np.mean(librosa.feature.spectral_centroid(S=S, sr=sr))
+    spec_bw = np.mean(librosa.feature.spectral_bandwidth(S=S, sr=sr))
+    spec_flat = np.mean(librosa.feature.spectral_flatness(S=S))
+    spec_rolloff = np.mean(librosa.feature.spectral_rolloff(S=S, sr=sr))
 
     # -- Rhythm / beat pattern --
-    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-    beat_frames = librosa.beat.beat_track(y=y, sr=sr, bpm=bpm)[1]
+    onset_env = librosa.onset.onset_strength(S=librosa.power_to_db(S ** 2), sr=sr)
+    beat_frames = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr, bpm=bpm)[1]
     if len(beat_frames) > 4:
         beat_strengths = onset_env[beat_frames[beat_frames < len(onset_env)]]
         beat_regularity = 1.0 - min(1.0, np.std(beat_strengths) / (np.mean(beat_strengths) + 1e-6))
     else:
         beat_regularity = 0.5
 
-    # -- Bass energy analysis --
-    S = np.abs(librosa.stft(y))
+    # -- Bass energy analysis (reuse S) --
     freqs = librosa.fft_frequencies(sr=sr)
     sub_bass_mask = freqs < 80
     bass_mask = (freqs >= 80) & (freqs < 250)
@@ -1611,13 +1657,13 @@ def detect_genre(y: np.ndarray, sr: int, bpm: float) -> Dict:
     hi_ratio = np.sum(S[hi_mask] ** 2) / total_energy
 
     # -- Percussion vs tonal --
-    harmonic, percussive = librosa.effects.hpss(y)
+    harmonic, percussive = librosa.effects.hpss(S)
     perc_energy = np.sum(percussive ** 2)
     harm_energy = np.sum(harmonic ** 2)
     perc_ratio = perc_energy / (perc_energy + harm_energy + 1e-10)
 
-    # -- Dynamic range --
-    rms = librosa.feature.rms(y=y)[0]
+    # -- Dynamic range (reuse precomputed RMS if available) --
+    rms = precomputed_rms if precomputed_rms is not None else librosa.feature.rms(y=y)[0]
     dynamic_range = np.max(rms) / (np.mean(rms) + 1e-10)
     energy_variance = np.std(rms) / (np.mean(rms) + 1e-10)
 
@@ -1958,9 +2004,15 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         phrase_positions = []
 
-    # Genre detection
+    # Genre detection — v6.1: reuse STFT and RMS from earlier
+    # Compute STFT once for genre detection (drops already freed theirs)
     try:
-        genre_data = detect_genre(y, sr_loaded, bpm)
+        genre_S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
+        genre_rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
+        genre_data = detect_genre(y, sr_loaded, bpm,
+                                  precomputed_S=genre_S,
+                                  precomputed_rms=genre_rms)
+        del genre_S, genre_rms
     except Exception:
         genre_data = {"genre": "Unknown", "subgenre": "Unknown", "confidence": 0.0, "genre_scores": {}}
 

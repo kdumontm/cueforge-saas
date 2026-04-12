@@ -258,11 +258,8 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     Snap a position to the nearest downbeat (every 4 beats = 1 bar).
     Professional DJ cue points ALWAYS land on a downbeat.
 
-    v5.5: Snap en 2 passes:
-      1. Trouver le BEAT le plus proche (précision maximale)
-      2. Depuis ce beat, reculer jusqu'au downbeat le plus proche
-    Cela garantit qu'on tombe sur un vrai downbeat même si pos_ms est
-    entre deux mesures.
+    v6.1: Binary search O(log n) instead of linear O(n) for large beat grids.
+    Then snap to nearest downbeat (index multiple of 4).
     """
     if not beats:
         beat_ms = 60000 / max(bpm, 60)
@@ -270,11 +267,21 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
         nearest_bar = round(pos_ms / bar_ms) * bar_ms
         return int(nearest_bar)
 
-    # Passe 1: trouver le beat le plus proche
-    nearest_beat_idx = min(range(len(beats)), key=lambda i: abs(beats[i] - pos_ms))
+    # Binary search for nearest beat — O(log n) instead of O(n)
+    import bisect
+    idx = bisect.bisect_left(beats, pos_ms)
+    # Check idx-1 and idx for closest
+    if idx == 0:
+        nearest_beat_idx = 0
+    elif idx >= len(beats):
+        nearest_beat_idx = len(beats) - 1
+    else:
+        if abs(beats[idx] - pos_ms) < abs(beats[idx - 1] - pos_ms):
+            nearest_beat_idx = idx
+        else:
+            nearest_beat_idx = idx - 1
 
-    # Passe 2: reculer jusqu'au downbeat (index multiple de 4)
-    # On cherche le downbeat le plus proche (avant ou après)
+    # Snap to nearest downbeat (index multiple of 4)
     downbeat_before = (nearest_beat_idx // 4) * 4
     downbeat_after = downbeat_before + 4
 
@@ -307,22 +314,32 @@ def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> i
         nearest_4bar = round(pos_ms / bar_4_ms) * bar_4_ms
         return int(nearest_4bar)
 
+    import bisect
     beat_ms = 60000 / max(bpm, 60)
     bar_ms = beat_ms * 4
     max_jump_ms = bar_ms * 2.5  # Ne pas sauter plus de 2.5 mesures
 
+    def _nearest_in_sorted(sorted_list: List[int], target: int) -> int:
+        """Binary search for nearest value — O(log n)."""
+        idx = bisect.bisect_left(sorted_list, target)
+        candidates = []
+        if idx > 0:
+            candidates.append(sorted_list[idx - 1])
+        if idx < len(sorted_list):
+            candidates.append(sorted_list[idx])
+        return min(candidates, key=lambda b: abs(b - target)) if candidates else target
+
     # Niveau 1: frontières de 4 mesures (16 beats)
     boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
     if boundaries_16:
-        nearest_16 = min(boundaries_16, key=lambda b: abs(b - pos_ms))
+        nearest_16 = _nearest_in_sorted(boundaries_16, pos_ms)
         if abs(nearest_16 - pos_ms) <= max_jump_ms:
             return nearest_16
 
-    # Niveau 2: frontières de 2 mesures (8 beats) — pour les morceaux
-    # avec des sections qui ne tombent pas pile sur 4 mesures
+    # Niveau 2: frontières de 2 mesures (8 beats)
     boundaries_8 = [beats[i] for i in range(0, len(beats), 8)]
     if boundaries_8:
-        nearest_8 = min(boundaries_8, key=lambda b: abs(b - pos_ms))
+        nearest_8 = _nearest_in_sorted(boundaries_8, pos_ms)
         if abs(nearest_8 - pos_ms) <= max_jump_ms:
             return nearest_8
 
@@ -602,13 +619,29 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             score = stem_conf * 0.6 + (contrast * 0.25 + abs_energy * 0.15)
             scored_drops.append((pos, score))
     else:
-        # v4 fallback: energy-only scoring
+        # v6.1 fallback: energy + structural scoring
+        # Bonus when a drop aligns with a section boundary from SSM
+        section_starts = set()
+        for s in sections:
+            t = s.get("time_ms", 0)
+            section_starts.add(t)
+
         for d in drops:
             contrast = _energy_contrast(d)
             abs_energy = _energy_at(d + int(bar_ms))
             e_w = profile.get("energy_weight", 0.55)
             score = contrast * e_w + abs_energy * (1.0 - e_w)
-            if contrast >= min_contrast * 0.5 or abs_energy >= 0.6:
+
+            # v6.1: Structural alignment bonus — drops that coincide with
+            # section boundaries from SSM analysis are more reliable
+            struct_bonus = 0.0
+            for st in section_starts:
+                if abs(st - d) < bar_ms * 2:
+                    struct_bonus = 0.15
+                    break
+            score += struct_bonus
+
+            if contrast >= min_contrast * 0.5 or abs_energy >= 0.6 or struct_bonus > 0:
                 scored_drops.append((d, score))
 
     scored_drops.sort(key=lambda x: -x[1])
@@ -912,6 +945,22 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                 # Hors grille → snapper sur le downbeat le plus proche
                 cp["position_ms"] = nearest_db
                 cp["confidence"] = round(max(0.1, cp.get("confidence", 0.5) * 0.85), 2)
+
+    # ── POST-SNAP DEDUPLICATION — v6.1 ──────────────────────────────
+    # After downbeat re-snapping, two cues may have landed on the same
+    # position. Remove the lower-confidence duplicate.
+    if len(cue_points) > 1:
+        cue_points.sort(key=lambda c: (c["position_ms"], -c.get("confidence", 0)))
+        deduped = [cue_points[0]]
+        for cp in cue_points[1:]:
+            prev = deduped[-1]
+            if abs(cp["position_ms"] - prev["position_ms"]) < MIN_GAP_MS:
+                # Keep the one with higher confidence
+                if cp.get("confidence", 0) > prev.get("confidence", 0):
+                    deduped[-1] = cp
+            else:
+                deduped.append(cp)
+        cue_points = deduped
 
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])
