@@ -560,7 +560,7 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         used_positions.add(snapped)
         return True
 
-    # ── Energy envelope from sections ──
+    # ── Energy envelope from sections — v6.1 pre-indexed for O(log n) lookup ──
     section_energies: List[Tuple[int, float]] = []
     for s in sections:
         t = s.get("time_ms", 0)
@@ -568,20 +568,28 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         section_energies.append((t, e))
     section_energies.sort(key=lambda x: x[0])
 
+    # Pre-extract sorted arrays for binary search (called hundreds of times)
+    import bisect
+    _se_times = [se[0] for se in section_energies]
+    _se_energies = [se[1] for se in section_energies]
+
     def _energy_at(t_ms: int) -> float:
-        if not section_energies:
+        if not _se_times:
             return 0.5
-        if t_ms <= section_energies[0][0]:
-            return section_energies[0][1]
-        if t_ms >= section_energies[-1][0]:
-            return section_energies[-1][1]
-        for i in range(len(section_energies) - 1):
-            t0, e0 = section_energies[i]
-            t1, e1 = section_energies[i + 1]
-            if t0 <= t_ms <= t1:
-                ratio = (t_ms - t0) / max(t1 - t0, 1)
-                return e0 + (e1 - e0) * ratio
-        return 0.5
+        if t_ms <= _se_times[0]:
+            return _se_energies[0]
+        if t_ms >= _se_times[-1]:
+            return _se_energies[-1]
+        # Binary search O(log n) instead of linear scan
+        idx = bisect.bisect_right(_se_times, t_ms)
+        if idx <= 0:
+            return _se_energies[0]
+        if idx >= len(_se_times):
+            return _se_energies[-1]
+        t0, e0 = _se_times[idx - 1], _se_energies[idx - 1]
+        t1, e1 = _se_times[idx], _se_energies[idx]
+        ratio = (t_ms - t0) / max(t1 - t0, 1)
+        return e0 + (e1 - e0) * ratio
 
     def _energy_contrast(t_ms: int) -> float:
         before = _energy_at(max(0, t_ms - int(phrase_8bar_ms)))

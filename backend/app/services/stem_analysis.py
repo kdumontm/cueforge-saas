@@ -228,13 +228,17 @@ def analyze_drum_stem(drums: np.ndarray, sr: int = SR, beats: List[float] = None
     del S_drums
 
     # Drum drop candidates: sudden increase in drum energy
-    # Use energy contrast (same principle as drop detection but on drums only)
+    # v6.1: Vectorized O(n) energy contrast via uniform_filter1d
     window_frames = int(4.0 * sr / hop)
+    rms_smoothed = uniform_filter1d(rms_norm, size=max(1, window_frames * 2), mode='nearest')
     energy_contrast = np.zeros(n_frames)
-    for i in range(window_frames, n_frames - window_frames):
-        before = np.mean(rms_norm[max(0, i - window_frames):i])
-        after = np.mean(rms_norm[i:min(n_frames, i + window_frames)])
-        energy_contrast[i] = max(0, after - before)
+    if window_frames < n_frames:
+        shift = window_frames
+        after_vals = np.roll(rms_smoothed, -shift)
+        before_vals = np.roll(rms_smoothed, shift)
+        energy_contrast = np.maximum(0, after_vals - before_vals)
+        energy_contrast[:shift] = 0
+        energy_contrast[-shift:] = 0
     ec_max = np.max(energy_contrast)
     if ec_max > 0:
         energy_contrast = energy_contrast / ec_max
@@ -292,13 +296,17 @@ def analyze_bass_stem(bass: np.ndarray, sr: int = SR) -> Dict:
     rms_norm = rms / (np.max(rms) + 1e-8)
     n_frames = len(rms)
 
-    # Bass energy contrast
+    # Bass energy contrast — v6.1: vectorized O(n)
     window_frames = int(4.0 * sr / hop)
+    rms_smoothed = uniform_filter1d(rms_norm, size=max(1, window_frames * 2), mode='nearest')
     energy_contrast = np.zeros(n_frames)
-    for i in range(window_frames, n_frames - window_frames):
-        before = np.mean(rms_norm[max(0, i - window_frames):i])
-        after = np.mean(rms_norm[i:min(n_frames, i + window_frames)])
-        energy_contrast[i] = max(0, after - before)
+    if window_frames < n_frames:
+        shift = window_frames
+        after_vals = np.roll(rms_smoothed, -shift)
+        before_vals = np.roll(rms_smoothed, shift)
+        energy_contrast = np.maximum(0, after_vals - before_vals)
+        energy_contrast[:shift] = 0
+        energy_contrast[-shift:] = 0
     ec_max = np.max(energy_contrast)
     if ec_max > 0:
         energy_contrast = energy_contrast / ec_max
@@ -364,18 +372,21 @@ def analyze_vocal_stem(vocals: np.ndarray, sr: int = SR) -> Dict:
     frame_times_ms = (librosa.frames_to_time(np.arange(len(smoothed)), sr=sr, hop_length=hop) * 1000).astype(int)
 
     # Convert boolean mask to contiguous regions
+    # v6.1: Pre-compute start frame indices for correct energy calculation
     regions = []
     in_region = False
     region_start = 0
+    region_start_frame = 0
     for i in range(len(is_active)):
         if is_active[i] and not in_region:
             region_start = int(frame_times_ms[i])
+            region_start_frame = i
             in_region = True
         elif not is_active[i] and in_region:
             region_end = int(frame_times_ms[i])
             # Only keep regions longer than 2 seconds
             if region_end - region_start > 2000:
-                avg_energy = float(np.mean(rms_norm[max(0, i - (i - np.searchsorted(frame_times_ms, region_start))):i]))
+                avg_energy = float(np.mean(rms_norm[region_start_frame:i]))
                 regions.append({
                     "start_ms": region_start,
                     "end_ms": region_end,
@@ -387,10 +398,11 @@ def analyze_vocal_stem(vocals: np.ndarray, sr: int = SR) -> Dict:
     if in_region:
         region_end = int(frame_times_ms[-1]) if len(frame_times_ms) > 0 else 0
         if region_end - region_start > 2000:
+            avg_energy = float(np.mean(rms_norm[region_start_frame:]))
             regions.append({
                 "start_ms": region_start,
                 "end_ms": region_end,
-                "energy": 0.5,
+                "energy": round(avg_energy, 3),
             })
 
     # Vocal percentage
@@ -430,19 +442,23 @@ def analyze_melody_stem(other: np.ndarray, sr: int = SR) -> Dict:
     centroid_norm = centroid / (np.max(centroid) + 1e-8)
 
     # Riser detection: sustained rising spectral centroid + rising energy
-    # Risers = frequency sweeps that go UP over 4-16 bars
+    # v6.1: Pre-compute diffs once, vectorized windowed mean via uniform_filter1d
     n_frames = len(rms)
     window = int(4.0 * sr / hop)  # 4-second analysis window
     riser_score = np.zeros(n_frames)
 
-    for i in range(window, n_frames):
-        # Centroid trend (is frequency going up?)
-        if i >= window:
-            centroid_trend = np.mean(np.diff(centroid_norm[i-window:i]))
-            energy_trend = np.mean(np.diff(rms_norm[i-window:i]))
-            # Riser = both frequency and energy rising
-            if centroid_trend > 0 and energy_trend > 0:
-                riser_score[i] = centroid_trend * 0.6 + energy_trend * 0.4
+    if n_frames > window + 1:
+        # Pre-compute diffs once (O(n)) instead of per-frame
+        centroid_diff = np.diff(centroid_norm, prepend=centroid_norm[0])
+        energy_diff = np.diff(rms_norm, prepend=rms_norm[0])
+        # Running mean of diffs over window — O(n) via filter
+        centroid_trend = uniform_filter1d(centroid_diff, size=max(1, window), mode='nearest')
+        energy_trend = uniform_filter1d(energy_diff, size=max(1, window), mode='nearest')
+        # Riser = both frequency and energy rising
+        both_rising = (centroid_trend > 0) & (energy_trend > 0)
+        riser_score[both_rising] = centroid_trend[both_rising] * 0.6 + energy_trend[both_rising] * 0.4
+        # Zero out the warmup zone
+        riser_score[:window] = 0
 
     rs_max = np.max(riser_score)
     if rs_max > 0:

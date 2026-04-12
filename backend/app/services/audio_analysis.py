@@ -1301,7 +1301,9 @@ def detect_sections_ssm(
 #   DROP DETECTION — 6-factor multi-signal analysis
 # ══════════════════════════════════════════════════════════════════════════
 
-def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict]:
+def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float],
+                         precomputed_S: np.ndarray = None,
+                         precomputed_rms: np.ndarray = None) -> List[Dict]:
     """
     Detect DJ-style drop points using 6-factor analysis:
     1. Energy contrast (before/after comparison) — 30% weight
@@ -1313,6 +1315,8 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
 
     All peaks are snapped to nearest downbeat (every 4 beats).
     Adaptive thresholding based on track characteristics.
+
+    v6.1: accepts precomputed STFT (S) and RMS to avoid redundant computation.
     """
     try:
         hop = HOP_LENGTH
@@ -1321,12 +1325,12 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float]) -> List[Dict
         onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop)
         onset_env = onset_env / (np.max(onset_env) + 1e-8)
 
-        # 2. RMS energy
-        rms = librosa.feature.rms(y=y, hop_length=hop)[0]
+        # 2. RMS energy (reuse if precomputed)
+        rms = precomputed_rms if precomputed_rms is not None else librosa.feature.rms(y=y, hop_length=hop)[0]
         rms_norm = rms / (np.max(rms) + 1e-8)
 
         # 3. Spectral flux (half-wave rectified)
-        S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=hop))
+        S = precomputed_S if precomputed_S is not None else np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=hop))
         spectral_diff = np.diff(S, axis=1)
         spectral_flux = np.sum(np.maximum(spectral_diff, 0), axis=0)
         spectral_flux = np.pad(spectral_flux, (1, 0))
@@ -1909,9 +1913,14 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         key, key_confidence, key_secondary = None, None, None
 
+    # ── v6.1: Compute STFT and RMS ONCE, reuse everywhere ──────────
+    # These are the most expensive operations and were computed 3-4 times before.
+    shared_S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
+    shared_rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
+
     # Energy
     try:
-        rms = librosa.feature.rms(y=y)[0]
+        rms = shared_rms
         # Convert RMS to perceptual 0-100% energy scale
         # Use dB scale with reference to typical DJ track levels
         rms_mean = float(np.mean(rms))
@@ -1944,23 +1953,23 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         energy = None
 
-    # Drops (6-factor detection with downbeat snapping)
+    # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS
     try:
-        drops = detect_drops_from_y(y, sr_loaded, beats)
+        drops = detect_drops_from_y(y, sr_loaded, beats,
+                                     precomputed_S=shared_S,
+                                     precomputed_rms=shared_rms)
         drop_positions = [round(d["time"] * 1000) for d in drops]
     except Exception:
         drops = []
         drop_positions = []
 
-    # Beat-synchronous RMS for section labeling
+    # Beat-synchronous RMS for section labeling — v6.1: reuse shared_rms
     try:
         beat_frames_arr = np.array(beat_frames) if beat_frames else np.array([])
         if len(beat_frames_arr) > 4:
-            rms_raw = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
             rms_sync = librosa.util.sync(
-                rms_raw.reshape(1, -1), beat_frames_arr, aggregate=np.mean
+                shared_rms.reshape(1, -1), beat_frames_arr, aggregate=np.mean
             )[0]
-            del rms_raw
         else:
             rms_sync = np.array([])
     except Exception:
@@ -2004,15 +2013,11 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         phrase_positions = []
 
-    # Genre detection — v6.1: reuse STFT and RMS from earlier
-    # Compute STFT once for genre detection (drops already freed theirs)
+    # Genre detection — v6.1: reuse shared STFT and RMS (no recomputation)
     try:
-        genre_S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
-        genre_rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
         genre_data = detect_genre(y, sr_loaded, bpm,
-                                  precomputed_S=genre_S,
-                                  precomputed_rms=genre_rms)
-        del genre_S, genre_rms
+                                  precomputed_S=shared_S,
+                                  precomputed_rms=shared_rms)
     except Exception:
         genre_data = {"genre": "Unknown", "subgenre": "Unknown", "confidence": 0.0, "genre_scores": {}}
 
@@ -2046,7 +2051,8 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         auto_loops = []
 
-    del y
+    # v6.1: Free shared STFT — all consumers (drops, genre, energy) are done
+    del shared_S, shared_rms, y
     gc.collect()
 
     # ── v5.1: Stem separation analysis (Demucs) — optional & fault-tolerant ──
