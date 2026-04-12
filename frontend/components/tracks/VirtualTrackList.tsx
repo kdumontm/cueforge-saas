@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { TrackRow } from './TrackRow';
 import type { Track } from '@/types';
 
@@ -42,40 +43,13 @@ export const VirtualTrackList = React.memo(function VirtualTrackList({
   onAddTagTrack,
 }: VirtualTrackListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
 
-  // Calculate visible items
-  const visibleItemsCount = Math.ceil(containerHeight / rowHeight);
-  const bufferSize = 5;
-  const startIndex = Math.max(0, Math.floor(scrollOffset / rowHeight) - bufferSize);
-  const endIndex = Math.min(tracks.length, startIndex + visibleItemsCount + bufferSize * 2);
-
-  // Visible tracks
-  const visibleTracks = tracks.slice(startIndex, endIndex);
-  const offsetY = startIndex * rowHeight;
-
-  // Handle scroll with requestAnimationFrame for performance
-  const handleScroll = useCallback(() => {
-    if (containerRef.current) {
-      setScrollOffset(containerRef.current.scrollTop);
-    }
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let rafId: number;
-    const onScroll = () => {
-      rafId = requestAnimationFrame(handleScroll);
-    };
-
-    container.addEventListener('scroll', onScroll);
-    return () => {
-      container.removeEventListener('scroll', onScroll);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [handleScroll]);
+  const virtualizer = useVirtualizer({
+    count: tracks.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 10, // Plus de buffer que l'ancienne implem (5) pour un scroll plus fluide
+  });
 
   return (
     <div
@@ -83,34 +57,49 @@ export const VirtualTrackList = React.memo(function VirtualTrackList({
       className="overflow-y-auto overflow-x-hidden"
       style={{ height: containerHeight }}
     >
-      {/* Top spacer */}
-      <div style={{ height: offsetY }} />
-
-      {/* Visible rows */}
-      {visibleTracks.map((track, idx) => (
-        <TrackRow
-          key={track.id}
-          track={track}
-          index={startIndex + idx}
-          isSelected={selectedTrack?.id === track.id}
-          isMultiSelected={selectedIds.has(track.id)}
-          isPlaying={playingTrackId === track.id}
-          isFavorite={favoriteIds.has(track.id)}
-          isAnalyzing={analyzingIds.has(track.id)}
-          referenceTrack={selectedTrack}
-          onSelect={onSelect}
-          onDoubleClick={onDoubleClick}
-          onContextMenu={onContextMenu}
-          onFavoriteToggle={onFavoriteToggle}
-          onRatingChange={onRatingChange}
-          onReanalyze={onReanalyzeTrack}
-          onDelete={onDeleteTrack}
-          onAddTag={onAddTagTrack}
-        />
-      ))}
-
-      {/* Bottom spacer */}
-      <div style={{ height: Math.max(0, (tracks.length - endIndex) * rowHeight) }} />
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const track = tracks[virtualItem.index];
+          return (
+            <div
+              key={track.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              <TrackRow
+                track={track}
+                index={virtualItem.index}
+                isSelected={selectedTrack?.id === track.id}
+                isMultiSelected={selectedIds.has(track.id)}
+                isPlaying={playingTrackId === track.id}
+                isFavorite={favoriteIds.has(track.id)}
+                isAnalyzing={analyzingIds.has(track.id)}
+                referenceTrack={selectedTrack}
+                onSelect={onSelect}
+                onDoubleClick={onDoubleClick}
+                onContextMenu={onContextMenu}
+                onFavoriteToggle={onFavoriteToggle}
+                onRatingChange={onRatingChange}
+                onReanalyze={onReanalyzeTrack}
+                onDelete={onDeleteTrack}
+                onAddTag={onAddTagTrack}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 });

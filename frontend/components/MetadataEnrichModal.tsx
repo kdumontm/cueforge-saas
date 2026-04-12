@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import OptimizedImage from '@/components/OptimizedImage';
 import {
   X, Search, Check, SkipForward, Loader2, Music, Disc, User,
   Tag, Calendar, Image as ImageIcon, AlertCircle, CheckCircle2,
@@ -396,9 +397,9 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                     Métadonnées actuelles
                   </p>
-                  <div className="w-16 h-16 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] overflow-hidden mb-4 flex items-center justify-center">
+                  <div className="relative w-16 h-16 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] overflow-hidden mb-4 flex items-center justify-center">
                     {currentTrack.artwork_url
-                      ? <img src={currentTrack.artwork_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                      ? <OptimizedImage src={currentTrack.artwork_url} alt="" fill className="object-cover" />
                       : <Music size={22} className="text-[var(--text-muted)]" />
                     }
                   </div>
@@ -426,7 +427,7 @@ export default function MetadataEnrichModal({ tracks, onClose, onTrackUpdated }:
                   {/* Artwork */}
                   <div className="relative w-16 h-16 rounded-xl overflow-hidden mb-4 border border-[var(--border-subtle)]">
                     {r.artwork_url
-                      ? <img src={r.artwork_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                      ? <OptimizedImage src={r.artwork_url} alt="" fill className="object-cover" />
                       : <div className="w-full h-full bg-[var(--bg-card)] flex items-center justify-center"><Music size={22} className="text-[var(--text-muted)]" /></div>
                     }
                     {r.artwork_url && (
