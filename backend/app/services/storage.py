@@ -80,6 +80,27 @@ def save_upload(file_content: bytes, filename: str) -> str:
     return str(file_path)
 
 
+def save_upload_from_path(source_path: str, filename: str) -> str:
+    """
+    Déplace un fichier temporaire vers UPLOAD_DIR (évite de recharger en RAM).
+    Utilisé par le streaming upload pour déplacer le fichier temp directement.
+    """
+    ensure_upload_dir()
+
+    safe_filename = "".join(c for c in filename if c.isalnum() or c in "._-")
+    dest_path = Path(UPLOAD_DIR) / safe_filename
+
+    counter = 1
+    base, ext = dest_path.stem, dest_path.suffix
+    while dest_path.exists():
+        dest_path = Path(UPLOAD_DIR) / f"{base}_{counter}{ext}"
+        counter += 1
+
+    import shutil
+    shutil.move(source_path, str(dest_path))
+    return str(dest_path)
+
+
 def delete_file(file_path: str) -> bool:
     """Supprime un fichier de manière sécurisée (vérifie qu'il est dans UPLOAD_DIR)."""
     resolved = safe_path(file_path)
