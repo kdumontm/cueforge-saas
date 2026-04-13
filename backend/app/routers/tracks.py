@@ -2852,6 +2852,262 @@ def get_mixing_compatibility(
     return analysis.mixing_compatibility or {"available": False}
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.8: QUICK ANALYSIS / BATCH / VISUALIZATION / COMPARISON
+# ══════════════════════════════════════════════════════════════════════════
+
+
+# ── Quick analysis (lightweight preview) ──────────────────────────────────
+@router.post("/{track_id}/analyze-quick")
+def analyze_track_quick(
+    track_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Run quick (2-5s) analysis: BPM, key, energy, loudness, danceability.
+    Stores results immediately; full analysis can run later.
+    """
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=400, detail="Audio file not found on disk")
+
+    data = analysis_svc.analyze_audio_quick(track.file_path)
+    if "error" in data:
+        raise HTTPException(status_code=500, detail=data["error"])
+
+    # Persist quick results
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        analysis = TrackAnalysis(track_id=track.id)
+        db.add(analysis)
+
+    if data.get("bpm"):
+        analysis.bpm = data["bpm"]
+        analysis.bpm_confidence = data.get("bpm_confidence")
+    if data.get("key"):
+        analysis.key = data["key"]
+        analysis.key_confidence = data.get("key_confidence")
+    if data.get("energy") is not None:
+        analysis.energy = data["energy"]
+    if data.get("loudness_db") is not None:
+        analysis.loudness_db = data["loudness_db"]
+    if data.get("danceability") is not None:
+        analysis.danceability = data["danceability"]
+    if data.get("duration_ms"):
+        analysis.duration_ms = data["duration_ms"]
+
+    # Update track camelot code
+    if data.get("camelot_code"):
+        track.camelot_code = data["camelot_code"]
+
+    db.commit()
+    return {**data, "track_id": track_id, "status": "quick_analyzed"}
+
+
+# ── Batch analysis ────────────────────────────────────────────────────────
+class BatchAnalyzeRequest(BaseModel):
+    track_ids: List[int]
+    quick: bool = True
+
+
+@router.post("/batch-analyze")
+def batch_analyze_tracks(
+    req: BatchAnalyzeRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Launch analysis for multiple tracks at once.
+    quick=True (default): fast 2-5s pipeline per track.
+    quick=False: full analysis pipeline (background tasks).
+    """
+    if len(req.track_ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 tracks per batch")
+
+    tracks = db.query(Track).filter(
+        Track.id.in_(req.track_ids),
+        Track.user_id == current_user.id,
+    ).all()
+
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    results = []
+    for track in tracks:
+        if not track.file_path or not os.path.exists(track.file_path):
+            results.append({"track_id": track.id, "error": "File not found"})
+            continue
+
+        if req.quick:
+            data = analysis_svc.analyze_audio_quick(track.file_path)
+            # Persist quick results
+            analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+            if not analysis:
+                analysis = TrackAnalysis(track_id=track.id)
+                db.add(analysis)
+            if data.get("bpm"):
+                analysis.bpm = data["bpm"]
+            if data.get("key"):
+                analysis.key = data["key"]
+            if data.get("energy") is not None:
+                analysis.energy = data["energy"]
+            if data.get("duration_ms"):
+                analysis.duration_ms = data["duration_ms"]
+            if data.get("camelot_code"):
+                track.camelot_code = data["camelot_code"]
+            results.append({"track_id": track.id, **data})
+        else:
+            # Queue full analysis as background task
+            track.status = TrackStatus.analyzing
+            background_tasks.add_task(
+                _run_full_analysis_bg, track.id, track.file_path,
+                getattr(current_user, 'use_stem_separation', False),
+                db,
+            )
+            results.append({"track_id": track.id, "status": "queued"})
+
+    db.commit()
+    return {"analyzed": len(results), "results": results}
+
+
+def _run_full_analysis_bg(track_id: int, file_path: str, use_stems: bool, db: Session):
+    """Background task for full analysis in batch mode."""
+    try:
+        data = analysis_svc.analyze_audio(file_path, use_stem_separation=use_stems, track_id=track_id)
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if track:
+            track.status = TrackStatus.completed
+            # Persist (reuses main analysis persistence logic)
+            analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+            if analysis:
+                for k, v in data.items():
+                    if hasattr(analysis, k) and v is not None:
+                        setattr(analysis, k, v)
+            db.commit()
+    except Exception as e:
+        logger.error(f"Batch full analysis failed for track {track_id}: {e}")
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if track:
+            track.status = TrackStatus.failed
+            track.error_message = str(e)[:500]
+            db.commit()
+
+
+# ── Track comparison (DJ compatibility) ───────────────────────────────────
+@router.get("/compare/{track_id_a}/{track_id_b}")
+def compare_tracks(
+    track_id_a: int,
+    track_id_b: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Compare two tracks for DJ mixing compatibility.
+    Returns BPM/key/energy compatibility scores + recommendation.
+    """
+    tracks = db.query(Track).filter(
+        Track.id.in_([track_id_a, track_id_b]),
+        Track.user_id == current_user.id,
+    ).all()
+    if len(tracks) < 2:
+        raise HTTPException(status_code=404, detail="One or both tracks not found")
+
+    analyses = {}
+    for t in tracks:
+        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        if not a:
+            raise HTTPException(status_code=400, detail=f"Track {t.id} must be analyzed first")
+        analyses[t.id] = {
+            "bpm": a.bpm, "key": a.key, "energy": a.energy,
+            "loudness_db": a.loudness_db, "danceability": a.danceability,
+            "mood": a.mood, "camelot_code": getattr(t, 'camelot_code', None),
+        }
+
+    comparison = analysis_svc.compare_track_analyses(
+        analyses[track_id_a], analyses[track_id_b],
+    )
+    comparison["track_a"] = {"id": track_id_a, **analyses[track_id_a]}
+    comparison["track_b"] = {"id": track_id_b, **analyses[track_id_b]}
+    return comparison
+
+
+# ── Spectrogram visualization ─────────────────────────────────────────────
+@router.get("/{track_id}/spectrogram")
+def get_spectrogram(
+    track_id: int,
+    n_mels: int = Query(128, ge=32, le=512),
+    time_steps: int = Query(256, ge=64, le=1024),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return mel-spectrogram data for frontend heatmap visualization."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=400, detail="Audio file not found on disk")
+    return analysis_svc.compute_spectrogram_data(track.file_path, n_mels=n_mels, time_steps=time_steps)
+
+
+# ── Loudness timeline ─────────────────────────────────────────────────────
+@router.get("/{track_id}/loudness-timeline")
+def get_loudness_timeline(
+    track_id: int,
+    resolution: int = Query(128, ge=32, le=512),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return LUFS loudness values over time for real-time loudness meter."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=400, detail="Audio file not found on disk")
+    return analysis_svc.compute_loudness_timeline(track.file_path, resolution=resolution)
+
+
+# ── Stereo field data ─────────────────────────────────────────────────────
+@router.get("/{track_id}/stereo-field")
+def get_stereo_field(
+    track_id: int,
+    resolution: int = Query(128, ge=32, le=512),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return stereo field data (M/S decomposition, correlation, balance) over time."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path or not os.path.exists(track.file_path):
+        raise HTTPException(status_code=400, detail="Audio file not found on disk")
+    return analysis_svc.compute_stereo_field_data(track.file_path, resolution=resolution)
+
+
+# ── Transition zones ──────────────────────────────────────────────────────
+@router.get("/{track_id}/transition-zones")
+def get_transition_zones(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return ideal DJ transition zones (mix-in / mix-out points) from section data."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    sections = analysis.section_labels or []
+    bpm = analysis.bpm or 128
+    duration_ms = analysis.duration_ms or 0
+    return analysis_svc.compute_transition_zones(sections, duration_ms, bpm)
+
+
 # WebSocket endpoint pour les updates temps réel
 @router.websocket("/ws/status")
 async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
