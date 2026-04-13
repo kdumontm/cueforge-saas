@@ -5485,6 +5485,47 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     structural_summary = compute_structural_summary(section_labels, y, sr_loaded)
     result["structural_summary"] = structural_summary
 
+    # ── v6.5: Encoding quality detection (#492-493) ──
+    try:
+        enc_quality = detect_encoding_quality(file_path, y, sr_loaded)
+        result["encoding_quality"] = enc_quality.get("encoding_quality")
+        result["estimated_bitrate_kbps"] = enc_quality.get("estimated_bitrate_kbps")
+        result["is_upscaled"] = enc_quality.get("is_upscaled", False)
+        result["spectral_rolloff_hz"] = enc_quality.get("spectral_rolloff_hz")
+    except Exception:
+        pass
+
+    # ── v6.5: Spectral contrast integration (#12) ──
+    try:
+        spec_contrast = compute_spectral_contrast(y, sr_loaded)
+        result["spectral_contrast_mean"] = spec_contrast.get("spectral_contrast_mean")
+    except Exception:
+        pass
+
+    # ── v6.5: Accent/impact points detection (#201) ──
+    try:
+        result["accent_points"] = detect_accent_points(y, sr_loaded, beat_positions)
+    except Exception:
+        result["accent_points"] = []
+
+    # ── v6.5: Global audio quality score (#498) ──
+    try:
+        quality_score = compute_audio_quality_score(
+            has_clipping=audio_quality_data.get("has_clipping", False),
+            clipping_ratio=audio_quality_data.get("clipping_ratio", 0.0),
+            true_peak_db=audio_quality_data.get("true_peak_db", -1.0),
+            loudness_lufs=loudness_data.get("lufs"),
+            loudness_range_lu=loudness_data.get("loudness_range_lu"),
+            dc_offset_mean=audio_quality_data.get("dc_offset_mean", 0.0),
+            encoding_quality=result.get("encoding_quality", "unknown"),
+            mono_compatibility=stereo_data.get("mono_compatibility"),
+        )
+        result["audio_quality_score"] = quality_score.get("audio_quality_score")
+        result["audio_quality_grade"] = quality_score.get("audio_quality_grade")
+        result["audio_quality_breakdown"] = quality_score.get("audio_quality_breakdown")
+    except Exception:
+        pass
+
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
@@ -10867,3 +10908,278 @@ def overall_production_quality_score(y: np.ndarray, sr: int) -> Dict[str, any]:
                 "mastering": 0.5,
             },
         }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.5: ENCODING QUALITY + AUDIO QUALITY SCORE (Points 492-498)
+# ══════════════════════════════════════════════════════════════════════════
+
+def detect_encoding_quality(file_path: str, y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 492-493: Detect encoding quality — identify upscaled lossy files
+    masquerading as lossless (e.g. MP3 128 converted to WAV).
+
+    Uses spectral rolloff: lossy codecs cut frequencies above ~16-18kHz.
+    A WAV/FLAC with no energy above 16kHz is likely upscaled.
+    """
+    try:
+        import os
+        ext = os.path.splitext(file_path)[1].lower()
+
+        # Compute spectral rolloff at 99% energy
+        rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.99)
+        mean_rolloff_hz = float(np.mean(rolloff))
+        max_rolloff_hz = float(np.max(rolloff))
+
+        # Nyquist frequency
+        nyquist = sr / 2
+
+        # Check for spectral ceiling (lossy codec signature)
+        # Lossy codecs typically cut at specific frequencies:
+        # MP3 128kbps: ~16kHz, MP3 192kbps: ~18kHz, MP3 320kbps: ~20kHz
+        has_spectral_ceiling = mean_rolloff_hz < nyquist * 0.85
+
+        # Estimate effective bitrate from spectral ceiling
+        estimated_quality = "lossless"
+        estimated_bitrate = None
+
+        if has_spectral_ceiling:
+            if mean_rolloff_hz < 14000:
+                estimated_quality = "low_lossy"
+                estimated_bitrate = 128
+            elif mean_rolloff_hz < 16500:
+                estimated_quality = "medium_lossy"
+                estimated_bitrate = 192
+            elif mean_rolloff_hz < 18500:
+                estimated_quality = "high_lossy"
+                estimated_bitrate = 256
+            else:
+                estimated_quality = "transparent_lossy"
+                estimated_bitrate = 320
+
+        # Flag upscaled files: lossless container but lossy content
+        is_upscaled = False
+        lossless_extensions = {".wav", ".flac", ".aiff", ".aif", ".alac"}
+        if ext in lossless_extensions and has_spectral_ceiling and mean_rolloff_hz < 18000:
+            is_upscaled = True
+
+        return {
+            "encoding_quality": estimated_quality,
+            "estimated_bitrate_kbps": estimated_bitrate,
+            "spectral_rolloff_hz": round(mean_rolloff_hz),
+            "max_rolloff_hz": round(max_rolloff_hz),
+            "is_upscaled": is_upscaled,
+            "has_spectral_ceiling": has_spectral_ceiling,
+        }
+    except Exception as e:
+        logger.debug(f"Encoding quality detection failed: {e}")
+        return {
+            "encoding_quality": "unknown",
+            "estimated_bitrate_kbps": None,
+            "spectral_rolloff_hz": 0,
+            "max_rolloff_hz": 0,
+            "is_upscaled": False,
+            "has_spectral_ceiling": False,
+        }
+
+
+def compute_audio_quality_score(
+    has_clipping: bool = False,
+    clipping_ratio: float = 0.0,
+    true_peak_db: float = -1.0,
+    loudness_lufs: Optional[float] = None,
+    loudness_range_lu: Optional[float] = None,
+    dc_offset_mean: float = 0.0,
+    encoding_quality: str = "lossless",
+    mono_compatibility: Optional[float] = None,
+    spectral_balance: Optional[Dict] = None,
+) -> Dict:
+    """
+    Point 498: Global audio quality score — combines all quality metrics
+    into a single 0-100 score with grade and breakdown.
+    """
+    try:
+        scores = {}
+
+        # 1. Clipping penalty (0-100, 100 = no clipping)
+        if has_clipping:
+            clip_score = max(0, 100 - clipping_ratio * 10000)
+        else:
+            clip_score = 100
+        scores["clipping"] = clip_score
+
+        # 2. True peak headroom (0-100)
+        if true_peak_db > -0.1:
+            peak_score = 30  # Way too hot
+        elif true_peak_db > -0.5:
+            peak_score = 60
+        elif true_peak_db > -1.0:
+            peak_score = 85
+        else:
+            peak_score = 100  # Good headroom
+        scores["headroom"] = peak_score
+
+        # 3. Loudness appropriateness (0-100)
+        if loudness_lufs is not None:
+            # Club music target: -6 to -10 LUFS
+            if -10 <= loudness_lufs <= -6:
+                loud_score = 100
+            elif -14 <= loudness_lufs < -10 or -6 < loudness_lufs <= -4:
+                loud_score = 80
+            elif -18 <= loudness_lufs < -14 or -4 < loudness_lufs <= -2:
+                loud_score = 60
+            else:
+                loud_score = 40
+            scores["loudness"] = loud_score
+        else:
+            scores["loudness"] = 70  # Unknown = assume OK
+
+        # 4. Dynamic range (0-100)
+        if loudness_range_lu is not None:
+            if 4 <= loudness_range_lu <= 12:
+                dr_score = 100
+            elif 2 <= loudness_range_lu < 4 or 12 < loudness_range_lu <= 18:
+                dr_score = 75
+            else:
+                dr_score = 50
+            scores["dynamic_range"] = dr_score
+        else:
+            scores["dynamic_range"] = 70
+
+        # 5. DC offset penalty (0-100)
+        dc_score = max(0, 100 - abs(dc_offset_mean) * 5000)
+        scores["dc_offset"] = dc_score
+
+        # 6. Encoding quality (0-100)
+        enc_map = {
+            "lossless": 100,
+            "transparent_lossy": 90,
+            "high_lossy": 75,
+            "medium_lossy": 50,
+            "low_lossy": 25,
+            "unknown": 70,
+        }
+        scores["encoding"] = enc_map.get(encoding_quality, 70)
+
+        # 7. Mono compatibility (0-100)
+        if mono_compatibility is not None:
+            scores["mono_compat"] = int(mono_compatibility * 100)
+        else:
+            scores["mono_compat"] = 80
+
+        # Weighted average
+        weights = {
+            "clipping": 0.20,
+            "headroom": 0.15,
+            "loudness": 0.15,
+            "dynamic_range": 0.15,
+            "dc_offset": 0.05,
+            "encoding": 0.20,
+            "mono_compat": 0.10,
+        }
+        overall = sum(scores[k] * weights[k] for k in weights)
+
+        # Grade
+        if overall >= 90:
+            grade = "A"
+        elif overall >= 75:
+            grade = "B"
+        elif overall >= 60:
+            grade = "C"
+        elif overall >= 40:
+            grade = "D"
+        else:
+            grade = "F"
+
+        return {
+            "audio_quality_score": round(overall, 1),
+            "audio_quality_grade": grade,
+            "audio_quality_breakdown": scores,
+        }
+    except Exception as e:
+        logger.debug(f"Audio quality score failed: {e}")
+        return {
+            "audio_quality_score": 50.0,
+            "audio_quality_grade": "C",
+            "audio_quality_breakdown": {},
+        }
+
+
+def detect_accent_points(y: np.ndarray, sr: int, beat_positions_ms: List[int] = None) -> List[Dict]:
+    """
+    Point 201: Detect accent/impact points — strong transients suitable
+    for hot cues (cymbal crashes, drops, impacts).
+
+    Returns positions in ms with strength score.
+    """
+    try:
+        # Onset strength envelope
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+        # Detect peaks above 75th percentile
+        threshold = np.percentile(onset_env, 85)
+        peaks, properties = find_peaks(onset_env, height=threshold, distance=sr // 512)
+
+        # Convert frame indices to ms
+        hop_length = 512
+        accents = []
+        for peak_idx in peaks[:50]:  # Limit to top 50
+            time_s = librosa.frames_to_time(peak_idx, sr=sr, hop_length=hop_length)
+            time_ms = int(time_s * 1000)
+            strength = float(onset_env[peak_idx] / (np.max(onset_env) + 1e-8))
+
+            # Check if on a beat (more valuable for DJs)
+            on_beat = False
+            if beat_positions_ms:
+                for bp in beat_positions_ms:
+                    if abs(bp - time_ms) < 50:  # Within 50ms of a beat
+                        on_beat = True
+                        break
+
+            accents.append({
+                "position_ms": time_ms,
+                "strength": round(strength, 3),
+                "on_beat": on_beat,
+            })
+
+        # Sort by strength
+        accents.sort(key=lambda x: x["strength"], reverse=True)
+        return accents[:30]  # Return top 30
+
+    except Exception as e:
+        logger.debug(f"Accent detection failed: {e}")
+        return []
+
+
+def export_m3u_playlist(tracks: List[Dict], output_path: str, extended: bool = True) -> str:
+    """
+    Point 346: Export playlist in M3U/M3U8 format.
+
+    tracks: list of dicts with keys: file_path, title, artist, duration_s
+    Returns the M3U content as string.
+    """
+    try:
+        lines = []
+        if extended:
+            lines.append("#EXTM3U")
+
+        for track in tracks:
+            duration = int(track.get("duration_s", 0))
+            artist = track.get("artist", "Unknown")
+            title = track.get("title", "Unknown")
+            path = track.get("file_path", "")
+
+            if extended:
+                lines.append(f"#EXTINF:{duration},{artist} - {title}")
+            lines.append(path)
+
+        content = "\n".join(lines) + "\n"
+
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+        return content
+    except Exception as e:
+        logger.debug(f"M3U export failed: {e}")
+        return ""

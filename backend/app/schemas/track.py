@@ -135,8 +135,12 @@ class TrackAnalysisSummary(BaseModel):
     # v6.4: Audio quality flags for quick listing
     has_clipping: Optional[bool] = None
     true_peak_db: Optional[float] = None
-    # v6.5: Structural summary (JSON)
+    # v6.5: Structural summary + quality score for listing
     structural_summary: Optional[Dict[str, Any]] = None
+    audio_quality_score: Optional[float] = None
+    audio_quality_grade: Optional[str] = None
+    encoding_quality: Optional[str] = None
+    is_upscaled: Optional[bool] = None
     analyzed_at: Optional[datetime] = None
 
 
@@ -181,6 +185,16 @@ class TrackAnalysisResponse(BaseModel):
     true_peak_value: Optional[float] = None
     # v6.5: Structural summary
     structural_summary: Optional[Dict[str, Any]] = None
+    # v6.5: Encoding quality & audio quality score
+    encoding_quality: Optional[str] = None
+    estimated_bitrate_kbps: Optional[int] = None
+    is_upscaled: Optional[bool] = None
+    spectral_rolloff_hz: Optional[int] = None
+    spectral_contrast_mean: Optional[float] = None
+    audio_quality_score: Optional[float] = None
+    audio_quality_grade: Optional[str] = None
+    audio_quality_breakdown: Optional[Dict[str, Any]] = None
+    accent_points: Optional[List[Dict[str, Any]]] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

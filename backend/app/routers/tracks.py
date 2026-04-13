@@ -493,6 +493,16 @@ def _run_analysis(track_id: int):
             true_peak_value=analysis_data.get("true_peak_value"),
             # v6.5: Structural summary
             structural_summary=analysis_data.get("structural_summary"),
+            # v6.5: Encoding quality & audio quality score
+            encoding_quality=analysis_data.get("encoding_quality"),
+            estimated_bitrate_kbps=analysis_data.get("estimated_bitrate_kbps"),
+            is_upscaled=analysis_data.get("is_upscaled"),
+            spectral_rolloff_hz=analysis_data.get("spectral_rolloff_hz"),
+            spectral_contrast_mean=analysis_data.get("spectral_contrast_mean"),
+            audio_quality_score=analysis_data.get("audio_quality_score"),
+            audio_quality_grade=analysis_data.get("audio_quality_grade"),
+            audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
+            accent_points=analysis_data.get("accent_points"),
         )
         db.add(analysis)
         db.flush()
@@ -1115,8 +1125,15 @@ class LocalAnalysisPayload(BaseModel):
     dc_offset_mean: Optional[float] = None
     true_peak_db: Optional[float] = None
     true_peak_value: Optional[float] = None
-    # v6.5: Structural summary
+    # v6.5: Structural summary + encoding quality + audio quality score
     structural_summary: Optional[dict] = None
+    encoding_quality: Optional[str] = None
+    estimated_bitrate_kbps: Optional[int] = None
+    is_upscaled: Optional[bool] = None
+    audio_quality_score: Optional[float] = None
+    audio_quality_grade: Optional[str] = None
+    audio_quality_breakdown: Optional[dict] = None
+    accent_points: Optional[list] = None
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -1210,9 +1227,23 @@ async def analyze_track_local(
         analysis.true_peak_db = payload.true_peak_db
     if payload.true_peak_value is not None:
         analysis.true_peak_value = payload.true_peak_value
-    # v6.5: Structural summary
+    # v6.5: Structural summary + encoding quality + audio quality score
     if payload.structural_summary is not None:
         analysis.structural_summary = payload.structural_summary
+    if payload.encoding_quality is not None:
+        analysis.encoding_quality = payload.encoding_quality
+    if payload.estimated_bitrate_kbps is not None:
+        analysis.estimated_bitrate_kbps = payload.estimated_bitrate_kbps
+    if payload.is_upscaled is not None:
+        analysis.is_upscaled = payload.is_upscaled
+    if payload.audio_quality_score is not None:
+        analysis.audio_quality_score = payload.audio_quality_score
+    if payload.audio_quality_grade is not None:
+        analysis.audio_quality_grade = payload.audio_quality_grade
+    if payload.audio_quality_breakdown is not None:
+        analysis.audio_quality_breakdown = payload.audio_quality_breakdown
+    if payload.accent_points is not None:
+        analysis.accent_points = payload.accent_points
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)
@@ -2561,6 +2592,66 @@ def get_transition_zones(
         "best_mix_out": next((z for z in zones if z["type"] == "mix_out"), None),
         "bpm": analysis.bpm,
         "key": analysis.key,
+    }
+
+
+# ── v6.5: Audio quality score endpoint ───────────────────────────────────
+@router.get("/{track_id}/audio-quality")
+def get_audio_quality(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return detailed audio quality analysis — encoding, clipping, loudness, score."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    return {
+        "track_id": track_id,
+        "audio_quality_score": analysis.audio_quality_score,
+        "audio_quality_grade": analysis.audio_quality_grade,
+        "audio_quality_breakdown": analysis.audio_quality_breakdown or {},
+        "encoding_quality": analysis.encoding_quality,
+        "estimated_bitrate_kbps": analysis.estimated_bitrate_kbps,
+        "is_upscaled": analysis.is_upscaled,
+        "spectral_rolloff_hz": analysis.spectral_rolloff_hz,
+        "has_clipping": analysis.has_clipping,
+        "clipping_ratio": analysis.clipping_ratio,
+        "true_peak_db": analysis.true_peak_db,
+        "has_dc_offset": analysis.has_dc_offset,
+        "loudness_lufs": analysis.loudness_lufs,
+    }
+
+
+# ── v6.5: Accent points endpoint ────────────────────────────────────────
+@router.get("/{track_id}/accent-points")
+def get_accent_points(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return detected accent/impact points for cue placement."""
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    return {
+        "track_id": track_id,
+        "accent_points": analysis.accent_points or [],
+        "total": len(analysis.accent_points or []),
     }
 
 

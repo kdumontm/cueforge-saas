@@ -183,6 +183,16 @@ class TrackAnalysis(Base):
     true_peak_value = Column(Float, nullable=True)
     # v6.5: Structural summary (JSON blob from compute_structural_summary)
     structural_summary = Column(JSON, nullable=True)
+    # v6.5: Encoding quality & global audio quality score
+    encoding_quality = Column(String(30), nullable=True)
+    estimated_bitrate_kbps = Column(Integer, nullable=True)
+    is_upscaled = Column(Boolean, nullable=True)
+    spectral_rolloff_hz = Column(Integer, nullable=True)
+    spectral_contrast_mean = Column(Float, nullable=True)
+    audio_quality_score = Column(Float, nullable=True)
+    audio_quality_grade = Column(String(2), nullable=True)
+    audio_quality_breakdown = Column(JSON, nullable=True)
+    accent_points = Column(JSON, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

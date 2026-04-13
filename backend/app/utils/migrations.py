@@ -115,6 +115,15 @@ PENDING_MIGRATIONS = {
         "true_peak_value": "FLOAT",
         # v6.5: Structural summary
         "structural_summary": "JSON",
+        # v6.5: Encoding quality & audio quality score
+        "encoding_quality": "VARCHAR(30)",
+        "estimated_bitrate_kbps": "INTEGER",
+        "is_upscaled": "BOOLEAN",
+        "spectral_rolloff_hz": "INTEGER",
+        "audio_quality_score": "FLOAT",
+        "audio_quality_grade": "VARCHAR(2)",
+        "audio_quality_breakdown": "JSON",
+        "accent_points": "JSON",
     },
     "subscriptions": {
         # Stripe price ID
