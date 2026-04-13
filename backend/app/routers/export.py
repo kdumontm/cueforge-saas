@@ -951,3 +951,114 @@ async def export_all_csv(
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="CueForge_Library_tracks.csv"'}
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.5: ZIP Bundle + Cross-Format Comparison (Points 339, 349)
+# ══════════════════════════════════════════════════════════════════════════
+
+class ZipExportRequest(BaseModel):
+    track_ids: List[int]
+    formats: Optional[List[str]] = None  # None = all formats
+
+
+@router.post("/zip-bundle")
+async def export_zip_bundle_endpoint(
+    req: ZipExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export selected tracks to multiple DJ formats bundled in a single ZIP.
+
+    Formats: rekordbox_xml, serato_crate, traktor_nml, virtualdj_json, engine_dj, mixxx
+    """
+    import tempfile
+    from app.services.dj_export_advanced import export_zip_bundle
+
+    tracks = list(
+        db.query(Track)
+        .filter(Track.user_id == current_user.id, Track.id.in_(req.track_ids))
+        .options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers))
+        .all()
+    )
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        result = export_zip_bundle(track_dicts, tmp.name, req.formats)
+
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail="Export failed: " + ", ".join(result.get("errors", [])))
+
+        with open(tmp.name, "rb") as f:
+            zip_content = f.read()
+
+    return Response(
+        content=zip_content,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="CueForge_Export_Bundle.zip"'},
+    )
+
+
+class FormatComparisonRequest(BaseModel):
+    track_id: int
+    formats: Optional[List[str]] = None
+
+
+@router.post("/compare-formats")
+async def compare_export_formats(
+    req: FormatComparisonRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Compare how cue points would be preserved across DJ formats.
+
+    Shows per-format limits, cues lost, and compatibility warnings.
+    """
+    from app.services.dj_export_advanced import compare_cue_positions_across_formats
+
+    track = (
+        db.query(Track)
+        .filter(Track.id == req.track_id, Track.user_id == current_user.id)
+        .options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers))
+        .first()
+    )
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    comparison = compare_cue_positions_across_formats(track_dict, req.formats)
+
+    return comparison
+
+
+@router.post("/multi-format")
+async def export_multi_format(
+    req: ZipExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export to multiple formats simultaneously and return results as JSON.
+
+    Unlike zip-bundle which returns a file, this returns metadata about each export.
+    """
+    from app.services.dj_export_advanced import batch_export_dj_formats
+    import tempfile
+
+    tracks = list(
+        db.query(Track)
+        .filter(Track.user_id == current_user.id, Track.id.in_(req.track_ids))
+        .options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers))
+        .all()
+    )
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = batch_export_dj_formats(track_dicts, tmpdir, req.formats)
+
+    return result

@@ -124,6 +124,12 @@ PENDING_MIGRATIONS = {
         "audio_quality_grade": "VARCHAR(2)",
         "audio_quality_breakdown": "JSON",
         "accent_points": "JSON",
+        # v6.5: Rhythm & groove
+        "groove_swing": "FLOAT",
+        "syncopation_index": "FLOAT",
+        "rhythmic_complexity": "FLOAT",
+        "offbeat_energy_ratio": "FLOAT",
+        "beat_strength_mean": "FLOAT",
     },
     "subscriptions": {
         # Stripe price ID

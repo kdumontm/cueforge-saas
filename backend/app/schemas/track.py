@@ -195,6 +195,12 @@ class TrackAnalysisResponse(BaseModel):
     audio_quality_grade: Optional[str] = None
     audio_quality_breakdown: Optional[Dict[str, Any]] = None
     accent_points: Optional[List[Dict[str, Any]]] = None
+    # v6.5: Rhythm & groove
+    groove_swing: Optional[float] = None
+    syncopation_index: Optional[float] = None
+    rhythmic_complexity: Optional[float] = None
+    offbeat_energy_ratio: Optional[float] = None
+    beat_strength_mean: Optional[float] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

@@ -470,6 +470,9 @@ def batch_export_dj_formats(
         "output_dir": output_dir,
     }
 
+    # v6.5: Actually call the exporters instead of simulating
+    _format_exporters = _get_format_exporters()
+
     for idx, fmt in enumerate(formats):
         progress = int((idx / len(formats)) * 100)
         if progress_callback:
@@ -481,14 +484,18 @@ def batch_export_dj_formats(
         }
 
         try:
-            # In production: call appropriate export function
-            output_file = f"{output_dir}/export.{fmt.split('_')[0]}"
-            export_entry["file_path"] = output_file
-            export_entry["success"] = True
-            export_entry["track_count"] = len(tracks)
+            exporter = _format_exporters.get(fmt)
+            if exporter:
+                output_file = exporter(tracks, output_dir)
+                export_entry["file_path"] = output_file
+                export_entry["success"] = True
+                export_entry["track_count"] = len(tracks)
+            else:
+                export_entry["error"] = f"Unknown format: {fmt}"
 
         except Exception as e:
             export_entry["error"] = str(e)
+            logger.debug(f"Export {fmt} failed: {e}")
 
         result["exports"].append(export_entry)
 
@@ -498,3 +505,190 @@ def batch_export_dj_formats(
     result["success"] = all(e.get('success', False) for e in result["exports"])
 
     return result
+
+
+def _get_format_exporters() -> Dict[str, Callable]:
+    """Map format names to their export functions."""
+    exporters = {}
+    try:
+        from app.services.rekordbox_export import generate_rekordbox_xml
+        exporters["rekordbox_xml"] = lambda tracks, d: _run_exporter(
+            generate_rekordbox_xml, tracks, d, "rekordbox.xml"
+        )
+    except ImportError:
+        pass
+    try:
+        from app.services.serato_export import generate_serato_crate
+        exporters["serato_crate"] = lambda tracks, d: _run_exporter(
+            generate_serato_crate, tracks, d, "serato.crate"
+        )
+    except ImportError:
+        pass
+    try:
+        from app.services.traktor_export import generate_traktor_nml
+        exporters["traktor_nml"] = lambda tracks, d: _run_exporter(
+            generate_traktor_nml, tracks, d, "traktor.nml"
+        )
+    except ImportError:
+        pass
+    try:
+        from app.services.virtualdj_export import generate_virtualdj_database
+        exporters["virtualdj_json"] = lambda tracks, d: _run_exporter(
+            generate_virtualdj_database, tracks, d, "virtualdj.json"
+        )
+    except ImportError:
+        pass
+    try:
+        from app.services.engine_dj_export import generate_engine_dj_xml
+        exporters["engine_dj"] = lambda tracks, d: _run_exporter(
+            generate_engine_dj_xml, tracks, d, "engine_dj.xml"
+        )
+    except ImportError:
+        pass
+    try:
+        from app.services.mixxx_export import export_tracks_to_mixxx
+        exporters["mixxx"] = lambda tracks, d: _run_exporter(
+            export_tracks_to_mixxx, tracks, d, "mixxx.db"
+        )
+    except ImportError:
+        pass
+    return exporters
+
+
+def _run_exporter(func: Callable, tracks: List[Dict], output_dir: str, filename: str) -> str:
+    """Run an exporter and return the output file path."""
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, filename)
+    func(tracks, output_path)
+    return output_path
+
+
+# ── v6.5: ZIP Export Bundle ───────────────────────────────────────────
+
+def export_zip_bundle(
+    tracks: List[Dict],
+    output_path: str,
+    formats: List[str] = None,
+) -> Dict:
+    """
+    Point 339: Export all formats into a single ZIP archive with structure:
+      export_bundle/
+        rekordbox.xml
+        traktor.nml
+        serato.crate
+        ...
+    """
+    import zipfile
+    import tempfile
+    import os
+
+    if formats is None:
+        formats = ["rekordbox_xml", "traktor_nml", "serato_crate", "virtualdj_json", "engine_dj"]
+
+    results = {"formats_exported": [], "errors": []}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Export each format
+        batch_result = batch_export_dj_formats(tracks, tmpdir, formats)
+
+        # Bundle into ZIP
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for export_entry in batch_result.get("exports", []):
+                if export_entry.get("success") and export_entry.get("file_path"):
+                    fpath = export_entry["file_path"]
+                    if os.path.exists(fpath):
+                        arcname = os.path.basename(fpath)
+                        zf.write(fpath, arcname)
+                        results["formats_exported"].append(export_entry["format"])
+                    else:
+                        results["errors"].append(f"{export_entry['format']}: file not created")
+                else:
+                    results["errors"].append(
+                        f"{export_entry.get('format', '?')}: {export_entry.get('error', 'unknown')}"
+                    )
+
+    results["zip_path"] = output_path
+    results["success"] = len(results["formats_exported"]) > 0
+    return results
+
+
+# ── v6.5: Cross-Format Cue Comparison ────────────────────────────────
+
+def compare_cue_positions_across_formats(
+    track_data: Dict,
+    formats: List[str] = None,
+) -> Dict:
+    """
+    Point 349+: Compare how cue points would be represented across formats.
+    Identifies precision loss, unsupported features, and format-specific limits.
+    """
+    if formats is None:
+        formats = ["rekordbox", "serato", "traktor", "virtualdj", "engine_dj"]
+
+    cues = track_data.get("cue_points", [])
+    loops = track_data.get("loop_markers", [])
+    bpm = track_data.get("bpm", 120)
+
+    format_limits = {
+        "rekordbox": {"max_hot_cues": 16, "max_loops": 16, "position_unit": "ms"},
+        "serato": {"max_hot_cues": 8, "max_loops": 8, "position_unit": "ms"},
+        "traktor": {"max_hot_cues": 8, "max_loops": 8, "position_unit": "ms"},
+        "virtualdj": {"max_hot_cues": 99, "max_loops": 99, "position_unit": "ms"},
+        "engine_dj": {"max_hot_cues": 8, "max_loops": 8, "position_unit": "ms"},
+    }
+
+    comparison = {}
+    for fmt in formats:
+        limits = format_limits.get(fmt, {})
+        max_cues = limits.get("max_hot_cues", 8)
+        max_loops = limits.get("max_loops", 8)
+
+        fmt_result = {
+            "cues_supported": min(len(cues), max_cues),
+            "cues_lost": max(0, len(cues) - max_cues),
+            "loops_supported": min(len(loops), max_loops),
+            "loops_lost": max(0, len(loops) - max_loops),
+            "max_hot_cues": max_cues,
+            "max_loops": max_loops,
+            "warnings": [],
+        }
+
+        if len(cues) > max_cues:
+            fmt_result["warnings"].append(
+                f"Only {max_cues} hot cues supported — {len(cues) - max_cues} will be dropped"
+            )
+        if len(loops) > max_loops:
+            fmt_result["warnings"].append(
+                f"Only {max_loops} loops supported — {len(loops) - max_loops} will be dropped"
+            )
+
+        # Check for format-specific issues
+        if fmt == "serato":
+            for cue in cues:
+                if cue.get("cue_type") == "memory_cue":
+                    fmt_result["warnings"].append("Memory cues not natively supported in Serato")
+                    break
+        elif fmt == "traktor":
+            for cue in cues:
+                if cue.get("color") and cue["color"] not in {"red", "orange", "yellow", "green", "cyan", "blue", "violet", "magenta"}:
+                    fmt_result["warnings"].append("Custom colors may be remapped in Traktor")
+                    break
+
+        comparison[fmt] = fmt_result
+
+    # Overall compatibility score
+    total_cues = len(cues)
+    if total_cues > 0:
+        avg_supported = sum(c["cues_supported"] for c in comparison.values()) / len(comparison)
+        compatibility_pct = (avg_supported / total_cues) * 100
+    else:
+        compatibility_pct = 100.0
+
+    return {
+        "track_cue_count": total_cues,
+        "track_loop_count": len(loops),
+        "formats": comparison,
+        "overall_compatibility_pct": round(compatibility_pct, 1),
+        "best_format": max(comparison, key=lambda f: comparison[f]["cues_supported"]) if comparison else None,
+    }

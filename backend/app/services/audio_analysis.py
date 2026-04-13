@@ -4819,8 +4819,39 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
                 "true_peak_db": None, "true_peak_value": None,
             }
 
-    # Submit all tasks to executor — v6.4: 7 tasks (was 6)
-    with ThreadPoolExecutor(max_workers=7) as executor:
+    def _task_rhythm_groove():
+        """v6.5: Rhythm & groove analysis — connects orphaned rhythm functions."""
+        try:
+            result = {}
+            # Groove template (swing, straightness)
+            if beat_frames is not None and len(beat_frames) > 4:
+                groove = extract_groove_template(y, sr, beat_frames)
+                result["groove_swing"] = groove.get("swing_ratio", 0.5)
+                result["groove_straightness"] = groove.get("straightness", 0.5)
+
+                # Syncopation index
+                synco = compute_syncopation_index(beat_frames)
+                result["syncopation_index"] = synco.get("syncopation_index", 0.0)
+
+                # Beat strength profile
+                strength = profile_beat_strength(y, sr, beat_frames)
+                result["beat_strength_mean"] = strength.get("beat_strength_mean", 0.5)
+
+                # Rhythmic complexity
+                complexity = compute_rhythmic_complexity(beat_frames)
+                result["rhythmic_complexity"] = complexity.get("rhythmic_complexity", 0.5)
+
+                # Offbeat energy (key for dance music)
+                offbeat = compute_offbeat_energy(y, sr, beat_frames)
+                result["offbeat_energy_ratio"] = offbeat.get("offbeat_ratio", 0.0)
+
+            return result
+        except Exception as e:
+            logger.debug(f"Rhythm/groove analysis skipped: {e}")
+            return {}
+
+    # Submit all tasks to executor — v6.5: 8 tasks (was 7)
+    with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {
             executor.submit(_task_key): 'key',
             executor.submit(_task_loudness): 'loudness',
@@ -4829,6 +4860,7 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
             executor.submit(_task_stereo_width): 'stereo_width',
             executor.submit(_task_spectral_centroid): 'spectral_centroid',
             executor.submit(_task_audio_quality): 'audio_quality',
+            executor.submit(_task_rhythm_groove): 'rhythm_groove',
         }
 
         # Collect results as they complete (with per-task timeout)
@@ -5228,6 +5260,9 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         audio_quality_data = parallel_results.get('audio_quality', {})
         if audio_quality_data is None:
             audio_quality_data = {}
+        rhythm_groove_data = parallel_results.get('rhythm_groove', {})
+        if rhythm_groove_data is None:
+            rhythm_groove_data = {}
 
     except Exception as e:
         logger.warning(f"Parallel analysis batch failed, falling back to sequential: {e}")
@@ -5479,6 +5514,12 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "has_dc_offset": audio_quality_data.get("has_dc_offset"),
         "true_peak_db": audio_quality_data.get("true_peak_db"),
         "true_peak_value": audio_quality_data.get("true_peak_value"),
+        # v6.5 additions: rhythm & groove
+        "groove_swing": rhythm_groove_data.get("groove_swing"),
+        "syncopation_index": rhythm_groove_data.get("syncopation_index"),
+        "rhythmic_complexity": rhythm_groove_data.get("rhythmic_complexity"),
+        "offbeat_energy_ratio": rhythm_groove_data.get("offbeat_energy_ratio"),
+        "beat_strength_mean": rhythm_groove_data.get("beat_strength_mean"),
     }
 
     # ── v6.5: Structural summary — connect orphaned analysis functions ──

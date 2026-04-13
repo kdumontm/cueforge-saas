@@ -193,6 +193,12 @@ class TrackAnalysis(Base):
     audio_quality_grade = Column(String(2), nullable=True)
     audio_quality_breakdown = Column(JSON, nullable=True)
     accent_points = Column(JSON, nullable=True)
+    # v6.5: Rhythm & groove
+    groove_swing = Column(Float, nullable=True)
+    syncopation_index = Column(Float, nullable=True)
+    rhythmic_complexity = Column(Float, nullable=True)
+    offbeat_energy_ratio = Column(Float, nullable=True)
+    beat_strength_mean = Column(Float, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

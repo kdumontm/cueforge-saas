@@ -503,6 +503,12 @@ def _run_analysis(track_id: int):
             audio_quality_grade=analysis_data.get("audio_quality_grade"),
             audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
             accent_points=analysis_data.get("accent_points"),
+            # v6.5: Rhythm & groove
+            groove_swing=analysis_data.get("groove_swing"),
+            syncopation_index=analysis_data.get("syncopation_index"),
+            rhythmic_complexity=analysis_data.get("rhythmic_complexity"),
+            offbeat_energy_ratio=analysis_data.get("offbeat_energy_ratio"),
+            beat_strength_mean=analysis_data.get("beat_strength_mean"),
         )
         db.add(analysis)
         db.flush()
