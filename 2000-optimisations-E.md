@@ -433,6 +433,406 @@
 
 1450. **Playlist Sort Options** — Trier le playlist par BPM, Key, Energy, Durée, ou ordre d'ajout avec reverse option.
 
+1451. **Waveform Zoom Presets** — Boutons rapides pour pré-zooms standards (vue globale, 4 barres, 1 barre) permettant navigation fluide sans paramètres.
+
+1452. **Playback Position Memory** — La position de lecture se sauvegarde par track, reprenant exactement où on a arrêté la dernière fois.
+
+1453. **Resume from Last Position** — Option de reprendre la lecture depuis la dernière position lors du rechargement de la track.
+
+1454. **Play Queue Management** — File d'attente de lecture visualisée, permettant réordonner, retirer ou ajouter rapidement des tracks.
+
+1455. **Shuffle Mode Toggle Button** — Bouton dédié basculant la lecture aléatoire des tracks actuelles avec état visuel clair.
+
+1456. **Repeat Mode Cycling** — Cycle entre Off → One Track Loop → All Playlist avec icônes distinctes à chaque état.
+
+1457. **A/B Loop Visual Markers** — Points de marquage A et B visibles sur la waveform, zone surbrillancée entre eux.
+
+1458. **Speed Control 0.5x-2x Rate** — Slider ou contrôle numérique pour vitesse de lecture de 0.5x à 2x sans altération de pitch.
+
+1459. **Pitch Control Semitone Adjustment** — Transposition indépendante du tempo de ±8 semitones (ou plus) avec affichage clair.
+
+1460. **Loop Length Presets Buttons** — Boutons rapides (1/2/4/8/16 bars) créant des boucles de longueur standard.
+
+1461. **Tap Tempo Visual Feedback** — Bouton "Tap Tempo" cliquable avec barre de progression visuelle montrant la détection BPM.
+
+1462. **EQ Kill Switches** — 3 boutons on/off pour couper instantanément les basses, mids ou aigus type mixer DJ.
+
+1463. **Crossfader Between 2 Decks** — Slider horizontal fading fluidement entre deux decks chargés (gauche vers droite).
+
+1464. **Vinyl Scratch Simulation Mode** — Mode "vinyle" avec friction et inertie simulées, scratch possible par accélération/décélération rapide.
+
+1465. **Beat-Sync 2 Decks Button** — Bouton "Sync" alignant automatiquement le tempo du deck 2 sur le deck 1.
+
+1466. **Auto-Mix Preview Function** — Bouton lisant 30s finales du deck 1 + 30s initiales du deck 2 en crossfade automatique.
+
+1467. **Waveform Zoom Presets UI** — Boutons "Overview", "Bars", "Beats" pour zoom rapide sans configuration manuelle.
+
+1468. **Playhead Scrubbing on Waveform** — Cliquer/dragger sur la waveform pour sauter ou scrubber le playhead fluidement.
+
+1469. **Fast Forward/Rewind Buttons** — Boutons ⏪/⏩ reculant/avançant par défaut 5 secondes (configurable).
+
+1470. **Next/Previous Track Buttons** — Boutons dédiés passant à la track suivante/précédente de la playlist.
+
+1471. **Master Volume Slider** — Contrôle du volume master avec VU-mètre affichant dB en temps réel.
+
+1472. **Headphone Cue Monitor** — Bouton pour écouter le prochain deck en casque sans affecter la sortie principale.
+
+1473. **Playback Speed Real-Time Display** — Affichage du BPM/tempo actuel et ratio de vitesse (e.g., "120 BPM, 1.0x").
+
+1474. **Repeat Mode Visual Indicator** — Icône claire indiquant l'état actuel: Off, One, ou All avec changement visuel à chaque clic.
+
+1475. **Shuffle Mode Visual Indicator** — Icône distinctive montrant l'activation/désactivation du mode aléatoire.
+
+1476. **Audio Visualizer Background** — Visualiseur animé en arrière-plan changeant selon la fréquence et l'énergie de la musique.
+
+1477. **Mini Spectrogram Display** — Petit spectrogram coloré intégré montrant les fréquences actuelles en temps réel.
+
+1478. **Clipping Warning Alert** — Alerte visuelle rouge si le volume approche du clipping/distortion.
+
+1479. **Playhead Motion Animation** — Ligne playhead s'anime légèrement (motion blur) pour indiquer la vitesse de lecture.
+
+1480. **Loop Recording Feature** — Enregistrer une boucle répétée pour layering live, foundation pour futur looping.
+
+1481. **Cue Point Jump on Click** — Cliquer sur un cue point saute instantanément la lecture à cette position.
+
+1482. **Pause/Play Position Retention** — La lecture reprend à l'exact position si on pause/resume (pas reset).
+
+1483. **Pitch Control ±8 Semitones** — Transposition fine du pitch ±8 semitones avec affichage et contrôle graduel.
+
+1484. **Beat-Sync Visual Indicator** — Icône/badge montrant que sync est actif entre les deux decks.
+
+1485. **Cross-Fade Smooth Transition** — Crossfade douce entre deux sources audio avec courbe de transition lissée.
+
+1486. **Vinyl Effect Friction Simulation** — Simulation de friction de vinyle quand on stoppe rapidement le playhead.
+
+1487. **Tempo Sync Accuracy Display** — Affichage en temps réel du décalage de sync entre les deux decks (ms).
+
+1488. **Loop Start/End Markers** — Marqueurs visuels clairs pour début et fin de boucle sur la waveform.
+
+1489. **Speed Increment Buttons** — Petits boutons +/- pour augmenter/diminuer la vitesse par incrément (0.1x par exemple).
+
+1490. **Tempo Lock Toggle** — Bouton verrouillant le tempo à une valeur (empêchant les changements accidentels).
+
+1491. **Gain Staging Meter** — VU-mètre dédié pour le gain d'entrée avec zones verte/orange/rouge.
+
+1492. **Channel Equalizer Display** — Graphique EQ pour visualiser les ajustements bass/mid/treble appliqués.
+
+1493. **Headphone Volume Independent** — Curseur volume casque séparé du volume master pour monitoring.
+
+1494. **Metronome Toggle Button** — Bouton pour activer/désactiver un click métronome pendant la lecture.
+
+1495. **Beat Grid Visualization** — Grille affichant les beats/barres alignées sur la waveform pour guide visuel.
+
+1496. **Waveform Peak Hold Indicators** — Marqueurs subtils montrant les pics de volume pour identification rapide.
+
+1497. **Frequency Spectrum Real-Time** — Affichage en temps réel du spectre fréquence (0 Hz - 20kHz) sous forme de barres.
+
+1498. **Stereo Field Display** — Affichage stéréo L/R montrant la largeur et le positionnement dans le champ stéréo.
+
+1499. **Mono Waveform Toggle** — Bouton convertissant l'affichage en mono (combinaison L+R) pour simplifier la vue.
+
+1500. **Duck Other Channels** — Réduire automatiquement le volume du deck 1 quand on commence le deck 2.
+
+1501. **Smart Cue Suggestions Algorithm** — Algorithme suggérant positions de cues automatiques basées sur énergie/beats/structure.
+
+1502. **Solo Stem Without Muting** — Écouter un stem avec les autres audibles mais en baissant leur volume.
+
+1503. **Per-Stem EQ Controls** — Appliquer un EQ spécifique à chaque stem individuellement.
+
+1504. **Stem Volume Fade Controls** — Contrôles fade in/out rapides (0.5s, 1s, 2s) pour chaque stem.
+
+1505. **Stem Pan Left/Right** — Slider pan stéréo pour chaque stem créant de la largeur et de la spatialisation.
+
+1506. **Stem Crossfade Between Versions** — Crossfader si plusieurs versions de stems existent pour la même track.
+
+1507. **Stem Folder Organization** — Grouper les stems par catégorie (drums, melody, bass, fx) avec expand/collapse.
+
+1508. **Stem Rename Inline Editing** — Double-cliquer pour renommer un stem directement sans modal.
+
+1509. **Stem Color Assignment** — Assigner une couleur à chaque stem pour identification visuelle rapide.
+
+1510. **Stem Level Meter VU** — Petit VU-mètre par stem affichant niveau en temps réel pendant lecture.
+
+1511. **Solo/Mute Toggle Animation** — Boutons Solo/Mute avec animation (rotate, couleur change) pour indiquer état.
+
+1512. **Stem Volume Automation Curves** — Graphique affichant courbe volume au fil du temps, éditable par clic.
+
+1513. **Stem Waveform Color by Energy** — Couleur de waveform variant (vive=énergique, pâle=faible) pour vision rapide.
+
+1514. **Stem Comparison Before/After View** — Vue dual affichant waveform stem avant/après effet pour comparer impact.
+
+1515. **Stem Export Preview Window** — Avant export, afficher preview du fichier résultant (durée, codec, qualité).
+
+1516. **Stem Effects Per-Stem Application** — Appliquer reverb, delay, EQ, compression spécifiques à un stem.
+
+1517. **Stem Pattern Visualization** — Affichage du pattern de répétition avec visualisation des barres alignées.
+
+1518. **Stem Rhythm Notation Display** — Notation musicale simplifiée montrant notes/beats des stems mélodiques/percussifs.
+
+1519. **Stem Remix Mode Specialized** — Mode affichant tous les stems dans mix remix avec faders volume individuels.
+
+1520. **Stem DJ Performance Mode** — Vue minimaliste optimisée pour DJ avec touches rapides solo/mute.
+
+1521. **Stem Karaoke Mode** — Mode affichant stem vocal/mélodique isolé avec backing tracks en arrière-plan pour chanter.
+
+1522. **Stem Practice Mode** — Mode d'entraînement permettant d'isoler et de pratiquer des sections spécifiques par stem.
+
+1523. **Drag-and-Drop Playlist Builder** — Créer/éditer playlist par drag-drop des tracks depuis liste vers vue playlist.
+
+1524. **Visual Energy Curve for Set** — Graphique montrant courbe d'énergie du set (temps vs énergie estimée).
+
+1525. **Key Compatibility Indicators** — Icones/badges montrant compatibilité harmonique entre paires consécutives de tracks.
+
+1526. **Automatic Set Order Suggestions** — Bouton "Auto-Order" suggérant ordre optimal basé sur BPM, Key, Energy.
+
+1527. **Transition Point Markers** — Marqueurs visuels montrant points de transition suggérés entre tracks.
+
+1528. **Set Duration Calculator** — Affichage automatique de durée totale du set et estimation de temps par track.
+
+1529. **Gap Analysis Between Tracks** — Détecte et affiche "gaps" de BPM ou Key entre tracks consécutives.
+
+1530. **Print Setlist with Notes** — Export imprimable en PDF avec temps, BPM, Key et notes personnelles.
+
+1531. **Share Setlist as Link** — Générer lien public/privé partageant setlist avec autre DJ (read-only ou editable).
+
+1532. **Collaborative Playlist Editing** — Multi-utilisateurs éditent même playlist simultanément (fondations collab future).
+
+1533. **Playlist Duplicate Function** — Bouton clonant playlist entière avec toutes tracks, cues et notes.
+
+1534. **Playlist Template Save** — Sauvegarder structure playlist vide (sans tracks) comme template réutilisable.
+
+1535. **Playlist Template Load** — Charger template et remplir rapidement avec des tracks.
+
+1536. **Reorder Tracks Drag-Drop** — Drag-drop pour réordonner tracks dans playlist avec undo/redo.
+
+1537. **Track Removal from Playlist** — Supprimer track du playlist sans supprimer fichier source original.
+
+1538. **Bulk Add to Playlist** — Sélectionner plusieurs tracks et les ajouter d'un coup à playlist.
+
+1539. **Playlist Notes and Description** — Champ texte pour ajouter notes globales au playlist (thème, event, notes).
+
+1540. **Playlist Cover Image Upload** — Uploader image de cover pour playlist, affichée en thumbnail.
+
+1541. **Playlist Genre Tags Selection** — Tags multi-sélectionnables pour catégoriser playlist (house, techno, hip-hop).
+
+1542. **Playlist Difficulty Rating** — Slider 1-5 étoiles indiquant complexité/skill requise pour mixer setlist.
+
+1543. **Track Swap in Playlist** — Drag-drop rapide pour swapper 2 tracks de position sans les retirer.
+
+1544. **Playlist Timeline View** — Vue timeline montrant tracks comme blocs avec hauteur/couleur représentant énergie/BPM.
+
+1545. **Playlist Transition Suggestions** — IA suggérant meilleures transitions possibles entre paires de tracks.
+
+1546. **Estimated Mix Duration** — Calcul estimé temps total pour mixer setlist (durée tracks + buffer transition).
+
+1547. **Set Difficulty Indicator** — Algo estimant difficulté globale setlist basée sur transitions et changements.
+
+1548. **Playlist Export Formats** — Exporter en CSV, JSON, PDF ou M3U pour utilisateurs externes.
+
+1549. **Playlist Import from File** — Importer setlist depuis fichier (CSV, M3U, JSON) avec mapping colonnes.
+
+1550. **Playlist Archive/Restore** — Archiver anciens playlists (masqués mais conservés) avec option restore.
+
+1551. **Playlist Search/Filter** — Recherche rapide dans playlist par titre track, artiste ou genre.
+
+1552. **Playlist Sort Options** — Trier playlist par BPM, Key, Energy, Durée ou ordre d'ajout avec reverse.
+
+1553. **Smart Playlist Auto-Update** — Playlist qui se met à jour automatiquement selon filtres définis (tous les tracks >130 BPM).
+
+1554. **Playlist Backup/Sync** — Sauvegarder playlists en cloud avec sync automatique sur tous les appareils.
+
+1555. **Playlist Version History** — Historique des modifications du playlist avec rollback possible à versions antérieures.
+
+1556. **Playlist Comparison Tool** — Comparer deux playlists côte à côte pour voir différences (tracks uniques, ordre, etc.).
+
+1557. **Playlist Statistics Dashboard** — Affichage stats du playlist (BPM moyen, Key distribution, énergie moyenne, durée).
+
+1558. **Theme Editor Dark/Light/Custom** — Éditeur de thème permettant personnaliser couleurs, polices et layouts (dark/light/custom).
+
+1559. **Keyboard Shortcut Customization** — Panel permettant réassigner les raccourcis clavier à des commandes personnalisées.
+
+1560. **Default Analysis Settings** — Pré-configurer les paramètres par défaut pour futures analyses (précision, services).
+
+1561. **Notification Preferences Panel** — Contrôler quelles notifications afficher (analyse terminée, updates, messages).
+
+1562. **Display Density Selection** — Mode compact/normal/spacious pour ajuster densité visuelle et fatigue oculaire.
+
+1563. **Waveform Style Preferences** — Choisir entre différents styles waveform (ligne, barres, spectrogram) et couleurs.
+
+1564. **Cue Color Preferences** — Personnaliser palette de couleurs pour les cues (couleurs par défaut, thèmes).
+
+1565. **Export Format Defaults** — Pré-sélectionner formats d'export préférés (MP3, WAV, FLAC, etc.) comme defaults.
+
+1566. **Language Selection Panel** — Choisir langue de l'interface (français, anglais, espagnol, etc.).
+
+1567. **Audio Quality Preferences** — Définir qualité audio par défaut pour export et streaming (bitrate, sample rate).
+
+1568. **Plugin Settings Management** — Panneau pour configurer paramètres de plugins d'analyse externes (API keys, options).
+
+1569. **Workspace Layouts Customization** — Sauvegarder et charger différentes layouts de fenêtres/panels personnalisées.
+
+1570. **Font Size Scaling** — Curseur ajustant la taille de police globalement pour accessibilité.
+
+1571. **High Contrast Mode Toggle** — Activer mode contraste élevé pour meilleure lisibilité.
+
+1572. **Color Blind Mode** — Modes optimisés pour daltonisme (deutéranopie, protanopie, tritanopie).
+
+1573. **Focus Indicator Visibility** — Indicateurs de focus clairs et distincts sur tous éléments interactifs.
+
+1574. **Compact vs Spacious Layout** — Deux modes densité visuelle (compact=plus d'infos, spacious=moins de fatigue).
+
+1575. **Dashboard Search Bar Sticky** — Barre recherche sticky au top, toujours accessible même en scrollant.
+
+1576. **Notification Center Panel** — Panneau de notification dédié regroupant alertes et messages depuis le header.
+
+1577. **User Profile Menu Dropdown** — Menu déroulant affichant profil, paramètres, aide et logout.
+
+1578. **Undo/Redo Top-Level Buttons** — Buttons Undo/Redo visibles dans toolbar pour annuler actions dashboard.
+
+1579. **Interactive Tutorial System** — Tutoriel pas-à-pas intégré sans vidéo avec tooltips contextuels et actions simulées.
+
+1580. **Progress Wizard UI** — Barre progression visuelle montrant étapes d'onboarding complétées (import → analyse → édition).
+
+1581. **First Track Analysis Guided Flow** — Workflow guidé pour première analyse avec éléments mis en surbrillance.
+
+1582. **Feature Discovery Tooltips** — Tooltips intelligentes apparaissant au moment optimal présentant nouvelles features.
+
+1583. **Empty State Dashboard Design** — État vide attrayant avec illustrations, CTA clairs et lien vers première analyse guidée.
+
+1584. **Empty State Playlists Design** — Design spécifique absence playlist avec bouton flottant et raccourci clavier.
+
+1585. **Sample Track Included Pre-Loaded** — Piste d'exemple pré-chargée pour tester features immédiatement sans importer.
+
+1586. **Quick-Start Presets by DJ Level** — Presets configuration rapide adaptés au niveau DJ (débutant/intermédiaire/expert).
+
+1587. **Contextual Help Button Floating** — Bouton aide flottant contextuel accessible partout affichant réponses par vue.
+
+1588. **Keyboard Shortcut Cheatsheet Modal** — Modal listant 20 raccourcis clavier essentiels avec émoticônes et mnémoniques.
+
+1589. **Achievement System for Learning** — Badges/achievements débloqués en complétant jalons (première analyse, 10 tracks).
+
+1590. **Onboarding Progress Persistence** — Progression sauvegardée localement permettant reprendre onboarding avec "Skip" visible.
+
+1591. **Guided Import Flow Assistant** — Assistant d'importation détaillé expliquant formats supportés, taille max et qualité.
+
+1592. **Feature Walkthrough Video Alternatives** — Microanimations et GIF animés à la place de vidéos, expliquant features.
+
+1593. **Post-Onboarding Nudges Messages** — Messages contextuels doux incitant explorer features avancées après premières analyses.
+
+1594. **Confirmation of Understanding Quiz** — Petits quiz ou boutons confirmation pendant onboarding vérifiant compréhension.
+
+1595. **Onboarding Customization Options** — Option pour sauter certaines étapes ou accélérer tutoriel pour expérimentés.
+
+1596. **Getting Started Checklist Visible** — Checklist dans sidebar indiquant tâches onboarding complétées (import, analyse).
+
+1597. **Tooltips Dismissal Tracking System** — Badge "dismiss" sur tooltips avec "Don't show again for this feature".
+
+1598. **First Login Celebration Screen** — Écran bienvenue avec animation confetti subtile et statistiques encourageantes.
+
+1599. **Onboarding Accessibility Mode** — Mode onboarding spécifique avec focus lisibilité, polices agrandies, texte détaillé.
+
+1600. **Language Selector on Onboarding** — Choix langue avant tutoriel avec traductions français/anglais/espagnol.
+
+1601. **Personalized Feature Recommendations** — Système recommandant features basé sur usage patterns et préférences utilisateur.
+
+1602. **Dark Mode Theme** — Thème sombre complet avec couleurs adaptées pour confort nocturne et économie batterie.
+
+1603. **Light Mode Theme** — Thème clair standard avec contraste optimal pour lecture et travail en journée.
+
+1604. **Auto Theme Switching** — Basculer automatiquement dark/light selon heure du jour ou selon paramètres système.
+
+1605. **Custom Color Palette Editor** — Éditeur permettant créer palette couleurs custom pour UI (primaire, secondaire, accents).
+
+1606. **Font Family Selection** — Choisir parmi plusieurs polices (Roboto, Inter, Courier, etc.) pour personnaliser look.
+
+1607. **Accent Color Customization** — Ajuster couleur accent appliquée aux boutons, liens et éléments interactifs.
+
+1608. **Background Image/Wallpaper** — Uploader image de fond custom pour dashboard (avec options de blur/opacity).
+
+1609. **Sidebar Width Adjustment** — Curseur ajustant largeur du sidebar (collapse, narrow, normal, wide).
+
+1610. **Icon Set Selection** — Choisir parmi différents sets d'icônes (outline, filled, rounded, etc.).
+
+1611. **Accent Color Customization per View** — Assigner couleurs accent spécifiques à chaque section (dashboard, playlist, stems).
+
+1612. **Separator Style Options** — Personnaliser apparence des séparateurs (ligne, pointillé, ombrage, etc.).
+
+1613. **Corner Radius Settings** — Ajuster arrondi des corners des éléments UI (sharp, normal, rounded, very rounded).
+
+1614. **Animation Speed Controls** — Curseur ralentissant/accélérant toutes les animations (pour accessibilité ou préférence).
+
+1615. **Grid/Snap Settings** — Options d'alignement grille pour drag-drop et composition (snap, free, grid visible).
+
+1616. **Micro Interactions Preferences** — Activer/désactiver micro interactions (hover effects, transitions, animations).
+
+1617. **Sound Settings Panel** — Contrôler sons système (notification sounds, UI sounds, enable/disable tous).
+
+1618. **Haptic Feedback Toggle** — Activable/désactivable vibration/haptic sur mobile pour feedback tactile.
+
+1619. **Gesture Controls Customization** — Assigner gestes personnalisés (swipe, tap, pinch) à actions spécifiques.
+
+1620. **Mouse Sensitivity Settings** — Ajuster sensibilité du cursor pour drag-drop et interactions souris.
+
+1621. **Trackpad Gesture Settings** — Configurer gestes trackpad (pinch, swipe, scroll) et leur sensibilité.
+
+1622. **Touch Gesture Customization** — Personnaliser gestes tactiles sur mobile (swipe, pinch, long-press).
+
+1623. **Hot Key Macro Editor** — Créer macros regroupant plusieurs actions sous un seul raccourci (e.g., Ctrl+Shift+S).
+
+1624. **Reset Settings to Default** — Bouton pour réinitialiser tous les paramètres aux valeurs par défaut.
+
+1625. **Settings Export/Import** — Exporter configuration en fichier pour backup ou importer sur autre poste.
+
+1626. **Sync Settings Across Devices** — Synchroniser préférences en cloud entre desktop/web/mobile automatiquement.
+
+1627. **Settings Search Bar** — Barre recherche permettant trouver rapidement un paramètre par mot-clé.
+
+1628. **Settings Categories Sidebar** — Sidebar organisé par catégories (Apparence, Son, Clavier, Notification, etc.).
+
+1629. **Settings Help Tooltips** — Petit (?) à côté de chaque paramètre expliquant son rôle au survol.
+
+1630. **Advanced Settings Submenu** — Section "Advanced" regroupant paramètres avancés moins utilisés.
+
+1631. **Beta Features Toggle** — Activer/désactiver fonctionnalités bêta expérimentales pour early adopters.
+
+1632. **Analytics Opt-Out** — Contrôle utilisateur pour refuser tracking analytique/données d'usage.
+
+1633. **Privacy Settings Panel** — Panneau contrôlant partage données (telemetry, crash reports, etc.).
+
+1634. **Account Settings Panel** — Changer email, password, 2FA, supprimer compte et gérer sessions.
+
+1635. **Subscription Management** — Gérer plan d'abonnement, upgrade/downgrade, faturation et facturation.
+
+1636. **API Keys Management** — Générer/révoquer clés API pour intégrations développeur externes.
+
+1637. **Integration Settings** — Paramètres pour services externes (Spotify, Apple Music, etc.) et leurs permissions.
+
+1638. **Backup & Restore Panel** — Créer backups manuels et restaurer depuis backup précédent.
+
+1639. **Data Export Panel** — Exporter tous les datos personnels (tracks, playlists, preferences) en format standard.
+
+1640. **Update Notifications Toggle** — Activer/désactiver notifications de mise à jour logiciel.
+
+1641. **Auto-Update Settings** — Configurer quand updater auto (auto, scheduled, manual only).
+
+1642. **Performance Optimization Settings** — Options pour optimiser performance (réduire animations, désactiver certaines features).
+
+1643. **Developer Mode Toggle** — Activer mode dev affichant logs console, debug info et outils dev.
+
+1644. **Cache Management Panel** — Vider cache, gérer taille cache, configurer comportement caching.
+
+1645. **Offline Mode Settings** — Configurer fonctionnalités disponibles en offline et comportement sync.
+
+1646. **Proxy Settings Configuration** — Configurer proxy réseau/VPN si nécessaire pour connexion.
+
+1647. **Logging Level Selection** — Définir niveau verbosité logs (silent, error, warning, info, debug).
+
+1648. **Debug Mode Toggle** — Activer mode debug affichant informations techniques détaillées.
+
+1649. **Feature Flags Management** — Interface pour toggler features backend côté client (pour testing).
+
+1650. **System Information Display** — Afficher infos système (version app, OS, RAM, plugins chargés) pour support.
+
 ---
 
 **FIN DE LA SECTION E — 400 points exactement (1251-1650)**
