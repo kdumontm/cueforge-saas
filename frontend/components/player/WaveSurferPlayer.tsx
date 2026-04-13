@@ -472,18 +472,20 @@ export default function WaveSurferPlayer({
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(progress * w, 0, w - progress * w, h);
 
-      // Beat grid — rouge style Rekordbox (downbeats plus marqués)
+      // Beat grid — rouge style Rekordbox (downbeats only in overview for perf)
+      // v6.1: Overview only draws downbeats (every 4th beat) — individual beats
+      // are invisible at this scale anyway. Reduces draw calls from ~800 to ~200.
       if (beatPositions.length > 0 && dur > 0) {
-        beatPositions.forEach((bMs, idx) => {
-          const xPos = (bMs / 1000 / dur) * w;
-          const isDownbeat = idx % 4 === 0;
-          ctx.strokeStyle = isDownbeat ? 'rgba(255,60,60,0.75)' : 'rgba(255,60,60,0.30)';
-          ctx.lineWidth = isDownbeat ? 1.5 : 0.75;
-          ctx.beginPath();
-          ctx.moveTo(xPos, isDownbeat ? 0 : h * 0.5);
+        // Batch downbeats into a single path for minimal draw calls
+        ctx.strokeStyle = 'rgba(255,60,60,0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let idx = 0; idx < beatPositions.length; idx += 4) {
+          const xPos = (beatPositions[idx] / 1000 / dur) * w;
+          ctx.moveTo(xPos, 0);
           ctx.lineTo(xPos, h);
-          ctx.stroke();
-        });
+        }
+        ctx.stroke();
       }
 
       // Cue points
@@ -609,20 +611,47 @@ export default function WaveSurferPlayer({
       }
 
       // Beat grid — rouge style Rekordbox, dessiné APRÈS le waveform
+      // v6.1: Batch draw calls — 2 paths (downbeats + offbeats) instead of N paths
       if (beatPositions.length > 0) {
-        // Vraies positions depuis l'analyse
-        beatPositions.forEach((bMs, idx) => {
-          const bT = bMs / 1000;
+        // Use binary search to find first visible beat instead of scanning all
+        const startMs = startTime * 1000;
+        const endMs = (startTime + visSec) * 1000;
+        let lo = 0, hi = beatPositions.length - 1;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (beatPositions[mid] < startMs - 2000) lo = mid + 1; else hi = mid; }
+
+        // Batch downbeats path
+        ctx.strokeStyle = 'rgba(255,50,50,0.90)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let idx = lo; idx < beatPositions.length; idx++) {
+          const bT = beatPositions[idx] / 1000;
           const x = (bT - startTime) / secPerPx;
-          if (x < -2 || x >= w + 2) return;
-          const isDownbeat = idx % 4 === 0;
-          ctx.strokeStyle = isDownbeat ? 'rgba(255,50,50,0.90)' : 'rgba(255,80,80,0.50)';
-          ctx.lineWidth = isDownbeat ? 2 : 1;
-          ctx.beginPath();
-          ctx.moveTo(Math.round(x) + 0.5, isDownbeat ? 0 : h * 0.4);
-          ctx.lineTo(Math.round(x) + 0.5, h);
-          ctx.stroke();
-        });
+          if (x >= w + 2) break;
+          if (x < -2) continue;
+          if (idx % 4 === 0) {
+            const rx = Math.round(x) + 0.5;
+            ctx.moveTo(rx, 0);
+            ctx.lineTo(rx, h);
+          }
+        }
+        ctx.stroke();
+
+        // Batch offbeats path
+        ctx.strokeStyle = 'rgba(255,80,80,0.50)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let idx = lo; idx < beatPositions.length; idx++) {
+          const bT = beatPositions[idx] / 1000;
+          const x = (bT - startTime) / secPerPx;
+          if (x >= w + 2) break;
+          if (x < -2) continue;
+          if (idx % 4 !== 0) {
+            const rx = Math.round(x) + 0.5;
+            ctx.moveTo(rx, h * 0.4);
+            ctx.lineTo(rx, h);
+          }
+        }
+        ctx.stroke();
       } else {
         // Fallback BPM calculé (si pas encore de beat_positions dans l'analyse)
         const bpm = bpmRef.current;

@@ -22,9 +22,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models.track import Track, TrackAnalysis
+from app.models.track import Track, TrackAnalysis, CuePoint
 from app.models.user import User
 from app.middleware.auth import get_current_user
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/advanced", tags=["advanced"])
@@ -278,22 +279,93 @@ def generate_auto_cues(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """AI-powered automatic cue point placement.
+    """AI-powered automatic cue point placement — v6.1 LIVE.
+
+    Generates cue points from existing analysis data (no re-analysis needed).
+    Replaces all auto-generated cues, preserves manual cues.
 
     Styles:
     - standard: Intro, build, drop, break, outro (5 cues)
     - minimal: Just drop and outro (2 cues)
     - full: All structural markers + hot cues (up to 8)
-
-    Currently a stub — will use ML section detection.
     """
+    from app.services.cue_generator import generate_cue_points
+
     track = db.query(Track).filter(
         Track.id == track_id, Track.user_id == current_user.id
-    ).first()
+    ).options(selectinload(Track.analysis)).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    raise HTTPException(
-        status_code=501,
-        detail="AI auto-cue generation is coming soon. Will use ML-based section detection."
-    )
+    analysis = track.analysis
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track has no analysis data. Run analysis first.")
+
+    # Build analysis_data dict from stored TrackAnalysis
+    analysis_data = {
+        "bpm": analysis.bpm,
+        "key": analysis.key,
+        "energy": analysis.energy,
+        "duration_ms": analysis.duration_ms,
+        "beat_positions": analysis.beat_positions or [],
+        "drop_positions": analysis.drop_positions or [],
+        "phrase_positions": analysis.phrase_positions or [],
+        "section_labels": analysis.section_labels or [],
+        "genre": analysis.genre,
+        # Stem data if available
+        "stem_analysis": getattr(analysis, 'stem_analysis', False),
+        "stem_validated_drops": getattr(analysis, 'stem_validated_drops', []),
+        "stem_intro_end_ms": getattr(analysis, 'stem_intro_end_ms', None),
+        "stem_outro_start_ms": getattr(analysis, 'stem_outro_start_ms', None),
+        "vocal_sections_ms": getattr(analysis, 'vocal_sections_ms', []),
+        "vocal_active_regions": getattr(analysis, 'vocal_active_regions', []),
+        "riser_candidates": getattr(analysis, 'riser_candidates', []),
+        "drum_enter_ms": getattr(analysis, 'drum_enter_ms', None),
+        "drum_exit_ms": getattr(analysis, 'drum_exit_ms', None),
+        "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
+    }
+
+    # Generate cue points
+    generated = generate_cue_points(analysis_data)
+
+    # Apply style filter
+    if style == "minimal":
+        # Keep only DROP and OUTRO
+        generated = [c for c in generated if c["name"] in ("DROP", "DROP 2", "OUTRO")][:2]
+    elif style == "standard":
+        # Keep max 5: INTRO, BUILD, DROP, BREAKDOWN, OUTRO
+        priority = {"INTRO", "BUILD", "DROP", "BREAKDOWN", "OUTRO"}
+        generated = [c for c in generated if c["name"] in priority][:5]
+    # "full" = all generated cues (up to 8)
+
+    # Delete existing auto-generated cues (preserve manual ones)
+    db.query(CuePoint).filter(
+        CuePoint.track_id == track_id,
+        CuePoint.cue_type != "manual",
+    ).delete(synchronize_session='fetch')
+
+    # Insert new cues
+    new_cues = []
+    for cp in generated:
+        cue = CuePoint(
+            track_id=track_id,
+            position_ms=cp["position_ms"],
+            end_position_ms=cp.get("end_position_ms"),
+            cue_type=cp["cue_type"],
+            name=cp["name"],
+            color=cp["color"],
+            number=cp["number"],
+            confidence=cp.get("confidence"),
+        )
+        db.add(cue)
+        new_cues.append(cp)
+
+    db.commit()
+    logger.info(f"[AUTO-CUES] Generated {len(new_cues)} cue points for track {track_id} (style={style})")
+
+    return {
+        "track_id": track_id,
+        "style": style,
+        "cue_points": new_cues,
+        "count": len(new_cues),
+    }
