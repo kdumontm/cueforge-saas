@@ -11,7 +11,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Dict, Any, Optional
 import logging
 
-from backend.app.services.data_optimization import get_optimization_service
+from app.services.data_optimization import get_optimization_service
 
 logger = logging.getLogger(__name__)
 

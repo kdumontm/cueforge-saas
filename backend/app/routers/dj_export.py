@@ -24,7 +24,7 @@ from app.middleware.auth import get_current_user
 from app.services import quota_service
 from app.services.dj_export_advanced import (
     generate_stem_export_metadata,
-    generate_pdf_setlist,
+    generate_setlist_pdf,
     write_id3_tags,
 )
 from app.services.virtualdj_export import generate_virtualdj_poi_database
@@ -347,7 +347,7 @@ async def export_setlist_pdf(
                 "duration_ms": track.duration_ms or 0,
             })
 
-        pdf_metadata = generate_pdf_setlist(setlist_name, track_data)
+        pdf_metadata = generate_setlist_pdf(setlist_name, track_data)
 
         return {
             "format": "pdf_setlist",

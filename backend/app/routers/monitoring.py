@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends
 from typing import Dict, Any
 import logging
 
-from backend.app.services.monitoring import get_metrics
-from backend.app.services.circuit_breaker import get_all_breakers
+from app.services.monitoring import get_metrics
+from app.services.circuit_breaker import get_all_breakers
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Dict, Any, Optional
 import logging
 
-from backend.app.services.quota_service import get_quota_service, PlanType
+from app.services.quota_service import get_quota_service, PlanType
 
 logger = logging.getLogger(__name__)
 
