@@ -215,6 +215,10 @@ class TrackAnalysis(Base):
     vocal_analysis = Column(JSON, nullable=True)
     production_analysis = Column(JSON, nullable=True)
     mixing_compatibility = Column(JSON, nullable=True)
+    # v6.9: Deep analysis blobs
+    section_deep_analysis = Column(JSON, nullable=True)
+    loudness_deep_analysis = Column(JSON, nullable=True)
+    key_deep_analysis = Column(JSON, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

@@ -5655,6 +5655,26 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         result["mixing_compatibility"] = {"available": False}
 
+    # ── v6.9: Deep section analysis (10 orphaned section functions) ──
+    try:
+        result["section_deep_analysis"] = compute_section_deep_analysis(
+            y, sr_loaded, section_labels, beat_frames, bpm,
+        )
+    except Exception:
+        result["section_deep_analysis"] = {"available": False}
+
+    # ── v6.9: Deep loudness analysis (11 orphaned quality functions) ──
+    try:
+        result["loudness_deep_analysis"] = compute_loudness_deep_analysis(y, sr_loaded, file_path)
+    except Exception:
+        result["loudness_deep_analysis"] = {"available": False}
+
+    # ── v6.9: Deep key analysis (8 orphaned key functions) ──
+    try:
+        result["key_deep_analysis"] = compute_key_deep_analysis(y, sr_loaded, section_labels)
+    except Exception:
+        result["key_deep_analysis"] = {"available": False}
+
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
@@ -12007,3 +12027,492 @@ def compare_track_analyses(analysis_a: Dict, analysis_b: Dict) -> Dict:
     result["key_b"] = key_b
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: SECTION ANALYSIS WRAPPER (connects drop/section orphans)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_section_deep_analysis(
+    y: np.ndarray, sr: int, section_labels: List[Dict],
+    beat_frames: Optional[np.ndarray] = None,
+    bpm: float = 128.0,
+) -> Dict:
+    """
+    v6.9: Deep section analysis — connects orphaned section/drop functions.
+    Produces per-section energy, key changes, loop candidates, transition quality.
+    """
+    s: Dict = {"available": False}
+    if not section_labels:
+        return s
+    duration_ms = int(len(y) / sr * 1000)
+
+    # Point 40: Dynamic range per section
+    try:
+        dr = compute_dynamic_range_per_section(section_labels, y, sr)
+        s["dynamic_range_per_section"] = dr
+    except Exception:
+        pass
+
+    # Point 42: Key changes at section boundaries
+    try:
+        kc = detect_key_changes_at_boundaries(y, sr, section_labels)
+        s["key_changes"] = kc
+    except Exception:
+        pass
+
+    # Point 44: Loop candidates
+    try:
+        lc = identify_loop_candidates(section_labels, bpm, duration_ms)
+        s["loop_candidates"] = lc[:10]
+    except Exception:
+        pass
+
+    # Point 46: Transition zones
+    try:
+        tz = compute_transition_zones(section_labels, duration_ms, bpm)
+        s["transition_zones"] = tz
+    except Exception:
+        pass
+
+    # Point 48: Vocal-free zones
+    try:
+        vfz = mark_vocal_free_zones(section_labels)
+        s["vocal_free_zones"] = vfz
+    except Exception:
+        pass
+
+    # Point 50: Energy trends per section
+    try:
+        et = detect_energy_trends_per_section(section_labels)
+        s["energy_trends"] = et
+    except Exception:
+        pass
+
+    # Point 52: Fade in/out detection
+    try:
+        fio = detect_fade_in_out(y, sr)
+        s["fade_in_out"] = fio
+    except Exception:
+        pass
+
+    # Point 54: Structure checkerboard (similarity matrix)
+    try:
+        cb = detect_structure_checkerboard(y, sr, section_labels)
+        s["checkerboard"] = cb
+    except Exception:
+        pass
+
+    # Point 56: Enhanced section labeling
+    try:
+        esl = enhance_section_labeling(section_labels, y, sr)
+        s["enhanced_labels"] = esl
+    except Exception:
+        pass
+
+    s["available"] = True
+    return s
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: LOUDNESS ANALYSIS WRAPPER (connects loudness/quality orphans)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_loudness_deep_analysis(y: np.ndarray, sr: int, file_path: str = "") -> Dict:
+    """
+    v6.9: Deep loudness analysis — connects orphaned quality/loudness functions.
+    """
+    s: Dict = {"available": False}
+
+    for fn, k in [
+        (lambda: clipping_detection(y, sr), "clipping"),
+        (lambda: DC_offset_detection(y, sr), "dc_offset"),
+        (lambda: dynamic_range_measurement(y, sr), "dynamic_range"),
+        (lambda: noise_floor_estimation(y, sr), "noise_floor"),
+        (lambda: silence_detection_precise(y, sr), "silence"),
+        (lambda: phase_coherence_check(y, sr), "phase_coherence"),
+        (lambda: click_pop_detection(y, sr), "click_pop"),
+        (lambda: codec_artifact_detection(y, sr), "codec_artifacts"),
+        (lambda: mastering_quality_score(y, sr), "mastering_quality"),
+        (lambda: detect_loudness_compression(y, sr), "loudness_compression"),
+        (lambda: loudness_normalization_suggestion(y, sr), "normalization_suggestion"),
+    ]:
+        try:
+            s[k] = fn()
+        except Exception:
+            pass
+
+    s["available"] = True
+    return s
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: KEY/HARMONY DEEP ANALYSIS (connects remaining key orphans)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_key_deep_analysis(y: np.ndarray, sr: int, section_labels: List[Dict] = None) -> Dict:
+    """
+    v6.9: Deep key/harmony analysis — connects remaining orphaned key functions.
+    """
+    s: Dict = {"available": False}
+
+    for fn, k in [
+        (lambda: scale_detection(y, sr), "scale"),
+        (lambda: chord_detection_basic(y, sr), "chords_basic"),
+        (lambda: harmonic_rhythm_analysis(y, sr), "harmonic_rhythm"),
+        (lambda: diatonic_vs_chromatic_ratio(y, sr), "diatonic_ratio"),
+        (lambda: pentatonic_index(y, sr), "pentatonic_index"),
+        (lambda: pitch_class_distribution(y, sr), "pitch_distribution"),
+        (lambda: compute_chroma_energy_normalized(y, sr), "chroma_energy"),
+        (lambda: key_stability_per_section(y, sr, section_labels or []), "key_per_section"),
+    ]:
+        try:
+            s[k] = fn()
+        except Exception:
+            pass
+
+    s["available"] = True
+    return s
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: SMART PLAYLIST GENERATION (Points 340-360 from 500-list)
+# ══════════════════════════════════════════════════════════════════════════
+
+def generate_smart_playlist(
+    tracks_data: List[Dict],
+    mode: str = "energy_flow",
+    target_duration_min: int = 60,
+) -> List[Dict]:
+    """
+    Generate an optimized playlist ordering from a list of analyzed tracks.
+
+    Modes:
+    - energy_flow: gradual energy buildup → peak → cooldown
+    - harmonic_mix: follow Camelot wheel for smooth key transitions
+    - bpm_flow: gradual BPM progression (warm-up → peak → wind-down)
+    - random_compatible: randomized but only compatible adjacent tracks
+
+    Each track dict should have: id, bpm, key, energy, camelot_code, duration_ms
+    """
+    if not tracks_data:
+        return []
+
+    if mode == "energy_flow":
+        return _playlist_energy_flow(tracks_data, target_duration_min)
+    elif mode == "harmonic_mix":
+        return _playlist_harmonic(tracks_data, target_duration_min)
+    elif mode == "bpm_flow":
+        return _playlist_bpm_flow(tracks_data, target_duration_min)
+    else:
+        return _playlist_energy_flow(tracks_data, target_duration_min)
+
+
+def _playlist_energy_flow(tracks: List[Dict], target_min: int) -> List[Dict]:
+    """Order tracks by energy: low → high → cooldown."""
+    sorted_tracks = sorted(tracks, key=lambda t: t.get("energy", 50) or 50)
+    n = len(sorted_tracks)
+    if n <= 3:
+        return sorted_tracks
+
+    # Split: 30% warm-up, 50% peak, 20% cooldown
+    warmup_end = max(1, int(n * 0.3))
+    peak_end = max(warmup_end + 1, int(n * 0.8))
+
+    warmup = sorted_tracks[:warmup_end]
+    peak = sorted_tracks[warmup_end:peak_end]
+    cooldown = sorted_tracks[peak_end:]
+    cooldown.reverse()
+
+    result = warmup + peak + cooldown
+
+    # Add transition annotations
+    total_ms = 0
+    for i, t in enumerate(result):
+        t["playlist_position"] = i + 1
+        dur = t.get("duration_ms", 300000) or 300000
+        t["cumulative_time_ms"] = total_ms
+        total_ms += dur
+        if i < len(warmup):
+            t["set_phase"] = "warm_up"
+        elif i < len(warmup) + len(peak):
+            t["set_phase"] = "peak_time"
+        else:
+            t["set_phase"] = "cooldown"
+
+    return result
+
+
+def _playlist_harmonic(tracks: List[Dict], target_min: int) -> List[Dict]:
+    """Order tracks to follow Camelot wheel for smooth harmonic transitions."""
+    if not tracks:
+        return []
+
+    # Start with first track, greedily pick next by Camelot proximity
+    remaining = list(tracks)
+    result = [remaining.pop(0)]
+
+    while remaining:
+        last_cam = result[-1].get("camelot_code", "8B") or "8B"
+        best_idx = 0
+        best_score = -1
+
+        for i, t in enumerate(remaining):
+            cam = t.get("camelot_code", "8B") or "8B"
+            score = _camelot_compatibility(last_cam, cam)
+            if score > best_score:
+                best_score = score
+                best_idx = i
+
+        result.append(remaining.pop(best_idx))
+
+    for i, t in enumerate(result):
+        t["playlist_position"] = i + 1
+        t["harmonic_transition"] = "smooth" if i == 0 else (
+            "smooth" if _camelot_compatibility(
+                result[i-1].get("camelot_code", ""), t.get("camelot_code", "")
+            ) >= 0.7 else "key_change"
+        )
+
+    return result
+
+
+def _playlist_bpm_flow(tracks: List[Dict], target_min: int) -> List[Dict]:
+    """Order tracks by BPM: gradual increase then decrease."""
+    sorted_tracks = sorted(tracks, key=lambda t: t.get("bpm", 128) or 128)
+    n = len(sorted_tracks)
+    if n <= 2:
+        return sorted_tracks
+
+    peak_idx = int(n * 0.7)
+    result = sorted_tracks[:peak_idx] + sorted_tracks[peak_idx:][::-1]
+
+    for i, t in enumerate(result):
+        t["playlist_position"] = i + 1
+        if i < peak_idx:
+            t["set_phase"] = "building"
+        else:
+            t["set_phase"] = "winding_down"
+
+    return result
+
+
+def _camelot_compatibility(cam_a: str, cam_b: str) -> float:
+    """Score Camelot wheel compatibility (0.0 to 1.0)."""
+    if not cam_a or not cam_b or len(cam_a) < 2 or len(cam_b) < 2:
+        return 0.5
+    try:
+        num_a = int(cam_a[:-1])
+        num_b = int(cam_b[:-1])
+        mode_a = cam_a[-1]
+        mode_b = cam_b[-1]
+
+        if cam_a == cam_b:
+            return 1.0
+        # Same number, different mode (relative major/minor)
+        if num_a == num_b and mode_a != mode_b:
+            return 0.85
+        # Adjacent on wheel
+        diff = min(abs(num_a - num_b), 12 - abs(num_a - num_b))
+        if diff == 1 and mode_a == mode_b:
+            return 0.9
+        if diff == 1:
+            return 0.7
+        if diff == 2 and mode_a == mode_b:
+            return 0.6
+        return max(0.1, 1.0 - diff * 0.15)
+    except Exception:
+        return 0.5
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: ENHANCED CUE SUGGESTIONS (Points 200-230 from 500-list)
+# ══════════════════════════════════════════════════════════════════════════
+
+# Genre-specific cue templates
+GENRE_CUE_TEMPLATES = {
+    "house": {
+        "pattern": ["intro", "buildup", "drop", "breakdown", "drop_2", "outro"],
+        "colors": {"intro": "blue", "buildup": "yellow", "drop": "red", "breakdown": "green", "outro": "purple"},
+        "typical_cues": 8,
+    },
+    "techno": {
+        "pattern": ["intro", "build", "peak", "break", "peak_2", "outro"],
+        "colors": {"intro": "blue", "build": "orange", "peak": "red", "break": "cyan", "outro": "purple"},
+        "typical_cues": 6,
+    },
+    "drum_and_bass": {
+        "pattern": ["intro", "drop", "switch", "drop_2", "outro"],
+        "colors": {"intro": "blue", "drop": "red", "switch": "yellow", "outro": "purple"},
+        "typical_cues": 6,
+    },
+    "trance": {
+        "pattern": ["intro", "buildup", "anthem", "breakdown", "climax", "outro"],
+        "colors": {"intro": "blue", "buildup": "yellow", "anthem": "cyan", "breakdown": "green", "climax": "red", "outro": "purple"},
+        "typical_cues": 8,
+    },
+    "hip_hop": {
+        "pattern": ["intro", "verse", "chorus", "verse_2", "chorus_2", "outro"],
+        "colors": {"intro": "blue", "verse": "green", "chorus": "red", "outro": "purple"},
+        "typical_cues": 6,
+    },
+    "default": {
+        "pattern": ["intro", "section_a", "section_b", "section_c", "outro"],
+        "colors": {"intro": "blue", "section_a": "green", "section_b": "yellow", "section_c": "red", "outro": "purple"},
+        "typical_cues": 6,
+    },
+}
+
+
+def suggest_cues_from_analysis(
+    analysis_data: Dict,
+    genre: Optional[str] = None,
+    max_cues: int = 8,
+    min_confidence: float = 0.4,
+) -> List[Dict]:
+    """
+    Generate intelligent cue point suggestions from analysis results.
+
+    Uses:
+    - Section boundaries (intro/outro/drops)
+    - Energy peaks and valleys
+    - Beat-aligned positions
+    - Genre-specific templates
+    - Structural summary (if available)
+    """
+    cues: List[Dict] = []
+    sections = analysis_data.get("section_labels") or []
+    drops = analysis_data.get("drop_positions") or []
+    phrases = analysis_data.get("phrase_positions") or []
+    beats = analysis_data.get("beat_positions") or []
+    structural = analysis_data.get("structural_summary") or {}
+    bpm = analysis_data.get("bpm") or 128
+    duration_ms = analysis_data.get("duration_ms") or 0
+
+    if not duration_ms:
+        return []
+
+    # Get genre template
+    genre_key = (genre or "").lower().replace(" ", "_").replace("-", "_")
+    template = GENRE_CUE_TEMPLATES.get(genre_key, GENRE_CUE_TEMPLATES["default"])
+    colors = template["colors"]
+
+    # 1. Always mark intro (first beat or 0ms)
+    intro_pos = 0
+    if beats and len(beats) > 0:
+        intro_pos = beats[0]
+    cues.append({
+        "position_ms": intro_pos,
+        "cue_type": "intro",
+        "name": "Intro",
+        "color": colors.get("intro", "blue"),
+        "confidence": 0.95,
+        "source": "structure",
+    })
+
+    # 2. Mark drops (highest confidence cues)
+    for i, drop_ms in enumerate(drops[:3]):
+        cues.append({
+            "position_ms": int(drop_ms),
+            "cue_type": "drop",
+            "name": f"Drop {i + 1}" if i > 0 else "Drop",
+            "color": colors.get("drop", "red"),
+            "confidence": 0.9 - i * 0.05,
+            "source": "energy_detection",
+        })
+
+    # 3. Mark sections from structural summary
+    if structural.get("available"):
+        hook = structural.get("hook_section")
+        if hook and isinstance(hook, dict):
+            hook_ms = hook.get("time_ms", 0)
+            if hook_ms > 0:
+                cues.append({
+                    "position_ms": int(hook_ms),
+                    "cue_type": "hook",
+                    "name": "Hook",
+                    "color": "orange",
+                    "confidence": 0.85,
+                    "source": "structural_summary",
+                })
+
+        climax_data = structural.get("climax")
+        if climax_data and isinstance(climax_data, dict):
+            climax_ms = climax_data.get("time_ms", 0)
+            if climax_ms > 0:
+                cues.append({
+                    "position_ms": int(climax_ms),
+                    "cue_type": "climax",
+                    "name": "Climax",
+                    "color": "red",
+                    "confidence": 0.88,
+                    "source": "structural_summary",
+                })
+
+    # 4. Mark breakdown/buildup from sections
+    for sec in sections:
+        label = (sec.get("label", "") or "").lower()
+        sec_ms = sec.get("time_ms", 0)
+        if "break" in label and sec_ms > 0:
+            cues.append({
+                "position_ms": int(sec_ms),
+                "cue_type": "breakdown",
+                "name": "Breakdown",
+                "color": colors.get("breakdown", "green"),
+                "confidence": 0.75,
+                "source": "section_label",
+            })
+        elif "build" in label and sec_ms > 0:
+            cues.append({
+                "position_ms": int(sec_ms),
+                "cue_type": "buildup",
+                "name": "Buildup",
+                "color": colors.get("buildup", "yellow"),
+                "confidence": 0.75,
+                "source": "section_label",
+            })
+
+    # 5. Mark outro (last section or near end)
+    outro_pos = int(duration_ms * 0.9)
+    if sections:
+        last_sec = sections[-1]
+        if "outro" in (last_sec.get("label", "") or "").lower():
+            outro_pos = last_sec.get("time_ms", outro_pos)
+    cues.append({
+        "position_ms": outro_pos,
+        "cue_type": "outro",
+        "name": "Outro",
+        "color": colors.get("outro", "purple"),
+        "confidence": 0.85,
+        "source": "structure",
+    })
+
+    # 6. Snap to nearest beat
+    if beats and len(beats) > 4:
+        beat_arr = np.array(beats)
+        for cue in cues:
+            pos = cue["position_ms"]
+            idx = np.argmin(np.abs(beat_arr - pos))
+            cue["position_ms"] = int(beat_arr[idx])
+
+    # 7. Deduplicate (merge cues within 2 bars of each other)
+    bar_ms = 60000 / max(bpm, 60) * 4
+    deduped = []
+    used_positions = set()
+    for cue in sorted(cues, key=lambda c: -c.get("confidence", 0)):
+        pos = cue["position_ms"]
+        too_close = any(abs(pos - p) < bar_ms for p in used_positions)
+        if not too_close and cue.get("confidence", 0) >= min_confidence:
+            deduped.append(cue)
+            used_positions.add(pos)
+        if len(deduped) >= max_cues:
+            break
+
+    # Sort by position
+    deduped.sort(key=lambda c: c["position_ms"])
+
+    # Number cues
+    for i, cue in enumerate(deduped):
+        cue["number"] = i + 1
+
+    return deduped

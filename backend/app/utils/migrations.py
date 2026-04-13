@@ -146,6 +146,10 @@ PENDING_MIGRATIONS = {
         "vocal_analysis": "JSON",
         "production_analysis": "JSON",
         "mixing_compatibility": "JSON",
+        # v6.9: Deep analysis blobs
+        "section_deep_analysis": "JSON",
+        "loudness_deep_analysis": "JSON",
+        "key_deep_analysis": "JSON",
     },
     "subscriptions": {
         # Stripe price ID

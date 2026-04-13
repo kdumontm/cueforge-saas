@@ -529,6 +529,10 @@ def _run_analysis(track_id: int):
             vocal_analysis=analysis_data.get("vocal_analysis"),
             production_analysis=analysis_data.get("production_analysis"),
             mixing_compatibility=analysis_data.get("mixing_compatibility"),
+            # v6.9: Deep analysis blobs
+            section_deep_analysis=analysis_data.get("section_deep_analysis"),
+            loudness_deep_analysis=analysis_data.get("loudness_deep_analysis"),
+            key_deep_analysis=analysis_data.get("key_deep_analysis"),
         )
         db.add(analysis)
         db.flush()
@@ -3120,6 +3124,249 @@ def get_transition_zones(
     bpm = analysis.bpm or 128
     duration_ms = analysis.duration_ms or 0
     return analysis_svc.compute_transition_zones(sections, duration_ms, bpm)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.9: DEEP ANALYSIS + SMART PLAYLIST + CUE SUGGESTIONS
+# ══════════════════════════════════════════════════════════════════════════
+
+
+# ── Smart playlist generation ─────────────────────────────────────────────
+class SmartPlaylistRequest(BaseModel):
+    track_ids: List[int]
+    mode: str = "energy_flow"  # energy_flow, harmonic_mix, bpm_flow
+    target_duration_min: int = 60
+
+
+@router.post("/smart-playlist")
+def generate_smart_playlist_endpoint(
+    req: SmartPlaylistRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate an optimized playlist ordering for DJ set preparation.
+    Modes: energy_flow, harmonic_mix, bpm_flow.
+    """
+    if len(req.track_ids) > 200:
+        raise HTTPException(status_code=400, detail="Maximum 200 tracks per playlist")
+
+    tracks = db.query(Track).filter(
+        Track.id.in_(req.track_ids),
+        Track.user_id == current_user.id,
+    ).all()
+
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    # Build track data list with analysis
+    tracks_data = []
+    for t in tracks:
+        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        td = {
+            "id": t.id,
+            "title": t.title or t.original_filename,
+            "artist": t.artist,
+            "bpm": a.bpm if a else None,
+            "key": a.key if a else None,
+            "energy": a.energy if a else None,
+            "duration_ms": a.duration_ms if a else None,
+            "camelot_code": t.camelot_code,
+            "genre": t.genre,
+            "mood": a.mood if a else None,
+        }
+        tracks_data.append(td)
+
+    playlist = analysis_svc.generate_smart_playlist(
+        tracks_data, mode=req.mode, target_duration_min=req.target_duration_min,
+    )
+
+    total_duration_ms = sum(t.get("duration_ms", 0) or 0 for t in playlist)
+    return {
+        "mode": req.mode,
+        "track_count": len(playlist),
+        "total_duration_ms": total_duration_ms,
+        "total_duration_formatted": f"{total_duration_ms // 60000}:{(total_duration_ms % 60000) // 1000:02d}",
+        "tracks": playlist,
+    }
+
+
+# ── Cue suggestions from analysis ────────────────────────────────────────
+@router.get("/{track_id}/suggest-cues")
+def suggest_cues_endpoint(
+    track_id: int,
+    max_cues: int = Query(8, ge=1, le=20),
+    min_confidence: float = Query(0.4, ge=0.0, le=1.0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate intelligent cue point suggestions from existing analysis.
+    Uses sections, drops, energy, genre templates, and structural summary.
+    Does NOT create cues — returns suggestions for user review.
+    """
+    validate_track_id(track_id)
+
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    # Build analysis data dict
+    analysis_data = {
+        "section_labels": analysis.section_labels or [],
+        "drop_positions": analysis.drop_positions or [],
+        "phrase_positions": analysis.phrase_positions or [],
+        "beat_positions": analysis.beat_positions or [],
+        "structural_summary": analysis.structural_summary or {},
+        "bpm": analysis.bpm,
+        "duration_ms": analysis.duration_ms,
+    }
+
+    suggestions = analysis_svc.suggest_cues_from_analysis(
+        analysis_data,
+        genre=track.genre,
+        max_cues=max_cues,
+        min_confidence=min_confidence,
+    )
+
+    return {
+        "track_id": track_id,
+        "genre": track.genre,
+        "suggested_cues": suggestions,
+        "total_suggestions": len(suggestions),
+    }
+
+
+# ── Apply suggested cues ─────────────────────────────────────────────────
+class ApplyCuesRequest(BaseModel):
+    cue_indices: Optional[List[int]] = None  # None = apply all
+
+
+@router.post("/{track_id}/apply-suggested-cues")
+def apply_suggested_cues(
+    track_id: int,
+    req: ApplyCuesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Apply cue suggestions to a track (creates actual CuePoint records).
+    Optionally specify which indices to apply; None = apply all.
+    """
+    validate_track_id(track_id)
+
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    analysis_data = {
+        "section_labels": analysis.section_labels or [],
+        "drop_positions": analysis.drop_positions or [],
+        "phrase_positions": analysis.phrase_positions or [],
+        "beat_positions": analysis.beat_positions or [],
+        "structural_summary": analysis.structural_summary or {},
+        "bpm": analysis.bpm,
+        "duration_ms": analysis.duration_ms,
+    }
+
+    suggestions = analysis_svc.suggest_cues_from_analysis(analysis_data, genre=track.genre)
+
+    if req.cue_indices:
+        suggestions = [s for i, s in enumerate(suggestions) if i in req.cue_indices]
+
+    created = 0
+    for cue_data in suggestions:
+        cue = CuePoint(
+            track_id=track.id,
+            position_ms=cue_data["position_ms"],
+            cue_type=cue_data.get("cue_type", "hot_cue"),
+            name=cue_data.get("name", ""),
+            color=cue_data.get("color", "red"),
+            number=cue_data.get("number"),
+            confidence=cue_data.get("confidence"),
+            source="ai_suggestion",
+            generation_version="v6.9",
+        )
+        db.add(cue)
+        created += 1
+
+    db.commit()
+    return {"track_id": track_id, "cues_created": created}
+
+
+# ── Find compatible tracks ────────────────────────────────────────────────
+@router.get("/{track_id}/find-compatible")
+def find_compatible_tracks(
+    track_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Find the most compatible tracks in user's library for mixing with given track.
+    Scores by BPM, key (Camelot), and energy compatibility.
+    """
+    validate_track_id(track_id)
+
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis_a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis_a:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    source = {
+        "bpm": analysis_a.bpm, "key": analysis_a.key, "energy": analysis_a.energy,
+        "loudness_db": analysis_a.loudness_db, "danceability": analysis_a.danceability,
+        "mood": analysis_a.mood, "camelot_code": track.camelot_code,
+    }
+
+    # Get all analyzed tracks by this user (excluding source)
+    all_tracks = db.query(Track).filter(
+        Track.user_id == current_user.id,
+        Track.id != track_id,
+        Track.status == TrackStatus.completed,
+    ).all()
+
+    scored = []
+    for t in all_tracks:
+        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        if not a:
+            continue
+        target = {
+            "bpm": a.bpm, "key": a.key, "energy": a.energy,
+            "loudness_db": a.loudness_db, "danceability": a.danceability,
+            "mood": a.mood, "camelot_code": t.camelot_code,
+        }
+        comparison = analysis_svc.compare_track_analyses(source, target)
+        scored.append({
+            "track_id": t.id,
+            "title": t.title or t.original_filename,
+            "artist": t.artist,
+            "bpm": a.bpm,
+            "key": a.key,
+            "camelot_code": t.camelot_code,
+            "energy": a.energy,
+            "overall_score": comparison["overall"],
+            "scores": comparison["scores"],
+            "recommendation": comparison["recommendation"],
+        })
+
+    scored.sort(key=lambda x: x["overall_score"], reverse=True)
+    return {
+        "source_track_id": track_id,
+        "compatible_tracks": scored[:limit],
+        "total_candidates": len(scored),
+    }
 
 
 # WebSocket endpoint pour les updates temps réel

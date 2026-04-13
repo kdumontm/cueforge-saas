@@ -217,6 +217,10 @@ class TrackAnalysisResponse(BaseModel):
     vocal_analysis: Optional[Dict[str, Any]] = None
     production_analysis: Optional[Dict[str, Any]] = None
     mixing_compatibility: Optional[Dict[str, Any]] = None
+    # v6.9: Deep analysis blobs
+    section_deep_analysis: Optional[Dict[str, Any]] = None
+    loudness_deep_analysis: Optional[Dict[str, Any]] = None
+    key_deep_analysis: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None
