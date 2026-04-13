@@ -689,7 +689,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(AccessLogMiddleware)
-app.add_middleware(RequestTimingMiddleware)  # OPT #33
+# RequestTimingMiddleware ajouté plus bas (après sa définition, ligne ~1113)
 
 # v12: Security hardening middleware
 try:
@@ -1126,6 +1126,7 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
             )
         return response
 
+app.add_middleware(RequestTimingMiddleware)  # OPT #33
 
 # OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
 class CacheAndETagMiddleware(BaseHTTPMiddleware):

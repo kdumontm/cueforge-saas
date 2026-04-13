@@ -41,6 +41,7 @@ class CueTemplate(Base):
     # Note: JSON schema validation is enforced at Pydantic level (CueTemplateCreate/Update schemas)
     # to ensure structure consistency before storing in the database.
     cue_config = Column(JSON, default=dict, nullable=False)
+    cue_positions = Column(JSON, default=list)  # [{position_pct, cue_type, name, color}]
 
     # Visibility & System Flag
     is_public = Column(Boolean, default=False, nullable=False, index=True)

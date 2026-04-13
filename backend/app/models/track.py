@@ -301,28 +301,7 @@ class CueHistory(Base):
     )
 
 
-class CueTemplate(Base):
-    """Reusable cue templates for quick cue set generation.
-
-    Allows users to save and apply predefined cue patterns by genre.
-    Optimization: user_id + genre index for quick lookups.
-    """
-    __tablename__ = "cue_templates"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    genre = Column(String(100), nullable=True)
-    description = Column(Text, nullable=True)
-    cue_positions = Column(JSON, default=list)  # [{position_pct, cue_type, name, color}]
-    is_public = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    __table_args__ = (
-        Index("ix_cue_templates_user_id", "user_id"),
-        Index("ix_cue_templates_user_genre", "user_id", "genre"),
-    )
+# CueTemplate supprimé d'ici — défini dans app/models/cue_template.py (version complète avec is_system, usage_count, relationship)
 
 
 class CueConflict(Base):

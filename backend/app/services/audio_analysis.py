@@ -20,7 +20,7 @@ References:
 - Temperley (1999) What's Key for Key? The Krumhansl-Schmuckler Key-Finding Algorithm Reconsidered
 - ITU-R BS.1770-4 loudness metering
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import gc
 import logging
 import time

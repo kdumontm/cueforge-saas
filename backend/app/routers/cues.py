@@ -1226,7 +1226,7 @@ async def list_cue_templates(
     db: Session = Depends(get_db),
 ):
     """List available cue templates."""
-    from app.models.track import CueTemplate
+    from app.models.cue_template import CueTemplate
 
     query = db.query(CueTemplate).filter(
         (CueTemplate.user_id == user.id) | (CueTemplate.is_public == True)
@@ -1264,7 +1264,7 @@ async def apply_template(
     db: Session = Depends(get_db),
 ):
     """Apply a cue template to a track."""
-    from app.models.track import CueTemplate
+    from app.models.cue_template import CueTemplate
 
     track = _verify_track_owner(track_id, user, db)
     template = db.query(CueTemplate).filter(CueTemplate.id == request.template_id).first()
