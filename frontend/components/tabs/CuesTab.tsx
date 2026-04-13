@@ -23,6 +23,43 @@ const CUE_TYPES = [
 
 const SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
+// ═══ Helper Components ═══
+
+const ConfidenceDot = ({ confidence }: { confidence?: number | null }) => {
+  if (confidence == null) return null;
+  const pct = Math.round(confidence * 100);
+  const color = pct >= 80 ? '#22c55e' : pct >= 60 ? '#eab308' : pct >= 40 ? '#f97316' : '#ef4444';
+  return (
+    <span className="inline-flex items-center gap-0.5 ml-1.5">
+      <span style={{ color, fontSize: 8 }}>●</span>
+      <span className="text-[9px] tabular-nums" style={{ color: `${color}aa` }}>{pct}%</span>
+    </span>
+  );
+};
+
+const CueTypeBadge = ({ type, color }: { type: string; color?: string }) => {
+  const typeConfig: Record<string, { label: string; bg: string }> = {
+    drop: { label: 'DROP', bg: 'rgba(239,68,68,0.2)' },
+    section: { label: 'SEC', bg: 'rgba(59,130,246,0.2)' },
+    phrase: { label: 'PHR', bg: 'rgba(34,197,94,0.2)' },
+    hot_cue: { label: 'CUE', bg: 'rgba(99,102,241,0.2)' },
+    loop: { label: 'LOOP', bg: 'rgba(6,182,212,0.2)' },
+    build: { label: 'BLD', bg: 'rgba(255,140,0,0.2)' },
+    fade_in: { label: 'FADE↑', bg: 'rgba(245,158,11,0.2)' },
+    fade_out: { label: 'FADE↓', bg: 'rgba(249,115,22,0.2)' },
+    load: { label: 'LOAD', bg: 'rgba(236,72,153,0.2)' },
+  };
+  const config = typeConfig[type] || { label: type?.slice(0, 3).toUpperCase() || 'CUE', bg: 'rgba(255,255,255,0.1)' };
+  return (
+    <span
+      className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+      style={{ background: config.bg, color: color || '#fff' }}
+    >
+      {config.label}
+    </span>
+  );
+};
+
 interface CuesTabProps {
   track: Track | null;
   cuePoints?: CuePoint[];
@@ -30,6 +67,7 @@ interface CuesTabProps {
   onDeleteCue?: (cueId: number) => void;
   onCueClick?: (cue: CuePoint) => void;
   onPreviewCue?: (cue: CuePoint) => void;
+  onRegenerateCues?: () => void;
   initialPositionMs?: number | null;
   playerRef?: React.MutableRefObject<{ seekTo?: (ms: number) => void; play?: () => void; pause?: () => void } | null>;
 }
@@ -41,11 +79,19 @@ export function CuesTab({
   onDeleteCue,
   onCueClick,
   onPreviewCue,
+  onRegenerateCues,
   initialPositionMs,
   playerRef,
 }: CuesTabProps) {
   const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
+
+  // Bar number calculation helper
+  const getBarNumber = (posMs: number): number => {
+    const bpm = (track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128;
+    const barMs = (60000 / Math.max(bpm, 60)) * 4;
+    return Math.floor(posMs / barMs) + 1;
+  };
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -272,6 +318,22 @@ export function CuesTab({
             <Zap size={11} />
             {tr('cues.add_at', lang)} {posLabel}
           </button>
+          {onRegenerateCues && (
+            <button
+              onClick={onRegenerateCues}
+              className="px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                borderColor: '#f59e0b',
+                color: 'white',
+                boxShadow: '0 2px 8px rgba(245,158,11,0.25)',
+              }}
+              title="Régénérer les repères"
+            >
+              <Zap size={11} />
+              Régénérer
+            </button>
+          )}
           <button
             onClick={() => setShowAddForm(p => !p)}
             className={`px-2 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
@@ -378,6 +440,8 @@ export function CuesTab({
               const color = cue.color || cue.color_rgb || typeInfo.color;
               const label = HOT_CUE_LABELS[cue.number ?? idx] || String(cue.number ?? idx);
               const isHovered = hoveredCue === cue.id;
+              const posMs = cue.position_ms ?? cue.time_ms ?? 0;
+              const barNumber = getBarNumber(posMs);
               return (
                 <div
                   key={cue.id}
@@ -389,7 +453,7 @@ export function CuesTab({
                   onClick={() => onCueClick?.(cue)}
                   onMouseEnter={() => setHoveredCue(cue.id)}
                   onMouseLeave={() => setHoveredCue(null)}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all cursor-grab active:cursor-grabbing select-none ${
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing select-none ${
                     dragOverIdx === idx && dragIdx !== idx
                       ? 'scale-[1.01]'
                       : dragIdx === idx
@@ -427,34 +491,42 @@ export function CuesTab({
                     {label}
                   </div>
 
-                  {/* Type icon pill */}
-                  <span
-                    className="text-[9px] flex-shrink-0 px-1 py-0.5 rounded"
-                    style={{ background: `${typeInfo.color}15`, border: `1px solid ${typeInfo.color}25` }}
-                    title={typeInfo.label}
-                  >
-                    {typeInfo.icon}
-                  </span>
+                  {/* Cue type badge — improved */}
+                  <CueTypeBadge type={cue.cue_type || 'hot_cue'} color={color} />
 
-                  {/* Name + time */}
+                  {/* Name + metadata section */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
-                      {cue.name || `${typeInfo.label} ${idx + 1}`}
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
+                        {cue.name || `${typeInfo.label} ${idx + 1}`}
+                      </div>
+                      <ConfidenceDot confidence={cue.confidence} />
                     </div>
-                    <div className="text-[10px] font-mono flex items-center gap-1" style={{ color: `${color}cc` }}>
-                      <span>{formatTimeMs(cue.position_ms ?? cue.time_ms ?? 0)}</span>
+                    <div className="text-[9px] flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: `${color}99` }}>
+                      <span className="font-mono">{formatTimeMs(posMs)}</span>
+                      <span className="opacity-60">·</span>
+                      <span className="opacity-70">Bar {barNumber}</span>
                       {(cue.cue_type === 'loop' || cue.cue_mode === 'loop') && cue.end_position_ms != null && (
-                        <span className="text-blue-400">
-                          → {formatTimeMs(cue.end_position_ms)}
-                          <span className="ml-1 opacity-70">
-                            ({((cue.end_position_ms - (cue.position_ms ?? 0)) / 1000).toFixed(1)}s)
+                        <>
+                          <span className="opacity-60">·</span>
+                          <span className="text-blue-400">
+                            {formatTimeMs(cue.end_position_ms)} ({((cue.end_position_ms - posMs) / 1000).toFixed(1)}s)
                           </span>
-                        </span>
+                        </>
                       )}
                     </div>
                   </div>
 
-                  {/* Preview (play 5s) */}
+                  {/* Color circle indicator */}
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0 transition-all"
+                    style={{
+                      background: color,
+                      boxShadow: isHovered ? `0 0 6px ${color}, 0 0 12px ${color}60` : `0 0 3px ${color}80`,
+                    }}
+                  />
+
+                  {/* Preview (play 2s) */}
                   <button
                     onClick={(e) => { e.stopPropagation(); onPreviewCue?.(cue); }}
                     className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
@@ -464,19 +536,10 @@ export function CuesTab({
                     <Play size={11} fill="currentColor" />
                   </button>
 
-                  {/* Glow dot */}
-                  <div
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      background: color,
-                      boxShadow: isHovered ? `0 0 6px ${color}, 0 0 12px ${color}60` : `0 0 3px ${color}80`,
-                    }}
-                  />
-
                   {/* Delete */}
                   <button
                     onClick={(e) => { e.stopPropagation(); onDeleteCue?.(cue.id); }}
-                    className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                    className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0"
                     style={{ opacity: isHovered ? 1 : 0 }}
                     title={tr('cues.delete', lang)}
                   >
