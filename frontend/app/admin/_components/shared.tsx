@@ -262,6 +262,22 @@ export function TabBar({ tabs, active, onChange }: { tabs: { id: string; label: 
   );
 }
 
+export function Modal({ title, onClose, children }: {
+  title: string; onClose: () => void; children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-bg-card border border-border-subtle rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary text-xl leading-none">&times;</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function ConfirmModal({ open, title, message, onConfirm, onCancel, variant = "danger" }: {
   open: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void; variant?: "danger" | "warning";
 }) {

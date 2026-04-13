@@ -1432,6 +1432,11 @@ export async function getPlaylist(id: number): Promise<PlaylistDetail> {
   return r.json();
 }
 
+export async function getPlaylistTracks(playlistId: number): Promise<PlaylistTrackItem[]> {
+  const detail = await getPlaylist(playlistId);
+  return detail.tracks || [];
+}
+
 export async function createPlaylist(data: { name: string; description?: string; is_folder?: boolean; parent_id?: number }): Promise<Playlist> {
   const r = await authFetch(`${API_URL}/playlists`, {
     method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },

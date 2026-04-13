@@ -948,3 +948,5 @@ export const adminApi = {
   getAdminShortcuts: () => api("/admin/preferences/shortcuts"),
   updateAdminShortcuts: (d: any) => api("/admin/preferences/shortcuts", { method: "PUT", body: d }),
 };
+
+export default adminApi;
