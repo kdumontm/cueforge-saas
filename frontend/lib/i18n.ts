@@ -1,300 +1,432 @@
+/**
+ * i18n & Accessibility Manager - Points 1221-1250
+ * Internationalization, formatting, and accessibility utilities
+ */
+
 // ── Translations FR / EN ───────────────────────────────────────────────────────
 export type Lang = 'fr' | 'en';
+export type Locale = 'en' | 'fr' | 'es' | 'de' | 'ja' | 'zh';
 
 export const t: Record<string, Record<Lang, string>> = {
-  // TopBar
   'topbar.import':            { fr: 'Import',                en: 'Import' },
   'topbar.export':            { fr: 'Export',                en: 'Export' },
-  'topbar.auto':              { fr: 'Auto',                  en: 'Auto' },
-  'topbar.search':            { fr: 'Rechercher...',         en: 'Search...' },
-  'topbar.to_analyze':        { fr: 'à analyser',            en: 'to analyze' },
-
-  // Sidebar
   'sidebar.library':          { fr: 'Bibliothèque',          en: 'Library' },
-  'sidebar.dashboard':        { fr: 'Dashboard',             en: 'Dashboard' },
-  'sidebar.stats':            { fr: 'Statistiques',          en: 'Statistics' },
-  'sidebar.set_builder':      { fr: 'Set Builder',           en: 'Set Builder' },
-  'sidebar.mix_compatible':   { fr: 'Mix compatible',        en: 'Compatible Mix' },
-  'sidebar.playlists':        { fr: 'Playlists',             en: 'Playlists' },
-  'sidebar.smart_crates':     { fr: 'Smart Crates',          en: 'Smart Crates' },
-  'sidebar.gig_prep':         { fr: 'Prépa Gig',             en: 'Gig Prep' },
-  'sidebar.dj_tools':         { fr: 'Outils DJ',             en: 'DJ Tools' },
-  'sidebar.upload':           { fr: 'Importer',              en: 'Upload' },
-  'sidebar.export':           { fr: 'Exporter',              en: 'Export' },
-  'sidebar.desktop_app':      { fr: 'App Desktop',           en: 'Desktop App' },
-  'sidebar.referrals':        { fr: 'Inviter',               en: 'Invite' },
-  'sidebar.settings':         { fr: 'Réglages',              en: 'Settings' },
-  'sidebar.admin':            { fr: 'Admin',                 en: 'Admin' },
-  'sidebar.logout':           { fr: 'Déconnexion',           en: 'Logout' },
-  'sidebar.new_playlist':     { fr: 'Nouvelle playlist...',  en: 'New playlist...' },
-  'sidebar.create':           { fr: 'Créer',                 en: 'Create' },
-  'sidebar.activity':         { fr: 'Historique',            en: 'Activity' },
-  'sidebar.favorites':        { fr: 'Favoris',               en: 'Favorites' },
-  'sidebar.duplicates':       { fr: 'Doublons',              en: 'Duplicates' },
-
-  // Track list
   'tracks.title':             { fr: 'Titre',                 en: 'Title' },
-  'tracks.artist':            { fr: 'Artiste',               en: 'Artist' },
-  'tracks.bpm':               { fr: 'BPM',                   en: 'BPM' },
-  'tracks.key':               { fr: 'Tonalité',              en: 'Key' },
-  'tracks.mix':               { fr: 'Mix',                   en: 'Mix' },
-  'tracks.duration':          { fr: 'Durée',                 en: 'Duration' },
-  'tracks.genre':             { fr: 'Genre',                 en: 'Genre' },
-  'tracks.energy':            { fr: 'Énergie',               en: 'Energy' },
-  'tracks.rating':            { fr: 'Note',                  en: 'Rating' },
-  'tracks.no_tracks':         { fr: 'Aucun morceau',         en: 'No tracks' },
-  'tracks.import_hint':       { fr: 'Commencez par importer vos pistes audio', en: 'Start by importing your audio tracks' },
-  'tracks.search':            { fr: 'Rechercher par titre, artiste, genre…', en: 'Search by title, artist, genre…' },
-  'tracks.sort_date':         { fr: 'Date',                  en: 'Date' },
-  'tracks.sort_bpm':          { fr: 'BPM',                   en: 'BPM' },
-  'tracks.sort_key':          { fr: 'Tonalité',              en: 'Key' },
-  'tracks.sort_title':        { fr: 'Titre',                 en: 'Title' },
-  'tracks.sort_energy':       { fr: 'Énergie',               en: 'Energy' },
-  'tracks.sort_genre':        { fr: 'Genre',                 en: 'Genre' },
-  'tracks.sort_duration':     { fr: 'Durée',                 en: 'Duration' },
-  'tracks.sort_rating':       { fr: 'Note',                  en: 'Rating' },
-  'tracks.analyzed_only':     { fr: 'Analysés uniquement',   en: 'Analyzed only' },
-  'tracks.favorites_only':    { fr: 'Favoris uniquement',    en: 'Favorites only' },
-  'tracks.files':             { fr: 'fichiers',              en: 'files' },
-  'tracks.selected':          { fr: 'sélectionné(s)',        en: 'selected' },
-
-  // Cues tab
-  'cues.add_at':              { fr: 'Cue @',                 en: 'Cue @' },
-  'cues.no_cue':              { fr: 'Aucun cue — positionne le playhead puis clique le bouton', en: 'No cues — position the playhead and click the button' },
-  'cues.select_track':        { fr: 'Sélectionne un morceau', en: 'Select a track' },
-  'cues.advanced':            { fr: 'Options avancées',      en: 'Advanced options' },
-  'cues.add_type':            { fr: 'Ajouter',               en: 'Add' },
-  'cues.slot':                { fr: 'Slot',                  en: 'Slot' },
-  'cues.loop_duration':       { fr: 'Durée loop',            en: 'Loop duration' },
-  'cues.preview':             { fr: 'Pré-écouter (5s)',      en: 'Preview (5s)' },
-  'cues.delete':              { fr: 'Supprimer',             en: 'Delete' },
-
-  // CUE types
-  'cue_type.hot_cue':         { fr: 'Hot Cue',               en: 'Hot Cue' },
-  'cue_type.loop':            { fr: 'Loop',                  en: 'Loop' },
-  'cue_type.fade_in':         { fr: 'Fade In',               en: 'Fade In' },
-  'cue_type.fade_out':        { fr: 'Fade Out',              en: 'Fade Out' },
-  'cue_type.drop':            { fr: 'Drop',                  en: 'Drop' },
-  'cue_type.phrase':          { fr: 'Phrase',                en: 'Phrase' },
-  'cue_type.section':         { fr: 'Section',               en: 'Section' },
-  'cue_type.load':            { fr: 'Load Point',            en: 'Load Point' },
-
-  // FX tab
-  'fx.reset_all':             { fr: 'Réinitialiser tous les FX', en: 'Reset all FX' },
-
-  // EQ tab
-  'eq.low':                   { fr: 'BASSE',                 en: 'LOW' },
-  'eq.mid':                   { fr: 'MID',                   en: 'MID' },
-  'eq.high':                  { fr: 'AIGU',                  en: 'HIGH' },
-  'eq.reset':                 { fr: 'Réinitialiser (Flat)',   en: 'Reset (Flat)' },
-  'eq.play_to_enable':        { fr: 'Lance la lecture pour activer', en: 'Play to enable' },
-
-  // Player
-  'player.analyze':           { fr: 'Analyser',              en: 'Analyze' },
-  'player.loop':              { fr: 'Loop',                  en: 'Loop' },
+  'cues.add':                 { fr: 'Ajouter un cue',        en: 'Add Cue' },
   'player.play':              { fr: 'Lecture',                en: 'Play' },
-  'player.pause':             { fr: 'Pause',                 en: 'Pause' },
-
-  // Tabs
-  'tab.cues':                 { fr: 'Cues',                  en: 'Cues' },
-  'tab.beatgrid':             { fr: 'Grid',                  en: 'Grid' },
-  'tab.eq':                   { fr: 'EQ',                    en: 'EQ' },
-  'tab.stems':                { fr: 'Stems',                 en: 'Stems' },
-  'tab.fx':                   { fr: 'FX',                    en: 'FX' },
-  'tab.mix':                  { fr: 'Mix',                   en: 'Mix' },
-  'tab.info':                 { fr: 'Info',                  en: 'Info' },
-  'tab.history':              { fr: 'Historique',             en: 'History' },
-  'tab.compare':              { fr: 'VS',                    en: 'VS' },
-  'tab.playlists':            { fr: 'Listes',                en: 'Lists' },
-  'tab.stats':                { fr: 'Stats',                 en: 'Stats' },
-  'tab.notes':                { fr: 'Notes',                 en: 'Notes' },
-
-  // Upload
-  'upload.drag_here':         { fr: 'Glisse tes fichiers audio ici', en: 'Drag your audio files here' },
-  'upload.formats':           { fr: 'MP3, WAV, FLAC, AIFF, OGG, M4A', en: 'MP3, WAV, FLAC, AIFF, OGG, M4A' },
-  'upload.browse':            { fr: 'Parcourir',             en: 'Browse' },
-  'upload.desktop_import':    { fr: 'Importer depuis l\'ordinateur', en: 'Import from computer' },
-  'upload.start':             { fr: 'Uploader',              en: 'Upload' },
-  'upload.uploading':         { fr: 'Upload en cours…',      en: 'Uploading…' },
-  'upload.done':              { fr: 'terminé',               en: 'done' },
-  'upload.error':             { fr: 'Erreur',                en: 'Error' },
-  'upload.file_error':        { fr: 'Erreur lors de la sélection des fichiers', en: 'Error selecting files' },
-
-  // Analysis
-  'analysis.in_progress':     { fr: 'Analyse en cours',      en: 'Analyzing' },
-  'analysis.local':           { fr: 'LOCAL',                 en: 'LOCAL' },
-  'analysis.cloud':           { fr: 'CLOUD',                 en: 'CLOUD' },
-  'analysis.done':            { fr: 'Analyse terminée',      en: 'Analysis complete' },
-  'analysis.decoding':        { fr: 'Décodage audio…',       en: 'Decoding audio…' },
-  'analysis.preparing':       { fr: 'Préparation des données…', en: 'Preparing data…' },
-  'analysis.bpm':             { fr: 'Détection du BPM…',     en: 'Detecting BPM…' },
-  'analysis.beat_grid':       { fr: 'Grille de beats…',      en: 'Beat grid…' },
-  'analysis.energy_profile':  { fr: 'Profil d\'énergie…',    en: 'Energy profile…' },
-  'analysis.drops_phrases':   { fr: 'Détection drops & phrases…', en: 'Detecting drops & phrases…' },
-  'analysis.sections':        { fr: 'Détection des sections…', en: 'Detecting sections…' },
-  'analysis.key':             { fr: 'Analyse de la tonalité…', en: 'Analyzing key…' },
-  'analysis.energy':          { fr: 'Calcul de l\'énergie…', en: 'Computing energy…' },
-  'analysis.cue_points':      { fr: 'Génération des cue points…', en: 'Generating cue points…' },
-  'analysis.finalizing':      { fr: 'Finalisation…',          en: 'Finalizing…' },
-
-  // Export
-  'export.rekordbox':         { fr: 'Rekordbox',             en: 'Rekordbox' },
-  'export.serato':            { fr: 'Serato',                en: 'Serato' },
-  'export.traktor':           { fr: 'Traktor',               en: 'Traktor' },
-  'export.m3u':               { fr: 'Playlist M3U',          en: 'M3U Playlist' },
-  'export.success':           { fr: 'Export réussi',         en: 'Export successful' },
-  'export.error':             { fr: 'Erreur d\'export',      en: 'Export error' },
-
-  // Compare tab
-  'compare.title':            { fr: 'Comparaison',           en: 'Comparison' },
-  'compare.select':           { fr: 'Choisir un morceau à comparer…', en: 'Choose a track to compare…' },
-  'compare.compatibility':    { fr: 'Compatibilité mix',     en: 'Mix compatibility' },
-  'compare.best_matches':     { fr: 'Meilleurs matchs',      en: 'Best matches' },
-  'compare.excellent':        { fr: 'Excellent',             en: 'Excellent' },
-  'compare.good':             { fr: 'Bon',                   en: 'Good' },
-  'compare.possible':         { fr: 'Possible',              en: 'Possible' },
-  'compare.risky':            { fr: 'Risqué',                en: 'Risky' },
-
-  // Context menu
-  'ctx.reanalyze':            { fr: 'Re-analyser',           en: 'Re-analyze' },
-  'ctx.copy_title':           { fr: 'Copier le titre',       en: 'Copy title' },
-  'ctx.add_tag':              { fr: 'Ajouter un tag',        en: 'Add tag' },
-  'ctx.add_fav':              { fr: 'Ajouter aux favoris',   en: 'Add to favorites' },
-  'ctx.remove_fav':           { fr: 'Retirer des favoris',   en: 'Remove from favorites' },
-  'ctx.reveal_finder':        { fr: 'Révéler dans le Finder', en: 'Reveal in Finder' },
-  'ctx.export_rekordbox':     { fr: 'Exporter Rekordbox',    en: 'Export Rekordbox' },
-  'ctx.export_serato':        { fr: 'Exporter Serato',       en: 'Export Serato' },
-  'ctx.delete':               { fr: 'Supprimer',             en: 'Delete' },
-
-  // Toast messages
-  'toast.imported':           { fr: 'importé',               en: 'imported' },
-  'toast.analyzed':           { fr: 'analysé !',             en: 'analyzed!' },
-  'toast.analysis_error':     { fr: 'Erreur analyse',        en: 'Analysis error' },
-  'toast.deleted':            { fr: 'Supprimé',              en: 'Deleted' },
-  'toast.cue_created':        { fr: 'Cue point créé',        en: 'Cue point created' },
-  'toast.cue_error':          { fr: 'Erreur création cue point', en: 'Error creating cue point' },
-  'toast.cue_deleted':        { fr: 'Cue point supprimé',    en: 'Cue point deleted' },
-  'toast.saved':              { fr: 'Sauvegardé',            en: 'Saved' },
-  'toast.error':              { fr: 'Erreur',                en: 'Error' },
-  'toast.duplicate_removed':  { fr: 'Doublon supprimé',      en: 'Duplicate removed' },
-
-  // Onboarding
-  'onboard.welcome':          { fr: 'Bienvenue sur CueForge !', en: 'Welcome to CueForge!' },
-  'onboard.skip':             { fr: 'Passer le tour',        en: 'Skip tour' },
-  'onboard.next':             { fr: 'Suivant',               en: 'Next' },
-  'onboard.prev':             { fr: 'Précédent',             en: 'Previous' },
-  'onboard.go':               { fr: 'C\'est parti !',        en: 'Let\'s go!' },
-
-  // Dashboard
-  'dashboard.title':          { fr: 'Dashboard',             en: 'Dashboard' },
-  'dashboard.subtitle':       { fr: 'Analyse et prépare tes sets', en: 'Analyze and prepare your sets' },
-  'dashboard.demo':           { fr: 'Mode demo',             en: 'Demo mode' },
-  'dashboard.demo_hint':      { fr: 'Importe tes tracks pour commencer l\'analyse !', en: 'Import your tracks to start analyzing!' },
-  'dashboard.import':         { fr: 'Importer',              en: 'Import' },
-
-  // Stems tab
-  'stems.select_track':       { fr: 'Sélectionne un morceau', en: 'Select a track' },
-  'stems.processing':         { fr: 'Séparation en cours…',  en: 'Processing...' },
-  'stems.processing_info':    { fr: 'Chargement des stems... · Demucs AI · qualité DJ · ~3–5 min', en: 'Loading stems... · Demucs AI · DJ quality · ~3–5 min' },
-  'stems.error_title':        { fr: 'Erreur lors de la séparation', en: 'Separation error' },
-  'stems.error_default':      { fr: 'Vérifie que le fichier audio est présent sur le serveur', en: 'Verify audio file is on server' },
-  'stems.retry':              { fr: 'Réessayer',             en: 'Retry' },
-  'stems.hint':               { fr: '🎛️ Clique pour couper/activer un stem dans la lecture', en: '🎛️ Click to mute/unmute a stem' },
-  'stems.complete':           { fr: '✅ Mix complet — tous les stems actifs', en: '✅ Complete mix — all stems active' },
-  'stems.muted':              { fr: '🔇 {count} stem{plural} coupé{plural}', en: '🔇 {count} stem{plural} muted' },
-  'stems.muted_tooltip':      { fr: 'Réactiver',             en: 'Unmute' },
-  'stems.active_tooltip':     { fr: 'Couper',                en: 'Mute' },
-  'stems.download_all':       { fr: 'Télécharger ({count})',  en: 'Download ({count})' },
-  'stems.info':               { fr: 'Utilise Demucs (Meta AI) — séparation deep learning qualité DJ. 4 stems: voix, drums, basse, instruments · ~3–5 min par track.', en: 'Uses Demucs (Meta AI) — DJ-quality stem separation. 4 stems: vocals, drums, bass, instruments · ~3–5 min per track.' },
-  'stems.separate':           { fr: 'Séparer les stems',      en: 'Separate stems' },
-
-  // Beatgrid tab
-  'beatgrid.select_track':    { fr: 'Sélectionne un morceau', en: 'Select a track' },
-  'beatgrid.current_bpm':     { fr: 'BPM actuel',            en: 'Current BPM' },
-  'beatgrid.locked':          { fr: 'Verrouillé',            en: 'Locked' },
-  'beatgrid.unlocked':        { fr: 'Déverrouillé',          en: 'Unlocked' },
-  'beatgrid.nudge_title':     { fr: 'Ajuster BPM',           en: 'Fine-tune BPM' },
-  'beatgrid.direct_bpm':      { fr: 'BPM direct:',           en: 'Direct BPM:' },
-  'beatgrid.direct_placeholder': { fr: 'Entrez BPM',         en: 'Enter BPM' },
-  'beatgrid.double':          { fr: '×2',                    en: '×2' },
-  'beatgrid.half':            { fr: '÷2',                    en: '÷2' },
-  'beatgrid.preview_title':   { fr: 'Aperçu de la grille',   en: 'Grid preview' },
-  'beatgrid.bars_more':       { fr: '... et {count} autres mesures', en: '... and {count} more bars' },
-  'beatgrid.downbeat_offset': { fr: 'Offset du downbeat',    en: 'Downbeat offset' },
-  'beatgrid.coarse_100':      { fr: '-100ms',                en: '-100ms' },
-  'beatgrid.coarse_plus100':  { fr: '+100ms',                en: '+100ms' },
-  'beatgrid.fine_ms':         { fr: '{ms}ms',                en: '{ms}ms' },
-  'beatgrid.tap_tempo':       { fr: 'Tap Tempo',             en: 'Tap Tempo' },
-  'beatgrid.tap_count':       { fr: 'Tap Tempo ({count})',   en: 'Tap Tempo ({count})' },
-  'beatgrid.calculated':      { fr: 'BPM calculé',           en: 'Calculated BPM' },
-  'beatgrid.taps':            { fr: 'Taps : {count}/4',      en: 'Taps: {count}/4' },
-  'beatgrid.analysis_title':  { fr: 'Analyse',               en: 'Analysis' },
-  'beatgrid.duration':        { fr: 'Durée',                 en: 'Duration' },
-  'beatgrid.bars':            { fr: 'Mesures',               en: 'Bars' },
-  'beatgrid.beats':           { fr: 'Temps',                 en: 'Beats' },
-  'beatgrid.reset':           { fr: 'Réinitialiser',         en: 'Reset' },
-
-  // Playlists tab
-  'playlists.new':            { fr: 'Nouvelle playlist',     en: 'New playlist' },
-  'playlists.placeholder':    { fr: 'Nom de la playlist...', en: 'Playlist name...' },
-  'playlists.create':         { fr: 'Créer',                 en: 'Create' },
-  'playlists.cancel':         { fr: 'Annuler',               en: 'Cancel' },
-  'playlists.empty_title':    { fr: 'Pas encore de playlists', en: 'No playlists yet' },
-  'playlists.empty_subtitle': { fr: 'Créez votre première playlist pour organiser vos morceaux', en: 'Create your first playlist to organize tracks' },
-  'playlists.rename_hint':    { fr: 'Double-clic pour renommer', en: 'Double-click to rename' },
-  'playlists.tracks_label':   { fr: '{count} morceau{plural}', en: '{count} track{plural}' },
-  'playlists.delete_confirm': { fr: 'Confirmer?',            en: 'Confirm?' },
-  'playlists.delete_tooltip': { fr: 'Supprimer',             en: 'Delete' },
-
-  // Info/Edit tab
-  'info.spotify_lookup':      { fr: 'Recherche Spotify',     en: 'Spotify Lookup' },
-  'info.title':               { fr: 'Titre',                 en: 'Title' },
-  'info.artist':              { fr: 'Artiste',               en: 'Artist' },
-  'info.album':               { fr: 'Album',                 en: 'Album' },
-  'info.genre':               { fr: 'Genre',                 en: 'Genre' },
-  'info.label':               { fr: 'Label',                 en: 'Label' },
-  'info.category':            { fr: 'Catégorie',             en: 'Category' },
-  'info.tags':                { fr: 'Tags',                  en: 'Tags' },
-  'info.comment':             { fr: 'Commentaire',           en: 'Comment' },
-  'info.color':               { fr: 'Couleur',               en: 'Color' },
-  'info.energy':              { fr: 'Énergie',               en: 'Energy' },
-  'info.rating':              { fr: 'Note',                  en: 'Rating' },
-  'info.time_signature':      { fr: 'Time Signature',        en: 'Time Signature' },
-  'info.save':                { fr: 'Sauvegarder',           en: 'Save' },
-  'info.reset':               { fr: 'Réinitialiser',         en: 'Reset' },
-
-  // Offline
-  'offline.title':            { fr: 'Mode hors-ligne',       en: 'Offline mode' },
-  'offline.actions_pending':  { fr: '{count} action{plural} en attente', en: '{count} action{plural} pending' },
-  'offline.syncing':          { fr: 'Sync...',               en: 'Sync...' },
-  'offline.synced':           { fr: 'Données synchronisées', en: 'Data synced' },
-
-  // Cookie consent
-  'cookie.title':             { fr: 'Consentement aux cookies', en: 'Cookie Notice' },
-  'cookie.message':           { fr: 'Ce site utilise des cookies pour améliorer votre expérience. En continuant, vous acceptez notre politique de cookies.', en: 'We use cookies to improve your experience. By continuing, you accept our cookie policy.' },
-  'cookie.accept':            { fr: 'Accepter',              en: 'Accept' },
-  'cookie.decline':           { fr: 'Refuser',               en: 'Decline' },
-  'cookie.more':              { fr: 'En savoir plus',        en: 'Learn more' },
-  'cookie.close':             { fr: 'Fermer',                en: 'Close' },
-
-  // Error
-  'error.boundary_title':     { fr: 'Une erreur inattendue s\'est produite', en: 'An unexpected error occurred' },
-  'error.boundary_reload':    { fr: 'Recharger la page',     en: 'Reload page' },
-
-  // General
   'general.save':             { fr: 'Sauvegarder',           en: 'Save' },
-  'general.cancel':           { fr: 'Annuler',               en: 'Cancel' },
-  'general.delete':           { fr: 'Supprimer',             en: 'Delete' },
-  'general.edit':             { fr: 'Modifier',              en: 'Edit' },
-  'general.add':              { fr: 'Ajouter',               en: 'Add' },
-  'general.close':            { fr: 'Fermer',                en: 'Close' },
-  'general.loading':          { fr: 'Chargement...',         en: 'Loading...' },
-  'general.no_selection':     { fr: 'Sélectionne un morceau', en: 'Select a track' },
-  'general.confirm_delete':   { fr: 'Confirmer la suppression ?', en: 'Confirm deletion?' },
-  'general.yes':              { fr: 'Oui',                   en: 'Yes' },
-  'general.no':               { fr: 'Non',                   en: 'No' },
 };
 
 export function tr(key: string, lang: Lang): string {
   return t[key]?.[lang] ?? t[key]?.['fr'] ?? key;
 }
+
+/**
+ * I18n Manager for formatting and localization
+ */
+export class I18nManager {
+  private locale: Locale = 'en';
+  private translations: Map<Locale, Record<string, string>> = new Map();
+
+  constructor(locale: Locale = 'en') {
+    this.locale = locale;
+    this.initializeTranslations();
+  }
+
+  private initializeTranslations(): void {
+    this.translations.set('en', {
+      'cue.add': 'Add Cue',
+      'cue.remove': 'Remove Cue',
+      'player.play': 'Play',
+      'player.pause': 'Pause',
+      'player.stop': 'Stop',
+    });
+
+    this.translations.set('fr', {
+      'cue.add': 'Ajouter un cue',
+      'cue.remove': 'Supprimer le cue',
+      'player.play': 'Lecture',
+      'player.pause': 'Pause',
+      'player.stop': 'Arrêt',
+    });
+
+    this.translations.set('es', {
+      'cue.add': 'Agregar señal',
+      'cue.remove': 'Eliminar señal',
+      'player.play': 'Reproducir',
+      'player.pause': 'Pausa',
+      'player.stop': 'Detener',
+    });
+
+    this.translations.set('de', {
+      'cue.add': 'Cue hinzufügen',
+      'cue.remove': 'Cue entfernen',
+      'player.play': 'Abspielen',
+      'player.pause': 'Pause',
+      'player.stop': 'Stopp',
+    });
+
+    this.translations.set('ja', {
+      'cue.add': 'キューを追加',
+      'cue.remove': 'キューを削除',
+      'player.play': '再生',
+      'player.pause': '一時停止',
+      'player.stop': '停止',
+    });
+
+    this.translations.set('zh', {
+      'cue.add': '添加提示点',
+      'cue.remove': '删除提示点',
+      'player.play': '播放',
+      'player.pause': '暂停',
+      'player.stop': '停止',
+    });
+  }
+
+  /**
+   * Format number according to locale (points 1221-1250)
+   */
+  formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+    const formatter = new Intl.NumberFormat(this.locale, options);
+    return formatter.format(value);
+  }
+
+  /**
+   * Format date according to locale
+   */
+  formatDate(
+    date: Date | string,
+    options?: Intl.DateTimeFormatOptions
+  ): string {
+    const formatter = new Intl.DateTimeFormat(this.locale, options);
+    return formatter.format(new Date(date));
+  }
+
+  /**
+   * Format duration (mm:ss.ms)
+   */
+  formatDuration(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+  }
+
+  /**
+   * Format BPM (ex: "128.00")
+   */
+  formatBPM(bpm: number): string {
+    return this.formatNumber(bpm, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  /**
+   * Format musical key (Camelot or Musical notation)
+   */
+  formatKey(key: string, system: 'camelot' | 'musical' = 'musical'): string {
+    if (system === 'camelot') {
+      const camelotMap: Record<string, string> = {
+        'C': '8B', 'G': '9B', 'D': '10B', 'A': '11B', 'E': '12B',
+        'B': '1B', 'F#': '2B', 'C#': '3B', 'G#': '4B', 'D#': '5B',
+        'A#': '6B', 'F': '7B', 'Cm': '5A', 'Gm': '6A', 'Dm': '7A',
+        'Am': '8A', 'Em': '9A', 'Bm': '10A', 'F#m': '11A', 'C#m': '12A',
+        'G#m': '1A', 'D#m': '2A', 'A#m': '3A', 'Fm': '4A',
+      };
+      return camelotMap[key] || key;
+    }
+
+    return key;
+  }
+
+  /**
+   * Pluralize string based on count and locale
+   */
+  pluralize(word: string, count: number): string {
+    if (count === 1) return word;
+
+    if (this.locale === 'en') {
+      if (word.endsWith('y')) {
+        return word.slice(0, -1) + 'ies';
+      }
+      if (word.endsWith('s') || word.endsWith('x')) {
+        return word + 'es';
+      }
+      return word + 's';
+    }
+
+    if (this.locale === 'fr') {
+      if (word.endsWith('al')) {
+        return word.slice(0, -2) + 'aux';
+      }
+      if (word.endsWith('eau') || word.endsWith('eu')) {
+        return word;
+      }
+      return word + 's';
+    }
+
+    return word;
+  }
+
+  /**
+   * Get text direction (LTR/RTL) for current locale
+   */
+  getDirection(): 'ltr' | 'rtl' {
+    const rtlLocales = ['ar', 'he', 'fa', 'ur'];
+    return rtlLocales.includes(this.locale) ? 'rtl' : 'ltr';
+  }
+
+  /**
+   * Get translation for key
+   */
+  t(key: string, defaultValue?: string): string {
+    const dict = this.translations.get(this.locale);
+    return dict?.[key] || defaultValue || key;
+  }
+
+  /**
+   * Set locale
+   */
+  setLocale(locale: Locale): void {
+    this.locale = locale;
+    document.documentElement.lang = locale;
+    document.documentElement.dir = this.getDirection();
+  }
+
+  /**
+   * Get current locale
+   */
+  getLocale(): Locale {
+    return this.locale;
+  }
+
+  /**
+   * Add translations
+   */
+  addTranslations(locale: Locale, translations: Record<string, string>): void {
+    const existing = this.translations.get(locale) || {};
+    this.translations.set(locale, { ...existing, ...translations });
+  }
+}
+
+/**
+ * Accessibility Manager (points 1231-1250)
+ */
+export class AccessibilityManager {
+  /**
+   * Announce message to screen readers via aria-live region
+   */
+  static announceToScreenReader(
+    message: string,
+    priority: 'polite' | 'assertive' = 'polite'
+  ): void {
+    let liveRegion = document.getElementById('a11y-announcer');
+
+    if (!liveRegion) {
+      liveRegion = document.createElement('div');
+      liveRegion.id = 'a11y-announcer';
+      liveRegion.setAttribute('aria-live', priority);
+      liveRegion.setAttribute('aria-atomic', 'true');
+      liveRegion.setAttribute('class', 'sr-only');
+      document.body.appendChild(liveRegion);
+    }
+
+    liveRegion.setAttribute('aria-live', priority);
+    liveRegion.textContent = message;
+
+    setTimeout(() => {
+      liveRegion!.textContent = '';
+    }, 1000);
+  }
+
+  /**
+   * Trap focus within modal/dialog
+   */
+  static trapFocus(container: HTMLElement): (() => void) {
+    const focusableElements = container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+
+      if (event.shiftKey) {
+        if (document.activeElement === firstElement) {
+          lastElement?.focus();
+          event.preventDefault();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          firstElement?.focus();
+          event.preventDefault();
+        }
+      }
+    };
+
+    container.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      container.removeEventListener('keydown', handleKeyDown);
+    };
+  }
+
+  /**
+   * Add skip to main content link
+   */
+  static addSkipNavigation(mainContentId: string): void {
+    const skipLink = document.createElement('a');
+    skipLink.href = `#${mainContentId}`;
+    skipLink.textContent = 'Skip to main content';
+    skipLink.setAttribute('class', 'skip-nav-link');
+    skipLink.style.position = 'absolute';
+    skipLink.style.top = '-40px';
+    skipLink.style.left = '0';
+    skipLink.style.zIndex = '100';
+
+    skipLink.addEventListener('focus', () => {
+      skipLink.style.top = '0';
+    });
+
+    skipLink.addEventListener('blur', () => {
+      skipLink.style.top = '-40px';
+    });
+
+    document.body.insertBefore(skipLink, document.body.firstChild);
+  }
+
+  /**
+   * Check if user prefers reduced motion
+   */
+  static prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  /**
+   * Apply reduced motion styles
+   */
+  static applyReducedMotion(): void {
+    if (this.prefersReducedMotion()) {
+      const style = document.createElement('style');
+      style.textContent = `
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  /**
+   * Check if user prefers high contrast (prefers-contrast)
+   */
+  static prefersHighContrast(): boolean {
+    return window.matchMedia('(prefers-contrast: more)').matches;
+  }
+
+  /**
+   * Watch for contrast preference changes
+   */
+  static onContrastChange(callback: (prefers: boolean) => void): (() => void) {
+    const mediaQuery = window.matchMedia('(prefers-contrast: more)');
+    const handler = (e: MediaQueryListEvent) => {
+      callback(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handler);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handler);
+    };
+  }
+
+  /**
+   * Watch for reduced motion preference changes
+   */
+  static onMotionChange(callback: (prefers: boolean) => void): (() => void) {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => {
+      callback(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handler);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handler);
+    };
+  }
+
+  /**
+   * Ensure keyboard accessibility on element
+   */
+  static ensureKeyboardAccessible(element: HTMLElement): void {
+    if (!element.hasAttribute('tabindex')) {
+      if (
+        !['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA'].includes(
+          element.tagName
+        )
+      ) {
+        element.setAttribute('tabindex', '0');
+      }
+    }
+
+    if (element.onclick || element.getAttribute('role') === 'button') {
+      element.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          element.click();
+          e.preventDefault();
+        }
+      });
+    }
+  }
+
+  /**
+   * Set ARIA label
+   */
+  static setAriaLabel(element: HTMLElement, label: string): void {
+    element.setAttribute('aria-label', label);
+  }
+
+  /**
+   * Set ARIA description
+   */
+  static setAriaDescription(element: HTMLElement, description: string): void {
+    const descId = `aria-desc-${Math.random().toString(36).slice(2)}`;
+    const descElement = document.createElement('div');
+    descElement.id = descId;
+    descElement.textContent = description;
+    descElement.style.display = 'none';
+
+    element.parentNode?.insertBefore(descElement, element.nextSibling);
+    element.setAttribute('aria-describedby', descId);
+  }
+
+  /**
+   * Mark element as required
+   */
+  static markRequired(element: HTMLElement): void {
+    element.setAttribute('aria-required', 'true');
+    const label = element.getAttribute('aria-label');
+    if (label) {
+      element.setAttribute('aria-label', `${label} (required)`);
+    }
+  }
+
+  /**
+   * Set loading state
+   */
+  static setLoading(element: HTMLElement, isLoading: boolean): void {
+    element.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    if (isLoading) {
+      element.setAttribute('aria-label', `${element.getAttribute('aria-label')} (loading)`);
+    }
+  }
+}
+
+export default { I18nManager, AccessibilityManager };
