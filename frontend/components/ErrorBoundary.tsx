@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { tr } from '@/lib/i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -44,16 +45,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
           <span role="img" aria-label="Console de mixage" className="text-5xl">🎛️</span>
           <h2 className="text-xl font-semibold text-white">
-            Une erreur inattendue s&apos;est produite
+            {tr('error.boundary_title', 'fr')}
           </h2>
           <p className="text-sm text-gray-400 max-w-md">
-            {this.state.error?.message || 'Erreur inconnue'}
+            {this.state.error?.message || tr('error.boundary_title', 'fr')}
           </p>
           <button
             onClick={this.handleReload}
             className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
           >
-            Recharger la page
+            {tr('error.boundary_reload', 'fr')}
           </button>
         </div>
       );

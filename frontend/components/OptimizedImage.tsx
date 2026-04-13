@@ -39,6 +39,8 @@ export default function OptimizedImage({
         className={className}
         loading="lazy"
         decoding="async"
+        width={width || 48}
+        height={height || 48}
       />
     );
   }
@@ -55,6 +57,8 @@ export default function OptimizedImage({
       priority={priority}
       onError={() => setHasError(true)}
       unoptimized={false}
+      placeholder="blur"
+      blurDataURL="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%231c1c32' width='100' height='100'/%3E%3C/svg%3E"
     />
   );
 }

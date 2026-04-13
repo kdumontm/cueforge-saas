@@ -124,51 +124,53 @@ def handle_webhook(payload: Dict, sig_header: str) -> Optional[Dict]:
 def handle_checkout_completed(session: Dict) -> None:
     """Handle successful checkout session."""
     from app.database import SessionLocal
-    db = SessionLocal()
 
-    try:
-        customer_email = session.get("customer_email")
-        user = db.query(User).filter(User.email == customer_email).first()
+    with SessionLocal() as db:
+        try:
+            customer_email = session.get("customer_email")
+            user = db.query(User).filter(User.email == customer_email).first()
 
-        if user:
-            user.subscription_plan = "pro"
-            user.stripe_customer_id = session.get("customer")
+            if user:
+                user.subscription_plan = "pro"
+                user.stripe_customer_id = session.get("customer")
 
-            # Create subscription record
-            subscription = Subscription(
-                user_id=user.id,
-                stripe_subscription_id=session.get("subscription"),
-                status="active",
-                plan="pro"
-            )
-            db.add(subscription)
-            db.commit()
-    finally:
-        db.close()
+                # Create subscription record
+                subscription = Subscription(
+                    user_id=user.id,
+                    stripe_subscription_id=session.get("subscription"),
+                    status="active",
+                    plan="pro"
+                )
+                db.add(subscription)
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def handle_subscription_deleted(subscription: Dict) -> None:
     """Handle subscription cancellation."""
     from app.database import SessionLocal
-    db = SessionLocal()
 
-    try:
-        stripe_subscription_id = subscription.get("id")
-        user = db.query(User).filter(
-            User.stripe_customer_id == subscription.get("customer")
-        ).first()
-
-        if user:
-            user.subscription_plan = "free"
-
-            # Update subscription record
-            sub = db.query(Subscription).filter(
-                Subscription.stripe_subscription_id == stripe_subscription_id
+    with SessionLocal() as db:
+        try:
+            stripe_subscription_id = subscription.get("id")
+            user = db.query(User).filter(
+                User.stripe_customer_id == subscription.get("customer")
             ).first()
 
-            if sub:
-                sub.status = "canceled"
+            if user:
+                user.subscription_plan = "free"
 
-            db.commit()
-    finally:
-        db.close()
+                # Update subscription record
+                sub = db.query(Subscription).filter(
+                    Subscription.stripe_subscription_id == stripe_subscription_id
+                ).first()
+
+                if sub:
+                    sub.status = "canceled"
+
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise

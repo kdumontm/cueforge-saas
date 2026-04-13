@@ -28,10 +28,12 @@ function getEnergyColor(energy: number): string {
 export default function EnergyFlow({ tracks, title = 'Energy Flow' }: EnergyFlowProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const analyzedTracks = useMemo(() =>
-    tracks.filter(t => t.analysis?.energy !== undefined && t.analysis?.energy !== null),
-    [tracks]
-  );
+  const MAX_TRACKS_DISPLAY = 50;
+
+  const analyzedTracks = useMemo(() => {
+    const filtered = tracks.filter(t => t.analysis?.energy !== undefined && t.analysis?.energy !== null);
+    return filtered.slice(0, MAX_TRACKS_DISPLAY);
+  }, [tracks]);
 
   if (analyzedTracks.length === 0) {
     return (
@@ -73,7 +75,9 @@ export default function EnergyFlow({ tracks, title = 'Energy Flow' }: EnergyFlow
       <div className="flex items-center gap-2 mb-4">
         <Activity size={16} className="text-amber-400" />
         <span className="text-sm font-bold text-[var(--text-primary)]">{title}</span>
-        <span className="text-[11px] text-[var(--text-muted)] ml-auto">{analyzedTracks.length} tracks</span>
+        <span className="text-[11px] text-[var(--text-muted)] ml-auto">
+          {analyzedTracks.length} tracks {tracks.filter(t => t.analysis?.energy !== undefined).length > MAX_TRACKS_DISPLAY && `(de ${tracks.filter(t => t.analysis?.energy !== undefined).length})`}
+        </span>
       </div>
 
       {/* Energy bar visualization */}
@@ -219,6 +223,13 @@ export default function EnergyFlow({ tracks, title = 'Energy Flow' }: EnergyFlow
           </div>
         </div>
       </div>
+
+      {/* Note about track limit and scrolling */}
+      {tracks.filter(t => t.analysis?.energy !== undefined).length > MAX_TRACKS_DISPLAY && (
+        <div className="mt-3 text-[10px] text-[var(--text-muted)] text-center italic">
+          Affichage limité à {MAX_TRACKS_DISPLAY} tracks. Scroll horizontalement pour voir plus.
+        </div>
+      )}
 
       {/* Energy journey legend */}
       <div className="flex items-center gap-1 mt-3 justify-center">

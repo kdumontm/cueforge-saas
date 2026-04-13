@@ -2,12 +2,14 @@
 Admin Stats Router — Dashboard analytics avancé.
 
 Endpoints :
-  GET /api/v1/admin/stats/overview      — Overview KPI (users, tracks, revenue)
-  GET /api/v1/admin/stats/users-activity — Activity par jour (7-30j)
+  GET /api/v1/admin/stats/overview      — Overview KPI (users, tracks, revenue) [cached 5min]
+  GET /api/v1/admin/stats/users-activity — Activity par jour (7-30j) [cached 5min]
 """
 
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional, Dict, Any
+import time
+import threading
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -21,6 +23,29 @@ from app.models.track import Track
 from app.models.subscription import Subscription
 
 router = APIRouter(prefix="/api/v1/admin/stats", tags=["admin"])
+
+# In-memory cache for admin stats (5min TTL)
+_stats_cache: Dict[str, Dict[str, Any]] = {}
+_cache_lock = threading.Lock()
+STATS_CACHE_TTL_SEC = 300  # 5 minutes
+
+
+def _get_cached(key: str) -> Optional[Dict[str, Any]]:
+    """Get value from cache if not expired."""
+    with _cache_lock:
+        if key in _stats_cache:
+            data, timestamp = _stats_cache[key]
+            if time.time() - timestamp < STATS_CACHE_TTL_SEC:
+                return data
+            else:
+                del _stats_cache[key]
+    return None
+
+
+def _set_cached(key: str, data: Dict[str, Any]) -> None:
+    """Store value in cache with current timestamp."""
+    with _cache_lock:
+        _stats_cache[key] = (data, time.time())
 
 
 # ═══════════════════════════════════════════════
@@ -77,7 +102,12 @@ async def get_admin_stats_overview(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """GET /api/v1/admin/stats/overview — Overview dashboard."""
+    """GET /api/v1/admin/stats/overview — Overview dashboard (cached 5min)."""
+
+    # Check cache first
+    cached = _get_cached("overview")
+    if cached:
+        return OverviewResponse(**cached)
 
     now = datetime.utcnow()
     seven_days_ago = now - timedelta(days=7)
@@ -137,7 +167,7 @@ async def get_admin_stats_overview(
     # ── Storage estimate (rough: 100MB avg per track) ──
     storage_estimate_gb = (total_tracks * 100) / 1024.0
 
-    return {
+    result = {
         "total_users": total_users,
         "new_users_7d": new_users_7d,
         "new_users_30d": new_users_30d,
@@ -154,6 +184,10 @@ async def get_admin_stats_overview(
         "signup_trend": signup_trend,
         "storage_estimate_gb": round(storage_estimate_gb, 2),
     }
+
+    # Cache result for 5 minutes
+    _set_cached("overview", result)
+    return result
 
 
 @router.get("/users-activity", response_model=UsersActivityResponse)

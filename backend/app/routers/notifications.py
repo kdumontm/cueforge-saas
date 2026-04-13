@@ -13,7 +13,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import User
@@ -59,6 +59,7 @@ async def list_notifications(
 ):
     """
     List user's notifications paginated, most recent first.
+    Automatically deletes notifications older than 90 days.
 
     Args:
         page: Page number (1-indexed)
@@ -67,6 +68,14 @@ async def list_notifications(
     Returns:
         Paginated list of notifications
     """
+    # Delete notifications older than 90 days
+    cutoff_date = datetime.utcnow() - timedelta(days=90)
+    db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.created_at < cutoff_date
+    ).delete()
+    db.commit()
+
     # Get total count
     total = db.query(Notification).filter(
         Notification.user_id == user.id

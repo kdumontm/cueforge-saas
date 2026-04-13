@@ -33,6 +33,7 @@ class Referral(Base):
     __tablename__ = "referrals"
 
     id = Column(Integer, primary_key=True, index=True)
+    # referrer_id: Indexed for efficient queries on "get all referrals by referrer"
     referrer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     referral_code = Column(String(8), unique=True, nullable=False, index=True)
 

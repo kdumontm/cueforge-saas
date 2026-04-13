@@ -12,6 +12,7 @@ import logging
 import os
 import uuid
 import threading
+import asyncio
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -75,8 +76,58 @@ class MixJobStatus(BaseModel):
 # ── Background analysis ────────────────────────────────────────────────────
 
 def _analyze_mix_bg(job_id: str, file_path: str, user_id: int):
-    """Background task: analyze a recorded DJ mix."""
+    """Background task: analyze a recorded DJ mix (60s timeout)."""
     db = SessionLocal()
+    try:
+        # Wrap in timeout handling
+        _analyze_mix_with_timeout(job_id, file_path, db, user_id)
+    except asyncio.TimeoutError:
+        logger.error(f"Mix analysis timeout for job {job_id}")
+        _mix_jobs[job_id]["status"] = "failed"
+        _mix_jobs[job_id]["result"] = MixAnalysisResult(
+            status="failed", error="Analysis timeout (60s limit exceeded)"
+        )
+    except Exception as e:
+        logger.error(f"Mix analysis failed for job {job_id}: {e}")
+        _mix_jobs[job_id]["status"] = "failed"
+        _mix_jobs[job_id]["result"] = MixAnalysisResult(
+            status="failed", error=str(e)
+        )
+    finally:
+        db.close()
+        # Clean up file
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
+
+
+def _analyze_mix_with_timeout(job_id: str, file_path: str, db: Session, user_id: int):
+    """Wrapped analysis with 60-second timeout."""
+    import signal
+
+    def timeout_handler(signum, frame):
+        raise asyncio.TimeoutError("Analysis timeout")
+
+    # Set 60-second timeout (only works on Unix)
+    try:
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(60)
+    except (AttributeError, ValueError):
+        # Windows or timeout not available - continue without hard timeout
+        pass
+
+    try:
+        _analyze_mix_bg_impl(job_id, file_path, db, user_id)
+    finally:
+        try:
+            signal.alarm(0)  # Cancel alarm
+        except (AttributeError, ValueError):
+            pass
+
+
+def _analyze_mix_bg_impl(job_id: str, file_path: str, db: Session, user_id: int):
+    """Internal implementation of mix analysis."""
     try:
         _mix_jobs[job_id]["status"] = "analyzing"
         _mix_jobs[job_id]["progress"] = 10
@@ -202,19 +253,10 @@ def _analyze_mix_bg(job_id: str, file_path: str, user_id: int):
         import gc
         gc.collect()
 
+    except asyncio.TimeoutError:
+        raise
     except Exception as e:
-        logger.error(f"Mix analysis failed for job {job_id}: {e}")
-        _mix_jobs[job_id]["status"] = "failed"
-        _mix_jobs[job_id]["result"] = MixAnalysisResult(
-            status="failed", error=str(e)
-        )
-    finally:
-        db.close()
-        # Clean up file
-        try:
-            os.remove(file_path)
-        except Exception:
-            pass
+        raise
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────

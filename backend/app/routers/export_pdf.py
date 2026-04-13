@@ -209,7 +209,7 @@ async def export_playlist_pdf(
     current_user = Depends(get_current_user),
 ):
     """
-    Export all tracks in a playlist as PDF.
+    Export all tracks in a playlist as PDF (max 200 tracks).
     GET /api/v1/export/pdf/playlist/{playlist_id}
     """
     playlist = db.query(Playlist).filter(
@@ -224,6 +224,10 @@ async def export_playlist_pdf(
     tracks = db.query(Track).filter(
         Track.playlists.any(Playlist.id == playlist_id)
     ).all()
+
+    # Enforce 200-track limit for export
+    if len(tracks) > 200:
+        raise HTTPException(status_code=400, detail="Playlist exceeds 200-track export limit")
 
     # Generate PDF
     if HAS_REPORTLAB:

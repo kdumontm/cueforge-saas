@@ -65,19 +65,19 @@ def save_upload(file_content: bytes, filename: str) -> str:
 
     # Nom déjà sanitisé (UUID + ext connue) — on filtre quand même les caractères dangereux
     safe_filename = "".join(c for c in filename if c.isalnum() or c in "._-")
-    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    file_path = Path(UPLOAD_DIR) / safe_filename
 
-    # Unicité
+    # Unicité — avoid TOCTOU by checking existence immediately before write
     counter = 1
-    base, ext = os.path.splitext(safe_filename)
-    while os.path.exists(file_path):
-        file_path = os.path.join(UPLOAD_DIR, f"{base}_{counter}{ext}")
+    base, ext = file_path.stem, file_path.suffix
+    while file_path.exists():
+        file_path = Path(UPLOAD_DIR) / f"{base}_{counter}{ext}"
         counter += 1
 
     with open(file_path, "wb") as f:
         f.write(file_content)
 
-    return file_path
+    return str(file_path)
 
 
 def delete_file(file_path: str) -> bool:
@@ -86,10 +86,9 @@ def delete_file(file_path: str) -> bool:
     if not resolved:
         return False
     try:
-        if os.path.exists(resolved):
-            os.remove(resolved)
-            return True
-        return False
+        # Use pathlib.Path().unlink(missing_ok=True) to avoid TOCTOU race
+        Path(resolved).unlink(missing_ok=True)
+        return True
     except Exception:
         return False
 

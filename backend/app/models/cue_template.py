@@ -38,6 +38,8 @@ class CueTemplate(Base):
     #   ],
     #   "auto_hot_cues": true
     # }
+    # Note: JSON schema validation is enforced at Pydantic level (CueTemplateCreate/Update schemas)
+    # to ensure structure consistency before storing in the database.
     cue_config = Column(JSON, default=dict, nullable=False)
 
     # Visibility & System Flag

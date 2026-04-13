@@ -278,6 +278,7 @@ def seed_plan_features(db: Session) -> list[PlanFeature]:
 def seed_all(db: Session, admin_id: int = None):
     """
     Lance tous les seeds. Appeler au démarrage de l'app.
+    Idempotent — ne re-seed que si données manquantes.
 
     Usage dans main.py :
         from app.services.cms_seed import seed_all
@@ -290,6 +291,12 @@ def seed_all(db: Session, admin_id: int = None):
             finally:
                 db.close()
     """
+    # Check if already seeded (idempotent)
+    site_settings_count = db.query(SiteSettings).count()
+    if site_settings_count > 0:
+        # Already seeded, skip
+        return
+
     seed_site_settings(db)
     seed_landing_page(db, admin_id)
     seed_pricing_page(db, admin_id)

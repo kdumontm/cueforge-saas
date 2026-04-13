@@ -3,10 +3,10 @@ API Router — Blog
 
 Endpoints pour la gestion des articles de blog publics.
 """
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import BlogPost, User
@@ -19,6 +19,9 @@ from app.schemas.blog_post import (
 )
 
 router = APIRouter(prefix="/api/v1/blog", tags=["blog"])
+
+# In-memory cache for blog posts (10 min TTL)
+_blog_cache: dict = {"posts": None, "timestamp": None, "ttl_seconds": 600}
 
 # Default seed articles
 DEFAULT_ARTICLES = [
@@ -186,19 +189,37 @@ async def list_blog_posts(
     """
     Lister les articles de blog publiés (sans authentification).
     Pagination et filtrage par tag optionnel.
+    Utilise cache en mémoire avec TTL de 10 minutes.
     """
     ensure_default_articles(db)
 
-    query = db.query(BlogPost).filter(BlogPost.published == True)
+    # Check cache validity (10 min TTL)
+    now = datetime.utcnow()
+    cache_valid = (
+        _blog_cache["posts"] is not None and
+        _blog_cache["timestamp"] is not None and
+        (now - _blog_cache["timestamp"]).total_seconds() < _blog_cache["ttl_seconds"]
+    )
 
-    # Filtrer par tag si spécifié
+    if cache_valid:
+        all_posts = _blog_cache["posts"]
+    else:
+        # Fetch from DB and cache
+        all_posts = db.query(BlogPost).filter(BlogPost.published == True).order_by(
+            BlogPost.published_at.desc()
+        ).all()
+        _blog_cache["posts"] = all_posts
+        _blog_cache["timestamp"] = now
+
+    # Filter by tag if specified
     if tag:
-        query = query.filter(BlogPost.tags.contains([tag]))
+        filtered_posts = [p for p in all_posts if p.tags and tag in p.tags]
+    else:
+        filtered_posts = all_posts
 
-    # Tri par date de publication décroissante
-    posts = query.order_by(BlogPost.published_at.desc()).offset(skip).limit(limit).all()
-
-    return [BlogPostResponse.from_orm(p) for p in posts]
+    # Apply pagination
+    paginated = filtered_posts[skip:skip + limit]
+    return [BlogPostResponse.from_orm(p) for p in paginated]
 
 
 @router.get("/{slug}", response_model=BlogPostDetailResponse)
@@ -248,6 +269,10 @@ async def create_blog_post(
     db.commit()
     db.refresh(new_post)
 
+    # Invalidate cache
+    _blog_cache["posts"] = None
+    _blog_cache["timestamp"] = None
+
     return BlogPostResponse.from_orm(new_post)
 
 
@@ -293,6 +318,10 @@ async def update_blog_post(
     db.commit()
     db.refresh(post)
 
+    # Invalidate cache
+    _blog_cache["posts"] = None
+    _blog_cache["timestamp"] = None
+
     return BlogPostResponse.from_orm(post)
 
 
@@ -312,3 +341,7 @@ async def delete_blog_post(
 
     db.delete(post)
     db.commit()
+
+    # Invalidate cache
+    _blog_cache["posts"] = None
+    _blog_cache["timestamp"] = None

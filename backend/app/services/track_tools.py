@@ -5,6 +5,7 @@ Professional DJ-oriented utilities for CueForge.
 import re
 import os
 import logging
+import functools
 from typing import Dict, Optional, List, Any
 
 logger = logging.getLogger(__name__)
@@ -380,4 +381,64 @@ def spotify_search(query: str, artist: str = None) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Spotify search error: {e}")
         return {'error': str(e)}
+
+
+# ── BPM compatibility with LRU cache ─────────────────────────────────────────
+
+@functools.lru_cache(maxsize=1024)
+def is_bpm_compatible(bpm1: float, bpm2: float, tolerance: float = 6.0) -> bool:
+    """
+    Check if two BPMs are mix-compatible.
+    Uses LRU cache (maxsize=1024) to avoid recomputation.
+
+    Compatible if:
+    - Within tolerance BPM difference (default ±6 BPM)
+    - Half-time or double-time compatible
+    """
+    if not bpm1 or not bpm2:
+        return False
+
+    # Direct match within tolerance
+    if abs(bpm1 - bpm2) <= tolerance:
+        return True
+
+    # Half-time compatible
+    if abs(bpm1 - bpm2 / 2) <= tolerance:
+        return True
+
+    # Double-time compatible
+    if abs(bpm1 - bpm2 * 2) <= tolerance:
+        return True
+
+    return False
+
+
+@functools.lru_cache(maxsize=256)
+def bpm_difference_score(bpm1: float, bpm2: float) -> float:
+    """
+    Calculate BPM compatibility score (0.0-1.0).
+    Cached for performance.
+
+    1.0 = perfect match, 0.0 = incompatible
+    """
+    if not bpm1 or not bpm2:
+        return 0.0
+
+    # Direct difference
+    diff = abs(bpm1 - bpm2)
+    if diff < 1:
+        return 1.0
+    if diff <= 6:
+        return 1.0 - (diff / 6.0) * 0.3  # 0.7-1.0 range
+    if diff <= 12:
+        return 0.7 - ((diff - 6) / 6.0) * 0.4  # 0.3-0.7 range
+
+    # Half-time or double-time
+    for mult in [0.5, 2.0]:
+        adjusted = bpm1 * mult
+        adjusted_diff = abs(adjusted - bpm2)
+        if adjusted_diff <= 6:
+            return 0.6 - (adjusted_diff / 6.0) * 0.3  # 0.3-0.6 range
+
+    return 0.0
 

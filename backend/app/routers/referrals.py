@@ -11,6 +11,7 @@ Endpoints :
 
 import random
 import string
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -24,6 +25,9 @@ from app.models.user import User
 from app.models.referral import Referral, ReferralStatus
 from app.models.subscription import Subscription
 from app.services.email_service import _send_email, FRONTEND_URL
+
+# Email validation regex (RFC 5322 simplified)
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
 router = APIRouter(prefix="/api/v1/referrals", tags=["referrals"])
 
@@ -146,6 +150,10 @@ async def invite_by_email(
     db: Session = Depends(get_db),
 ):
     """POST /api/v1/referrals/invite — Envoie une invitation."""
+    # Validate email format
+    if not EMAIL_REGEX.match(body.email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+
     # Récupérer ou créer le code de parrainage
     code = _get_or_create_referral_code(db, user.id)
 

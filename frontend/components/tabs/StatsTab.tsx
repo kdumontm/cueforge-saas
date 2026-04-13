@@ -1,12 +1,26 @@
-// @ts-nocheck
 'use client';
 
 import { useMemo } from 'react';
-import { BarChart3, Music2, Disc3, Zap, Clock, Tag, Star, TrendingUp } from 'lucide-react';
+import { BarChart3, Music2, Disc3, Zap, Clock, Tag, Star, TrendingUp, LucideIcon } from 'lucide-react';
 import { Track } from '@/types';
 
 interface StatsTabProps {
   tracks: Track[];
+  isLoading?: boolean;
+}
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  sub?: string;
+  icon?: LucideIcon;
+  color: string;
+}
+
+interface BarChartProps {
+  data: { label: string; value: number }[];
+  maxVal: number;
+  colorFn?: (label: string) => string;
 }
 
 const CAMELOT_MAP: Record<string, string> = {
@@ -25,7 +39,14 @@ const KEY_COLORS: Record<string, string> = {
   '11A': '#8bc34a', '11B': '#8bc34a', '12A': '#00bcd4', '12B': '#00bcd4',
 };
 
-export function StatsTab({ tracks = [] }: StatsTabProps) {
+const SkeletonCard = () => (
+  <div className="p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] animate-pulse">
+    <div className="h-4 bg-[var(--bg-primary)] rounded w-1/2 mb-3" />
+    <div className="h-8 bg-[var(--bg-primary)] rounded w-3/4" />
+  </div>
+);
+
+export function StatsTab({ tracks = [], isLoading = false }: StatsTabProps) {
   const stats = useMemo(() => {
     const totalTracks = tracks.length;
     const analyzedTracks = tracks.filter((t) => t.analysis).length;
@@ -116,7 +137,7 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
     };
   }, [tracks]);
 
-  const StatCard = ({ label, value, sub, icon: Icon, color }: { label: string; value: string | number; sub?: string; icon?: any; color: string }) => (
+  const StatCard = ({ label, value, sub, icon: Icon, color }: StatCardProps) => (
     <div className="p-3 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] transition-colors">
       <div className="flex items-center gap-2 mb-1">
         {Icon && <Icon size={12} className={color} />}
@@ -127,7 +148,7 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
     </div>
   );
 
-  const BarChart = ({ data, maxVal, colorFn }: { data: { label: string; value: number }[]; maxVal: number; colorFn?: (label: string) => string }) => (
+  const BarChart = ({ data, maxVal, colorFn }: BarChartProps) => (
     <div className="space-y-1.5">
       {data.map(({ label, value }) => (
         <div key={label} className="flex items-center gap-2">
@@ -146,6 +167,24 @@ export function StatsTab({ tracks = [] }: StatsTabProps) {
       ))}
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 overflow-y-auto max-h-[500px] pr-1">
+        {/* Skeleton Loading Cards */}
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (tracks.length === 0) {
     return (

@@ -230,6 +230,8 @@ def create_crate(
 @router.get("/{crate_id}", response_model=SmartCrateDetailResponse)
 def get_crate(
     crate_id: int,
+    page: int = 1,
+    limit: int = Query(default=50, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -240,8 +242,13 @@ def get_crate(
         raise HTTPException(status_code=404, detail="Smart crate not found")
 
     tracks = _evaluate_crate(crate, current_user.id, db)
+
+    # Apply pagination
+    offset = (page - 1) * limit
+    paginated_tracks = tracks[offset:offset + limit]
+
     track_summaries = []
-    for t in tracks:
+    for t in paginated_tracks:
         analysis = t.analysis
         track_summaries.append(TrackSummary(
             id=t.id, title=t.title, artist=t.artist, genre=t.genre,

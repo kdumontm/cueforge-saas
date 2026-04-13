@@ -285,6 +285,12 @@ def add_track_to_set(
     current_user: User = Depends(get_current_user),
 ):
     s = _get_user_set(set_id, current_user, db)
+
+    # Check track limit (max 500 per set)
+    track_count = db.query(DJSetTrack).filter(DJSetTrack.set_id == s.id).count()
+    if track_count >= 500:
+        raise HTTPException(status_code=400, detail="Track limit (500) exceeded for this set")
+
     track = db.query(Track).filter(
         Track.id == body.track_id, Track.user_id == current_user.id
     ).first()

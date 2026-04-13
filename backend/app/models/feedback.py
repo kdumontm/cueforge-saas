@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index
 from app.database import Base
 
 class Feedback(Base):
@@ -11,3 +11,7 @@ class Feedback(Base):
     message = Column(Text, nullable=False)
     rating = Column(String, nullable=True)  # up, down, null
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('ix_feedback_created_at', 'created_at'),
+    )

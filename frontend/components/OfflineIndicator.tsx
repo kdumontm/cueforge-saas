@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { WifiOff, Check } from "lucide-react";
 import { offlineDb } from "@/lib/offlineStorage";
+import { useLang } from "@/components/LangProvider";
+import { tr } from "@/lib/i18n";
 
 export function OfflineIndicator() {
+  const { lang } = useLang();
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -68,7 +71,7 @@ export function OfflineIndicator() {
         <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg transition-all duration-300 ease-in-out">
           <Check className="w-4 h-4 text-green-600" />
           <span className="text-sm font-medium text-green-700">
-            Données synchronisées
+            {tr('offline.synced', lang)}
           </span>
         </div>
       </div>
@@ -81,17 +84,17 @@ export function OfflineIndicator() {
       <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg shadow-lg transition-all duration-300 ease-in-out">
         <WifiOff className="w-4 h-4 text-amber-600 animate-pulse" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-amber-700">Mode hors-ligne</p>
+          <p className="text-sm font-medium text-amber-700">{tr('offline.title', lang)}</p>
           {pendingCount > 0 && (
             <p className="text-xs text-amber-600">
-              {pendingCount} action{pendingCount > 1 ? "s" : ""} en attente
+              {tr('offline.actions_pending', lang).replace('{count}', pendingCount.toString()).replace('{plural}', pendingCount > 1 ? 's' : '')}
             </p>
           )}
         </div>
         {isSyncing && (
           <div className="flex items-center gap-2 ml-3">
             <div className="w-2 h-2 bg-amber-600 rounded-full animate-pulse" />
-            <span className="text-xs text-amber-600 font-medium">Sync...</span>
+            <span className="text-xs text-amber-600 font-medium">{tr('offline.syncing', lang)}</span>
           </div>
         )}
       </div>

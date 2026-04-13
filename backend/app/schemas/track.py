@@ -96,12 +96,12 @@ class TrackAnalysisResponse(BaseModel):
     drop_positions: Optional[List[int]] = None
     phrase_positions: Optional[List[int]] = None
     beat_positions: Optional[List[int]] = None
-    section_labels: Optional[List[Dict[str, Any]]] = None
+    section_labels: Optional[List[Dict[str, int | str | float]]] = None
     # v3 fields
     loudness_lufs: Optional[float] = None
     loudness_range_lu: Optional[float] = None
     replay_gain_db: Optional[float] = None
-    bpm_map: Optional[List[Dict[str, Any]]] = None
+    bpm_map: Optional[List[Dict[str, int | str | float]]] = None
     bpm_stable: Optional[bool] = True
     key_secondary: Optional[str] = None
     key_confidence: Optional[float] = None
@@ -111,7 +111,7 @@ class TrackAnalysisResponse(BaseModel):
     danceability: Optional[float] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
-    spectral_energy: Optional[Dict[str, Any]] = None
+    spectral_energy: Optional[Dict[str, float]] = None
 
     @field_validator('drop_positions', 'phrase_positions', 'beat_positions', mode='before')
     @classmethod

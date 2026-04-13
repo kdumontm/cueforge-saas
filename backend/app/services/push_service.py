@@ -29,6 +29,7 @@ def send_push_notification(
 ) -> bool:
     """
     Send a push notification to all active subscriptions for a user.
+    Batches sends in groups of 100 for efficiency.
 
     Args:
         db: Database session
@@ -64,52 +65,58 @@ def send_push_notification(
 
     payload_json = json.dumps(payload)
     sent_count = 0
+    batch_size = 100
 
-    for subscription in subscriptions:
-        try:
-            if not WEBPUSH_AVAILABLE:
-                logger.info(
-                    f"Push notification (simulated): {title} - {body} "
-                    f"[user_id={user_id}, endpoint={subscription.endpoint[:50]}...]"
+    # Process subscriptions in batches of 100
+    for batch_start in range(0, len(subscriptions), batch_size):
+        batch = subscriptions[batch_start:batch_start + batch_size]
+        logger.info(f"Processing batch of {len(batch)} notifications for user {user_id}")
+
+        for subscription in batch:
+            try:
+                if not WEBPUSH_AVAILABLE:
+                    logger.info(
+                        f"Push notification (simulated): {title} - {body} "
+                        f"[user_id={user_id}, endpoint={subscription.endpoint[:50]}...]"
+                    )
+                    sent_count += 1
+                    continue
+
+                # Send via Web Push API
+                if not vapid_private_key or not vapid_claims:
+                    logger.warning(
+                        f"VAPID credentials not provided. Logging notification only: {title}"
+                    )
+                    sent_count += 1
+                    continue
+
+                subscription_info = {
+                    "endpoint": subscription.endpoint,
+                    "keys": {
+                        "p256dh": subscription.p256dh,
+                        "auth": subscription.auth,
+                    },
+                }
+
+                webpush(
+                    subscription_info=subscription_info,
+                    data=payload_json,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims=vapid_claims,
+                    timeout=10,
                 )
+                logger.info(f"Push notification sent to user {user_id}")
                 sent_count += 1
-                continue
 
-            # Send via Web Push API
-            if not vapid_private_key or not vapid_claims:
-                logger.warning(
-                    f"VAPID credentials not provided. Logging notification only: {title}"
-                )
-                sent_count += 1
-                continue
-
-            subscription_info = {
-                "endpoint": subscription.endpoint,
-                "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth,
-                },
-            }
-
-            webpush(
-                subscription_info=subscription_info,
-                data=payload_json,
-                vapid_private_key=vapid_private_key,
-                vapid_claims=vapid_claims,
-                timeout=10,
-            )
-            logger.info(f"Push notification sent to user {user_id}")
-            sent_count += 1
-
-        except Exception as e:
-            logger.error(f"Error sending push notification: {str(e)}")
-            # If endpoint is invalid, mark subscription as deleted
-            if "410" in str(e) or "invalid" in str(e).lower():
-                try:
-                    db.delete(subscription)
-                    db.commit()
-                    logger.info(f"Deleted invalid subscription for user {user_id}")
-                except Exception as delete_error:
-                    logger.error(f"Error deleting subscription: {delete_error}")
+            except Exception as e:
+                logger.error(f"Error sending push notification: {str(e)}")
+                # If endpoint is invalid, mark subscription as deleted
+                if "410" in str(e) or "invalid" in str(e).lower():
+                    try:
+                        db.delete(subscription)
+                        db.commit()
+                        logger.info(f"Deleted invalid subscription for user {user_id}")
+                    except Exception as delete_error:
+                        logger.error(f"Error deleting subscription: {delete_error}")
 
     return sent_count > 0

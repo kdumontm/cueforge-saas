@@ -1,4 +1,12 @@
-"""Simple async job queue service backed by Redis or in-memory fallback."""
+"""
+Simple async job queue service backed by Redis or in-memory fallback.
+
+IMPORTANT: In-memory fallback is NOT persistent.
+- If using Redis (recommended for production), jobs are persisted with 24h TTL.
+- If Redis is unavailable, jobs are stored in RAM and lost on server restart.
+- For production deployments, ensure Redis is configured and healthy.
+- For critical jobs, implement database-backed queue as fallback.
+"""
 import json
 import uuid
 from datetime import datetime

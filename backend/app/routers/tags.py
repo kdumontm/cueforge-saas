@@ -167,6 +167,11 @@ def add_tag_to_track(
     if existing:
         return {"status": "ok"}
 
+    # Check tag limit (max 50 per track)
+    tag_count = db.query(TrackTag).filter(TrackTag.track_id == track_id).count()
+    if tag_count >= 50:
+        raise HTTPException(status_code=400, detail="Tag limit (50) exceeded for this track")
+
     track_tag = TrackTag(track_id=track_id, tag_id=tag_id)
     db.add(track_tag)
     db.commit()

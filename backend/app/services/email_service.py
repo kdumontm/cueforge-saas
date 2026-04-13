@@ -5,13 +5,16 @@ Additions:
 - Email verification emails
 - Organization invite emails
 - Configurable templates
+- Async wrapper for non-blocking email sends
 """
 import logging
 import os
 import smtplib
 import threading
+import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +56,17 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
         except Exception as exc:
             logger.error("Failed to send email to %s: %s", to_email, exc)
     threading.Thread(target=_worker, daemon=True).start()
+
+
+async def send_email_async(to_email: str, subject: str, html_body: str) -> None:
+    """Async email sender — offloads blocking SMTP to thread pool."""
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        await loop.run_in_executor(
+            executor,
+            _send_email_sync,
+            to_email, subject, html_body
+        )
 
 
 def _wrap_template(content: str) -> str:

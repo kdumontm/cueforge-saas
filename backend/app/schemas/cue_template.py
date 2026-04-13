@@ -25,7 +25,7 @@ class CueTemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     genre: Optional[str] = None
-    cue_config: Dict[str, Any]
+    cue_config: CueConfig  # Validated Pydantic model
     is_public: bool = False
 
 
@@ -34,7 +34,7 @@ class CueTemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     genre: Optional[str] = None
-    cue_config: Optional[Dict[str, Any]] = None
+    cue_config: Optional[CueConfig] = None  # Validated Pydantic model
     is_public: Optional[bool] = None
 
 

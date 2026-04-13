@@ -103,6 +103,10 @@ def create_hot_cue(
 ):
     _get_user_track(track_id, current_user, db)
 
+    # Validate cue position (must be >= 0)
+    if body.position_ms < 0:
+        raise HTTPException(status_code=400, detail="Cue position cannot be negative")
+
     # Enforce max 8 hot cues per track per user
     count = db.query(HotCue).filter(
         HotCue.track_id == track_id, HotCue.user_id == current_user.id
@@ -158,6 +162,10 @@ def update_hot_cue(
     ).first()
     if not cue:
         raise HTTPException(status_code=404, detail="Hot cue not found")
+
+    # Validate position if being updated
+    if body.position_ms is not None and body.position_ms < 0:
+        raise HTTPException(status_code=400, detail="Cue position cannot be negative")
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(cue, field, value)

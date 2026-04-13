@@ -65,6 +65,10 @@ async def import_rekordbox(
     except ET.ParseError as e:
         raise HTTPException(status_code=400, detail=f"Invalid XML: {e}")
 
+    # Validate root element
+    if root.tag not in ("DJ_PLAYLISTS", "PLAYLISTS"):
+        raise HTTPException(status_code=400, detail="Invalid Rekordbox XML format: expected root element DJ_PLAYLISTS or PLAYLISTS")
+
     collection = root.find(".//COLLECTION")
     if collection is None:
         raise HTTPException(status_code=400, detail="No COLLECTION element found in XML")
@@ -241,6 +245,10 @@ async def import_traktor(
         root = tree.getroot()
     except ET.ParseError as e:
         raise HTTPException(status_code=400, detail=f"Invalid NML: {e}")
+
+    # Validate root element
+    if root.tag != "NML":
+        raise HTTPException(status_code=400, detail="Invalid Traktor NML format: expected root element NML")
 
     collection = root.find(".//COLLECTION")
     if collection is None:

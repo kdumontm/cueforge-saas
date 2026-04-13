@@ -49,5 +49,5 @@ class SharedLink(Base):
 
     @classmethod
     def generate_token(cls):
-        """Generate a unique share token."""
-        return secrets.token_urlsafe(16)
+        """Generate a unique share token (32-byte token for enhanced security)."""
+        return secrets.token_urlsafe(32)

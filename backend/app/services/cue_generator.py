@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
 )
+from app.services.camelot import key_to_camelot as camelot_key_to_camelot, get_compatible_keys as camelot_get_compatible
 
 # Couleurs hex Rekordbox-compatibles pour chaque type de cue
 CUE_COLORS = {
@@ -50,48 +51,15 @@ CUE_COLORS = {
 }
 
 
-CAMELOT_MAP = {
-    "C":  "8B",  "Cm":  "5A",
-    "C#": "3B",  "C#m": "12A",
-    "D":  "10B", "Dm":  "7A",
-    "D#": "5B",  "D#m": "2A",
-    "E":  "12B", "Em":  "9A",
-    "F":  "7B",  "Fm":  "4A",
-    "F#": "2B",  "F#m": "11A",
-    "G":  "9B",  "Gm":  "6A",
-    "G#": "4B",  "G#m": "1A",
-    "A":  "11B", "Am":  "8A",
-    "A#": "6B",  "A#m": "3A",
-    "B":  "1B",  "Bm":  "10A",
-    "Db": "3B",  "Dbm": "12A",
-    "Eb": "5B",  "Ebm": "2A",
-    "Gb": "2B",  "Gbm": "11A",
-    "Ab": "4B",  "Abm": "1A",
-    "Bb": "6B",  "Bbm": "3A",
-}
-
-
 def key_to_camelot(key: str) -> str:
-    return CAMELOT_MAP.get(key, "")
+    """Wrapper for camelot service — convert key to Camelot code."""
+    result = camelot_key_to_camelot(key)
+    return result if result else ""
 
 
 def get_compatible_keys(key: str) -> List[str]:
-    camelot = CAMELOT_MAP.get(key, "")
-    if not camelot:
-        return []
-    num = int(camelot[:-1])
-    letter = camelot[-1]
-    compatible_camelots = [
-        camelot,
-        f"{((num) % 12) + 1}{letter}",
-        f"{((num - 2) % 12) + 1}{letter}",
-        f"{num}{'A' if letter == 'B' else 'B'}",
-    ]
-    reverse_map = {}
-    for k, v in CAMELOT_MAP.items():
-        if v not in reverse_map:
-            reverse_map[v] = k
-    return [reverse_map[c] for c in compatible_camelots if c in reverse_map]
+    """Wrapper for camelot service — get compatible keys."""
+    return camelot_get_compatible(key) if key else []
 
 
 def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) -> Dict:
@@ -111,8 +79,9 @@ def compute_mix_compatibility(key1: str, bpm1: float, key2: str, bpm2: float) ->
     else:
         bpm_score = max(0, 25 - bpm_diff)
 
-    camelot1 = CAMELOT_MAP.get(key1, "")
-    camelot2 = CAMELOT_MAP.get(key2, "")
+    # Use camelot service for consistency
+    camelot1 = key_to_camelot(key1)
+    camelot2 = key_to_camelot(key2)
     if not camelot1 or not camelot2:
         key_score = 25
     elif camelot1 == camelot2:

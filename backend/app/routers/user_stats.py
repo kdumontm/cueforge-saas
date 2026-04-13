@@ -1,6 +1,11 @@
-"""User statistics endpoints."""
+"""
+User statistics endpoints.
+Endpoints use in-memory cache with 2min TTL to avoid repeated DB queries.
+"""
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
+import time
+import threading
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -12,6 +17,31 @@ from app.models.user import User
 from app.models.track import Track
 
 router = APIRouter()
+
+# In-memory cache for user stats (2min TTL)
+_user_stats_cache: Dict[str, Dict[str, Any]] = {}
+_cache_lock = threading.Lock()
+USER_STATS_CACHE_TTL_SEC = 120  # 2 minutes
+
+
+def _get_cached_user_stats(user_id: int, key: str) -> Optional[Dict[str, Any]]:
+    """Get value from cache if not expired."""
+    cache_key = f"user_{user_id}_{key}"
+    with _cache_lock:
+        if cache_key in _user_stats_cache:
+            data, timestamp = _user_stats_cache[cache_key]
+            if time.time() - timestamp < USER_STATS_CACHE_TTL_SEC:
+                return data
+            else:
+                del _user_stats_cache[cache_key]
+    return None
+
+
+def _set_cached_user_stats(user_id: int, key: str, data: Dict[str, Any]) -> None:
+    """Store value in cache with current timestamp."""
+    cache_key = f"user_{user_id}_{key}"
+    with _cache_lock:
+        _user_stats_cache[cache_key] = (data, time.time())
 
 
 class ActivityDay(BaseModel):
@@ -68,7 +98,12 @@ def get_stats_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get user statistics overview."""
+    """Get user statistics overview (cached 2min)."""
+    # Check cache first
+    cached = _get_cached_user_stats(current_user.id, "overview")
+    if cached:
+        return StatsOverview(**cached)
+
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -146,15 +181,19 @@ def get_stats_overview(
     # Storage used (rough estimate: 5MB per track)
     storage_used_mb = float(total_tracks * 5)
 
-    return StatsOverview(
-        total_tracks=total_tracks,
-        total_analyses=total_analyses,
-        total_playlists=total_playlists,
-        total_sets=total_sets,
-        genres_breakdown=genres_breakdown,
-        bpm_range=bpm_range,
-        key_distribution=key_distribution,
-        activity_last_30_days=activity_last_30_days,
-        member_since=member_since,
-        storage_used_mb=storage_used_mb,
-    )
+    result = {
+        "total_tracks": total_tracks,
+        "total_analyses": total_analyses,
+        "total_playlists": total_playlists,
+        "total_sets": total_sets,
+        "genres_breakdown": genres_breakdown,
+        "bpm_range": bpm_range,
+        "key_distribution": key_distribution,
+        "activity_last_30_days": activity_last_30_days,
+        "member_since": member_since,
+        "storage_used_mb": storage_used_mb,
+    }
+
+    # Cache result for 2 minutes
+    _set_cached_user_stats(current_user.id, "overview", result)
+    return StatsOverview(**result)

@@ -6,12 +6,19 @@ into DJ-specific genres. Returns confidence-ranked genre suggestions.
 
 Optimized v2: Tighter BPM ranges, multi-factor scoring with energy×BPM cross-correlation,
 spectral profile matching, key affinity bonuses, and subgenre detection.
+
+Optimized v3: Reference data loaded once as module-level singleton (immutable).
 """
 
 import logging
 from typing import Dict, Optional, List, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache flag to ensure reference data is loaded only once
+_GENRE_DATA_LOADED = False
+_GENRE_DEFINITIONS = None
+_KEY_AFFINITIES = None
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -253,6 +260,20 @@ GENRE_DEFINITIONS = {
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Singleton loader — ensure reference data is loaded only once
+# ═══════════════════════════════════════════════════════════════════════
+
+def _get_genre_definitions() -> Dict:
+    """Get cached GENRE_DEFINITIONS (loaded once as singleton)."""
+    global _GENRE_DATA_LOADED, _GENRE_DEFINITIONS
+    if not _GENRE_DATA_LOADED:
+        _GENRE_DEFINITIONS = GENRE_DEFINITIONS  # Reference the module-level dict
+        _GENRE_DATA_LOADED = True
+        logger.debug(f"Loaded {len(_GENRE_DEFINITIONS)} genre definitions")
+    return _GENRE_DEFINITIONS
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Scoring functions — multi-factor precision scoring
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -451,10 +472,11 @@ def detect_genre_from_analysis(
             "debug_info": {"error": "No BPM data provided"},
         }
 
-    # Score each genre
+    # Score each genre — use cached singleton
     scores: Dict[str, float] = {}
+    genre_defs = _get_genre_definitions()
 
-    for genre_name, genre_def in GENRE_DEFINITIONS.items():
+    for genre_name, genre_def in genre_defs.items():
         # Multi-factor scoring with refined weights
         bpm_score = _get_bpm_score(bpm, genre_def)
         energy_score = _get_energy_score(energy, genre_def)

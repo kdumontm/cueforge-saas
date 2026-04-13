@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -14,26 +13,42 @@ export default function BpmTapTempo({ onBpmDetected }: BpmTapTempoProps) {
   const [isActive, setIsActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const circularBufferRef = useRef<number[]>([]);
+  const bufferIndexRef = useRef(0);
+  const MAX_TAPS = 12;
 
   const handleTap = useCallback(() => {
     const now = Date.now();
 
     // Reset if last tap was more than 3 seconds ago
-    if (taps.length > 0 && now - taps[taps.length - 1] > 3000) {
-      setTaps([now]);
+    if (circularBufferRef.current.length > 0 && now - circularBufferRef.current[(bufferIndexRef.current - 1 + MAX_TAPS) % MAX_TAPS] > 3000) {
+      circularBufferRef.current = [now];
+      bufferIndexRef.current = 1;
       setBpm(null);
       setIsActive(true);
+      setTaps([now]);
       return;
     }
 
-    const newTaps = [...taps, now].slice(-12); // Keep last 12 taps
-    setTaps(newTaps);
+    // Use circular buffer instead of array.slice
+    circularBufferRef.current[bufferIndexRef.current % MAX_TAPS] = now;
+    bufferIndexRef.current++;
+    const newTapsCount = Math.min(bufferIndexRef.current, MAX_TAPS);
+
+    // Create display array from circular buffer
+    const displayTaps: number[] = [];
+    for (let i = Math.max(0, bufferIndexRef.current - MAX_TAPS); i < bufferIndexRef.current; i++) {
+      displayTaps.push(circularBufferRef.current[i % MAX_TAPS]);
+    }
+    setTaps(displayTaps);
     setIsActive(true);
 
-    if (newTaps.length >= 2) {
+    if (newTapsCount >= 2) {
       const intervals: number[] = [];
-      for (let i = 1; i < newTaps.length; i++) {
-        intervals.push(newTaps[i] - newTaps[i - 1]);
+      for (let i = 1; i < newTapsCount; i++) {
+        const prevIdx = (bufferIndexRef.current - newTapsCount + i - 1) % MAX_TAPS;
+        const currIdx = (bufferIndexRef.current - newTapsCount + i) % MAX_TAPS;
+        intervals.push(circularBufferRef.current[currIdx] - circularBufferRef.current[prevIdx]);
       }
       const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
       const detectedBpm = Math.round(60000 / avgInterval * 10) / 10;
@@ -44,7 +59,7 @@ export default function BpmTapTempo({ onBpmDetected }: BpmTapTempoProps) {
     // Auto-reset after 3s of inactivity
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setIsActive(false), 3000);
-  }, [taps, onBpmDetected]);
+  }, [onBpmDetected]);
 
   // Keyboard support
   useEffect(() => {
@@ -62,6 +77,8 @@ export default function BpmTapTempo({ onBpmDetected }: BpmTapTempoProps) {
   }, [handleTap]);
 
   function handleReset() {
+    circularBufferRef.current = [];
+    bufferIndexRef.current = 0;
     setTaps([]);
     setBpm(null);
     setIsActive(false);

@@ -13,7 +13,7 @@ class Tag(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String(255), nullable=False, index=True)
+    name = Column(String(255), nullable=False, index=True)  # Indexed for fast tag name lookups
     color = Column(String(7), default="#3b82f6")  # Hex color
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -21,6 +21,7 @@ class Tag(Base):
     user = relationship("User", back_populates="tags")
     track_tags = relationship("TrackTag", back_populates="tag", cascade="all, delete-orphan")
 
+    # Unique constraint: tags are unique per user (same tag name cannot appear twice for same user)
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_tag_name"),)
 
 

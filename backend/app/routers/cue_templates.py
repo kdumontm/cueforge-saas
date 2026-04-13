@@ -182,13 +182,13 @@ async def create_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Créer un nouveau template personnel."""
+    """Créer un nouveau template personnel (cue_config est validé par Pydantic)."""
     new_template = CueTemplate(
         user_id=current_user.id,
         name=template_data.name,
         description=template_data.description,
         genre=template_data.genre,
-        cue_config=template_data.cue_config,
+        cue_config=template_data.cue_config.model_dump(),  # Convert Pydantic model to dict for storage
         is_public=template_data.is_public,
         is_system=False,
     )
@@ -226,8 +226,8 @@ async def update_template(
         template.description = template_data.description
     if template_data.genre is not None:
         template.genre = template_data.genre
-    if template_data.cue_config:
-        template.cue_config = template_data.cue_config
+    if template_data.cue_config is not None:
+        template.cue_config = template_data.cue_config.model_dump()  # Convert Pydantic model to dict for storage
     if template_data.is_public is not None:
         template.is_public = template_data.is_public
 

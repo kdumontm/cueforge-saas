@@ -132,6 +132,11 @@ def create_playlist(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Check playlist limit (max 100 per user)
+    playlist_count = db.query(Playlist).filter(Playlist.user_id == current_user.id).count()
+    if playlist_count >= 100:
+        raise HTTPException(status_code=400, detail="Playlist limit (100) exceeded")
+
     if body.parent_id:
         parent = db.query(Playlist).filter(
             Playlist.id == body.parent_id, Playlist.user_id == current_user.id

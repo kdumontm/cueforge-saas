@@ -131,12 +131,22 @@ def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
     Returns dict of {stem_name: mono_numpy_array} at 22050 Hz.
 
     v5.1 safety:
+    - Duration check before loading Demucs (max 600s)
     - RAM check before loading Demucs
     - Thread-safe timeout (no signal.alarm — works in BackgroundTasks)
     - Max 5 min audio
     - Segment-based processing (split=True, segment=30s)
     """
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
+    # ── Pre-flight: check duration ──────────────────────────────────────
+    import torchaudio
+    wav, sr = torchaudio.load(file_path)
+    duration_sec = len(wav[0]) / sr if len(wav.shape) > 1 else len(wav) / sr
+    if duration_sec > MAX_DURATION_SEC:
+        raise ValueError(
+            f"Audio duration {duration_sec:.1f}s exceeds max {MAX_DURATION_SEC}s"
+        )
 
     # ── Pre-flight: check RAM ───────────────────────────────────────────
     free_mb = _check_available_memory_mb()

@@ -23,6 +23,9 @@ interface MultiUploadProps {
 const ALLOWED_FORMATS = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aiff', 'audio/ogg', 'audio/x-m4a'];
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aiff', '.ogg', '.m4a'];
 
+// TODO: Implement IndexedDB offline queue for failed uploads when user is offline
+// Store failed files in offlineDb, retry on reconnect
+
 // Throttle utility (100ms)
 function createThrottle<T extends (...args: any[]) => void>(fn: T, delay: number) {
   let lastCall = 0;

@@ -311,7 +311,12 @@ async def customer_portal(
 
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    """Handle Stripe webhook events."""
+    """
+    Handle Stripe webhook events with signature validation.
+
+    Security: stripe.Webhook.construct_event() validates the webhook signature
+    using HMAC-SHA256 to ensure the event came from Stripe.
+    """
     import os
     import stripe
 
@@ -325,6 +330,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Webhook secret not configured")
 
     try:
+        # Validates signature using HMAC-SHA256 before processing
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")

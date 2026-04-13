@@ -2,6 +2,7 @@
 Service Media — Upload et gestion des fichiers médias (images, logos).
 
 Supporte le stockage local et S3 (selon STORAGE_BACKEND dans la config).
+Validates magic bytes to prevent malicious file uploads.
 """
 import os
 import uuid
@@ -20,6 +21,15 @@ ALLOWED_MIME_TYPES = {
     "image/svg+xml", "image/x-icon",
 }
 
+# Magic bytes (file signatures) for validation
+MAGIC_BYTES = {
+    b'\xff\xd8\xff': '.jpg',      # JPEG
+    b'\x89PNG': '.png',            # PNG
+    b'GIF8': '.gif',               # GIF
+    b'RIFF': '.webp',              # WEBP (also WAV, but filtered by MIME)
+    b'<svg': '.svg',               # SVG (text-based)
+}
+
 # Taille max : 10 MB
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
@@ -32,6 +42,24 @@ def _ensure_media_dir() -> Path:
     base = Path(getattr(settings, 'UPLOAD_DIR', 'uploads')).parent / MEDIA_DIR
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def _validate_magic_bytes(content: bytes, content_type: str) -> bool:
+    """Validate file content using magic bytes to prevent spoofed uploads."""
+    if not content:
+        return False
+
+    # For images, check magic bytes
+    if content_type.startswith("image/"):
+        for magic, ext in MAGIC_BYTES.items():
+            if content.startswith(magic):
+                return True
+        # SVG is text-based, allow if starts with < or XML declaration
+        if content_type == "image/svg+xml" and (content.startswith(b'<') or content.startswith(b'<?xml')):
+            return True
+        return False
+
+    return True
 
 
 async def upload_media_file(
@@ -61,6 +89,13 @@ async def upload_media_file(
             status_code=400,
             detail=f"Fichier trop volumineux ({len(content) // (1024*1024)} MB). "
                    f"Maximum : {MAX_FILE_SIZE // (1024*1024)} MB.",
+        )
+
+    # Validate magic bytes to prevent spoofed files
+    if not _validate_magic_bytes(content, file.content_type):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Fichier corrompu ou non valide : les magic bytes ne correspondent pas au type MIME déclaré.",
         )
 
     settings = get_settings()

@@ -295,9 +295,9 @@ export function BeatgridTab({
           <button
             onClick={() => handleOffsetChange(-100)}
             className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
-            title="Diminuer de 100ms"
+            title="Decrease 100ms"
           >
-            -100ms
+            {tr('beatgrid.coarse_100', lang)}
           </button>
           <input
             type="range"
@@ -318,9 +318,9 @@ export function BeatgridTab({
           <button
             onClick={() => handleOffsetChange(100)}
             className="px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm transition-colors"
-            title="Augmenter de 100ms"
+            title="Increase 100ms"
           >
-            +100ms
+            {tr('beatgrid.coarse_plus100', lang)}
           </button>
         </div>
 
@@ -360,29 +360,29 @@ export function BeatgridTab({
 
       {/* Tap Tempo */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-[var(--text-secondary)]">Tap Tempo</div>
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">{tr('beatgrid.tap_tempo', lang)}</div>
         <button
           onClick={handleTapTempo}
           className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors"
         >
-          Tap Tempo ({tapTimes.length})
+          {tr('beatgrid.tap_count', lang).replace('{count}', tapTimes.length.toString())}
         </button>
         {calculatedBpm && (
           <div className="bg-[var(--bg-primary)] rounded p-3 text-center">
-            <div className="text-xs text-[var(--text-muted)]">BPM calculé</div>
+            <div className="text-xs text-[var(--text-muted)]">{tr('beatgrid.calculated', lang)}</div>
             <div className="text-lg font-bold text-[var(--accent)]">{calculatedBpm.toFixed(1)}</div>
           </div>
         )}
         {tapTimes.length > 0 && (
           <div className="flex items-center justify-between">
             <div className="text-xs text-[var(--text-muted)]">
-              Taps : {tapTimes.length}/4
+              {tr('beatgrid.taps', lang).replace('{count}', tapTimes.length.toString())}
             </div>
             <button
               onClick={handleResetTapTempo}
               className="px-3 py-1 text-xs rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors"
             >
-              Réinitialiser
+              {tr('beatgrid.reset', lang)}
             </button>
           </div>
         )}
@@ -390,18 +390,18 @@ export function BeatgridTab({
 
       {/* Analyse */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-[var(--text-secondary)]">Analyse</div>
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">{tr('beatgrid.analysis_title', lang)}</div>
         <div className="grid grid-cols-3 gap-3">
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
-            <div className="text-xs text-[var(--text-muted)]">Durée</div>
+            <div className="text-xs text-[var(--text-muted)]">{tr('beatgrid.duration', lang)}</div>
             <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.displayDuration}</div>
           </div>
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
-            <div className="text-xs text-[var(--text-muted)]">Mesures</div>
+            <div className="text-xs text-[var(--text-muted)]">{tr('beatgrid.bars', lang)}</div>
             <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.bars}</div>
           </div>
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
-            <div className="text-xs text-[var(--text-muted)]">Temps</div>
+            <div className="text-xs text-[var(--text-muted)]">{tr('beatgrid.beats', lang)}</div>
             <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.beats}</div>
           </div>
         </div>
@@ -422,7 +422,7 @@ export function BeatgridTab({
         className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors"
       >
         <RotateCcw className="w-4 h-4" />
-        Réinitialiser
+        {tr('beatgrid.reset', lang)}
       </button>
     </div>
   );

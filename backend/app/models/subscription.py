@@ -29,3 +29,7 @@ class Subscription(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="subscription")
+
+    __table_args__ = (
+        Index('ix_sub_user_status', 'user_id', 'status'),
+    )

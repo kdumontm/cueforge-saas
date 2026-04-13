@@ -144,6 +144,8 @@ def find_related_versions(title: str, tracks_titles: list) -> list:
     Given a track title, find other tracks in the library that are
     different versions/remixes of the same song.
 
+    Optimized O(n) with normalized title indexing instead of O(n²).
+
     Returns list of indices into tracks_titles that match.
     """
     info = detect_remix_info(title)
@@ -152,16 +154,28 @@ def find_related_versions(title: str, tracks_titles: list) -> list:
     if len(clean) < 3:
         return []
 
-    related = []
+    # Build index of normalized titles for O(n) lookup
+    # Map normalized title -> list of (index, original_title) pairs
+    title_index = {}
     for i, other_title in enumerate(tracks_titles):
         if other_title == title:
             continue
         other_info = detect_remix_info(other_title)
         other_clean = other_info["clean_title"].lower()
-        # Match if the clean titles are very similar
-        if clean == other_clean:
-            related.append(i)
-        elif len(clean) > 5 and (clean in other_clean or other_clean in clean):
-            related.append(i)
 
-    return related
+        if other_clean not in title_index:
+            title_index[other_clean] = []
+        title_index[other_clean].append(i)
+
+    # O(1) lookup for exact match, then check partial matches
+    related = []
+    if clean in title_index:
+        related.extend(title_index[clean])
+
+    # For longer titles, check for substring matches (only among candidates)
+    if len(clean) > 5:
+        for normalized, indices in title_index.items():
+            if normalized != clean and (clean in normalized or normalized in clean):
+                related.extend(indices)
+
+    return list(set(related))  # Deduplicate

@@ -13,8 +13,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing — configurable bcrypt rounds (default 12)
+BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=BCRYPT_ROUNDS
+)
 
 # JWT settings
 _raw_secret = os.getenv("SECRET_KEY", "")

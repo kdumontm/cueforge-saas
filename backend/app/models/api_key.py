@@ -26,7 +26,9 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_used_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)  # None = jamais expire
+    # expires_at: Optional expiration date for the API key. None = never expires.
+    # Checked during authentication to revoke expired keys.
+    expires_at = Column(DateTime, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="api_keys")

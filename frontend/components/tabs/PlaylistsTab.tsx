@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Plus, Trash2, GripVertical, Music } from 'lucide-react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface Playlist {
   id: number;
@@ -24,6 +26,7 @@ export function PlaylistsTab({
   onDelete,
   onRename,
 }: PlaylistsTabProps) {
+  const { lang } = useLang();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -88,7 +91,7 @@ export function PlaylistsTab({
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
       >
         <Plus className="w-4 h-4" />
-        Nouvelle playlist
+        {tr('playlists.new', lang)}
       </button>
 
       {showCreate && (
@@ -98,7 +101,7 @@ export function PlaylistsTab({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={handleCreateKeyDown}
-            placeholder="Nom de la playlist..."
+            placeholder={tr('playlists.placeholder', lang)}
             className="w-full px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-default)] rounded text-[var(--text-primary)] text-sm placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500"
             autoFocus
           />
@@ -107,7 +110,7 @@ export function PlaylistsTab({
               onClick={handleCreate}
               className="flex-1 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
             >
-              Créer
+              {tr('playlists.create', lang)}
             </button>
             <button
               onClick={() => {
@@ -116,7 +119,7 @@ export function PlaylistsTab({
               }}
               className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
             >
-              Annuler
+              {tr('playlists.cancel', lang)}
             </button>
           </div>
         </div>
@@ -126,13 +129,13 @@ export function PlaylistsTab({
         {playlists.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center rounded-lg border border-[var(--border-subtle)] border-dashed">
             <Music className="w-10 h-10 text-[var(--text-muted)] mb-3 opacity-40" />
-            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Pas encore de playlists</p>
-            <p className="text-xs text-[var(--text-muted)] mb-4">Créez votre première playlist pour organiser vos morceaux</p>
+            <p className="text-sm font-medium text-[var(--text-primary)] mb-1">{tr('playlists.empty_title', lang)}</p>
+            <p className="text-xs text-[var(--text-muted)] mb-4">{tr('playlists.empty_subtitle', lang)}</p>
             <button
               onClick={() => setShowCreate(true)}
               className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
             >
-              Créer une playlist
+              {tr('playlists.create', lang)}
             </button>
           </div>
         ) : (
@@ -164,14 +167,14 @@ export function PlaylistsTab({
                     <div
                       onDoubleClick={() => handleStartRename(playlist)}
                       className="text-sm font-medium text-[var(--text-primary)] truncate cursor-text hover:opacity-80 transition-opacity"
-                      title="Double-clic pour renommer"
+                      title={tr('playlists.rename_hint', lang)}
                     >
                       {playlist.name}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--bg-primary)] text-xs font-medium text-[var(--text-muted)]">
                         <Music className="w-3 h-3 mr-1" />
-                        {playlist.track_count} morceau{playlist.track_count !== 1 ? 'x' : ''}
+                        {tr('playlists.tracks_label', lang).replace('{count}', playlist.track_count.toString()).replace('{plural}', playlist.track_count > 1 ? 's' : '')}
                       </div>
                     </div>
                   </>
@@ -186,7 +189,7 @@ export function PlaylistsTab({
                   }}
                   className="px-2 py-1 rounded text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
                 >
-                  Confirmer?
+                  {tr('playlists.delete_confirm', lang)}
                 </button>
               ) : (
                 <button
@@ -195,7 +198,7 @@ export function PlaylistsTab({
                     setDeleteConfirmId(playlist.id);
                   }}
                   className="p-2 hover:bg-[var(--bg-hover)] rounded transition-colors opacity-0 group-hover:opacity-100"
-                  title="Supprimer"
+                  title={tr('playlists.delete_tooltip', lang)}
                 >
                   <Trash2 className="w-4 h-4 text-red-400" />
                 </button>

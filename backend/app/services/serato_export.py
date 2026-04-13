@@ -36,6 +36,22 @@ def _encode_column(name: str) -> bytes:
     return b'osrt' + struct.pack('>I', len(tvcn)) + tvcn
 
 
+def _validate_track_format(track: dict) -> bool:
+    """Validate that a track dict has required fields for Serato export."""
+    if not isinstance(track, dict):
+        return False
+    # At minimum, need a file_path or title
+    if not track.get('file_path') and not track.get('title'):
+        return False
+    # BPM should be numeric if present
+    if track.get('bpm') is not None:
+        try:
+            float(track.get('bpm'))
+        except (ValueError, TypeError):
+            return False
+    return True
+
+
 def generate_serato_crate(tracks: List[dict], crate_name: str = "CueForge Export") -> bytes:
     """
     Generate a Serato .crate binary file.
@@ -47,6 +63,14 @@ def generate_serato_crate(tracks: List[dict], crate_name: str = "CueForge Export
 
     Returns: bytes of the .crate file
     """
+    # Validate all tracks before generating
+    valid_tracks = []
+    for track in tracks:
+        if not _validate_track_format(track):
+            # Log warning but continue with other tracks
+            continue
+        valid_tracks.append(track)
+
     buf = io.BytesIO()
 
     # Version header
@@ -61,7 +85,7 @@ def generate_serato_crate(tracks: List[dict], crate_name: str = "CueForge Export
         buf.write(_encode_column(col_name))
 
     # Track entries
-    for track in tracks:
+    for track in valid_tracks:
         path = track.get('file_path') or track.get('title', 'Unknown')
         buf.write(_encode_track_entry(path))
 

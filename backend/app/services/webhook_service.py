@@ -6,13 +6,14 @@ Fonction trigger_webhooks(user_id, event_type, payload):
 - Envoie un POST HTTP avec le payload JSON
 - Header X-CueForge-Signature : HMAC-SHA256 du body avec le secret
 - Header X-CueForge-Event : le type d'événement
-- Timeout 10s, retry 0 (fire and forget)
+- Timeout 10s, retry with exponential backoff (3 attempts, delays 1s/5s/30s)
 - Incrémente failure_count si erreur, désactive après 10 échecs
 """
 import hashlib
 import hmac
 import json
 import logging
+import asyncio
 from datetime import datetime
 
 import httpx
@@ -21,6 +22,10 @@ from sqlalchemy.orm import Session
 from app.models import Webhook
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration
+WEBHOOK_MAX_RETRIES = 3
+WEBHOOK_RETRY_DELAYS = [1, 5, 30]  # seconds (exponential backoff)
 
 
 async def trigger_webhooks(
@@ -63,7 +68,7 @@ async def _send_webhook(
     payload: dict,
     db: Session,
 ):
-    """Envoie le webhook avec HMAC signature et gestion d'erreurs."""
+    """Envoie le webhook avec HMAC signature, retry avec exponential backoff et gestion d'erreurs."""
     # Crée le body JSON
     body = json.dumps({
         "event": event_type,
@@ -84,29 +89,47 @@ async def _send_webhook(
         "Content-Type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        try:
-            response = await client.post(webhook.url, content=body, headers=headers)
-            response.raise_for_status()  # Lève HTTPError si status >= 400
+    # Retry logic with exponential backoff
+    for attempt in range(WEBHOOK_MAX_RETRIES):
+        async with httpx.AsyncClient(timeout=10) as client:
+            try:
+                response = await client.post(webhook.url, content=body, headers=headers)
+                response.raise_for_status()  # Lève HTTPError si status >= 400
 
-            # Succès
-            webhook.last_triggered_at = datetime.utcnow()
-            webhook.failure_count = 0
-            db.commit()
+                # Succès
+                webhook.last_triggered_at = datetime.utcnow()
+                webhook.failure_count = 0
+                db.commit()
 
-            logger.info(f"Webhook {webhook.id} envoyé avec succès (status {response.status_code})")
+                logger.info(f"Webhook {webhook.id} envoyé avec succès (status {response.status_code}, attempt {attempt+1}/{WEBHOOK_MAX_RETRIES})")
+                return
 
-        except httpx.HTTPStatusError as e:
-            logger.warning(f"Webhook {webhook.id} a retourné un statut d'erreur: {e.response.status_code}")
-            _handle_webhook_failure(webhook, db)
+            except httpx.HTTPStatusError as e:
+                if attempt < WEBHOOK_MAX_RETRIES - 1:
+                    delay = WEBHOOK_RETRY_DELAYS[attempt]
+                    logger.warning(f"Webhook {webhook.id} attempt {attempt+1} failed (status {e.response.status_code}), retry in {delay}s")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(f"Webhook {webhook.id} failed after {WEBHOOK_MAX_RETRIES} attempts (status {e.response.status_code})")
+                    _handle_webhook_failure(webhook, db)
 
-        except (httpx.TimeoutException, httpx.NetworkError) as e:
-            logger.warning(f"Webhook {webhook.id} timeout/réseau: {e}")
-            _handle_webhook_failure(webhook, db)
+            except (httpx.TimeoutException, httpx.NetworkError) as e:
+                if attempt < WEBHOOK_MAX_RETRIES - 1:
+                    delay = WEBHOOK_RETRY_DELAYS[attempt]
+                    logger.warning(f"Webhook {webhook.id} attempt {attempt+1} timeout/network error, retry in {delay}s")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.warning(f"Webhook {webhook.id} failed after {WEBHOOK_MAX_RETRIES} attempts (timeout/network)")
+                    _handle_webhook_failure(webhook, db)
 
-        except Exception as e:
-            logger.error(f"Erreur inattendue pour webhook {webhook.id}: {e}")
-            _handle_webhook_failure(webhook, db)
+            except Exception as e:
+                if attempt < WEBHOOK_MAX_RETRIES - 1:
+                    delay = WEBHOOK_RETRY_DELAYS[attempt]
+                    logger.error(f"Webhook {webhook.id} attempt {attempt+1} unexpected error, retry in {delay}s: {e}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Webhook {webhook.id} failed after {WEBHOOK_MAX_RETRIES} attempts: {e}")
+                    _handle_webhook_failure(webhook, db)
 
 
 def _handle_webhook_failure(webhook: Webhook, db: Session):

@@ -1,6 +1,6 @@
 // CueForge Service Worker — Advanced caching with offline support
-const CACHE_VERSION = '2';
-const CACHE_NAME = `cueforge-v${CACHE_VERSION}`;
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = `cueforge-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

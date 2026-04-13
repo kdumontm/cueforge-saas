@@ -7,6 +7,7 @@ import shutil
 import aiofiles
 import asyncio
 from typing import Dict, List, Optional
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session, selectinload
@@ -245,12 +246,10 @@ def _transcode_audio(src_path: str):
             else:
                 err_tail = result.stderr[-500:] if result.stderr else b""
                 logger.warning("Codec %s failed (rc=%d): %s", codec, result.returncode, err_tail)
-                if os.path.exists(dst_path):
-                    os.remove(dst_path)
+                Path(dst_path).unlink(missing_ok=True)
         except subprocess.TimeoutExpired:
             logger.warning("Codec %s timed out (300s)", codec)
-            if os.path.exists(dst_path):
-                os.remove(dst_path)
+            Path(dst_path).unlink(missing_ok=True)
         except Exception as e:
             logger.error("Transcode error with %s: %s", codec, e)
 
