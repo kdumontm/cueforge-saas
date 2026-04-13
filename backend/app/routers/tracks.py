@@ -27,6 +27,10 @@ from app.services import storage as storage_svc
 from app.services import track_tools
 from app.routers.waveforms import extract_waveform_peaks
 from app.services.genre_detection import detect_genre_from_analysis
+from app.utils.security import (
+    validate_audio_file, sanitize_string, sanitize_filename,
+    validate_track_id, analysis_limiter, general_limiter,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -159,7 +163,7 @@ async def upload_track(
     track = Track(
         user_id=current_user.id,
         filename=filename,
-        original_filename=file.filename or filename,
+        original_filename=sanitize_filename(file.filename or filename),
         file_path=file_path,
         file_size=total_size,
         status=TrackStatus.pending,
@@ -740,6 +744,10 @@ async def analyze_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    validate_track_id(track_id)
+    # Rate limit: max 10 analyses per minute per user
+    analysis_limiter.check(current_user.id, limit=10, window_seconds=60)
+
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id,
@@ -2869,6 +2877,9 @@ def analyze_track_quick(
     Run quick (2-5s) analysis: BPM, key, energy, loudness, danceability.
     Stores results immediately; full analysis can run later.
     """
+    validate_track_id(track_id)
+    analysis_limiter.check(current_user.id, limit=30, window_seconds=60)
+
     track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
@@ -2926,6 +2937,9 @@ def batch_analyze_tracks(
     quick=True (default): fast 2-5s pipeline per track.
     quick=False: full analysis pipeline (background tasks).
     """
+    # Rate limit: max 5 batch requests per minute
+    analysis_limiter.check(current_user.id, limit=5, window_seconds=60)
+
     if len(req.track_ids) > 50:
         raise HTTPException(status_code=400, detail="Maximum 50 tracks per batch")
 
