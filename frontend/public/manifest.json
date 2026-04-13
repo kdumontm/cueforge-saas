@@ -3,11 +3,26 @@
   "short_name": "CueForge",
   "description": "Analyse audio, cue points automatiques et export Rekordbox/Serato/Traktor pour DJs professionnels",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f0f23",
   "theme_color": "#7c3aed",
-  "orientation": "any",
+  "orientation": "portrait-primary",
   "categories": ["music", "productivity"],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-540x720.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/icons/screenshot-1280x720.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-72.svg",
@@ -57,19 +72,61 @@
       "name": "Upload Track",
       "short_name": "Upload",
       "url": "/dashboard/upload",
-      "description": "Uploader et analyser un morceau"
+      "description": "Uploader et analyser un morceau",
+      "icons": [
+        {
+          "src": "/icons/icon-96.svg",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Set Builder",
       "short_name": "Sets",
       "url": "/dashboard/set-builder",
-      "description": "Construire un set DJ"
+      "description": "Construire un set DJ",
+      "icons": [
+        {
+          "src": "/icons/icon-96.svg",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Gig Prep",
       "short_name": "Gig",
       "url": "/dashboard/gig-prep",
-      "description": "Préparer un gig"
+      "description": "Préparer un gig",
+      "icons": [
+        {
+          "src": "/icons/icon-96.svg",
+          "sizes": "96x96"
+        }
+      ]
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/api/v1/import/shared-track",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "track",
+          "accept": ["audio/*", ".mp3", ".wav", ".flac", ".m4a"]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/dashboard/upload",
+      "accept": {
+        "audio/*": [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"]
+      }
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "iarc_rating_id": ""
 }
