@@ -16,7 +16,7 @@ Tous les endpoints nécessitent is_admin == True.
 import csv
 import io
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -87,7 +87,7 @@ class BulkTrackUpdate(BaseModel):
     """Schema for bulk track updates."""
     track_ids: List[int]
     field: str
-    value: any
+    value: Any
 
 
 # ═══════════════════════════════════════════════
