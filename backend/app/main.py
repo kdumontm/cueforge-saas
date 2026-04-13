@@ -43,6 +43,7 @@ from app.models import favorite  # noqa: F401 — registers Favorite with Base
 from app.models import tag  # noqa: F401 — registers Tag and TrackTag with Base
 from app.models import activity_log  # noqa: F401 — registers ActivityLog with Base
 from app.models import webhook_event  # noqa: F401 — registers WebhookEvent with Base
+from app.models import referral  # noqa: F401 — registers Referral with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -534,7 +535,7 @@ from app.routers import profile, user_stats, jobs, push_notifications  # noqa: E
 # v7 routers
 from app.routers import cue_templates, blog  # noqa: E402
 # v8 routers
-from app.routers import referrals, admin_stats, admin_data  # noqa: E402
+from app.routers import referrals, admin_stats, admin_data, admin_extended, admin_content  # noqa: E402
 # v9 routers
 from app.routers import tags, activity  # noqa: E402
 # New feature routers (mix, fingerprint, ML, recommendation, quality, advanced analysis)
@@ -595,6 +596,8 @@ app.include_router(blog.router, tags=["blog"])
 app.include_router(referrals.router, tags=["referrals"])
 app.include_router(admin_stats.router, tags=["admin"])
 app.include_router(admin_data.router, prefix="/api/v1", tags=["admin-data"])
+app.include_router(admin_content.router, prefix="/api/v1", tags=["admin-content"])
+app.include_router(admin_extended.router, prefix="/api/v1", tags=["admin-extended"])
 # v9 routers
 app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
 app.include_router(activity.router, prefix="/api/v1", tags=["activity"])

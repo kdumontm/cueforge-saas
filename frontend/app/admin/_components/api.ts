@@ -188,4 +188,162 @@ export const adminApi = {
 
   // Export
   exportEntity: (entity: string) => `${API_BASE}/admin/export/${entity}`,
+
+  // Enhanced Users
+  advancedListUsers: (params?: { search?: string; plan?: string; status?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.plan) q.set("plan", params.plan);
+    if (params?.status) q.set("status", params.status);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/users?${q.toString()}`);
+  },
+  bulkUserAction: (action: string, userIds: number[], params?: any) =>
+    api(`/admin/users/bulk-action`, { method: "POST", body: { action, user_ids: userIds, ...params } }),
+  resetUserPassword: (id: number) => api(`/admin/users/${id}/reset-password`, { method: "POST" }),
+  forceVerifyUser: (id: number) => api(`/admin/users/${id}/force-verify`, { method: "POST" }),
+  forceLogoutUser: (id: number) => api(`/admin/users/${id}/force-logout`, { method: "POST" }),
+  createUser: (data: any) => api("/admin/users/create", { method: "POST", body: data }),
+  exportUsers: () => `${API_BASE}/admin/users/export`,
+
+  // Feedback
+  listFeedbacks: (params?: { type?: string; status?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.set("type", params.type);
+    if (params?.status) q.set("status", params.status);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/feedbacks?${q.toString()}`);
+  },
+  updateFeedback: (id: number, data: any) => api(`/admin/feedbacks/${id}`, { method: "PATCH", body: data }),
+  deleteFeedback: (id: number) => api(`/admin/feedbacks/${id}`, { method: "DELETE" }),
+  feedbackStats: () => api("/admin/feedbacks/stats"),
+
+  // Activity Logs
+  listActivityLogsEnhanced: (params?: { action?: string; user_id?: number; skip?: number; limit?: number; search?: string; date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.action) q.set("action", params.action);
+    if (params?.user_id) q.set("user_id", String(params.user_id));
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.search) q.set("search", params.search);
+    if (params?.date_from) q.set("date_from", params.date_from);
+    if (params?.date_to) q.set("date_to", params.date_to);
+    return api(`/admin/activity?${q.toString()}`);
+  },
+  activityStats: () => api("/admin/activity/stats"),
+
+  // Notifications
+  listNotifications: (params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/notifications?${q.toString()}`);
+  },
+  broadcastNotification: (data: any) => api("/admin/notifications/broadcast", { method: "POST", body: data }),
+  sendNotification: (userIds: number[], data: any) => api("/admin/notifications/send", { method: "POST", body: { user_ids: userIds, ...data } }),
+  deleteNotification: (id: number) => api(`/admin/notifications/${id}`, { method: "DELETE" }),
+
+  // Cue Points
+  listCuePoints: (params?: { track_id?: number; user_id?: number; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.track_id) q.set("track_id", String(params.track_id));
+    if (params?.user_id) q.set("user_id", String(params.user_id));
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/cuepoints?${q.toString()}`);
+  },
+  updateCuePoint: (id: number, data: any) => api(`/admin/cuepoints/${id}`, { method: "PUT", body: data }),
+  deleteCuePoint: (id: number) => api(`/admin/cuepoints/${id}`, { method: "DELETE" }),
+
+  // Tags
+  listTags: () => api("/admin/tags"),
+  createTag: (data: any) => api("/admin/tags", { method: "POST", body: data }),
+  updateTag: (id: number, data: any) => api(`/admin/tags/${id}`, { method: "PUT", body: data }),
+  deleteTag: (id: number) => api(`/admin/tags/${id}`, { method: "DELETE" }),
+  mergeTags: (sourceIds: number[], targetId: number) =>
+    api("/admin/tags/merge", { method: "POST", body: { source_ids: sourceIds, target_id: targetId } }),
+
+  // Blog
+  listBlogPosts: (params?: { status?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/blog?${q.toString()}`);
+  },
+  getBlogPost: (id: number) => api(`/admin/blog/${id}`),
+  createBlogPost: (data: any) => api("/admin/blog", { method: "POST", body: data }),
+  updateBlogPost: (id: number, data: any) => api(`/admin/blog/${id}`, { method: "PUT", body: data }),
+  deleteBlogPost: (id: number) => api(`/admin/blog/${id}`, { method: "DELETE" }),
+  toggleBlogPublish: (id: number) => api(`/admin/blog/${id}/publish`, { method: "PATCH" }),
+
+  // API Keys
+  listApiKeys: () => api("/admin/apikeys"),
+  revokeApiKey: (id: number) => api(`/admin/apikeys/${id}/revoke`, { method: "POST" }),
+
+  // Webhooks
+  listWebhooks: () => api("/admin/webhooks"),
+  deleteWebhook: (id: number) => api(`/admin/webhooks/${id}`, { method: "DELETE" }),
+  testWebhook: (id: number) => api(`/admin/webhooks/${id}/test`, { method: "POST" }),
+
+  // Referrals
+  listReferrals: (params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/referrals?${q.toString()}`);
+  },
+  referralStats: () => api("/admin/referrals/stats"),
+
+  // Shared Links
+  listSharedLinks: (params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/shared-links?${q.toString()}`);
+  },
+  deleteSharedLink: (id: number) => api(`/admin/shared-links/${id}`, { method: "DELETE" }),
+
+  // Favorites
+  listFavorites: (params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/favorites?${q.toString()}`);
+  },
+  topFavorites: () => api("/admin/favorites/top"),
+
+  // Play History
+  listPlayHistory: (params?: { user_id?: number; track_id?: number; skip?: number; limit?: number; date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.user_id) q.set("user_id", String(params.user_id));
+    if (params?.track_id) q.set("track_id", String(params.track_id));
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.date_from) q.set("date_from", params.date_from);
+    if (params?.date_to) q.set("date_to", params.date_to);
+    return api(`/admin/play-history?${q.toString()}`);
+  },
+  topPlayed: () => api("/admin/play-history/top"),
+
+  // Analyses
+  listAnalyses: (params?: { status?: string; track_id?: number; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.track_id) q.set("track_id", String(params.track_id));
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/analyses?${q.toString()}`);
+  },
+  analysisStats: () => api("/admin/analyses/stats"),
+
+  // Smart Crates
+  listSmartCrates: (params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/smart-crates?${q.toString()}`);
+  },
 };

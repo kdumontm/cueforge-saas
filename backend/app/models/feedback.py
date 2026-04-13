@@ -10,8 +10,11 @@ class Feedback(Base):
     type = Column(String, nullable=False)  # bug, feature, other
     message = Column(Text, nullable=False)
     rating = Column(String, nullable=True)  # up, down, null
+    status = Column(String, default="new", nullable=False)  # new, read, in_progress, done, rejected
+    admin_response = Column(Text, nullable=True)  # Admin's response to the feedback
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
         Index('ix_feedback_created_at', 'created_at'),
+        Index('ix_feedback_status', 'status'),
     )
