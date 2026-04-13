@@ -7,7 +7,7 @@ import {
   Navigation, LayoutGrid, Shield, ChevronLeft, ChevronRight,
   LogOut, Sun, Moon, Menu, X, Bell, ChevronDown,
   Home, Palette, Database, Search, PanelLeftClose, PanelLeft, BarChart3,
-  Lock,
+  Lock, Music, ListMusic, Disc3, CreditCard, Building2, HeartPulse,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -43,9 +43,26 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Application",
     items: [
+      { id: "tracks", label: "Pistes Musicales", icon: Music, href: "/admin/tracks" },
+      { id: "playlists", label: "Listes de Lecture", icon: ListMusic, href: "/admin/playlists" },
+      { id: "djsets", label: "DJ Sets", icon: Disc3, href: "/admin/djsets" },
       { id: "modules", label: "Modules Dashboard", icon: LayoutGrid, href: "/admin/modules" },
       { id: "features", label: "Features & Plans", icon: Zap, href: "/admin/features" },
       { id: "locks", label: "Verrouillage Code", icon: Lock, href: "/admin/locks" },
+    ],
+  },
+  {
+    label: "Données",
+    items: [
+      { id: "subscriptions", label: "Abonnements", icon: CreditCard, href: "/admin/subscriptions" },
+      { id: "organizations", label: "Organisations", icon: Building2, href: "/admin/organizations" },
+      { id: "database", label: "Navigateur DB", icon: Database, href: "/admin/database" },
+    ],
+  },
+  {
+    label: "Système",
+    items: [
+      { id: "health", label: "Santé", icon: HeartPulse, href: "/admin/health" },
     ],
   },
   {

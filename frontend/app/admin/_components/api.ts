@@ -112,4 +112,80 @@ export const adminApi = {
   // Navigation
   getNavigation: () => api("/admin/navigation"),
   updateNavigation: (data: any) => api("/admin/navigation", { method: "PUT", body: data }),
+
+  // Tracks
+  listTracks: (params?: { search?: string; status?: string; skip?: number; limit?: number; sort?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.status) q.set("status", params.status);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sort) q.set("sort", params.sort);
+    return api(`/admin/tracks?${q.toString()}`);
+  },
+  getTrack: (id: number) => api(`/admin/tracks/${id}`),
+  updateTrack: (id: number, data: any) => api(`/admin/tracks/${id}`, { method: "PUT", body: data }),
+  deleteTrack: (id: number) => api(`/admin/tracks/${id}`, { method: "DELETE" }),
+  bulkDeleteTracks: (ids: number[]) => api(`/admin/tracks/bulk-delete`, { method: "POST", body: { ids } }),
+  bulkUpdateTracks: (ids: number[], field: string, value: any) =>
+    api(`/admin/tracks/bulk-update`, { method: "POST", body: { ids, field, value } }),
+  retryAnalysis: (id: number) => api(`/admin/tracks/retry-analysis/${id}`, { method: "POST" }),
+  retryAllFailed: () => api(`/admin/tracks/retry-all-failed`, { method: "POST" }),
+  exportTracks: () => `${API_BASE}/admin/tracks/export`,
+
+  // Subscriptions
+  listSubscriptions: (params?: { search?: string; plan?: string; status?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.plan) q.set("plan", params.plan);
+    if (params?.status) q.set("status", params.status);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/subscriptions?${q.toString()}`);
+  },
+  subscriptionStats: () => api("/admin/subscriptions/stats"),
+
+  // Health
+  getHealth: () => api("/admin/health"),
+  getDbStats: () => api("/admin/health/db"),
+
+  // DB Browser
+  listDbTables: () => api("/admin/db/tables"),
+  browseTable: (name: string, params?: { skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/db/tables/${name}?${q.toString()}`);
+  },
+  getTableSchema: (name: string) => api(`/admin/db/tables/${name}/schema`),
+
+  // Playlists
+  listPlaylists: (params?: { search?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/playlists?${q.toString()}`);
+  },
+
+  // DJ Sets
+  listDjSets: (params?: { search?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/djsets?${q.toString()}`);
+  },
+
+  // Organizations
+  listOrganizations: (params?: { search?: string; skip?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.skip) q.set("skip", String(params.skip));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return api(`/admin/organizations?${q.toString()}`);
+  },
+
+  // Export
+  exportEntity: (entity: string) => `${API_BASE}/admin/export/${entity}`,
 };
