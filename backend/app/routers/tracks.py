@@ -160,7 +160,7 @@ async def upload_track(
         filename=filename,
         original_filename=file.filename or filename,
         file_path=file_path,
-        file_size=len(content),
+        file_size=total_size,
         status=TrackStatus.pending,
     )
     db.add(track)
