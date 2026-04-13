@@ -1,140 +1,99 @@
-// CueForge Service Worker — Advanced caching with offline support
-const CACHE_VERSION = 'v2';
-const CACHE_NAME = `cueforge-${CACHE_VERSION}`;
-const STATIC_ASSETS = [
+/**
+ * Service Worker (points 671-690)
+ * Cache strategies, offline support, SSE reconnection
+ */
+
+const CACHE_NAME = 'cueforge-v1';
+const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
-  '/favicon.ico',
+  // Add critical CSS/JS bundles here
 ];
 
-// Install: cache static assets and skip waiting
+// Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        // Some assets may not exist yet, that's OK
-        console.log('Cache install partial:', err);
-      });
-    }).then(() => {
-      self.skipWaiting();
-    })
+      return cache.addAll(ASSETS_TO_CACHE);
+    }),
   );
+  self.skipWaiting();
 });
 
-// Activate: clean up old caches and claim clients
+// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name)),
+      );
+    }),
+  );
+  self.clients.claim();
+});
+
+// Fetch event — cache-first for assets, network-first for API
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Skip POST/PUT/DELETE requests and non-GET
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // API calls: network-first with fallback to cache
+  if (url.pathname.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            // Return offline placeholder for API calls
+            return new Response(JSON.stringify({ offline: true }), {
+              headers: { 'Content-Type': 'application/json' },
+            });
+          });
+        }),
+    );
+    return;
+  }
+
+  // Assets: cache-first
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return (
+        cached ||
+        fetch(event.request).then((response) => {
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          return response;
         })
       );
-    }).then(() => {
-      self.clients.claim();
-    })
+    }),
   );
 });
 
-// Fetch: implement cache strategies based on request type
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip cross-origin requests
-  if (url.origin !== self.location.origin) {
-    return;
+// Message event — for SSE reconnection
+self.addEventListener('message', (event) => {
+  if (event.data.type === 'SSE_RECONNECT') {
+    // Notify all clients to reconnect to SSE
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'SSE_RECONNECT',
+        });
+      });
+    });
   }
-
-  // Static assets avec hash (_next/static/...): cache-first (jamais changent)
-  if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // API calls (including /api/): network-first, mais skip si Authorization header
-  if (url.pathname.startsWith('/api/') || request.headers.get('Authorization')) {
-    event.respondWith(fetch(request).catch(() => new Response('Offline', { status: 503 })));
-    return;
-  }
-
-  // Autres static assets (JS, CSS, images, fonts): cache-first
-  if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // HTML pages: network-first with offline fallback
-  if (request.mode === 'navigate') {
-    event.respondWith(networkFirstWithFallback(request));
-    return;
-  }
-
-  // Default: network-first
-  event.respondWith(networkFirst(request));
 });
-
-// Strategy: Cache-first (check cache first, fall back to network)
-function cacheFirst(request) {
-  return caches.match(request).then((cached) => {
-    if (cached) {
-      return cached;
-    }
-    return fetch(request).then((response) => {
-      if (response && response.status === 200 && request.method === 'GET') {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, clone);
-        });
-      }
-      return response;
-    }).catch(() => {
-      return new Response('Not found', { status: 404 });
-    });
-  });
-}
-
-// Strategy: Network-first (try network, fall back to cache)
-function networkFirst(request) {
-  return fetch(request)
-    .then((response) => {
-      if (response && response.status === 200 && request.method === 'GET') {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, clone);
-        });
-      }
-      return response;
-    })
-    .catch(() => {
-      return caches.match(request) || new Response('Offline', { status: 503 });
-    });
-}
-
-// Strategy: Network-first for HTML with offline fallback
-function networkFirstWithFallback(request) {
-  return fetch(request)
-    .then((response) => {
-      if (response && response.status === 200) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, clone);
-        });
-      }
-      return response;
-    })
-    .catch(() => {
-      return caches.match(request) || caches.match('/') || new Response('Offline', { status: 503 });
-    });
-}
-
-// Helper: determine if a path is a static asset
-function isStaticAsset(pathname) {
-  return pathname.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/i) ||
-         pathname.startsWith('/_next/') ||
-         pathname.startsWith('/icons/') ||
-         pathname.startsWith('/fonts/');
-}

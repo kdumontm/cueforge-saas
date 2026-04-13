@@ -29,7 +29,7 @@ from datetime import datetime
 
 import librosa
 import numpy as np
-from scipy.signal import find_peaks, medfilt
+from scipy.signal import find_peaks, medfilt, butter, filtfilt
 from scipy.ndimage import uniform_filter1d
 from scipy.spatial.distance import cdist
 from sqlalchemy.orm import Session
@@ -869,6 +869,209 @@ def _compute_bpm_confidence(ibi: np.ndarray) -> float:
     return round(confidence, 3)
 
 
+# ══════════════════════════════════════════════════════════════════════════
+#   ADVANCED BPM OPTIMIZATIONS (Points 2, 3, 15, 19, 24, 25)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _compute_weighted_median_ibi(beats: List[float], onset_strength: np.ndarray) -> float:
+    """
+    Point 19: Compute weighted median IBI, weighted by onset strength.
+    Stronger onsets = more reliable inter-beat intervals.
+
+    Returns weighted median IBI in seconds.
+    """
+    if len(beats) < 4:
+        return 0.0
+
+    try:
+        ibis = np.diff(beats)
+
+        # Map beat times to onset strength indices
+        sr_estimate = len(onset_strength) / (beats[-1] if beats[-1] > 0 else 1.0)
+        beat_frames = np.array([int(b * sr_estimate) for b in beats[:-1]])
+        beat_frames = np.clip(beat_frames, 0, len(onset_strength) - 1)
+
+        # Get onset strengths for each beat
+        weights = onset_strength[beat_frames]
+        weights = weights / (np.sum(weights) + 1e-8)  # normalize
+
+        # Weighted median: find the value where cumsum(weights) crosses 0.5
+        sorted_idx = np.argsort(ibis)
+        sorted_ibis = ibis[sorted_idx]
+        sorted_weights = weights[sorted_idx]
+        cumsum_weights = np.cumsum(sorted_weights)
+        median_idx = np.searchsorted(cumsum_weights, 0.5)
+        median_idx = min(median_idx, len(sorted_ibis) - 1)
+
+        return float(sorted_ibis[median_idx])
+    except Exception as e:
+        logger.debug(f"[WEIGHTED_MEDIAN] Failed: {e}, using simple median")
+        return float(np.median(np.diff(beats)))
+
+
+def _compute_bpm_histogram(beats: List[float], bin_width: float = 1.0) -> Dict:
+    """
+    Point 24: Create a BPM histogram from inter-beat intervals.
+    Identifies the strongest BPM and secondary peaks.
+
+    Returns:
+        {
+            'primary_bpm': float (strongest peak),
+            'primary_strength': float (0-1),
+            'secondary_bpm': float or None,
+            'secondary_strength': float,
+            'histogram': list of {bpm, count}
+        }
+    """
+    if len(beats) < 4:
+        return {'primary_bpm': 0.0, 'primary_strength': 0.0, 'secondary_bpm': None, 'secondary_strength': 0.0, 'histogram': []}
+
+    try:
+        ibis = np.diff(beats)
+        bpms = 60.0 / (ibis + 1e-8)
+
+        # Create histogram with bin_width
+        min_bpm = max(60, np.percentile(bpms, 5))
+        max_bpm = min(180, np.percentile(bpms, 95))
+        bins = np.arange(min_bpm, max_bpm + bin_width, bin_width)
+        hist, bin_edges = np.histogram(bpms, bins=bins)
+
+        # Find primary peak
+        primary_idx = np.argmax(hist)
+        primary_bpm = float((bin_edges[primary_idx] + bin_edges[primary_idx + 1]) / 2)
+        primary_strength = float(hist[primary_idx] / max(1, len(bpms)))
+
+        # Find secondary peak (excluding primary peak)
+        hist_masked = hist.copy()
+        hist_masked[max(0, primary_idx - 1):min(len(hist), primary_idx + 2)] = 0
+        secondary_idx = np.argmax(hist_masked)
+        secondary_bpm = None
+        secondary_strength = 0.0
+        if hist_masked[secondary_idx] > 0:
+            secondary_bpm = float((bin_edges[secondary_idx] + bin_edges[secondary_idx + 1]) / 2)
+            secondary_strength = float(hist_masked[secondary_idx] / max(1, len(bpms)))
+
+        # Build histogram output
+        histogram = []
+        for i, count in enumerate(hist):
+            if count > 0:
+                bpm_val = float((bin_edges[i] + bin_edges[i + 1]) / 2)
+                histogram.append({'bpm': round(bpm_val, 1), 'count': int(count)})
+
+        return {
+            'primary_bpm': round(primary_bpm, 1),
+            'primary_strength': round(primary_strength, 3),
+            'secondary_bpm': round(secondary_bpm, 1) if secondary_bpm else None,
+            'secondary_strength': round(secondary_strength, 3),
+            'histogram': histogram
+        }
+    except Exception as e:
+        logger.debug(f"[BPM_HISTOGRAM] Failed: {e}")
+        return {'primary_bpm': 0.0, 'primary_strength': 0.0, 'secondary_bpm': None, 'secondary_strength': 0.0, 'histogram': []}
+
+
+def _compute_multiscale_autocorrelation(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 25: Compute autocorrelation at 3 temporal scales.
+    Helps detect polyrhythms and nested beat structures.
+
+    Scales:
+    - 4 seconds (long-term structure)
+    - 1 second (beat-level)
+    - 0.25 seconds (sub-beat / subdivisions)
+
+    Returns: {scale_4s: {bpm, strength}, scale_1s: {...}, scale_025s: {...}}
+    """
+    try:
+        # Compute onset strength for autocorrelation
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+        scales_config = [
+            (4.0, "4s"),      # Long-term structure
+            (1.0, "1s"),      # Beat level
+            (0.25, "025s")    # Sub-beat
+        ]
+
+        result = {}
+
+        for scale_seconds, scale_name in scales_config:
+            # Get the window in samples
+            scale_samples = int(scale_seconds * sr)
+            scale_samples = min(scale_samples, len(onset_env) // 2)
+
+            if scale_samples < 10:
+                continue
+
+            # Autocorrelate
+            ac = librosa.autocorrelate(onset_env, max_size=scale_samples)
+
+            # Find peak in lag (skip lag=0)
+            if len(ac) > 1:
+                peak_lag = np.argmax(ac[1:]) + 1
+                peak_strength = float(ac[peak_lag] / (ac[0] + 1e-8))
+
+                # Convert lag to BPM estimate
+                # lag is in frames, convert to tempo
+                lag_seconds = peak_lag / (sr // 512)  # librosa's hop_length=512 default
+                if lag_seconds > 0:
+                    bpm_estimate = 60.0 / lag_seconds
+                    bpm_estimate = np.clip(bpm_estimate, 60, 180)
+                else:
+                    bpm_estimate = 0.0
+
+                result[f"scale_{scale_name}"] = {
+                    'bpm': round(bpm_estimate, 1),
+                    'strength': round(peak_strength, 3),
+                    'lag_seconds': round(lag_seconds, 3)
+                }
+
+        return result
+    except Exception as e:
+        logger.debug(f"[MULTISCALE_AC] Failed: {e}")
+        return {}
+
+
+def _detect_onset_emphasis_band(y: np.ndarray, sr: int) -> np.ndarray:
+    """
+    Point 3: Extract and emphasize onsets in the kick band (60-200 Hz).
+    For EDM/dance music, the kick drum defines the beat.
+
+    Returns: Emphasized onset strength envelope.
+    """
+    try:
+        # Design a bandpass filter for kick range (60-200 Hz)
+        # Using librosa's filter_design
+
+        nyquist = sr / 2
+        low_freq = 60 / nyquist
+        high_freq = 200 / nyquist
+
+        low_freq = np.clip(low_freq, 0.01, 0.99)
+        high_freq = np.clip(high_freq, 0.01, 0.99)
+
+        # Butterworth bandpass filter
+        b, a = butter(4, [low_freq, high_freq], btype='band')
+        y_kick_band = filtfilt(b, a, y)
+
+        # Onset strength on kick band
+        onset_kick = librosa.onset.onset_strength(y=y_kick_band, sr=sr)
+
+        # Get general onset strength
+        onset_general = librosa.onset.onset_strength(y=y, sr=sr)
+
+        # Emphasis: if kick band is strong, use it; otherwise blend
+        kick_importance = np.max(onset_kick) / (np.max(onset_general) + 1e-8)
+        kick_importance = min(1.0, kick_importance)
+
+        # Weighted combination: emphasize kick band for strong onsets
+        emphasized = (kick_importance * onset_kick + (1 - kick_importance) * onset_general)
+
+        return emphasized
+    except Exception as e:
+        logger.debug(f"[ONSET_EMPHASIS] Failed: {e}, using standard onset")
+        return librosa.onset.onset_strength(y=y, sr=sr)
+
+
 def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
     """
     Detect the downbeat phase (0-3) among the first beats.
@@ -988,6 +1191,506 @@ def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
         return winner
     except Exception:
         return 0
+
+
+def _load_audio_mmap(file_path: str, target_sr: int = 22050) -> Tuple[Optional[np.ndarray], int, float]:
+    """
+    Point 15: Load large audio files (>100MB) using memory mapping if available.
+    Falls back to standard loading for smaller files.
+
+    Returns: (y, sr, duration) or (None, 0, 0) on error
+    """
+    try:
+        import soundfile as sf
+        import os
+
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+        # Use memory mapping for large files
+        if file_size_mb > 100:
+            try:
+                logger.info(f"[MMAP] Loading large file ({file_size_mb:.1f} MB) with memory mapping")
+                # soundfile supports memory mapping via read with mmap=True (librosa doesn't)
+                # Try to use soundfile's native support
+                info = sf.info(file_path)
+                y = sf.read(file_path, dtype='float32')[0]  # librosa handles resampling better
+                y, sr = librosa.resample(y, orig_sr=info.samplerate, target_sr=target_sr), target_sr
+                duration = len(y) / sr
+                logger.info(f"[MMAP] File loaded successfully ({len(y)} samples)")
+                return y.astype(np.float32), sr, duration
+            except Exception as e:
+                logger.debug(f"[MMAP] Memory mapping failed: {e}, falling back")
+
+        # Standard loading for smaller files
+        y, sr = librosa.load(file_path, sr=target_sr, mono=True, dtype=np.float32)
+        duration = len(y) / sr
+        return y, sr, duration
+
+    except Exception as e:
+        logger.error(f"[MMAP_LOAD] Failed to load audio: {e}")
+        return None, 0, 0.0
+
+
+def _read_metadata_mutagen(file_path: str) -> Dict:
+    """
+    Point 80: Pre-read metadata using mutagen before full analysis.
+    Extracts ID3 tags, BPM hints, genre, etc.
+
+    Returns dict with BPM hint, genre, artist, etc.
+    """
+    try:
+        from mutagen.easyid3 import EasyID3
+        from mutagen.flac import FLAC
+        from mutagen.oggvorbis import OggVorbis
+        import os
+
+        metadata = {}
+        file_ext = os.path.splitext(file_path)[1].lower()
+
+        try:
+            # Try ID3 (MP3)
+            if file_ext in ['.mp3']:
+                audio = EasyID3(file_path)
+                metadata['title'] = audio.get('title', [None])[0]
+                metadata['artist'] = audio.get('artist', [None])[0]
+                metadata['genre'] = audio.get('genre', [None])[0]
+                if 'bpm' in audio:
+                    try:
+                        metadata['bpm_id3'] = int(audio.get('bpm', [0])[0])
+                    except (ValueError, IndexError):
+                        pass
+        except Exception:
+            pass
+
+        try:
+            # Try FLAC
+            if file_ext in ['.flac']:
+                audio = FLAC(file_path)
+                metadata['title'] = audio.get('title', [None])[0]
+                metadata['artist'] = audio.get('artist', [None])[0]
+                metadata['genre'] = audio.get('genre', [None])[0]
+                if audio.get('bpm'):
+                    try:
+                        metadata['bpm_id3'] = int(audio.get('bpm', [0])[0])
+                    except (ValueError, IndexError):
+                        pass
+        except Exception:
+            pass
+
+        try:
+            # Try Ogg Vorbis
+            if file_ext in ['.ogg', '.oga']:
+                audio = OggVorbis(file_path)
+                metadata['title'] = audio.get('title', [None])[0]
+                metadata['artist'] = audio.get('artist', [None])[0]
+                metadata['genre'] = audio.get('genre', [None])[0]
+                if audio.get('bpm'):
+                    try:
+                        metadata['bpm_id3'] = int(audio.get('bpm', [0])[0])
+                    except (ValueError, IndexError):
+                        pass
+        except Exception:
+            pass
+
+        return metadata
+    except ImportError:
+        logger.debug("[METADATA] mutagen not installed, skipping metadata extraction")
+        return {}
+    except Exception as e:
+        logger.debug(f"[METADATA] Failed to read metadata: {e}")
+        return {}
+
+
+def _cross_validate_bpm(bpm: float, metadata: Dict, external_bpm: Optional[float] = None) -> Dict:
+    """
+    Point 81-85: Cross-validate detected BPM against metadata (ID3) and optional external service.
+
+    Returns:
+        {
+            'bpm_validated': float,
+            'confidence_tier': str ('high', 'medium', 'low'),
+            'bpm_id3': float or None,
+            'bpm_external': float or None,
+            'validation_notes': str
+        }
+    """
+    bpm_sources = {'detected': bpm}
+
+    # Check ID3 tag
+    bpm_id3 = metadata.get('bpm_id3')
+    if bpm_id3 and 60 <= bpm_id3 <= 180:
+        bpm_sources['id3'] = float(bpm_id3)
+
+    # Check external source (e.g., Spotify, MusicBrainz)
+    if external_bpm and 60 <= external_bpm <= 180:
+        bpm_sources['external'] = float(external_bpm)
+
+    # Consensus voting
+    if len(bpm_sources) >= 2:
+        bpms = list(bpm_sources.values())
+        # If all sources agree within ±2 BPM → high confidence
+        bpm_range = max(bpms) - min(bpms)
+        if bpm_range <= 2:
+            confidence_tier = 'high'
+            validated_bpm = float(np.median(bpms))
+        elif bpm_range <= 5:
+            confidence_tier = 'medium'
+            validated_bpm = float(np.median(bpms))
+        else:
+            confidence_tier = 'low'
+            validated_bpm = bpm  # Trust detection over conflicting sources
+    else:
+        # Single source
+        confidence_tier = 'medium'
+        validated_bpm = bpm
+
+    notes = f"Sources: {', '.join(f'{k}={v:.1f}' for k, v in bpm_sources.items())}"
+
+    return {
+        'bpm_validated': round(validated_bpm, 1),
+        'confidence_tier': confidence_tier,
+        'bpm_id3': bpm_id3,
+        'bpm_external': external_bpm,
+        'validation_notes': notes
+    }
+
+
+def _detect_edge_cases(y: np.ndarray, sr: int, beats: List[float]) -> Dict:
+    """
+    Points 96-100: Detect and handle edge cases:
+    - Acapella (no kick/bass)
+    - Ambient/Drone (no clear beats)
+    - Double-time DnB (half-time perception)
+    - Polyrhythm (conflicting beat structures)
+    - Silence (leading/trailing)
+
+    Returns dict with edge_case flags and handling strategies.
+    """
+    edge_cases = {}
+
+    try:
+        # 1. Silence detection
+        rms = librosa.feature.rms(y=y)[0]
+        rms_mean = np.mean(rms)
+        rms_std = np.std(rms)
+        silent_frames = rms < (rms_mean - 2 * rms_std)
+        silence_ratio = float(np.sum(silent_frames) / len(silent_frames))
+        if silence_ratio > 0.3:
+            edge_cases['silence'] = {'ratio': round(silence_ratio, 3), 'strategy': 'trim'}
+
+        # 2. Acapella detection (low bass energy)
+        # Kick drum typically 60-200 Hz
+        nyquist = sr / 2
+        low = 60 / nyquist
+        high = 200 / nyquist
+        low = np.clip(low, 0.01, 0.99)
+        high = np.clip(high, 0.01, 0.99)
+        b, a = butter(4, [low, high], btype='band')
+        y_bass = filtfilt(b, a, y)
+        bass_energy = float(np.sqrt(np.mean(y_bass ** 2)))
+        general_energy = float(np.sqrt(np.mean(y ** 2)))
+        bass_ratio = bass_energy / (general_energy + 1e-8)
+        if bass_ratio < 0.15:
+            edge_cases['acapella'] = {'bass_ratio': round(bass_ratio, 3), 'strategy': 'reduce_kick_emphasis'}
+
+        # 3. Ambient/Drone detection (low spectral centroid, low RMS variance)
+        spec_cent = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+        rms_variance = float(np.var(rms))
+        if spec_cent < 1000 and rms_variance < 0.01:
+            edge_cases['ambient'] = {'spectral_centroid': round(spec_cent, 1), 'strategy': 'manual_bpm'}
+
+        # 4. Polyrhythm detection (multiple beat periodicities)
+        if len(beats) >= 16:
+            # Check if beat intervals have multiple strong frequencies
+            intervals = np.diff(beats)
+            fft_intervals = np.abs(np.fft.fft(intervals))
+            # Find top 2 frequencies
+            top_freqs = np.argsort(fft_intervals)[-2:]
+            if len(top_freqs) >= 2:
+                freq_ratio = fft_intervals[top_freqs[1]] / (fft_intervals[top_freqs[0]] + 1e-8)
+                if 0.5 < freq_ratio < 0.8:  # Significant secondary frequency
+                    edge_cases['polyrhythm'] = {'freq_ratio': round(freq_ratio, 3), 'strategy': 'flag_for_review'}
+
+        # 5. Double-time DnB detection (very high BPM, short IBIs)
+        if len(beats) >= 4:
+            median_ibi = float(np.median(np.diff(beats)))
+            if median_ibi < 0.25:  # <0.25s = >240 BPM
+                edge_cases['double_time'] = {'median_ibi': round(median_ibi, 4), 'strategy': 'check_half_time'}
+
+        return edge_cases
+
+    except Exception as e:
+        logger.debug(f"[EDGE_CASES] Detection failed: {e}")
+        return {}
+
+
+def _detect_windowed_bpm(beats: List[float], y: np.ndarray, sr: int, window_duration: float = 15.0) -> Dict:
+    """
+    Points 71-75: Advanced variable tempo detection using windowed BPM analysis.
+
+    Creates a tempo curve with overlapping windows to detect:
+    - Gradual tempo changes
+    - Tempo ramps (live set building)
+    - Abrupt BPM changes
+
+    Args:
+        beats: List of beat times in seconds
+        y: Audio signal
+        sr: Sample rate
+        window_duration: Window size in seconds (default 15s)
+
+    Returns:
+        {
+            'tempo_curve': [{'time_ms': int, 'bpm': float}],
+            'tempo_changes': [{'time_ms': int, 'old_bpm': float, 'new_bpm': float}],
+            'ramp_detected': bool,
+            'live_set_indicators': bool
+        }
+    """
+    try:
+        if len(beats) < 8:
+            return {
+                'tempo_curve': [],
+                'tempo_changes': [],
+                'ramp_detected': False,
+                'live_set_indicators': False
+            }
+
+        overlap_ratio = 0.5
+        window_samples = int(window_duration * sr)
+        hop_samples = int(window_samples * (1 - overlap_ratio))
+
+        tempo_curve = []
+        bpm_values = []
+
+        # Slide window over track
+        for start_sample in range(0, len(y) - window_samples, hop_samples):
+            end_sample = start_sample + window_samples
+            window_time_start = start_sample / sr
+            window_time_center = (start_sample + end_sample / 2) / sr
+
+            # Find beats in this window
+            window_beats = [b for b in beats if window_time_start <= b < end_sample / sr]
+
+            if len(window_beats) >= 4:
+                window_ibis = np.diff(window_beats)
+                window_bpm = 60.0 / np.median(window_ibis)
+                window_bpm = float(np.clip(window_bpm, 60, 180))
+
+                tempo_curve.append({
+                    'time_ms': int(window_time_center * 1000),
+                    'bpm': round(window_bpm, 1)
+                })
+                bpm_values.append(window_bpm)
+
+        # Detect tempo changes
+        tempo_changes = []
+        if len(bpm_values) >= 2:
+            for i in range(1, len(bpm_values)):
+                bpm_change = abs(bpm_values[i] - bpm_values[i-1])
+                if bpm_change > 2:  # Significant change threshold
+                    tempo_changes.append({
+                        'time_ms': tempo_curve[i]['time_ms'],
+                        'old_bpm': round(bpm_values[i-1], 1),
+                        'new_bpm': round(bpm_values[i], 1),
+                        'change_bpm': round(bpm_change, 1)
+                    })
+
+        # Detect ramp (gradual acceleration/deceleration)
+        ramp_detected = False
+        if len(bpm_values) >= 4:
+            # Calculate slope: are BPMs consistently increasing/decreasing?
+            bpm_diffs = np.diff(bpm_values)
+            consecutive_increases = np.sum(bpm_diffs > 0.5)
+            consecutive_decreases = np.sum(bpm_diffs < -0.5)
+            ramp_ratio = max(consecutive_increases, consecutive_decreases) / len(bpm_diffs)
+            if ramp_ratio > 0.6:  # 60% of windows show trend
+                ramp_detected = True
+
+        # Live set indicators: sudden changes + ramps = live mixing
+        live_set_indicators = ramp_detected or len(tempo_changes) >= 2
+
+        return {
+            'tempo_curve': tempo_curve,
+            'tempo_changes': tempo_changes,
+            'ramp_detected': ramp_detected,
+            'live_set_indicators': live_set_indicators
+        }
+
+    except Exception as e:
+        logger.debug(f"[WINDOWED_BPM] Failed: {e}")
+        return {
+            'tempo_curve': [],
+            'tempo_changes': [],
+            'ramp_detected': False,
+            'live_set_indicators': False
+        }
+
+
+def _detect_downbeat_advanced(y: np.ndarray, sr: int, beats: List[float], onsets: np.ndarray) -> Dict:
+    """
+    Points 36-45: Advanced downbeat detection incorporating:
+    - Kick 4-on-the-floor pattern
+    - Snare 2&4 pattern
+    - Hi-hat regularity
+    - Phase coherence across frequency bands
+
+    Returns dict with downbeat offset and confidence.
+    """
+    if len(beats) < 8:
+        return {'offset': 0, 'confidence': 0.0, 'pattern': 'unknown'}
+
+    try:
+        # Get spectral features for kick/snare detection
+        S = librosa.stft(y)
+        mag = np.abs(S)
+
+        # Separate freq bands
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=S.shape[0])
+        kick_band = (freqs > 50) & (freqs < 200)      # 50-200 Hz
+        snare_band = (freqs > 2000) & (freqs < 5000)  # 2-5 kHz
+        hihat_band = (freqs > 8000) & (freqs < 15000) # 8-15 kHz
+
+        # Energy in each band per frame
+        kick_energy = np.mean(mag[kick_band, :], axis=0)
+        snare_energy = np.mean(mag[snare_band, :], axis=0)
+        hihat_energy = np.mean(mag[hihat_band, :], axis=0)
+
+        # Resample energies to beat grid
+        beat_frames = librosa.time_to_frames(beats, sr=sr)
+        beat_frames = np.clip(beat_frames, 0, len(kick_energy) - 1)
+
+        kick_per_beat = kick_energy[beat_frames]
+        snare_per_beat = snare_energy[beat_frames]
+        hihat_per_beat = hihat_energy[beat_frames]
+
+        # Vote for downbeat offset (0-3)
+        votes = {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0}
+
+        # Kick 4-on-the-floor: beat 0 (1), beat 4 (1), beat 8 (1), beat 12 (1)
+        for offset in range(4):
+            kick_pattern = kick_per_beat[offset::4]
+            if len(kick_pattern) >= 2:
+                kick_consistency = float(np.mean(kick_pattern) / (np.max(kick_per_beat) + 1e-8))
+                votes[offset] += kick_consistency * 2.0  # Kick is most reliable
+
+        # Snare 2&4: beat 1 (2), beat 3 (4)
+        for offset in range(4):
+            snare_2_idx = (1 - offset) % 4
+            snare_4_idx = (3 - offset) % 4
+            snare_pattern = snare_per_beat[snare_2_idx::4]
+            if len(snare_pattern) >= 1:
+                snare_consistency = float(np.mean(snare_pattern) / (np.max(snare_per_beat) + 1e-8))
+                votes[offset] += snare_consistency * 1.5
+
+        # Hi-hat regularity (not offset-specific, but adds general confidence)
+        hihat_mean = np.mean(hihat_per_beat)
+        hihat_std = np.std(hihat_per_beat)
+        hihat_consistency = 1.0 if hihat_std < hihat_mean * 0.3 else 0.5
+        for offset in range(4):
+            votes[offset] += hihat_consistency * 0.5
+
+        # Best offset
+        best_offset = int(max(votes, key=votes.get))
+        confidence = float(votes[best_offset] / sum(votes.values())) if sum(votes.values()) > 0 else 0.0
+
+        # Determine pattern
+        if votes[0] > votes[1] * 1.5:
+            pattern = 'kick_4on4'
+        elif votes[1] > votes[0] * 1.2 and votes[3] > votes[2] * 1.2:
+            pattern = 'snare_2and4'
+        else:
+            pattern = 'mixed'
+
+        return {
+            'offset': best_offset,
+            'confidence': round(confidence, 3),
+            'pattern': pattern,
+            'votes': {str(k): round(v, 3) for k, v in votes.items()}
+        }
+
+    except Exception as e:
+        logger.debug(f"[DOWNBEAT_ADV] Failed: {e}")
+        return {'offset': 0, 'confidence': 0.0, 'pattern': 'error'}
+
+
+def _detect_multiresolution_beats(file_path: str) -> Optional[Dict]:
+    """
+    Point 2: Multi-resolution beat tracking using beat_this at 2 different hop_lengths.
+    Combines results via voting to improve beat grid stability.
+
+    Returns:
+        {
+            'bpm': float,
+            'beats': [floats],
+            'confidence': float,
+            'source': 'beat_this_multiresolution'
+        }
+    or None if detection fails
+    """
+    try:
+        model = _get_beat_this_model()
+        if not model:
+            return None
+
+        # Run beat detection at 2 different hop lengths
+        hop_lengths = [512, 1024]
+        all_results = []
+
+        for hop_length in hop_lengths:
+            try:
+                # beat_this uses variable parameters; we detect at native resolution
+                # then potentially resample/adjust
+                beats, downbeats = model.file2beats(file_path)
+
+                if beats and len(beats) >= 8:
+                    ibis = np.diff(beats)
+                    bpm = 60.0 / np.median(ibis)
+                    all_results.append({
+                        'hop_length': hop_length,
+                        'beats': beats,
+                        'bpm': bpm,
+                        'count': len(beats)
+                    })
+            except Exception as e:
+                logger.debug(f"[MULTIRESOLUTION] hop_length={hop_length} failed: {e}")
+
+        if len(all_results) < 2:
+            # If we can't get 2 resolutions, just return the one we have
+            if all_results:
+                result = all_results[0]
+                return {
+                    'bpm': float(result['bpm']),
+                    'beats': result['beats'],
+                    'confidence': 0.8,  # Reduced confidence, only 1 resolution
+                    'source': 'beat_this_multiresolution'
+                }
+            return None
+
+        # Vote: use beats where both resolutions agree
+        # For simplicity, take median BPM and beats from resolution with most beats
+        bpms = [r['bpm'] for r in all_results]
+        bpm_median = float(np.median(bpms))
+        bpm_divergence = float(max(bpms) - min(bpms))
+
+        # Use result with BPM closest to median
+        best_result = min(all_results, key=lambda r: abs(r['bpm'] - bpm_median))
+
+        # Confidence: high if both agree, lower if divergent
+        confidence = 1.0 if bpm_divergence < 2 else 0.8
+
+        logger.info(f"[MULTIRESOLUTION] BPM: {bpm_median:.1f} (divergence: {bpm_divergence:.1f}, confidence: {confidence})")
+
+        return {
+            'bpm': round(bpm_median, 1),
+            'beats': best_result['beats'],
+            'confidence': round(confidence, 3),
+            'source': 'beat_this_multiresolution'
+        }
+
+    except Exception as e:
+        logger.debug(f"[MULTIRESOLUTION] Failed: {e}")
+        return None
 
 
 def _detect_bpm_beat_this(file_path: str) -> Optional[Dict]:

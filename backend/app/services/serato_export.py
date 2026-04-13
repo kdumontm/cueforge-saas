@@ -13,7 +13,8 @@ via the "Import Tracks" feature.
 
 import struct
 import io
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Tuple
 
 
 # ── Serato .crate binary format ─────────────────────────────────────────
@@ -159,13 +160,115 @@ SERATO_CUE_COLORS = [
     (0xCC, 0x00, 0x88),  # Pink
 ]
 
+# Serato palette 16 colors (extended)
+SERATO_PALETTE_16 = [
+    (0xFF, 0x00, 0x00),  # Red
+    (0xFF, 0x80, 0x00),  # Orange
+    (0xFF, 0xFF, 0x00),  # Yellow
+    (0x00, 0xFF, 0x00),  # Green
+    (0x00, 0xFF, 0xFF),  # Cyan
+    (0x00, 0x00, 0xFF),  # Blue
+    (0xFF, 0x00, 0xFF),  # Magenta
+    (0xFF, 0x00, 0x80),  # Pink
+    (0x80, 0x00, 0x00),  # Dark Red
+    (0x80, 0x80, 0x00),  # Olive
+    (0x00, 0x80, 0x00),  # Dark Green
+    (0x00, 0x80, 0x80),  # Teal
+    (0x00, 0x00, 0x80),  # Navy
+    (0x80, 0x00, 0x80),  # Purple
+    (0x80, 0x80, 0x80),  # Gray
+    (0xFF, 0xFF, 0xFF),  # White
+]
 
-def _hex_to_rgb(hex_color: str) -> tuple:
+
+def _hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     """Convert hex color to RGB tuple."""
-    hex_color = hex_color.lstrip('#')
+    hex_color = (hex_color or '#CC0000').lstrip('#')
     if len(hex_color) == 6:
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return SERATO_CUE_COLORS[0]
+
+
+def _snap_color_to_palette(rgb: Tuple[int, int, int], palette: List[Tuple[int, int, int]] = None) -> Tuple[int, int, int]:
+    """Snap an RGB color to nearest palette color (Euclidean distance)."""
+    if palette is None:
+        palette = SERATO_PALETTE_16
+    r, g, b = rgb
+    min_dist = float('inf')
+    closest = palette[0]
+    for pr, pg, pb in palette:
+        dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
+        if dist < min_dist:
+            min_dist = dist
+            closest = (pr, pg, pb)
+    return closest
+
+
+def generate_serato_markers_v2(tracks: List[dict]) -> Dict:
+    """
+    Generate Serato DJ Markers V2 data with hot cues, loops, beat grid.
+
+    Returns JSON-serializable dict with:
+    - hot_cues: list of {track_id, position_ms, label, color_rgb, type}
+    - loops: list of {track_id, start_ms, end_ms, label}
+    - beat_grid: {track_id, bpm, first_beat_ms}
+    - bpm_lock_flag: whether BPM is locked
+    """
+    markers_data = {
+        "version": "2.0",
+        "format": "serato_markers_v2",
+        "hot_cues": [],
+        "loops": [],
+        "beat_grids": [],
+    }
+
+    for track_id, track in enumerate(tracks):
+        bpm = track.get('bpm') or 0
+        beat_grid = track.get('beat_grid', {}) or {}
+
+        # Beat grid info
+        if bpm > 0:
+            markers_data["beat_grids"].append({
+                "track_id": track_id,
+                "bpm": round(bpm, 2),
+                "first_beat_ms": beat_grid.get('first_beat_ms', 0),
+                "bpm_locked": beat_grid.get('bpm_locked', False),
+            })
+
+        # Hot cues with color snapping to 16-color palette
+        cue_points = track.get('cue_points', []) or []
+        for cue_idx, cue in enumerate(cue_points):
+            pos_ms = cue.get('position_ms') or cue.get('time') or 0
+            label = cue.get('label') or cue.get('name', f'Cue {cue_idx + 1}')
+            cue_type = cue.get('type') or cue.get('cue_type') or 'cue'
+
+            if cue_type == 'loop':
+                # Loop marker
+                end_ms = cue.get('end_position_ms', 0)
+                if end_ms > pos_ms:
+                    markers_data["loops"].append({
+                        "track_id": track_id,
+                        "start_ms": round(pos_ms, 1),
+                        "end_ms": round(end_ms, 1),
+                        "label": label,
+                    })
+            else:
+                # Hot cue with precise color
+                color_hex = cue.get('color', '#CC0000')
+                rgb = _hex_to_rgb(color_hex)
+                snap_rgb = _snap_color_to_palette(rgb, SERATO_PALETTE_16)
+
+                markers_data["hot_cues"].append({
+                    "track_id": track_id,
+                    "position_ms": round(pos_ms, 1),
+                    "label": label,
+                    "color_rgb": snap_rgb,
+                    "color_hex": color_hex,
+                    "type": cue_type,
+                    "hotcue_num": min(cue_idx, 7),  # Serato supports 8 hot cues (0-7)
+                })
+
+    return markers_data
 
 
 def generate_serato_markers_csv(tracks: List[dict]) -> str:
@@ -214,3 +317,31 @@ def generate_serato_markers_csv(tracks: List[dict]) -> str:
             ])
 
     return output.getvalue()
+
+
+def generate_serato_waveform_data(track: Dict) -> Dict:
+    """
+    Generate Serato-compatible overview waveform data.
+
+    Returns dict with waveform peaks suitable for Serato's display.
+    """
+    analysis = track.get('analysis', {}) or {}
+    frequency_spectrum = analysis.get('frequency_spectrum', [])
+
+    if not frequency_spectrum:
+        return {"format": "serato_waveform", "peaks": []}
+
+    # Take bass frequencies (0-1000Hz) for overview
+    # Serato uses 512 or 1024 sample points
+    peak_count = min(512, len(frequency_spectrum))
+    peaks = [frequency_spectrum[i] if i < len(frequency_spectrum) else 0 for i in range(peak_count)]
+
+    # Normalize to 0-255 range
+    max_peak = max(peaks) if peaks else 1.0
+    normalized = [min(255, int((p / max_peak) * 255)) if max_peak > 0 else 0 for p in peaks]
+
+    return {
+        "format": "serato_waveform",
+        "peaks": normalized,
+        "sample_count": len(normalized),
+    }

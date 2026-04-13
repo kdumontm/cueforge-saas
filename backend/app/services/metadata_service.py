@@ -809,10 +809,49 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                     logger.debug(f"Last.fm timeout/error: {e}")
                     lastfm_genre = None
 
+            # Genre detection with priority system and multi-source aggregation
+            genre_sources = {}
+
+            # Spotify: high-quality genre data (artist genres)
+            if sp and sp.get("genre"):
+                genre_sources["spotify"] = sp["genre"]
+
+            # Discogs: excellent for electronic music (precise sub-genres)
+            if discogs and discogs.get("genre"):
+                genre_sources["discogs"] = discogs["genre"]
+
+            # iTunes: reliable fallback
+            if it and it.get("genre"):
+                genre_sources["itunes"] = it["genre"]
+
+            # Last.fm: tag-based, great for niche music
+            if lastfm_genre:
+                genre_sources["lastfm"] = lastfm_genre
+
+            # Apply genre priority: Spotify > Discogs > iTunes > Last.fm
+            if not metadata.get("genre"):
+                if genre_sources.get("spotify"):
+                    metadata["genre"] = genre_sources["spotify"]
+                elif genre_sources.get("discogs"):
+                    metadata["genre"] = genre_sources["discogs"]
+                elif genre_sources.get("itunes"):
+                    metadata["genre"] = genre_sources["itunes"]
+                elif genre_sources.get("lastfm"):
+                    metadata["genre"] = genre_sources["lastfm"]
+
+                # Log which source was used
+                if metadata.get("genre") and genre_sources:
+                    for source, genre in genre_sources.items():
+                        if genre == metadata.get("genre"):
+                            logger.debug(f"[META] Genre selected from {source}: {genre}")
+                            break
+
+            # Store multi-genre info for future use
+            if len(genre_sources) > 1:
+                metadata["genre_sources"] = genre_sources
+
             # Discogs (prioritaire pour l'électro: labels, sous-genres précis)
             if discogs:
-                if not metadata.get("genre") and discogs.get("genre"):
-                    metadata["genre"] = discogs["genre"]
                 if not metadata.get("label") and discogs.get("label"):
                     metadata["label"] = discogs["label"]
                 if not metadata.get("year") and discogs.get("year"):
@@ -828,8 +867,6 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                     metadata["spotify_id"] = sp["spotify_id"]
                 if sp.get("spotify_url"):
                     metadata["spotify_url"] = sp["spotify_url"]
-                if not metadata.get("genre") and sp.get("genre"):
-                    metadata["genre"] = sp["genre"]
                 if sp.get("spotify_bpm"):
                     metadata["spotify_bpm"] = sp["spotify_bpm"]
                 if sp.get("spotify_sections"):
@@ -839,16 +876,10 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
             if it:
                 if not metadata.get("artwork_url") and it.get("artwork_url"):
                     metadata["artwork_url"] = it["artwork_url"]
-                if not metadata.get("genre") and it.get("genre"):
-                    metadata["genre"] = it["genre"]
                 if not metadata.get("album") and it.get("album"):
                     metadata["album"] = it["album"]
                 if not metadata.get("year") and it.get("year"):
                     metadata["year"] = it["year"]
-
-            # Last.fm genre fallback
-            if lastfm_genre and not metadata.get("genre"):
-                metadata["genre"] = lastfm_genre
 
     except Exception as e:
         logger.error(f"Unexpected error in metadata pipeline: {e}")

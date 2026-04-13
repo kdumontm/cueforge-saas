@@ -58,6 +58,36 @@ def key_to_rekordbox(key: str) -> int:
     clean = clean.replace("min", "m").replace("maj", "")
     return KEY_MAP.get(clean, 0)
 
+
+def open_key_notation_to_rekordbox(open_key: str) -> int:
+    """Convert Open Key notation (1A, 1B, ..., 12A, 12B) to Rekordbox key ID."""
+    OPEN_KEY_MAP = {
+        # Camelot wheel: 1A-12B maps to Rekordbox key IDs
+        "1A": 8, "1B": 7,   "2A": 3, "2B": 2,   "3A": 10, "3B": 9,   "4A": 5, "4B": 4,
+        "5A": 12, "5B": 11, "6A": 6, "6B": 1,   "7A": 8, "7B": 7,    "8A": 3, "8B": 2,
+        "9A": 10, "9B": 9,  "10A": 5, "10B": 4, "11A": 12, "11B": 11, "12A": 6, "12B": 1,
+    }
+    return OPEN_KEY_MAP.get(open_key, 0)
+
+
+def calculate_beat_grid_offset(bpm: float, first_beat_ms: float) -> float:
+    """Calculate beat grid offset (phase) in milliseconds."""
+    if not bpm or bpm <= 0:
+        return 0.0
+    beat_length_ms = (60.0 / bpm) * 1000
+    offset = first_beat_ms % beat_length_ms
+    return offset
+
+
+def loop_duration_in_beats(start_ms: float, end_ms: float, bpm: float) -> float:
+    """Calculate loop duration in beats (with 2 decimal precision)."""
+    if not bpm or bpm <= 0:
+        return 0.0
+    beat_length_ms = (60.0 / bpm) * 1000
+    duration_ms = max(0, end_ms - start_ms)
+    beats = duration_ms / beat_length_ms
+    return round(beats, 2)
+
 def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Export") -> str:
     """
     Generate a Rekordbox-compatible XML string from CueForge track data.
@@ -76,6 +106,21 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         duration_sec = duration_ms / 1000.0 if duration_ms else 0
         energy = analysis.get("energy") or 0
 
+        # Build comments with metadata (rating, key, etc.)
+        comments_parts = []
+        if energy:
+            comments_parts.append(f"Energy: {energy:.0%}")
+        track_comment = track.get("comment") or track.get("comments") or ""
+        if track_comment:
+            comments_parts.append(track_comment)
+        final_comments = " | ".join(comments_parts)
+
+        # Support Open Key notation if available
+        open_key = track.get("open_key") or ""
+        tonality_str = key
+        if open_key:
+            tonality_str = open_key
+
         track_attrs = {
             "TrackID": str(idx + 1),
             "Name": track.get("title", "Unknown"),
@@ -85,9 +130,9 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             "Kind": "MP3 File",
             "TotalTime": str(int(duration_sec)),
             "AverageBpm": f"{bpm:.2f}" if bpm else "0.00",
-            "Tonality": key,
+            "Tonality": tonality_str,
             "Rating": str(min(255, int(energy * 255))) if energy else "0",
-            "Comments": f"Energy: {energy:.0%}" if energy else "",
+            "Comments": final_comments,
             "DateAdded": datetime.now().strftime("%Y-%m-%d"),
         }
 
@@ -100,9 +145,20 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         if bpm:
             ET.SubElement(track_el, "TEMPO", Inizio="0.000", Bpm=f"{bpm:.2f}", Metro="4/4", Battito="1")
 
+        # Beat grid export (BPM + offset)
+        beat_grid = track.get("beat_grid", {}) or {}
+        first_beat_ms = beat_grid.get("first_beat_ms", 0)
+        if bpm and first_beat_ms >= 0:
+            offset = calculate_beat_grid_offset(bpm, first_beat_ms)
+            ET.SubElement(track_el, "BEAT_GRID",
+                Bpm=f"{bpm:.2f}",
+                Offset=f"{offset:.3f}"
+            )
+
         # Cue points as POSITION_MARK
         cue_points = track.get("cue_points", []) or []
         hot_cue_num = 0
+        memory_cue_num = 0
 
         for cue_idx, cue in enumerate(cue_points):
             pos_ms = cue.get("position_ms") or cue.get("time") or 0
@@ -111,15 +167,31 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             cue_type = cue.get("type") or cue.get("cue_type") or "cue"
             # Only treat as loop if explicitly tagged as loop type — not just because end_ms exists
             is_loop = cue_type == "loop" and bool(end_ms and end_ms > pos_ms)
+            is_memory = cue.get("is_memory") or (cue_type == "memory")
 
             mark_attrs = {
                 "Name": label,
                 "Type": "4" if is_loop else "0",
                 "Start": format_time_mmss(pos_ms),
-                "Num": str(hot_cue_num) if not is_loop else "-1",
             }
+
+            # Num: hot cue slot (0-7), memory cue, or -1 for loop
+            if is_loop:
+                mark_attrs["Num"] = "-1"
+            elif is_memory:
+                mark_attrs["Num"] = str(-100 - memory_cue_num)  # Memory cues use negative IDs
+                memory_cue_num += 1
+            else:
+                mark_attrs["Num"] = str(hot_cue_num) if hot_cue_num < 8 else "-1"
+                hot_cue_num += 1
+
             if is_loop:
                 mark_attrs["End"] = format_time_mmss(end_ms)
+                # Add loop duration in beats if available
+                if bpm:
+                    loop_beats = loop_duration_in_beats(pos_ms, end_ms, bpm)
+                    if loop_beats > 0:
+                        mark_attrs["LenBeats"] = f"{loop_beats:.2f}"
 
             # Use the actual color stored in DB (hex string); fall back to palette by index
             raw_color = cue.get("color") or ""
@@ -136,8 +208,6 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
             mark_attrs["Blue"] = str(b)
 
             ET.SubElement(track_el, "POSITION_MARK", **mark_attrs)
-            if not is_loop:
-                hot_cue_num += 1
 
         # v4: Loop markers as POSITION_MARK Type="4"
         loop_markers = track.get("loop_markers", []) or []

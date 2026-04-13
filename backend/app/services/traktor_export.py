@@ -5,9 +5,11 @@ Generates Traktor DJ Pro compatible .nml (XML) collection files.
 NML format is based on the Native Instruments collection XML schema.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom.minidom import parseString
+import base64
+import struct
 
 
 # ── Traktor key mapping ─────────────────────────────────────────────────
@@ -62,6 +64,60 @@ def _hex_to_traktor_color(hex_color: str) -> int:
     except (ValueError, IndexError):
         r, g, b = 0x22, 0xC5, 0x5E  # green fallback
     return (0xFF << 24) | (r << 16) | (g << 8) | b
+
+
+def _build_beat_grid_stripe(bpm: float, duration_ms: float, first_beat_ms: float = 0) -> str:
+    """
+    Build Traktor STRIPE (beat grid) data encoded as base64.
+    Represents beat positions within a track at given BPM.
+    """
+    if not bpm or bpm <= 0:
+        return ""
+
+    beat_length_ms = (60.0 / bpm) * 1000
+    stripe_data = bytearray()
+
+    # Start from first beat
+    current_ms = first_beat_ms
+    beat_count = 0
+
+    while current_ms < duration_ms and beat_count < 2048:  # Max 2048 beats
+        # Encode beat position in Traktor stripe format
+        pos_int = int(current_ms)
+        stripe_data.extend(struct.pack('>I', pos_int))
+        current_ms += beat_length_ms
+        beat_count += 1
+
+    return base64.b64encode(stripe_data).decode('ascii')
+
+
+def _build_waveform_stripe(analysis: Dict) -> str:
+    """
+    Build Traktor WAVEFORM STRIPE data from frequency spectrum.
+    Encodes waveform peaks for visual display.
+    """
+    frequency_spectrum = analysis.get('frequency_spectrum', [])
+    if not frequency_spectrum:
+        return ""
+
+    waveform_data = bytearray()
+
+    # Take 512 samples at even intervals
+    sample_count = min(512, len(frequency_spectrum))
+    step = max(1, len(frequency_spectrum) // sample_count)
+
+    for i in range(0, len(frequency_spectrum), step):
+        if len(waveform_data) >= 512:
+            break
+        peak = int(frequency_spectrum[i] * 255) if frequency_spectrum[i] else 0
+        peak = min(255, max(0, peak))
+        waveform_data.append(peak)
+
+    # Pad to 512 bytes if needed
+    while len(waveform_data) < 512:
+        waveform_data.append(0)
+
+    return base64.b64encode(waveform_data).decode('ascii')
 
 
 def generate_traktor_nml(
@@ -127,14 +183,31 @@ def generate_traktor_nml(
             VOLUMEID="",
         )
 
-        # INFO
+        # INFO with detailed comments
         info_attrs = {}
         if track.get('genre'):
             info_attrs['GENRE'] = track['genre']
         if track.get('label'):
             info_attrs['LABEL'] = track['label']
-        if track.get('comment'):
-            info_attrs['COMMENT'] = track['comment']
+
+        # Build detailed comment from track metadata
+        comment_parts = []
+        track_comment = track.get('comment') or track.get('comments') or ""
+        if track_comment:
+            comment_parts.append(track_comment)
+
+        analysis = track.get('analysis', {}) or {}
+        energy = analysis.get('energy', 0)
+        if energy:
+            comment_parts.append(f"Energy: {energy:.0%}")
+
+        danceability = analysis.get('danceability', 0)
+        if danceability:
+            comment_parts.append(f"Danceability: {danceability:.0%}")
+
+        if comment_parts:
+            info_attrs['COMMENT'] = " | ".join(comment_parts)
+
         info_attrs['PLAYTIME'] = str(int(duration_s))
         info_attrs['PLAYTIME_FLOAT'] = f"{duration_s:.6f}"
         info_attrs['IMPORT_DATE'] = ""
@@ -147,11 +220,43 @@ def generate_traktor_nml(
         }
         SubElement(entry, 'TEMPO', **tempo_attrs)
 
-        # MUSICAL_KEY
+        # BEAT GRID (BPM + offset/phase)
+        beat_grid = track.get('beat_grid', {}) or {}
+        if bpm and bpm > 0:
+            first_beat_ms = beat_grid.get('first_beat_ms', 0)
+            duration_ms = track.get('duration_ms', 0) or 0
+
+            beat_grid_el = SubElement(entry, 'BEAT_GRID')
+            beat_grid_el.set('BPM', f"{bpm:.6f}")
+
+            # Add beat positions as BEAT entries
+            beat_length_ms = (60.0 / bpm) * 1000
+            beat_ms = first_beat_ms
+            beat_num = 0
+
+            while beat_ms < duration_ms and beat_num < 256:  # Limit to reasonable count
+                beat_el = SubElement(beat_grid_el, 'BEAT')
+                beat_el.set('NUM', str(beat_num))
+                beat_el.set('MS', f"{beat_ms:.1f}")
+                beat_ms += beat_length_ms
+                beat_num += 1
+
+        # MUSICAL_KEY with Open Key support
         if key:
             key_value = MUSICAL_KEY_TO_TRAKTOR.get(key, -1)
             if key_value >= 0:
                 SubElement(entry, 'MUSICAL_KEY', VALUE=str(key_value))
+
+        # STRIPE (beat grid visualization)
+        stripe_data = _build_beat_grid_stripe(bpm, track.get('duration_ms', 0) or 0,
+                                              beat_grid.get('first_beat_ms', 0))
+        if stripe_data:
+            SubElement(entry, 'STRIPE', DATA=stripe_data)
+
+        # WAVEFORM (visual overview)
+        waveform_data = _build_waveform_stripe(analysis)
+        if waveform_data:
+            SubElement(entry, 'WAVEFORM', DATA=waveform_data)
 
         # CUE_V2 entries (cue points)
         cue_points = track.get('cue_points', [])

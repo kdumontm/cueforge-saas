@@ -31,6 +31,35 @@ from scipy.ndimage import uniform_filter1d
 
 logger = logging.getLogger(__name__)
 
+# Import advanced stem optimizations (points 251-400)
+try:
+    from .stems_advanced import (
+        _detect_stem_bleed,
+        _apply_phase_aware_mixing,
+        _detect_drum_onsets_per_instrument,
+        _detect_drum_fills,
+        _detect_ghost_notes,
+        _detect_bass_notes_per_beat,
+        _classify_bass_pattern,
+        _analyze_bass_drum_interaction,
+        _extract_vocal_melody,
+        _classify_vocal_style,
+        _detect_adlibs,
+        _detect_harmonic_complexity,
+        _generate_stem_volume_automation,
+        _suggest_stem_eq,
+        _suggest_stem_reverb_send,
+        _suggest_stem_panning,
+        _export_stem_as_wav,
+        _create_stem_presets,
+        get_stem_cache,
+        clear_stem_cache,
+    )
+    ADVANCED_STEM_FEATURES_AVAILABLE = True
+except ImportError:
+    ADVANCED_STEM_FEATURES_AVAILABLE = False
+    logger.warning("[STEM] Advanced stem features not available — using base features only")
+
 SR = 22050
 HOP_LENGTH = 512
 
@@ -873,6 +902,79 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
     vocal_data = analyze_vocal_stem(stems.get("vocals", np.zeros(1000)), SR)
     melody_data = analyze_melody_stem(stems.get("other", np.zeros(1000)), SR)
 
+    # Step 2b: Advanced stem analysis (points 251-400)
+    advanced_stem_data = {}
+    if ADVANCED_STEM_FEATURES_AVAILABLE:
+        try:
+            # 251-270: Separation quality & bleed reduction
+            bleed_metrics = _detect_stem_bleed(
+                stems.get("drums", np.zeros(1000)),
+                stems.get("bass", np.zeros(1000)),
+                stems.get("vocals", np.zeros(1000)),
+                stems.get("other", np.zeros(1000)),
+                sr=SR
+            )
+            advanced_stem_data["bleed_metrics"] = {
+                "cross_stem_ratio": bleed_metrics.cross_stem_energy_ratio,
+                "phase_coherence": bleed_metrics.phase_coherence,
+                "artifact_score": bleed_metrics.artifact_score,
+                "quality": bleed_metrics.separation_quality,
+            }
+
+            # Apply phase-aware mixing
+            stems_phase_corrected = _apply_phase_aware_mixing(stems, sr=SR)
+
+            # 271-290: Advanced drum analysis
+            onset_analysis = _detect_drum_onsets_per_instrument(stems_phase_corrected.get("drums", np.zeros(1000)), SR)
+            advanced_stem_data["drum_onsets"] = {
+                "kick_ms": onset_analysis.kick_onsets_ms,
+                "snare_ms": onset_analysis.snare_onsets_ms,
+                "hihat_ms": onset_analysis.hihat_onsets_ms,
+                "tom_ms": onset_analysis.tom_onsets_ms,
+            }
+
+            drum_fills = _detect_drum_fills(stems_phase_corrected.get("drums", np.zeros(1000)), SR)
+            advanced_stem_data["drum_fills"] = drum_fills
+
+            ghost_notes = _detect_ghost_notes(stems_phase_corrected.get("drums", np.zeros(1000)), SR)
+            advanced_stem_data["ghost_notes"] = ghost_notes
+
+            # 291-310: Advanced bass analysis
+            bass_notes = _detect_bass_notes_per_beat(stems_phase_corrected.get("bass", np.zeros(1000)), SR, beats)
+            advanced_stem_data["bass_notes"] = {
+                "notes_midi": bass_notes.notes_per_beat,
+                "frequencies_hz": bass_notes.frequencies_hz,
+                "timings_ms": bass_notes.timings_ms,
+                "confidence": bass_notes.confidence_scores,
+            }
+
+            bass_pattern = _classify_bass_pattern(stems_phase_corrected.get("bass", np.zeros(1000)), SR)
+            advanced_stem_data["bass_pattern"] = bass_pattern
+
+            bass_drum_interaction = _analyze_bass_drum_interaction(
+                stems_phase_corrected.get("bass", np.zeros(1000)),
+                stems_phase_corrected.get("drums", np.zeros(1000)),
+                SR
+            )
+            advanced_stem_data["bass_drum_interaction"] = bass_drum_interaction
+
+            # 311-330: Advanced vocal & harmonic analysis
+            melody = _extract_vocal_melody(stems_phase_corrected.get("vocals", np.zeros(1000)), SR)
+            advanced_stem_data["vocal_melody"] = melody
+
+            vocal_style = _classify_vocal_style(stems_phase_corrected.get("vocals", np.zeros(1000)), SR)
+            advanced_stem_data["vocal_style"] = vocal_style
+
+            adlibs = _detect_adlibs(stems_phase_corrected.get("vocals", np.zeros(1000)), SR)
+            advanced_stem_data["adlibs"] = adlibs
+
+            harmonic_complexity = _detect_harmonic_complexity(stems_phase_corrected.get("other", np.zeros(1000)), SR)
+            advanced_stem_data["harmonic_analysis"] = harmonic_complexity
+
+            logger.info("[STEM] Advanced stem features extracted successfully")
+        except Exception as e:
+            logger.warning(f"[STEM] Advanced stem analysis failed (non-critical): {e}")
+
     # Step 3: Enhanced cross-stem drop validation (point 306)
     # Use vocal regions to improve drop detection confidence
     vocal_regions = vocal_data.get("vocal_active_regions", [])
@@ -932,6 +1034,10 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
         "stem_analysis": True,
         "stems_saved_to_disk": stems_saved,
     }
+
+    # Add advanced stem features (points 251-400) if available
+    if advanced_stem_data:
+        result["advanced_stem_features"] = advanced_stem_data
 
     # Add reconstruction quality if available
     if reconstruction_quality is not None:
@@ -1056,3 +1162,133 @@ def _cross_validate_drops(
     return _enhanced_cross_validate_drops(
         drum_drops, bass_drops, vocal_regions=None, tolerance_ms=tolerance_ms
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   PUBLIC STEM EXPORT & AUTOMATION APIs (points 351-400)
+# ══════════════════════════════════════════════════════════════════════════
+
+def export_stem_mixing_automation(
+    stems: Dict[str, np.ndarray],
+    sr: int = SR,
+) -> Dict[str, Dict]:
+    """
+    Generate mixing automation suggestions for all stems (points 351-370).
+
+    Returns dict mapping stem names to automation parameters:
+    - volume_curve: per-frame volume in dB
+    - eq_gains: {low, mid, high} in dB
+    - reverb_send: 0-1 level
+    - panning: -1 (left) to 1 (right)
+
+    Useful for DJ mixing/remixing workflows.
+    """
+    if not ADVANCED_STEM_FEATURES_AVAILABLE:
+        logger.warning("[STEM] Advanced features not available for mixing automation")
+        return {}
+
+    try:
+        automation = {}
+
+        for stem_name, audio in stems.items():
+            if audio is None or len(audio) == 0:
+                continue
+
+            volume_curve = _generate_stem_volume_automation(audio, stem_name, sr)
+            eq_gains = _suggest_stem_eq(audio, stem_name, sr)
+            reverb_send = _suggest_stem_reverb_send(audio, stem_name, sr)
+            panning = _suggest_stem_panning(audio, stem_name)
+
+            automation[stem_name] = {
+                "volume_curve_db": volume_curve,
+                "eq_gains": eq_gains,
+                "reverb_send": reverb_send,
+                "panning": panning,
+            }
+
+        logger.info(f"[STEM] Generated mixing automation for {len(automation)} stems")
+        return automation
+    except Exception as e:
+        logger.error(f"[STEM] Stem mixing automation generation failed: {e}")
+        return {}
+
+
+def export_stem_presets(
+    stems: Dict[str, np.ndarray],
+    sr: int = SR,
+    output_dir: Optional[str] = None,
+) -> Dict[str, Optional[str]]:
+    """
+    Create and export common stem mix presets (point 377).
+
+    Generates and exports:
+    - acapella: vocals only (no drums/bass)
+    - instrumental: drums + bass + other (no vocals)
+    - drums_only: drums only
+    - bass_drums: bass + drums groove
+
+    Each preset is exported as WAV file if soundfile available.
+
+    Returns dict mapping preset names to file paths (or None if export failed).
+    """
+    if not ADVANCED_STEM_FEATURES_AVAILABLE:
+        logger.warning("[STEM] Advanced features not available for preset creation")
+        return {}
+
+    try:
+        # Create presets
+        presets = _create_stem_presets(stems, sr)
+
+        # Export presets
+        exported_paths = {}
+        for preset_name, preset_audio in presets.items():
+            if preset_audio is None or len(preset_audio) == 0:
+                continue
+
+            try:
+                path = _export_stem_as_wav(preset_audio, f"preset_{preset_name}", sr, output_dir)
+                exported_paths[preset_name] = path
+            except Exception as e:
+                logger.debug(f"[STEM] Failed to export preset {preset_name}: {e}")
+                exported_paths[preset_name] = None
+
+        logger.info(f"[STEM] Exported {len([p for p in exported_paths.values() if p])} stem presets")
+        return exported_paths
+    except Exception as e:
+        logger.error(f"[STEM] Stem preset export failed: {e}")
+        return {}
+
+
+def export_individual_stems(
+    stems: Dict[str, np.ndarray],
+    sr: int = SR,
+    output_dir: Optional[str] = None,
+) -> Dict[str, Optional[str]]:
+    """
+    Export individual stems as WAV files (point 374).
+
+    Returns dict mapping stem names to file paths (or None if export failed).
+
+    Useful for:
+    - DJ remixing workflows
+    - Stem replacement in DAWs
+    - Audio engineering analysis
+    """
+    if not ADVANCED_STEM_FEATURES_AVAILABLE:
+        logger.warning("[STEM] Advanced features not available for stem export")
+        return {}
+
+    try:
+        exported = {}
+        for stem_name, audio in stems.items():
+            if audio is None or len(audio) == 0:
+                continue
+
+            path = _export_stem_as_wav(audio, stem_name, sr, output_dir)
+            exported[stem_name] = path
+
+        logger.info(f"[STEM] Exported {len([p for p in exported.values() if p])} individual stems")
+        return exported
+    except Exception as e:
+        logger.error(f"[STEM] Stem export failed: {e}")
+        return {}
