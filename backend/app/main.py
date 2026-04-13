@@ -534,7 +534,7 @@ from app.routers import profile, user_stats, jobs, push_notifications  # noqa: E
 # v7 routers
 from app.routers import cue_templates, blog  # noqa: E402
 # v8 routers
-from app.routers import referrals, admin_stats  # noqa: E402
+from app.routers import referrals, admin_stats, admin_data  # noqa: E402
 # v9 routers
 from app.routers import tags, activity  # noqa: E402
 # New feature routers (mix, fingerprint, ML, recommendation, quality, advanced analysis)
@@ -594,6 +594,7 @@ app.include_router(blog.router, tags=["blog"])
 # v8 routers
 app.include_router(referrals.router, tags=["referrals"])
 app.include_router(admin_stats.router, tags=["admin"])
+app.include_router(admin_data.router, prefix="/api/v1", tags=["admin-data"])
 # v9 routers
 app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
 app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
