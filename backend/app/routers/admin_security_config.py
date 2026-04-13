@@ -122,7 +122,7 @@ class Backup(Base):
     file_path = Column(String(500), nullable=True)  # S3 or local path
     download_url = Column(String(1000), nullable=True)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)  # {included_tables, compression, etc.}
+    extra_data = Column(JSON, nullable=True)  # {included_tables, compression, etc.}
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -270,7 +270,7 @@ class BackupSchema(BaseModel):
     status: str
     file_path: Optional[str] = None
     download_url: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
     created_at: str
     created_by: Optional[int] = None
 
@@ -365,7 +365,7 @@ def _serialize_backup(backup: Backup) -> dict:
         "status": backup.status,
         "file_path": backup.file_path,
         "download_url": backup.download_url,
-        "metadata": backup.metadata,
+        "extra_data": backup.extra_data,
         "created_at": backup.created_at.isoformat(),
         "created_by": backup.created_by,
     }
@@ -816,7 +816,7 @@ def create_manual_backup(
         backup_type="manual",
         size_bytes=0,
         status="pending",
-        metadata={"include_media": include_media},
+        extra_data={"include_media": include_media},
         created_by=admin.id
     )
     db.add(backup)

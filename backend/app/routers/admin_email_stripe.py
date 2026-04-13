@@ -75,7 +75,7 @@ class EmailSendHistory(Base):
     opened_at = Column(DateTime, nullable=True)
     clicked_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
 
     __table_args__ = (
         Index('ix_email_history_template', 'template_id'),
@@ -163,7 +163,7 @@ class Invoice(Base):
     issued_at = Column(DateTime, nullable=False)
     due_at = Column(DateTime, nullable=True)
     paid_at = Column(DateTime, nullable=True)
-    metadata = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
