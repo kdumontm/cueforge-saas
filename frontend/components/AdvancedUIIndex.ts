@@ -2,25 +2,32 @@
  * CueForge Advanced UI/UX Components
  * Section E: Points 1451-1650
  *
- * This file exports all advanced components for easy importing.
+ * This file is the primary export index for all advanced components.
+ * It re-exports from advancedComponents.ts (lazy-loaded barrel file).
+ *
  * Use with: import { PlayerAdvanced, StemsAdvanced, ... } from '@/components/AdvancedUIIndex'
+ * Or: import { PlayerAdvanced, StemsAdvanced, ... } from '@/components/advancedComponents'
  */
 
-// Player & Playback UX (Points 1451-1510)
-export { default as PlayerAdvanced } from '@/components/player/PlayerAdvanced';
-export type { } from '@/components/player/PlayerAdvanced';
-
-// Stems UX (Points 1511-1560)
-export { default as StemsAdvanced } from '@/components/tabs/StemsAdvanced';
-export type { } from '@/components/tabs/StemsAdvanced';
-
-// Mix & Playlist UX (Points 1561-1610)
-export { default as PlaylistBuilder } from '@/components/playlist/PlaylistBuilder';
-export type { } from '@/components/playlist/PlaylistBuilder';
-
-// Settings & Personalization (Points 1611-1650)
-export { default as SettingsPanel } from '@/components/settings/SettingsPanel';
-export type { } from '@/components/settings/SettingsPanel';
+// Re-export all lazy-loaded components from the main barrel file
+export {
+  OnboardingWizard,
+  DashboardLayout,
+  TrackListAdvanced,
+  WaveformAdvanced,
+  PlayerAdvanced,
+  StemsAdvanced,
+  PlaylistBuilder,
+  SettingsPanel,
+  type OnboardingWizardProps,
+  type DashboardLayoutProps,
+  type TrackListAdvancedProps,
+  type WaveformAdvancedProps,
+  type PlayerAdvancedProps,
+  type StemsAdvancedProps,
+  type PlaylistBuilderProps,
+  type SettingsPanelProps,
+} from '@/components/advancedComponents';
 
 // Shared UI Component
 export { Slider } from '@/components/ui/Slider';

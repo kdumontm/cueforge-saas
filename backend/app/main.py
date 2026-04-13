@@ -439,6 +439,10 @@ from app.routers import tags, activity  # noqa: E402
 from app.routers import mix, fingerprint, ml, recommendation, audio_quality, advanced_analysis  # noqa: E402
 # SEO
 from app.routers import seo  # noqa: E402
+# v11 routers — advanced analysis services (2000 optimisations)
+from app.routers import bpm_advanced, key_advanced, cue_ai, stems_hybrid, audio_forensics  # noqa: E402
+# v11 routers — monitoring & observability
+from app.routers import monitoring, quota  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
 app.include_router(api_keys.router, tags=["api-keys"])
@@ -500,3 +504,12 @@ app.include_router(audio_quality.router, prefix="/api", tags=["quality"])
 app.include_router(advanced_analysis.router, prefix="/api", tags=["advanced-analysis"])
 # SEO
 app.include_router(seo.router)
+# v11 routers — advanced analysis
+app.include_router(bpm_advanced.router)
+app.include_router(key_advanced.router)
+app.include_router(cue_ai.router)
+app.include_router(stems_hybrid.router)
+app.include_router(audio_forensics.router)
+# v11 routers — monitoring & quota
+app.include_router(monitoring.router)
+app.include_router(quota.router)

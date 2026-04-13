@@ -3557,6 +3557,39 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         auto_loops = []
 
+    # === Vague 2 : Advanced analysis services (non-blocking) ===
+    advanced_results = {}
+
+    # BPM Advanced
+    try:
+        from app.services.bpm_advanced import BPMAdvancedAnalyzer
+        bpm_adv = BPMAdvancedAnalyzer()
+        if y is not None and sr_loaded:
+            adv_tempo = bpm_adv.bayesian_tempo_estimation(y, sr_loaded)
+            advanced_results["bpm_advanced"] = {"bayesian_tempo": adv_tempo}
+    except Exception as e:
+        logger.debug(f"BPM advanced skipped: {e}")
+
+    # Key Advanced
+    try:
+        from app.services.key_advanced import KeyAdvancedAnalyzer
+        key_adv = KeyAdvancedAnalyzer()
+        if y is not None and sr_loaded:
+            chord_prog = key_adv.detect_chord_progression(y, sr_loaded)
+            advanced_results["key_advanced"] = {"chord_progression": chord_prog[:8] if chord_prog else []}
+    except Exception as e:
+        logger.debug(f"Key advanced skipped: {e}")
+
+    # Audio Forensics
+    try:
+        from app.services.audio_forensics import AudioForensicsAnalyzer
+        forensics = AudioForensicsAnalyzer()
+        if y is not None and sr_loaded:
+            quality = forensics.quality_grade(y, sr_loaded)
+            advanced_results["audio_forensics"] = {"quality_grade": quality}
+    except Exception as e:
+        logger.debug(f"Audio forensics skipped: {e}")
+
     # v6.1: Free shared STFT — all consumers (drops, genre, energy) are done
     del shared_S, shared_rms, y
     gc.collect()
@@ -3614,6 +3647,10 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
+
+    # Merge advanced analysis results if available
+    if advanced_results:
+        result["advanced_analysis"] = advanced_results
 
     # Point 511-519: Clear checkpoint after successful analysis completion
     clear_checkpoint(file_path)
