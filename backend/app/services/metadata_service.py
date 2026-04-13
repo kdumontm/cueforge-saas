@@ -3,7 +3,7 @@ Metadata service: fingerprint audio and look up track info from
 AcoustID, MusicBrainz, Discogs, Spotify, iTunes, and Last.fm.
 
 Pipeline order (optimisé pour musique électronique):
-  AcoustID → MusicBrainz → Discogs → Spotify → iTunes → Last.fm
+  AcoustID → MusicBrainz → [Discogs + Spotify + Deezer + iTunes + Last.fm] → Songlink
 
 All lookups are optional — if a service fails or isn't configured,
 the pipeline continues silently.
@@ -715,13 +715,244 @@ def _parse_artist_title_from_filename(file_path: str) -> tuple:
     return basename.strip(), ""
 
 
+# ── Deezer API — gratuit, sans clé, BPM officiel + previews ─────────────────
+
+_deezer_cache: Dict[str, Any] = {}
+_DEEZER_CACHE_TTL = 86400  # 24h
+
+
+def search_deezer(artist: str, title: str) -> Optional[Dict[str, Any]]:
+    """
+    Search Deezer for a track. 100% free, no API key, no auth.
+    Returns BPM officiel, genre, preview URL (30s), artwork, album.
+    Rate limit: 50 req/5s (très généreux).
+
+    Intérêt DJ: le BPM Deezer est calculé côté serveur avec des algos pro,
+    excellent pour valider notre propre BPM.
+    """
+    if _is_circuit_open("deezer"):
+        logger.debug("Deezer circuit breaker OPEN — skipping")
+        return None
+
+    try:
+        import urllib.request
+        import urllib.parse
+
+        query = f"{artist} {title}".strip()
+        if not query:
+            return None
+
+        # Check cache
+        cache_key = f"deezer:{query.lower()}"
+        cached = _deezer_cache.get(cache_key)
+        if cached and time.time() - cached[1] < _DEEZER_CACHE_TTL:
+            logger.debug(f"Deezer cache HIT for '{query}'")
+            return cached[0]
+
+        url = f"https://api.deezer.com/search?q={urllib.parse.quote(query)}&limit=5"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        results = data.get("data", [])
+        if not results:
+            logger.info(f"Deezer: no result for '{query}'")
+            return None
+
+        # Pick best match
+        track = results[0]
+
+        # Get full track details (includes BPM)
+        track_id = track.get("id")
+        bpm = None
+        genre = None
+        if track_id:
+            try:
+                detail_url = f"https://api.deezer.com/track/{track_id}"
+                detail_req = urllib.request.Request(detail_url, headers={
+                    "User-Agent": "CueForge/0.1",
+                    "Accept": "application/json",
+                })
+                with urllib.request.urlopen(detail_req, timeout=8) as detail_resp:
+                    detail = json.loads(detail_resp.read().decode("utf-8"))
+                bpm = detail.get("bpm")
+                if bpm and bpm > 0:
+                    bpm = float(bpm)
+                else:
+                    bpm = None
+                # Get album genre
+                album_data = detail.get("album", {})
+                if album_data.get("id"):
+                    try:
+                        album_url = f"https://api.deezer.com/album/{album_data['id']}"
+                        album_req = urllib.request.Request(album_url, headers={
+                            "User-Agent": "CueForge/0.1",
+                            "Accept": "application/json",
+                        })
+                        with urllib.request.urlopen(album_req, timeout=5) as album_resp:
+                            album_detail = json.loads(album_resp.read().decode("utf-8"))
+                        genres_data = album_detail.get("genres", {}).get("data", [])
+                        if genres_data:
+                            genre = ", ".join(g.get("name", "") for g in genres_data[:3])
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.debug(f"Deezer track detail failed: {e}")
+
+        # Artwork — Deezer has multiple sizes
+        album_cover = track.get("album", {}).get("cover_xl") or track.get("album", {}).get("cover_big") or track.get("album", {}).get("cover_medium")
+
+        result = {
+            "deezer_id": str(track.get("id", "")),
+            "deezer_bpm": bpm,
+            "genre": genre,
+            "album": track.get("album", {}).get("title"),
+            "artwork_url": album_cover,
+            "preview_url": track.get("preview"),  # 30s MP3 preview
+            "duration": track.get("duration"),
+            "deezer_url": track.get("link"),
+            "deezer_rank": track.get("rank"),
+            "source": "deezer",
+        }
+
+        logger.info(
+            f"Deezer: '{track.get('artist', {}).get('name', '')} - {track.get('title', '')}' "
+            f"— bpm={bpm}, genre={genre}"
+        )
+
+        # Cache result
+        _deezer_cache[cache_key] = (result, time.time())
+        _record_success("deezer")
+        return result
+
+    except Exception as e:
+        logger.warning(f"Deezer lookup failed: {e}")
+        _record_failure("deezer")
+    return None
+
+
+# ── Songlink / Odesli API — liens universels multi-plateformes ──────────────
+
+_songlink_cache: Dict[str, Any] = {}
+_SONGLINK_CACHE_TTL = 604800  # 7 days (les liens changent rarement)
+
+
+def get_songlink(
+    spotify_url: Optional[str] = None,
+    deezer_url: Optional[str] = None,
+    itunes_url: Optional[str] = None,
+    artist: Optional[str] = None,
+    title: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Get universal links for a track via Songlink/Odesli API.
+    100% gratuit, sans clé API. Rate limit: 10 req/min.
+
+    À partir d'un lien Spotify, Deezer ou iTunes, retourne les liens
+    vers TOUTES les plateformes (Spotify, Apple Music, Deezer, Tidal,
+    YouTube Music, SoundCloud, etc.).
+
+    Parfait pour le partage de playlists et sets DJ.
+    """
+    if _is_circuit_open("songlink"):
+        logger.debug("Songlink circuit breaker OPEN — skipping")
+        return None
+
+    try:
+        import urllib.request
+        import urllib.parse
+
+        # Need at least one URL to query Songlink
+        source_url = spotify_url or deezer_url or itunes_url
+        if not source_url:
+            logger.debug("Songlink: no source URL provided — skipping")
+            return None
+
+        # Check cache
+        cache_key = f"songlink:{source_url}"
+        cached = _songlink_cache.get(cache_key)
+        if cached and time.time() - cached[1] < _SONGLINK_CACHE_TTL:
+            logger.debug(f"Songlink cache HIT for '{source_url}'")
+            return cached[0]
+
+        url = f"https://api.song.link/v1-alpha.1/links?url={urllib.parse.quote(source_url)}"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        # Parse platform links
+        links_by_platform = data.get("linksByPlatform", {})
+
+        platform_links = {}
+        for platform, link_data in links_by_platform.items():
+            platform_links[platform] = link_data.get("url", "")
+
+        # Get the universal page URL (song.link/xxx)
+        page_url = data.get("pageUrl", "")
+
+        # Extract entity info
+        entities = data.get("entitiesByUniqueId", {})
+        thumbnail = None
+        found_title = None
+        found_artist = None
+        for entity_data in entities.values():
+            if not thumbnail and entity_data.get("thumbnailUrl"):
+                thumbnail = entity_data["thumbnailUrl"]
+            if not found_title and entity_data.get("title"):
+                found_title = entity_data["title"]
+            if not found_artist and entity_data.get("artistName"):
+                found_artist = entity_data["artistName"]
+
+        result = {
+            "page_url": page_url,  # Universal shareable link
+            "platforms": platform_links,
+            "spotify_url": platform_links.get("spotify"),
+            "apple_music_url": platform_links.get("appleMusic"),
+            "deezer_url": platform_links.get("deezer"),
+            "tidal_url": platform_links.get("tidal"),
+            "youtube_music_url": platform_links.get("youtubeMusic"),
+            "youtube_url": platform_links.get("youtube"),
+            "soundcloud_url": platform_links.get("soundcloud"),
+            "amazon_music_url": platform_links.get("amazonMusic"),
+            "pandora_url": platform_links.get("pandora"),
+            "thumbnail_url": thumbnail,
+            "platform_count": len(platform_links),
+            "source": "songlink",
+        }
+
+        logger.info(
+            f"Songlink: found {len(platform_links)} platforms for "
+            f"'{found_artist or ''} - {found_title or ''}' — "
+            f"page={page_url}"
+        )
+
+        # Cache result (7 days)
+        _songlink_cache[cache_key] = (result, time.time())
+        _record_success("songlink")
+        return result
+
+    except Exception as e:
+        logger.warning(f"Songlink lookup failed: {e}")
+        _record_failure("songlink")
+    return None
+
+
 def get_track_metadata(file_path: str) -> Dict[str, Any]:
     """
     Full metadata pipeline:
     1. fpcalc fingerprint → AcoustID → MusicBrainz
     2. Fallback: parse filename for artist/title
-    3. Spotify artwork + genre + BPM
-    4. iTunes / Last.fm genre fallback
+    3. En parallèle: Discogs + Spotify + Deezer + iTunes + Last.fm
+    4. Songlink/Odesli pour liens universels (Spotify, Deezer, Tidal, YouTube Music...)
+
+    Genre priority: Spotify > Discogs > Deezer > iTunes > Last.fm
+    BPM: Spotify + Deezer (validation croisée)
 
     Returns a dict with any fields found. Never raises.
     """
@@ -767,9 +998,10 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
         #    Avant: ~30-50s séquentiel. Après: ~10-15s parallèle.
         if artist or title:
             futures = {}
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 futures["discogs"] = executor.submit(search_discogs, artist, title)
                 futures["spotify"] = executor.submit(search_spotify, artist, title)
+                futures["deezer"] = executor.submit(search_deezer, artist, title)
 
                 # Optimization 6: skip iTunes if metadata already complete (artist + title known)
                 if artist and title:
@@ -797,6 +1029,12 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                 sp = None
 
             try:
+                deezer = futures["deezer"].result(timeout=10) if futures.get("deezer") else None
+            except Exception as e:
+                logger.debug(f"Deezer timeout/error: {e}")
+                deezer = None
+
+            try:
                 it = futures["itunes"].result(timeout=10) if futures.get("itunes") else None
             except Exception as e:
                 logger.debug(f"iTunes timeout/error: {e}")
@@ -822,6 +1060,10 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
             if discogs and discogs.get("genre"):
                 genre_sources["discogs"] = discogs["genre"]
 
+            # Deezer: album-level genre, good coverage
+            if deezer and deezer.get("genre"):
+                genre_sources["deezer"] = deezer["genre"]
+
             # iTunes: reliable fallback
             if it and it.get("genre"):
                 genre_sources["itunes"] = it["genre"]
@@ -830,12 +1072,14 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
             if lastfm_genre:
                 genre_sources["lastfm"] = lastfm_genre
 
-            # Apply genre priority: Spotify > Discogs > iTunes > Last.fm
+            # Apply genre priority: Spotify > Discogs > Deezer > iTunes > Last.fm
             if not metadata.get("genre"):
                 if genre_sources.get("spotify"):
                     metadata["genre"] = genre_sources["spotify"]
                 elif genre_sources.get("discogs"):
                     metadata["genre"] = genre_sources["discogs"]
+                elif genre_sources.get("deezer"):
+                    metadata["genre"] = genre_sources["deezer"]
                 elif genre_sources.get("itunes"):
                     metadata["genre"] = genre_sources["itunes"]
                 elif genre_sources.get("lastfm"):
@@ -874,6 +1118,21 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                 if sp.get("spotify_sections"):
                     metadata["spotify_sections"] = sp["spotify_sections"]
 
+            # Deezer — BPM officiel (validation du nôtre) + preview
+            if deezer:
+                if deezer.get("deezer_bpm"):
+                    metadata["deezer_bpm"] = deezer["deezer_bpm"]
+                if deezer.get("deezer_id"):
+                    metadata["deezer_id"] = deezer["deezer_id"]
+                if deezer.get("deezer_url"):
+                    metadata["deezer_url"] = deezer["deezer_url"]
+                if deezer.get("preview_url"):
+                    metadata["preview_url"] = deezer["preview_url"]
+                if not metadata.get("artwork_url") and deezer.get("artwork_url"):
+                    metadata["artwork_url"] = deezer["artwork_url"]
+                if not metadata.get("album") and deezer.get("album"):
+                    metadata["album"] = deezer["album"]
+
             # iTunes fallback
             if it:
                 if not metadata.get("artwork_url") and it.get("artwork_url"):
@@ -882,6 +1141,43 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
                     metadata["album"] = it["album"]
                 if not metadata.get("year") and it.get("year"):
                     metadata["year"] = it["year"]
+
+            # ── Songlink / Odesli — liens universels ──
+            # On lance Songlink APRÈS les lookups car on a besoin d'au moins 1 URL
+            songlink_source_url = (
+                metadata.get("spotify_url")
+                or metadata.get("deezer_url")
+                or None
+            )
+            if songlink_source_url:
+                try:
+                    songlink = get_songlink(
+                        spotify_url=metadata.get("spotify_url"),
+                        deezer_url=metadata.get("deezer_url"),
+                        artist=artist,
+                        title=title,
+                    )
+                    if songlink:
+                        metadata["songlink_url"] = songlink.get("page_url")
+                        metadata["platform_links"] = songlink.get("platforms", {})
+                        # Fill missing platform URLs
+                        if not metadata.get("spotify_url") and songlink.get("spotify_url"):
+                            metadata["spotify_url"] = songlink["spotify_url"]
+                        if not metadata.get("deezer_url") and songlink.get("deezer_url"):
+                            metadata["deezer_url"] = songlink["deezer_url"]
+                        if songlink.get("tidal_url"):
+                            metadata["tidal_url"] = songlink["tidal_url"]
+                        if songlink.get("youtube_music_url"):
+                            metadata["youtube_music_url"] = songlink["youtube_music_url"]
+                        if songlink.get("soundcloud_url"):
+                            metadata["soundcloud_url"] = songlink["soundcloud_url"]
+                        if songlink.get("apple_music_url"):
+                            metadata["apple_music_url"] = songlink["apple_music_url"]
+                        logger.info(
+                            f"[META] Songlink: {songlink.get('platform_count', 0)} platforms found"
+                        )
+                except Exception as e:
+                    logger.debug(f"Songlink integration failed: {e}")
 
     except Exception as e:
         logger.error(f"Unexpected error in metadata pipeline: {e}")
