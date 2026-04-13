@@ -530,4 +530,98 @@ export const adminApi = {
   updateStreakConfig: (d: any) => api("/admin/gamification/streak-config", { method: "PUT", body: d }),
   getLeaderboard: (limit?: number) => api(`/admin/gamification/leaderboard?limit=${limit||20}`),
   getUserGamification: (userId: number) => api(`/admin/gamification/users/${userId}`),
+
+  // ═══════════════ SEGMENTS ═══════════════
+  listSegments: (p?: any) => api(`/admin/segments?skip=${p?.skip||0}&limit=${p?.limit||50}`),
+  createSegment: (d: any) => api("/admin/segments", { method: "POST", body: d }),
+  getSegment: (id: number) => api(`/admin/segments/${id}`),
+  updateSegment: (id: number, d: any) => api(`/admin/segments/${id}`, { method: "PUT", body: d }),
+  deleteSegment: (id: number) => api(`/admin/segments/${id}`, { method: "DELETE" }),
+  refreshSegment: (id: number) => api(`/admin/segments/${id}/refresh`, { method: "POST" }),
+  segmentMembers: (id: number) => api(`/admin/segments/${id}/members`),
+  segmentOperators: () => api("/admin/segments/operators"),
+  segmentFields: () => api("/admin/segments/available-fields"),
+
+  // ═══════════════ FORMULAIRES ═══════════════
+  listForms: (p?: any) => api(`/admin/forms?skip=${p?.skip||0}&limit=${p?.limit||50}${p?.form_type ? '&form_type='+p.form_type : ''}`),
+  createForm: (d: any) => api("/admin/forms", { method: "POST", body: d }),
+  getForm: (id: number) => api(`/admin/forms/${id}`),
+  updateForm: (id: number, d: any) => api(`/admin/forms/${id}`, { method: "PUT", body: d }),
+  deleteForm: (id: number) => api(`/admin/forms/${id}`, { method: "DELETE" }),
+  duplicateForm: (id: number) => api(`/admin/forms/${id}/duplicate`, { method: "POST" }),
+  formResponses: (id: number) => api(`/admin/forms/${id}/responses`),
+  formStats: (id: number) => api(`/admin/forms/${id}/stats`),
+  formFieldTypes: () => api("/admin/forms/field-types"),
+
+  // ═══════════════ CHANGELOG ═══════════════
+  listChangelog: (p?: any) => api(`/admin/changelog?skip=${p?.skip||0}&limit=${p?.limit||50}${p?.category ? '&category='+p.category : ''}`),
+  createChangelog: (d: any) => api("/admin/changelog", { method: "POST", body: d }),
+  updateChangelog: (id: number, d: any) => api(`/admin/changelog/${id}`, { method: "PUT", body: d }),
+  deleteChangelog: (id: number) => api(`/admin/changelog/${id}`, { method: "DELETE" }),
+  publishChangelog: (id: number) => api(`/admin/changelog/${id}/publish`, { method: "POST" }),
+
+  // ═══════════════ STATUS PAGE ═══════════════
+  listStatusServices: () => api("/admin/status-page/services"),
+  createStatusService: (d: any) => api("/admin/status-page/services", { method: "POST", body: d }),
+  updateStatusService: (id: number, d: any) => api(`/admin/status-page/services/${id}`, { method: "PUT", body: d }),
+  deleteStatusService: (id: number) => api(`/admin/status-page/services/${id}`, { method: "DELETE" }),
+  statusOverview: () => api("/admin/status-page/overview"),
+  listIncidents: () => api("/admin/status-page/incidents"),
+  createIncident: (d: any) => api("/admin/status-page/incidents", { method: "POST", body: d }),
+  updateIncident: (id: number, d: any) => api(`/admin/status-page/incidents/${id}`, { method: "PUT", body: d }),
+  addIncidentUpdate: (id: number, msg: string, status?: string) => api(`/admin/status-page/incidents/${id}/update?message=${encodeURIComponent(msg)}${status ? '&status='+status : ''}`, { method: "POST" }),
+
+  // ═══════════════ WHITE LABEL ═══════════════
+  getWhiteLabel: () => api("/admin/white-label/config"),
+  updateWhiteLabel: (d: any) => api("/admin/white-label/config", { method: "PUT", body: d }),
+
+  // ═══════════════ PWA ═══════════════
+  getPwaConfig: () => api("/admin/pwa/config"),
+  updatePwaConfig: (d: any) => api("/admin/pwa/config", { method: "PUT", body: d }),
+
+  // ═══════════════ ACCESSIBILITÉ ═══════════════
+  getAccessibility: () => api("/admin/accessibility/config"),
+  updateAccessibility: (d: any) => api("/admin/accessibility/config", { method: "PUT", body: d }),
+
+  // ═══════════════ DESKTOP ═══════════════
+  getDesktopConfig: () => api("/admin/desktop/config"),
+  updateDesktopConfig: (d: any) => api("/admin/desktop/config", { method: "PUT", body: d }),
+
+  // ═══════════════ ENVIRONMENTS & FLAGS ═══════════════
+  getEnvironments: () => api("/admin/environments"),
+  updateEnvironments: (d: any) => api("/admin/environments", { method: "PUT", body: d }),
+  getFeatureFlags: () => api("/admin/feature-flags"),
+  updateFeatureFlags: (d: any) => api("/admin/feature-flags", { method: "PUT", body: d }),
+  toggleFeatureFlag: (name: string) => api(`/admin/feature-flags/${name}/toggle`, { method: "PUT" }),
+
+  // ═══════════════ CHURN PREVENTION ═══════════════
+  getChurnConfig: () => api("/admin/churn/config"),
+  updateChurnConfig: (d: any) => api("/admin/churn/config", { method: "PUT", body: d }),
+  listAtRiskUsers: () => api("/admin/churn/at-risk"),
+  computeChurnRisks: () => api("/admin/churn/compute", { method: "POST" }),
+  updateChurnStatus: (id: number, status: string) => api(`/admin/churn/${id}/status?status=${status}`, { method: "PUT" }),
+  churnStats: () => api("/admin/churn/stats"),
+
+  // ═══════════════ DATA CLEANUP ═══════════════
+  listCleanupJobs: () => api("/admin/data-cleanup/jobs"),
+  runCleanup: (type: string) => api(`/admin/data-cleanup/run?job_type=${type}`, { method: "POST" }),
+  availableCleanups: () => api("/admin/data-cleanup/available"),
+  storageStats: () => api("/admin/data-cleanup/storage-stats"),
+
+  // ═══════════════ NOTIFICATIONS CONFIG ═══════════════
+  getNotifConfig: () => api("/admin/notifications/config"),
+  updateNotifConfig: (d: any) => api("/admin/notifications/config", { method: "PUT", body: d }),
+
+  // ═══════════════ SEO GLOBAL ═══════════════
+  getGlobalSeo: () => api("/admin/seo/global"),
+  updateGlobalSeo: (d: any) => api("/admin/seo/global", { method: "PUT", body: d }),
+
+  // ═══════════════ LEGAL ═══════════════
+  getLegalConfig: () => api("/admin/legal/config"),
+  updateLegalConfig: (d: any) => api("/admin/legal/config", { method: "PUT", body: d }),
+
+  // ═══════════════ INTEGRATIONS ═══════════════
+  getIntegrations: () => api("/admin/integrations"),
+  updateIntegrations: (d: any) => api("/admin/integrations", { method: "PUT", body: d }),
+  updateIntegration: (provider: string, d: any) => api(`/admin/integrations/${provider}`, { method: "PUT", body: d }),
 };

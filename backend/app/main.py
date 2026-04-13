@@ -537,6 +537,7 @@ from app.routers import cue_templates, blog  # noqa: E402
 # v8 routers
 from app.routers import referrals, admin_stats, admin_data, admin_extended, admin_content  # noqa: E402
 from app.routers import admin_email_stripe, admin_security_config, admin_cms_automation  # noqa: E402
+from app.routers import admin_segments_forms, admin_advanced_config  # noqa: E402
 # v9 routers
 from app.routers import tags, activity  # noqa: E402
 # New feature routers (mix, fingerprint, ML, recommendation, quality, advanced analysis)
@@ -602,6 +603,8 @@ app.include_router(admin_extended.router, prefix="/api/v1", tags=["admin-extende
 app.include_router(admin_email_stripe.router, prefix="/api/v1", tags=["admin-email-stripe"])
 app.include_router(admin_security_config.router, prefix="/api/v1", tags=["admin-security-config"])
 app.include_router(admin_cms_automation.router, prefix="/api/v1", tags=["admin-cms-automation"])
+app.include_router(admin_segments_forms.router, prefix="/api/v1", tags=["admin-segments-forms"])
+app.include_router(admin_advanced_config.router, prefix="/api/v1", tags=["admin-advanced-config"])
 # v9 routers
 app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
 app.include_router(activity.router, prefix="/api/v1", tags=["activity"])

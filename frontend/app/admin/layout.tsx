@@ -12,6 +12,9 @@ import {
   MessageCircle, ScrollText, Key, Webhook, ExternalLink, UserPlus,
   Mail, Target, DollarSign, Receipt, TrendingUp, ShieldCheck, HardDrive,
   Import, Rocket, Layers, PaintBucket, Bot, Trophy,
+  UsersRound, ClipboardList, Megaphone, Activity,
+  Globe, Smartphone, Accessibility, Monitor, ToggleLeft,
+  UserMinus, Trash2, Plug, SearchCheck, Scale,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -113,6 +116,35 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "automation", label: "Règles Auto", icon: Bot, href: "/admin/automation" },
       { id: "gamification", label: "Gamification", icon: Trophy, href: "/admin/gamification" },
+    ],
+  },
+  {
+    label: "Segments & Formulaires",
+    items: [
+      { id: "segments", label: "Segments", icon: UsersRound, href: "/admin/segments" },
+      { id: "forms", label: "Formulaires", icon: ClipboardList, href: "/admin/forms" },
+      { id: "changelog", label: "Changelog", icon: Megaphone, href: "/admin/changelog" },
+      { id: "status-page", label: "Page de Statut", icon: Activity, href: "/admin/status-page" },
+    ],
+  },
+  {
+    label: "Configuration Avancée",
+    items: [
+      { id: "white-label", label: "White Label", icon: Globe, href: "/admin/white-label" },
+      { id: "pwa-config", label: "PWA", icon: Smartphone, href: "/admin/pwa-config" },
+      { id: "accessibility-config", label: "Accessibilité", icon: Accessibility, href: "/admin/accessibility-config" },
+      { id: "desktop-config", label: "App Desktop", icon: Monitor, href: "/admin/desktop-config" },
+      { id: "feature-flags", label: "Feature Flags", icon: ToggleLeft, href: "/admin/feature-flags" },
+      { id: "integrations", label: "Intégrations", icon: Plug, href: "/admin/integrations" },
+    ],
+  },
+  {
+    label: "Rétention & Données",
+    items: [
+      { id: "churn", label: "Prévention Churn", icon: UserMinus, href: "/admin/churn" },
+      { id: "data-cleanup", label: "Nettoyage Données", icon: Trash2, href: "/admin/data-cleanup" },
+      { id: "seo-config", label: "SEO Global", icon: SearchCheck, href: "/admin/seo-config" },
+      { id: "legal-config", label: "Conformité Légale", icon: Scale, href: "/admin/legal-config" },
     ],
   },
   {
