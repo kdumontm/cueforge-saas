@@ -624,4 +624,161 @@ export const adminApi = {
   getIntegrations: () => api("/admin/integrations"),
   updateIntegrations: (d: any) => api("/admin/integrations", { method: "PUT", body: d }),
   updateIntegration: (provider: string, d: any) => api(`/admin/integrations/${provider}`, { method: "PUT", body: d }),
+
+  // ═══════════════ A/B TESTING ═══════════════
+  getABTests: (params?: any) => api("/admin/ab-tests", { params }),
+  createABTest: (d: any) => api("/admin/ab-tests", { method: "POST", body: d }),
+  getABTest: (id: number) => api(`/admin/ab-tests/${id}`),
+  updateABTest: (id: number, d: any) => api(`/admin/ab-tests/${id}`, { method: "PUT", body: d }),
+  deleteABTest: (id: number) => api(`/admin/ab-tests/${id}`, { method: "DELETE" }),
+  startABTest: (id: number) => api(`/admin/ab-tests/${id}/start`, { method: "POST" }),
+  stopABTest: (id: number) => api(`/admin/ab-tests/${id}/stop`, { method: "POST" }),
+  pauseABTest: (id: number) => api(`/admin/ab-tests/${id}/pause`, { method: "POST" }),
+  getABTestResults: (id: number) => api(`/admin/ab-tests/${id}/results`),
+  duplicateABTest: (id: number) => api(`/admin/ab-tests/${id}/duplicate`, { method: "POST" }),
+  getABTestsOverview: () => api("/admin/ab-tests/stats/overview"),
+
+  // ═══════════════ HEATMAPS ═══════════════
+  getHeatmaps: (params?: any) => api("/admin/heatmaps", { params }),
+  createHeatmap: (d: any) => api("/admin/heatmaps", { method: "POST", body: d }),
+  updateHeatmap: (id: number, d: any) => api(`/admin/heatmaps/${id}`, { method: "PUT", body: d }),
+  deleteHeatmap: (id: number) => api(`/admin/heatmaps/${id}`, { method: "DELETE" }),
+  getHeatmapData: (id: number, params?: any) => api(`/admin/heatmaps/${id}/data`, { params }),
+  getHeatmapTypes: () => api("/admin/heatmaps/types"),
+
+  // ═══════════════ SESSION RECORDINGS ═══════════════
+  getSessionRecordings: (params?: any) => api("/admin/session-recordings", { params }),
+  getSessionRecording: (id: number) => api(`/admin/session-recordings/${id}`),
+  updateSessionRecording: (id: number, d: any) => api(`/admin/session-recordings/${id}`, { method: "PUT", body: d }),
+  deleteSessionRecording: (id: number) => api(`/admin/session-recordings/${id}`, { method: "DELETE" }),
+  getRecordingsOverview: () => api("/admin/session-recordings/stats/overview"),
+  getRecordingConfig: () => api("/admin/session-recordings/config"),
+  updateRecordingConfig: (d: any) => api("/admin/session-recordings/config", { method: "PUT", body: d }),
+
+  // ═══════════════ EMAIL WORKFLOWS ═══════════════
+  getEmailWorkflows: (params?: any) => api("/admin/email-workflows", { params }),
+  createEmailWorkflow: (d: any) => api("/admin/email-workflows", { method: "POST", body: d }),
+  getEmailWorkflow: (id: number) => api(`/admin/email-workflows/${id}`),
+  updateEmailWorkflow: (id: number, d: any) => api(`/admin/email-workflows/${id}`, { method: "PUT", body: d }),
+  deleteEmailWorkflow: (id: number) => api(`/admin/email-workflows/${id}`, { method: "DELETE" }),
+  activateEmailWorkflow: (id: number) => api(`/admin/email-workflows/${id}/activate`, { method: "POST" }),
+  pauseEmailWorkflow: (id: number) => api(`/admin/email-workflows/${id}/pause`, { method: "POST" }),
+  duplicateEmailWorkflow: (id: number) => api(`/admin/email-workflows/${id}/duplicate`, { method: "POST" }),
+  getWorkflowEnrollments: (id: number, params?: any) => api(`/admin/email-workflows/${id}/enrollments`, { params }),
+  getWorkflowStats: (id: number) => api(`/admin/email-workflows/${id}/stats`),
+  getWorkflowNodeTypes: () => api("/admin/email-workflows/node-types"),
+  getWorkflowTriggerTypes: () => api("/admin/email-workflows/trigger-types"),
+
+  // ═══════════════ RBAC ROLES ═══════════════
+  getRoles: (params?: any) => api("/admin/roles", { params }),
+  createRole: (d: any) => api("/admin/roles", { method: "POST", body: d }),
+  getRole: (id: number) => api(`/admin/roles/${id}`),
+  updateRole: (id: number, d: any) => api(`/admin/roles/${id}`, { method: "PUT", body: d }),
+  deleteRole: (id: number) => api(`/admin/roles/${id}`, { method: "DELETE" }),
+  getRoleUsers: (id: number) => api(`/admin/roles/${id}/users`),
+  assignRole: (roleId: number, userId: number) => api(`/admin/roles/${roleId}/users`, { method: "POST", body: { user_id: userId } }),
+  revokeRole: (roleId: number, userId: number) => api(`/admin/roles/${roleId}/users/${userId}`, { method: "DELETE" }),
+  getPermissions: () => api("/admin/permissions"),
+
+  // ═══════════════ AUDIT TRAIL ═══════════════
+  getAuditLogs: (params?: any) => api("/admin/audit-logs", { params }),
+  getAuditLog: (id: number) => api(`/admin/audit-logs/${id}`),
+  getAuditStats: () => api("/admin/audit-logs/stats/overview"),
+  getAuditActions: () => api("/admin/audit-logs/actions"),
+  getAuditResourceTypes: () => api("/admin/audit-logs/resource-types"),
+  exportAuditLogs: (params?: any) => api("/admin/audit-logs/export", { params }),
+  cleanupAuditLogs: (days: number) => api(`/admin/audit-logs/cleanup?days=${days}`, { method: "DELETE" }),
+
+  // ═══════════════ I18N ═══════════════
+  getLocales: () => api("/admin/locales"),
+  createLocale: (d: any) => api("/admin/locales", { method: "POST", body: d }),
+  updateLocale: (id: number, d: any) => api(`/admin/locales/${id}`, { method: "PUT", body: d }),
+  deleteLocale: (id: number) => api(`/admin/locales/${id}`, { method: "DELETE" }),
+  setDefaultLocale: (id: number) => api(`/admin/locales/${id}/set-default`, { method: "POST" }),
+  getTranslations: (params?: any) => api("/admin/translations", { params }),
+  createTranslation: (d: any) => api("/admin/translations", { method: "POST", body: d }),
+  updateTranslation: (id: number, d: any) => api(`/admin/translations/${id}`, { method: "PUT", body: d }),
+  deleteTranslation: (id: number) => api(`/admin/translations/${id}`, { method: "DELETE" }),
+  bulkUpdateTranslations: (d: any) => api("/admin/translations/bulk", { method: "POST", body: d }),
+  exportTranslations: (locale: string) => api(`/admin/translations/export/${locale}`),
+  importTranslations: (d: any) => api("/admin/translations/import", { method: "POST", body: d }),
+  getTranslationNamespaces: () => api("/admin/translations/namespaces"),
+  getTranslationStats: () => api("/admin/translations/stats"),
+
+  // ═══════════════ FILE MANAGER ═══════════════
+  getFiles: (params?: any) => api("/admin/files", { params }),
+  createFile: (d: any) => api("/admin/files", { method: "POST", body: d }),
+  updateFile: (id: number, d: any) => api(`/admin/files/${id}`, { method: "PUT", body: d }),
+  deleteFile: (id: number) => api(`/admin/files/${id}`, { method: "DELETE" }),
+  bulkDeleteFiles: (ids: number[]) => api("/admin/files/bulk-delete", { method: "POST", body: { ids } }),
+  moveFile: (id: number, folder: string) => api(`/admin/files/${id}/move`, { method: "POST", body: { folder } }),
+  getFileFolders: () => api("/admin/files/folders"),
+  getFileStats: () => api("/admin/files/stats"),
+  getCDNConfig: () => api("/admin/cdn/config"),
+  updateCDNConfig: (d: any) => api("/admin/cdn/config", { method: "PUT", body: d }),
+  purgeCDN: (urls?: string[]) => api("/admin/cdn/purge", { method: "POST", body: { urls } }),
+
+  // ═══════════════ CRON JOBS ═══════════════
+  getCronJobs: (params?: any) => api("/admin/cron-jobs", { params }),
+  createCronJob: (d: any) => api("/admin/cron-jobs", { method: "POST", body: d }),
+  updateCronJob: (id: number, d: any) => api(`/admin/cron-jobs/${id}`, { method: "PUT", body: d }),
+  deleteCronJob: (id: number) => api(`/admin/cron-jobs/${id}`, { method: "DELETE" }),
+  runCronJob: (id: number) => api(`/admin/cron-jobs/${id}/run`, { method: "POST" }),
+  toggleCronJob: (id: number) => api(`/admin/cron-jobs/${id}/toggle`, { method: "POST" }),
+  getCronJobLogs: (id: number) => api(`/admin/cron-jobs/${id}/logs`),
+  getCronStats: () => api("/admin/cron-jobs/stats"),
+
+  // ═══════════════ QUEUES ═══════════════
+  getQueues: () => api("/admin/queues"),
+  getQueueJobs: (params?: any) => api("/admin/queues/jobs", { params }),
+  retryQueueJob: (id: number) => api(`/admin/queues/jobs/${id}/retry`, { method: "POST" }),
+  deleteQueueJob: (id: number) => api(`/admin/queues/jobs/${id}`, { method: "DELETE" }),
+  purgeDeadJobs: () => api("/admin/queues/purge-dead", { method: "POST" }),
+  getQueueStats: () => api("/admin/queues/stats"),
+
+  // ═══════════════ DASHBOARD WIDGETS ═══════════════
+  getDashboardWidgets: () => api("/admin/dashboard-widgets"),
+  createDashboardWidget: (d: any) => api("/admin/dashboard-widgets", { method: "POST", body: d }),
+  updateDashboardWidget: (id: number, d: any) => api(`/admin/dashboard-widgets/${id}`, { method: "PUT", body: d }),
+  deleteDashboardWidget: (id: number) => api(`/admin/dashboard-widgets/${id}`, { method: "DELETE" }),
+  updateDashboardLayout: (widgets: any[]) => api("/admin/dashboard-widgets/layout", { method: "PUT", body: { widgets } }),
+  resetDashboardLayout: () => api("/admin/dashboard-widgets/reset", { method: "POST" }),
+  getWidgetTypes: () => api("/admin/dashboard-widgets/types"),
+
+  // ═══════════════ PUSH NOTIFICATIONS ═══════════════
+  getPushNotifications: (params?: any) => api("/admin/push-notifications", { params }),
+  createPushNotification: (d: any) => api("/admin/push-notifications", { method: "POST", body: d }),
+  updatePushNotification: (id: number, d: any) => api(`/admin/push-notifications/${id}`, { method: "PUT", body: d }),
+  deletePushNotification: (id: number) => api(`/admin/push-notifications/${id}`, { method: "DELETE" }),
+  sendPushNotification: (id: number) => api(`/admin/push-notifications/${id}/send`, { method: "POST" }),
+  getPushStats: () => api("/admin/push-notifications/stats"),
+  getPushConfig: () => api("/admin/push-notifications/config"),
+  updatePushConfig: (d: any) => api("/admin/push-notifications/config", { method: "PUT", body: d }),
+
+  // ═══════════════ SMS TEMPLATES ═══════════════
+  getSMSTemplates: (params?: any) => api("/admin/sms-templates", { params }),
+  createSMSTemplate: (d: any) => api("/admin/sms-templates", { method: "POST", body: d }),
+  updateSMSTemplate: (id: number, d: any) => api(`/admin/sms-templates/${id}`, { method: "PUT", body: d }),
+  deleteSMSTemplate: (id: number) => api(`/admin/sms-templates/${id}`, { method: "DELETE" }),
+
+  // ═══════════════ SCHEDULED REPORTS ═══════════════
+  getScheduledReports: (params?: any) => api("/admin/scheduled-reports", { params }),
+  createScheduledReport: (d: any) => api("/admin/scheduled-reports", { method: "POST", body: d }),
+  updateScheduledReport: (id: number, d: any) => api(`/admin/scheduled-reports/${id}`, { method: "PUT", body: d }),
+  deleteScheduledReport: (id: number) => api(`/admin/scheduled-reports/${id}`, { method: "DELETE" }),
+  generateReport: (id: number) => api(`/admin/scheduled-reports/${id}/generate`, { method: "POST" }),
+  generateAdhocReport: (d: any) => api("/admin/reports/generate-now", { method: "POST", body: d }),
+  getReportGenerations: () => api("/admin/reports/generations"),
+  getReportTypes: () => api("/admin/reports/types"),
+
+  // ═══════════════ IMPERSONATION ═══════════════
+  startImpersonation: (userId: number, reason?: string) => api(`/admin/impersonate/${userId}`, { method: "POST", body: { reason } }),
+  endImpersonation: (id: number) => api(`/admin/impersonate/${id}/end`, { method: "POST" }),
+  getImpersonationLogs: () => api("/admin/impersonation-logs"),
+
+  // ═══════════════ API USAGE ═══════════════
+  getAPIUsage: (params?: any) => api("/admin/api-usage", { params }),
+  getAPIUsageStats: () => api("/admin/api-usage/stats"),
+  getAPIRateLimits: () => api("/admin/api-usage/rate-limits"),
+  updateAPIRateLimits: (d: any) => api("/admin/api-usage/rate-limits", { method: "PUT", body: d }),
 };

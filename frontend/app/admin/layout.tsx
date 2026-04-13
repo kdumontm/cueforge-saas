@@ -15,6 +15,9 @@ import {
   UsersRound, ClipboardList, Megaphone, Activity,
   Globe, Smartphone, Accessibility, Monitor, ToggleLeft,
   UserMinus, Trash2, Plug, SearchCheck, Scale,
+  FlaskRound, MousePointerClick, Video, GitBranch,
+  ShieldAlert, Languages, FolderOpen, Timer, Inbox, LayoutTemplate,
+  BellRing, MessageSquare, FileBarChart, Eye, Gauge,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -145,6 +148,41 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "data-cleanup", label: "Nettoyage Données", icon: Trash2, href: "/admin/data-cleanup" },
       { id: "seo-config", label: "SEO Global", icon: SearchCheck, href: "/admin/seo-config" },
       { id: "legal-config", label: "Conformité Légale", icon: Scale, href: "/admin/legal-config" },
+    ],
+  },
+  {
+    label: "A/B Testing & Analytics",
+    items: [
+      { id: "ab-testing", label: "A/B Tests", icon: FlaskRound, href: "/admin/ab-testing" },
+      { id: "heatmaps", label: "Heatmaps", icon: MousePointerClick, href: "/admin/heatmaps" },
+      { id: "session-recordings", label: "Session Replay", icon: Video, href: "/admin/session-recordings" },
+      { id: "email-workflows", label: "Workflows Email", icon: GitBranch, href: "/admin/email-workflows" },
+    ],
+  },
+  {
+    label: "Permissions & i18n",
+    items: [
+      { id: "roles", label: "Rôles & Permissions", icon: ShieldAlert, href: "/admin/roles" },
+      { id: "audit-logs", label: "Audit Trail", icon: Eye, href: "/admin/audit-logs" },
+      { id: "translations", label: "Traductions", icon: Languages, href: "/admin/translations" },
+    ],
+  },
+  {
+    label: "Infrastructure",
+    items: [
+      { id: "file-manager", label: "Fichiers & CDN", icon: FolderOpen, href: "/admin/file-manager" },
+      { id: "cron-jobs", label: "Cron Jobs", icon: Timer, href: "/admin/cron-jobs" },
+      { id: "queues", label: "Files d'attente", icon: Inbox, href: "/admin/queues" },
+      { id: "dashboard-widgets", label: "Widgets Dashboard", icon: LayoutTemplate, href: "/admin/dashboard-widgets" },
+      { id: "api-usage", label: "Utilisation API", icon: Gauge, href: "/admin/api-usage" },
+    ],
+  },
+  {
+    label: "Notifications & Rapports",
+    items: [
+      { id: "push-notifications", label: "Push & SMS", icon: BellRing, href: "/admin/push-notifications" },
+      { id: "sms-templates", label: "Templates SMS", icon: MessageSquare, href: "/admin/sms-templates" },
+      { id: "scheduled-reports", label: "Rapports planifiés", icon: FileBarChart, href: "/admin/scheduled-reports" },
     ],
   },
   {
