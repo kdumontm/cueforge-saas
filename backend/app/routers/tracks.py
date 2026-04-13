@@ -503,6 +503,11 @@ def _run_analysis(track_id: int):
             audio_quality_grade=analysis_data.get("audio_quality_grade"),
             audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
             accent_points=analysis_data.get("accent_points"),
+            # v6.6: JSON summary blobs
+            rhythm_summary=analysis_data.get("rhythm_summary"),
+            spectral_summary=analysis_data.get("spectral_summary"),
+            dj_mix_recommendations=analysis_data.get("dj_mix_recommendations"),
+            quality_extended=analysis_data.get("quality_extended"),
             # v6.5: Sub-bass, loudness war
             sub_bass_quality=analysis_data.get("sub_bass_quality"),
             sub_bass_clarity=analysis_data.get("sub_bass_clarity"),
@@ -2704,6 +2709,74 @@ def get_structural_summary(
     db.commit()
 
     return summary
+
+
+# ── v6.6: Rhythm summary endpoint ────────────────────────────────────────
+@router.get("/{track_id}/rhythm-summary")
+def get_rhythm_summary(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return rhythm analysis — beat grid quality, time signature, drum patterns, micro-timing."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.rhythm_summary or {"available": False}
+
+
+# ── v6.6: Spectral summary endpoint ─────────────────────────────────────
+@router.get("/{track_id}/spectral-summary")
+def get_spectral_summary(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return spectral features — flatness, rolloff, bandwidth, MFCC, chroma, tonnetz."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.spectral_summary or {"available": False}
+
+
+# ── v6.6: DJ mix recommendations endpoint ────────────────────────────────
+@router.get("/{track_id}/mix-recommendations")
+def get_mix_recommendations(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return DJ mixing recommendations — EQ, crossfader, gain, mix points, FX suggestions."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.dj_mix_recommendations or {"available": False}
+
+
+# ── v6.6: Extended quality endpoint ──────────────────────────────────────
+@router.get("/{track_id}/quality-extended")
+def get_quality_extended(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return extended quality analysis — phase, clicks, codec artifacts, fades, production era."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.quality_extended or {"available": False}
 
 
 # WebSocket endpoint pour les updates temps réel

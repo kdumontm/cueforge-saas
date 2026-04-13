@@ -193,6 +193,11 @@ class TrackAnalysis(Base):
     audio_quality_grade = Column(String(2), nullable=True)
     audio_quality_breakdown = Column(JSON, nullable=True)
     accent_points = Column(JSON, nullable=True)
+    # v6.6: JSON summary blobs (rhythm, spectral, mix recs, quality extended)
+    rhythm_summary = Column(JSON, nullable=True)
+    spectral_summary = Column(JSON, nullable=True)
+    dj_mix_recommendations = Column(JSON, nullable=True)
+    quality_extended = Column(JSON, nullable=True)
     # v6.5: Sub-bass, loudness war, production
     sub_bass_quality = Column(String(20), nullable=True)
     sub_bass_clarity = Column(Float, nullable=True)

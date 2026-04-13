@@ -5600,6 +5600,35 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         pass
 
+    # ── v6.6: Rhythm summary (connects 15 orphaned rhythm functions) ──
+    try:
+        onset_env_for_rhythm = librosa.onset.onset_strength(y=y, sr=sr_loaded)
+        result["rhythm_summary"] = compute_rhythm_summary(
+            y, sr_loaded, beat_frames, bpm, onset_env_for_rhythm,
+        )
+    except Exception:
+        result["rhythm_summary"] = {"available": False}
+
+    # ── v6.6: Spectral summary (connects 9 orphaned spectral functions) ──
+    try:
+        result["spectral_summary"] = compute_spectral_summary(y, sr_loaded)
+    except Exception:
+        result["spectral_summary"] = {"available": False}
+
+    # ── v6.6: DJ mix recommendations (connects 8 orphaned mix functions) ──
+    try:
+        result["dj_mix_recommendations"] = compute_dj_mix_recommendations(
+            y, sr_loaded, bpm, key or "C", energy or 50, section_labels,
+        )
+    except Exception:
+        result["dj_mix_recommendations"] = {"available": False}
+
+    # ── v6.6: Extended quality (connects 9 orphaned quality functions) ──
+    try:
+        result["quality_extended"] = compute_quality_extended(y, sr_loaded, file_path)
+    except Exception:
+        result["quality_extended"] = {"available": False}
+
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
@@ -5777,6 +5806,334 @@ def compute_structural_summary(
         summary["available"] = True
 
     return summary
+
+
+def compute_rhythm_summary(
+    y: np.ndarray, sr: int,
+    beat_frames: Optional[np.ndarray] = None,
+    bpm: float = 120.0,
+    onset_env: Optional[np.ndarray] = None,
+) -> Dict:
+    """
+    v6.6: Unified rhythm analysis wrapper — connects 15+ orphaned rhythm
+    functions into one JSON blob stored on TrackAnalysis.rhythm_summary.
+    """
+    summary: Dict = {"available": False}
+    if beat_frames is None or len(beat_frames) < 4:
+        return summary
+
+    try:
+        # Point 26: Beat grid quality
+        bgq = score_beat_grid_quality(beat_frames)
+        summary["beat_grid_quality"] = bgq.get("beat_grid_quality", 0.0)
+        summary["beat_grid_regularity"] = bgq.get("regularity", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 27: Downbeat confidence
+        if onset_env is not None:
+            dbc = score_downbeat_confidence(beat_frames, onset_env, sr)
+            summary["downbeat_confidence"] = dbc.get("downbeat_confidence", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 28: Time signature estimation
+        ts = estimate_time_signature(y, sr, beat_frames)
+        summary["estimated_time_signature"] = ts.get("time_signature", "4/4")
+        summary["time_signature_confidence"] = ts.get("confidence", 0.5)
+    except Exception:
+        pass
+
+    try:
+        # Point 29: Micro-timing analysis
+        if onset_env is not None:
+            mt = analyze_micro_timing(beat_frames, sr, onset_env)
+            summary["micro_timing_deviation"] = mt.get("mean_deviation", 0.0)
+            summary["human_feel"] = mt.get("human_feel", 0.5)
+    except Exception:
+        pass
+
+    try:
+        # Point 30: Polyrhythm detection
+        pr = detect_polyrhythm(beat_frames)
+        summary["polyrhythm_detected"] = pr.get("polyrhythm_detected", False)
+    except Exception:
+        pass
+
+    try:
+        # Point 31: Tempo variation
+        tv = detect_tempo_variation(y, sr, beat_frames)
+        summary["tempo_variation"] = tv.get("tempo_variation", 0.0)
+        summary["tempo_stable"] = tv.get("is_stable", True)
+    except Exception:
+        pass
+
+    try:
+        # Point 32: Bar-level patterns
+        blp = analyze_bar_level_patterns(beat_frames, sr, bpm)
+        summary["bar_pattern_regularity"] = blp.get("regularity", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 33: Drum fills detection
+        if onset_env is not None:
+            df = detect_drum_fills(beat_frames, onset_env, sr)
+            summary["drum_fill_count"] = df.get("fill_count", 0)
+    except Exception:
+        pass
+
+    try:
+        # Point 34: Beat phase alignment
+        bpa = compute_beat_phase_alignment(beat_frames, len(y) // 512)
+        summary["beat_phase_alignment"] = bpa.get("phase_alignment", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 35: Kick pattern
+        kp = extract_kick_pattern(y, sr, beat_frames)
+        summary["kick_pattern"] = kp.get("kick_pattern", [])[:16]
+        summary["kick_density"] = kp.get("kick_density", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 36: Snare pattern
+        sp = extract_snare_pattern(y, sr, beat_frames)
+        summary["snare_on_2_4"] = sp.get("snare_on_2_4", False)
+    except Exception:
+        pass
+
+    try:
+        # Point 37: Hi-hat pattern
+        hp = extract_hihat_pattern(y, sr, beat_frames)
+        summary["hihat_density"] = hp.get("hihat_density", 0.0)
+    except Exception:
+        pass
+
+    try:
+        # Point 38: Tempo histogram
+        th = compute_tempo_histogram(y, sr)
+        summary["tempo_histogram_peak"] = th.get("peak_tempo", bpm)
+    except Exception:
+        pass
+
+    summary["available"] = True
+    return summary
+
+
+def compute_spectral_summary(y: np.ndarray, sr: int) -> Dict:
+    """
+    v6.6: Unified spectral analysis wrapper — connects orphaned spectral
+    functions into one JSON blob.
+    """
+    summary: Dict = {"available": False}
+
+    try:
+        sf = compute_spectral_flatness(y, sr)
+        summary["spectral_flatness"] = sf.get("spectral_flatness_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        sr_data = compute_spectral_rolloff(y, sr)
+        summary["spectral_rolloff_mean"] = sr_data.get("spectral_rolloff_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        sb = compute_spectral_bandwidth(y, sr)
+        summary["spectral_bandwidth"] = sb.get("spectral_bandwidth_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        se = compute_spectral_entropy(np.abs(librosa.stft(y)))
+        summary["spectral_entropy"] = se.get("spectral_entropy_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        tn = compute_tonnetz_features(y, sr)
+        summary["tonnetz_mean"] = tn.get("tonnetz_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        mfcc = compute_mfcc_statistics(y, sr)
+        summary["mfcc_mean"] = mfcc.get("mfcc_mean", [])[:5]
+    except Exception:
+        pass
+
+    try:
+        cd = compute_chromagram_delta(y, sr)
+        summary["chroma_change_rate"] = cd.get("chroma_change_rate", 0.0)
+    except Exception:
+        pass
+
+    try:
+        cens = compute_chroma_energy_normalized(y, sr)
+        summary["cens_mean"] = cens.get("cens_mean", 0.0)
+    except Exception:
+        pass
+
+    try:
+        zcr = compute_zero_crossing_rate(y)
+        summary["zcr_mean"] = zcr.get("zcr_mean", 0.0)
+    except Exception:
+        pass
+
+    summary["available"] = True
+    return summary
+
+
+def compute_dj_mix_recommendations(
+    y: np.ndarray, sr: int,
+    bpm: float, key: str,
+    energy: float,
+    sections: List[Dict],
+) -> Dict:
+    """
+    v6.6: DJ mixing recommendations wrapper — connects orphaned mix-related
+    functions into actionable DJ advice.
+    """
+    recs: Dict = {"available": False}
+
+    try:
+        # Recommended EQ curve for mix-in
+        eq = recommend_eq_curve_for_mix_in(y, sr)
+        recs["eq_recommendation"] = eq
+    except Exception:
+        pass
+
+    try:
+        # Recommended crossfader curve
+        cf = recommend_crossfader_curve(y, sr, bpm)
+        recs["crossfader_curve"] = cf
+    except Exception:
+        pass
+
+    try:
+        # Recommended gain adjustment
+        ga = recommend_gain_adjustment(y, sr)
+        recs["gain_adjustment_db"] = ga
+    except Exception:
+        pass
+
+    try:
+        # Recommended mix length
+        ml = recommend_mix_length(bpm, sections)
+        recs["mix_length_bars"] = ml
+    except Exception:
+        pass
+
+    try:
+        # Suggest mix-in point
+        mi = suggest_mix_in_point(sections, bpm)
+        recs["suggested_mix_in_ms"] = mi
+    except Exception:
+        pass
+
+    try:
+        # Suggest mix-out point
+        mo = suggest_mix_out_point(sections, bpm)
+        recs["suggested_mix_out_ms"] = mo
+    except Exception:
+        pass
+
+    try:
+        # Validate intro/outro duration
+        val = validate_intro_outro_duration(sections, bpm)
+        recs["intro_outro_valid"] = val
+    except Exception:
+        pass
+
+    try:
+        # FX suggestions for transitions
+        if len(sections) > 1:
+            fx_suggestions = []
+            for i in range(min(4, len(sections) - 1)):
+                fx = suggest_fx_for_transition(sections[i], sections[i + 1])
+                if fx:
+                    fx_suggestions.append(fx)
+            recs["transition_fx"] = fx_suggestions
+    except Exception:
+        pass
+
+    recs["available"] = True
+    return recs
+
+
+def compute_quality_extended(y: np.ndarray, sr: int, file_path: str = "") -> Dict:
+    """
+    v6.6: Extended quality analysis — connects orphaned audio quality functions.
+    """
+    quality: Dict = {"available": False}
+
+    try:
+        pc = phase_coherence_check(y, sr)
+        quality["phase_coherent"] = pc.get("phase_coherent", True)
+        quality["phase_correlation"] = pc.get("phase_correlation", 1.0)
+    except Exception:
+        pass
+
+    try:
+        lc = detect_loudness_compression(y, sr)
+        quality["loudness_compressed"] = lc.get("compressed", False)
+    except Exception:
+        pass
+
+    try:
+        ln = loudness_normalization_suggestion(y, sr)
+        quality["normalization_suggestion"] = ln
+    except Exception:
+        pass
+
+    try:
+        sr_q = sample_rate_quality_check(y, sr)
+        quality["sample_rate_quality"] = sr_q
+    except Exception:
+        pass
+
+    try:
+        cp = click_pop_detection(y, sr)
+        quality["clicks_detected"] = cp.get("clicks_detected", False)
+        quality["click_count"] = cp.get("click_count", 0)
+    except Exception:
+        pass
+
+    try:
+        ca = codec_artifact_detection(y, sr)
+        quality["codec_artifacts"] = ca.get("artifacts_detected", False)
+    except Exception:
+        pass
+
+    try:
+        sd = silence_detection_precise(y, sr)
+        quality["silence_regions"] = sd.get("silence_count", 0)
+    except Exception:
+        pass
+
+    try:
+        fio = detect_fade_in_out(y, sr)
+        quality["has_fade_in"] = fio.get("has_fade_in", False)
+        quality["has_fade_out"] = fio.get("has_fade_out", False)
+        quality["fade_in_duration_ms"] = fio.get("fade_in_duration_ms", 0)
+        quality["fade_out_duration_ms"] = fio.get("fade_out_duration_ms", 0)
+    except Exception:
+        pass
+
+    try:
+        pe = production_era_estimation(y, sr)
+        quality["estimated_production_era"] = pe
+    except Exception:
+        pass
+
+    quality["available"] = True
+    return quality
 
 
 # ══════════════════════════════════════════════════════════════════════════

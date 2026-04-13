@@ -195,6 +195,11 @@ class TrackAnalysisResponse(BaseModel):
     audio_quality_grade: Optional[str] = None
     audio_quality_breakdown: Optional[Dict[str, Any]] = None
     accent_points: Optional[List[Dict[str, Any]]] = None
+    # v6.6: JSON summary blobs
+    rhythm_summary: Optional[Dict[str, Any]] = None
+    spectral_summary: Optional[Dict[str, Any]] = None
+    dj_mix_recommendations: Optional[Dict[str, Any]] = None
+    quality_extended: Optional[Dict[str, Any]] = None
     # v6.5: Sub-bass, loudness war
     sub_bass_quality: Optional[str] = None
     sub_bass_clarity: Optional[float] = None
