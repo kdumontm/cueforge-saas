@@ -98,9 +98,13 @@ def _build_waveform_stripe(analysis: Dict) -> str:
     """
     Build Traktor WAVEFORM STRIPE data from frequency spectrum.
     Encodes waveform peaks for visual display.
+    v6.4: Added input validation to prevent crashes on malformed data.
     """
+    if not analysis or not isinstance(analysis, dict):
+        return ""
+
     frequency_spectrum = analysis.get('frequency_spectrum', [])
-    if not frequency_spectrum:
+    if not frequency_spectrum or not isinstance(frequency_spectrum, (list, tuple)):
         return ""
 
     waveform_data = bytearray()
@@ -112,7 +116,11 @@ def _build_waveform_stripe(analysis: Dict) -> str:
     for i in range(0, len(frequency_spectrum), step):
         if len(waveform_data) >= 512:
             break
-        peak = int(frequency_spectrum[i] * 255) if frequency_spectrum[i] else 0
+        try:
+            val = float(frequency_spectrum[i]) if frequency_spectrum[i] is not None else 0
+            peak = int(val * 255)
+        except (TypeError, ValueError):
+            peak = 0
         peak = min(255, max(0, peak))
         waveform_data.append(peak)
 

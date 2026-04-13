@@ -125,6 +125,20 @@ def generate_virtualdj_poi_database(tracks: List[Dict]) -> Dict:
                 "end_sec": _ms_to_virtualdj_time(end_ms),
             })
 
+            # v6.4: Loop end marker — VirtualDJ uses paired POIs for loops
+            pois.append({
+                "time_ms": end_ms,
+                "time_sec": _ms_to_virtualdj_time(end_ms),
+                "type": VIRTUALDJ_POI_TYPES["loop"],
+                "type_name": "loop_end",
+                "label": f"{label} (end)",
+                "color": _hex_to_argb(color_hex),
+                "color_hex": color_hex,
+                "duration_ms": end_ms - start_ms,
+                "start_ms": start_ms,
+                "start_sec": _ms_to_virtualdj_time(start_ms),
+            })
+
         # Sort POI by time
         pois.sort(key=lambda x: x['time_ms'])
 

@@ -269,24 +269,40 @@ def generate_engine_dj_xml(
 
 
 def _build_engine_library_database(tracks: List[Dict]) -> Dict:
-    """Build Engine DJ library database structure (SQLite-compatible)."""
+    """Build Engine DJ library database structure (SQLite-compatible).
+    v6.4: Populate Cues table from track cue_points + add BPM/key metadata."""
     # Engine DJ uses SQLite database with specific schema
+    all_cues = []
+    track_rows = []
+    for idx, t in enumerate(tracks):
+        track_rows.append({
+            "id": idx,
+            "title": t.get("title", ""),
+            "artist": t.get("artist", ""),
+            "album": t.get("album", ""),
+            "file_path": t.get("file_path", ""),
+            "duration_ms": t.get("duration_ms", 0),
+            "bpm": t.get("bpm"),
+            "key": _export_engine_key_display_format(t.get("key", "")),
+            "genre": t.get("genre", ""),
+        })
+        # Build cues for this track
+        for cue in t.get("cue_points", []):
+            all_cues.append({
+                "track_id": idx,
+                "position_ms": cue.get("position_ms", 0),
+                "label": cue.get("name", ""),
+                "color": cue.get("color", "#FF0000"),
+                "type": cue.get("cue_type", "hot_cue"),
+                "hot_cue_number": cue.get("number"),
+            })
+
     return {
         "version": "3.0",
         "format": "engine_dj_sqlite",
         "tables": {
-            "Tracks": [
-                {
-                    "id": idx,
-                    "title": t.get("title", ""),
-                    "artist": t.get("artist", ""),
-                    "album": t.get("album", ""),
-                    "file_path": t.get("file_path", ""),
-                    "duration_ms": t.get("duration_ms", 0),
-                }
-                for idx, t in enumerate(tracks)
-            ],
-            "Cues": [],
+            "Tracks": track_rows,
+            "Cues": all_cues,
         }
     }
 
@@ -381,13 +397,20 @@ def _export_soundswitch_integration(track: Dict) -> Dict:
 
 
 def _export_engine_key_display_format(key: str) -> str:
-    """Export key in Engine DJ display format."""
+    """Export key in Engine DJ display format.
+    v6.4: Complete Camelot wheel map (was missing 7 minor keys)."""
     # Engine DJ supports both camelot and musical notation
     CAMELOT_MAP = {
+        # Major keys
         "C": "8B", "Db": "3B", "D": "10B", "Eb": "5B", "E": "12B", "F": "7B",
-        "F#": "2B", "G": "9B", "Ab": "4B", "A": "11B", "Bb": "6B", "B": "1B",
-        "Cm": "5A", "Dbm": "12A", "Dm": "7A", "Ebm": "2A", "Em": "9A",
+        "F#": "2B", "Gb": "2B", "G": "9B", "Ab": "4B", "A": "11B", "Bb": "6B", "B": "1B",
+        # Minor keys — v6.4: completed (was missing Fm, F#m, Gm, Abm, Am, Bbm, Bm)
+        "Cm": "5A", "C#m": "12A", "Dbm": "12A", "Dm": "7A", "D#m": "2A", "Ebm": "2A",
+        "Em": "9A", "Fm": "4A", "F#m": "11A", "Gm": "6A", "G#m": "1A", "Abm": "1A",
+        "Am": "8A", "A#m": "3A", "Bbm": "3A", "Bm": "10A",
     }
+    if not key:
+        return ""
     clean_key = key.strip().replace("minor", "m").replace("major", "").strip()
     return CAMELOT_MAP.get(clean_key, key)
 
@@ -422,17 +445,29 @@ def _export_drive_format_compatibility(tracks: List[Dict]) -> Dict:
 
 
 def _export_engine_flex_fx_markers(cue_points: List[Dict]) -> Dict:
-    """Export Flex FX markers for effect triggering."""
+    """Export Flex FX markers for effect triggering.
+    v6.4: Map cue types to appropriate FX types instead of hardcoded reverb."""
+    # Map cue types to typical DJ FX
+    CUE_TYPE_FX_MAP = {
+        "drop": "echo_out",
+        "build": "filter_sweep",
+        "breakdown": "reverb",
+        "intro": "filter_lp",
+        "outro": "echo_out",
+    }
+    fx_triggers = []
+    for cue in cue_points:
+        cue_type = cue.get("type", cue.get("cue_type", ""))
+        if cue_type in CUE_TYPE_FX_MAP:
+            fx_triggers.append({
+                "position_ms": cue.get("position_ms", 0),
+                "label": cue.get("label", cue.get("name", "")),
+                "fx_type": CUE_TYPE_FX_MAP[cue_type],
+                "cue_type": cue_type,
+            })
     return {
         "format": "engine_flex_fx",
-        "fx_triggers": [
-            {
-                "position_ms": cue.get("position_ms", 0),
-                "label": cue.get("label", ""),
-                "fx_type": "reverb",  # Could be extended
-            }
-            for cue in cue_points if cue.get("type") in ["drop", "build"]
-        ],
+        "fx_triggers": fx_triggers,
     }
 
 
@@ -447,13 +482,15 @@ def _export_streaming_service_markers(track: Dict) -> Dict:
 
 
 def _export_local_network_sync_format(tracks: List[Dict]) -> Dict:
-    """Export data in local network sync format for Engine hardware."""
+    """Export data in local network sync format for Engine hardware.
+    v6.4: Fixed __import__ hack — use proper imports."""
+    import hashlib
     return {
         "format": "engine_local_sync",
         "version": "3.0",
-        "sync_timestamp": __import__('datetime').datetime.now().isoformat(),
+        "sync_timestamp": datetime.now().isoformat(),
         "tracks_count": len(tracks),
-        "checksum": __import__('hashlib').md5(str(tracks).encode()).hexdigest(),
+        "checksum": hashlib.md5(str(tracks).encode()).hexdigest(),
     }
 
 
