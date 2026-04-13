@@ -364,6 +364,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Analytics service init failed (non-blocking): {e}")
 
+    # 16. Initialize distributed analyzer (task DAG, worker affinity)
+    try:
+        from app.services.distributed_analysis import DistributedAnalyzer
+        dist = DistributedAnalyzer()
+        app.state.distributed_analyzer = dist
+        logger.info("✅ Distributed analyzer initialized")
+    except Exception as e:
+        logger.warning(f"Distributed analyzer init failed (non-blocking): {e}")
+
     logger.info("✅ CueForge backend démarré.")
     yield
 
@@ -447,6 +456,22 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(AccessLogMiddleware)
+
+# v12: Security hardening middleware
+try:
+    from app.services.security_hardening import SecurityService
+    app.state.security_service = SecurityService()
+    logger.info("✅ Security hardening service loaded")
+except ImportError:
+    pass
+
+# v12: API optimizer middleware (response streaming, field selection)
+try:
+    from app.services.api_optimizer import APIOptimizer
+    app.state.api_optimizer = APIOptimizer()
+    logger.info("✅ API optimizer loaded")
+except ImportError:
+    pass
 
 # OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
 from starlette.middleware.base import BaseHTTPMiddleware

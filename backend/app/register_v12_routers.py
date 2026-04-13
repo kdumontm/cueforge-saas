@@ -42,3 +42,10 @@ def register_v12_routers(app: FastAPI):
         app.include_router(analytics_v2.router)
     except ImportError:
         pass
+
+    # DevOps tools
+    try:
+        from app.routers import devops
+        app.include_router(devops.router)
+    except ImportError:
+        pass

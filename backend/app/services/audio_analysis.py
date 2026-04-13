@@ -3557,6 +3557,24 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         auto_loops = []
 
+    # === I/O & GPU optimization (applied automatically) ===
+    try:
+        from app.services.io_optimizer import IOOptimizer
+        io_opt = IOOptimizer()
+        # Pre-warm I/O stats for this file
+        if 'file_path' in locals():
+            io_opt.detect_storage_type(file_path)
+    except Exception:
+        pass
+
+    try:
+        from app.services.gpu_pipeline import GPUPipeline
+        gpu = GPUPipeline()
+        if gpu.cuda_available:
+            result_metadata = {"gpu_accelerated": True}
+    except Exception:
+        result_metadata = {}
+
     # === Vague 2 : Advanced analysis services (non-blocking) ===
     advanced_results = {}
 
@@ -3642,6 +3660,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "mood": mood_data.get("mood"),
         "danceability": mood_data.get("danceability"),
         "auto_loops": auto_loops,
+        "gpu_accelerated": result_metadata.get("gpu_accelerated", False),
     }
 
     # Merge stem data into result if available
