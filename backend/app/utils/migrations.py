@@ -141,6 +141,11 @@ PENDING_MIGRATIONS = {
         "rhythmic_complexity": "FLOAT",
         "offbeat_energy_ratio": "FLOAT",
         "beat_strength_mean": "FLOAT",
+        # v6.7: Harmonic, vocal, production, mixing compatibility
+        "harmonic_summary": "JSON",
+        "vocal_analysis": "JSON",
+        "production_analysis": "JSON",
+        "mixing_compatibility": "JSON",
     },
     "subscriptions": {
         # Stripe price ID

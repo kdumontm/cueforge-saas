@@ -212,6 +212,11 @@ class TrackAnalysisResponse(BaseModel):
     rhythmic_complexity: Optional[float] = None
     offbeat_energy_ratio: Optional[float] = None
     beat_strength_mean: Optional[float] = None
+    # v6.7: Harmonic, vocal, production, mixing compatibility
+    harmonic_summary: Optional[Dict[str, Any]] = None
+    vocal_analysis: Optional[Dict[str, Any]] = None
+    production_analysis: Optional[Dict[str, Any]] = None
+    mixing_compatibility: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

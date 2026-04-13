@@ -210,6 +210,11 @@ class TrackAnalysis(Base):
     rhythmic_complexity = Column(Float, nullable=True)
     offbeat_energy_ratio = Column(Float, nullable=True)
     beat_strength_mean = Column(Float, nullable=True)
+    # v6.7: Harmonic, vocal, production, mixing compatibility
+    harmonic_summary = Column(JSON, nullable=True)
+    vocal_analysis = Column(JSON, nullable=True)
+    production_analysis = Column(JSON, nullable=True)
+    mixing_compatibility = Column(JSON, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

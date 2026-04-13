@@ -520,6 +520,11 @@ def _run_analysis(track_id: int):
             rhythmic_complexity=analysis_data.get("rhythmic_complexity"),
             offbeat_energy_ratio=analysis_data.get("offbeat_energy_ratio"),
             beat_strength_mean=analysis_data.get("beat_strength_mean"),
+            # v6.7: Harmonic, vocal, production, mixing compatibility
+            harmonic_summary=analysis_data.get("harmonic_summary"),
+            vocal_analysis=analysis_data.get("vocal_analysis"),
+            production_analysis=analysis_data.get("production_analysis"),
+            mixing_compatibility=analysis_data.get("mixing_compatibility"),
         )
         db.add(analysis)
         db.flush()
@@ -2777,6 +2782,74 @@ def get_quality_extended(
     if not analysis:
         raise HTTPException(status_code=400, detail="Track must be analyzed first")
     return analysis.quality_extended or {"available": False}
+
+
+# ── v6.7: Harmonic summary endpoint ──────────────────────────────────────
+@router.get("/{track_id}/harmonic-summary")
+def get_harmonic_summary(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return harmonic analysis — complexity, tonal center, key stability, chords, consonance."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.harmonic_summary or {"available": False}
+
+
+# ── v6.7: Vocal analysis endpoint ────────────────────────────────────────
+@router.get("/{track_id}/vocal-analysis")
+def get_vocal_analysis(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return vocal analysis — likelihood, entry/exit, processing detection, formants."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.vocal_analysis or {"available": False}
+
+
+# ── v6.7: Production analysis endpoint ───────────────────────────────────
+@router.get("/{track_id}/production-analysis")
+def get_production_analysis(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return production analysis — sidechain, reverb, delay, FX, mastering detection."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.production_analysis or {"available": False}
+
+
+# ── v6.7: Mixing compatibility endpoint ──────────────────────────────────
+@router.get("/{track_id}/mixing-compatibility")
+def get_mixing_compatibility(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return mixing compatibility scoring — harmonic, energy, beatmatch, sync accuracy."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+    return analysis.mixing_compatibility or {"available": False}
 
 
 # WebSocket endpoint pour les updates temps réel
