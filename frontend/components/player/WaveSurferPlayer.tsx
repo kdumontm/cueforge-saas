@@ -7,6 +7,11 @@ import { getToken } from '@/lib/api';
 import { usePlayerStore, useWaveformCache, usePeakCache } from '@/lib/store';
 // Accessibility utilities
 import { announcePlaybackPosition, announceBPM, announce } from '@/lib/accessibility';
+// TODO: Optimized SVG components for efficient rendering
+// import { CuePointsSVG } from '@/components/player/CuePointsSVG'; // Render 100+ cues efficiently
+// import { BeatgridSVG } from '@/components/player/BeatgridSVG'; // Render beats/grid overlay
+// TODO: Web Worker for spectral analysis (offload from main thread)
+// import { initWaveformWorker } from '@/workers/waveformWorker';
 
 interface CuePoint {
   id: number;
