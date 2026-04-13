@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,6 +6,7 @@ import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 
 interface FXTabProps {
+  track?: { id: number; title: string } | null;
   fxParams?: Record<string, number>;
   onFxChange?: (effect: string, value: number) => void;
   onResetAll?: () => void;
@@ -23,7 +23,7 @@ const EFFECTS = [
   { name: 'Compressor', key: 'compressor', icon: '📊', color: '#f97316', desc: 'Compresseur dynamique' },
 ];
 
-export function FXTab({ fxParams = {}, onFxChange, onResetAll }: FXTabProps) {
+export function FXTab({ track, fxParams = {}, onFxChange, onResetAll }: FXTabProps) {
   const { lang } = useLang();
   const [values, setValues] = useState<Record<string, number>>(fxParams);
 
@@ -39,6 +39,14 @@ export function FXTab({ fxParams = {}, onFxChange, onResetAll }: FXTabProps) {
   };
 
   const hasActive = Object.values(values).some(v => v > 0);
+
+  if (!track) {
+    return (
+      <div className="flex items-center justify-center h-48 text-[var(--text-muted)] text-sm">
+        Sélectionne un morceau pour appliquer les effets
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 p-3">

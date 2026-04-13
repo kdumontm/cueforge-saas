@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface EQTabProps {
   /** Ref exposant setEQ(low, mid, high) depuis WaveSurferPlayer */
   playerRef?: React.MutableRefObject<any>;
+}
+
+// Simple debounce utility (50ms)
+function createDebounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+  let timeoutId: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
 }
 
 const BANDS = [
@@ -25,23 +36,32 @@ const PRESETS = [
 ];
 
 export function EQTab({ playerRef }: EQTabProps) {
+  const { lang } = useLang();
   const [values, setValues] = useState<Record<BandKey, number>>({ low: 0, mid: 0, high: 0 });
   const [isActive, setIsActive] = useState(false);
   const pendingRef = useRef<Record<BandKey, number>>({ low: 0, mid: 0, high: 0 });
+  const debouncedApplyRef = useRef<((newValues: Record<BandKey, number>, active: boolean) => void) | null>(null);
 
   // Apply EQ changes to player
-  const applyEQ = (newValues: Record<BandKey, number>, active: boolean) => {
+  const applyEQ = useCallback((newValues: Record<BandKey, number>, active: boolean) => {
     pendingRef.current = newValues;
     if (playerRef?.current?.setEQ) {
       const { low, mid, high } = newValues;
       playerRef.current.setEQ(active ? low : 0, active ? mid : 0, active ? high : 0);
     }
-  };
+  }, [playerRef]);
+
+  // Initialize debounced apply (50ms)
+  useEffect(() => {
+    debouncedApplyRef.current = createDebounce(applyEQ, 50);
+  }, [applyEQ]);
 
   const handleChange = (band: BandKey, value: number) => {
     const newValues = { ...values, [band]: value };
     setValues(newValues);
-    if (isActive) applyEQ(newValues, true);
+    if (isActive && debouncedApplyRef.current) {
+      debouncedApplyRef.current(newValues, true);
+    }
   };
 
   const handlePreset = (preset: typeof PRESETS[0]) => {
@@ -91,7 +111,7 @@ export function EQTab({ playerRef }: EQTabProps) {
           EQ {isActive ? 'ON' : 'OFF'}
         </span>
         {!playerRef?.current?.setEQ && (
-          <span className="text-[10px] text-yellow-500/70 ml-auto">Lance la lecture pour activer</span>
+          <span className="text-[10px] text-yellow-500/70 ml-auto">{tr('eq.play_to_enable', lang)}</span>
         )}
       </div>
 
@@ -119,6 +139,7 @@ export function EQTab({ playerRef }: EQTabProps) {
                   value={val}
                   onChange={(e) => handleChange(band.key, parseInt(e.target.value))}
                   className="h-[120px] w-6 appearance-none cursor-pointer"
+                  aria-label={`${band.label} EQ: ${val > 0 ? '+' : ''}${val}dB`}
                   style={{
                     writingMode: 'vertical-lr',
                     direction: 'rtl',
@@ -155,7 +176,7 @@ export function EQTab({ playerRef }: EQTabProps) {
         onClick={handleReset}
         className="w-full px-4 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] text-xs font-medium transition-colors border border-[var(--border-subtle)] cursor-pointer"
       >
-        Réinitialiser (Flat)
+        {tr('eq.reset', lang)}
       </button>
     </div>
   );

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -80,6 +79,8 @@ export default function EnergyFlow({ tracks, title = 'Energy Flow' }: EnergyFlow
       {/* Energy bar visualization */}
       <div className="relative overflow-x-auto">
         <svg width={Math.max(chartW, analyzedTracks.length * (barW + 4) + padding * 2)} height={chartH + 40} className="w-full">
+          <title>{title}</title>
+          <desc>Graphique montrant le flux d'énergie au fil des pistes, avec {analyzedTracks.length} pistes analysées et niveaux d'énergie de {Math.round(Math.min(...energies) * 100)}% à {Math.round(maxEnergy * 100)}%</desc>
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map(level => (
             <g key={level}>

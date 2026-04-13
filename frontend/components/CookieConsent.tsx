@@ -37,7 +37,7 @@ export default function CookieConsent() {
             </h3>
             <button
               onClick={() => setShowBanner(false)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors flex-shrink-0 -mr-2 -mt-2"
               aria-label={lang === 'en' ? 'Close' : 'Fermer'}
             >
               <X size={14} />

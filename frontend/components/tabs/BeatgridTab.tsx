@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Track } from '@/types';
 import { Lock, Unlock, RotateCcw, Music2 } from 'lucide-react';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface Beatgrid {
   bpm: number | null;
@@ -30,6 +32,7 @@ export function BeatgridTab({
   onUpdateBeatgrid,
   onTapTempo,
 }: BeatgridTabProps) {
+  const { lang } = useLang();
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const [calculatedBpm, setCalculatedBpm] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(beatgrid?.locked || false);
@@ -39,7 +42,7 @@ export function BeatgridTab({
     return (
       <div className="flex flex-col items-center justify-center h-64 text-[var(--text-muted)] space-y-3">
         <Music2 size={48} className="opacity-40" />
-        <p>Sélectionne un morceau</p>
+        <p>{tr('beatgrid.select_track', lang)}</p>
       </div>
     );
   }
@@ -124,13 +127,16 @@ export function BeatgridTab({
   };
 
   const duration = track.analysis?.duration_ms || 0;
-  const displayDuration = formatDuration(duration);
-  const bars = beatgrid?.bpm ? Math.floor((duration / (60000 / beatgrid.bpm)) / 4) : 0;
-  const beats = beatgrid?.bpm ? Math.floor(duration / (60000 / beatgrid.bpm)) : 0;
 
-  // Beatgrid visualization
-  const barsToShow = Math.min(bars, 8);
-  const beatsPerBar = 4;
+  // Memoize beatgrid calculations
+  const gridData = useMemo(() => {
+    const displayDuration = formatDuration(duration);
+    const bars = beatgrid?.bpm ? Math.floor((duration / (60000 / beatgrid.bpm)) / 4) : 0;
+    const beats = beatgrid?.bpm ? Math.floor(duration / (60000 / beatgrid.bpm)) : 0;
+    const barsToShow = Math.min(bars, 8);
+    const beatsPerBar = 4;
+    return { displayDuration, bars, beats, barsToShow, beatsPerBar };
+  }, [duration, beatgrid?.bpm]);
 
   return (
     <div className="space-y-4 p-4">
@@ -138,7 +144,7 @@ export function BeatgridTab({
       <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-[var(--text-muted)]">BPM actuel</div>
+            <div className="text-xs text-[var(--text-muted)]">{tr('beatgrid.current_bpm', lang)}</div>
             <div className="text-3xl font-bold text-[var(--text-primary)] font-mono">
               {beatgrid?.bpm?.toFixed(1) || '—'}
             </div>
@@ -150,7 +156,9 @@ export function BeatgridTab({
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-muted)]'
             }`}
-            title={isLocked ? 'Verrouillé' : 'Déverrouillé'}
+            title={isLocked ? tr('beatgrid.locked', lang) : tr('beatgrid.unlocked', lang)}
+            aria-pressed={isLocked}
+            aria-label={isLocked ? 'Unlock grid' : 'Lock grid'}
           >
             {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
           </button>
@@ -207,7 +215,7 @@ export function BeatgridTab({
 
             {/* Direct BPM input */}
             <div className="flex gap-2 items-center">
-              <label className="text-xs text-[var(--text-muted)] w-16">BPM direct:</label>
+              <label className="text-xs text-[var(--text-muted)] w-16">{tr('beatgrid.direct_bpm', lang)}</label>
               <input
                 type="number"
                 step="0.1"
@@ -221,7 +229,7 @@ export function BeatgridTab({
                   }
                 }}
                 className="flex-1 px-2 py-1.5 rounded bg-[var(--bg-primary)] text-[var(--text-primary)] text-sm font-mono border border-[var(--border-subtle)] focus:outline-none focus:border-[var(--accent)]"
-                placeholder="Entrez BPM"
+                placeholder={tr('beatgrid.direct_placeholder', lang)}
               />
             </div>
 
@@ -230,16 +238,16 @@ export function BeatgridTab({
               <button
                 onClick={() => handleBpmChange(0.5)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
-                title="Diviser par 2"
+                title="Divide by 2"
               >
-                ÷2
+                {tr('beatgrid.half', lang)}
               </button>
               <button
                 onClick={() => handleBpmChange(2)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] text-sm font-medium transition-colors"
-                title="Multiplier par 2"
+                title="Multiply by 2"
               >
-                ×2
+                {tr('beatgrid.double', lang)}
               </button>
             </div>
           </div>
@@ -247,15 +255,15 @@ export function BeatgridTab({
       </div>
 
       {/* Beatgrid Visual Preview */}
-      {beatgrid?.bpm && barsToShow > 0 && (
+      {beatgrid?.bpm && gridData.barsToShow > 0 && (
         <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
-          <div className="text-sm font-semibold text-[var(--text-secondary)]">Aperçu de la grille</div>
+          <div className="text-sm font-semibold text-[var(--text-secondary)]">{tr('beatgrid.preview_title', lang)}</div>
           <div className="space-y-2">
-            {Array.from({ length: barsToShow }).map((_, barIdx) => (
+            {Array.from({ length: gridData.barsToShow }).map((_, barIdx) => (
               <div key={barIdx} className="flex items-center gap-2">
                 <div className="text-xs text-[var(--text-muted)] w-6 text-right">{barIdx + 1}</div>
                 <div className="flex-1 flex gap-1">
-                  {Array.from({ length: beatsPerBar }).map((_, beatIdx) => (
+                  {Array.from({ length: gridData.beatsPerBar }).map((_, beatIdx) => (
                     <div
                       key={beatIdx}
                       className={`h-8 rounded ${
@@ -270,9 +278,9 @@ export function BeatgridTab({
               </div>
             ))}
           </div>
-          {bars > barsToShow && (
+          {gridData.bars > gridData.barsToShow && (
             <div className="text-xs text-[var(--text-muted)]">
-              ... et {bars - barsToShow} autres mesures
+              {tr('beatgrid.bars_more', lang).replace('{count}', (gridData.bars - gridData.barsToShow).toString())}
             </div>
           )}
         </div>
@@ -280,7 +288,7 @@ export function BeatgridTab({
 
       {/* Offset du downbeat */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
-        <div className="text-sm font-semibold text-[var(--text-secondary)]">Offset du downbeat</div>
+        <div className="text-sm font-semibold text-[var(--text-secondary)]">{tr('beatgrid.downbeat_offset', lang)}</div>
 
         {/* Coarse controls */}
         <div className="flex items-center gap-2">
@@ -386,15 +394,15 @@ export function BeatgridTab({
         <div className="grid grid-cols-3 gap-3">
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
             <div className="text-xs text-[var(--text-muted)]">Durée</div>
-            <div className="text-sm font-mono text-[var(--text-primary)]">{displayDuration}</div>
+            <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.displayDuration}</div>
           </div>
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
             <div className="text-xs text-[var(--text-muted)]">Mesures</div>
-            <div className="text-sm font-mono text-[var(--text-primary)]">{bars}</div>
+            <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.bars}</div>
           </div>
           <div className="p-2 bg-[var(--bg-primary)] rounded text-center">
             <div className="text-xs text-[var(--text-muted)]">Temps</div>
-            <div className="text-sm font-mono text-[var(--text-primary)]">{beats}</div>
+            <div className="text-sm font-mono text-[var(--text-primary)]">{gridData.beats}</div>
           </div>
         </div>
       </div>

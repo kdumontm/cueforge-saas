@@ -1,8 +1,9 @@
-// @ts-nocheck
 'use client';
 
 import { Download, Loader2, AlertCircle, Scissors } from 'lucide-react';
 import { Track } from '@/types';
+import { useLang } from '@/components/LangProvider';
+import { tr } from '@/lib/i18n';
 
 interface StemsStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -102,10 +103,12 @@ export function StemsTab({
   onToggleMute,
   onRequestStems,
 }: StemsTabProps) {
+  const { lang } = useLang();
+
   if (!track) {
     return (
       <div className="flex items-center justify-center h-48 text-[var(--text-muted)] text-sm">
-        Sélectionne un morceau
+        {tr('stems.select_track', lang)}
       </div>
     );
   }
@@ -124,11 +127,11 @@ export function StemsTab({
 
       {/* Processing banner */}
       {isProcessing && (
-        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300">
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300" role="status" aria-live="polite" aria-label="Chargement des stems">
           <Loader2 size={15} className="animate-spin shrink-0" />
           <div>
-            <p className="text-xs font-semibold">Séparation en cours…</p>
-            <p className="text-[10px] text-blue-300/70">Demucs AI · qualité DJ · ~3–5 min</p>
+            <p className="text-xs font-semibold">{tr('stems.processing', lang)}</p>
+            <p className="text-[10px] text-blue-300/70">{tr('stems.processing_info', lang)}</p>
           </div>
         </div>
       )}
@@ -137,16 +140,16 @@ export function StemsTab({
         <div className="flex items-center gap-2.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300">
           <AlertCircle size={15} className="shrink-0" />
           <div>
-            <p className="text-xs font-semibold">Erreur lors de la séparation</p>
+            <p className="text-xs font-semibold">{tr('stems.error_title', lang)}</p>
             <p className="text-[10px] text-red-300/70 break-all">
-              {stemsStatus?.error || 'Vérifie que le fichier audio est présent sur le serveur'}
+              {stemsStatus?.error || tr('stems.error_default', lang)}
             </p>
             {onRequestStems && (
               <button
                 onClick={onRequestStems}
                 className="mt-1.5 text-[10px] text-red-300 underline hover:text-red-200 cursor-pointer"
               >
-                Réessayer
+                {tr('stems.retry', lang)}
               </button>
             )}
           </div>
@@ -157,7 +160,7 @@ export function StemsTab({
       {isCompleted && (
         <>
           <p className="text-[10px] text-[var(--text-muted)] px-0.5">
-            🎛️ <strong>Clique</strong> pour couper/activer un stem dans la lecture
+            {tr('stems.hint', lang)}
           </p>
 
           <div className="grid grid-cols-2 gap-2">
@@ -172,7 +175,9 @@ export function StemsTab({
                   <button
                     onClick={() => avail && onToggleMute?.(key)}
                     disabled={!avail}
-                    title={muted ? `Réactiver ${name}` : `Couper ${name}`}
+                    title={muted ? tr('stems.muted_tooltip', lang) : tr('stems.active_tooltip', lang)}
+                    aria-pressed={muted}
+                    aria-label={`Toggle ${name}: ${muted ? 'muted' : 'active'}`}
                     className={`
                       w-full text-left rounded-xl border p-3 transition-all duration-200 cursor-pointer
                       bg-gradient-to-br ${color} ${border}
@@ -226,17 +231,17 @@ export function StemsTab({
           <div className="flex items-center gap-2 pt-1">
             <p className="text-[9px] text-[var(--text-muted)] flex-1">
               {mutedStems.size === 0
-                ? '✅ Mix complet — tous les stems actifs'
+                ? tr('stems.complete', lang)
                 : `🔇 ${mutedStems.size} stem${mutedStems.size > 1 ? 's' : ''} coupé${mutedStems.size > 1 ? 's' : ''}`}
             </p>
             <button
               onClick={() => stemsStatus && downloadAll(stemsStatus, mutedStems, track?.title ?? 'track')}
               disabled={activeCount === 0}
-              title={`Télécharger les ${activeCount} stems actifs`}
+              title={`Download ${activeCount} active stems`}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent-primary)]/15 border border-[var(--accent-primary)]/30 text-[var(--accent-primary)] text-[10px] font-semibold hover:bg-[var(--accent-primary)]/25 transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
             >
               <Download size={11} />
-              Télécharger ({activeCount})
+              {tr('stems.download_all', lang).replace('{count}', activeCount.toString())}
             </button>
           </div>
         </>
@@ -246,14 +251,13 @@ export function StemsTab({
       {!isCompleted && !isProcessing && (
         <>
           <p className="text-[10px] text-[var(--text-muted)] leading-relaxed px-1">
-            Utilise <strong>Demucs</strong> (Meta AI) — séparation deep learning qualité DJ.<br />
-            4 stems: voix, drums, basse, instruments · ~3–5 min par track.
+            {tr('stems.info', lang)}
           </p>
           <button
             onClick={onRequestStems}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors cursor-pointer border-none"
           >
-            <Scissors size={14} /> Séparer les stems
+            <Scissors size={14} /> {tr('stems.separate', lang)}
           </button>
         </>
       )}

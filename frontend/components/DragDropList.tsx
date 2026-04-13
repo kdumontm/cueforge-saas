@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import React from 'react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 export interface DragDropListProps<T extends { id: number | string }> {
   items: T[];
@@ -59,6 +60,19 @@ export default function DragDropList<T extends { id: number | string }>({
     setDropIndicator(null);
   };
 
+  const handleMoveItem = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= list.length) return;
+
+    const newList = Array.from(list);
+    const item = newList[fromIndex];
+    newList.splice(fromIndex, 1);
+    newList.splice(toIndex, 0, item);
+
+    setList(newList);
+    onReorder(newList);
+  };
+
   return (
     <div className="space-y-0">
       {list.map((item, index) => (
@@ -68,21 +82,43 @@ export default function DragDropList<T extends { id: number | string }>({
             <div className="h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 mx-2" />
           )}
 
-          {/* Draggable item */}
-          <div
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-            aria-grabbed={draggedIndex === index}
-            aria-dropeffect="move"
-            className={`transition-all duration-150 cursor-move ${
-              draggedIndex === index ? 'opacity-50' : 'opacity-100'
-            }`}
-          >
-            {renderItem(item, index)}
+          {/* Draggable item with keyboard controls */}
+          <div className="flex items-center gap-1">
+            <div className="flex flex-col gap-0.5">
+              <button
+                onClick={() => handleMoveItem(index, 'up')}
+                disabled={index === 0}
+                className="p-0.5 rounded hover:bg-[var(--bg-hover)] disabled:opacity-30 disabled:cursor-not-allowed text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label={`Déplacer ${item} vers le haut`}
+                title="Déplacer vers le haut"
+              >
+                <ChevronUp size={14} />
+              </button>
+              <button
+                onClick={() => handleMoveItem(index, 'down')}
+                disabled={index === list.length - 1}
+                className="p-0.5 rounded hover:bg-[var(--bg-hover)] disabled:opacity-30 disabled:cursor-not-allowed text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                aria-label={`Déplacer ${item} vers le bas`}
+                title="Déplacer vers le bas"
+              >
+                <ChevronDown size={14} />
+              </button>
+            </div>
+            <div
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              aria-grabbed={draggedIndex === index}
+              aria-dropeffect="move"
+              className={`flex-1 transition-all duration-150 cursor-move ${
+                draggedIndex === index ? 'opacity-50' : 'opacity-100'
+              }`}
+            >
+              {renderItem(item, index)}
+            </div>
           </div>
         </div>
       ))}

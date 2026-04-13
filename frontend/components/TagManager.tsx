@@ -163,6 +163,8 @@ export default function TagManager({ trackId, onTagsChange }: TagManagerProps) {
         <button
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)] transition-colors"
+          aria-expanded={false}
+          aria-label="Ajouter un tag"
         >
           <Plus size={10} /> Tag
         </button>
@@ -170,7 +172,7 @@ export default function TagManager({ trackId, onTagsChange }: TagManagerProps) {
 
       {/* Add tag dropdown/form */}
       {showAdd && (
-        <div className="flex flex-col gap-2 p-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg">
+        <div className="flex flex-col gap-2 p-2 bg-[var(--bg-card)] border border-[var(--border-default)] rounded-lg" role="menu" aria-expanded={true}>
           {/* Existing tags list */}
           {availableTags.length > 0 && (
             <div className="flex flex-col gap-1 pb-2 border-b border-[var(--border-subtle)]">

@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
-          <div className="text-5xl">🎛️</div>
+          <span role="img" aria-label="Console de mixage" className="text-5xl">🎛️</span>
           <h2 className="text-xl font-semibold text-white">
             Une erreur inattendue s&apos;est produite
           </h2>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { uploadTracksWithProgress } from '@/lib/api';
 import type { TrackUploadResponse } from '@/lib/api';
 import { useElectron } from '@/lib/electron';
@@ -23,6 +23,18 @@ interface MultiUploadProps {
 const ALLOWED_FORMATS = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aiff', 'audio/ogg', 'audio/x-m4a'];
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.aiff', '.ogg', '.m4a'];
 
+// Throttle utility (100ms)
+function createThrottle<T extends (...args: any[]) => void>(fn: T, delay: number) {
+  let lastCall = 0;
+  return (...args: Parameters<T>) => {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      fn(...args);
+    }
+  };
+}
+
 export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
   const { isDesktop, files: desktopFiles } = useElectron();
   const { lang } = useLang();
@@ -31,6 +43,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [globalProgress, setGlobalProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const throttledProgressRef = useRef<((pct: number) => void) | null>(null);
 
   const handleDesktopFileSelect = async () => {
     if (!desktopFiles?.openDialog) return;
@@ -97,14 +110,20 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
 
     setFiles(prev => prev.map(f => pendingNames.has(f.file.name) ? { ...f, status: 'uploading' as const, progress: 0 } : f));
 
+    // Create throttled progress handler (100ms)
+    const handleProgress = (pct: number) => {
+      setGlobalProgress(pct);
+      setFiles(prev => prev.map(f =>
+        pendingNames.has(f.file.name) && f.status === 'uploading'
+          ? { ...f, progress: pct }
+          : f
+      ));
+    };
+    throttledProgressRef.current = createThrottle(handleProgress, 100);
+
     try {
       const tracks = await uploadTracksWithProgress(formData, (pct) => {
-        setGlobalProgress(pct);
-        setFiles(prev => prev.map(f =>
-          pendingNames.has(f.file.name) && f.status === 'uploading'
-            ? { ...f, progress: pct }
-            : f
-        ));
+        if (throttledProgressRef.current) throttledProgressRef.current(pct);
       });
       const uploadedNames = new Set(tracks.map(t => t.original_filename));
       setFiles(prev => prev.map(f =>
@@ -137,6 +156,14 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
         onDrop={handleDrop}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        role="button"
+        tabIndex={0}
         className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${
           isDragging
             ? 'border-blue-500 bg-blue-500/10 scale-[1.01]'

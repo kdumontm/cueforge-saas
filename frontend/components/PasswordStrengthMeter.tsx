@@ -75,6 +75,8 @@ export default function PasswordStrengthMeter({
           border ${borderColors[strength]}
           bg-slate-900/50 ${textColors[strength]}
         `}
+        aria-label={`Force du mot de passe: ${labels[strength]}`}
+        role="status"
       >
         <div className="font-medium">{labels[strength]}</div>
         <div className="text-xs opacity-80 mt-1">

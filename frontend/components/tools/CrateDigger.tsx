@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -186,9 +185,15 @@ export default function CrateDigger({ tracks, onSelectTrack, currentTrack }: Cra
         </div>
       )}
 
-      {suggestions.length === 0 && tracks.length > 0 && (
+      {suggestions.length === 0 && tracks.length > 0 && digCount === 0 && (
         <p className="text-[12px] text-[var(--text-muted)] text-center mt-4">
           Clique sur "Dig" pour découvrir des tracks !
+        </p>
+      )}
+
+      {suggestions.length === 0 && tracks.length > 0 && digCount > 0 && (
+        <p className="text-[12px] text-[var(--text-muted)] text-center mt-4">
+          0 résultats trouvés pour ce mode. Essaie un autre mode.
         </p>
       )}
     </div>

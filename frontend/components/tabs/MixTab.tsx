@@ -159,6 +159,14 @@ export function MixTab({
           <div className="px-3 py-6 text-center">
             <p className="text-xs text-[var(--text-muted)]">Aucun morceau compatible</p>
             <p className="text-[10px] text-[var(--text-muted)] opacity-60 mt-1">
+              Aucun morceau ne correspond aux critères actuels:
+            </p>
+            <div className="mt-3 text-[9px] text-[var(--text-muted)] space-y-1">
+              <p>• Tonalité compatible (hors tolérance BPM)</p>
+              <p>• BPM dans ±{bpmTolerance}% ({((bpmTolerance / 100) * currentBpm).toFixed(0)} BPM)</p>
+              {showEnergyMatch && <p>• Énergie dans ±20%</p>}
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] opacity-60 mt-3">
               Essaie d'augmenter la tolérance BPM ou d'importer plus de morceaux
             </p>
           </div>

@@ -127,7 +127,13 @@ export function PlaylistsTab({
           <div className="flex flex-col items-center justify-center p-8 text-center rounded-lg border border-[var(--border-subtle)] border-dashed">
             <Music className="w-10 h-10 text-[var(--text-muted)] mb-3 opacity-40" />
             <p className="text-sm font-medium text-[var(--text-primary)] mb-1">Pas encore de playlists</p>
-            <p className="text-xs text-[var(--text-muted)]">Créez votre première playlist pour organiser vos morceaux</p>
+            <p className="text-xs text-[var(--text-muted)] mb-4">Créez votre première playlist pour organiser vos morceaux</p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+            >
+              Créer une playlist
+            </button>
           </div>
         ) : (
           playlists.map((playlist) => (
@@ -149,7 +155,7 @@ export function PlaylistsTab({
                     onChange={(e) => setEditingName(e.target.value)}
                     onKeyDown={handleRenameKeyDown}
                     onBlur={() => handleSaveRename(playlist.id)}
-                    className="w-full px-2 py-1 bg-[var(--bg-primary)] border border-blue-500 rounded text-[var(--text-primary)] text-sm focus:outline-none"
+                    className="w-full px-2 py-1 bg-[var(--bg-primary)] border border-blue-500 rounded text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
                   />

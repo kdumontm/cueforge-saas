@@ -64,8 +64,8 @@ export function OfflineIndicator() {
   // Success message when sync completes
   if (showSuccessMessage) {
     return (
-      <div className="fixed bottom-4 left-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg">
+      <div className="fixed bottom-4 left-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all duration-300 ease-in-out">
+        <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg transition-all duration-300 ease-in-out">
           <Check className="w-4 h-4 text-green-600" />
           <span className="text-sm font-medium text-green-700">
             Données synchronisées
@@ -77,8 +77,8 @@ export function OfflineIndicator() {
 
   // Offline indicator
   return (
-    <div className="fixed bottom-4 left-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg shadow-lg">
+    <div className="fixed bottom-4 left-4 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300 transition-all duration-300 ease-in-out">
+      <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg shadow-lg transition-all duration-300 ease-in-out">
         <WifiOff className="w-4 h-4 text-amber-600 animate-pulse" />
         <div className="flex-1">
           <p className="text-sm font-medium text-amber-700">Mode hors-ligne</p>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -109,7 +108,7 @@ export default function HarmonicWheel({ tracks = [], selectedKey, onSelectKey }:
       </div>
 
       <div className="flex justify-center">
-        <svg width={400} height={400} viewBox="0 0 400 400" className="max-w-full">
+        <svg width={400} height={400} viewBox="0 0 400 400" className="max-w-full" role="application" aria-label="Roue de Camelot interactive pour la sélection de tonalités">
           {/* Background circle */}
           <circle cx={cx} cy={cy} r={outerR + 5} fill="var(--bg-elevated)" stroke="var(--border-subtle)" strokeWidth={1} />
 

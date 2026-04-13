@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -50,7 +49,7 @@ export default function CompareTab({ trackA, allTracks, onSelectTrack }: Compare
   if (!trackA) {
     return (
       <div className="flex items-center justify-center h-32 text-[var(--text-muted)] text-sm">
-        Sélectionne un morceau pour comparer
+        Sélectionne 2+ morceaux pour les comparer
       </div>
     );
   }
@@ -78,7 +77,11 @@ export default function CompareTab({ trackA, allTracks, onSelectTrack }: Compare
 
       {/* Track selector */}
       <div className="px-3 py-2 border-b border-[var(--border-subtle)] flex-shrink-0">
+        <label htmlFor="compare-track-select" className="text-[10px] text-[var(--text-muted)] block mb-1">
+          Sélectionner un morceau à comparer
+        </label>
         <select
+          id="compare-track-select"
           value={trackBId || ''}
           onChange={(e) => setTrackBId(e.target.value ? parseInt(e.target.value) : null)}
           className="w-full px-2 py-1.5 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
