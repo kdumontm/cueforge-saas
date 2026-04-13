@@ -145,10 +145,14 @@ export default function AdminDashboard() {
     );
   }
 
-  const plans = stats.users.by_plan || {};
-  const verifyPct = stats.users.total > 0
-    ? Math.round((stats.users.verified / stats.users.total) * 100)
+  const users = stats.users || { total: 0, verified: 0, admins: 0, by_plan: {} };
+  const plans = users.by_plan || {};
+  const verifyPct = users.total > 0
+    ? Math.round((users.verified / users.total) * 100)
     : 0;
+  const pages = stats.pages || { total: 0, published: 0 };
+  const organizations = stats.organizations || 0;
+  const media = stats.media || 0;
 
   return (
     <PageWrapper>
@@ -164,12 +168,12 @@ export default function AdminDashboard() {
 
       {/* ── Stats overview bar ───────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
-        <MiniStat icon={Users} label="Utilisateurs" value={stats.users.total} color="#3b82f6" />
-        <MiniStat icon={CheckCircle2} label="Vérifiés" value={stats.users.verified} color="#10b981" sub={`${verifyPct}%`} />
-        <MiniStat icon={Shield} label="Admins" value={stats.users.admins} color="#f59e0b" />
-        <MiniStat icon={Building2} label="Organisations" value={stats.organizations} color="#8b5cf6" />
-        <MiniStat icon={FileText} label="Pages publiées" value={`${stats.pages.published}/${stats.pages.total}`} color="#06b6d4" />
-        <MiniStat icon={Image} label="Médias" value={stats.media} color="#ec4899" />
+        <MiniStat icon={Users} label="Utilisateurs" value={users.total} color="#3b82f6" />
+        <MiniStat icon={CheckCircle2} label="Vérifiés" value={users.verified} color="#10b981" sub={`${verifyPct}%`} />
+        <MiniStat icon={Shield} label="Admins" value={users.admins} color="#f59e0b" />
+        <MiniStat icon={Building2} label="Organisations" value={organizations} color="#8b5cf6" />
+        <MiniStat icon={FileText} label="Pages publiées" value={`${pages.published}/${pages.total}`} color="#06b6d4" />
+        <MiniStat icon={Image} label="Médias" value={media} color="#ec4899" />
       </div>
 
       {/* ── Section navigation ───────────────────────── */}
@@ -190,7 +194,7 @@ export default function AdminDashboard() {
               description="Créer, éditer et publier vos pages de contenu"
               href="/admin/pages"
               color="#06b6d4"
-              stat={stats.pages.total}
+              stat={pages.total}
               statLabel="pages créées"
             />
             <SectionCard
@@ -206,7 +210,7 @@ export default function AdminDashboard() {
               description="Gérer vos images, fichiers et ressources"
               href="/admin/media"
               color="#ec4899"
-              stat={stats.media}
+              stat={media}
               statLabel="fichiers"
             />
           </div>
@@ -251,7 +255,7 @@ export default function AdminDashboard() {
               description="Gérer les comptes, rôles et permissions"
               href="/admin/users"
               color="#3b82f6"
-              stat={stats.users.total}
+              stat={users.total}
               statLabel="comptes"
             />
             <SectionCard
