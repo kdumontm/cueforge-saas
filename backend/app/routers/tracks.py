@@ -750,6 +750,54 @@ def _run_batch_analysis(track_ids: List[int], user_id: int):
     )
 
 
+@router.post("/analyze-batch")
+async def analyze_batch(
+    track_ids: List[int] = Query(...),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Point 7: Analyze multiple tracks in batch (up to 20 per request).
+    Processes tracks in parallel using ThreadPoolExecutor.
+    Returns immediately with status "queued".
+    """
+    if len(track_ids) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 tracks per batch")
+
+    if len(track_ids) == 0:
+        raise HTTPException(status_code=400, detail="At least 1 track required")
+
+    # Verify all tracks belong to current user
+    tracks = db.query(Track).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == current_user.id,
+    ).all()
+
+    if len(tracks) != len(track_ids):
+        raise HTTPException(status_code=404, detail="Some tracks not found or not owned by user")
+
+    # Check if a batch is already running
+    existing = _batch_jobs.get(current_user.id)
+    if existing and existing.get("running"):
+        return {
+            "status": "already_running",
+            "message": f"Analysis in progress: {existing['completed']}/{existing['total']}",
+            "total": existing["total"],
+            "completed": existing["completed"],
+        }
+
+    if background_tasks:
+        background_tasks.add_task(_run_batch_analysis, track_ids, current_user.id)
+
+    return {
+        "status": "queued",
+        "count": len(track_ids),
+        "track_ids": track_ids,
+        "message": f"Batch analysis queued for {len(track_ids)} tracks"
+    }
+
+
 @router.post("/reanalyze-all")
 async def reanalyze_all_tracks(
     background_tasks: BackgroundTasks,

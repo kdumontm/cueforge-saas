@@ -224,6 +224,21 @@ async def lifespan(app: FastAPI):
     # Start queue listener for async logging
     queue_listener.start()
 
+    # 0. Configure hardware (CPU threads, GPU detection)
+    try:
+        from app.services.hardware_config import configure_all
+        hw_info = configure_all()
+        logger.info(f"Hardware configured: {hw_info}")
+    except Exception as exc:
+        logger.warning(f"Hardware configuration failed (non-blocking): {exc}")
+
+    # 0b. Warm up Numba JIT for DSP hot paths
+    try:
+        from app.services.dsp_optimized import warm_up_jit
+        warm_up_jit()
+    except Exception as exc:
+        logger.warning(f"Numba JIT warmup failed (non-blocking): {exc}")
+
     # 1. Créer les tables manquantes — non bloquant si ça échoue
     try:
         Base.metadata.create_all(bind=engine)
@@ -273,6 +288,16 @@ async def lifespan(app: FastAPI):
         # Cache les plan features pour éviter le cold start
     except Exception as e:
         logger.warning(f"Cache pre-warm failed: {e}")
+
+    # 8. Points 94, 408: Disk-based feature cache cleanup at startup
+    try:
+        from app.services.feature_cache import cleanup_old_cache, get_cache_stats
+        logger.info("Running feature cache cleanup...")
+        cleanup_old_cache()
+        stats = get_cache_stats()
+        logger.info(f"Feature cache stats: {stats['entries']} entries, {stats['size_mb']:.1f} MB")
+    except Exception as e:
+        logger.warning(f"Feature cache cleanup failed (non-blocking): {e}")
 
     logger.info("✅ CueForge backend démarré.")
     yield

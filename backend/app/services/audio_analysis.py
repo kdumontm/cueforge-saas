@@ -36,6 +36,14 @@ from sqlalchemy.orm import Session
 
 from app.models import Track, TrackAnalysis
 from app.database import SessionLocal
+from app.services.feature_cache import (
+    save_feature,
+    load_feature,
+    save_analysis_checkpoint,
+    load_analysis_checkpoint,
+    clear_checkpoint,
+)
+from app.services.dsp_optimized import compute_grid_error_jit
 
 logger = logging.getLogger(__name__)
 
@@ -537,6 +545,79 @@ def analyze_loudness(y: np.ndarray, sr: int) -> Dict:
 # ══════════════════════════════════════════════════════════════════════════
 #   VARIABLE BPM DETECTION
 # ══════════════════════════════════════════════════════════════════════════
+
+
+def _process_audio_chunked(y: np.ndarray, sr: int, chunk_duration: float = 30.0, overlap: float = 5.0) -> List[Tuple[int, np.ndarray]]:
+    """
+    Point 11: Process audio in overlapping chunks for better cache utilization.
+    Useful for feature extraction on very long tracks (>30 min).
+
+    Args:
+        y: Audio signal (float32)
+        sr: Sample rate
+        chunk_duration: Duration of each chunk in seconds (default 30s)
+        overlap: Overlap between chunks in seconds (default 5s)
+
+    Returns:
+        List of (start_sample, chunk) tuples
+    """
+    chunk_samples = int(chunk_duration * sr)
+    overlap_samples = int(overlap * sr)
+    step = chunk_samples - overlap_samples
+
+    chunks = []
+    for start in range(0, len(y), step):
+        end = min(start + chunk_samples, len(y))
+        chunks.append((start, y[start:end]))
+        if end >= len(y):
+            break
+
+    logger.debug(f"[CHUNKED] Split {len(y) / sr:.1f}s audio into {len(chunks)} chunks")
+    return chunks
+
+
+def analyze_tracks_batch(file_paths: List[str], sr: int = 22050, max_workers: int = 2) -> Dict[str, Dict]:
+    """
+    Point 7: Analyze multiple tracks in batch for better throughput.
+    Uses ThreadPoolExecutor to parallelize analysis across multiple CPU cores.
+
+    Args:
+        file_paths: List of audio file paths
+        sr: Sample rate for librosa.load
+        max_workers: Max parallel analysis threads (2 recommended to avoid memory issues)
+
+    Returns:
+        Dict mapping file_path → {status: 'success'|'error', data|error: ...}
+    """
+    results = {}
+
+    logger.info(f"[BATCH_ANALYSIS] Starting: {len(file_paths)} tracks, {max_workers} workers")
+    t0 = time.perf_counter()
+
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(analyze_audio, path): path
+                for path in file_paths
+            }
+
+            for future in as_completed(futures):
+                path = futures[future]
+                try:
+                    result = future.result(timeout=300)  # 5 min max per track
+                    results[path] = {'status': 'success', 'data': result}
+                    logger.info(f"[BATCH_ANALYSIS] {path}: success")
+                except Exception as e:
+                    logger.error(f"[BATCH_ANALYSIS] {path}: {e}")
+                    results[path] = {'status': 'error', 'error': str(e)}
+
+    except Exception as e:
+        logger.error(f"[BATCH_ANALYSIS] Executor error: {e}")
+
+    elapsed = time.perf_counter() - t0
+    success_count = sum(1 for r in results.values() if r['status'] == 'success')
+    logger.info(f"[BATCH_ANALYSIS] Complete: {success_count}/{len(file_paths)} in {elapsed:.1f}s")
+    return results
 
 def detect_variable_bpm(beats: List[float], bpm: float) -> Dict:
     """
@@ -1044,6 +1125,81 @@ def _validate_grid_vs_raw(grid_beats: List[float], raw_beats: List[float]) -> fl
     return float(np.median(errors))
 
 
+def _detect_bpm_parallel(file_path: str) -> Optional[Dict]:
+    """
+    Point 55: Run BPM detection methods in parallel (beat_this + madmom).
+    Takes the first method that succeeds with good confidence.
+    Parallel execution significantly reduces total analysis time.
+
+    Strategy:
+    - Launch both beat_this and madmom in parallel via ThreadPoolExecutor
+    - Return beat_this immediately if it succeeds (CPJKU is best quality)
+    - Fall back to madmom if beat_this fails
+    - Timeout: 30s total, 25s per method
+    """
+    results = {}
+    t0_parallel = time.perf_counter()
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {}
+
+            # Launch both methods in parallel
+            try:
+                futures[executor.submit(_detect_bpm_beat_this, file_path)] = 'beat_this'
+            except Exception:
+                pass
+
+            try:
+                futures[executor.submit(_detect_bpm_madmom, file_path)] = 'madmom'
+            except Exception:
+                pass
+
+            if not futures:
+                return None
+
+            # Process results as they complete (first-wins strategy)
+            for future in as_completed(futures, timeout=30):
+                method = futures[future]
+                try:
+                    result = future.result(timeout=25)
+                    if result and result.get('beats') and len(result['beats']) >= 8:
+                        results[method] = result
+                        elapsed_ms = (time.perf_counter() - t0_parallel) * 1000
+                        logger.info(f"[PARALLEL_BPM] {method} succeeded first ({elapsed_ms:.0f}ms total)")
+
+                        # If beat_this succeeds, cancel remaining and return immediately
+                        if method == 'beat_this':
+                            for f in futures:
+                                f.cancel()
+                            return results[method]
+                except Exception as e:
+                    logger.debug(f"[PARALLEL_BPM] {method} failed: {e}")
+
+        # Priority: beat_this > madmom
+        if 'beat_this' in results:
+            elapsed_ms = (time.perf_counter() - t0_parallel) * 1000
+            logger.info(f"[PARALLEL_BPM] Using beat_this result ({elapsed_ms:.0f}ms total)")
+            return results['beat_this']
+        elif 'madmom' in results:
+            elapsed_ms = (time.perf_counter() - t0_parallel) * 1000
+            logger.info(f"[PARALLEL_BPM] Using madmom result ({elapsed_ms:.0f}ms total)")
+            return results['madmom']
+
+        elapsed_ms = (time.perf_counter() - t0_parallel) * 1000
+        logger.warning(f"[PARALLEL_BPM] No method succeeded ({elapsed_ms:.0f}ms total)")
+        return None
+
+    except Exception as e:
+        elapsed_ms = (time.perf_counter() - t0_parallel) * 1000
+        logger.warning(f"[PARALLEL_BPM] Parallel execution failed ({elapsed_ms:.0f}ms): {e}, falling back to sequential")
+        # Fallback to sequential
+        result = _detect_bpm_beat_this(file_path)
+        if not result:
+            result = _detect_bpm_madmom(file_path)
+        return result
+
+
 def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -> Dict:
     """
     Detect BPM and beat positions — v5.5 precision DJ grid.
@@ -1064,7 +1220,10 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
     - IBI outlier filtering (Points 17-18)
     - BPM snapping to common DJ values (Point 27)
     - Octave error detection (Point 20)
+    - Parallel BPM methods (Point 55)
+    - Timing/confidence logging
     """
+    t0_bpm_total = time.perf_counter()
     try:
         # ── Float32 conversion (Point 13-14, 61) ──
         y = y.astype(np.float32)
@@ -1078,11 +1237,9 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
         # For BPM detection, we only need the first 60 seconds (sufficient for 99% of tracks)
         bpm_analysis_samples = min(len(y), int(60 * sr))
         y_bpm = y[:bpm_analysis_samples]
-        # ── Try beat_this first (CPJKU PyTorch — state of the art) ──
+        # ── Try beat_this and madmom in parallel (Point 55) ──
         if file_path:
-            dl_result = _detect_bpm_beat_this(file_path)
-            if not dl_result:
-                dl_result = _detect_bpm_madmom(file_path)
+            dl_result = _detect_bpm_parallel(file_path)
             if dl_result:
                 raw_beats = dl_result["beats"]
                 source = dl_result["source"]
@@ -1125,29 +1282,19 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 #   3. Pour le meilleur BPM, optimiser le premier beat
                 #   4. Seuil 20ms (couvre 99% des tracks électroniques)
 
-                raw_arr = np.array(raw_beats[:min(200, len(raw_beats))])
-
-                def _grid_error_fast(test_bpm: float, first: float) -> float:
-                    """Erreur médiane sans construire la grille — O(n)."""
-                    ibi = 60.0 / test_bpm
-                    # Pour chaque raw beat, le grid beat le plus proche est:
-                    #   first + round((raw - first) / ibi) * ibi
-                    offsets = (raw_arr - first) / ibi
-                    nearest_idx = np.round(offsets)
-                    errors_ms = np.abs((offsets - nearest_idx) * ibi * 1000)
-                    return float(np.median(errors_ms))
+                raw_arr = np.array(raw_beats[:min(200, len(raw_beats))], dtype=np.float64)
 
                 # Raffiner le premier beat via onset detection
                 refined_first = _refine_first_beat(y, sr, raw_beats[0], bpm)
 
-                # ── Phase 1: Micro-search BPM optimal ──
+                # ── Phase 1: Micro-search BPM optimal (JIT-compiled, Points 67-70) ──
                 best_bpm = bpm
-                best_error = _grid_error_fast(bpm, refined_first)
+                best_error = compute_grid_error_jit(raw_arr, bpm, refined_first)
                 for delta in range(-30, 31):  # ±0.30 BPM
                     candidate = bpm + delta / 100.0
                     if candidate <= 0:
                         continue
-                    err = _grid_error_fast(candidate, refined_first)
+                    err = compute_grid_error_jit(raw_arr, candidate, refined_first)
                     if err < best_error:
                         best_error = err
                         best_bpm = candidate
@@ -1158,7 +1305,7 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                     candidate_first = refined_first + delta_ms / 1000.0
                     if candidate_first < 0:
                         continue
-                    err = _grid_error_fast(best_bpm, candidate_first)
+                    err = compute_grid_error_jit(raw_arr, best_bpm, candidate_first)
                     if err < best_error:
                         best_error = err
                         best_first = candidate_first
@@ -1168,7 +1315,7 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                     candidate = best_bpm + delta / 100.0
                     if candidate <= 0:
                         continue
-                    err = _grid_error_fast(candidate, best_first)
+                    err = compute_grid_error_jit(raw_arr, candidate, best_first)
                     if err < best_error:
                         best_error = err
                         best_bpm = candidate
@@ -1227,7 +1374,9 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 if offset > 0 and offset < len(beats):
                     beats = beats[offset:]
                     beats_frames = beats_frames[offset:]
-                logger.info(f"[BPM] Using {source}: {bpm} BPM, {len(beats)} beats, grid_error={best_error:.1f}ms")
+                elapsed_ms = (time.perf_counter() - t0_bpm_total) * 1000
+                logger.info(f"[BPM] Detection: {bpm:.2f} BPM via {source} in {elapsed_ms:.0f}ms "
+                            f"({len(beats)} beats, grid_error={best_error:.1f}ms, confidence={bpm_confidence:.2f})")
                 return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames, "source": source}
 
         # ── Fallback: librosa (if beat_this/madmom unavailable) ──
@@ -1323,9 +1472,10 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
             beats = beats[offset:]
             beats_frames = beats_frames[offset:] if isinstance(beats_frames, list) else beats_frames
 
+        elapsed_ms = (time.perf_counter() - t0_bpm_total) * 1000
         logger.info(
-            f"[BPM] Final: {bpm} BPM (Ellis raw={bpm_ellis:.1f}, onset={bpm_onset:.1f}, "
-            f"folded={bpm_raw:.1f}, downbeat_offset={offset})"
+            f"[BPM] Detection: {bpm:.2f} BPM via librosa in {elapsed_ms:.0f}ms "
+            f"({len(beats)} beats, Ellis={bpm_ellis:.1f}, onset={bpm_onset:.1f}, downbeat_offset={offset})"
         )
 
         return {"bpm": bpm, "beats": beats, "beat_frames": beats_frames if isinstance(beats_frames, list) else beats_frames.tolist()}
@@ -2325,7 +2475,17 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     - Silence trimming (Point 100)
     - Mono conversion early (Point 13-14)
     - Pre-computed onset strength (Point 16)
+
+    Points 94, 408, 511-519: Disk-based feature caching and analysis resume
+    - Load checkpoint to resume from previous incomplete analysis
+    - Cache expensive features (STFT, beats, etc.) to disk
+    - Save checkpoints after each major analysis step
     """
+    # Try to resume from checkpoint (Points 511-519)
+    checkpoint = load_analysis_checkpoint(file_path)
+    completed_steps = checkpoint.get('_completed_steps', []) if checkpoint else []
+    logger.info(f"[CACHE] Checkpoint status: {len(completed_steps)} completed steps")
+
     y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION, mono=True)
 
     # ── Float32 conversion + silence trimming (Points 13-14, 100) ──
@@ -2348,8 +2508,15 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # ── Pre-compute onset strength ONCE (Point 16) ──
     # Used by BPM, drops, danceability, genre detection
     # Avoid recomputing this expensive operation 4+ times
+    # Points 94, 408: Cache onset strength for reuse
     t0_onset = time.perf_counter()
-    precomputed_onset_env = librosa.onset.onset_strength(y=y, sr=sr_loaded, hop_length=HOP_LENGTH)
+    cached_onset = load_feature(file_path, 'onset_strength')
+    if cached_onset is not None:
+        precomputed_onset_env = cached_onset
+        logger.info("[CACHE] Using cached onset strength")
+    else:
+        precomputed_onset_env = librosa.onset.onset_strength(y=y, sr=sr_loaded, hop_length=HOP_LENGTH)
+        save_feature(file_path, 'onset_strength', precomputed_onset_env)
     logger.info(f"[ONSET] Pre-computed in {(time.perf_counter()-t0_onset)*1000:.0f}ms")
 
     # BPM and beats — v5.4 madmom + librosa fallback
@@ -2371,6 +2538,17 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         good_ratio = float(np.mean(ibi_errors < 0.05))
         bpm_confidence = round(min(1.0, good_ratio * 0.8 + 0.2), 2)
 
+    # ── Point 408, 511-519: Cache BPM/beats and save checkpoint ──
+    save_feature(file_path, 'beats', np.array(beats))
+    save_analysis_checkpoint(file_path, {
+        'bpm': bpm,
+        'bpm_confidence': bpm_confidence,
+        'beats': beats,
+        'beat_frames': beat_frames,
+        'beat_positions': beat_positions,
+        '_completed_steps': completed_steps + ['bpm'],
+    })
+
     # ── Memory cleanup after BPM detection (Point 87) ──
     gc.collect()
 
@@ -2379,8 +2557,17 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 
     # ── v6.1: Compute STFT and RMS ONCE, reuse everywhere ──────────
     # These are the most expensive operations and were computed 3-4 times before.
-    shared_S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
+    # Points 94, 408: Cache STFT and RMS for reuse in future analyses
+    cached_stft = load_feature(file_path, 'stft')
+    if cached_stft is not None:
+        shared_S = cached_stft
+        logger.info("[CACHE] Using cached STFT")
+    else:
+        shared_S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
+        save_feature(file_path, 'stft', shared_S)
+
     shared_rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
+    save_feature(file_path, 'rms', shared_rms)
 
     # Energy
     try:
@@ -2611,5 +2798,9 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
+
+    # Point 511-519: Clear checkpoint after successful analysis completion
+    clear_checkpoint(file_path)
+    logger.info("[CACHE] Analysis complete, checkpoint cleared")
 
     return result

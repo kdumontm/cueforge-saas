@@ -158,14 +158,21 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     Extracted so it can be called with a timeout wrapper.
 
     Uses model caching singleton (point 256) and FP16 inference (point 262)
-    for memory optimization.
+    for memory optimization. GPU-accelerated when available (points 91-92).
     """
     import torch
     import torchaudio
     from demucs.apply import apply_model
+    from app.services.hardware_config import detect_hardware
 
     # Use singleton model instead of reloading (point 256)
     model = _get_demucs_model()
+
+    # Detect optimal device (GPU or CPU)
+    hw = detect_hardware()
+    device = 'cuda' if hw['cuda_available'] else 'cpu'
+    model = model.to(device)
+    logger.info(f"[STEM] Running Demucs on device: {device}")
 
     wav, sr_orig = torchaudio.load(file_path)
 
@@ -195,7 +202,7 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
             # Try FP16 for reduced RAM usage
             logger.info("[STEM] Attempting FP16 inference for memory savings...")
             sources = apply_model(
-                model, wav.half(), device="cpu",
+                model, wav.half().to(device), device=device,
                 progress=False,
                 split=True,
                 segment=30,
@@ -206,7 +213,7 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
         except Exception as e:
             logger.warning(f"[STEM] FP16 failed ({e}), falling back to FP32")
             sources = apply_model(
-                model, wav, device="cpu",
+                model, wav.to(device), device=device,
                 progress=False,
                 split=True,
                 segment=30,
