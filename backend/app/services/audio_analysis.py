@@ -7628,30 +7628,58 @@ def dynamic_range_measurement(y: np.ndarray, sr: int) -> Dict[str, any]:
 def clipping_detection(y: np.ndarray, sr: int, threshold: float = 0.99) -> Dict[str, any]:
     """
     Point 2: Detect audio saturation/clipping.
-
-    Identifies samples at or near full-scale amplitude.
+    v6.4: Fixed — checks against absolute 0dBFS, not normalized peak.
+    Also detects consecutive clipped samples (sustained clipping is worse
+    than isolated peaks) and reports clipping severity.
     """
     try:
         if len(y) == 0:
-            return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0}
+            return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0,
+                    "clipping_severity": "none", "max_consecutive_clipped": 0}
 
-        # Normalize to -1..1 range
-        y_norm = y / (np.max(np.abs(y)) + 1e-8)
-
-        # Count samples above threshold
-        clipping_mask = np.abs(y_norm) >= threshold
-        clipping_samples = np.sum(clipping_mask)
+        # Check against absolute 0dBFS (±1.0 for float audio)
+        abs_y = np.abs(y)
+        clipping_mask = abs_y >= threshold
+        clipping_samples = int(np.sum(clipping_mask))
         clipping_ratio = float(clipping_samples) / len(y)
 
-        has_clipping = clipping_ratio > 0.001  # More than 0.1% is suspicious
+        # Detect consecutive clipped samples (sustained clipping)
+        max_consecutive = 0
+        if clipping_samples > 0:
+            # Find runs of clipped samples
+            changes = np.diff(clipping_mask.astype(int))
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0]
+            if clipping_mask[0]:
+                starts = np.concatenate([[0], starts])
+            if clipping_mask[-1]:
+                ends = np.concatenate([ends, [len(clipping_mask) - 1]])
+            if len(starts) > 0 and len(ends) > 0:
+                runs = ends[:len(starts)] - starts[:len(ends)]
+                max_consecutive = int(np.max(runs)) if len(runs) > 0 else 0
+
+        # Severity classification for DJs
+        if clipping_ratio > 0.01:  # >1% samples clipped
+            severity = "severe"
+        elif clipping_ratio > 0.001:  # >0.1%
+            severity = "moderate"
+        elif clipping_samples > 0:
+            severity = "mild"
+        else:
+            severity = "none"
+
+        has_clipping = clipping_ratio > 0.0005  # >0.05% is suspicious
 
         return {
             "has_clipping": bool(has_clipping),
-            "clipping_ratio": float(clipping_ratio),
-            "clipping_samples": int(clipping_samples),
+            "clipping_ratio": round(float(clipping_ratio), 6),
+            "clipping_samples": clipping_samples,
+            "clipping_severity": severity,
+            "max_consecutive_clipped": max_consecutive,
         }
     except Exception:
-        return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0}
+        return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0,
+                "clipping_severity": "none", "max_consecutive_clipped": 0}
 
 
 def noise_floor_estimation(y: np.ndarray, sr: int, frame_length: int = 2048) -> Dict[str, any]:
