@@ -12,9 +12,15 @@ export default function ClientProviders({ children }: { children: React.ReactNod
   const queryClient = getQueryClient();
 
   // Enregistre le Service Worker pour le cache offline (utile surtout en desktop)
+  // Utilise requestIdleCallback pour ne pas bloquer le rendu initial
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      const register = () => navigator.serviceWorker.register('/sw.js').catch(() => {});
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(register);
+      } else {
+        setTimeout(register, 2000);
+      }
     }
   }, []);
 

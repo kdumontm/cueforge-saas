@@ -132,11 +132,31 @@ function TopBar({ title, subtitle }: TopBarProps) {
     }
   };
 
-  // Fetch unread count on mount and every 30 seconds
+  // Fetch unread count on mount and every 60 seconds (respects tab visibility)
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    let interval: NodeJS.Timeout;
+
+    const startPolling = () => {
+      interval = setInterval(fetchUnreadCount, 60000); // 60s instead of 30s
+    };
+    const stopPolling = () => clearInterval(interval);
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchUnreadCount();
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Fetch notifications when dropdown opens

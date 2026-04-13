@@ -10,6 +10,9 @@ const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://cuefor
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  reactStrictMode: true,
+  swcMinify: true,
+  productionBrowserSourceMaps: false,
   env: {
     // Chemin relatif : les appels API passent par le proxy Next.js (rewrites)
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api/v1',
@@ -59,12 +62,33 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
+      {
+        source: '/images/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
     ];
   },
   experimental: {
     workerThreads: true,
+    scrollRestoration: true,
     // Optimise le tree-shaking des packages les plus lourds
     optimizePackageImports: ['lucide-react', 'wavesurfer.js', 'swr', '@tanstack/react-query', '@tanstack/react-virtual'],
+  },
+  // Tree-shaking pour lucide-react
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{ kebabCase member }}',
+    },
   },
   // ⚡ Power-header pour les réponses de page
   poweredByHeader: false,
