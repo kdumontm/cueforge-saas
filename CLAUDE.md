@@ -97,3 +97,57 @@ L'app desktop charge le web directement, donc toute modif web est automatiquemen
 - Si on ajoute une feature desktop-only : utiliser `isDesktopApp()` dans `frontend/`
 - Si on modifie auth/API : le desktop utilise le même backend, rien à adapter
 - Si on modifie la page de téléchargement : mettre à jour `downloads.py` + `DownloadPage.tsx`
+
+## Architecture backend (refactorée avril 2026)
+
+### Config centralisée — `backend/app/config.py`
+Toutes les variables d'env passent par `pydantic_settings.BaseSettings` :
+```python
+from app.config import get_settings
+settings = get_settings()  # singleton caché, validé au démarrage
+```
+**JAMAIS** utiliser `os.getenv()` directement dans un nouveau fichier — toujours `get_settings()`.
+Si une variable manque dans `Settings`, l'ajouter dans `config.py` d'abord.
+
+### Routers admin — package modulaire
+`backend/app/routers/admin/` est un package (pas un fichier monolithique) :
+- `schemas.py` — tous les Pydantic schemas admin
+- `serializers.py` — fonctions de sérialisation partagées
+- `settings.py` — GET/PUT /admin/settings
+- `pages.py` — CRUD pages CMS
+- `sections.py` — CRUD sections
+- `components.py` — CRUD components
+- `media.py` — upload/CRUD médias
+- `features.py` — CRUD features + plan-features + locks
+- `users.py` — gestion utilisateurs admin
+- `dashboard.py` — stats admin
+- `public.py` — routes publiques (site settings, pages, features) → exporte `public_router`
+
+Montage dans `main.py` via `_safe_mount()` avec un import par module (isolation des crashs).
+
+### Services extraits des routers
+La logique métier est dans `backend/app/services/`, pas dans les routers :
+- `oauth_service.py` — échange tokens Google/Spotify, login/register OAuth
+- `billing_service.py` — PLANS dict, handle_checkout/subscription/payment
+- `auth_service.py` — JWT, bcrypt, refresh tokens (utilise `get_settings()`)
+- `email_service.py` — SMTP (utilise `get_settings()`)
+- `stripe_service.py` — checkout, portal, webhooks (utilise `get_settings()`)
+- `metadata_service.py` — AcoustID, MusicBrainz, Spotify, Discogs, Last.fm (utilise `get_settings()`)
+
+**Règle** : les routers font la validation HTTP (status codes, Depends) et appellent les services.
+Les services lèvent `ValueError` (pas `HTTPException`) — le router convertit.
+
+### Frontend dashboard — hooks modulaires
+`frontend/app/dashboard/hooks/` est découpé en modules :
+- `useDashboard.ts` — hook principal (~1737 lignes), orchestre tout
+- `utils.ts` — fonctions pures : `toCamelot`, `mixScore`, `computeRGBWaveform`, etc.
+- `translations.ts` — objet `TR` bilingue FR/EN
+- `constants.ts` — `WAVEFORM_THEMES`, `REKORDBOX_COLORS`, `CUE_TYPE_COLORS`, `CONTEXT_ACTIONS`
+
+`DashboardClient.tsx` importe uniquement depuis `useDashboard.ts` (interface stable).
+
+### Pièges connus (à éviter)
+1. **CueTemplate** : défini UNIQUEMENT dans `models/cue_template.py`. Ne PAS recréer dans `track.py`.
+2. **`_safe_mount` dans main.py** : chaque router est importé dynamiquement — si un module crashe, les autres restent actifs. Ne pas remplacer par des imports statiques.
+3. **RequestTimingMiddleware** : défini tard dans `main.py` (~ligne 1113). Son `add_middleware()` doit être APRÈS la définition de la classe, pas avec les autres middlewares du début.
+4. **`Any` dans typing** : toujours l'inclure dans `from typing import` si le fichier utilise `Dict[str, Any]` ou des annotations `-> Any`.
