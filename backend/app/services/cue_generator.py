@@ -178,6 +178,62 @@ GENRE_PROFILES = {
         "energy_weight": 0.4,
         "structure_weight": 0.6,
     },
+    "reggaeton": {
+        "min_drop_contrast": 0.10,
+        "min_build_gradient": 0.08,
+        "gap_bars": 4,
+        "snap_tolerance_bars": 2.0,
+        "energy_weight": 0.5,
+        "structure_weight": 0.5,
+    },
+    "afrobeats": {
+        "min_drop_contrast": 0.12,
+        "min_build_gradient": 0.10,
+        "gap_bars": 4,
+        "snap_tolerance_bars": 1.8,
+        "energy_weight": 0.55,
+        "structure_weight": 0.45,
+    },
+    "melodic_techno": {
+        "min_drop_contrast": 0.14,
+        "min_build_gradient": 0.12,
+        "gap_bars": 8,
+        "snap_tolerance_bars": 1.5,
+        "energy_weight": 0.65,
+        "structure_weight": 0.35,
+    },
+    "deep_house": {
+        "min_drop_contrast": 0.13,
+        "min_build_gradient": 0.11,
+        "gap_bars": 8,
+        "snap_tolerance_bars": 1.5,
+        "energy_weight": 0.6,
+        "structure_weight": 0.4,
+    },
+    "progressive_house": {
+        "min_drop_contrast": 0.16,
+        "min_build_gradient": 0.14,
+        "gap_bars": 8,
+        "snap_tolerance_bars": 1.5,
+        "energy_weight": 0.65,
+        "structure_weight": 0.35,
+    },
+    "hard_techno": {
+        "min_drop_contrast": 0.14,
+        "min_build_gradient": 0.12,
+        "gap_bars": 4,
+        "snap_tolerance_bars": 1.2,
+        "energy_weight": 0.75,
+        "structure_weight": 0.25,
+    },
+    "minimal": {
+        "min_drop_contrast": 0.11,
+        "min_build_gradient": 0.09,
+        "gap_bars": 8,
+        "snap_tolerance_bars": 1.5,
+        "energy_weight": 0.5,
+        "structure_weight": 0.5,
+    },
     "default": {
         "min_drop_contrast": 0.15,
         "min_build_gradient": 0.12,
@@ -199,6 +255,20 @@ def _get_genre_profile(genre: Optional[str]) -> Dict:
         if key in g:
             return GENRE_PROFILES[key]
     # Broader matching
+    if any(x in g for x in ["reggaeton", "latin", "dembow"]):
+        return GENRE_PROFILES["reggaeton"]
+    if any(x in g for x in ["afro", "afrobeats", "amapiano"]):
+        return GENRE_PROFILES["afrobeats"]
+    if any(x in g for x in ["melodic_techno", "melodic_house"]):
+        return GENRE_PROFILES["melodic_techno"]
+    if any(x in g for x in ["deep_house", "soulful"]):
+        return GENRE_PROFILES["deep_house"]
+    if any(x in g for x in ["progressive", "prog"]):
+        return GENRE_PROFILES["progressive_house"]
+    if any(x in g for x in ["hard_techno", "industrial", "peak_time"]):
+        return GENRE_PROFILES["hard_techno"]
+    if any(x in g for x in ["minimal", "micro"]):
+        return GENRE_PROFILES["minimal"]
     if any(x in g for x in ["edm", "electronic", "electro", "dance"]):
         return GENRE_PROFILES["house"]
     if any(x in g for x in ["dubstep", "bass", "trap"]):
@@ -220,7 +290,7 @@ CUE_TEMPLATES = {
         'min_drop_contrast': 0.12
     },
     'house': {
-        'priority': ['intro', 'verse', 'build', 'chorus', 'breakdown', 'chorus2', 'outro'],
+        'priority': ['intro', 'build', 'drop', 'breakdown', 'drop2', 'outro'],
         'min_drop_contrast': 0.15
     },
     'trance': {
@@ -234,6 +304,34 @@ CUE_TEMPLATES = {
     'hip_hop': {
         'priority': ['intro', 'verse', 'chorus', 'verse2', 'chorus2', 'bridge', 'outro'],
         'min_drop_contrast': 0.10
+    },
+    'reggaeton': {
+        'priority': ['intro', 'verse', 'chorus', 'breakdown', 'chorus2', 'outro'],
+        'min_drop_contrast': 0.10
+    },
+    'afrobeats': {
+        'priority': ['intro', 'verse', 'chorus', 'bridge', 'chorus2', 'outro'],
+        'min_drop_contrast': 0.12
+    },
+    'melodic_techno': {
+        'priority': ['intro', 'build', 'drop', 'breakdown', 'build2', 'outro'],
+        'min_drop_contrast': 0.14
+    },
+    'deep_house': {
+        'priority': ['intro', 'build', 'drop', 'breakdown', 'chorus', 'outro'],
+        'min_drop_contrast': 0.13
+    },
+    'progressive_house': {
+        'priority': ['intro', 'build', 'drop', 'breakdown', 'build2', 'drop2', 'outro'],
+        'min_drop_contrast': 0.16
+    },
+    'hard_techno': {
+        'priority': ['intro', 'build', 'drop', 'drop2', 'outro'],
+        'min_drop_contrast': 0.14
+    },
+    'minimal': {
+        'priority': ['intro', 'build', 'drop', 'breakdown', 'outro'],
+        'min_drop_contrast': 0.11
     },
 }
 
@@ -500,17 +598,107 @@ def _classify_drop_type(contrast: float) -> str:
         return "Subtle Drop"
 
 
-def _generate_cue_name(cue_type: str, bar_number: int = None, energy: float = None, bpm: float = None) -> str:
-    """Generate intelligent cue names with context.
+def _format_bar_position(position_ms: int, bpm: float) -> str:
+    """Convert position in ms to bar number string for display."""
+    if bpm <= 0:
+        return ""
+    bar_ms = (60000 / max(bpm, 60)) * 4
+    bar_num = int(position_ms / bar_ms) + 1
+    return f"@Bar {bar_num}"
 
-    Optimization #6 — Intelligent cue naming (points 171-173)
+
+def _format_time_position(position_ms: int) -> str:
+    """Format position as M:SS."""
+    seconds = position_ms / 1000
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def _generate_cue_name(cue_type: str, position_ms: int = 0, bpm: float = 128,
+                       duration_ms: int = None, energy: float = None,
+                       beats: List[int] = None, section_context: Dict = None) -> str:
+    """Generate intelligent cue names with professional DJ context.
+
+    This generates pro DJ names like:
+    - "Drop @Bar 64" instead of just "DROP"
+    - "Build → Drop" instead of just "BUILD"
+    - "Breakdown (Low Energy)" instead of just "BREAKDOWN"
+    - "Intro (16 bars)" for intros with duration
+    - "Outro Mix Point" for outros
+    - "Vocal In @2:34" for vocal sections
+    - "Phrase Change @Bar 32" for phrase markers
+
+    Args:
+        cue_type: Type of cue (drop, build, breakdown, intro, outro, vocal, phrase)
+        position_ms: Position in milliseconds
+        bpm: Beats per minute
+        duration_ms: Duration of the section in milliseconds
+        energy: Energy level (0-1)
+        beats: List of beat positions
+        section_context: Dictionary with additional context
     """
-    name = cue_type.replace('_', ' ').title()
-    if bar_number:
-        name += f" Bar {bar_number}"
-    if energy and energy > 0.8:
-        name = "High Energy " + name
-    return name
+    section_context = section_context or {}
+    bar_pos = _format_bar_position(position_ms, bpm) if bpm > 0 else ""
+    time_pos = _format_time_position(position_ms)
+
+    # Calculate duration in bars if provided
+    bars_duration = None
+    if duration_ms and duration_ms > 0 and bpm > 0:
+        bar_ms = (60000 / max(bpm, 60)) * 4
+        bars_duration = int(duration_ms / bar_ms)
+
+    cue_type_lower = cue_type.lower().replace('_', '')
+
+    if cue_type_lower == "intro":
+        if bars_duration and bars_duration > 0:
+            return f"Intro ({bars_duration} bars)" if bars_duration > 1 else "Intro (1 bar)"
+        return f"Intro {bar_pos}" if bar_pos else "Intro"
+
+    elif cue_type_lower == "drop":
+        energy_label = ""
+        if energy is not None:
+            if energy > 0.85:
+                energy_label = " BIG"
+            elif energy < 0.5:
+                energy_label = " Soft"
+        return f"Drop{energy_label} {bar_pos}" if bar_pos else f"Drop{energy_label}"
+
+    elif cue_type_lower == "drop2":
+        return f"Drop 2 {bar_pos}" if bar_pos else "Drop 2"
+
+    elif cue_type_lower == "build":
+        # If we have context about distance to drop
+        distance_context = section_context.get("distance_to_drop_bars")
+        if distance_context and distance_context > 0:
+            return f"Build → Drop ({distance_context} bars)"
+        return f"Build {bar_pos}" if bar_pos else "Build"
+
+    elif cue_type_lower == "breakdown":
+        energy_label = ""
+        if energy is not None:
+            if energy < 0.3:
+                energy_label = " (Low Energy)"
+            elif energy < 0.5:
+                energy_label = " (Mid Energy)"
+        return f"Breakdown{energy_label} {bar_pos}" if bar_pos else f"Breakdown{energy_label}"
+
+    elif cue_type_lower == "outro":
+        return f"Outro Mix Point {bar_pos}" if bar_pos else "Outro Mix Point"
+
+    elif cue_type_lower == "vocal":
+        return f"Vocal In {time_pos}" if time_pos else "Vocal In"
+
+    elif cue_type_lower == "phrase":
+        return f"Phrase Change {bar_pos}" if bar_pos else "Phrase Change"
+
+    elif cue_type_lower == "section":
+        # Generic section, add bar position
+        label = section_context.get("label", "Section").title()
+        return f"{label} {bar_pos}" if bar_pos else label
+
+    # Fallback for unknown types
+    return cue_type.replace('_', ' ').title()
 
 
 def _snap_to_16_bar(position_ms: int, beats: List[int], bpm: float) -> int:
@@ -863,7 +1051,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         # Place INTRO at very start, it marks where to start the track
         if beats:
             first_beat = beats[0]
-            _add_cue(first_beat, "section", "INTRO", CUE_COLORS["blue"],
+            intro_name = _generate_cue_name("intro", first_beat, bpm)
+            _add_cue(first_beat, "section", intro_name, CUE_COLORS["blue"],
                      snap_4bar=True, confidence=0.95)
             intro_placed = True
 
@@ -873,7 +1062,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             intro_pos = intro_sections[0].get("time_ms", 0)
             intro_end = intro_pos + intro_sections[0].get("duration_ms", 0)
             intro_conf = _compute_confidence("section", 0.3, 1.0, True, profile)
-            _add_cue(intro_pos, "section", "INTRO", CUE_COLORS["blue"],
+            intro_name = _generate_cue_name("intro", intro_pos, bpm, duration_ms=intro_end - intro_pos)
+            _add_cue(intro_pos, "section", intro_name, CUE_COLORS["blue"],
                      snap_4bar=True, end_ms=intro_end, confidence=intro_conf)
         elif beats and len(beats) > 0:
             intro_beat = beats[0]
@@ -882,10 +1072,12 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                     intro_beat = b
                     break
             intro_conf = _compute_confidence("section", 0.1, 0.85, False, profile)
-            _add_cue(intro_beat, "section", "INTRO", CUE_COLORS["blue"],
+            intro_name = _generate_cue_name("intro", intro_beat, bpm)
+            _add_cue(intro_beat, "section", intro_name, CUE_COLORS["blue"],
                      snap_4bar=True, confidence=intro_conf)
         else:
-            _add_cue(0, "section", "INTRO", CUE_COLORS["blue"], confidence=0.3)
+            intro_name = _generate_cue_name("intro", 0, bpm)
+            _add_cue(0, "section", intro_name, CUE_COLORS["blue"], confidence=0.3)
 
     # ── 2. DROP 1 — highest-scoring drop ──
     first_drop_ms = scored_drops[0][0] if scored_drops else duration_ms
@@ -895,7 +1087,9 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         # Stem-validated drops get higher base confidence
         base_conf = 0.9 if has_stems else 0.7
         drop_conf = _compute_confidence("drop", _energy_contrast(main_drop), base_conf, struct_match, profile)
-        if _add_cue(main_drop, "drop", "DROP", CUE_COLORS["red"],
+        drop_energy = _energy_at(main_drop)
+        drop_name = _generate_cue_name("drop", main_drop, bpm, energy=drop_energy)
+        if _add_cue(main_drop, "drop", drop_name, CUE_COLORS["red"],
                     snap_4bar=True, confidence=drop_conf):
             first_drop_ms = main_drop
 
@@ -918,7 +1112,10 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                         best_riser = r_ms
         if best_riser is not None:
             riser_conf = _compute_confidence("section", 0.4, 0.95, False, profile)
-            if _add_cue(best_riser, "section", "BUILD", CUE_COLORS["orange"],
+            dist_to_drop = (first_drop_ms - best_riser) / max(bar_ms, 1)
+            build_name = _generate_cue_name("build", best_riser, bpm,
+                                           section_context={"distance_to_drop_bars": int(dist_to_drop)})
+            if _add_cue(best_riser, "section", build_name, CUE_COLORS["orange"],
                         snap_4bar=True, confidence=riser_conf):
                 build_placed = True
 
@@ -949,7 +1146,10 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             build_pos = best_build.get("time_ms", 0)
             build_end = build_pos + best_build.get("duration_ms", 0)
             build_conf = _compute_confidence("section", best_build.get("energy", 0.5), 1.0, True, profile)
-            if _add_cue(build_pos, "section", "BUILD", CUE_COLORS["orange"],
+            dist_to_drop = (first_drop_ms - build_pos) / max(bar_ms, 1)
+            build_name = _generate_cue_name("build", build_pos, bpm,
+                                           section_context={"distance_to_drop_bars": int(dist_to_drop)})
+            if _add_cue(build_pos, "section", build_name, CUE_COLORS["orange"],
                         snap_4bar=True, end_ms=build_end, confidence=build_conf):
                 build_placed = True
 
@@ -966,7 +1166,10 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                     best_gradient_pos = t
             if best_gradient_pos is not None and best_gradient > min_build_gradient * 0.8:
                 synth_conf = _compute_confidence("section", best_gradient, 0.7, False, profile)
-                _add_cue(best_gradient_pos, "section", "BUILD", CUE_COLORS["orange"],
+                dist_to_drop = (first_drop_ms - best_gradient_pos) / max(bar_ms, 1)
+                build_name = _generate_cue_name("build", best_gradient_pos, bpm,
+                                               section_context={"distance_to_drop_bars": int(dist_to_drop)})
+                _add_cue(best_gradient_pos, "section", build_name, CUE_COLORS["orange"],
                          snap_4bar=True, confidence=synth_conf)
 
     # ── 4. BREAKDOWN — deepest energy valley after first drop ──
@@ -985,7 +1188,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         bd_end = bd_pos + best_bd.get("duration_ms", 0)
         bd_energy = best_bd.get("energy", 0.5)
         bd_conf = _compute_confidence("section", -bd_energy, 1.0, True, profile)
-        _add_cue(bd_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"],
+        breakdown_name = _generate_cue_name("breakdown", bd_pos, bpm, energy=bd_energy)
+        _add_cue(bd_pos, "section", breakdown_name, CUE_COLORS["yellow"],
                  snap_4bar=True, end_ms=bd_end, confidence=bd_conf)
     elif len(cue_points) < 8 and first_drop_ms < duration_ms * 0.7:
         search_end = min(duration_ms, int(first_drop_ms + phrase_16bar_ms * 4))
@@ -999,7 +1203,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                 lowest_pos = t
         if lowest_pos and lowest_energy < 0.5:
             synth_conf = _compute_confidence("section", -lowest_energy, 0.7, False, profile)
-            _add_cue(lowest_pos, "section", "BREAKDOWN", CUE_COLORS["yellow"],
+            breakdown_name = _generate_cue_name("breakdown", lowest_pos, bpm, energy=lowest_energy)
+            _add_cue(lowest_pos, "section", breakdown_name, CUE_COLORS["yellow"],
                      snap_4bar=True, confidence=synth_conf)
 
     # ── 5. DROP 2 — DISTINCT color (pink/magenta) ──
@@ -1008,7 +1213,9 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         if second_drop[1] > min_contrast * 0.8:
             struct_match = _has_section_label(second_drop[0], "DROP")
             d2_conf = _compute_confidence("drop", _energy_contrast(second_drop[0]), 0.9, struct_match, profile)
-            _add_cue(second_drop[0], "drop", "DROP 2", CUE_COLORS["pink"],
+            drop2_energy = _energy_at(second_drop[0])
+            drop2_name = _generate_cue_name("drop2", second_drop[0], bpm, energy=drop2_energy)
+            _add_cue(second_drop[0], "drop", drop2_name, CUE_COLORS["pink"],
                      snap_4bar=True, confidence=d2_conf)
 
     # Optimization #11 — Early exit optimization (point 212)
@@ -1026,7 +1233,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     if has_stems and drum_exit_ms is not None and drum_exit_ms < duration_ms and len(cue_points) < 8:
         # v5: Outro = where drums permanently stop
         outro_conf = _compute_confidence("section", -0.4, 0.95, True, profile)
-        if _add_cue(drum_exit_ms, "section", "OUTRO", CUE_COLORS["purple"],
+        outro_name = _generate_cue_name("outro", drum_exit_ms, bpm)
+        if _add_cue(drum_exit_ms, "section", outro_name, CUE_COLORS["purple"],
                     snap_4bar=True, confidence=outro_conf):
             outro_placed = True
 
@@ -1035,7 +1243,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         if outro_sections:
             outro_pos = outro_sections[0].get("time_ms", 0)
             outro_conf = _compute_confidence("section", -0.3, 1.0, True, profile)
-            _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
+            outro_name = _generate_cue_name("outro", outro_pos, bpm)
+            _add_cue(outro_pos, "section", outro_name, CUE_COLORS["purple"],
                      snap_4bar=True, confidence=outro_conf)
         elif duration_ms > 30000:
             search_start = int(duration_ms * 0.65)
@@ -1054,7 +1263,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                     decline_count = 0
                 prev_energy = e
             outro_conf = _compute_confidence("section", -0.2, 0.7, False, profile)
-            _add_cue(outro_pos, "section", "OUTRO", CUE_COLORS["purple"],
+            outro_name = _generate_cue_name("outro", outro_pos, bpm)
+            _add_cue(outro_pos, "section", outro_name, CUE_COLORS["purple"],
                      snap_4bar=True, confidence=outro_conf)
 
     # ── 7. VOCAL sections — v5 stem-powered (replaces generic PHRASE) ──
@@ -1069,7 +1279,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             v_end = vr["end_ms"]
             # Skip vocals that overlap with already-placed cues
             vocal_conf = _compute_confidence("section", 0.3, 0.9, True, profile)
-            _add_cue(v_start, "section", "VOCAL", CUE_COLORS["cyan"],
+            vocal_name = _generate_cue_name("vocal", v_start, bpm)
+            _add_cue(v_start, "section", vocal_name, CUE_COLORS["cyan"],
                      snap_4bar=True, end_ms=v_end, confidence=vocal_conf)
 
     # ── 8. PHRASE markers — structurally significant boundaries ──
@@ -1096,7 +1307,8 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             if len(cue_points) >= 8:
                 break
             ph_conf = _compute_confidence("phrase", _energy_contrast(ph_ms), 0.85, False, profile)
-            _add_cue(ph_ms, "phrase", "PHRASE", CUE_COLORS["green"],
+            phrase_name = _generate_cue_name("phrase", ph_ms, bpm)
+            _add_cue(ph_ms, "phrase", phrase_name, CUE_COLORS["green"],
                      snap_4bar=True, confidence=ph_conf)
 
     # ── 9. VERSE/CHORUS — fill remaining ──
