@@ -59,6 +59,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="CueForge" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        {/* Preconnect CDN artworks (Spotify + Apple Music) */}
+        <link rel="preconnect" href="https://i.scdn.co" />
+        <link rel="preconnect" href="https://is1-ssl.mzstatic.com" />
         {/* Fonts chargées via next/font (self-hosted, pas de requête externe) */}
         {/* JSON-LD Structured Data */}
         <script

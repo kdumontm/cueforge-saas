@@ -34,6 +34,7 @@ from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.access_log import AccessLogMiddleware
 from app.utils.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
@@ -296,6 +297,7 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)  # Tracing : X-Request-ID sur chaque requête
+app.add_middleware(AccessLogMiddleware)  # Logging : méthode, path, status, durée
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks, favorites, duplicates, compare, export_pdf  # noqa: E402

@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
@@ -34,44 +33,14 @@ import AnalysisProgress from '@/components/AnalysisProgress';
 
 const TabFallback = () => {
   const { lang } = useLang();
-  return <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs">{tr('general.loading', lang)}</div>;
+  return <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs" aria-busy={true}>{tr('general.loading', lang)}</div>;
 };
 
-// ── Energy helpers ─────────────────────────────────────────────────────
-function energyColor(energy: number | null | undefined): string {
-  if (energy == null) return 'rgb(107,114,128)';
-  if (energy < 0.25) return 'rgb(34,197,94)';
-  if (energy < 0.5)  return 'rgb(234,179,8)';
-  if (energy < 0.75) return 'rgb(249,115,22)';
-  return 'rgb(239,68,68)';
-}
-function energyRating(energy: number | null | undefined): string {
-  if (energy == null) return '—';
-  return String(Math.min(10, Math.max(1, Math.round(energy * 10))));
-}
-function energyLabel(energy: number | null | undefined): string {
-  if (energy == null) return 'N/A';
-  if (energy < 0.25) return 'Calm';
-  if (energy < 0.5)  return 'Moderate';
-  if (energy < 0.75) return 'Energetic';
-  return 'Intense';
-}
-
-// ── Camelot conversion (centralisé dans lib/camelot.ts) ──────────────
+// ── Helpers centralisés ───────────────────────────────────────────────
+import { toCamelot, formatDuration, energyColor, energyRating, energyLabel } from '@/lib/formatters';
 import { keyToCamelot, getKeyColor, getCompatibleKeys } from '@/lib/camelot';
 import { getKeyColor as getKeyColorConst } from '@/lib/constants';
-
-function toCamelot(key: string | null | undefined): string | null {
-  if (!key) return null;
-  return keyToCamelot(key) || key;
-}
-
-function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null || isNaN(seconds) || seconds <= 0) return '—';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+import { isDevelopment } from '@/lib/config';
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
@@ -1578,6 +1547,10 @@ export default function DashboardV2() {
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
+      {/* ── Skip-to-content (a11y) ── */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-black">
+        Aller au contenu principal
+      </a>
       {/* ── Onboarding Tour — première visite ── */}
       <OnboardingTour />
 
