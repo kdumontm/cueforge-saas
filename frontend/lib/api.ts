@@ -1271,6 +1271,43 @@ export async function deleteCuePoint(cueId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete cue point');
 }
 
+/**
+ * Régénère les cue points d'un track à partir de l'analyse existante
+ * (sans ré-analyser l'audio — instantané).
+ */
+export async function regenerateCuePoints(trackId: number): Promise<any[]> {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/regenerate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to regenerate cue points');
+  return response.json();
+}
+
+/**
+ * Crée plusieurs cue points en une seule requête (batch).
+ */
+export async function createCuePointsBatch(
+  trackId: number,
+  cues: Array<{ position_ms: number; name: string; cue_type?: string; color?: string; number?: number | null }>
+): Promise<any[]> {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/points/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      cues: cues.map(c => ({
+        time: c.position_ms / 1000,
+        label: c.name,
+        hot_cue_slot: c.number ?? null,
+        color: c.color ?? null,
+        cue_type: c.cue_type ?? 'hot_cue',
+      })),
+    }),
+  });
+  if (!response.ok) throw new Error('Failed to create cue points batch');
+  return response.json();
+}
+
 // Aliases for admin page compatibility
 export const getAdminUsers = adminListUsers;
 export const createAdminUser = adminCreateUser;

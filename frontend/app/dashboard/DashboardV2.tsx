@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -803,6 +803,18 @@ export default function DashboardV2() {
       addToast(tr('toast.cue_deleted', lang), 'success');
     } catch (e) {
       addToast(tr('toast.cue_error', lang), 'error');
+    }
+  }
+
+  async function handleRegenerateCues() {
+    if (!selectedTrack || selectedTrack.id < 0) return;
+    try {
+      addToast('Régénération des cue points...', 'info');
+      const newCues = await regenerateCuePoints(selectedTrack.id);
+      setCuePoints(newCues);
+      addToast('Cue points régénérés avec succès !', 'success');
+    } catch (e) {
+      addToast('Erreur lors de la régénération', 'error');
     }
   }
 
@@ -1853,6 +1865,7 @@ export default function DashboardV2() {
                   cuePoints={effectiveCuePoints}
                   onCreateCue={handleCreateCue}
                   onDeleteCue={handleDeleteCue}
+                  onRegenerateCues={handleRegenerateCues}
                   initialPositionMs={cuePositionMs}
                   onCueClick={(cue) => {
                     if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
