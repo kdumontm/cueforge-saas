@@ -1,9 +1,22 @@
 import logging
 import os
 import asyncio
+import time
+import psutil
+import platform
+import sys
+import hmac
+import hashlib
+import json
 from contextlib import asynccontextmanager
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from enum import Enum
+from collections import defaultdict, deque
+from dataclasses import dataclass, field, asdict
+from pydantic import BaseModel
 
 # Configure async logging with QueueHandler for non-blocking I/O
 log_queue = Queue()
@@ -22,9 +35,10 @@ stream_handler.setFormatter(stream_formatter)
 # Initialize queue listener (will be started in lifespan)
 queue_listener = QueueListener(log_queue, stream_handler, respect_handler_level=True)
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
@@ -59,6 +73,218 @@ from app.middleware.access_log import AccessLogMiddleware
 from app.utils.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   MONITORING & METRICS (Points 1-15)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class MetricsCollector:
+    """Collecte les métriques de l'application en mémoire."""
+    cues_created: int = 0
+    cues_deleted: int = 0
+    cues_modified: int = 0
+    requests_total: int = 0
+    requests_errors: int = 0
+    start_time: datetime = field(default_factory=datetime.utcnow)
+
+    # Latency tracking: {endpoint: [duration_ms, ...]}
+    endpoint_latencies: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
+
+    # Error rates: {endpoint: error_count}
+    endpoint_errors: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
+
+    # Active connections
+    active_connections: int = 0
+
+    # Cache metrics
+    cache_hits: int = 0
+    cache_misses: int = 0
+
+    # Background tasks
+    background_tasks_status: Dict[str, str] = field(default_factory=dict)
+
+    # Analysis queue
+    analysis_queue_depth: int = 0
+
+    # Exports
+    exports_count: int = 0
+
+    def uptime_seconds(self) -> float:
+        """Retourne l'uptime en secondes."""
+        return (datetime.utcnow() - self.start_time).total_seconds()
+
+    def cache_hit_rate(self) -> float:
+        """Retourne le taux de cache hit (0.0-1.0)."""
+        total = self.cache_hits + self.cache_misses
+        if total == 0:
+            return 0.0
+        return self.cache_hits / total
+
+    def error_rate(self) -> float:
+        """Retourne le taux d'erreur global (0.0-1.0)."""
+        if self.requests_total == 0:
+            return 0.0
+        return self.requests_errors / self.requests_total
+
+    def avg_latency_ms(self) -> float:
+        """Retourne la latence moyenne en ms."""
+        all_latencies = [v for vals in self.endpoint_latencies.values() for v in vals]
+        if not all_latencies:
+            return 0.0
+        return sum(all_latencies) / len(all_latencies)
+
+    def get_slow_endpoints(self, threshold_ms: float = 500.0) -> List[tuple]:
+        """Retourne les endpoints plus lents que le seuil."""
+        result = []
+        for endpoint, latencies in self.endpoint_latencies.items():
+            if latencies:
+                avg = sum(latencies) / len(latencies)
+                if avg > threshold_ms:
+                    result.append((endpoint, avg))
+        return sorted(result, key=lambda x: x[1], reverse=True)
+
+
+# Global metrics instance
+_metrics = MetricsCollector()
+
+
+class EventType(str, Enum):
+    """Types d'événements supportés."""
+    cue_created = "cue_created"
+    cue_deleted = "cue_deleted"
+    cue_updated = "cue_updated"
+    analysis_complete = "analysis_complete"
+    export_complete = "export_complete"
+
+
+@dataclass
+class CueForgeEvent:
+    """Événement applicatif."""
+    event_type: EventType
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    data: Dict[str, Any] = field(default_factory=dict)
+    event_id: str = field(default_factory=lambda: hashlib.md5(f"{datetime.utcnow().isoformat()}".encode()).hexdigest()[:16])
+
+
+@dataclass
+class WebhookConfig:
+    """Configuration d'un webhook."""
+    url: str
+    events: List[EventType]
+    secret_key: str
+    active: bool = True
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    last_delivery: Optional[datetime] = None
+    failure_count: int = 0
+
+
+class CueForgeEventEmitter:
+    """Bus d'événements in-memory pour CueForge."""
+
+    def __init__(self, max_events: int = 1000):
+        self.events: deque = deque(maxlen=max_events)
+        self.webhooks: List[WebhookConfig] = []
+        self.dead_letter_queue: List[tuple] = []  # (webhook, event, error)
+
+    def emit(self, event: CueForgeEvent) -> None:
+        """Émet un événement."""
+        self.events.append(event)
+        asyncio.create_task(self._dispatch_webhooks(event))
+
+    async def _dispatch_webhooks(self, event: CueForgeEvent) -> None:
+        """Dispatche l'événement aux webhooks avec retry."""
+        import httpx
+
+        for webhook in self.webhooks:
+            if not webhook.active or event.event_type not in webhook.events:
+                continue
+
+            # Créer la signature HMAC-SHA256
+            payload = json.dumps(asdict(event), default=str)
+            signature = hmac.new(
+                webhook.secret_key.encode(),
+                payload.encode(),
+                hashlib.sha256
+            ).hexdigest()
+
+            headers = {
+                "X-CueForge-Event": event.event_type.value,
+                "X-CueForge-Signature": signature,
+                "Content-Type": "application/json",
+            }
+
+            # Retry 3x avec exponential backoff
+            for attempt in range(3):
+                try:
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        resp = await client.post(webhook.url, content=payload, headers=headers)
+                        if resp.status_code == 200:
+                            webhook.last_delivery = datetime.utcnow()
+                            webhook.failure_count = 0
+                            break
+                except Exception as err:
+                    webhook.failure_count += 1
+                    if attempt == 2:
+                        self.dead_letter_queue.append((webhook, event, str(err)))
+                        logger.error(f"Webhook {webhook.url} failed after 3 retries: {err}")
+                    else:
+                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+
+    def get_events(self, event_type: Optional[EventType] = None) -> List[CueForgeEvent]:
+        """Retourne tous les événements, optionnellement filtrés par type."""
+        if event_type:
+            return [e for e in self.events if e.event_type == event_type]
+        return list(self.events)
+
+    def get_event_by_id(self, event_id: str) -> Optional[CueForgeEvent]:
+        """Retourne un événement par ID."""
+        for event in self.events:
+            if event.event_id == event_id:
+                return event
+        return None
+
+
+# Global event emitter
+_event_emitter = CueForgeEventEmitter()
+
+
+class ConfigManager:
+    """Gère la configuration de l'application."""
+
+    def __init__(self):
+        self.slow_endpoint_threshold_ms: float = 500.0
+        self.feature_flags: Dict[str, bool] = {
+            "cue_auto_generation": True,
+            "webhook_delivery": True,
+            "analytics_tracking": True,
+            "advanced_exports": True,
+        }
+        self.maintenance_mode: bool = False
+        self.rate_limits: Dict[str, int] = {
+            "default": 100,  # requests per minute
+            "auth": 10,
+            "upload": 50,
+        }
+        self.cors_origins: List[str] = [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "https://cueforge.app",
+        ]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Retourne la configuration en dict."""
+        return {
+            "slow_endpoint_threshold_ms": self.slow_endpoint_threshold_ms,
+            "feature_flags": self.feature_flags,
+            "maintenance_mode": self.maintenance_mode,
+            "rate_limits": self.rate_limits,
+            "cors_origins": self.cors_origins,
+        }
+
+
+# Global config
+_config = ConfigManager()
 
 
 def _normalize_emails():
@@ -472,6 +698,404 @@ try:
     logger.info("✅ Security hardening service loaded")
 except ImportError:
     pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   MONITORING MIDDLEWARE (Point 7)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.middleware("http")
+async def monitoring_middleware(request: Request, call_next):
+    """Middleware pour tracker les requêtes, latence et erreurs."""
+    start_time = time.time()
+    _metrics.active_connections += 1
+    _metrics.requests_total += 1
+
+    endpoint = f"{request.method} {request.url.path}"
+
+    try:
+        response = await call_next(request)
+        duration_ms = (time.time() - start_time) * 1000
+        _metrics.endpoint_latencies[endpoint].append(duration_ms)
+
+        # Keep only last 1000 latencies per endpoint
+        if len(_metrics.endpoint_latencies[endpoint]) > 1000:
+            _metrics.endpoint_latencies[endpoint] = _metrics.endpoint_latencies[endpoint][-1000:]
+
+        if response.status_code >= 400:
+            _metrics.endpoint_errors[endpoint] = _metrics.endpoint_errors.get(endpoint, 0) + 1
+            _metrics.requests_errors += 1
+
+        # Add version and deprecation headers (Point 50)
+        response.headers["X-API-Version"] = "4.5"
+        response.headers["X-Deprecation"] = ""
+
+        return response
+    finally:
+        _metrics.active_connections -= 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   MONITORING ENDPOINTS (Points 2-6, 8-15)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class HealthResponse(BaseModel):
+    status: str
+    version: str
+    db: str
+    uptime_seconds: float
+    cache_hit_rate: float
+    active_connections: int
+
+
+@app.get("/api/v1/health/detailed", response_model=HealthResponse)
+async def health_detailed(db: Session = Depends(get_db)):
+    """Endpoint de santé détaillé avec métriques."""
+    db_status = "ok"
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = "degraded"
+        logger.error(f"Health check failed: {e}")
+
+    return HealthResponse(
+        status="ok",
+        version="4.5.0",
+        db=db_status,
+        uptime_seconds=_metrics.uptime_seconds(),
+        cache_hit_rate=_metrics.cache_hit_rate(),
+        active_connections=_metrics.active_connections,
+    )
+
+
+class MetricsResponse(BaseModel):
+    cues_created: int
+    cues_deleted: int
+    cues_modified: int
+    cache_hits: int
+    cache_misses: int
+    requests_total: int
+    requests_errors: int
+    error_rate: float
+    avg_latency_ms: float
+    active_connections: int
+
+
+@app.get("/api/v1/metrics", response_model=MetricsResponse)
+async def get_metrics():
+    """Endpoint metrics en format Prometheus-style."""
+    return MetricsResponse(
+        cues_created=_metrics.cues_created,
+        cues_deleted=_metrics.cues_deleted,
+        cues_modified=_metrics.cues_modified,
+        cache_hits=_metrics.cache_hits,
+        cache_misses=_metrics.cache_misses,
+        requests_total=_metrics.requests_total,
+        requests_errors=_metrics.requests_errors,
+        error_rate=_metrics.error_rate(),
+        avg_latency_ms=_metrics.avg_latency_ms(),
+        active_connections=_metrics.active_connections,
+    )
+
+
+class DBStatsResponse(BaseModel):
+    pool_size: int
+    checked_out: int
+    overflow: int
+    queue_size: int
+
+
+@app.get("/api/v1/db-stats", response_model=DBStatsResponse)
+async def get_db_stats():
+    """Stats du connection pool."""
+    pool = engine.pool
+    return DBStatsResponse(
+        pool_size=pool.size(),
+        checked_out=pool.checkedout(),
+        overflow=pool.overflow(),
+        queue_size=pool.queue.qsize() if hasattr(pool, 'queue') else 0,
+    )
+
+
+class MemoryStatsResponse(BaseModel):
+    rss_mb: float
+    vms_mb: float
+    percent: float
+
+
+@app.get("/api/v1/memory", response_model=MemoryStatsResponse)
+async def get_memory_stats():
+    """Mémoire utilisée par le processus."""
+    proc = psutil.Process()
+    info = proc.memory_info()
+    return MemoryStatsResponse(
+        rss_mb=info.rss / 1024 / 1024,
+        vms_mb=info.vms / 1024 / 1024,
+        percent=proc.memory_percent(),
+    )
+
+
+class SystemInfoResponse(BaseModel):
+    python_version: str
+    platform: str
+    uptime_seconds: float
+    version: str
+    feature_flags: Dict[str, bool]
+
+
+@app.get("/api/v1/system-info", response_model=SystemInfoResponse)
+async def get_system_info():
+    """Infos système et version."""
+    return SystemInfoResponse(
+        python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        platform=f"{platform.system()} {platform.release()}",
+        uptime_seconds=_metrics.uptime_seconds(),
+        version="4.5.0",
+        feature_flags=_config.feature_flags,
+    )
+
+
+class SlowEndpointsResponse(BaseModel):
+    endpoints: List[tuple]
+    threshold_ms: float
+
+
+@app.get("/api/v1/slow-endpoints")
+async def get_slow_endpoints(threshold: float = 500.0):
+    """Endpoints lents (> threshold ms)."""
+    slow = _metrics.get_slow_endpoints(threshold)
+    return SlowEndpointsResponse(
+        endpoints=slow,
+        threshold_ms=threshold,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   WEBHOOKS & EVENTS ENDPOINTS (Points 16-25)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class WebhookRegisterRequest(BaseModel):
+    url: str
+    events: List[str]  # List of event types
+
+
+@app.post("/api/v1/webhooks", status_code=201)
+async def register_webhook(req: WebhookRegisterRequest, user: User = Depends(get_current_user)):
+    """Enregistre un webhook pour l'utilisateur."""
+    import secrets
+
+    secret_key = secrets.token_urlsafe(32)
+    events = [EventType(e) for e in req.events if e in [et.value for et in EventType]]
+
+    webhook = WebhookConfig(
+        url=req.url,
+        events=events,
+        secret_key=secret_key,
+    )
+    _event_emitter.webhooks.append(webhook)
+
+    return {
+        "id": len(_event_emitter.webhooks) - 1,
+        "url": webhook.url,
+        "events": [e.value for e in webhook.events],
+        "secret_key": secret_key,
+    }
+
+
+@app.get("/api/v1/events")
+async def get_events(
+    event_type: Optional[str] = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+):
+    """Liste les événements récents."""
+    et = EventType(event_type) if event_type else None
+    events = _event_emitter.get_events(et)[-limit:]
+    return [asdict(e) for e in events]
+
+
+@app.get("/api/v1/events/{event_id}")
+async def get_event(event_id: str, user: User = Depends(get_current_user)):
+    """Récupère un événement par ID."""
+    event = _event_emitter.get_event_by_id(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return asdict(event)
+
+
+@app.get("/api/v1/events/stream")
+async def events_stream(user: User = Depends(get_current_user)):
+    """Server-Sent Events stream pour les nouveaux événements."""
+    async def event_generator():
+        last_count = len(_event_emitter.events)
+        while True:
+            if len(_event_emitter.events) > last_count:
+                new_events = list(_event_emitter.events)[last_count:]
+                for event in new_events:
+                    yield f"data: {json.dumps(asdict(event), default=str)}\n\n"
+                last_count = len(_event_emitter.events)
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   ADMIN ENDPOINTS (Points 36-50)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/v1/admin/config")
+async def get_admin_config(user: User = Depends(get_current_user)):
+    """Configuration actuelle (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return _config.to_dict()
+
+
+@app.put("/api/v1/admin/config")
+async def update_admin_config(
+    config_update: Dict[str, Any],
+    user: User = Depends(get_current_user),
+):
+    """Met à jour la configuration (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    if "slow_endpoint_threshold_ms" in config_update:
+        _config.slow_endpoint_threshold_ms = config_update["slow_endpoint_threshold_ms"]
+    if "feature_flags" in config_update:
+        _config.feature_flags.update(config_update["feature_flags"])
+    if "maintenance_mode" in config_update:
+        _config.maintenance_mode = config_update["maintenance_mode"]
+    if "rate_limits" in config_update:
+        _config.rate_limits.update(config_update["rate_limits"])
+    if "cors_origins" in config_update:
+        _config.cors_origins = config_update["cors_origins"]
+
+    return _config.to_dict()
+
+
+@app.get("/api/v1/admin/feature-flags")
+async def get_feature_flags(user: User = Depends(get_current_user)):
+    """Liste les feature flags (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return _config.feature_flags
+
+
+@app.post("/api/v1/admin/feature-flags/{flag_name}")
+async def toggle_feature_flag(
+    flag_name: str,
+    enabled: bool,
+    user: User = Depends(get_current_user),
+):
+    """Toggle un feature flag (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _config.feature_flags[flag_name] = enabled
+    return {flag_name: enabled}
+
+
+@app.post("/api/v1/admin/maintenance")
+async def toggle_maintenance_mode(
+    enabled: bool,
+    user: User = Depends(get_current_user),
+):
+    """Active/désactive le mode maintenance (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _config.maintenance_mode = enabled
+    return {"maintenance_mode": enabled}
+
+
+@app.get("/api/v1/admin/rate-limits")
+async def get_rate_limits(user: User = Depends(get_current_user)):
+    """Config des rate limits (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return _config.rate_limits
+
+
+@app.put("/api/v1/admin/rate-limits")
+async def update_rate_limits(
+    limits: Dict[str, int],
+    user: User = Depends(get_current_user),
+):
+    """Met à jour les rate limits (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _config.rate_limits.update(limits)
+    return _config.rate_limits
+
+
+@app.get("/api/v1/admin/cors")
+async def get_cors_config(user: User = Depends(get_current_user)):
+    """Config CORS (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"origins": _config.cors_origins}
+
+
+@app.put("/api/v1/admin/cors")
+async def update_cors_config(
+    origins: List[str],
+    user: User = Depends(get_current_user),
+):
+    """Met à jour les origines CORS (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _config.cors_origins = origins
+    return {"origins": _config.cors_origins}
+
+
+@app.post("/api/v1/admin/log-level")
+async def set_log_level(
+    level: str,
+    user: User = Depends(get_current_user),
+):
+    """Ajuste le log level (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    if level.upper() not in valid_levels:
+        raise HTTPException(status_code=400, detail=f"Invalid log level. Must be one of {valid_levels}")
+
+    root_logger.setLevel(level.upper())
+    logger.info(f"Log level set to {level.upper()}")
+    return {"log_level": level.upper()}
+
+
+@app.post("/api/v1/admin/cache/invalidate")
+async def invalidate_cache(user: User = Depends(get_current_user)):
+    """Vide le cache (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    # Import cache functions from database module
+    from app.database import _memory_cache
+    _memory_cache.cache.clear()
+    _memory_cache.timestamps.clear()
+    _metrics.cache_hits = 0
+    _metrics.cache_misses = 0
+
+    return {"status": "cache cleared"}
+
+
+@app.get("/api/v1/admin/system")
+async def get_admin_system_info(user: User = Depends(get_current_user)):
+    """Infos système détaillées (admin only)."""
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    proc = psutil.Process()
+    return {
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
+        "platform": platform.system(),
+        "cpu_percent": proc.cpu_percent(interval=1),
+        "memory_mb": proc.memory_info().rss / 1024 / 1024,
+        "uptime_seconds": _metrics.uptime_seconds(),
+        "slow_endpoints": _metrics.get_slow_endpoints(_config.slow_endpoint_threshold_ms),
+    }
 
 # v12: API optimizer middleware (response streaming, field selection)
 try:

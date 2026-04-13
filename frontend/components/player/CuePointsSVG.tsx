@@ -5,6 +5,7 @@
  */
 
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { ANIMATION_DURATIONS } from '@/lib/constants';
 
 interface CuePoint {
   id: number;
@@ -132,7 +133,7 @@ function CuePointElement({
         aria-label={`Cue ${cue.name || cue.number || cue.id} at ${Math.floor(cue.position_ms / 1000)}s`}
       />
 
-      {/* Line (thin when not hovered) */}
+      {/* Line (thin when not hovered) - with fade transition */}
       <line
         x1={x}
         y1={0}
@@ -141,6 +142,9 @@ function CuePointElement({
         stroke={color}
         strokeWidth={isHovered || isNear ? 3 : 1.5}
         opacity={isHovered ? 1 : 0.8}
+        style={{
+          transition: `stroke-width ${ANIMATION_DURATIONS.fast}ms ease-in-out, opacity ${ANIMATION_DURATIONS.fast}ms ease-in-out`,
+        }}
       />
 
       {/* Improvement #65: Different marker shapes per cue type */}
@@ -410,6 +414,16 @@ export const CuePointsSVG = React.memo(function CuePointsSVG({
         @keyframes cue-pulse {
           0% { r: 10; opacity: 0.8; }
           100% { r: 20; opacity: 0; }
+        }
+        @keyframes cue-pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { opacity: 1; }
+          100% { transform: scale(1); opacity: 0.85; }
+        }
+        @keyframes cue-glow {
+          0% { filter: drop-shadow(0 0 0px currentColor); }
+          50% { filter: drop-shadow(0 0 8px currentColor); }
+          100% { filter: drop-shadow(0 0 0px currentColor); }
         }
       `}</style>
 

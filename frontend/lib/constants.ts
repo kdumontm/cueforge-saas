@@ -55,6 +55,94 @@ export const HAPTIC_PATTERNS = {
   error: [100, 50, 100, 50, 100],
 };
 
+// Improvement #31: Animation durations map
+export const ANIMATION_DURATIONS = {
+  fast: 150,
+  normal: 300,
+  slow: 500,
+} as const;
+
+// Improvement #32: Keyboard shortcuts map complet
+export const KEYBOARD_SHORTCUTS = {
+  PLAY_PAUSE: 'Space',
+  PREVIOUS_CUE: 'ArrowLeft',
+  NEXT_CUE: 'ArrowRight',
+  DELETE_CUE: 'Delete',
+  UNDO: 'Ctrl+Z',
+  REDO: 'Ctrl+Shift+Z',
+  SEARCH: 'Ctrl+F',
+  NEW_CUE: 'Ctrl+K',
+  EXPORT: 'Ctrl+E',
+  SAVE: 'Ctrl+S',
+} as const;
+
+// Improvement #33: Cue quality grades map
+export const CUE_QUALITY_GRADES: Record<string, { label: string; color: string; minScore: number }> = {
+  A: { label: 'A - Excellent', color: '#22c55e', minScore: 0.9 },
+  B: { label: 'B - Good', color: '#eab308', minScore: 0.75 },
+  C: { label: 'C - Fair', color: '#f97316', minScore: 0.6 },
+  D: { label: 'D - Poor', color: '#ef4444', minScore: 0.4 },
+  F: { label: 'F - Fail', color: '#7c3aed', minScore: 0 },
+};
+
+// Improvement #34: Export format labels français
+export const EXPORT_FORMAT_LABELS: Record<string, { label: string; description: string }> = {
+  rekordbox: { label: 'Rekordbox XML', description: 'Pioneer Rekordbox format' },
+  serato: { label: 'Serato CSV', description: 'Serato DJ format' },
+  traktor: { label: 'Traktor NML', description: 'Native Instruments Traktor' },
+  virtual_dj: { label: 'Virtual DJ XML', description: 'Virtual DJ format' },
+  json: { label: 'JSON Export', description: 'Generic JSON format' },
+};
+
+// Improvement #35: Waveform styles config
+export const WAVEFORM_STYLES: Record<string, { label: string; description: string }> = {
+  bars: { label: 'Bars', description: 'Classic vertical bars' },
+  lines: { label: 'Lines', description: 'Continuous line visualization' },
+  mirror: { label: 'Mirror', description: 'Symmetrical top/bottom' },
+  filled: { label: 'Filled', description: 'Solid waveform area' },
+};
+
+// Improvement #36: Zoom levels preset array
+export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4] as const;
+
+// Improvement #37: Confidence thresholds
+export const CONFIDENCE_THRESHOLDS = {
+  LOW: 0.3,
+  MEDIUM: 0.6,
+  HIGH: 0.8,
+} as const;
+
+// Improvement #38: Pad bank config
+export const PAD_BANK_CONFIG = {
+  A: { label: 'Bank A', color: '#3b82f6' },
+  B: { label: 'Bank B', color: '#8b5cf6' },
+  C: { label: 'Bank C', color: '#ec4899' },
+  D: { label: 'Bank D', color: '#f59e0b' },
+} as const;
+
+// Improvement #39: Section colors map
+export const SECTION_COLORS: Record<string, string> = {
+  intro: '#3b82f6',
+  buildup: '#f59e0b',
+  drop: '#ef4444',
+  breakdown: '#8b5cf6',
+  outro: '#06b6d4',
+  vocal: '#22c55e',
+  bridge: '#06b6d4',
+  chorus: '#ec4899',
+  verse: '#f97316',
+};
+
+// Improvement #40: DJ software colors map
+export const DJ_SOFTWARE_COLORS: Record<string, string> = {
+  rekordbox: '#000000',
+  serato: '#00d4ff',
+  traktor: '#ff6b00',
+  virtual_dj: '#00adef',
+  scratch: '#ff0080',
+  pacemaker: '#1db954',
+};
+
 // Improvement #38: CUE_TYPE_ICONS map with lucide-react icon names per type
 export const CUE_TYPE_ICONS: Record<string, string> = {
   hot_cue: 'Zap',
@@ -95,6 +183,77 @@ export const BAR_COLORS = {
     highs: '#3b82f640',
   },
 };
+
+// Improvement #41: RESPONSIVE_BREAKPOINTS for mobile/tablet/desktop layouts
+export const RESPONSIVE_BREAKPOINTS = {
+  mobile: 320,
+  tablet: 768,
+  desktop: 1280,
+  wide: 1600,
+} as const;
+
+// Improvement #42: CUE_GROUPING_OPTIONS for organizing cues by section type
+export const CUE_GROUPING_OPTIONS = {
+  none: { label: 'No Grouping', icon: '─' },
+  byType: { label: 'By Type', icon: '▪' },
+  bySection: { label: 'By Section', icon: '▦' },
+  byTime: { label: 'By Time Range', icon: '⟳' },
+} as const;
+
+// Improvement #43: CUE_TEMPLATE_PRESETS for save-as-template feature
+export const CUE_TEMPLATE_PRESETS: Record<string, { name: string; description: string; cueTypes: string[] }> = {
+  progressive: { name: 'Progressive Mix', description: 'Intro, buildup, drop, breakdown, outro', cueTypes: ['section', 'phrase', 'drop', 'vocal'] },
+  techno: { name: 'Techno Set', description: 'Beat drop, builds, rolls', cueTypes: ['drop', 'phrase', 'section'] },
+  house: { name: 'House Music', description: 'Intro, drop, vocal zones', cueTypes: ['hot_cue', 'vocal', 'phrase'] },
+  minimal: { name: 'Minimal Structure', description: 'Key entry points only', cueTypes: ['section', 'load'] },
+};
+
+// Improvement #44: LOOP_TEMPLATES for quick loop creation (bar counts)
+export const LOOP_TEMPLATES = [1, 2, 4, 8, 16, 32] as const;
+
+// Improvement #45: PRINT_STYLES for print-friendly CSS
+export const PRINT_STYLES = `
+  @media print {
+    body { background: white; color: black; }
+    .no-print { display: none !important; }
+    .cue-list-item { page-break-inside: avoid; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  }
+`;
+
+// Improvement #46: ERROR_RECOVERY_MESSAGES for user-friendly error handling
+export const ERROR_RECOVERY_MESSAGES: Record<string, string> = {
+  timeout: 'Request timed out. Please check your connection and try again.',
+  notFound: 'Track not found. It may have been deleted.',
+  unauthorized: 'Session expired. Please log in again.',
+  rateLimited: 'Too many requests. Please wait a moment before trying again.',
+  serverError: 'Server error occurred. Please try again later.',
+  networkError: 'Network error. Please check your internet connection.',
+};
+
+// Improvement #47: CUE_SUGGESTION_THRESHOLDS for AI cue recommendations
+export const CUE_SUGGESTION_THRESHOLDS = {
+  drop: { minEnergy: 0.6, confidence: 0.75 },
+  vocal: { minEnergy: 0.4, confidence: 0.7 },
+  build: { minEnergy: 0.3, confidence: 0.65 },
+  beat: { minEnergy: 0.5, confidence: 0.8 },
+} as const;
+
+// Improvement #48: MIDI_CONTROLLER_MAPPINGS for external hardware integration
+export const MIDI_CONTROLLER_MAPPINGS: Record<string, { cc: number; min: number; max: number; name: string }> = {
+  hotCueA: { cc: 1, min: 0, max: 127, name: 'Hot Cue A' },
+  hotCueB: { cc: 2, min: 0, max: 127, name: 'Hot Cue B' },
+  loop: { cc: 3, min: 0, max: 127, name: 'Loop Trigger' },
+  pitchFader: { cc: 4, min: 0, max: 127, name: 'Pitch Fader' },
+};
+
+// Improvement #49: UNDO_REDO_LIMITS for undo/redo stack management
+export const UNDO_REDO_LIMITS = {
+  maxStackSize: 50,
+  groupActionsPeriod: 300, // ms: group actions within this period
+  autoSavePeriod: 5000, // ms: auto-save to localStorage
+} as const;
 
 export const CAMELOT_WHEEL = [
   { n: "1A", key: "Am", color: "#4a9eff" },

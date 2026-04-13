@@ -2329,3 +2329,95 @@ export async function compareTracksAPI(trackIdA: string, trackIdB: string): Prom
   if (!res.ok) throw new Error('Failed to compare tracks');
   return res.json();
 }
+
+// ── Improvement #41: Cue Quality & Optimization ──────────────────────────────
+
+/** Improvement #41: Get quality score for cues of a track */
+export async function getCueQualityScore(trackId: number): Promise<{
+  overall: number;
+  byType: Record<string, number>;
+  suggestions: string[];
+}> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/cue-quality`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to get cue quality score');
+  return res.json();
+}
+
+/** Improvement #42: Optimize cues for a track */
+export async function optimizeCues(trackId: number, options?: {
+  removeWeakCues?: boolean;
+  snapToGrid?: boolean;
+  mergeCloseCues?: boolean;
+}): Promise<{ optimized_count: number; removed_count: number; changes: Array<{ id: number; action: string }> }> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/cue-optimize`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(options || {}),
+  });
+  if (!res.ok) throw new Error('Failed to optimize cues');
+  return res.json();
+}
+
+/** Improvement #43: Get cue suggestions based on audio analysis */
+export async function getCueSuggestions(trackId: number): Promise<Array<{
+  position_ms: number;
+  name: string;
+  cue_type: string;
+  confidence: number;
+  reason: string;
+}>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/cue-suggestions`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to get cue suggestions');
+  return res.json();
+}
+
+/** Improvement #44: Get cue history/changelog for a track */
+export async function getCueHistory(trackId: number): Promise<Array<{
+  id: string;
+  timestamp: string;
+  action: string;
+  cue_id?: number;
+  cue_name?: string;
+  details: any;
+}>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/cue-history`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to get cue history');
+  return res.json();
+}
+
+/** Improvement #45: Search cues across all tracks */
+export async function searchCues(query: string, filters?: {
+  cueType?: string;
+  minConfidence?: number;
+  tags?: string[];
+}): Promise<Array<{
+  id: number;
+  trackId: number;
+  trackTitle: string;
+  position_ms: number;
+  name: string;
+  cue_type: string;
+  confidence: number;
+}>> {
+  const params = new URLSearchParams({
+    q: query,
+    ...(filters?.cueType && { cue_type: filters.cueType }),
+    ...(filters?.minConfidence && { min_confidence: String(filters.minConfidence) }),
+    ...(filters?.tags && { tags: filters.tags.join(',') }),
+  });
+  const res = await authFetch(`${API_URL}/cues/search?${params.toString()}`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error('Failed to search cues');
+  return res.json();
+}

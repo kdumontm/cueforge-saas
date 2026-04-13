@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { HOT_CUE_COLORS, HOT_CUE_LABELS, CUE_TYPE_BADGES, PAD_LAYOUTS, CUE_BANKS, REKORDBOX_PAD_COLORS, HAPTIC_PATTERNS } from '@/lib/constants';
+import { HOT_CUE_COLORS, HOT_CUE_LABELS, CUE_TYPE_BADGES, PAD_LAYOUTS, CUE_BANKS, REKORDBOX_PAD_COLORS, HAPTIC_PATTERNS, ANIMATION_DURATIONS } from '@/lib/constants';
 
 interface HotCue {
   slot: number;
@@ -23,6 +23,10 @@ interface HotCuesBarProps {
   rekordboxMode?: boolean; // Improvement #48: rekordbox color mode
   bankIndex?: number; // Improvement #46: pad bank switching
   onBankChange?: (bankIdx: number) => void; // Improvement #46
+  enableMidiMapping?: boolean; // Improvement #31: MIDI mapping display
+  showQuickPreview?: boolean; // Improvement #38: pad preview on hover
+  onLongPress?: (cueIdx: number) => void; // Improvement #34: quick-delete on long press
+  customPadColors?: string[]; // Improvement #40: custom pad colors
 }
 
 /** Petit indicateur de qualité du cue point (visible sur le pad) */
@@ -81,6 +85,10 @@ export default function HotCuesBar({
   rekordboxMode = false,
   bankIndex = 0,
   onBankChange,
+  enableMidiMapping = false,
+  showQuickPreview = false,
+  onLongPress,
+  customPadColors,
 }: HotCuesBarProps) {
   // Improvement #30: Long-press handler for mobile
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,6 +104,22 @@ export default function HotCuesBar({
 
   // Improvement #47: LED feedback animation
   const [ledFlash, setLedFlash] = useState<number | null>(null);
+
+  // Improvement #4: Ripple effect state
+  const [ripples, setRipples] = useState<Array<{ id: string; x: number; y: number }>>([]);
+
+  const createRipple = useCallback((e: React.MouseEvent, idx: number) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const rippleId = `ripple-${Date.now()}-${idx}`;
+
+    setRipples((prev) => [...prev, { id: rippleId, x, y }]);
+
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== rippleId));
+    }, ANIMATION_DURATIONS.normal);
+  }, []);
 
   const handleTouchStart = useCallback((cueId: number | undefined) => {
     if (!cueId) return;
@@ -210,8 +234,8 @@ export default function HotCuesBar({
           const isDragOver = dragOverIdx === i;
           const isLedFlashing = ledFlash === i;
 
-          // Improvement #48: Use Rekordbox colors if enabled
-          const padColor = rekordboxMode && cue ? REKORDBOX_PAD_COLORS[i % REKORDBOX_PAD_COLORS.length] : (cue ? HOT_CUE_COLORS[i] : 'var(--bg-elevated)');
+          // Improvement #48: Use Rekordbox colors if enabled, or custom colors
+          const padColor = customPadColors?.[i] || (rekordboxMode && cue ? REKORDBOX_PAD_COLORS[i % REKORDBOX_PAD_COLORS.length] : (cue ? HOT_CUE_COLORS[i] : 'var(--bg-elevated)'));
 
           return (
             <div
@@ -245,12 +269,19 @@ export default function HotCuesBar({
               )}
 
               <button
-                onClick={() => {
+                onClick={(e) => {
                   if (cue) {
+                    createRipple(e, i);
                     triggerLedFlash(i);
                     triggerHaptic(HAPTIC_PATTERNS.tap);
                     onCueClick?.(cue);
                   }
+                }}
+                onMouseEnter={() => {
+                  if (showQuickPreview) setHoveredDetailsCue(i);
+                }}
+                onMouseLeave={() => {
+                  if (showQuickPreview) setHoveredDetailsCue(null);
                 }}
                 onTouchStart={() => {
                   handleTouchStart(cue?.positionMs);
@@ -283,15 +314,41 @@ export default function HotCuesBar({
                   filter: !cue ? 'grayscale(100%)' : 'grayscale(0%)',
                   borderWidth: isPlaying ? '2px' : '0px',
                   borderColor: isPlaying ? padColor : 'transparent',
-                  transition: 'all 0.15s ease-in-out',
+                  transition: `all ${ANIMATION_DURATIONS.fast}ms ease-in-out`,
                 }}
-                title={cue ? `${isLoop ? '🔁 Loop' : '🎯 Cue'} ${cueName} @ ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}` : `Slot ${label} vide`}
                 aria-label={
                   cue
                     ? `${isLoop ? 'Loop' : 'Hot cue'} pad ${getCDJLabel(i)}: ${cueName} at ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}${isPlaying ? ', currently playing' : ''}`
                     : `Hot cue pad ${getCDJLabel(i)} (empty)`
                 }
                 aria-pressed={cue ? 'false' : undefined}
+              >
+                {/* Improvement #4: Ripple effect elements */}
+                {ripples.map((ripple) => (
+                  <span
+                    key={ripple.id}
+                    style={{
+                      position: 'absolute',
+                      left: ripple.x,
+                      top: ripple.y,
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(255,255,255,0.5)',
+                      pointerEvents: 'none',
+                      animation: `ripple ${ANIMATION_DURATIONS.normal}ms ease-out`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+                ))}
+                <style>{`
+                  @keyframes ripple {
+                    to {
+                      transform: translate(-50%, -50%) scale(4);
+                      opacity: 0;
+                    }
+                  }
+                `}</style>
               >
                 {cue && <ConfidenceRing confidence={cue.confidence} />}
                 {/* Improvement #53: Cue type badge */}
@@ -318,6 +375,23 @@ export default function HotCuesBar({
                 )}
               </button>
 
+              {/* Improvement #38: Pad preview tooltip on hover */}
+              {showQuickPreview && cue && hoveredDetailsCue === i && (
+                <div
+                  className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded px-2 py-1 text-[8px] whitespace-nowrap z-20"
+                  style={{ pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+                >
+                  {cue.name || cue.label} @ {cue.time}
+                </div>
+              )}
+
+              {/* Improvement #31: MIDI mapping display */}
+              {enableMidiMapping && cue && (
+                <div className="text-[6px] opacity-60 font-mono mt-0.5">
+                  MIDI: CC{1 + i}
+                </div>
+              )}
+
               {/* Improvement #30: Mobile options menu on long-press */}
               {showOptionsMenu === cue?.positionMs && cue && (
                 <div
@@ -333,8 +407,14 @@ export default function HotCuesBar({
                   >
                     Play
                   </button>
-                  <button className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]">
-                    Edit
+                  <button
+                    className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"
+                    onClick={() => {
+                      onLongPress?.(i);
+                      setShowOptionsMenu(null);
+                    }}
+                  >
+                    Delete
                   </button>
                 </div>
               )}

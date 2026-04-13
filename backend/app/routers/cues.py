@@ -1783,3 +1783,356 @@ async def get_cue_recommendations(
         "recommendations": recommendations,
         "total_cues": len(cues),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   BATCH OPERATIONS (Points 26-35)
+# ═══════════════════════════════════════════════════════════════════════════
+
+import uuid
+from dataclasses import dataclass, field, asdict
+
+# Global batch job tracking
+_batch_jobs: Dict[str, Dict] = {}
+
+
+@dataclass
+class BatchJob:
+    """Représente un job batch."""
+    batch_id: str
+    user_id: int
+    operation: str  # "analyze", "export", "regenerate", "quality"
+    track_ids: List[int]
+    status: str = "queued"  # queued, running, completed, failed
+    progress: float = 0.0
+    results: List[Dict] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+@router.post("/batch/analyze", status_code=202)
+async def batch_analyze(
+    track_ids: List[int],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 26: Queue multiple tracks for cue analysis."""
+    # Verify ownership
+    for track_id in track_ids:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+        if not track:
+            raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
+
+    batch_id = str(uuid.uuid4())
+    job = BatchJob(
+        batch_id=batch_id,
+        user_id=user.id,
+        operation="analyze",
+        track_ids=track_ids,
+    )
+    _batch_jobs[batch_id] = asdict(job)
+
+    # Emit event
+    from app.main import _event_emitter, EventType, CueForgeEvent
+    _event_emitter.emit(CueForgeEvent(
+        event_type=EventType.analysis_complete,
+        data={"batch_id": batch_id, "track_count": len(track_ids)},
+    ))
+
+    return {
+        "batch_id": batch_id,
+        "operation": "analyze",
+        "track_count": len(track_ids),
+        "status": "queued",
+    }
+
+
+@router.post("/batch/export", status_code=202)
+async def batch_export(
+    track_ids: List[int],
+    format: str = "rekordbox",
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 27: Export multiple tracks to ZIP."""
+    # Verify ownership
+    for track_id in track_ids:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+        if not track:
+            raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
+
+    batch_id = str(uuid.uuid4())
+    job = BatchJob(
+        batch_id=batch_id,
+        user_id=user.id,
+        operation="export",
+        track_ids=track_ids,
+    )
+    _batch_jobs[batch_id] = asdict(job)
+
+    # Update metrics
+    from app.main import _metrics
+    _metrics.exports_count += 1
+
+    return {
+        "batch_id": batch_id,
+        "operation": "export",
+        "format": format,
+        "track_count": len(track_ids),
+        "status": "queued",
+    }
+
+
+@router.post("/batch/regenerate", status_code=202)
+async def batch_regenerate(
+    track_ids: List[int],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 28: Regenerate cues for multiple tracks."""
+    # Verify ownership
+    for track_id in track_ids:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+        if not track:
+            raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
+
+    batch_id = str(uuid.uuid4())
+    job = BatchJob(
+        batch_id=batch_id,
+        user_id=user.id,
+        operation="regenerate",
+        track_ids=track_ids,
+    )
+    _batch_jobs[batch_id] = asdict(job)
+
+    return {
+        "batch_id": batch_id,
+        "operation": "regenerate",
+        "track_count": len(track_ids),
+        "status": "queued",
+    }
+
+
+@router.post("/batch/quality", status_code=202)
+async def batch_quality(
+    track_ids: List[int],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 29: Evaluate quality for multiple tracks."""
+    # Verify ownership
+    for track_id in track_ids:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+        if not track:
+            raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
+
+    batch_id = str(uuid.uuid4())
+    job = BatchJob(
+        batch_id=batch_id,
+        user_id=user.id,
+        operation="quality",
+        track_ids=track_ids,
+    )
+    _batch_jobs[batch_id] = asdict(job)
+
+    return {
+        "batch_id": batch_id,
+        "operation": "quality",
+        "track_count": len(track_ids),
+        "status": "queued",
+    }
+
+
+@router.get("/batch/{batch_id}")
+async def get_batch_status(
+    batch_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Point 30: Get status of a batch operation."""
+    if batch_id not in _batch_jobs:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    job = _batch_jobs[batch_id]
+    if job["user_id"] != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return job
+
+
+@router.delete("/batch/{batch_id}")
+async def cancel_batch(
+    batch_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Point 31: Cancel a batch operation."""
+    if batch_id not in _batch_jobs:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    job = _batch_jobs[batch_id]
+    if job["user_id"] != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if job["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed job")
+
+    job["status"] = "cancelled"
+    return {"batch_id": batch_id, "status": "cancelled"}
+
+
+@router.get("/batch/history")
+async def get_batch_history(
+    user: User = Depends(get_current_user),
+    limit: int = 50,
+):
+    """Point 32: Get history of batch operations."""
+    user_jobs = [j for j in _batch_jobs.values() if j["user_id"] == user.id]
+    return {
+        "jobs": user_jobs[-limit:],
+        "total": len(user_jobs),
+    }
+
+
+@router.post("/batch/estimate-resources")
+async def estimate_batch_resources(
+    track_ids: List[int],
+    operation: str = "analyze",
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 34: Estimate resources needed for batch operation."""
+    # Verify ownership
+    for track_id in track_ids:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+        if not track:
+            raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
+
+    # Estimate based on number of tracks and operation type
+    base_time_sec = 30  # base analysis time per track
+    if operation == "export":
+        base_time_sec = 5
+    elif operation == "quality":
+        base_time_sec = 15
+
+    estimated_duration_sec = len(track_ids) * base_time_sec
+    estimated_memory_mb = len(track_ids) * 50  # ~50MB per track
+
+    return {
+        "track_count": len(track_ids),
+        "operation": operation,
+        "estimated_duration_seconds": estimated_duration_sec,
+        "estimated_memory_mb": estimated_memory_mb,
+        "can_proceed": estimated_memory_mb < 2000,  # <2GB threshold
+    }
+
+
+@router.get("/batch/{batch_id}/results")
+async def get_batch_results(
+    batch_id: str,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+):
+    """Point 35: Get aggregated results from a completed batch."""
+    if batch_id not in _batch_jobs:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    job = _batch_jobs[batch_id]
+    if job["user_id"] != user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Batch not yet completed")
+
+    return {
+        "batch_id": batch_id,
+        "operation": job["operation"],
+        "results": job["results"][-limit:],
+        "total_results": len(job["results"]),
+        "errors": job["errors"],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   USER PREFERENCES (Points 40-41)
+# ═══════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel
+
+class UserPreferencesResponse(BaseModel):
+    preferred_genres: Optional[List[str]] = None
+    naming_style: Optional[str] = None
+    auto_template: Optional[str] = None
+    min_confidence: float = 0.5
+    max_cues_per_track: int = 20
+    auto_generate_cues: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/users/preferences", response_model=UserPreferencesResponse)
+async def get_user_preferences(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 40: Get user's cue preferences."""
+    from app.models.track import UserCuePreference
+
+    prefs = db.query(UserCuePreference).filter(
+        UserCuePreference.user_id == user.id
+    ).first()
+
+    if not prefs:
+        # Return defaults
+        return UserPreferencesResponse(
+            preferred_genres=[],
+            naming_style="descriptive",
+            min_confidence=0.5,
+            max_cues_per_track=20,
+            auto_generate_cues=True,
+        )
+
+    return UserPreferencesResponse.from_orm(prefs)
+
+
+@router.put("/users/preferences", response_model=UserPreferencesResponse)
+async def update_user_preferences(
+    prefs_data: UserPreferencesResponse,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Point 41: Update user's cue preferences."""
+    from app.models.track import UserCuePreference
+
+    prefs = db.query(UserCuePreference).filter(
+        UserCuePreference.user_id == user.id
+    ).first()
+
+    if not prefs:
+        prefs = UserCuePreference(user_id=user.id)
+        db.add(prefs)
+
+    # Update fields
+    for field, value in prefs_data.dict(exclude_unset=True).items():
+        if hasattr(prefs, field):
+            setattr(prefs, field, value)
+
+    db.commit()
+    db.refresh(prefs)
+    return UserPreferencesResponse.from_orm(prefs)

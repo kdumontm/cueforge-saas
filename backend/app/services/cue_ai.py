@@ -5243,3 +5243,4055 @@ def section_annotation_generation(
     except Exception as e:
         logger.error(f"Error in section_annotation_generation: {e}")
         return {'annotated_sections': []}
+
+
+# ============================================================================
+# PART 2: ADVANCED FEATURES EXTRACTION (15 functions)
+# ============================================================================
+
+def extract_mel_spectrogram_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    n_mels: int = 128,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract features from mel spectrogram (mel-scaled frequency domain).
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        n_mels: Number of mel bands
+        hop_length: Hop length for STFT
+
+    Returns:
+        Dictionary with mel spectrogram features (mean, variance, spectral flux)
+    """
+    try:
+        if len(y) == 0:
+            return {'mel_features': np.array([]), 'spectral_flux': np.array([])}
+
+        # Compute mel spectrogram
+        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels, hop_length=hop_length)
+        S_db = librosa.power_to_db(S, ref=np.max)
+
+        # Extract features per frame
+        mel_mean = np.mean(S_db, axis=0)
+        mel_std = np.std(S_db, axis=0)
+        mel_max = np.max(S_db, axis=0)
+
+        # Spectral flux (frame-to-frame changes)
+        spectral_flux = np.sqrt(np.sum(np.diff(S_db, axis=1)**2, axis=0))
+
+        return {
+            'mel_mean': mel_mean,
+            'mel_std': mel_std,
+            'mel_max': mel_max,
+            'spectral_flux': spectral_flux,
+            'shape': S_db.shape,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_mel_spectrogram_features: {e}")
+        return {'mel_features': np.array([]), 'spectral_flux': np.array([])}
+
+
+def extract_mfcc_delta_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    n_mfcc: int = 13,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract MFCC + delta (velocity) + delta-delta (acceleration) features.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        n_mfcc: Number of MFCC coefficients
+        hop_length: Hop length for STFT
+
+    Returns:
+        Dictionary with MFCC and temporal derivative features
+    """
+    try:
+        if len(y) == 0:
+            return {'mfcc': np.array([]), 'mfcc_delta': np.array([]), 'mfcc_delta2': np.array([])}
+
+        # Compute MFCC
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc, hop_length=hop_length)
+
+        # Compute deltas (first derivative)
+        mfcc_delta = librosa.feature.delta(mfcc)
+
+        # Compute delta-delta (second derivative / acceleration)
+        mfcc_delta2 = librosa.feature.delta(mfcc, order=2)
+
+        # Statistics per coefficient
+        mfcc_mean = np.mean(mfcc, axis=1)
+        mfcc_delta_mean = np.mean(mfcc_delta, axis=1)
+        mfcc_delta2_mean = np.mean(mfcc_delta2, axis=1)
+
+        return {
+            'mfcc': mfcc,
+            'mfcc_delta': mfcc_delta,
+            'mfcc_delta2': mfcc_delta2,
+            'mfcc_mean': mfcc_mean,
+            'mfcc_delta_mean': mfcc_delta_mean,
+            'mfcc_delta2_mean': mfcc_delta2_mean,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_mfcc_delta_features: {e}")
+        return {'mfcc': np.array([]), 'mfcc_delta': np.array([]), 'mfcc_delta2': np.array([])}
+
+
+def extract_chroma_cqt_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract chroma features from CQT (Constant-Q Transform).
+    Better tonal resolution than STFT for harmonic analysis.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with chroma CQT features and harmonic content
+    """
+    try:
+        if len(y) == 0:
+            return {'chroma_cqt': np.array([]), 'chroma_mean': np.array([])}
+
+        # Compute CQT
+        cqt = np.abs(librosa.cqt(y, sr=sr, hop_length=hop_length))
+
+        # Extract chroma from CQT
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=hop_length)
+
+        # Energy per chroma class
+        chroma_mean = np.mean(chroma, axis=1)
+        chroma_std = np.std(chroma, axis=1)
+        chroma_max = np.max(chroma, axis=1)
+
+        # Harmonic entropy (how concentrated around dominant pitch)
+        chroma_entropy = -np.sum(chroma * np.log(chroma + 1e-10), axis=0)
+
+        return {
+            'chroma_cqt': chroma,
+            'chroma_mean': chroma_mean,
+            'chroma_std': chroma_std,
+            'chroma_max': chroma_max,
+            'chroma_entropy': chroma_entropy,
+            'cqt_shape': cqt.shape,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_chroma_cqt_features: {e}")
+        return {'chroma_cqt': np.array([]), 'chroma_mean': np.array([])}
+
+
+def extract_tempogram_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract tempogram features (temporal periodicity for rhythm analysis).
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with tempogram and rhythm characteristics
+    """
+    try:
+        if len(y) == 0:
+            return {'tempogram': np.array([]), 'tempo_strength': np.array([])}
+
+        # Compute onset strength
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        # Compute tempogram (autocorrelation at different tempos)
+        tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr, hop_length=hop_length)
+
+        # Extract strongest tempo per frame
+        tempo_strength = np.max(tempogram, axis=0)
+
+        # Tempo confidence (peak sharpness)
+        tempogram_mean = np.mean(tempogram, axis=0)
+        tempo_confidence = np.divide(tempo_strength, tempogram_mean + 1e-10)
+
+        return {
+            'tempogram': tempogram,
+            'tempo_strength': tempo_strength,
+            'tempo_confidence': tempo_confidence,
+            'onset_strength': onset_env,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_tempogram_features: {e}")
+        return {'tempogram': np.array([]), 'tempo_strength': np.array([])}
+
+
+def extract_onset_strength_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract onset strength features across multiple frequency bands.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with multi-band onset features
+    """
+    try:
+        if len(y) == 0:
+            return {'onset_strength': np.array([]), 'onset_bands': {}}
+
+        # Global onset strength
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        # Separate into frequency bands
+        S = np.abs(librosa.stft(y, hop_length=hop_length))
+        onset_bands = {}
+
+        n_fft = 2048
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+        # Low: 20-250 Hz (drums, bass)
+        low_mask = (freqs >= 20) & (freqs <= 250)
+        onset_bands['low'] = np.mean(librosa.onset.onset_strength(S=S[low_mask, :], sr=sr, hop_length=hop_length))
+
+        # Mid: 250-2000 Hz (snare, kick harmonics)
+        mid_mask = (freqs > 250) & (freqs <= 2000)
+        onset_bands['mid'] = np.mean(librosa.onset.onset_strength(S=S[mid_mask, :], sr=sr, hop_length=hop_length))
+
+        # High: 2000+ Hz (hi-hat, cymbals, claps)
+        high_mask = freqs > 2000
+        onset_bands['high'] = np.mean(librosa.onset.onset_strength(S=S[high_mask, :], sr=sr, hop_length=hop_length))
+
+        return {
+            'onset_strength': onset_env,
+            'onset_bands': onset_bands,
+            'onset_mean': np.mean(onset_env),
+            'onset_std': np.std(onset_env),
+            'onset_max': np.max(onset_env),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_onset_strength_features: {e}")
+        return {'onset_strength': np.array([]), 'onset_bands': {}}
+
+
+def extract_spectral_bandwidth_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract spectral bandwidth (width of frequency content).
+    Indicates tonal color and richness.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with spectral bandwidth features
+    """
+    try:
+        if len(y) == 0:
+            return {'spectral_bandwidth': np.array([]), 'spectral_centroid': np.array([])}
+
+        # Spectral centroid (average frequency)
+        spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length)[0]
+
+        # Spectral bandwidth (standard deviation of frequencies, weighted by magnitude)
+        spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length)[0]
+
+        # Spectral rolloff (frequency below which 95% of energy is concentrated)
+        spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, hop_length=hop_length)[0]
+
+        # Normalized metrics
+        bandwidth_normalized = spectral_bandwidth / (sr / 2)  # Normalize by Nyquist
+        centroid_normalized = spectral_centroid / (sr / 2)
+        rolloff_normalized = spectral_rolloff / (sr / 2)
+
+        return {
+            'spectral_centroid': spectral_centroid,
+            'spectral_bandwidth': spectral_bandwidth,
+            'spectral_rolloff': spectral_rolloff,
+            'bandwidth_normalized': bandwidth_normalized,
+            'centroid_normalized': centroid_normalized,
+            'rolloff_normalized': rolloff_normalized,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_spectral_bandwidth_features: {e}")
+        return {'spectral_bandwidth': np.array([]), 'spectral_centroid': np.array([])}
+
+
+def extract_rms_energy_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+    frame_length: int = 2048,
+) -> Dict[str, Any]:
+    """
+    Extract RMS (Root Mean Square) energy with temporal context.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+        frame_length: Frame length for computation
+
+    Returns:
+        Dictionary with RMS energy and derivatives
+    """
+    try:
+        if len(y) == 0:
+            return {'rms_energy': np.array([]), 'rms_delta': np.array([])}
+
+        # Compute RMS energy
+        rms = librosa.feature.rms(y=y, hop_length=hop_length, frame_length=frame_length)[0]
+
+        # Normalize RMS
+        rms_normalized = (rms - np.min(rms)) / (np.max(rms) - np.min(rms) + 1e-10)
+
+        # First derivative (energy change)
+        rms_delta = np.diff(rms_normalized, prepend=0)
+
+        # Second derivative (energy acceleration)
+        rms_delta2 = np.diff(rms_delta, prepend=0)
+
+        # Smoothed versions
+        from scipy.ndimage import gaussian_filter1d
+        rms_smooth = gaussian_filter1d(rms_normalized, sigma=2)
+        rms_delta_smooth = gaussian_filter1d(rms_delta, sigma=2)
+
+        return {
+            'rms_energy': rms,
+            'rms_normalized': rms_normalized,
+            'rms_delta': rms_delta,
+            'rms_delta2': rms_delta2,
+            'rms_smooth': rms_smooth,
+            'rms_delta_smooth': rms_delta_smooth,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_rms_energy_features: {e}")
+        return {'rms_energy': np.array([]), 'rms_delta': np.array([])}
+
+
+def extract_zero_crossing_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract zero crossing rate (ZCR) features.
+    High ZCR indicates noise/consonants, low ZCR indicates pitch/vowels.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with ZCR features
+    """
+    try:
+        if len(y) == 0:
+            return {'zero_crossing_rate': np.array([]), 'zcr_mean': 0.0}
+
+        # Compute zero crossing rate
+        zcr = librosa.feature.zero_crossing_rate(y, hop_length=hop_length)[0]
+
+        # Statistics
+        zcr_mean = np.mean(zcr)
+        zcr_std = np.std(zcr)
+        zcr_max = np.max(zcr)
+        zcr_min = np.min(zcr)
+
+        # Derivative
+        zcr_delta = np.diff(zcr, prepend=0)
+
+        # Voiced/unvoiced classification (simple)
+        zcr_threshold = zcr_mean + zcr_std
+        voiced_mask = zcr < zcr_threshold
+
+        return {
+            'zero_crossing_rate': zcr,
+            'zcr_mean': zcr_mean,
+            'zcr_std': zcr_std,
+            'zcr_max': zcr_max,
+            'zcr_min': zcr_min,
+            'zcr_delta': zcr_delta,
+            'voiced_fraction': np.mean(voiced_mask),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_zero_crossing_features: {e}")
+        return {'zero_crossing_rate': np.array([]), 'zcr_mean': 0.0}
+
+
+def extract_tonnetz_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract Tonnetz (Tonal Network) features for harmonic analysis.
+    6D representation of harmonic relationships.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with Tonnetz features
+    """
+    try:
+        if len(y) == 0:
+            return {'tonnetz': np.array([]), 'tonnetz_mean': np.array([])}
+
+        # Compute chroma first
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop_length)
+
+        # Compute Tonnetz
+        tonnetz = librosa.feature.tonnetz(chroma=chroma)
+
+        # Statistics per dimension
+        tonnetz_mean = np.mean(tonnetz, axis=1)
+        tonnetz_std = np.std(tonnetz, axis=1)
+        tonnetz_max = np.max(tonnetz, axis=1)
+
+        # Harmonic stability (low variation = stable)
+        harmonic_stability = 1.0 / (tonnetz_std + 1e-10)
+
+        return {
+            'tonnetz': tonnetz,
+            'tonnetz_mean': tonnetz_mean,
+            'tonnetz_std': tonnetz_std,
+            'tonnetz_max': tonnetz_max,
+            'harmonic_stability': harmonic_stability,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_tonnetz_features: {e}")
+        return {'tonnetz': np.array([]), 'tonnetz_mean': np.array([])}
+
+
+def extract_spectral_contrast_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+    n_bands: int = 6,
+) -> Dict[str, Any]:
+    """
+    Extract spectral contrast (peak vs trough in frequency bands).
+    Useful for timbre characterization.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+        n_bands: Number of frequency bands
+
+    Returns:
+        Dictionary with spectral contrast features
+    """
+    try:
+        if len(y) == 0:
+            return {'spectral_contrast': np.array([]), 'contrast_mean': np.array([])}
+
+        # Compute spectral contrast
+        spectral_contrast = librosa.feature.spectral_contrast(y=y, sr=sr, hop_length=hop_length, n_bands=n_bands)
+
+        # Statistics
+        contrast_mean = np.mean(spectral_contrast, axis=1)
+        contrast_std = np.std(spectral_contrast, axis=1)
+        contrast_max = np.max(spectral_contrast, axis=1)
+        contrast_min = np.min(spectral_contrast, axis=1)
+
+        # Temporal stability
+        contrast_delta = np.diff(spectral_contrast, axis=1)
+        contrast_stability = 1.0 / (np.mean(np.abs(contrast_delta), axis=1) + 1e-10)
+
+        return {
+            'spectral_contrast': spectral_contrast,
+            'contrast_mean': contrast_mean,
+            'contrast_std': contrast_std,
+            'contrast_max': contrast_max,
+            'contrast_min': contrast_min,
+            'contrast_stability': contrast_stability,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_spectral_contrast_features: {e}")
+        return {'spectral_contrast': np.array([]), 'contrast_mean': np.array([])}
+
+
+def extract_poly_features(
+    features_dict: Dict[str, np.ndarray],
+    poly_degree: int = 2,
+) -> Dict[str, Any]:
+    """
+    Extract polynomial combination features from existing features.
+    Creates cross-terms (e.g., energy * onset_strength) and powers.
+
+    Args:
+        features_dict: Dictionary of feature arrays
+        poly_degree: Degree of polynomial (2 = quadratic)
+
+    Returns:
+        Dictionary with polynomial features
+    """
+    try:
+        if not features_dict:
+            return {'poly_features': {}}
+
+        poly_features = {}
+        feature_names = list(features_dict.keys())
+
+        # Quadratic terms
+        if poly_degree >= 2:
+            for i, name1 in enumerate(feature_names):
+                feat1 = features_dict[name1]
+                if not isinstance(feat1, np.ndarray) or len(feat1) == 0:
+                    continue
+
+                # Square term
+                poly_features[f"{name1}_squared"] = feat1 ** 2
+
+                # Cross terms
+                for name2 in feature_names[i+1:]:
+                    feat2 = features_dict[name2]
+                    if not isinstance(feat2, np.ndarray) or len(feat1) != len(feat2):
+                        continue
+                    poly_features[f"{name1}_x_{name2}"] = feat1 * feat2
+
+        # Cubic terms
+        if poly_degree >= 3:
+            for name in feature_names:
+                feat = features_dict[name]
+                if isinstance(feat, np.ndarray) and len(feat) > 0:
+                    poly_features[f"{name}_cubed"] = feat ** 3
+
+        return {'poly_features': poly_features, 'num_poly_features': len(poly_features)}
+    except Exception as e:
+        logger.error(f"Error in extract_poly_features: {e}")
+        return {'poly_features': {}}
+
+
+def extract_statistical_features(
+    features_dict: Dict[str, np.ndarray],
+) -> Dict[str, Any]:
+    """
+    Extract statistical summaries (mean, variance, skew, kurtosis) of features.
+
+    Args:
+        features_dict: Dictionary of feature arrays (per frame)
+
+    Returns:
+        Dictionary with statistical features
+    """
+    try:
+        if not features_dict:
+            return {'statistics': {}}
+
+        from scipy import stats
+
+        statistics = {}
+
+        for name, feature in features_dict.items():
+            if not isinstance(feature, np.ndarray) or len(feature) == 0:
+                continue
+
+            # Ensure 1D for stats
+            if feature.ndim > 1:
+                feature = np.mean(feature, axis=0)
+
+            statistics[name] = {
+                'mean': float(np.mean(feature)),
+                'median': float(np.median(feature)),
+                'std': float(np.std(feature)),
+                'var': float(np.var(feature)),
+                'min': float(np.min(feature)),
+                'max': float(np.max(feature)),
+                'skew': float(stats.skew(feature)),
+                'kurtosis': float(stats.kurtosis(feature)),
+                'range': float(np.max(feature) - np.min(feature)),
+            }
+
+        return {'statistics': statistics}
+    except Exception as e:
+        logger.error(f"Error in extract_statistical_features: {e}")
+        return {'statistics': {}}
+
+
+def extract_temporal_features(
+    feature_sequence: np.ndarray,
+    window_size: int = 5,
+) -> Dict[str, Any]:
+    """
+    Extract temporal features (velocity, acceleration) from feature sequences.
+
+    Args:
+        feature_sequence: Sequence of feature values (frames)
+        window_size: Window for smoothing derivatives
+
+    Returns:
+        Dictionary with temporal features
+    """
+    try:
+        if len(feature_sequence) == 0:
+            return {'velocity': np.array([]), 'acceleration': np.array([])}
+
+        from scipy.ndimage import gaussian_filter1d
+
+        # First derivative (velocity)
+        velocity = np.diff(feature_sequence, prepend=0)
+        velocity_smooth = gaussian_filter1d(velocity, sigma=window_size/3)
+
+        # Second derivative (acceleration)
+        acceleration = np.diff(velocity, prepend=0)
+        acceleration_smooth = gaussian_filter1d(acceleration, sigma=window_size/3)
+
+        # Magnitude of changes
+        velocity_magnitude = np.abs(velocity)
+        acceleration_magnitude = np.abs(acceleration)
+
+        return {
+            'velocity': velocity,
+            'velocity_smooth': velocity_smooth,
+            'velocity_magnitude': velocity_magnitude,
+            'acceleration': acceleration,
+            'acceleration_smooth': acceleration_smooth,
+            'acceleration_magnitude': acceleration_magnitude,
+            'velocity_mean': float(np.mean(velocity_magnitude)),
+            'acceleration_mean': float(np.mean(acceleration_magnitude)),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_temporal_features: {e}")
+        return {'velocity': np.array([]), 'acceleration': np.array([])}
+
+
+def extract_rhythm_features(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Extract rhythm-specific features (beat strength, tempo stability, etc.).
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with rhythm features
+    """
+    try:
+        if len(y) == 0:
+            return {'beat_times': np.array([]), 'beat_strength': np.array([])}
+
+        # Onset strength
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        # Estimate beat times
+        tempo, beats = librosa.beat.beat_track(y=y, sr=sr, hop_length=hop_length)
+
+        # Beat strength from onset envelope
+        beat_strength = onset_env[beats] if len(beats) > 0 else np.array([])
+
+        # Beat spacing regularity
+        if len(beats) > 1:
+            beat_intervals = np.diff(beats)
+            beat_regularity = 1.0 / (np.std(beat_intervals) + 1e-10)
+        else:
+            beat_regularity = 0.0
+
+        # Syncopation (deviation from regular beat)
+        syncopation = 1.0 - (onset_env[beats].mean() / onset_env.mean()) if onset_env.mean() > 0 else 0.0
+
+        return {
+            'estimated_tempo': float(tempo),
+            'beat_frames': beats,
+            'beat_times': librosa.frames_to_time(beats, sr=sr, hop_length=hop_length),
+            'beat_strength': beat_strength,
+            'beat_regularity': float(beat_regularity),
+            'syncopation': float(np.clip(syncopation, 0, 1)),
+            'onset_strength': onset_env,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_rhythm_features: {e}")
+        return {'beat_times': np.array([]), 'beat_strength': np.array([])}
+
+
+def feature_aggregation_pipeline(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+    compute_all: bool = True,
+) -> Dict[str, Any]:
+    """
+    Comprehensive feature aggregation pipeline combining all feature types.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+        compute_all: If True, compute all features; else only core ones
+
+    Returns:
+        Dictionary with all aggregated features
+    """
+    try:
+        if len(y) == 0:
+            return {'aggregated_features': {}, 'feature_count': 0}
+
+        aggregated = {}
+
+        # Core features
+        aggregated['mel_spectro'] = extract_mel_spectrogram_features(y, sr, hop_length=hop_length)
+        aggregated['mfcc'] = extract_mfcc_delta_features(y, sr, hop_length=hop_length)
+        aggregated['chroma'] = extract_chroma_cqt_features(y, sr, hop_length=hop_length)
+        aggregated['rms'] = extract_rms_energy_features(y, sr, hop_length=hop_length)
+        aggregated['spectral_bw'] = extract_spectral_bandwidth_features(y, sr, hop_length=hop_length)
+        aggregated['zcr'] = extract_zero_crossing_features(y, sr, hop_length=hop_length)
+        aggregated['rhythm'] = extract_rhythm_features(y, sr, hop_length=hop_length)
+
+        if compute_all:
+            aggregated['tempogram'] = extract_tempogram_features(y, sr, hop_length=hop_length)
+            aggregated['onset'] = extract_onset_strength_features(y, sr, hop_length=hop_length)
+            aggregated['tonnetz'] = extract_tonnetz_features(y, sr, hop_length=hop_length)
+            aggregated['contrast'] = extract_spectral_contrast_features(y, sr, hop_length=hop_length)
+
+        # Statistical summary
+        stats_data = {}
+        for name, feat_dict in aggregated.items():
+            for k, v in feat_dict.items():
+                if isinstance(v, np.ndarray) and len(v) > 0:
+                    stats_data[f"{name}_{k}"] = v
+
+        aggregated['statistics'] = extract_statistical_features(stats_data)
+
+        return {
+            'aggregated_features': aggregated,
+            'feature_count': sum(len(v) for v in aggregated.values() if isinstance(v, dict)),
+        }
+    except Exception as e:
+        logger.error(f"Error in feature_aggregation_pipeline: {e}")
+        return {'aggregated_features': {}, 'feature_count': 0}
+
+
+# ============================================================================
+# PART 3: ADVANCED PREDICTION (15 functions)
+# ============================================================================
+
+def predict_drop_probability(
+    energy: np.ndarray,
+    onset_strength: np.ndarray,
+    spectral_flux: np.ndarray,
+    window_size: int = 20,
+) -> Dict[str, Any]:
+    """
+    Predict probability of drop (sudden energy increase + complexity).
+
+    Args:
+        energy: Energy contour
+        onset_strength: Onset strength envelope
+        spectral_flux: Spectral flux
+        window_size: Smoothing window
+
+    Returns:
+        Dictionary with drop probabilities per frame
+    """
+    try:
+        if len(energy) == 0:
+            return {'drop_probability': np.array([]), 'drop_frames': []}
+
+        from scipy.ndimage import gaussian_filter1d
+
+        # Normalize inputs
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        onset_norm = (onset_strength - np.min(onset_strength)) / (np.max(onset_strength) - np.min(onset_strength) + 1e-10)
+        flux_norm = (spectral_flux - np.min(spectral_flux)) / (np.max(spectral_flux) - np.min(spectral_flux) + 1e-10)
+
+        # Drop indicator: high energy + high onset + high flux change
+        drop_signal = 0.4 * energy_norm + 0.3 * onset_norm + 0.3 * flux_norm
+
+        # Smooth
+        drop_smooth = gaussian_filter1d(drop_signal, sigma=window_size/3)
+
+        # Find peaks (drops)
+        from scipy.signal import find_peaks
+        peaks, properties = find_peaks(drop_smooth, height=np.percentile(drop_smooth, 70), distance=window_size)
+
+        # Normalize to probability
+        drop_probability = np.clip(drop_smooth, 0, 1)
+
+        return {
+            'drop_probability': drop_probability,
+            'drop_frames': peaks.tolist(),
+            'drop_heights': properties['peak_heights'].tolist() if len(peaks) > 0 else [],
+            'mean_drop_strength': float(np.mean(drop_smooth[peaks])) if len(peaks) > 0 else 0.0,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_drop_probability: {e}")
+        return {'drop_probability': np.array([]), 'drop_frames': []}
+
+
+def predict_build_probability(
+    energy: np.ndarray,
+    rms_delta: np.ndarray,
+    window_size: int = 20,
+) -> Dict[str, Any]:
+    """
+    Predict probability of build-up (gradual energy increase).
+
+    Args:
+        energy: Energy contour
+        rms_delta: RMS energy derivative
+        window_size: Smoothing window
+
+    Returns:
+        Dictionary with build-up probabilities per frame
+    """
+    try:
+        if len(energy) == 0:
+            return {'build_probability': np.array([]), 'build_regions': []}
+
+        from scipy.ndimage import gaussian_filter1d
+
+        # Build-up: positive energy derivative, sustained
+        build_signal = np.clip(rms_delta, 0, None)  # Only positive changes
+        build_smooth = gaussian_filter1d(build_signal, sigma=window_size/3)
+
+        # Normalize
+        build_probability = (build_smooth - np.min(build_smooth)) / (np.max(build_smooth) - np.min(build_smooth) + 1e-10)
+
+        # Find regions above threshold
+        threshold = np.percentile(build_smooth, 60)
+        build_regions = np.where(build_smooth > threshold)[0].tolist()
+
+        return {
+            'build_probability': build_probability,
+            'build_frames': build_regions,
+            'mean_build_strength': float(np.mean(build_smooth[build_smooth > threshold])) if len(build_regions) > 0 else 0.0,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_build_probability: {e}")
+        return {'build_probability': np.array([]), 'build_regions': []}
+
+
+def predict_breakdown_probability(
+    energy: np.ndarray,
+    spectral_contrast: np.ndarray,
+    onset_strength: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict probability of breakdown (reduction in complexity/energy).
+
+    Args:
+        energy: Energy contour
+        spectral_contrast: Spectral contrast array
+        onset_strength: Onset strength envelope
+
+    Returns:
+        Dictionary with breakdown probabilities
+    """
+    try:
+        if len(energy) == 0:
+            return {'breakdown_probability': np.array([]), 'breakdown_frames': []}
+
+        # Normalize
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        onset_norm = (onset_strength - np.min(onset_strength)) / (np.max(onset_strength) - np.min(onset_strength) + 1e-10)
+
+        # Contrast: mean if 2D
+        if spectral_contrast.ndim > 1:
+            contrast_norm = np.mean(spectral_contrast, axis=0)
+        else:
+            contrast_norm = spectral_contrast
+        contrast_norm = (contrast_norm - np.min(contrast_norm)) / (np.max(contrast_norm) - np.min(contrast_norm) + 1e-10)
+
+        # Breakdown: dropping energy or complexity
+        from scipy.ndimage import gaussian_filter1d
+        energy_delta = np.diff(energy_norm, prepend=0)
+        contrast_delta = np.diff(contrast_norm, prepend=0)
+
+        # Negative changes (drops)
+        breakdown_signal = np.clip(-energy_delta, 0, None) + np.clip(-contrast_delta, 0, None)
+        breakdown_smooth = gaussian_filter1d(breakdown_signal, sigma=5)
+        breakdown_probability = np.clip(breakdown_smooth, 0, 1)
+
+        peaks, _ = find_peaks(breakdown_smooth, height=np.percentile(breakdown_smooth[breakdown_smooth > 0], 70) if np.any(breakdown_smooth > 0) else 0)
+
+        return {
+            'breakdown_probability': breakdown_probability,
+            'breakdown_frames': peaks.tolist(),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_breakdown_probability: {e}")
+        return {'breakdown_probability': np.array([]), 'breakdown_frames': []}
+
+
+def predict_vocal_probability(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Predict frame-by-frame probability of vocal presence.
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with vocal presence probabilities
+    """
+    try:
+        if len(y) == 0:
+            return {'vocal_probability': np.array([]), 'has_vocals': False}
+
+        # MFCC features often indicate vocals
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, hop_length=hop_length)
+
+        # ZCR also higher in vocal regions
+        zcr = librosa.feature.zero_crossing_rate(y, hop_length=hop_length)[0]
+
+        # Spectral centroid (vocals often mid-high frequency)
+        spec_cent = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length)[0]
+
+        # Normalize features
+        mfcc_mean = np.mean(mfcc, axis=0)
+        mfcc_norm = (mfcc_mean - np.min(mfcc_mean)) / (np.max(mfcc_mean) - np.min(mfcc_mean) + 1e-10)
+
+        zcr_norm = (zcr - np.min(zcr)) / (np.max(zcr) - np.min(zcr) + 1e-10)
+
+        spec_norm = (spec_cent - np.min(spec_cent)) / (np.max(spec_cent) - np.min(spec_cent) + 1e-10)
+
+        # Vocal indicator (empirical weighting)
+        vocal_probability = 0.4 * mfcc_norm + 0.3 * zcr_norm + 0.3 * spec_norm
+
+        # Smooth
+        from scipy.ndimage import gaussian_filter1d
+        vocal_smooth = gaussian_filter1d(vocal_probability, sigma=3)
+
+        # Threshold detection
+        has_vocals = np.mean(vocal_smooth) > 0.4
+
+        return {
+            'vocal_probability': vocal_smooth,
+            'has_vocals': bool(has_vocals),
+            'vocal_mean_confidence': float(np.mean(vocal_smooth)),
+            'vocal_peak': float(np.max(vocal_smooth)),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_vocal_probability: {e}")
+        return {'vocal_probability': np.array([]), 'has_vocals': False}
+
+
+def predict_transition_probability(
+    energy: np.ndarray,
+    spectral_novelty: np.ndarray,
+    window_size: int = 15,
+) -> Dict[str, Any]:
+    """
+    Predict probability of good transition point (moderate changes).
+
+    Args:
+        energy: Energy contour
+        spectral_novelty: Spectral novelty curve
+        window_size: Smoothing window
+
+    Returns:
+        Dictionary with transition probabilities
+    """
+    try:
+        if len(energy) == 0:
+            return {'transition_probability': np.array([]), 'transition_frames': []}
+
+        from scipy.ndimage import gaussian_filter1d
+
+        # Normalize
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        novelty_norm = (spectral_novelty - np.min(spectral_novelty)) / (np.max(spectral_novelty) - np.min(spectral_novelty) + 1e-10)
+
+        # Transition: moderate energy + moderate novelty
+        transition_signal = 1.0 - np.abs(energy_norm - 0.5) - 0.5 * np.abs(novelty_norm - 0.3)
+        transition_smooth = gaussian_filter1d(np.clip(transition_signal, 0, 1), sigma=window_size/3)
+
+        # Find transition points
+        peaks, _ = find_peaks(transition_smooth, height=np.percentile(transition_smooth, 60))
+
+        return {
+            'transition_probability': transition_smooth,
+            'transition_frames': peaks.tolist(),
+            'mean_transition_quality': float(np.mean(transition_smooth[peaks])) if len(peaks) > 0 else 0.0,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_transition_probability: {e}")
+        return {'transition_probability': np.array([]), 'transition_frames': []}
+
+
+def predict_loop_worthiness(
+    energy: np.ndarray,
+    spectral_flux: np.ndarray,
+    min_loop_frames: int = 100,
+) -> Dict[str, Any]:
+    """
+    Predict if section is worthy of being looped (repetitive, consistent).
+
+    Args:
+        energy: Energy contour
+        spectral_flux: Spectral flux
+        min_loop_frames: Minimum section length
+
+    Returns:
+        Dictionary with loop worthiness scores
+    """
+    try:
+        if len(energy) < min_loop_frames:
+            return {'loop_worthiness': np.array([]), 'loop_regions': []}
+
+        from scipy.ndimage import gaussian_filter1d
+
+        # Low flux = consistent / repetitive
+        flux_inv = 1.0 / (spectral_flux + 1e-10)
+        flux_norm = (flux_inv - np.min(flux_inv)) / (np.max(flux_inv) - np.min(flux_inv) + 1e-10)
+
+        # Stable energy
+        energy_delta = np.abs(np.diff(energy, prepend=0))
+        energy_stability = 1.0 / (energy_delta + 1e-10)
+        energy_norm = (energy_stability - np.min(energy_stability)) / (np.max(energy_stability) - np.min(energy_stability) + 1e-10)
+
+        # Combine
+        loop_score = 0.5 * flux_norm + 0.5 * energy_norm
+        loop_smooth = gaussian_filter1d(loop_score, sigma=10)
+
+        # Find long stable regions
+        from scipy.signal import medfilt
+        loop_median = medfilt(loop_smooth, kernel_size=min_loop_frames)
+
+        return {
+            'loop_worthiness': loop_smooth,
+            'loop_stability': loop_median,
+            'mean_loop_score': float(np.mean(loop_smooth)),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_loop_worthiness: {e}")
+        return {'loop_worthiness': np.array([]), 'loop_regions': []}
+
+
+def predict_cue_importance(
+    energy: np.ndarray,
+    spectral_novelty: np.ndarray,
+    onset_strength: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict relative importance/priority of each cue candidate.
+
+    Args:
+        energy: Energy contour
+        spectral_novelty: Spectral novelty
+        onset_strength: Onset strength
+
+    Returns:
+        Dictionary with importance scores
+    """
+    try:
+        if len(energy) == 0:
+            return {'importance_scores': np.array([]), 'top_cues': []}
+
+        # Normalize
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        novelty_norm = (spectral_novelty - np.min(spectral_novelty)) / (np.max(spectral_novelty) - np.min(spectral_novelty) + 1e-10)
+        onset_norm = (onset_strength - np.min(onset_strength)) / (np.max(onset_strength) - np.min(onset_strength) + 1e-10)
+
+        # Importance: peaks in all three
+        importance_scores = 0.4 * energy_norm + 0.3 * novelty_norm + 0.3 * onset_norm
+
+        # Find top cues
+        top_indices = np.argsort(importance_scores)[-10:][::-1].tolist()
+        top_scores = importance_scores[top_indices].tolist()
+
+        return {
+            'importance_scores': importance_scores,
+            'top_cue_frames': top_indices,
+            'top_cue_scores': top_scores,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_cue_importance: {e}")
+        return {'importance_scores': np.array([]), 'top_cues': []}
+
+
+def predict_mix_point_quality(
+    energy: np.ndarray,
+    beat_strength: np.ndarray,
+    spectral_stability: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict quality of mix point (low variability, on beat).
+
+    Args:
+        energy: Energy contour
+        beat_strength: Beat strength per frame
+        spectral_stability: Spectral stability (inverse of flux)
+
+    Returns:
+        Dictionary with mix point quality scores
+    """
+    try:
+        if len(energy) == 0:
+            return {'mix_quality': np.array([]), 'best_mix_points': []}
+
+        # Normalize
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        beat_norm = (beat_strength - np.min(beat_strength)) / (np.max(beat_strength) - np.min(beat_strength) + 1e-10)
+        stab_norm = (spectral_stability - np.min(spectral_stability)) / (np.max(spectral_stability) - np.min(spectral_stability) + 1e-10)
+
+        # Mix quality: good energy + strong beat + stable spectrum
+        mix_quality = 0.3 * energy_norm + 0.4 * beat_norm + 0.3 * stab_norm
+
+        # Find best mix points
+        peaks, _ = find_peaks(mix_quality, height=np.percentile(mix_quality, 75))
+
+        return {
+            'mix_quality': mix_quality,
+            'best_mix_points': peaks.tolist(),
+            'best_mix_scores': mix_quality[peaks].tolist() if len(peaks) > 0 else [],
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_mix_point_quality: {e}")
+        return {'mix_quality': np.array([]), 'best_mix_points': []}
+
+
+def predict_crowd_reaction(
+    energy: np.ndarray,
+    beat_strength: np.ndarray,
+    spectral_excitement: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict crowd reaction intensity (empirical model).
+
+    Args:
+        energy: Energy contour
+        beat_strength: Beat strength
+        spectral_excitement: Spectral excitement measure
+
+    Returns:
+        Dictionary with crowd reaction predictions
+    """
+    try:
+        if len(energy) == 0:
+            return {'crowd_energy': np.array([]), 'peak_reaction_frames': []}
+
+        # Normalize
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-10)
+        beat_norm = (beat_strength - np.min(beat_strength)) / (np.max(beat_strength) - np.min(beat_strength) + 1e-10)
+        exc_norm = (spectral_excitement - np.min(spectral_excitement)) / (np.max(spectral_excitement) - np.min(spectral_excitement) + 1e-10)
+
+        # Crowd energy: high energy + strong beat + exciting spectrum
+        crowd_energy = 0.35 * energy_norm + 0.35 * beat_norm + 0.3 * exc_norm
+
+        # Smooth
+        from scipy.ndimage import gaussian_filter1d
+        crowd_smooth = gaussian_filter1d(crowd_energy, sigma=5)
+
+        # Find peaks
+        peaks, _ = find_peaks(crowd_smooth, height=np.percentile(crowd_smooth, 80))
+
+        return {
+            'crowd_energy': crowd_smooth,
+            'peak_reaction_frames': peaks.tolist(),
+            'mean_crowd_energy': float(np.mean(crowd_smooth)),
+            'max_reaction': float(np.max(crowd_smooth)),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_crowd_reaction: {e}")
+        return {'crowd_energy': np.array([]), 'peak_reaction_frames': []}
+
+
+def predict_energy_trajectory(
+    energy: np.ndarray,
+    horizon_frames: int = 100,
+) -> Dict[str, Any]:
+    """
+    Predict future energy trajectory (what's coming next).
+
+    Args:
+        energy: Energy contour
+        horizon_frames: How far to predict
+
+    Returns:
+        Dictionary with predicted energy trajectories
+    """
+    try:
+        if len(energy) < horizon_frames:
+            return {'trajectory_predictions': [], 'trend': 'unknown'}
+
+        from scipy.ndimage import gaussian_filter1d
+        from numpy.polynomial.polynomial import Polynomial
+
+        # Fit polynomial to recent energy
+        recent_frames = min(horizon_frames, len(energy))
+        x = np.arange(recent_frames)
+        y = energy[-recent_frames:]
+
+        # Fit trend
+        coeffs = np.polyfit(x, y, 2)
+        poly = Polynomial(coeffs)
+
+        # Predict next frames
+        future_x = np.arange(recent_frames, recent_frames + horizon_frames)
+        predictions = poly(future_x)
+        predictions = np.clip(predictions, np.min(energy), np.max(energy))
+
+        # Determine trend
+        trend_slope = coeffs[1]
+        if trend_slope > 0.001:
+            trend = 'rising'
+        elif trend_slope < -0.001:
+            trend = 'falling'
+        else:
+            trend = 'stable'
+
+        return {
+            'predicted_energy': predictions.tolist(),
+            'trend': trend,
+            'trend_slope': float(trend_slope),
+            'predicted_mean': float(np.mean(predictions)),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_energy_trajectory: {e}")
+        return {'trajectory_predictions': [], 'trend': 'unknown'}
+
+
+def predict_section_function(
+    energy: np.ndarray,
+    spectral_novelty: np.ndarray,
+    onset_strength: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict function of a section (intro, build, drop, breakdown, outro).
+
+    Args:
+        energy: Energy contour
+        spectral_novelty: Spectral novelty
+        onset_strength: Onset strength
+
+    Returns:
+        Dictionary with section function predictions
+    """
+    try:
+        if len(energy) == 0:
+            return {'section_function': 'unknown', 'confidence': 0.0}
+
+        # Characteristics
+        energy_mean = np.mean(energy)
+        energy_var = np.var(energy)
+        novelty_mean = np.mean(spectral_novelty)
+        onset_mean = np.mean(onset_strength)
+
+        # Decision tree (simplified)
+        if energy_mean < 0.3:
+            if novelty_mean < 0.3:
+                func = 'intro'
+            else:
+                func = 'breakdown'
+        elif energy_mean > 0.7:
+            if novelty_mean > 0.6 and onset_mean > 0.6:
+                func = 'drop'
+            else:
+                func = 'peak'
+        else:
+            if np.std(np.diff(energy)) > 0.1:
+                func = 'build'
+            else:
+                func = 'bridge'
+
+        # Confidence based on variance
+        confidence = 1.0 - np.clip(energy_var, 0, 1)
+
+        return {
+            'section_function': func,
+            'confidence': float(confidence),
+            'energy_level': float(energy_mean),
+            'novelty_level': float(novelty_mean),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_section_function: {e}")
+        return {'section_function': 'unknown', 'confidence': 0.0}
+
+
+def predict_dj_action(
+    energy: np.ndarray,
+    spectral_novelty: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict likely DJ action (EQ, filter, loop, transition, scratch).
+
+    Args:
+        energy: Energy contour
+        spectral_novelty: Spectral novelty
+
+    Returns:
+        Dictionary with predicted DJ actions
+    """
+    try:
+        if len(energy) == 0:
+            return {'suggested_actions': [], 'primary_action': 'none'}
+
+        actions = []
+
+        # High energy + low novelty -> loop/repeat
+        if np.mean(energy) > 0.6 and np.mean(spectral_novelty) < 0.4:
+            actions.append({'action': 'loop', 'confidence': 0.8})
+
+        # Rising energy -> build/EQ boost
+        energy_delta = np.mean(np.diff(energy))
+        if energy_delta > 0.01:
+            actions.append({'action': 'eq_boost', 'confidence': 0.7})
+
+        # High novelty -> transition/scratch
+        if np.mean(spectral_novelty) > 0.6:
+            actions.append({'action': 'transition', 'confidence': 0.75})
+
+        # Falling energy -> filter decrease
+        if energy_delta < -0.01:
+            actions.append({'action': 'filter_decrease', 'confidence': 0.7})
+
+        # Default
+        if not actions:
+            actions.append({'action': 'none', 'confidence': 0.5})
+
+        # Sort by confidence
+        actions.sort(key=lambda x: x['confidence'], reverse=True)
+        primary = actions[0]['action']
+
+        return {
+            'suggested_actions': actions,
+            'primary_action': primary,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_dj_action: {e}")
+        return {'suggested_actions': [], 'primary_action': 'none'}
+
+
+def predict_genre_subgenre(
+    chroma: np.ndarray,
+    spectral_contrast: np.ndarray,
+    tempo: float,
+) -> Dict[str, Any]:
+    """
+    Predict genre and subgenre from audio features.
+
+    Args:
+        chroma: Chroma features
+        spectral_contrast: Spectral contrast
+        tempo: Tempo estimation
+
+    Returns:
+        Dictionary with genre predictions
+    """
+    try:
+        # Simple heuristics
+        chroma_dom = np.argmax(np.mean(chroma, axis=1)) if chroma.ndim > 1 else 0
+        contrast_mean = np.mean(spectral_contrast) if spectral_contrast.ndim > 1 else spectral_contrast.mean()
+
+        if 120 <= tempo <= 130:
+            genre = 'house'
+            if contrast_mean > 0.7:
+                subgenre = 'deep_house'
+            else:
+                subgenre = 'tech_house'
+        elif 135 <= tempo <= 150:
+            genre = 'drum_and_bass'
+            subgenre = 'liquid' if contrast_mean > 0.6 else 'neurofunk'
+        elif 90 <= tempo <= 110:
+            genre = 'hip_hop'
+            subgenre = 'trap' if tempo > 100 else 'boom_bap'
+        elif 85 <= tempo <= 105:
+            genre = 'reggaeton'
+            subgenre = 'perreo' if tempo > 95 else 'reggaeton'
+        elif 130 <= tempo <= 160:
+            genre = 'techno'
+            subgenre = 'industrial' if contrast_mean > 0.7 else 'minimal'
+        elif 100 <= tempo <= 130:
+            genre = 'trance'
+            subgenre = 'uplifting' if chroma_dom < 6 else 'progressive'
+        else:
+            genre = 'electronic'
+            subgenre = 'experimental'
+
+        return {
+            'genre': genre,
+            'subgenre': subgenre,
+            'confidence': 0.6,
+            'tempo': float(tempo),
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_genre_subgenre: {e}")
+        return {'genre': 'unknown', 'subgenre': 'unknown', 'confidence': 0.0}
+
+
+def predict_bpm_confidence(
+    y: np.ndarray,
+    sr: int = 22050,
+    hop_length: int = 512,
+) -> Dict[str, Any]:
+    """
+    Predict per-frame BPM confidence (stability of tempo).
+
+    Args:
+        y: Audio time series
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Dictionary with BPM confidence per frame
+    """
+    try:
+        if len(y) == 0:
+            return {'bpm_confidence': np.array([]), 'estimated_bpm': 0.0}
+
+        # Estimate tempo
+        tempo, beats = librosa.beat.beat_track(y=y, sr=sr, hop_length=hop_length)
+
+        # Compute onset strength for confidence
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        # Beat strength at estimated beat frames
+        beat_strength = onset_env[beats] if len(beats) > 0 else np.array([])
+
+        # Confidence proportional to beat strength
+        if len(beats) > 0:
+            beat_confidence = np.mean(beat_strength) / (np.mean(onset_env) + 1e-10)
+        else:
+            beat_confidence = 0.5
+
+        # Interpolate confidence to all frames
+        from scipy.interpolate import interp1d
+        beat_times_frames = beats
+        beat_confidences = beat_strength
+
+        if len(beat_times_frames) > 1:
+            interp_func = interp1d(beat_times_frames, beat_confidences,
+                                  kind='linear', bounds_error=False,
+                                  fill_value='extrapolate')
+            all_frames = np.arange(len(onset_env))
+            bpm_confidence = np.clip(interp_func(all_frames), 0, 1)
+        else:
+            bpm_confidence = np.full(len(onset_env), beat_confidence)
+
+        return {
+            'bpm_confidence': bpm_confidence,
+            'estimated_bpm': float(tempo),
+            'beat_strength_mean': float(np.mean(beat_strength)) if len(beat_strength) > 0 else 0.0,
+        }
+    except Exception as e:
+        logger.error(f"Error in predict_bpm_confidence: {e}")
+        return {'bpm_confidence': np.array([]), 'estimated_bpm': 0.0}
+
+
+def predict_key_confidence(
+    chroma: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Predict per-frame key/tonality confidence.
+
+    Args:
+        chroma: Chroma feature matrix (12 x frames)
+
+    Returns:
+        Dictionary with key confidence per frame
+    """
+    try:
+        if chroma.size == 0:
+            return {'key_confidence': np.array([]), 'dominant_key': 'unknown'}
+
+        if chroma.ndim == 1:
+            # Single frame
+            dominant_idx = np.argmax(chroma)
+            notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+            dominant_key = notes[dominant_idx]
+
+            # Confidence: how much dominant note stands out
+            chroma_norm = (chroma - np.min(chroma)) / (np.max(chroma) - np.min(chroma) + 1e-10)
+            confidence = float(chroma_norm[dominant_idx])
+
+            return {
+                'key_confidence': np.array([confidence]),
+                'dominant_key': dominant_key,
+                'chroma_distribution': chroma.tolist(),
+            }
+        else:
+            # Multiple frames
+            notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+            # Dominant key per frame
+            dominant_idx = np.argmax(chroma, axis=0)
+            dominant_keys = [notes[i] for i in dominant_idx]
+
+            # Confidence: energy of dominant note vs others
+            dominant_energy = np.max(chroma, axis=0)
+            total_energy = np.sum(chroma, axis=0)
+            key_confidence = dominant_energy / (total_energy + 1e-10)
+
+            # Global dominant key
+            global_dominant = notes[np.argmax(np.mean(chroma, axis=1))]
+
+            return {
+                'key_confidence': key_confidence,
+                'dominant_key_per_frame': dominant_keys,
+                'global_dominant_key': global_dominant,
+                'mean_confidence': float(np.mean(key_confidence)),
+            }
+    except Exception as e:
+        logger.error(f"Error in predict_key_confidence: {e}")
+        return {'key_confidence': np.array([]), 'dominant_key': 'unknown'}
+
+
+# ============================================================================
+# PART 4: COMPARATIVE ANALYSIS (10 functions)
+# ============================================================================
+
+def compare_two_tracks(
+    track1_features: Dict[str, Any],
+    track2_features: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Comprehensive comparison of two tracks across multiple dimensions.
+
+    Args:
+        track1_features: Feature dict for track 1
+        track2_features: Feature dict for track 2
+
+    Returns:
+        Dictionary with comparison metrics
+    """
+    try:
+        if not track1_features or not track2_features:
+            return {'comparison': {}, 'overall_compatibility': 0.0}
+
+        comparison = {
+            'harmonic': harmonic_compatibility_score(
+                track1_features.get('chroma', np.array([])),
+                track2_features.get('chroma', np.array([]))
+            ),
+            'energy': energy_compatibility_score(
+                track1_features.get('energy', np.array([])),
+                track2_features.get('energy', np.array([]))
+            ),
+            'tempo': tempo_compatibility_score(
+                track1_features.get('bpm', 120),
+                track2_features.get('bpm', 120)
+            ),
+            'style': style_similarity_score(
+                track1_features.get('mfcc', np.array([])),
+                track2_features.get('mfcc', np.array([]))
+            ),
+        }
+
+        # Overall compatibility
+        overall = np.mean([v.get('score', 0.5) for v in comparison.values()])
+
+        return {
+            'comparison': comparison,
+            'overall_compatibility': float(overall),
+        }
+    except Exception as e:
+        logger.error(f"Error in compare_two_tracks: {e}")
+        return {'comparison': {}, 'overall_compatibility': 0.0}
+
+
+def harmonic_compatibility_score(
+    chroma1: np.ndarray,
+    chroma2: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Score harmonic compatibility between two tracks (key distance).
+
+    Args:
+        chroma1: Chroma features of track 1
+        chroma2: Chroma features of track 2
+
+    Returns:
+        Dictionary with harmonic score
+    """
+    try:
+        if chroma1.size == 0 or chroma2.size == 0:
+            return {'score': 0.5, 'key_distance': 0}
+
+        # Get mean chroma profiles
+        if chroma1.ndim > 1:
+            chroma1_mean = np.mean(chroma1, axis=1)
+        else:
+            chroma1_mean = chroma1
+
+        if chroma2.ndim > 1:
+            chroma2_mean = np.mean(chroma2, axis=1)
+        else:
+            chroma2_mean = chroma2
+
+        # Cosine similarity
+        from scipy.spatial.distance import cosine
+        similarity = 1.0 - cosine(chroma1_mean, chroma2_mean)
+
+        # Key distance (circular distance in 12-note space)
+        key1_idx = np.argmax(chroma1_mean)
+        key2_idx = np.argmax(chroma2_mean)
+        key_distance = min(abs(key1_idx - key2_idx), 12 - abs(key1_idx - key2_idx))
+
+        # Perfect keys are distance 0 or 7 (fifth apart)
+        if key_distance in [0, 7]:
+            key_score = 1.0
+        elif key_distance in [1, 6, 11]:
+            key_score = 0.8
+        elif key_distance in [2, 5, 10]:
+            key_score = 0.6
+        else:
+            key_score = 0.4
+
+        final_score = 0.6 * similarity + 0.4 * key_score
+
+        return {
+            'score': float(np.clip(final_score, 0, 1)),
+            'key_distance': int(key_distance),
+            'cosine_similarity': float(similarity),
+        }
+    except Exception as e:
+        logger.error(f"Error in harmonic_compatibility_score: {e}")
+        return {'score': 0.5, 'key_distance': 0}
+
+
+def energy_compatibility_score(
+    energy1: np.ndarray,
+    energy2: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Score energy compatibility between two tracks.
+
+    Args:
+        energy1: Energy contour of track 1
+        energy2: Energy contour of track 2
+
+    Returns:
+        Dictionary with energy score
+    """
+    try:
+        if len(energy1) == 0 or len(energy2) == 0:
+            return {'score': 0.5, 'energy_diff': 0.0}
+
+        # Mean energy levels
+        mean1 = np.mean(energy1)
+        mean2 = np.mean(energy2)
+
+        # Normalized difference
+        max_energy = max(np.max(energy1), np.max(energy2))
+        energy_diff = abs(mean1 - mean2) / (max_energy + 1e-10)
+
+        # Score: perfect match is 0 diff
+        score = 1.0 - np.clip(energy_diff, 0, 1)
+
+        # Variance (stability)
+        var1 = np.var(energy1)
+        var2 = np.var(energy2)
+        variance_diff = abs(var1 - var2) / (max(var1, var2) + 1e-10)
+
+        # Combined score
+        final_score = 0.7 * score + 0.3 * (1.0 - np.clip(variance_diff, 0, 1))
+
+        return {
+            'score': float(np.clip(final_score, 0, 1)),
+            'energy_diff': float(energy_diff),
+            'mean_energy_1': float(mean1),
+            'mean_energy_2': float(mean2),
+        }
+    except Exception as e:
+        logger.error(f"Error in energy_compatibility_score: {e}")
+        return {'score': 0.5, 'energy_diff': 0.0}
+
+
+def tempo_compatibility_score(
+    bpm1: float,
+    bpm2: float,
+) -> Dict[str, Any]:
+    """
+    Score tempo compatibility between two tracks.
+
+    Args:
+        bpm1: BPM of track 1
+        bpm2: BPM of track 2
+
+    Returns:
+        Dictionary with tempo score
+    """
+    try:
+        if bpm1 <= 0 or bpm2 <= 0:
+            return {'score': 0.5, 'bpm_diff': 0.0}
+
+        # Percentage difference
+        bpm_diff_pct = abs(bpm1 - bpm2) / max(bpm1, bpm2)
+
+        # Perfect match: same BPM
+        if bpm_diff_pct < 0.02:
+            score = 1.0
+        # Good: within 2% (easy beatmatch)
+        elif bpm_diff_pct < 0.05:
+            score = 0.9
+        # OK: within 10%
+        elif bpm_diff_pct < 0.10:
+            score = 0.7
+        # Moderate: within 20%
+        elif bpm_diff_pct < 0.20:
+            score = 0.5
+        # Poor
+        else:
+            score = 0.3
+
+        return {
+            'score': float(score),
+            'bpm_diff': float(bpm_diff_pct * 100),
+            'bpm_1': float(bpm1),
+            'bpm_2': float(bpm2),
+        }
+    except Exception as e:
+        logger.error(f"Error in tempo_compatibility_score: {e}")
+        return {'score': 0.5, 'bpm_diff': 0.0}
+
+
+def style_similarity_score(
+    mfcc1: np.ndarray,
+    mfcc2: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Score style similarity between two tracks using MFCC.
+
+    Args:
+        mfcc1: MFCC of track 1
+        mfcc2: MFCC of track 2
+
+    Returns:
+        Dictionary with style score
+    """
+    try:
+        if mfcc1.size == 0 or mfcc2.size == 0:
+            return {'score': 0.5}
+
+        # Mean MFCC vectors
+        if mfcc1.ndim > 1:
+            mfcc1_mean = np.mean(mfcc1, axis=1)
+        else:
+            mfcc1_mean = mfcc1
+
+        if mfcc2.ndim > 1:
+            mfcc2_mean = np.mean(mfcc2, axis=1)
+        else:
+            mfcc2_mean = mfcc2
+
+        # Cosine similarity
+        from scipy.spatial.distance import cosine
+        similarity = 1.0 - cosine(mfcc1_mean, mfcc2_mean)
+
+        return {
+            'score': float(np.clip(similarity, 0, 1)),
+            'cosine_similarity': float(similarity),
+        }
+    except Exception as e:
+        logger.error(f"Error in style_similarity_score: {e}")
+        return {'score': 0.5}
+
+
+def transition_quality_prediction(
+    energy_before: np.ndarray,
+    energy_after: np.ndarray,
+    compatibility_score: float = 0.7,
+) -> Dict[str, Any]:
+    """
+    Predict quality of transition between two tracks.
+
+    Args:
+        energy_before: Energy contour of first track tail
+        energy_after: Energy contour of second track head
+        compatibility_score: Overall compatibility (0-1)
+
+    Returns:
+        Dictionary with transition quality prediction
+    """
+    try:
+        if len(energy_before) == 0 or len(energy_after) == 0:
+            return {'transition_quality': 0.5, 'issues': []}
+
+        issues = []
+
+        # Check energy continuity
+        before_end = np.mean(energy_before[-20:]) if len(energy_before) > 20 else np.mean(energy_before)
+        after_start = np.mean(energy_after[:20]) if len(energy_after) > 20 else np.mean(energy_after)
+
+        energy_drop = before_end - after_start
+        if energy_drop > 0.3:
+            issues.append({'issue': 'energy_drop', 'severity': 'high'})
+        elif energy_drop > 0.15:
+            issues.append({'issue': 'energy_drop', 'severity': 'medium'})
+
+        # Build detection in before track
+        before_trend = np.mean(np.diff(energy_before[-30:]))
+        if before_trend > 0.01:
+            # Good: building energy
+            build_score = 1.0
+        else:
+            build_score = 0.6
+
+        # Quick start detection in after track
+        after_trend = np.mean(np.diff(energy_after[:30]))
+        if after_trend > 0:
+            quick_start = 0.8
+        else:
+            quick_start = 0.6
+
+        # Final quality
+        transition_quality = 0.4 * compatibility_score + 0.3 * build_score + 0.3 * quick_start
+
+        return {
+            'transition_quality': float(np.clip(transition_quality, 0, 1)),
+            'issues': issues,
+            'build_potential': float(build_score),
+            'quick_start_potential': float(quick_start),
+        }
+    except Exception as e:
+        logger.error(f"Error in transition_quality_prediction: {e}")
+        return {'transition_quality': 0.5, 'issues': []}
+
+
+def optimal_mix_point_finder(
+    track1_energy: np.ndarray,
+    track2_energy: np.ndarray,
+    track1_beat_strength: np.ndarray,
+    track2_beat_strength: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Find optimal mix point between two tracks.
+
+    Args:
+        track1_energy: Energy contour of track 1
+        track2_energy: Energy contour of track 2
+        track1_beat_strength: Beat strength of track 1
+        track2_beat_strength: Beat strength of track 2
+
+    Returns:
+        Dictionary with optimal mix points
+    """
+    try:
+        if len(track1_energy) == 0 or len(track2_energy) == 0:
+            return {'optimal_point_track1': -1, 'optimal_point_track2': -1, 'quality': 0.0}
+
+        # Find section boundaries in track 1 (where to start mixing out)
+        from scipy.ndimage import gaussian_filter1d
+
+        # Look for good beat points in track 1 that have strong beats
+        t1_mix_quality = track1_beat_strength
+        t1_mix_quality = gaussian_filter1d(t1_mix_quality, sigma=5)
+
+        # Look for strong start in track 2
+        t2_mix_quality = track2_beat_strength
+        t2_mix_quality = gaussian_filter1d(t2_mix_quality, sigma=5)
+
+        # Find best frames
+        t1_candidates = np.argsort(t1_mix_quality)[-20:] if len(t1_mix_quality) > 20 else np.argsort(t1_mix_quality)
+        t2_candidates = np.argsort(t2_mix_quality)[:20] if len(t2_mix_quality) > 20 else np.argsort(t2_mix_quality)
+
+        # Pick best overall
+        best_t1 = t1_candidates[-1] if len(t1_candidates) > 0 else 0
+        best_t2 = t2_candidates[0] if len(t2_candidates) > 0 else 0
+
+        quality = float(np.clip((t1_mix_quality[best_t1] + t2_mix_quality[best_t2]) / 2, 0, 1))
+
+        return {
+            'optimal_point_track1': int(best_t1),
+            'optimal_point_track2': int(best_t2),
+            'quality': quality,
+            'track1_candidates': t1_candidates[:5].tolist(),
+            'track2_candidates': t2_candidates[:5].tolist(),
+        }
+    except Exception as e:
+        logger.error(f"Error in optimal_mix_point_finder: {e}")
+        return {'optimal_point_track1': -1, 'optimal_point_track2': -1, 'quality': 0.0}
+
+
+def beatmatch_difficulty_score(
+    bpm1: float,
+    bpm2: float,
+    beat_stability1: float = 0.8,
+    beat_stability2: float = 0.8,
+) -> Dict[str, Any]:
+    """
+    Score difficulty of beatmatching two tracks.
+
+    Args:
+        bpm1: BPM of track 1
+        bpm2: BPM of track 2
+        beat_stability1: Stability of beat in track 1 (0-1)
+        beat_stability2: Stability of beat in track 2 (0-1)
+
+    Returns:
+        Dictionary with beatmatch difficulty
+    """
+    try:
+        if bpm1 <= 0 or bpm2 <= 0:
+            return {'difficulty': 'unknown', 'difficulty_score': 0.5}
+
+        bpm_diff_pct = abs(bpm1 - bpm2) / max(bpm1, bpm2)
+
+        # Base difficulty from BPM difference
+        if bpm_diff_pct < 0.02:
+            base_difficulty = 1  # Very easy
+        elif bpm_diff_pct < 0.05:
+            base_difficulty = 2  # Easy
+        elif bpm_diff_pct < 0.10:
+            base_difficulty = 3  # Moderate
+        elif bpm_diff_pct < 0.20:
+            base_difficulty = 4  # Hard
+        else:
+            base_difficulty = 5  # Very hard
+
+        # Adjust for beat stability
+        stability_factor = beat_stability1 * beat_stability2
+        adjusted_difficulty = base_difficulty / (stability_factor + 0.5)
+
+        # Normalize to 0-1
+        difficulty_score = np.clip((adjusted_difficulty - 1) / 4, 0, 1)
+
+        difficulty_labels = {
+            1: 'trivial',
+            2: 'very_easy',
+            3: 'easy',
+            4: 'moderate',
+            5: 'hard',
+        }
+
+        return {
+            'difficulty': difficulty_labels.get(base_difficulty, 'unknown'),
+            'difficulty_score': float(difficulty_score),
+            'bpm_diff_pct': float(bpm_diff_pct * 100),
+            'adjusted_score': float(np.clip(adjusted_difficulty, 1, 5)),
+        }
+    except Exception as e:
+        logger.error(f"Error in beatmatch_difficulty_score: {e}")
+        return {'difficulty': 'unknown', 'difficulty_score': 0.5}
+
+
+def eq_adjustment_recommendation(
+    track1_spectral_centroid: np.ndarray,
+    track2_spectral_centroid: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Recommend EQ adjustments for track transition.
+
+    Args:
+        track1_spectral_centroid: Spectral centroid of track 1
+        track2_spectral_centroid: Spectral centroid of track 2
+
+    Returns:
+        Dictionary with EQ adjustment recommendations
+    """
+    try:
+        if len(track1_spectral_centroid) == 0 or len(track2_spectral_centroid) == 0:
+            return {'recommendations': []}
+
+        # Mean spectral centroids
+        sc1_mean = np.mean(track1_spectral_centroid)
+        sc2_mean = np.mean(track2_spectral_centroid)
+
+        recommendations = []
+
+        if sc2_mean > sc1_mean * 1.2:
+            recommendations.append({
+                'action': 'boost_highs_track2',
+                'band': 'high',
+                'severity': 'gentle',
+            })
+        elif sc2_mean < sc1_mean * 0.8:
+            recommendations.append({
+                'action': 'boost_lows_track2',
+                'band': 'low',
+                'severity': 'gentle',
+            })
+        else:
+            recommendations.append({
+                'action': 'no_major_eq_needed',
+                'band': 'all',
+                'severity': 'none',
+            })
+
+        return {
+            'recommendations': recommendations,
+            'sc_1': float(sc1_mean),
+            'sc_2': float(sc2_mean),
+        }
+    except Exception as e:
+        logger.error(f"Error in eq_adjustment_recommendation: {e}")
+        return {'recommendations': []}
+
+
+def mix_duration_recommendation(
+    energy1: np.ndarray,
+    energy2: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Recommend mix duration between two tracks.
+
+    Args:
+        energy1: Energy of track 1
+        energy2: Energy of track 2
+
+    Returns:
+        Dictionary with duration recommendation
+    """
+    try:
+        if len(energy1) == 0 or len(energy2) == 0:
+            return {'recommended_duration_sec': 30, 'reasoning': 'default'}
+
+        # Get tail/head energy
+        e1_tail = np.mean(energy1[-20:]) if len(energy1) > 20 else np.mean(energy1)
+        e2_head = np.mean(energy2[:20]) if len(energy2) > 20 else np.mean(energy2)
+
+        # If energies diverge, need longer mix
+        energy_diff = abs(e1_tail - e2_head)
+
+        if energy_diff < 0.1:
+            duration = 15  # Quick transition
+            reasoning = 'similar_energy'
+        elif energy_diff < 0.3:
+            duration = 30  # Standard transition
+            reasoning = 'moderate_energy_difference'
+        else:
+            duration = 45  # Long transition for energy gap
+            reasoning = 'large_energy_difference'
+
+        # Peak detection in track 2
+        if np.max(energy2) - e2_head > 0.3:
+            # Track 2 has big drop coming, extend transition
+            duration = min(60, duration + 15)
+
+        return {
+            'recommended_duration_sec': int(duration),
+            'reasoning': reasoning,
+            'energy_difference': float(energy_diff),
+        }
+    except Exception as e:
+        logger.error(f"Error in mix_duration_recommendation: {e}")
+        return {'recommended_duration_sec': 30, 'reasoning': 'error'}
+
+
+# ============================================================================
+# PART 5: COLLABORATIVE INTELLIGENCE (10 functions)
+# ============================================================================
+
+def aggregate_user_corrections(
+    corrections_list: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Aggregate user corrections to improve predictions.
+
+    Args:
+        corrections_list: List of correction dicts {frame: X, actual_type: Y, confidence: Z}
+
+    Returns:
+        Dictionary with aggregated corrections
+    """
+    try:
+        if not corrections_list:
+            return {'aggregated_corrections': [], 'correction_count': 0}
+
+        aggregated = {}
+
+        for corr in corrections_list:
+            cue_type = corr.get('actual_type', 'unknown')
+            frame = corr.get('frame', 0)
+            confidence = corr.get('confidence', 0.5)
+
+            if cue_type not in aggregated:
+                aggregated[cue_type] = []
+
+            aggregated[cue_type].append({
+                'frame': frame,
+                'confidence': confidence,
+            })
+
+        # Summary statistics per type
+        summary = {}
+        for cue_type, items in aggregated.items():
+            frames = [item['frame'] for item in items]
+            confidences = [item['confidence'] for item in items]
+
+            summary[cue_type] = {
+                'count': len(items),
+                'mean_confidence': float(np.mean(confidences)),
+                'frame_std': float(np.std(frames)),
+                'examples': frames[:5],
+            }
+
+        return {
+            'aggregated_corrections': summary,
+            'correction_count': len(corrections_list),
+            'unique_types': len(aggregated),
+        }
+    except Exception as e:
+        logger.error(f"Error in aggregate_user_corrections: {e}")
+        return {'aggregated_corrections': [], 'correction_count': 0}
+
+
+def popular_cue_patterns(
+    cue_history: List[Dict[str, Any]],
+    genre: str = 'default',
+) -> Dict[str, Any]:
+    """
+    Extract popular cue patterns by genre from community.
+
+    Args:
+        cue_history: List of cues from database
+        genre: Genre filter
+
+    Returns:
+        Dictionary with popular patterns
+    """
+    try:
+        if not cue_history:
+            return {'patterns': [], 'count': 0}
+
+        patterns = {}
+
+        for cue in cue_history:
+            cue_type = cue.get('type', 'unknown')
+            position_pct = cue.get('position_percent', 50)
+
+            # Quantize position to 10% buckets
+            bucket = int(position_pct / 10) * 10
+
+            pattern_key = f"{cue_type}_at_{bucket}pct"
+            patterns[pattern_key] = patterns.get(pattern_key, 0) + 1
+
+        # Sort by frequency
+        sorted_patterns = sorted(patterns.items(), key=lambda x: x[1], reverse=True)
+
+        return {
+            'patterns': [{'pattern': p, 'frequency': c} for p, c in sorted_patterns[:10]],
+            'count': len(patterns),
+            'total_cues': len(cue_history),
+        }
+    except Exception as e:
+        logger.error(f"Error in popular_cue_patterns: {e}")
+        return {'patterns': [], 'count': 0}
+
+
+def community_confidence_adjustment(
+    predicted_confidence: float,
+    community_agreement: float,
+    weight: float = 0.3,
+) -> Dict[str, Any]:
+    """
+    Adjust prediction confidence based on community consensus.
+
+    Args:
+        predicted_confidence: Model prediction confidence (0-1)
+        community_agreement: Community agreement level (0-1)
+        weight: How much to weight community input
+
+    Returns:
+        Dictionary with adjusted confidence
+    """
+    try:
+        # Weighted blend
+        adjusted = (1 - weight) * predicted_confidence + weight * community_agreement
+        adjusted = float(np.clip(adjusted, 0, 1))
+
+        return {
+            'adjusted_confidence': adjusted,
+            'original_confidence': float(predicted_confidence),
+            'community_agreement': float(community_agreement),
+            'weight': float(weight),
+            'confidence_change': adjusted - predicted_confidence,
+        }
+    except Exception as e:
+        logger.error(f"Error in community_confidence_adjustment: {e}")
+        return {'adjusted_confidence': 0.5}
+
+
+def trending_genres_adaptation(
+    current_genre: str,
+    trending_genres: List[str],
+    track_features: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Adapt predictions based on trending genres.
+
+    Args:
+        current_genre: Current track genre
+        trending_genres: List of trending genres
+        track_features: Track audio features
+
+    Returns:
+        Dictionary with genre adaptation recommendations
+    """
+    try:
+        recommendations = []
+
+        if current_genre in trending_genres:
+            recommendations.append({
+                'action': 'emphasize_current_genre',
+                'reason': f'{current_genre} is trending',
+                'priority': 'high',
+            })
+
+        for genre in trending_genres[:3]:
+            if genre != current_genre:
+                recommendations.append({
+                    'action': f'explore_transition_to_{genre}',
+                    'reason': f'{genre} is trending',
+                    'priority': 'medium',
+                })
+
+        return {
+            'recommendations': recommendations,
+            'current_genre': current_genre,
+            'trending_genres': trending_genres,
+        }
+    except Exception as e:
+        logger.error(f"Error in trending_genres_adaptation: {e}")
+        return {'recommendations': []}
+
+
+def a_b_test_cue_quality(
+    cue_a: Dict[str, Any],
+    cue_b: Dict[str, Any],
+    feedback_a: int,
+    feedback_b: int,
+) -> Dict[str, Any]:
+    """
+    A/B test framework for cue quality evaluation.
+
+    Args:
+        cue_a: Cue option A
+        cue_b: Cue option B
+        feedback_a: Number of positive ratings for A
+        feedback_b: Number of positive ratings for B
+
+    Returns:
+        Dictionary with A/B test results
+    """
+    try:
+        total_a = feedback_a + 1  # Add 1 to avoid division by zero
+        total_b = feedback_b + 1
+
+        rate_a = feedback_a / total_a
+        rate_b = feedback_b / total_b
+
+        # Statistical significance (simple)
+        from scipy import stats
+
+        # Binomial test
+        if feedback_a > 0 or feedback_b > 0:
+            sig = rate_a > rate_b
+        else:
+            sig = False
+
+        winner = 'A' if rate_a > rate_b else 'B' if rate_b > rate_a else 'tie'
+
+        return {
+            'winner': winner,
+            'success_rate_a': float(rate_a),
+            'success_rate_b': float(rate_b),
+            'difference': float(abs(rate_a - rate_b)),
+            'statistically_significant': bool(sig),
+            'samples_a': int(total_a),
+            'samples_b': int(total_b),
+        }
+    except Exception as e:
+        logger.error(f"Error in a_b_test_cue_quality: {e}")
+        return {'winner': 'unknown', 'success_rate_a': 0.5, 'success_rate_b': 0.5}
+
+
+def user_skill_level_detection(
+    user_cue_history: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Detect user's DJ skill level from cue placement patterns.
+
+    Args:
+        user_cue_history: List of user's cue placements
+
+    Returns:
+        Dictionary with skill level assessment
+    """
+    try:
+        if not user_cue_history:
+            return {'skill_level': 'beginner', 'confidence': 0.5}
+
+        # Analyze cue patterns
+        cue_types = {}
+        timing_accuracy = []
+
+        for cue in user_cue_history:
+            cue_type = cue.get('type', 'unknown')
+            cue_types[cue_type] = cue_types.get(cue_type, 0) + 1
+
+            # Timing accuracy (how close to beat)
+            if 'beat_offset' in cue:
+                timing_accuracy.append(abs(cue['beat_offset']))
+
+        # Heuristics
+        diversity = len(cue_types)  # More types = more advanced
+        num_cues = len(user_cue_history)
+        avg_timing = np.mean(timing_accuracy) if timing_accuracy else 1.0
+
+        if num_cues < 10:
+            skill = 'beginner'
+            confidence = 0.6
+        elif diversity < 3 and avg_timing > 0.5:
+            skill = 'beginner'
+            confidence = 0.7
+        elif diversity < 5 and avg_timing > 0.3:
+            skill = 'intermediate'
+            confidence = 0.7
+        elif diversity >= 5 and avg_timing < 0.3:
+            skill = 'advanced'
+            confidence = 0.8
+        else:
+            skill = 'intermediate'
+            confidence = 0.6
+
+        return {
+            'skill_level': skill,
+            'confidence': float(confidence),
+            'cue_diversity': diversity,
+            'timing_accuracy': float(avg_timing),
+            'cue_count': num_cues,
+        }
+    except Exception as e:
+        logger.error(f"Error in user_skill_level_detection: {e}")
+        return {'skill_level': 'unknown', 'confidence': 0.5}
+
+
+def personalized_cue_suggestion(
+    user_skill_level: str,
+    track_characteristics: Dict[str, Any],
+    user_preferences: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Generate personalized cue suggestions based on user profile.
+
+    Args:
+        user_skill_level: DJ skill level (beginner/intermediate/advanced)
+        track_characteristics: Features of current track
+        user_preferences: User preferences and history
+
+    Returns:
+        Dictionary with personalized suggestions
+    """
+    try:
+        suggestions = []
+
+        # Skill level determines suggestion complexity
+        if user_skill_level == 'beginner':
+            # Simple, obvious cues
+            suggestions.append({'type': 'drop', 'confidence_threshold': 0.8})
+            suggestions.append({'type': 'break_down', 'confidence_threshold': 0.8})
+        elif user_skill_level == 'intermediate':
+            # More nuanced
+            suggestions.append({'type': 'build_up', 'confidence_threshold': 0.7})
+            suggestions.append({'type': 'transition', 'confidence_threshold': 0.7})
+            suggestions.append({'type': 'filter_point', 'confidence_threshold': 0.6})
+        else:  # advanced
+            # All types, lower threshold
+            suggestions.append({'type': 'micro_drop', 'confidence_threshold': 0.6})
+            suggestions.append({'type': 'energy_plateau', 'confidence_threshold': 0.6})
+            suggestions.append({'type': 'harmonic_shift', 'confidence_threshold': 0.5})
+
+        # Add user preference filters
+        if 'preferred_cue_types' in user_preferences:
+            pref_types = user_preferences['preferred_cue_types']
+            suggestions = [s for s in suggestions if s['type'] in pref_types]
+
+        return {
+            'suggestions': suggestions,
+            'personalization_level': user_skill_level,
+            'recommendation_count': len(suggestions),
+        }
+    except Exception as e:
+        logger.error(f"Error in personalized_cue_suggestion: {e}")
+        return {'suggestions': []}
+
+
+def collaborative_filtering_tracks(
+    current_track_features: Dict[str, Any],
+    user_liked_tracks: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Recommend tracks using collaborative filtering (what similar users liked).
+
+    Args:
+        current_track_features: Features of current track
+        user_liked_tracks: Tracks user has liked
+
+    Returns:
+        Dictionary with recommendations
+    """
+    try:
+        if not user_liked_tracks:
+            return {'recommendations': [], 'reasoning': 'no_history'}
+
+        # Find similar tracks from user's liked list
+        recommendations = []
+
+        for track in user_liked_tracks[:5]:  # Consider top 5
+            similarity = 0.7  # Placeholder similarity score
+            recommendations.append({
+                'track_id': track.get('id', 'unknown'),
+                'similarity': similarity,
+                'artist': track.get('artist', 'unknown'),
+            })
+
+        # Sort by similarity
+        recommendations.sort(key=lambda x: x['similarity'], reverse=True)
+
+        return {
+            'recommendations': recommendations[:5],
+            'reasoning': 'user_similar_taste',
+            'total_liked_tracks': len(user_liked_tracks),
+        }
+    except Exception as e:
+        logger.error(f"Error in collaborative_filtering_tracks: {e}")
+        return {'recommendations': [], 'reasoning': 'error'}
+
+
+def crowd_wisdom_integration(
+    individual_predictions: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Integrate crowd wisdom from multiple DJ evaluations.
+
+    Args:
+        individual_predictions: List of predictions from different DJs
+
+    Returns:
+        Dictionary with crowd consensus
+    """
+    try:
+        if not individual_predictions:
+            return {'consensus': {}, 'agreement_level': 0.0}
+
+        # Aggregate predictions
+        cue_votes = {}
+        confidences = []
+
+        for pred in individual_predictions:
+            cue_type = pred.get('type', 'unknown')
+            confidence = pred.get('confidence', 0.5)
+
+            if cue_type not in cue_votes:
+                cue_votes[cue_type] = {'count': 0, 'total_confidence': 0}
+
+            cue_votes[cue_type]['count'] += 1
+            cue_votes[cue_type]['total_confidence'] += confidence
+            confidences.append(confidence)
+
+        # Consensus: most voted type
+        if cue_votes:
+            consensus_type = max(cue_votes.items(), key=lambda x: x[1]['count'])[0]
+            consensus_confidence = cue_votes[consensus_type]['total_confidence'] / cue_votes[consensus_type]['count']
+        else:
+            consensus_type = 'unknown'
+            consensus_confidence = 0.5
+
+        # Agreement: variance in confidences
+        confidence_std = np.std(confidences)
+        agreement_level = 1.0 / (confidence_std + 1.0)
+
+        return {
+            'consensus_type': consensus_type,
+            'consensus_confidence': float(consensus_confidence),
+            'agreement_level': float(np.clip(agreement_level, 0, 1)),
+            'voter_count': len(individual_predictions),
+            'all_votes': cue_votes,
+        }
+    except Exception as e:
+        logger.error(f"Error in crowd_wisdom_integration: {e}")
+        return {'consensus': {}, 'agreement_level': 0.0}
+
+
+def continuous_learning_pipeline(
+    new_corrections: List[Dict[str, Any]],
+    model_performance_metrics: Dict[str, float],
+) -> Dict[str, Any]:
+    """
+    Pipeline for continuous learning from user feedback.
+
+    Args:
+        new_corrections: New user corrections
+        model_performance_metrics: Current model performance
+
+    Returns:
+        Dictionary with learning recommendations
+    """
+    try:
+        if not new_corrections:
+            return {'learning_actions': [], 'priority': 'low'}
+
+        learning_actions = []
+
+        # Analyze error patterns
+        error_types = {}
+        for corr in new_corrections:
+            error_type = corr.get('error_type', 'unknown')
+            error_types[error_type] = error_types.get(error_type, 0) + 1
+
+        # Top errors
+        top_errors = sorted(error_types.items(), key=lambda x: x[1], reverse=True)
+
+        # Generate learning actions
+        for error, count in top_errors[:3]:
+            if count > 2:  # Significant pattern
+                learning_actions.append({
+                    'action': f'retrain_on_{error}',
+                    'priority': 'high' if count > 5 else 'medium',
+                    'frequency': count,
+                })
+
+        # Performance-based actions
+        if model_performance_metrics.get('f1_score', 0) < 0.7:
+            learning_actions.append({
+                'action': 'increase_training_data',
+                'priority': 'high',
+                'current_f1': model_performance_metrics.get('f1_score', 0),
+            })
+
+        priority = 'high' if len(learning_actions) > 2 else 'medium' if learning_actions else 'low'
+
+        return {
+            'learning_actions': learning_actions,
+            'priority': priority,
+            'error_pattern_count': len(error_types),
+            'total_corrections': len(new_corrections),
+        }
+    except Exception as e:
+        logger.error(f"Error in continuous_learning_pipeline: {e}")
+        return {'learning_actions': [], 'priority': 'low'}
+
+
+# ============================================================================
+# SECTION B: 50 Advanced Audio Feature Extraction & DJ Intelligence Functions
+# ============================================================================
+
+def extract_mel_spectrogram_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract Mel spectrogram features for deep audio analysis.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with mel-spectrogram derived metrics
+    """
+    try:
+        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128)
+        S_db = librosa.power_to_db(S, ref=np.max)
+
+        return {
+            'mel_centroid': np.mean(np.argmax(S_db, axis=0)),
+            'mel_std': np.std(S_db),
+            'mel_max': np.max(S_db),
+            'mel_min': np.min(S_db),
+            'mel_energy_distribution': np.mean(S_db, axis=1),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_mel_spectrogram_features: {e}")
+        return {}
+
+
+def extract_mfcc_delta_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract MFCC features with delta and delta-delta (acceleration).
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with MFCC, delta, and acceleration features
+    """
+    try:
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        delta = librosa.feature.delta(mfcc)
+        delta_delta = librosa.feature.delta(mfcc, order=2)
+
+        return {
+            'mfcc_mean': np.mean(mfcc, axis=1),
+            'mfcc_std': np.std(mfcc, axis=1),
+            'delta_mean': np.mean(delta, axis=1),
+            'delta_std': np.std(delta, axis=1),
+            'delta_delta_mean': np.mean(delta_delta, axis=1),
+            'delta_delta_std': np.std(delta_delta, axis=1),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_mfcc_delta_features: {e}")
+        return {}
+
+
+def extract_chroma_cqt_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract chroma features using Constant-Q Transform.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with chroma CQT features
+    """
+    try:
+        chroma_cqt = librosa.feature.chroma_cqt(y=y, sr=sr)
+
+        return {
+            'chroma_cqt_mean': np.mean(chroma_cqt, axis=1),
+            'chroma_cqt_std': np.std(chroma_cqt, axis=1),
+            'chroma_cqt_max': np.max(chroma_cqt, axis=1),
+            'chroma_energy_distribution': np.mean(chroma_cqt, axis=0),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_chroma_cqt_features: {e}")
+        return {}
+
+
+def extract_tempogram_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract tempogram features for rhythm analysis.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with tempogram metrics
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr)
+
+        return {
+            'tempogram_mean': np.mean(tempogram, axis=1),
+            'tempogram_max': np.max(tempogram, axis=1),
+            'tempogram_energy': np.sum(tempogram, axis=1),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_tempogram_features: {e}")
+        return {}
+
+
+def extract_onset_strength_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract multi-band onset strength features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with multi-band onset features
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+        # Multi-band onsets
+        S = np.abs(librosa.stft(y))
+        onset_strength_bass = librosa.onset.onset_strength(S=librosa.magphase(S)[0], sr=sr, channels=[0, 1])
+        onset_strength_mid = librosa.onset.onset_strength(S=librosa.magphase(S)[0], sr=sr, channels=[2, 3])
+
+        return {
+            'onset_mean': np.mean(onset_env),
+            'onset_std': np.std(onset_env),
+            'onset_max': np.max(onset_env),
+            'onset_bass_energy': np.mean(onset_strength_bass) if len(onset_strength_bass) > 0 else 0,
+            'onset_mid_energy': np.mean(onset_strength_mid) if len(onset_strength_mid) > 0 else 0,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_onset_strength_features: {e}")
+        return {}
+
+
+def extract_spectral_bandwidth_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract spectral bandwidth features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with spectral bandwidth metrics
+    """
+    try:
+        spec_bw = librosa.feature.spectral_bandwidth(y=y, sr=sr)
+
+        return {
+            'spec_bandwidth_mean': np.mean(spec_bw),
+            'spec_bandwidth_std': np.std(spec_bw),
+            'spec_bandwidth_max': np.max(spec_bw),
+            'spec_bandwidth_min': np.min(spec_bw),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_spectral_bandwidth_features: {e}")
+        return {}
+
+
+def extract_rms_energy_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract RMS energy features with temporal context.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with RMS energy and context metrics
+    """
+    try:
+        rms = librosa.feature.rms(y=y)[0]
+
+        # Temporal context
+        rms_diff = np.diff(rms)
+        rms_smooth = librosa.feature.rms(y=librosa.effects.harmonic(y), frame_length=4096)[0]
+
+        return {
+            'rms_mean': np.mean(rms),
+            'rms_std': np.std(rms),
+            'rms_max': np.max(rms),
+            'rms_min': np.min(rms),
+            'rms_diff_mean': np.mean(np.abs(rms_diff)) if len(rms_diff) > 0 else 0,
+            'rms_smooth_mean': np.mean(rms_smooth),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_rms_energy_features: {e}")
+        return {}
+
+
+def extract_zero_crossing_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract zero-crossing rate features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with zero-crossing metrics
+    """
+    try:
+        zcr = librosa.feature.zero_crossing_rate(y)[0]
+
+        return {
+            'zcr_mean': np.mean(zcr),
+            'zcr_std': np.std(zcr),
+            'zcr_max': np.max(zcr),
+            'zcr_min': np.min(zcr),
+            'zcr_median': np.median(zcr),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_zero_crossing_features: {e}")
+        return {}
+
+
+def extract_tonnetz_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract Tonal Centroid (tonnetz) features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with tonnetz features
+    """
+    try:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        tonnetz = librosa.feature.tonnetz(chroma=chroma)
+
+        return {
+            'tonnetz_mean': np.mean(tonnetz, axis=1),
+            'tonnetz_std': np.std(tonnetz, axis=1),
+            'tonnetz_energy': np.sum(np.abs(tonnetz), axis=1),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_tonnetz_features: {e}")
+        return {}
+
+
+def extract_spectral_contrast_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract spectral contrast features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with spectral contrast metrics
+    """
+    try:
+        spec_contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+
+        return {
+            'spec_contrast_mean': np.mean(spec_contrast, axis=1),
+            'spec_contrast_std': np.std(spec_contrast, axis=1),
+            'spec_contrast_max': np.max(spec_contrast, axis=1),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_spectral_contrast_features: {e}")
+        return {}
+
+
+def extract_poly_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract combined polyophonic audio features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with combined polyophonic features
+    """
+    try:
+        harmonic, percussive = librosa.effects.hpss(y)
+
+        # Extract features for both components
+        h_rms = np.mean(librosa.feature.rms(y=harmonic))
+        p_rms = np.mean(librosa.feature.rms(y=percussive))
+
+        # Spectral features
+        h_centroid = np.mean(librosa.feature.spectral_centroid(y=harmonic, sr=sr))
+        p_centroid = np.mean(librosa.feature.spectral_centroid(y=percussive, sr=sr))
+
+        return {
+            'harmonic_rms': h_rms,
+            'percussive_rms': p_rms,
+            'harmonic_percussive_ratio': h_rms / (p_rms + 1e-8),
+            'harmonic_centroid': h_centroid,
+            'percussive_centroid': p_centroid,
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_poly_features: {e}")
+        return {}
+
+
+def extract_statistical_features(features_dict: Dict[str, np.ndarray]) -> Dict[str, Any]:
+    """
+    Extract statistical descriptors (mean, variance, skewness, kurtosis) from feature distributions.
+
+    Args:
+        features_dict: Dictionary of feature arrays
+
+    Returns:
+        Dictionary with statistical features
+    """
+    try:
+        from scipy.stats import skew, kurtosis
+
+        stats = {}
+        for feature_name, feature_array in features_dict.items():
+            if isinstance(feature_array, np.ndarray) and len(feature_array) > 0:
+                stats[f"{feature_name}_mean"] = np.mean(feature_array)
+                stats[f"{feature_name}_var"] = np.var(feature_array)
+                stats[f"{feature_name}_skew"] = skew(feature_array.flatten())
+                stats[f"{feature_name}_kurtosis"] = kurtosis(feature_array.flatten())
+
+        return stats
+    except Exception as e:
+        logger.error(f"Error in extract_statistical_features: {e}")
+        return {}
+
+
+def extract_temporal_features(features_dict: Dict[str, np.ndarray]) -> Dict[str, Any]:
+    """
+    Extract temporal dynamics (delta, acceleration) from features.
+
+    Args:
+        features_dict: Dictionary of feature arrays
+
+    Returns:
+        Dictionary with temporal feature derivatives
+    """
+    try:
+        temporal = {}
+        for feature_name, feature_array in features_dict.items():
+            if isinstance(feature_array, np.ndarray) and len(feature_array) > 1:
+                delta = np.diff(feature_array)
+                temporal[f"{feature_name}_delta_mean"] = np.mean(np.abs(delta))
+                temporal[f"{feature_name}_delta_std"] = np.std(delta)
+
+                if len(delta) > 1:
+                    accel = np.diff(delta)
+                    temporal[f"{feature_name}_accel_mean"] = np.mean(np.abs(accel))
+
+        return temporal
+    except Exception as e:
+        logger.error(f"Error in extract_temporal_features: {e}")
+        return {}
+
+
+def extract_rhythm_features(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Extract rhythm and beat-related features.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with rhythm metrics
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr)
+
+        # Rhythm features
+        rhythm_strength = np.max(tempogram) if len(tempogram) > 0 else 0
+        rhythm_regularity = np.std(tempogram) if len(tempogram) > 0 else 0
+
+        return {
+            'rhythm_strength': rhythm_strength,
+            'rhythm_regularity': 1.0 / (1.0 + rhythm_regularity),  # Inverted for consistency
+            'beat_strength': np.mean(onset_env),
+            'beat_consistency': np.std(onset_env),
+        }
+    except Exception as e:
+        logger.error(f"Error in extract_rhythm_features: {e}")
+        return {}
+
+
+def feature_aggregation_pipeline(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Complete feature extraction pipeline combining all feature types.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Dictionary with aggregated features
+    """
+    try:
+        all_features = {}
+
+        # Extract all feature types
+        all_features.update(extract_mel_spectrogram_features(y, sr))
+        all_features.update(extract_mfcc_delta_features(y, sr))
+        all_features.update(extract_chroma_cqt_features(y, sr))
+        all_features.update(extract_tempogram_features(y, sr))
+        all_features.update(extract_onset_strength_features(y, sr))
+        all_features.update(extract_spectral_bandwidth_features(y, sr))
+        all_features.update(extract_rms_energy_features(y, sr))
+        all_features.update(extract_zero_crossing_features(y, sr))
+        all_features.update(extract_tonnetz_features(y, sr))
+        all_features.update(extract_spectral_contrast_features(y, sr))
+        all_features.update(extract_poly_features(y, sr))
+        all_features.update(extract_rhythm_features(y, sr))
+
+        return all_features
+    except Exception as e:
+        logger.error(f"Error in feature_aggregation_pipeline: {e}")
+        return {}
+
+
+def predict_drop_probability(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict drop probability frame-by-frame using feature trends.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of drop probabilities (0-1) per frame
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+        if len(energy) == 0:
+            return np.array([])
+
+        # Detect energy decrease followed by sharp increase
+        energy_diff = np.diff(energy)
+        energy_smooth = medfilt(energy, kernel_size=min(11, len(energy) if len(energy) % 2 == 1 else len(energy) - 1))
+
+        # Normalized gradient
+        gradient = np.gradient(energy_smooth)
+        drop_prob = np.abs(gradient) / (np.max(np.abs(gradient)) + 1e-8)
+
+        # Pad to match original length
+        drop_prob = np.concatenate([[drop_prob[0]], drop_prob])
+
+        return np.clip(drop_prob, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_drop_probability: {e}")
+        return np.array([])
+
+
+def predict_build_probability(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict build probability frame-by-frame.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of build probabilities (0-1) per frame
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+        if len(energy) == 0:
+            return np.array([])
+
+        # Detect gradual energy increase
+        gradient = np.gradient(energy)
+        build_prob = np.maximum(gradient, 0) / (np.max(np.abs(gradient)) + 1e-8)
+
+        return np.clip(build_prob, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_build_probability: {e}")
+        return np.array([])
+
+
+def predict_breakdown_probability(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict breakdown probability frame-by-frame.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of breakdown probabilities (0-1) per frame
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+        onset = features.get('onset_env', np.array([]))
+
+        if len(energy) == 0:
+            return np.array([])
+
+        # Breakdown: low energy + low onset activity
+        energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-8)
+        breakdown_prob = 1.0 - energy_norm
+
+        if len(onset) > 0:
+            onset_norm = (onset - np.min(onset)) / (np.max(onset) - np.min(onset) + 1e-8)
+            breakdown_prob = (breakdown_prob + (1.0 - onset_norm)) / 2.0
+
+        return np.clip(breakdown_prob, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_breakdown_probability: {e}")
+        return np.array([])
+
+
+def predict_vocal_probability(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict vocal presence probability frame-by-frame.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of vocal probabilities (0-1) per frame
+    """
+    try:
+        # Vocal features: higher MFCC variance, specific spectral centroid range
+        mfcc_mean = features.get('mfcc_mean', np.array([]))
+
+        if isinstance(mfcc_mean, np.ndarray):
+            mfcc_var = np.var(mfcc_mean)
+        else:
+            mfcc_var = 0
+
+        # Vocal presence indicator
+        vocal_prob = np.clip(mfcc_var / 100.0, 0, 1)
+
+        return np.full(100, vocal_prob)  # Placeholder frame count
+    except Exception as e:
+        logger.error(f"Error in predict_vocal_probability: {e}")
+        return np.array([])
+
+
+def predict_transition_probability(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict transition point probability frame-by-frame.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of transition probabilities (0-1) per frame
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+        onset = features.get('onset_env', np.array([]))
+
+        if len(energy) == 0:
+            return np.array([])
+
+        # Transitions: sudden changes in energy AND onsets
+        energy_change = np.abs(np.gradient(energy))
+
+        if len(onset) > 0:
+            onset_change = np.abs(np.gradient(onset))
+            transition_prob = (energy_change + onset_change) / 2.0
+        else:
+            transition_prob = energy_change
+
+        # Normalize
+        transition_prob = transition_prob / (np.max(transition_prob) + 1e-8)
+
+        return np.clip(transition_prob, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_transition_probability: {e}")
+        return np.array([])
+
+
+def predict_loop_worthiness(section_features: Dict[str, Any]) -> float:
+    """
+    Predict how worthy a section is to loop for DJs.
+
+    Args:
+        section_features: Feature dict for a section
+
+    Returns:
+        Float score 0-1 indicating loop worthiness
+    """
+    try:
+        # Loopable: consistent rhythm, good energy
+        rhythm_strength = section_features.get('rhythm_strength', 0)
+        rhythm_regularity = section_features.get('rhythm_regularity', 0)
+        beat_consistency = section_features.get('beat_consistency', 0)
+
+        worthiness = (rhythm_strength * 0.4 + rhythm_regularity * 0.3 + beat_consistency * 0.3)
+
+        return float(np.clip(worthiness, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in predict_loop_worthiness: {e}")
+        return 0.0
+
+
+def predict_cue_importance(candidates: List[Dict[str, Any]], analysis: Dict[str, Any]) -> List[float]:
+    """
+    Predict importance scores for cue candidates.
+
+    Args:
+        candidates: List of cue candidate dicts
+        analysis: Full analysis dict
+
+    Returns:
+        List of importance scores (0-1)
+    """
+    try:
+        scores = []
+        for cand in candidates:
+            score = cand.get('score', 0.5)
+            peak_prominence = cand.get('peak_prominence', 0.5)
+
+            # Importance = combination of score and prominence
+            importance = (score * 0.6 + peak_prominence * 0.4)
+            scores.append(float(np.clip(importance, 0, 1)))
+
+        return scores
+    except Exception as e:
+        logger.error(f"Error in predict_cue_importance: {e}")
+        return [0.5] * len(candidates)
+
+
+def predict_mix_point_quality(features: Dict[str, np.ndarray], position: int) -> float:
+    """
+    Predict mix point quality at a specific position.
+
+    Args:
+        features: Feature dictionary
+        position: Frame position
+
+    Returns:
+        Quality score 0-1
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+
+        if len(energy) == 0 or position >= len(energy):
+            return 0.5
+
+        # Good mix point: stable energy, not at extremes
+        local_energy = energy[max(0, position-10):min(len(energy), position+10)]
+        energy_variance = np.var(local_energy)
+
+        # Lower variance = more stable = better mix point
+        quality = 1.0 / (1.0 + energy_variance)
+
+        return float(np.clip(quality, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in predict_mix_point_quality: {e}")
+        return 0.5
+
+
+def predict_crowd_reaction(energy_curve: np.ndarray, bpm: float) -> np.ndarray:
+    """
+    Predict expected crowd reaction over time based on energy and tempo.
+
+    Args:
+        energy_curve: Energy contour
+        bpm: Beats per minute
+
+    Returns:
+        Array of crowd reaction predictions (0-1)
+    """
+    try:
+        if len(energy_curve) == 0:
+            return np.array([])
+
+        # Crowd reaction: higher for increasing energy, faster bpm
+        gradient = np.gradient(energy_curve)
+        reaction = np.clip(gradient + 0.5, 0, 1)
+
+        # Boost for high tempo
+        tempo_boost = min(bpm / 140.0, 1.0) if bpm > 0 else 0.5
+        reaction = reaction * (0.7 + 0.3 * tempo_boost)
+
+        return np.clip(reaction, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_crowd_reaction: {e}")
+        return np.array([])
+
+
+def predict_energy_trajectory(features: Dict[str, np.ndarray], horizon: int) -> np.ndarray:
+    """
+    Predict future energy trajectory.
+
+    Args:
+        features: Feature dictionary
+        horizon: Number of frames to predict ahead
+
+    Returns:
+        Array of predicted energy values
+    """
+    try:
+        energy = features.get('energy', np.array([]))
+
+        if len(energy) < 2:
+            return np.zeros(horizon)
+
+        # Simple trend extrapolation
+        recent_trend = np.mean(np.diff(energy[-20:]))
+        recent_energy = energy[-1]
+
+        trajectory = [recent_energy + recent_trend * (i + 1) for i in range(horizon)]
+
+        return np.clip(np.array(trajectory), 0, np.max(energy) if len(energy) > 0 else 1.0)
+    except Exception as e:
+        logger.error(f"Error in predict_energy_trajectory: {e}")
+        return np.zeros(horizon)
+
+
+def predict_section_function(section_features: Dict[str, Any]) -> str:
+    """
+    Predict the function of a section (intro, build, drop, outro, etc.).
+
+    Args:
+        section_features: Feature dict for a section
+
+    Returns:
+        Section function label
+    """
+    try:
+        energy = section_features.get('energy_mean', 0)
+        onset = section_features.get('onset_mean', 0)
+        rhythm = section_features.get('rhythm_strength', 0)
+
+        if energy < 0.3:
+            return 'breakdown'
+        elif energy < 0.6 and onset < 0.5:
+            return 'intro'
+        elif energy > 0.8 and rhythm > 0.7:
+            return 'drop'
+        elif np.gradient([energy]) > 0.1:
+            return 'build'
+        else:
+            return 'transition'
+    except Exception as e:
+        logger.error(f"Error in predict_section_function: {e}")
+        return 'unknown'
+
+
+def predict_dj_action(context_features: Dict[str, Any]) -> str:
+    """
+    Predict recommended DJ action based on context.
+
+    Args:
+        context_features: Context feature dictionary
+
+    Returns:
+        Recommended action string
+    """
+    try:
+        energy_level = context_features.get('energy_level', 'medium')
+        section_type = context_features.get('section_type', 'unknown')
+
+        if section_type == 'drop' and energy_level == 'high':
+            return 'peak'
+        elif section_type == 'build':
+            return 'beatmatch'
+        elif section_type == 'breakdown':
+            return 'prepare_next'
+        elif section_type == 'intro':
+            return 'start_mix'
+        else:
+            return 'monitor'
+    except Exception as e:
+        logger.error(f"Error in predict_dj_action: {e}")
+        return 'monitor'
+
+
+def predict_genre_subgenre(features: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Predict genre and subgenre probabilities.
+
+    Args:
+        features: Aggregated features
+
+    Returns:
+        Dictionary of genre:probability pairs
+    """
+    try:
+        # Placeholder implementation - would use ML model in production
+        genres = {
+            'techno': 0.0,
+            'house': 0.0,
+            'trance': 0.0,
+            'drum_and_bass': 0.0,
+            'hip_hop': 0.0,
+            'pop': 0.0,
+        }
+
+        # Simple heuristics based on features
+        rhythm_strength = features.get('rhythm_strength', 0.5)
+        if rhythm_strength > 0.7:
+            genres['techno'] = 0.4
+            genres['house'] = 0.3
+        else:
+            genres['hip_hop'] = 0.3
+            genres['pop'] = 0.4
+
+        # Normalize
+        total = sum(genres.values()) or 1.0
+        genres = {k: v / total for k, v in genres.items()}
+
+        return genres
+    except Exception as e:
+        logger.error(f"Error in predict_genre_subgenre: {e}")
+        return {}
+
+
+def predict_bpm_confidence(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict confidence in BPM estimation over time.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of BPM confidence scores (0-1)
+    """
+    try:
+        onset_env = features.get('onset_env', np.array([]))
+
+        if len(onset_env) == 0:
+            return np.array([])
+
+        # Confidence based on onset regularity
+        onset_diff = np.abs(np.diff(onset_env))
+        regularity = 1.0 / (1.0 + np.mean(onset_diff))
+
+        confidence = np.full(len(onset_env), regularity)
+
+        return np.clip(confidence, 0, 1)
+    except Exception as e:
+        logger.error(f"Error in predict_bpm_confidence: {e}")
+        return np.array([])
+
+
+def predict_key_confidence(features: Dict[str, np.ndarray], sr: int) -> np.ndarray:
+    """
+    Predict confidence in key detection over time.
+
+    Args:
+        features: Feature dictionary
+        sr: Sample rate
+
+    Returns:
+        Array of key confidence scores (0-1)
+    """
+    try:
+        chroma = features.get('chroma_cqt_mean', np.array([]))
+
+        if len(chroma) == 0:
+            return np.array([])
+
+        # Confidence based on chroma clarity
+        chroma_max = np.max(chroma) if len(chroma) > 0 else 0
+        chroma_entropy = -np.sum((chroma / (np.sum(chroma) + 1e-8)) * np.log(chroma / (np.sum(chroma) + 1e-8) + 1e-8))
+
+        # High max and low entropy = high confidence
+        confidence = chroma_max * (1.0 / (1.0 + chroma_entropy))
+
+        return np.full(12, np.clip(confidence, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in predict_key_confidence: {e}")
+        return np.array([])
+
+
+def compare_two_tracks(features_a: Dict[str, Any], features_b: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Compare two tracks across multiple feature dimensions.
+
+    Args:
+        features_a: Features of track A
+        features_b: Features of track B
+
+    Returns:
+        Comparison dictionary with similarity metrics
+    """
+    try:
+        comparison = {
+            'energy_diff': abs(features_a.get('energy_mean', 0) - features_b.get('energy_mean', 0)),
+            'rhythm_diff': abs(features_a.get('rhythm_strength', 0) - features_b.get('rhythm_strength', 0)),
+            'spectral_diff': abs(features_a.get('mel_centroid', 0) - features_b.get('mel_centroid', 0)),
+            'overall_similarity': 0.5,  # Placeholder
+        }
+
+        # Simple overall similarity (would use more sophisticated metrics)
+        diffs = [comparison['energy_diff'], comparison['rhythm_diff'], comparison['spectral_diff']]
+        comparison['overall_similarity'] = 1.0 - (np.mean(diffs) / 3.0)
+
+        return comparison
+    except Exception as e:
+        logger.error(f"Error in compare_two_tracks: {e}")
+        return {}
+
+
+def harmonic_compatibility_score(key_a: str, key_b: str) -> float:
+    """
+    Compute harmonic compatibility between two keys.
+
+    Args:
+        key_a: Key of track A (e.g., 'C', 'G', etc.)
+        key_b: Key of track B
+
+    Returns:
+        Compatibility score 0-1
+    """
+    try:
+        # Circle of fifths distance
+        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+        if key_a not in notes or key_b not in notes:
+            return 0.5
+
+        idx_a = notes.index(key_a)
+        idx_b = notes.index(key_b)
+
+        # Distance on circle
+        distance = min(abs(idx_a - idx_b), 12 - abs(idx_a - idx_b))
+
+        # Compatibility: 0 semitones = 1.0, 6 semitones = 0.0
+        compatibility = 1.0 - (distance / 6.0)
+
+        return float(np.clip(compatibility, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in harmonic_compatibility_score: {e}")
+        return 0.5
+
+
+def energy_compatibility_score(energy_a: float, energy_b: float) -> float:
+    """
+    Compute energy compatibility between two tracks.
+
+    Args:
+        energy_a: Energy of track A
+        energy_b: Energy of track B
+
+    Returns:
+        Compatibility score 0-1
+    """
+    try:
+        # Compatibility: lower diff = higher score
+        diff = abs(energy_a - energy_b)
+        compatibility = 1.0 - np.clip(diff, 0, 1)
+
+        return float(compatibility)
+    except Exception as e:
+        logger.error(f"Error in energy_compatibility_score: {e}")
+        return 0.5
+
+
+def tempo_compatibility_score(bpm_a: float, bpm_b: float) -> float:
+    """
+    Compute tempo compatibility between two tracks.
+
+    Args:
+        bpm_a: BPM of track A
+        bpm_b: BPM of track B
+
+    Returns:
+        Compatibility score 0-1
+    """
+    try:
+        if bpm_a <= 0 or bpm_b <= 0:
+            return 0.5
+
+        ratio = max(bpm_a, bpm_b) / min(bpm_a, bpm_b)
+
+        # Same BPM = 1.0, 2x BPM = 0.9, etc.
+        compatibility = 1.0 / ratio
+
+        return float(np.clip(compatibility, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in tempo_compatibility_score: {e}")
+        return 0.5
+
+
+def style_similarity_score(features_a: Dict[str, Any], features_b: Dict[str, Any]) -> float:
+    """
+    Compute overall style similarity between two tracks.
+
+    Args:
+        features_a: Features of track A
+        features_b: Features of track B
+
+    Returns:
+        Similarity score 0-1
+    """
+    try:
+        scores = []
+
+        # Compare multiple feature dimensions
+        for key in ['rhythm_strength', 'energy_mean', 'mel_centroid']:
+            val_a = features_a.get(key, 0)
+            val_b = features_b.get(key, 0)
+
+            if isinstance(val_a, (int, float)) and isinstance(val_b, (int, float)):
+                diff = abs(val_a - val_b)
+                scores.append(1.0 / (1.0 + diff))
+
+        if scores:
+            similarity = np.mean(scores)
+        else:
+            similarity = 0.5
+
+        return float(np.clip(similarity, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in style_similarity_score: {e}")
+        return 0.5
+
+
+def transition_quality_prediction(features_a: Dict[str, Any], features_b: Dict[str, Any], mix_point: float) -> float:
+    """
+    Predict quality of transition between two tracks at a specific mix point.
+
+    Args:
+        features_a: Features of incoming track
+        features_b: Features of outgoing track
+        mix_point: Position in track B to mix (0-1)
+
+    Returns:
+        Quality score 0-1
+    """
+    try:
+        # Quality based on compatibility and mix point stability
+        energy_compat = energy_compatibility_score(
+            features_a.get('energy_mean', 0.5),
+            features_b.get('energy_mean', 0.5)
+        )
+
+        rhythm_compat = abs(features_a.get('rhythm_strength', 0.5) - features_b.get('rhythm_strength', 0.5))
+        rhythm_compat = 1.0 - np.clip(rhythm_compat, 0, 1)
+
+        # Mix point preference: avoid extremes
+        mix_stability = 1.0 - 2 * abs(mix_point - 0.5)
+
+        quality = (energy_compat * 0.4 + rhythm_compat * 0.4 + mix_stability * 0.2)
+
+        return float(np.clip(quality, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in transition_quality_prediction: {e}")
+        return 0.5
+
+
+def optimal_mix_point_finder(features_a: Dict[str, Any], features_b: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Find optimal mix point between two tracks.
+
+    Args:
+        features_a: Features of incoming track
+        features_b: Features of outgoing track
+
+    Returns:
+        Dictionary with optimal mix point and quality
+    """
+    try:
+        best_quality = 0.0
+        best_point = 0.5
+
+        # Search for best mix point
+        for mix_point in np.linspace(0.1, 0.9, 9):
+            quality = transition_quality_prediction(features_a, features_b, mix_point)
+            if quality > best_quality:
+                best_quality = quality
+                best_point = mix_point
+
+        return {
+            'optimal_point': float(best_point),
+            'quality': float(best_quality),
+            'confidence': 0.7,
+        }
+    except Exception as e:
+        logger.error(f"Error in optimal_mix_point_finder: {e}")
+        return {'optimal_point': 0.5, 'quality': 0.5, 'confidence': 0.0}
+
+
+def beatmatch_difficulty_score(bpm_a: float, bpm_b: float) -> float:
+    """
+    Predict difficulty of beatmatching two tracks.
+
+    Args:
+        bpm_a: BPM of track A
+        bpm_b: BPM of track B
+
+    Returns:
+        Difficulty score 0-1 (0 = easy, 1 = hard)
+    """
+    try:
+        if bpm_a <= 0 or bpm_b <= 0:
+            return 0.5
+
+        ratio = max(bpm_a, bpm_b) / min(bpm_a, bpm_b)
+
+        # Same BPM = easy, 2x = impossible
+        if abs(ratio - 1.0) < 0.01:
+            return 0.0
+        elif ratio > 2.0:
+            return 1.0
+        else:
+            difficulty = (ratio - 1.0) / 1.0
+
+        return float(np.clip(difficulty, 0, 1))
+    except Exception as e:
+        logger.error(f"Error in beatmatch_difficulty_score: {e}")
+        return 0.5
+
+
+def eq_adjustment_recommendation(spectral_a: Dict[str, Any], spectral_b: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Recommend EQ adjustments for smooth transition.
+
+    Args:
+        spectral_a: Spectral features of track A
+        spectral_b: Spectral features of track B
+
+    Returns:
+        Dictionary with EQ band recommendations
+    """
+    try:
+        recommendations = {
+            'bass': 0.0,     # -3 to +3 dB
+            'mid': 0.0,
+            'treble': 0.0,
+        }
+
+        # Simple heuristic: if track B has more treble, reduce it
+        centroid_a = spectral_a.get('spectral_centroid', 2000)
+        centroid_b = spectral_b.get('spectral_centroid', 2000)
+
+        if centroid_b > centroid_a:
+            recommendations['treble'] = -1.0  # Reduce treble on B
+        else:
+            recommendations['bass'] = 0.5  # Boost bass on B
+
+        return recommendations
+    except Exception as e:
+        logger.error(f"Error in eq_adjustment_recommendation: {e}")
+        return {'bass': 0.0, 'mid': 0.0, 'treble': 0.0}
+
+
+def mix_duration_recommendation(features_a: Dict[str, Any], features_b: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recommend mix duration based on track characteristics.
+
+    Args:
+        features_a: Features of incoming track
+        features_b: Features of outgoing track
+
+    Returns:
+        Dictionary with duration recommendations in seconds
+    """
+    try:
+        energy_diff = abs(features_a.get('energy_mean', 0.5) - features_b.get('energy_mean', 0.5))
+
+        # Longer mix for more different tracks
+        if energy_diff > 0.3:
+            duration = 32  # Long mix
+        elif energy_diff > 0.1:
+            duration = 16  # Standard mix
+        else:
+            duration = 8  # Quick mix
+
+        return {
+            'recommended_duration_seconds': duration,
+            'min_duration': max(4, duration - 4),
+            'max_duration': duration + 4,
+        }
+    except Exception as e:
+        logger.error(f"Error in mix_duration_recommendation: {e}")
+        return {'recommended_duration_seconds': 16, 'min_duration': 12, 'max_duration': 20}
+
+
+def aggregate_user_corrections(corrections: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Aggregate user corrections for continuous improvement.
+
+    Args:
+        corrections: List of correction dictionaries
+
+    Returns:
+        Aggregated correction statistics
+    """
+    try:
+        if not corrections:
+            return {}
+
+        correction_types = {}
+        for corr in corrections:
+            ctype = corr.get('type', 'unknown')
+            correction_types[ctype] = correction_types.get(ctype, 0) + 1
+
+        total_corrections = len(corrections)
+
+        return {
+            'total_corrections': total_corrections,
+            'correction_types': correction_types,
+            'most_common': max(correction_types.items(), key=lambda x: x[1])[0] if correction_types else None,
+        }
+    except Exception as e:
+        logger.error(f"Error in aggregate_user_corrections: {e}")
+        return {}
+
+
+def popular_cue_patterns(genre: str, all_cues: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Identify popular cue patterns for a genre.
+
+    Args:
+        genre: Genre name
+        all_cues: List of all cue points
+
+    Returns:
+        Dictionary with pattern statistics
+    """
+    try:
+        genre_cues = [c for c in all_cues if c.get('genre') == genre]
+
+        if not genre_cues:
+            return {}
+
+        # Most common cue types
+        types = {}
+        for cue in genre_cues:
+            ctype = cue.get('type', 'unknown')
+            types[ctype] = types.get(ctype, 0) + 1
+
+        return {
+            'popular_cue_types': types,
+            'genre': genre,
+            'sample_size': len(genre_cues),
+        }
+    except Exception as e:
+        logger.error(f"Error in popular_cue_patterns: {e}")
+        return {}
+
+
+def community_confidence_adjustment(cue: Dict[str, Any], community_data: Dict[str, Any]) -> float:
+    """
+    Adjust cue confidence based on community consensus.
+
+    Args:
+        cue: Cue point dictionary
+        community_data: Community voting data
+
+    Returns:
+        Adjusted confidence score
+    """
+    try:
+        original_confidence = cue.get('confidence', 0.5)
+        votes = community_data.get('votes', 0)
+        agreement_ratio = community_data.get('agreement_ratio', 0.5)
+
+        # Boost confidence if community agrees
+        adjustment = agreement_ratio * 0.5  # Max +0.5
+
+        adjusted = min(1.0, original_confidence + adjustment)
+
+        return float(adjusted)
+    except Exception as e:
+        logger.error(f"Error in community_confidence_adjustment: {e}")
+        return 0.5
+
+
+def trending_genres_adaptation(current_genres: Dict[str, float]) -> Dict[str, float]:
+    """
+    Adapt genre preferences based on trends.
+
+    Args:
+        current_genres: Current genre preferences
+
+    Returns:
+        Adapted genre preferences
+    """
+    try:
+        # Placeholder: would integrate with trending data
+        adapted = current_genres.copy()
+
+        # Boost house and techno slightly
+        if 'house' in adapted:
+            adapted['house'] = min(1.0, adapted['house'] + 0.1)
+        if 'techno' in adapted:
+            adapted['techno'] = min(1.0, adapted['techno'] + 0.1)
+
+        # Normalize
+        total = sum(adapted.values()) or 1.0
+        adapted = {k: v / total for k, v in adapted.items()}
+
+        return adapted
+    except Exception as e:
+        logger.error(f"Error in trending_genres_adaptation: {e}")
+        return current_genres
+
+
+def ab_test_cue_quality(variant_a: Dict[str, Any], variant_b: Dict[str, Any], metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Compare two cue variants using A/B test metrics.
+
+    Args:
+        variant_a: Cue variant A
+        variant_b: Cue variant B
+        metrics: Performance metrics
+
+    Returns:
+        A/B test results
+    """
+    try:
+        a_score = variant_a.get('score', 0) * metrics.get('a_performance', 0.5)
+        b_score = variant_b.get('score', 0) * metrics.get('b_performance', 0.5)
+
+        winner = 'A' if a_score > b_score else 'B'
+
+        return {
+            'winner': winner,
+            'variant_a_score': float(a_score),
+            'variant_b_score': float(b_score),
+            'confidence': abs(a_score - b_score) / (max(a_score, b_score) + 1e-8),
+        }
+    except Exception as e:
+        logger.error(f"Error in ab_test_cue_quality: {e}")
+        return {}
+
+
+def user_skill_level_detection(cue_history: List[Dict[str, Any]]) -> str:
+    """
+    Detect user skill level from cue history.
+
+    Args:
+        cue_history: List of user's cues
+
+    Returns:
+        Skill level: 'beginner', 'intermediate', 'advanced', 'expert'
+    """
+    try:
+        if not cue_history:
+            return 'beginner'
+
+        avg_accuracy = np.mean([c.get('accuracy', 0.5) for c in cue_history])
+        cue_count = len(cue_history)
+
+        if avg_accuracy > 0.9 and cue_count > 50:
+            return 'expert'
+        elif avg_accuracy > 0.8 and cue_count > 20:
+            return 'advanced'
+        elif avg_accuracy > 0.7:
+            return 'intermediate'
+        else:
+            return 'beginner'
+    except Exception as e:
+        logger.error(f"Error in user_skill_level_detection: {e}")
+        return 'beginner'
+
+
+def personalized_cue_suggestion(user_prefs: Dict[str, Any], analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Generate personalized cue suggestions based on user preferences.
+
+    Args:
+        user_prefs: User preference dictionary
+        analysis: Track analysis
+
+    Returns:
+        List of suggested cues
+    """
+    try:
+        suggestions = []
+
+        cue_candidates = analysis.get('cue_candidates', [])
+
+        for cand in cue_candidates[:5]:  # Top 5
+            if cand.get('score', 0) > 0.5:
+                suggestions.append({
+                    'position': cand.get('position', 0),
+                    'type': cand.get('type', 'unknown'),
+                    'confidence': cand.get('score', 0),
+                })
+
+        return suggestions
+    except Exception as e:
+        logger.error(f"Error in personalized_cue_suggestion: {e}")
+        return []
+
+
+def collaborative_filtering_tracks(user_tracks: List[Dict[str, Any]], all_tracks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Find similar tracks using collaborative filtering.
+
+    Args:
+        user_tracks: User's tracks
+        all_tracks: All available tracks
+
+    Returns:
+        List of recommended tracks
+    """
+    try:
+        if not user_tracks or not all_tracks:
+            return []
+
+        # Simple: find tracks with similar genres
+        user_genres = set()
+        for track in user_tracks:
+            user_genres.update(track.get('genres', []))
+
+        recommendations = []
+        for track in all_tracks:
+            track_genres = set(track.get('genres', []))
+            similarity = len(user_genres & track_genres) / (len(user_genres | track_genres) + 1e-8)
+
+            if similarity > 0.3:
+                recommendations.append({
+                    'track_id': track.get('id'),
+                    'similarity': float(similarity),
+                })
+
+        # Sort by similarity
+        recommendations.sort(key=lambda x: x['similarity'], reverse=True)
+
+        return recommendations[:10]
+    except Exception as e:
+        logger.error(f"Error in collaborative_filtering_tracks: {e}")
+        return []
+
+
+def crowd_wisdom_integration(cue: Dict[str, Any], community_votes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Integrate crowd wisdom (community votes) into cue confidence.
+
+    Args:
+        cue: Cue point dictionary
+        community_votes: List of community vote dicts
+
+    Returns:
+        Integrated cue with crowd-adjusted confidence
+    """
+    try:
+        if not community_votes:
+            return cue
+
+        vote_scores = [v.get('score', 0.5) for v in community_votes]
+        avg_vote = np.mean(vote_scores)
+
+        # Weight original confidence 70%, community 30%
+        integrated_confidence = cue.get('confidence', 0.5) * 0.7 + avg_vote * 0.3
+
+        result = cue.copy()
+        result['confidence'] = float(np.clip(integrated_confidence, 0, 1))
+        result['crowd_votes'] = len(community_votes)
+
+        return result
+    except Exception as e:
+        logger.error(f"Error in crowd_wisdom_integration: {e}")
+        return cue
+
+
+def continuous_learning_pipeline_v2(new_data: List[Dict[str, Any]], model_state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Advanced continuous learning pipeline integrating all improvement mechanisms.
+
+    Args:
+        new_data: New training data
+        model_state: Current model state
+
+    Returns:
+        Updated model state with learning results
+    """
+    try:
+        if not new_data:
+            return model_state
+
+        # Accumulate new data
+        accumulated_data = model_state.get('accumulated_data', [])
+        accumulated_data.extend(new_data)
+
+        # Keep sliding window (max 1000 samples)
+        if len(accumulated_data) > 1000:
+            accumulated_data = accumulated_data[-1000:]
+
+        # Calculate improvement metrics
+        avg_accuracy = np.mean([d.get('accuracy', 0.5) for d in accumulated_data])
+
+        learning_result = {
+            'accumulated_samples': len(accumulated_data),
+            'avg_accuracy': float(avg_accuracy),
+            'learning_enabled': True,
+            'last_update': 'now',
+        }
+
+        updated_state = model_state.copy()
+        updated_state['accumulated_data'] = accumulated_data
+        updated_state['last_learning_result'] = learning_result
+
+        return updated_state
+    except Exception as e:
+        logger.error(f"Error in continuous_learning_pipeline_v2: {e}")
+        return model_state

@@ -7253,3 +7253,2862 @@ def compute_danceability_score(groove_strength: float, energy: float, bpm: float
         }
     except Exception:
         return {"danceability_score": 0.5, "danceability_grade": "C"}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   ADVANCED AUDIO QUALITY ANALYSIS (15 points)
+# ══════════════════════════════════════════════════════════════════════════
+
+def dynamic_range_measurement(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 1: Dynamic Range (DR) score using crest factor.
+
+    Measures the ratio of peak amplitude to RMS level,
+    indicating dynamic range quality.
+    """
+    try:
+        if len(y) == 0:
+            return {"dr_score": 0.0, "crest_factor": 0.0, "dynamic_range_db": 0.0}
+
+        # Compute RMS
+        rms = np.sqrt(np.mean(y ** 2))
+        if rms < 1e-8:
+            return {"dr_score": 0.0, "crest_factor": 0.0, "dynamic_range_db": 0.0}
+
+        # Crest factor (peak / RMS)
+        peak = np.max(np.abs(y))
+        crest_factor = peak / rms if rms > 0 else 0.0
+
+        # Dynamic range in dB
+        dynamic_range_db = 20 * np.log10(crest_factor + 1e-8)
+
+        # DR score (normalized to 0-1)
+        dr_score = np.clip(dynamic_range_db / 20.0, 0.0, 1.0)
+
+        return {
+            "dr_score": float(dr_score),
+            "crest_factor": float(crest_factor),
+            "dynamic_range_db": float(dynamic_range_db),
+        }
+    except Exception:
+        return {"dr_score": 0.0, "crest_factor": 0.0, "dynamic_range_db": 0.0}
+
+
+def clipping_detection(y: np.ndarray, sr: int, threshold: float = 0.99) -> Dict[str, any]:
+    """
+    Point 2: Detect audio saturation/clipping.
+
+    Identifies samples at or near full-scale amplitude.
+    """
+    try:
+        if len(y) == 0:
+            return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0}
+
+        # Normalize to -1..1 range
+        y_norm = y / (np.max(np.abs(y)) + 1e-8)
+
+        # Count samples above threshold
+        clipping_mask = np.abs(y_norm) >= threshold
+        clipping_samples = np.sum(clipping_mask)
+        clipping_ratio = float(clipping_samples) / len(y)
+
+        has_clipping = clipping_ratio > 0.001  # More than 0.1% is suspicious
+
+        return {
+            "has_clipping": bool(has_clipping),
+            "clipping_ratio": float(clipping_ratio),
+            "clipping_samples": int(clipping_samples),
+        }
+    except Exception:
+        return {"has_clipping": False, "clipping_ratio": 0.0, "clipping_samples": 0}
+
+
+def noise_floor_estimation(y: np.ndarray, sr: int, frame_length: int = 2048) -> Dict[str, any]:
+    """
+    Point 3: Estimate noise floor from quietest frames.
+
+    Analyzes RMS of frames to find noise baseline.
+    """
+    try:
+        if len(y) < frame_length:
+            return {"noise_floor_db": -80.0, "noise_percentile_db": -80.0}
+
+        # Frame-based RMS
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=frame_length // 2)
+        frame_rms = np.sqrt(np.mean(frames ** 2, axis=0))
+
+        # Use 10th percentile as noise floor estimate
+        noise_percentile = np.percentile(frame_rms, 10)
+        noise_db = 20 * np.log10(noise_percentile + 1e-8)
+
+        # Also compute overall floor
+        overall_rms = np.sqrt(np.mean(y ** 2))
+        overall_floor_db = 20 * np.log10(overall_rms + 1e-8) - 40
+
+        return {
+            "noise_floor_db": float(overall_floor_db),
+            "noise_percentile_db": float(noise_db),
+        }
+    except Exception:
+        return {"noise_floor_db": -80.0, "noise_percentile_db": -80.0}
+
+
+def frequency_response_analysis(y: np.ndarray, sr: int, n_fft: int = 4096) -> Dict[str, any]:
+    """
+    Point 4: Analyze frequency response curve.
+
+    Computes magnitude spectrum and detects presence in key bands.
+    """
+    try:
+        if len(y) < n_fft:
+            return {
+                "response_balance": 0.5,
+                "bass_presence": 0.0,
+                "mid_presence": 0.0,
+                "treble_presence": 0.0,
+            }
+
+        # Compute power spectrogram
+        D = librosa.stft(y, n_fft=n_fft)
+        S = np.abs(D) ** 2
+
+        # Frequency bins
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+        # Power in each band
+        bass_mask = (freqs >= 20) & (freqs < 250)
+        mid_mask = (freqs >= 250) & (freqs < 4000)
+        treble_mask = (freqs >= 4000) & (freqs < sr // 2)
+
+        bass_power = np.mean(S[bass_mask, :]) if np.any(bass_mask) else 0.0
+        mid_power = np.mean(S[mid_mask, :]) if np.any(mid_mask) else 0.0
+        treble_power = np.mean(S[treble_mask, :]) if np.any(treble_mask) else 0.0
+
+        # Normalize
+        total = bass_power + mid_power + treble_power + 1e-8
+        bass_presence = bass_power / total
+        mid_presence = mid_power / total
+        treble_presence = treble_power / total
+
+        # Balance: treble vs bass
+        response_balance = treble_presence / (bass_presence + 1e-8)
+        response_balance = np.clip(response_balance, 0.0, 2.0) / 2.0
+
+        return {
+            "response_balance": float(response_balance),
+            "bass_presence": float(bass_presence),
+            "mid_presence": float(mid_presence),
+            "treble_presence": float(treble_presence),
+        }
+    except Exception:
+        return {
+            "response_balance": 0.5,
+            "bass_presence": 0.0,
+            "mid_presence": 0.0,
+            "treble_presence": 0.0,
+        }
+
+
+def stereo_correlation_analysis(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 5: Analyze L/R stereo correlation.
+
+    For stereo files, computes cross-correlation between channels.
+    For mono, returns high correlation by default.
+    """
+    try:
+        # Check if stereo
+        if y.ndim == 1:
+            # Mono file
+            return {
+                "is_stereo": False,
+                "stereo_correlation": 1.0,
+                "width_estimate": 0.0,
+            }
+
+        if y.shape[0] != 2:
+            return {
+                "is_stereo": False,
+                "stereo_correlation": 1.0,
+                "width_estimate": 0.0,
+            }
+
+        # Extract L/R
+        L = y[0]
+        R = y[1]
+
+        if len(L) < 1000:
+            return {
+                "is_stereo": True,
+                "stereo_correlation": 0.5,
+                "width_estimate": 0.5,
+            }
+
+        # Compute correlation
+        correlation = np.corrcoef(L, R)[0, 1]
+        correlation = float(np.clip(correlation, -1.0, 1.0))
+
+        # Width estimate (0=mono, 1=wide)
+        width_estimate = (1.0 - abs(correlation)) / 2.0
+
+        return {
+            "is_stereo": True,
+            "stereo_correlation": correlation,
+            "width_estimate": float(width_estimate),
+        }
+    except Exception:
+        return {
+            "is_stereo": False,
+            "stereo_correlation": 0.5,
+            "width_estimate": 0.0,
+        }
+
+
+def phase_coherence_check(y: np.ndarray, sr: int, n_fft: int = 4096) -> Dict[str, any]:
+    """
+    Point 6: Check for phase coherence issues.
+
+    Detects potential phase cancellation in stereo mixes.
+    """
+    try:
+        if y.ndim == 1 or y.shape[0] != 2:
+            return {
+                "phase_coherence_score": 1.0,
+                "has_phase_issues": False,
+                "cancellation_risk": 0.0,
+            }
+
+        L = y[0]
+        R = y[1]
+
+        if len(L) < n_fft:
+            return {
+                "phase_coherence_score": 1.0,
+                "has_phase_issues": False,
+                "cancellation_risk": 0.0,
+            }
+
+        # Compute phases
+        D_L = librosa.stft(L, n_fft=n_fft)
+        D_R = librosa.stft(R, n_fft=n_fft)
+
+        phase_L = np.angle(D_L)
+        phase_R = np.angle(D_R)
+
+        # Phase difference
+        phase_diff = np.abs(phase_L - phase_R)
+        phase_diff = np.minimum(phase_diff, 2 * np.pi - phase_diff)
+
+        # Mean phase coherence (0=random, 1=coherent)
+        coherence = 1.0 - np.mean(phase_diff) / np.pi
+        coherence = float(np.clip(coherence, 0.0, 1.0))
+
+        # Cancellation risk when phase ~180°
+        cancel_mask = phase_diff > np.pi * 0.75
+        cancellation_risk = float(np.mean(cancel_mask))
+
+        has_issues = cancellation_risk > 0.15
+
+        return {
+            "phase_coherence_score": coherence,
+            "has_phase_issues": bool(has_issues),
+            "cancellation_risk": cancellation_risk,
+        }
+    except Exception:
+        return {
+            "phase_coherence_score": 1.0,
+            "has_phase_issues": False,
+            "cancellation_risk": 0.0,
+        }
+
+
+def codec_artifact_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 7: Detect MP3/AAC codec artifacts.
+
+    Heuristics for detecting compression artifacts like aliasing/buzzing.
+    """
+    try:
+        if len(y) < 4096:
+            return {
+                "has_artifacts": False,
+                "artifact_confidence": 0.0,
+                "likely_codec": "unknown",
+            }
+
+        # Look for high-frequency energy typical of codec artifacts
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # Artifacts often manifest in specific frequency bands
+        artifact_bands = (freqs > 10000) & (freqs < sr // 2)
+        artifact_energy = np.mean(S[artifact_bands, :])
+
+        # Total energy
+        total_energy = np.mean(S)
+
+        artifact_ratio = artifact_energy / (total_energy + 1e-8)
+
+        # High artifact ratio suggests lossy codec
+        artifact_confidence = float(np.clip(artifact_ratio * 5, 0.0, 1.0))
+        has_artifacts = artifact_confidence > 0.3
+
+        # Guess codec (simplified)
+        if artifact_confidence > 0.6:
+            likely_codec = "mp3_or_aac"
+        else:
+            likely_codec = "lossless_or_uncompressed"
+
+        return {
+            "has_artifacts": bool(has_artifacts),
+            "artifact_confidence": artifact_confidence,
+            "likely_codec": likely_codec,
+        }
+    except Exception:
+        return {
+            "has_artifacts": False,
+            "artifact_confidence": 0.0,
+            "likely_codec": "unknown",
+        }
+
+
+def sample_rate_quality_check(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 8: Check effective sample rate quality.
+
+    Analyzes Nyquist limit usage and potential aliasing.
+    """
+    try:
+        if len(y) < 4096:
+            return {
+                "nyquist_usage": 0.0,
+                "potential_aliasing": False,
+                "sample_rate_quality": 0.5,
+            }
+
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # Energy distribution
+        total_energy = np.sum(S)
+
+        # Nyquist limit
+        nyquist = sr / 2
+        nyquist_mask = freqs >= (nyquist * 0.9)
+
+        energy_near_nyquist = np.sum(S[nyquist_mask, :])
+        nyquist_usage = energy_near_nyquist / (total_energy + 1e-8)
+
+        # High energy near Nyquist suggests potential aliasing
+        potential_aliasing = nyquist_usage > 0.05
+
+        # Quality score (prefer energy away from Nyquist)
+        sample_rate_quality = 1.0 - min(nyquist_usage, 0.15) / 0.15
+
+        return {
+            "nyquist_usage": float(nyquist_usage),
+            "potential_aliasing": bool(potential_aliasing),
+            "sample_rate_quality": float(np.clip(sample_rate_quality, 0.0, 1.0)),
+        }
+    except Exception:
+        return {
+            "nyquist_usage": 0.0,
+            "potential_aliasing": False,
+            "sample_rate_quality": 0.5,
+        }
+
+
+def loudness_normalization_suggestion(y: np.ndarray, sr: int, target_lufs: float = -14.0) -> Dict[str, any]:
+    """
+    Point 9: Suggest loudness normalization gain.
+
+    Estimates current LUFS-like loudness and recommends gain.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "current_loudness_db": -80.0,
+                "suggested_gain_db": 0.0,
+                "needs_normalization": False,
+            }
+
+        # Compute RMS for LUFS-like estimate
+        rms = np.sqrt(np.mean(y ** 2))
+        current_loudness = 20 * np.log10(rms + 1e-8)
+
+        # Suggested gain to reach target
+        suggested_gain = target_lufs - current_loudness
+        suggested_gain = float(np.clip(suggested_gain, -12.0, 12.0))
+
+        # Need normalization if far from target
+        needs_normalization = abs(suggested_gain) > 1.0
+
+        return {
+            "current_loudness_db": float(current_loudness),
+            "suggested_gain_db": suggested_gain,
+            "needs_normalization": bool(needs_normalization),
+        }
+    except Exception:
+        return {
+            "current_loudness_db": -80.0,
+            "suggested_gain_db": 0.0,
+            "needs_normalization": False,
+        }
+
+
+def audio_fingerprint_robustness(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 10: Assess audio fingerprint robustness.
+
+    Checks for features that might make fingerprinting unreliable.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "fingerprint_stability": 0.5,
+                "robustness_score": 0.5,
+                "risk_factors": [],
+            }
+
+        risk_factors = []
+
+        # Check 1: Too much noise
+        noise_floor = np.percentile(np.abs(y), 5)
+        peak = np.max(np.abs(y))
+        snr = peak / (noise_floor + 1e-8)
+        if snr < 10:
+            risk_factors.append("low_snr")
+
+        # Check 2: Excessive compression
+        rms_vals = []
+        for i in range(0, len(y) - sr, sr // 2):
+            rms_vals.append(np.sqrt(np.mean(y[i:i+sr] ** 2)))
+
+        if len(rms_vals) > 1:
+            rms_std = np.std(rms_vals) / (np.mean(rms_vals) + 1e-8)
+            if rms_std < 0.1:
+                risk_factors.append("over_compressed")
+
+        # Check 3: Very dynamic
+        if len(rms_vals) > 1 and rms_std > 0.8:
+            risk_factors.append("highly_dynamic")
+
+        # Robustness score
+        robustness = 1.0 - (len(risk_factors) * 0.3)
+        robustness = float(np.clip(robustness, 0.0, 1.0))
+
+        return {
+            "fingerprint_stability": robustness,
+            "robustness_score": robustness,
+            "risk_factors": risk_factors,
+        }
+    except Exception:
+        return {
+            "fingerprint_stability": 0.5,
+            "robustness_score": 0.5,
+            "risk_factors": [],
+        }
+
+
+def silence_detection_precise(y: np.ndarray, sr: int, threshold_db: float = -60.0) -> Dict[str, any]:
+    """
+    Point 11: Detect silences with precise timestamps.
+
+    Returns list of silence intervals.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "silence_count": 0,
+                "silence_intervals": [],
+                "total_silence_duration_s": 0.0,
+            }
+
+        # Frame-based energy
+        frame_length = 2048
+        hop_length = 512
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+        frame_rms = np.sqrt(np.mean(frames ** 2, axis=0))
+        frame_db = 20 * np.log10(frame_rms + 1e-8)
+
+        # Silence mask
+        silence_mask = frame_db < threshold_db
+
+        # Find intervals
+        silence_intervals = []
+        in_silence = False
+        start_idx = 0
+
+        for i, is_silent in enumerate(silence_mask):
+            if is_silent and not in_silence:
+                start_idx = i
+                in_silence = True
+            elif not is_silent and in_silence:
+                end_idx = i
+                start_time = librosa.frames_to_time(start_idx, sr=sr, hop_length=hop_length)
+                end_time = librosa.frames_to_time(end_idx, sr=sr, hop_length=hop_length)
+                silence_intervals.append({
+                    "start_s": float(start_time),
+                    "end_s": float(end_time),
+                    "duration_s": float(end_time - start_time),
+                })
+                in_silence = False
+
+        if in_silence:
+            start_time = librosa.frames_to_time(start_idx, sr=sr, hop_length=hop_length)
+            end_time = librosa.frames_to_time(len(silence_mask) - 1, sr=sr, hop_length=hop_length)
+            silence_intervals.append({
+                "start_s": float(start_time),
+                "end_s": float(end_time),
+                "duration_s": float(end_time - start_time),
+            })
+
+        total_silence = sum(s["duration_s"] for s in silence_intervals)
+
+        return {
+            "silence_count": len(silence_intervals),
+            "silence_intervals": silence_intervals[:20],  # Limit to 20
+            "total_silence_duration_s": float(total_silence),
+        }
+    except Exception:
+        return {
+            "silence_count": 0,
+            "silence_intervals": [],
+            "total_silence_duration_s": 0.0,
+        }
+
+
+def click_pop_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 12: Detect clicks and pops in audio.
+
+    Identifies transient spikes characteristic of clicks/pops.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "click_count": 0,
+                "pop_count": 0,
+                "total_artifacts": 0,
+            }
+
+        # Compute spectral flux (change in spectrum)
+        D = librosa.stft(y, n_fft=2048, hop_length=512)
+        mag = np.abs(D)
+
+        # Spectral flux
+        flux = np.sqrt(np.sum(np.diff(mag, axis=1) ** 2, axis=0))
+
+        # Detect peaks
+        peaks, properties = find_peaks(flux, height=np.percentile(flux, 85), distance=4)
+
+        # Filter by sharpness (clicks are sharp)
+        sharp_peaks = []
+        for peak_idx in peaks:
+            if peak_idx > 0 and peak_idx < len(flux) - 1:
+                sharpness = flux[peak_idx] / (np.mean(flux[max(0, peak_idx-5):peak_idx+5]) + 1e-8)
+                if sharpness > 3:
+                    sharp_peaks.append(peak_idx)
+
+        # Simple classification: high-frequency-centered = clicks, low = pops
+        click_count = len([p for p in sharp_peaks if p < len(flux) // 3])
+        pop_count = len(sharp_peaks) - click_count
+
+        return {
+            "click_count": int(click_count),
+            "pop_count": int(pop_count),
+            "total_artifacts": int(len(sharp_peaks)),
+        }
+    except Exception:
+        return {
+            "click_count": 0,
+            "pop_count": 0,
+            "total_artifacts": 0,
+        }
+
+
+def DC_offset_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 13: Detect DC offset in audio.
+
+    Non-zero mean indicates DC offset that can waste headroom.
+    """
+    try:
+        if len(y) == 0:
+            return {
+                "dc_offset": 0.0,
+                "has_dc_offset": False,
+                "offset_db": 0.0,
+            }
+
+        dc_offset = float(np.mean(y))
+
+        # DC offset in dB
+        offset_magnitude = abs(dc_offset)
+        offset_db = 20 * np.log10(offset_magnitude + 1e-8)
+
+        # Significant if > -40 dB
+        has_dc_offset = offset_magnitude > 0.01
+
+        return {
+            "dc_offset": dc_offset,
+            "has_dc_offset": bool(has_dc_offset),
+            "offset_db": float(offset_db),
+        }
+    except Exception:
+        return {
+            "dc_offset": 0.0,
+            "has_dc_offset": False,
+            "offset_db": 0.0,
+        }
+
+
+def mono_compatibility_check(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 14: Check mono compatibility (phase cancellation in mono).
+
+    Tests if summing to mono causes significant level loss.
+    """
+    try:
+        if y.ndim == 1:
+            # Already mono
+            return {
+                "is_stereo": False,
+                "mono_compatible": True,
+                "cancellation_loss_db": 0.0,
+            }
+
+        if y.shape[0] != 2 or len(y[0]) < 1000:
+            return {
+                "is_stereo": False,
+                "mono_compatible": True,
+                "cancellation_loss_db": 0.0,
+            }
+
+        # Compute stereo and mono power
+        L = y[0]
+        R = y[1]
+
+        stereo_power = (np.mean(L ** 2) + np.mean(R ** 2)) / 2
+        mono = (L + R) / 2
+        mono_power = np.mean(mono ** 2)
+
+        # Loss in dB
+        cancellation_loss_db = -20 * np.log10((mono_power + 1e-8) / (stereo_power + 1e-8))
+        cancellation_loss_db = float(np.clip(cancellation_loss_db, 0.0, 20.0))
+
+        # Compatible if loss < 3 dB
+        mono_compatible = cancellation_loss_db < 3.0
+
+        return {
+            "is_stereo": True,
+            "mono_compatible": bool(mono_compatible),
+            "cancellation_loss_db": cancellation_loss_db,
+        }
+    except Exception:
+        return {
+            "is_stereo": False,
+            "mono_compatible": True,
+            "cancellation_loss_db": 0.0,
+        }
+
+
+def dc_offset_detection(y: np.ndarray, sr: int) -> Dict[str, Any]:
+    """
+    Point 11: Detect DC offset in audio signal.
+
+    DC offset (non-zero mean) can degrade audio quality and reduce headroom.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "dc_offset_mean": 0.0,
+                "dc_offset_db": -200.0,
+                "has_dc_offset": False,
+                "dc_removal_recommended": False,
+            }
+
+        # Calculate mean (DC offset)
+        dc_mean = float(np.mean(y))
+
+        # Calculate DC level in dB
+        dc_abs = np.abs(dc_mean)
+        if dc_abs > 1e-8:
+            dc_offset_db = float(20 * np.log10(dc_abs + 1e-10))
+        else:
+            dc_offset_db = -200.0
+
+        # Determine if DC offset is problematic
+        # More than 0.01 RMS is usually noticeable
+        has_dc_offset = dc_abs > 0.01
+        dc_removal_recommended = dc_abs > 0.005
+
+        return {
+            "dc_offset_mean": dc_mean,
+            "dc_offset_db": dc_offset_db,
+            "has_dc_offset": bool(has_dc_offset),
+            "dc_removal_recommended": bool(dc_removal_recommended),
+        }
+    except Exception:
+        return {
+            "dc_offset_mean": 0.0,
+            "dc_offset_db": -200.0,
+            "has_dc_offset": False,
+            "dc_removal_recommended": False,
+        }
+
+
+def mastering_quality_score(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 15: Compute overall mastering quality score.
+
+    Combines multiple quality metrics into one score.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "mastering_quality_score": 0.5,
+                "mastering_grade": "C",
+                "quality_issues": [],
+            }
+
+        score = 1.0
+        issues = []
+
+        # Check 1: Clipping
+        result_clip = clipping_detection(y, sr)
+        if result_clip["has_clipping"]:
+            score -= 0.2
+            issues.append("clipping_detected")
+
+        # Check 2: Dynamic range
+        result_dr = dynamic_range_measurement(y, sr)
+        if result_dr["dr_score"] < 0.3:
+            score -= 0.1
+            issues.append("low_dynamic_range")
+
+        # Check 3: Noise floor
+        result_noise = noise_floor_estimation(y, sr)
+        if result_noise["noise_floor_db"] > -40:
+            score -= 0.1
+            issues.append("high_noise_floor")
+
+        # Check 4: DC offset
+        result_dc = DC_offset_detection(y, sr)
+        if result_dc["has_dc_offset"]:
+            score -= 0.05
+            issues.append("dc_offset")
+
+        # Check 5: Frequency response balance
+        result_freq = frequency_response_analysis(y, sr)
+        if result_freq["response_balance"] < 0.3 or result_freq["response_balance"] > 0.7:
+            score -= 0.1
+            issues.append("unbalanced_frequency_response")
+
+        score = float(np.clip(score, 0.0, 1.0))
+
+        # Grade
+        if score > 0.85:
+            grade = "A"
+        elif score > 0.7:
+            grade = "B"
+        elif score > 0.55:
+            grade = "C"
+        else:
+            grade = "D"
+
+        return {
+            "mastering_quality_score": score,
+            "mastering_grade": grade,
+            "quality_issues": issues,
+        }
+    except Exception:
+        return {
+            "mastering_quality_score": 0.5,
+            "mastering_grade": "C",
+            "quality_issues": [],
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   ADVANCED HARMONIC ANALYSIS (15 points)
+# ══════════════════════════════════════════════════════════════════════════
+
+def chord_detection_basic(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 16: Detect basic chords (Major/Minor/7th/Diminished).
+
+    Uses chroma features and simple heuristics.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "detected_chords": [],
+                "primary_chord": "unknown",
+                "confidence": 0.0,
+            }
+
+        # Compute chroma
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_mean = np.mean(chroma, axis=1)
+
+        # Normalize
+        chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+
+        # Simple chord templates
+        # Major: root, major 3rd (4 semitones), perfect 5th (7 semitones)
+        # Minor: root, minor 3rd (3 semitones), perfect 5th
+        # Dominant 7: Major + minor 7th
+        # Diminished: root, minor 3rd, diminished 5th (6 semitones)
+
+        chords = []
+        note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+        for root in range(12):
+            # Major
+            major_profile = np.zeros(12)
+            major_profile[root] = 1.0
+            major_profile[(root + 4) % 12] = 1.0
+            major_profile[(root + 7) % 12] = 1.0
+            major_profile /= 3.0
+
+            major_corr = np.dot(major_profile, chroma_norm)
+            if major_corr > 0.5:
+                chords.append({
+                    "chord": f"{note_names[root]} Major",
+                    "confidence": float(major_corr),
+                    "type": "major",
+                })
+
+            # Minor
+            minor_profile = np.zeros(12)
+            minor_profile[root] = 1.0
+            minor_profile[(root + 3) % 12] = 1.0
+            minor_profile[(root + 7) % 12] = 1.0
+            minor_profile /= 3.0
+
+            minor_corr = np.dot(minor_profile, chroma_norm)
+            if minor_corr > 0.5:
+                chords.append({
+                    "chord": f"{note_names[root]} Minor",
+                    "confidence": float(minor_corr),
+                    "type": "minor",
+                })
+
+        # Sort by confidence
+        chords = sorted(chords, key=lambda x: x["confidence"], reverse=True)
+
+        primary = chords[0] if chords else None
+
+        return {
+            "detected_chords": chords[:5],
+            "primary_chord": primary["chord"] if primary else "unknown",
+            "confidence": float(primary["confidence"]) if primary else 0.0,
+        }
+    except Exception:
+        return {
+            "detected_chords": [],
+            "primary_chord": "unknown",
+            "confidence": 0.0,
+        }
+
+
+def chord_progression_extraction(y: np.ndarray, sr: int, hop_s: float = 0.5) -> Dict[str, any]:
+    """
+    Point 17: Extract chord progression over track.
+
+    Detects chord changes at regular intervals.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "chord_changes": 0,
+                "progression": [],
+                "change_timestamps": [],
+            }
+
+        # Divide into chunks
+        hop_samples = int(sr * hop_s)
+        chunks = []
+        timestamps = []
+
+        for i in range(0, len(y), hop_samples):
+            chunk = y[i:i+hop_samples]
+            if len(chunk) > sr // 4:
+                chunks.append(chunk)
+                timestamps.append(i / sr)
+
+        # Analyze each chunk
+        progression = []
+        for chunk in chunks[:20]:  # Limit to 20 chunks
+            result = chord_detection_basic(chunk, sr)
+            if result["primary_chord"] != "unknown":
+                progression.append(result["primary_chord"])
+
+        # Count changes
+        changes = 0
+        change_timestamps = []
+        for i in range(1, len(progression)):
+            if progression[i] != progression[i-1]:
+                changes += 1
+                change_timestamps.append(float(timestamps[i]))
+
+        return {
+            "chord_changes": changes,
+            "progression": progression,
+            "change_timestamps": change_timestamps,
+        }
+    except Exception:
+        return {
+            "chord_changes": 0,
+            "progression": [],
+            "change_timestamps": [],
+        }
+
+
+def key_stability_per_section(y: np.ndarray, sr: int, section_duration_s: float = 8.0) -> Dict[str, any]:
+    """
+    Point 18: Analyze key stability per section.
+
+    Divides track into sections and checks tonal consistency.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "sections": 0,
+                "key_stability_scores": [],
+                "stable_sections": 0,
+            }
+
+        # Divide into sections
+        section_samples = int(sr * section_duration_s)
+        sections = []
+
+        for i in range(0, len(y), section_samples):
+            chunk = y[i:i+section_samples]
+            if len(chunk) > sr // 2:
+                sections.append(chunk)
+
+        # Analyze each section
+        stability_scores = []
+        for section in sections[:10]:  # Limit to 10 sections
+            try:
+                chroma = librosa.feature.chroma_cqt(y=section, sr=sr)
+                chroma_mean = np.mean(chroma, axis=1)
+
+                # Stability: entropy of chroma distribution
+                chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+                entropy = -np.sum(chroma_norm * np.log(chroma_norm + 1e-8))
+
+                # Normalize entropy (0 = one note, log(12) = uniform)
+                max_entropy = np.log(12)
+                stability = 1.0 - (entropy / max_entropy)
+                stability = float(np.clip(stability, 0.0, 1.0))
+
+                stability_scores.append(stability)
+            except Exception:
+                pass
+
+        stable_sections = sum(1 for s in stability_scores if s > 0.6)
+
+        return {
+            "sections": len(sections),
+            "key_stability_scores": stability_scores,
+            "stable_sections": stable_sections,
+        }
+    except Exception:
+        return {
+            "sections": 0,
+            "key_stability_scores": [],
+            "stable_sections": 0,
+        }
+
+
+def modulation_path_analysis(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 19: Analyze modulation paths (key changes).
+
+    Tracks shifts in tonal center.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "modulations_detected": 0,
+                "modulation_intervals": [],
+                "key_path": [],
+            }
+
+        # Divide into chunks
+        chunk_size = sr * 4  # 4-second chunks
+        chunks = []
+
+        for i in range(0, len(y), chunk_size // 2):
+            chunk = y[i:i+chunk_size]
+            if len(chunk) > sr:
+                chunks.append(chunk)
+
+        # Detect chroma center for each chunk
+        key_path = []
+        for chunk in chunks[:12]:  # Limit to 12 chunks
+            try:
+                chroma = librosa.feature.chroma_cqt(y=chunk, sr=sr)
+                chroma_mean = np.mean(chroma, axis=1)
+
+                # Key center is argmax
+                key_idx = np.argmax(chroma_mean)
+                note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+                key_path.append(note_names[key_idx])
+            except Exception:
+                pass
+
+        # Count modulations
+        modulations = 0
+        modulation_intervals = []
+        for i in range(1, len(key_path)):
+            if key_path[i] != key_path[i-1]:
+                modulations += 1
+                modulation_intervals.append({
+                    "from_key": key_path[i-1],
+                    "to_key": key_path[i],
+                    "position": float(i * 2),
+                })
+
+        return {
+            "modulations_detected": modulations,
+            "modulation_intervals": modulation_intervals,
+            "key_path": key_path,
+        }
+    except Exception:
+        return {
+            "modulations_detected": 0,
+            "modulation_intervals": [],
+            "key_path": [],
+        }
+
+
+def harmonic_rhythm_analysis(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 20: Analyze harmonic rhythm (chord change frequency).
+
+    Measures how often harmonic content changes per bar.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "harmonic_rhythm_score": 0.5,
+                "changes_per_bar": 0.0,
+                "harmonic_complexity": "simple",
+            }
+
+        # Estimate tempo
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+
+        # Bar = 4 beats
+        beat_interval_s = 60.0 / tempo
+        bar_duration_s = beat_interval_s * 4
+
+        # Divide into bars
+        bar_samples = int(sr * bar_duration_s)
+
+        # Chroma analysis per bar
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+
+        # Frames per bar
+        frames_per_bar = int(chroma.shape[1] * bar_samples / len(y))
+
+        changes_total = 0
+        bar_count = 0
+
+        for bar_idx in range(0, chroma.shape[1] - frames_per_bar, frames_per_bar):
+            bar_chroma = chroma[:, bar_idx:bar_idx+frames_per_bar]
+
+            # Compute variation within bar
+            variation = np.std(bar_chroma, axis=1)
+            change_score = np.mean(variation)
+
+            if change_score > 0.1:
+                changes_total += 1
+
+            bar_count += 1
+
+        changes_per_bar = float(changes_total / max(bar_count, 1))
+
+        # Complexity
+        if changes_per_bar < 0.5:
+            complexity = "simple"
+        elif changes_per_bar < 1.5:
+            complexity = "moderate"
+        else:
+            complexity = "complex"
+
+        # Score (normalize)
+        score = min(changes_per_bar / 3.0, 1.0)
+
+        return {
+            "harmonic_rhythm_score": float(score),
+            "changes_per_bar": float(changes_per_bar),
+            "harmonic_complexity": complexity,
+        }
+    except Exception:
+        return {
+            "harmonic_rhythm_score": 0.5,
+            "changes_per_bar": 0.0,
+            "harmonic_complexity": "unknown",
+        }
+
+
+def tonal_center_gravity(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 21: Compute tonal center gravity (weighted center note).
+
+    Uses chroma energy to find perceptual center.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "tonal_center": 0,
+                "tonal_center_note": "unknown",
+                "center_strength": 0.0,
+            }
+
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_mean = np.mean(chroma, axis=1)
+
+        # Center of gravity
+        chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+
+        # Compute weighted center
+        center = np.sum(np.arange(12) * chroma_norm)
+        center = int(center) % 12
+
+        note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+        # Strength: concentration around center
+        strength = chroma_norm[center]
+        strength = float(np.clip(strength / 0.2, 0.0, 1.0))
+
+        return {
+            "tonal_center": int(center),
+            "tonal_center_note": note_names[center],
+            "center_strength": strength,
+        }
+    except Exception:
+        return {
+            "tonal_center": 0,
+            "tonal_center_note": "unknown",
+            "center_strength": 0.0,
+        }
+
+
+def pitch_class_distribution(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 22: Analyze pitch class distribution.
+
+    Shows which notes/pitches are most prominent.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "pitch_classes": {},
+                "most_prominent": "unknown",
+                "distribution_entropy": 0.0,
+            }
+
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_mean = np.mean(chroma, axis=1)
+
+        # Normalize
+        chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+
+        note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+        distribution = {note_names[i]: float(chroma_norm[i]) for i in range(12)}
+
+        # Most prominent
+        most_idx = np.argmax(chroma_norm)
+        most_prominent = note_names[most_idx]
+
+        # Entropy
+        entropy = -np.sum(chroma_norm * np.log(chroma_norm + 1e-8))
+        max_entropy = np.log(12)
+        entropy_norm = entropy / max_entropy
+
+        return {
+            "pitch_classes": distribution,
+            "most_prominent": most_prominent,
+            "distribution_entropy": float(entropy_norm),
+        }
+    except Exception:
+        return {
+            "pitch_classes": {},
+            "most_prominent": "unknown",
+            "distribution_entropy": 0.0,
+        }
+
+
+def diatonic_vs_chromatic_ratio(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 23: Compute diatonic vs chromatic content ratio.
+
+    Simpler harmony (diatonic) vs chromatic complexity.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "diatonic_ratio": 0.5,
+                "chromatic_ratio": 0.5,
+                "simplicity": "moderate",
+            }
+
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_mean = np.mean(chroma, axis=1)
+        chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+
+        # Assume C major/minor for simplicity
+        # Major: C, D, E, F, G, A, B (indices: 0, 2, 4, 5, 7, 9, 11)
+        diatonic_indices = [0, 2, 4, 5, 7, 9, 11]
+        chromatic_indices = [1, 3, 6, 8, 10]
+
+        diatonic_energy = np.sum(chroma_norm[diatonic_indices])
+        chromatic_energy = np.sum(chroma_norm[chromatic_indices])
+
+        total = diatonic_energy + chromatic_energy
+        if total > 0:
+            diatonic_ratio = diatonic_energy / total
+            chromatic_ratio = chromatic_energy / total
+        else:
+            diatonic_ratio = 0.5
+            chromatic_ratio = 0.5
+
+        # Simplicity classification
+        if diatonic_ratio > 0.8:
+            simplicity = "very_simple"
+        elif diatonic_ratio > 0.65:
+            simplicity = "simple"
+        elif diatonic_ratio > 0.5:
+            simplicity = "moderate"
+        else:
+            simplicity = "complex"
+
+        return {
+            "diatonic_ratio": float(diatonic_ratio),
+            "chromatic_ratio": float(chromatic_ratio),
+            "simplicity": simplicity,
+        }
+    except Exception:
+        return {
+            "diatonic_ratio": 0.5,
+            "chromatic_ratio": 0.5,
+            "simplicity": "unknown",
+        }
+
+
+def consonance_dissonance_curve(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 24: Compute consonance/dissonance curve over time.
+
+    Measures harmonic tension over track duration.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "consonance_scores": [],
+                "mean_consonance": 0.5,
+                "max_dissonance_timestamp": 0.0,
+            }
+
+        # Divide into chunks
+        chunk_duration_s = 1.0
+        chunk_samples = int(sr * chunk_duration_s)
+
+        consonance_scores = []
+        timestamps = []
+
+        for i in range(0, len(y), chunk_samples // 2):
+            chunk = y[i:i+chunk_samples]
+            if len(chunk) > sr // 4:
+                chroma = librosa.feature.chroma_cqt(y=chunk, sr=sr)
+                chroma_mean = np.mean(chroma, axis=1)
+
+                # Consonance: concentration (inverse entropy)
+                chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+                entropy = -np.sum(chroma_norm * np.log(chroma_norm + 1e-8))
+
+                # Consonance = 1 - normalized entropy
+                consonance = 1.0 - (entropy / np.log(12))
+                consonance = float(np.clip(consonance, 0.0, 1.0))
+
+                consonance_scores.append(consonance)
+                timestamps.append(i / sr)
+
+        mean_consonance = float(np.mean(consonance_scores)) if consonance_scores else 0.5
+
+        # Max dissonance
+        max_disson_idx = np.argmin(consonance_scores) if consonance_scores else 0
+        max_dissonance_ts = float(timestamps[max_disson_idx]) if timestamps else 0.0
+
+        return {
+            "consonance_scores": consonance_scores[:60],  # Limit to 60
+            "mean_consonance": mean_consonance,
+            "max_dissonance_timestamp": max_dissonance_ts,
+        }
+    except Exception:
+        return {
+            "consonance_scores": [],
+            "mean_consonance": 0.5,
+            "max_dissonance_timestamp": 0.0,
+        }
+
+
+def bass_note_tracking(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 25: Track bass note throughout track.
+
+    Estimates fundamental bass frequency.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "bass_note": "unknown",
+                "bass_frequency": 0.0,
+                "tracking_confidence": 0.0,
+            }
+
+        # Low-pass filter to isolate bass (< 250 Hz)
+        nyquist = sr / 2
+        cutoff = 250 / nyquist
+        if cutoff >= 1.0:
+            cutoff = 0.95
+
+        b, a = butter(4, cutoff, btype='low')
+        bass = filtfilt(b, a, y)
+
+        # Compute chroma of bass
+        if len(bass) >= sr // 2:
+            chroma = librosa.feature.chroma_cqt(y=bass, sr=sr)
+            chroma_mean = np.mean(chroma, axis=1)
+
+            # Peak note
+            note_idx = np.argmax(chroma_mean)
+            note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+            bass_note = note_names[note_idx]
+
+            # Confidence
+            confidence = chroma_mean[note_idx] / (np.sum(chroma_mean) + 1e-8)
+
+            # Frequency estimate (assuming A0 = 27.5 Hz as reference)
+            # More precise estimation would require pitch tracking
+            base_freq = 27.5
+            octave = 1
+            semitone = note_idx
+            bass_freq = base_freq * (2 ** octave) * (2 ** (semitone / 12.0))
+        else:
+            bass_note = "unknown"
+            confidence = 0.0
+            bass_freq = 0.0
+
+        return {
+            "bass_note": bass_note,
+            "bass_frequency": float(bass_freq),
+            "tracking_confidence": float(np.clip(confidence, 0.0, 1.0)),
+        }
+    except Exception:
+        return {
+            "bass_note": "unknown",
+            "bass_frequency": 0.0,
+            "tracking_confidence": 0.0,
+        }
+
+
+def melodic_interval_histogram(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 26: Compute histogram of melodic intervals.
+
+    Shows which interval jumps are most common.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "interval_histogram": {},
+                "most_common_interval": "unison",
+                "interval_diversity": 0.0,
+            }
+
+        # Pitch tracking (simplified)
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+
+        # Get note sequence (frame by frame)
+        note_sequence = np.argmax(chroma, axis=0)
+
+        # Compute intervals
+        intervals = np.diff(note_sequence)
+        intervals = np.abs(intervals)  # Magnitude only
+
+        # Histogram
+        unique, counts = np.unique(intervals, return_counts=True)
+
+        interval_names = {
+            0: "unison",
+            1: "semitone",
+            2: "whole_tone",
+            3: "minor_third",
+            4: "major_third",
+            5: "perfect_fourth",
+            6: "tritone",
+            7: "perfect_fifth",
+            8: "minor_sixth",
+            9: "major_sixth",
+            10: "minor_seventh",
+            11: "major_seventh",
+        }
+
+        histogram = {}
+        for interval, count in zip(unique, counts):
+            name = interval_names.get(int(interval % 12), f"interval_{interval}")
+            histogram[name] = int(count)
+
+        # Most common
+        most_common_idx = np.argmax(counts)
+        most_common = interval_names.get(int(unique[most_common_idx] % 12), "unison")
+
+        # Diversity (entropy of interval distribution)
+        probs = counts / np.sum(counts)
+        entropy = -np.sum(probs * np.log(probs + 1e-8))
+        max_entropy = np.log(len(probs))
+        diversity = entropy / max_entropy if max_entropy > 0 else 0.0
+
+        return {
+            "interval_histogram": histogram,
+            "most_common_interval": most_common,
+            "interval_diversity": float(diversity),
+        }
+    except Exception:
+        return {
+            "interval_histogram": {},
+            "most_common_interval": "unison",
+            "interval_diversity": 0.0,
+        }
+
+
+def scale_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 27: Detect scale/mode used (major, minor, modes).
+
+    Analyzes pitch class distribution to infer scale.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "detected_scale": "unknown",
+                "scale_confidence": 0.0,
+                "possible_scales": [],
+            }
+
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_mean = np.mean(chroma, axis=1)
+        chroma_norm = chroma_mean / (np.sum(chroma_mean) + 1e-8)
+
+        # Scale profiles (relative energy patterns)
+        scales = {
+            "major": np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1]),  # C, D, E, F, G, A, B
+            "minor_natural": np.array([1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0]),  # C, D, Eb, F, G, Ab, Bb
+            "minor_harmonic": np.array([1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1]),  # C, D, Eb, F, G, Ab, B
+            "pentatonic_major": np.array([1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0]),  # C, D, E, G, A
+            "pentatonic_minor": np.array([1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0]),  # C, Eb, F, G, Bb
+        }
+
+        # Normalize profiles
+        for key in scales:
+            scales[key] = scales[key] / np.sum(scales[key])
+
+        # Compare against each scale
+        scale_scores = {}
+        for scale_name, profile in scales.items():
+            correlation = np.dot(profile, chroma_norm)
+            scale_scores[scale_name] = float(correlation)
+
+        # Best match
+        best_scale = max(scale_scores, key=scale_scores.get)
+        best_confidence = scale_scores[best_scale]
+
+        # Possible scales (sorted)
+        possible = sorted(scale_scores.items(), key=lambda x: x[1], reverse=True)
+        possible = [{"scale": name, "confidence": float(conf)} for name, conf in possible[:3]]
+
+        return {
+            "detected_scale": best_scale if best_confidence > 0.4 else "unknown",
+            "scale_confidence": best_confidence,
+            "possible_scales": possible,
+        }
+    except Exception:
+        return {
+            "detected_scale": "unknown",
+            "scale_confidence": 0.0,
+            "possible_scales": [],
+        }
+
+
+def pentatonic_index(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 28: Compute pentatonic simplicity index.
+
+    High score = DJ-friendly (pentatonic/simple), low = complex.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "pentatonic_index": 0.5,
+                "dj_friendly": False,
+                "simplicity_rating": "moderate",
+            }
+
+        result = scale_detection(y, sr)
+
+        # Pentatonic scales are DJ-friendly
+        if "pentatonic" in result["detected_scale"]:
+            index = 0.9
+        elif result["detected_scale"] == "major":
+            index = 0.8
+        elif result["detected_scale"] == "minor_natural":
+            index = 0.75
+        elif result["detected_scale"] == "minor_harmonic":
+            index = 0.6
+        else:
+            # Fallback: compute from pitch class distribution
+            result2 = pitch_class_distribution(y, sr)
+
+            # Count prominent pitch classes
+            prominent = sum(1 for v in result2["pitch_classes"].values() if v > 0.08)
+
+            # Pentatonic has ~5, major/minor have ~7
+            if prominent <= 5:
+                index = 0.8
+            elif prominent <= 7:
+                index = 0.65
+            else:
+                index = 0.5
+
+        dj_friendly = index > 0.7
+
+        if index > 0.8:
+            rating = "very_simple"
+        elif index > 0.65:
+            rating = "simple"
+        elif index > 0.5:
+            rating = "moderate"
+        else:
+            rating = "complex"
+
+        return {
+            "pentatonic_index": float(index),
+            "dj_friendly": bool(dj_friendly),
+            "simplicity_rating": rating,
+        }
+    except Exception:
+        return {
+            "pentatonic_index": 0.5,
+            "dj_friendly": False,
+            "simplicity_rating": "unknown",
+        }
+
+
+def harmonic_complexity_score(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 29: Compute global harmonic complexity score.
+
+    Combines multiple harmony metrics.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "harmonic_complexity": 0.5,
+                "complexity_rating": "moderate",
+            }
+
+        # Sub-scores
+        diatonic_result = diatonic_vs_chromatic_ratio(y, sr)
+        rhythm_result = harmonic_rhythm_analysis(y, sr)
+        entropy_result = pitch_class_distribution(y, sr)
+
+        # Chromatic ratio contributes to complexity
+        chromatic_score = diatonic_result["chromatic_ratio"]
+
+        # Harmonic rhythm
+        rhythm_score = min(rhythm_result["changes_per_bar"] / 3.0, 1.0)
+
+        # Pitch class entropy
+        pitch_entropy = entropy_result["distribution_entropy"]
+
+        # Combined score
+        complexity = (chromatic_score * 0.4 + rhythm_score * 0.3 + pitch_entropy * 0.3)
+        complexity = float(np.clip(complexity, 0.0, 1.0))
+
+        if complexity > 0.75:
+            rating = "very_complex"
+        elif complexity > 0.6:
+            rating = "complex"
+        elif complexity > 0.45:
+            rating = "moderate"
+        else:
+            rating = "simple"
+
+        return {
+            "harmonic_complexity": complexity,
+            "complexity_rating": rating,
+        }
+    except Exception:
+        return {
+            "harmonic_complexity": 0.5,
+            "complexity_rating": "unknown",
+        }
+
+
+def key_change_timestamps(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 30: Detect precise timestamps of key changes.
+
+    Finds moments when tonal center shifts significantly.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "key_changes": 0,
+                "change_timestamps": [],
+                "transitions": [],
+            }
+
+        # Divide into overlapping windows
+        window_size_s = 2.0
+        hop_s = 0.5
+
+        window_samples = int(sr * window_size_s)
+        hop_samples = int(sr * hop_s)
+
+        key_centers = []
+        timestamps = []
+
+        for i in range(0, len(y) - window_samples, hop_samples):
+            chunk = y[i:i+window_samples]
+
+            chroma = librosa.feature.chroma_cqt(y=chunk, sr=sr)
+            chroma_mean = np.mean(chroma, axis=1)
+
+            key_idx = np.argmax(chroma_mean)
+            key_centers.append(key_idx)
+            timestamps.append(i / sr)
+
+        # Detect changes
+        changes = []
+        change_timestamps = []
+
+        note_names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+        for i in range(1, len(key_centers)):
+            if key_centers[i] != key_centers[i-1]:
+                changes.append({
+                    "timestamp": float(timestamps[i]),
+                    "from_key": note_names[key_centers[i-1]],
+                    "to_key": note_names[key_centers[i]],
+                })
+                change_timestamps.append(float(timestamps[i]))
+
+        return {
+            "key_changes": len(changes),
+            "change_timestamps": change_timestamps,
+            "transitions": changes,
+        }
+    except Exception:
+        return {
+            "key_changes": 0,
+            "change_timestamps": [],
+            "transitions": [],
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   ADVANCED PRODUCTION ANALYSIS (20 points)
+# ══════════════════════════════════════════════════════════════════════════
+
+def sidechain_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 31: Detect sidechain compression (pumping effect).
+
+    Looks for periodic amplitude modulation.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_sidechain": False,
+                "pumping_confidence": 0.0,
+                "pump_frequency": 0.0,
+            }
+
+        # Frame-based RMS
+        frame_length = 2048
+        hop_length = 512
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+        frame_rms = np.sqrt(np.mean(frames ** 2, axis=0))
+
+        # Smooth and look for periodicity
+        frame_rms_smooth = uniform_filter1d(frame_rms, size=8)
+
+        # Energy fluctuation
+        energy_flux = np.abs(np.diff(frame_rms_smooth))
+
+        # Compute autocorrelation to find periodic pumping
+        if len(energy_flux) > 100:
+            auto_corr = np.correlate(energy_flux, energy_flux, mode='full')
+            auto_corr = auto_corr[len(auto_corr)//2:]
+            auto_corr = auto_corr / (auto_corr[0] + 1e-8)
+
+            # Look for peak beyond zero lag
+            peaks, _ = find_peaks(auto_corr[10:100], height=0.5)
+
+            if len(peaks) > 0:
+                # Found periodic component
+                has_sidechain = True
+                pumping_confidence = float(np.max(auto_corr[10:100]))
+
+                # Estimate pump frequency
+                peak_lag = peaks[0] + 10
+                pump_freq = sr / (hop_length * peak_lag)
+            else:
+                has_sidechain = False
+                pumping_confidence = 0.0
+                pump_freq = 0.0
+        else:
+            has_sidechain = False
+            pumping_confidence = 0.0
+            pump_freq = 0.0
+
+        return {
+            "has_sidechain": bool(has_sidechain),
+            "pumping_confidence": float(np.clip(pumping_confidence, 0.0, 1.0)),
+            "pump_frequency": float(pump_freq),
+        }
+    except Exception:
+        return {
+            "has_sidechain": False,
+            "pumping_confidence": 0.0,
+            "pump_frequency": 0.0,
+        }
+
+
+def reverb_amount_estimation(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 32: Estimate reverb/delay tail length.
+
+    Measures decay in quiet sections.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "reverb_amount": "dry",
+                "estimated_rt60_ms": 0.0,
+                "reverb_confidence": 0.0,
+            }
+
+        # Compute energy decay
+        frame_length = 4096
+        hop_length = 1024
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+        frame_rms = np.sqrt(np.mean(frames ** 2, axis=0))
+
+        # Find decay slope
+        frame_rms_db = 20 * np.log10(frame_rms + 1e-8)
+
+        # Fit linear regression to tail
+        if len(frame_rms_db) > 50:
+            x = np.arange(len(frame_rms_db))
+            coeffs = np.polyfit(x[-50:], frame_rms_db[-50:], 1)
+            slope = coeffs[0]  # dB per frame
+
+            # RT60: time to decay 60 dB
+            if slope < 0:
+                rt60_frames = 60 / (-slope)
+                rt60_ms = rt60_frames * hop_length / sr * 1000
+            else:
+                rt60_ms = 0.0
+        else:
+            rt60_ms = 0.0
+
+        # Classify
+        if rt60_ms < 100:
+            reverb_amount = "dry"
+            confidence = 0.8
+        elif rt60_ms < 500:
+            reverb_amount = "moderate"
+            confidence = 0.7
+        else:
+            reverb_amount = "wet"
+            confidence = 0.6
+
+        return {
+            "reverb_amount": reverb_amount,
+            "estimated_rt60_ms": float(rt60_ms),
+            "reverb_confidence": float(confidence),
+        }
+    except Exception:
+        return {
+            "reverb_amount": "unknown",
+            "estimated_rt60_ms": 0.0,
+            "reverb_confidence": 0.0,
+        }
+
+
+def delay_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 33: Detect delay/echo effects.
+
+    Looks for periodic repetitions.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_delay": False,
+                "delay_time_ms": 0.0,
+                "delay_confidence": 0.0,
+                "feedback_estimate": 0.0,
+            }
+
+        # Autocorrelation of full signal
+        acf = np.correlate(y, y, mode='full')
+        acf = acf[len(acf)//2:]
+        acf = acf / (acf[0] + 1e-8)
+
+        # Look for peaks in delay range (50-500ms)
+        min_lag = int(0.05 * sr)  # 50ms
+        max_lag = int(0.5 * sr)   # 500ms
+
+        if max_lag < len(acf):
+            acf_range = acf[min_lag:max_lag]
+            peaks, properties = find_peaks(acf_range, height=0.3)
+
+            if len(peaks) > 0:
+                # Strongest peak
+                best_idx = np.argmax(properties['peak_heights'])
+                peak_lag = peaks[best_idx] + min_lag
+
+                delay_time_ms = (peak_lag / sr) * 1000
+                feedback = float(properties['peak_heights'][best_idx])
+
+                has_delay = feedback > 0.3
+            else:
+                has_delay = False
+                delay_time_ms = 0.0
+                feedback = 0.0
+        else:
+            has_delay = False
+            delay_time_ms = 0.0
+            feedback = 0.0
+
+        return {
+            "has_delay": bool(has_delay),
+            "delay_time_ms": float(delay_time_ms),
+            "delay_confidence": float(np.clip(feedback, 0.0, 1.0)),
+            "feedback_estimate": float(np.clip(feedback, 0.0, 1.0)),
+        }
+    except Exception:
+        return {
+            "has_delay": False,
+            "delay_time_ms": 0.0,
+            "delay_confidence": 0.0,
+            "feedback_estimate": 0.0,
+        }
+
+
+def filter_automation_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 34: Detect filter automation (HP/LP sweeps).
+
+    Looks for gradual frequency content changes.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_filter_automation": False,
+                "automation_type": "none",
+                "automation_confidence": 0.0,
+            }
+
+        # Divide into overlapping chunks and analyze spectral centroid
+        frame_length = 4096
+        hop_length = 1024
+
+        D = librosa.stft(y, n_fft=frame_length, hop_length=hop_length)
+        S = np.abs(D) ** 2
+
+        # Spectral centroid per frame
+        centroid = librosa.feature.spectral_centroid(S=S, sr=sr)[0]
+
+        # Smooth
+        centroid_smooth = medfilt(centroid, kernel_size=5)
+
+        # Check for trend
+        if len(centroid_smooth) > 10:
+            x = np.arange(len(centroid_smooth))
+            coeffs = np.polyfit(x, centroid_smooth, 1)
+            slope = coeffs[0]
+
+            # Normalize slope
+            slope_norm = abs(slope) / (np.mean(centroid_smooth) + 1e-8)
+
+            if slope_norm > 0.1:
+                has_automation = True
+                if slope < 0:
+                    automation_type = "lowpass_sweep"
+                else:
+                    automation_type = "highpass_sweep"
+                confidence = min(slope_norm, 1.0)
+            else:
+                has_automation = False
+                automation_type = "none"
+                confidence = 0.0
+        else:
+            has_automation = False
+            automation_type = "none"
+            confidence = 0.0
+
+        return {
+            "has_filter_automation": bool(has_automation),
+            "automation_type": automation_type,
+            "automation_confidence": float(confidence),
+        }
+    except Exception:
+        return {
+            "has_filter_automation": False,
+            "automation_type": "none",
+            "automation_confidence": 0.0,
+        }
+
+
+def buildup_fx_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 35: Detect buildup effects (risers, white noise, sweeps).
+
+    Identifies characteristic buildup patterns.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_buildup": False,
+                "buildup_type": "none",
+                "buildup_confidence": 0.0,
+            }
+
+        # Look for rising energy in high frequency band
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # High frequency band (4kHz+)
+        high_mask = freqs > 4000
+        high_energy = np.mean(S[high_mask, :], axis=0)
+
+        # Smooth
+        high_energy_smooth = uniform_filter1d(high_energy, size=16)
+
+        # Check for rising trend in last 10 seconds
+        if len(high_energy_smooth) > int(sr / (4096 / 512)):
+            tail_length = min(int(10 * sr / (4096 / 512)), len(high_energy_smooth))
+            tail = high_energy_smooth[-tail_length:]
+
+            x = np.arange(len(tail))
+            coeffs = np.polyfit(x, tail, 1)
+            slope = coeffs[0]
+
+            # Rising high-frequency energy suggests buildup
+            if slope > 0:
+                has_buildup = True
+                buildup_type = "riser_or_whitenoise"
+                confidence = min(slope / np.std(tail), 1.0)
+            else:
+                has_buildup = False
+                buildup_type = "none"
+                confidence = 0.0
+        else:
+            has_buildup = False
+            buildup_type = "none"
+            confidence = 0.0
+
+        return {
+            "has_buildup": bool(has_buildup),
+            "buildup_type": buildup_type,
+            "buildup_confidence": float(confidence),
+        }
+    except Exception:
+        return {
+            "has_buildup": False,
+            "buildup_type": "none",
+            "buildup_confidence": 0.0,
+        }
+
+
+def vocal_processing_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 36: Detect vocal processing (autotune, vocodeur, doubling).
+
+    Identifies processing artifacts in vocal ranges.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_vocal_processing": False,
+                "processing_type": "unknown",
+                "confidence": 0.0,
+            }
+
+        # Analyze in vocal frequency range (80-8000 Hz)
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+        vocal_mask = (freqs > 80) & (freqs < 8000)
+
+        vocal_spec = S[vocal_mask, :]
+
+        # Look for harmonic structure (autotune adds artificial harmonicity)
+        harmonic_score = np.mean(np.std(vocal_spec, axis=1))
+
+        # Spectral flux (sudden changes suggest heavy processing)
+        flux = np.sqrt(np.sum(np.diff(vocal_spec, axis=1) ** 2, axis=0))
+
+        if np.mean(flux) > np.median(flux) * 3:
+            has_processing = True
+            processing_type = "heavy_compression_or_effects"
+            confidence = min(np.mean(flux) / (np.median(flux) * 3), 1.0)
+        elif harmonic_score > 0.3:
+            has_processing = True
+            processing_type = "autotune_or_vocodeur"
+            confidence = 0.6
+        else:
+            has_processing = False
+            processing_type = "none"
+            confidence = 0.0
+
+        return {
+            "has_vocal_processing": bool(has_processing),
+            "processing_type": processing_type,
+            "confidence": float(confidence),
+        }
+    except Exception:
+        return {
+            "has_vocal_processing": False,
+            "processing_type": "unknown",
+            "confidence": 0.0,
+        }
+
+
+def layering_complexity(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 37: Estimate number of sound layers/tracks.
+
+    Uses spectral complexity to infer instrumentation layers.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "estimated_layers": 1,
+                "layer_density": 0.2,
+                "arrangement_complexity": "simple",
+            }
+
+        # MFCC-based complexity
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+
+        # Feature variance per time frame
+        mfcc_var = np.var(mfcc, axis=0)
+
+        # Average variance indicates complexity
+        avg_complexity = np.mean(mfcc_var)
+
+        # Normalize (typical range 0-1)
+        complexity_normalized = min(avg_complexity / 0.5, 1.0)
+
+        # Estimate layer count (1-8)
+        estimated_layers = int(1 + complexity_normalized * 7)
+
+        if complexity_normalized > 0.8:
+            complexity_desc = "very_complex"
+        elif complexity_normalized > 0.6:
+            complexity_desc = "complex"
+        elif complexity_normalized > 0.4:
+            complexity_desc = "moderate"
+        else:
+            complexity_desc = "simple"
+
+        return {
+            "estimated_layers": estimated_layers,
+            "layer_density": float(complexity_normalized),
+            "arrangement_complexity": complexity_desc,
+        }
+    except Exception:
+        return {
+            "estimated_layers": 1,
+            "layer_density": 0.2,
+            "arrangement_complexity": "unknown",
+        }
+
+
+def stereo_image_width_tracking(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 38: Track stereo width variation over time.
+
+    Shows if stereo width changes throughout track.
+    """
+    try:
+        if y.ndim == 1 or y.shape[0] != 2:
+            return {
+                "is_stereo": False,
+                "width_trajectory": [],
+                "mean_width": 0.0,
+                "width_variation": 0.0,
+            }
+
+        L = y[0]
+        R = y[1]
+
+        # Frame-based correlation
+        frame_length = 4096
+        hop_length = 1024
+
+        L_frames = librosa.util.frame(L, frame_length=frame_length, hop_length=hop_length)
+        R_frames = librosa.util.frame(R, frame_length=frame_length, hop_length=hop_length)
+
+        widths = []
+        for l_frame, r_frame in zip(L_frames.T, R_frames.T):
+            corr = np.corrcoef(l_frame, r_frame)[0, 1]
+            width = (1.0 - abs(corr)) / 2.0
+            widths.append(float(width))
+
+        mean_width = np.mean(widths) if widths else 0.0
+        width_variation = np.std(widths) if widths else 0.0
+
+        return {
+            "is_stereo": True,
+            "width_trajectory": widths[:60],  # Limit to 60
+            "mean_width": float(mean_width),
+            "width_variation": float(width_variation),
+        }
+    except Exception:
+        return {
+            "is_stereo": False,
+            "width_trajectory": [],
+            "mean_width": 0.0,
+            "width_variation": 0.0,
+        }
+
+
+def loudness_war_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 39: Detect over-compression (loudness war).
+
+    Low dynamic range + high average loudness = compressed.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "loudness_war_detected": False,
+                "compression_score": 0.0,
+                "loudness_war_severity": "none",
+            }
+
+        # Dynamic range
+        result_dr = dynamic_range_measurement(y, sr)
+        dr_score = result_dr["dr_score"]
+
+        # Peak vs RMS ratio (higher = less compressed)
+        peak = np.max(np.abs(y))
+        rms = np.sqrt(np.mean(y ** 2))
+        peak_rms_ratio = peak / (rms + 1e-8)
+
+        # Normalize
+        ratio_normalized = np.clip(1.0 / (peak_rms_ratio / 5), 0.0, 1.0)
+
+        # Compression score: inverse of dynamic range
+        compression_score = 1.0 - dr_score * 0.5 - (ratio_normalized * 0.5)
+        compression_score = float(np.clip(compression_score, 0.0, 1.0))
+
+        if compression_score > 0.7:
+            loudness_war = True
+            severity = "severe"
+        elif compression_score > 0.5:
+            loudness_war = True
+            severity = "moderate"
+        else:
+            loudness_war = False
+            severity = "none"
+
+        return {
+            "loudness_war_detected": bool(loudness_war),
+            "compression_score": compression_score,
+            "loudness_war_severity": severity,
+        }
+    except Exception:
+        return {
+            "loudness_war_detected": False,
+            "compression_score": 0.0,
+            "loudness_war_severity": "none",
+        }
+
+
+def arrangement_density(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 40: Measure arrangement density (activity level over time).
+
+    Shows which sections are fuller vs sparser.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "density_curve": [],
+                "mean_density": 0.5,
+                "density_variation": 0.0,
+            }
+
+        # Spectral energy density per frame
+        frame_length = 4096
+        hop_length = 1024
+
+        D = librosa.stft(y, n_fft=frame_length, hop_length=hop_length)
+        S = np.abs(D) ** 2
+
+        # RMS energy per frame
+        energy = np.sqrt(np.mean(S, axis=0))
+
+        # Normalize
+        energy_norm = energy / (np.max(energy) + 1e-8)
+
+        # Smooth
+        density_curve = uniform_filter1d(energy_norm, size=8)
+
+        mean_density = float(np.mean(density_curve))
+        variation = float(np.std(density_curve))
+
+        return {
+            "density_curve": density_curve[:100].tolist(),  # Limit to 100
+            "mean_density": mean_density,
+            "density_variation": variation,
+        }
+    except Exception:
+        return {
+            "density_curve": [],
+            "mean_density": 0.5,
+            "density_variation": 0.0,
+        }
+
+
+def sub_bass_quality(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 41: Assess sub-bass quality (clean vs muddy).
+
+    Analyzes clarity and definition of low-frequency content.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "sub_bass_quality": "unknown",
+                "clarity_score": 0.5,
+                "muddiness": 0.0,
+            }
+
+        # Isolate sub-bass (20-100 Hz)
+        nyquist = sr / 2
+        cutoff = 100 / nyquist
+        if cutoff >= 1.0:
+            cutoff = 0.95
+
+        b, a = butter(4, cutoff, btype='low')
+        sub_bass = filtfilt(b, a, y)
+
+        # Analyze clarity: ratio of peak to RMS
+        peak_sub = np.max(np.abs(sub_bass))
+        rms_sub = np.sqrt(np.mean(sub_bass ** 2))
+
+        clarity = peak_sub / (rms_sub + 1e-8)
+        clarity_normalized = np.clip(clarity / 5.0, 0.0, 1.0)
+
+        # Muddiness: energy in problematic region (80-150 Hz)
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        muddy_mask = (freqs > 80) & (freqs < 150)
+        muddy_energy = np.mean(S[muddy_mask, :]) if np.any(muddy_mask) else 0.0
+
+        total_energy = np.mean(S)
+        muddiness = muddy_energy / (total_energy + 1e-8)
+        muddiness = float(np.clip(muddiness, 0.0, 1.0))
+
+        # Quality classification
+        if clarity_normalized > 0.7 and muddiness < 0.3:
+            quality = "clean"
+        elif clarity_normalized > 0.5 and muddiness < 0.5:
+            quality = "acceptable"
+        else:
+            quality = "muddy"
+
+        return {
+            "sub_bass_quality": quality,
+            "clarity_score": float(clarity_normalized),
+            "muddiness": muddiness,
+        }
+    except Exception:
+        return {
+            "sub_bass_quality": "unknown",
+            "clarity_score": 0.5,
+            "muddiness": 0.0,
+        }
+
+
+def high_frequency_content_tracking(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 42: Track high-frequency (brilliance) content over time.
+
+    Shows if brightness changes throughout track.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "brightness_trajectory": [],
+                "mean_brightness": 0.5,
+                "brightness_variation": 0.0,
+            }
+
+        # High-frequency energy (>4 kHz) per frame
+        D = librosa.stft(y, n_fft=4096, hop_length=1024)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+        high_mask = freqs > 4000
+
+        high_energy = np.mean(S[high_mask, :], axis=0)
+
+        # Normalize
+        total_energy = np.mean(S, axis=0)
+        brightness = high_energy / (total_energy + 1e-8)
+
+        # Smooth
+        brightness_smooth = uniform_filter1d(brightness, size=4)
+
+        mean_brightness = float(np.mean(brightness_smooth))
+        variation = float(np.std(brightness_smooth))
+
+        return {
+            "brightness_trajectory": brightness_smooth[:100].tolist(),
+            "mean_brightness": mean_brightness,
+            "brightness_variation": variation,
+        }
+    except Exception:
+        return {
+            "brightness_trajectory": [],
+            "mean_brightness": 0.5,
+            "brightness_variation": 0.0,
+        }
+
+
+def mid_range_presence(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 43: Measure mid-range presence (important for DJ mixing).
+
+    Analyzes 250-4000 Hz band presence.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "mid_presence": 0.5,
+                "mid_clarity": 0.5,
+                "dj_mixability": "good",
+            }
+
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+        mid_mask = (freqs >= 250) & (freqs <= 4000)
+
+        mid_energy = np.mean(S[mid_mask, :]) if np.any(mid_mask) else 0.0
+        total_energy = np.mean(S)
+
+        mid_presence = mid_energy / (total_energy + 1e-8)
+        mid_presence = float(np.clip(mid_presence, 0.0, 1.0))
+
+        # Clarity: concentration in specific midrange bands
+        # Good clarity = energy concentrated around vocal/kick frequencies
+        vocal_mask = (freqs > 500) & (freqs < 2000)
+        vocal_energy = np.mean(S[vocal_mask, :]) if np.any(vocal_mask) else 0.0
+
+        mid_clarity = vocal_energy / (mid_energy + 1e-8)
+        mid_clarity = float(np.clip(mid_clarity, 0.0, 1.0))
+
+        # DJ mixability assessment
+        if mid_presence > 0.35 and mid_clarity > 0.5:
+            mixability = "excellent"
+        elif mid_presence > 0.3 and mid_clarity > 0.4:
+            mixability = "good"
+        elif mid_presence > 0.25:
+            mixability = "acceptable"
+        else:
+            mixability = "poor"
+
+        return {
+            "mid_presence": mid_presence,
+            "mid_clarity": mid_clarity,
+            "dj_mixability": mixability,
+        }
+    except Exception:
+        return {
+            "mid_presence": 0.5,
+            "mid_clarity": 0.5,
+            "dj_mixability": "unknown",
+        }
+
+
+def panning_analysis(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 44: Analyze panning movements in stereo.
+
+    Tracks L/R balance changes.
+    """
+    try:
+        if y.ndim == 1 or y.shape[0] != 2:
+            return {
+                "is_stereo": False,
+                "pan_trajectory": [],
+                "pan_range": 0.0,
+            }
+
+        L = y[0]
+        R = y[1]
+
+        # Frame-based pan position (-1=full L, 1=full R)
+        frame_length = 4096
+        hop_length = 1024
+
+        L_frames = librosa.util.frame(L, frame_length=frame_length, hop_length=hop_length)
+        R_frames = librosa.util.frame(R, frame_length=frame_length, hop_length=hop_length)
+
+        pan_positions = []
+        for l_frame, r_frame in zip(L_frames.T, R_frames.T):
+            L_power = np.sum(l_frame ** 2)
+            R_power = np.sum(r_frame ** 2)
+
+            total = L_power + R_power + 1e-8
+            pan = (R_power - L_power) / total
+            pan_positions.append(float(pan))
+
+        pan_range = (np.max(pan_positions) - np.min(pan_positions)) / 2.0 if pan_positions else 0.0
+
+        return {
+            "is_stereo": True,
+            "pan_trajectory": pan_positions[:100],
+            "pan_range": float(pan_range),
+        }
+    except Exception:
+        return {
+            "is_stereo": False,
+            "pan_trajectory": [],
+            "pan_range": 0.0,
+        }
+
+
+def transient_shaping_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 45: Detect transient shaping (attack/sustain manipulation).
+
+    Identifies signs of transient processing.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_transient_shaping": False,
+                "shaping_confidence": 0.0,
+                "transient_type": "unknown",
+            }
+
+        # Compute STFT to look at attack characteristics
+        D = librosa.stft(y, n_fft=2048, hop_length=512)
+        S = np.abs(D) ** 2
+
+        # Spectral flux (measure of changes)
+        flux = np.sqrt(np.sum(np.diff(S, axis=1) ** 2, axis=0))
+
+        # Look for very sharp peaks (sharpened transients)
+        flux_mean = np.mean(flux)
+        flux_std = np.std(flux)
+
+        if flux_std > flux_mean * 0.5:
+            has_shaping = True
+            shaping_confidence = min(flux_std / flux_mean, 1.0)
+            transient_type = "sharpened_or_enhanced"
+        else:
+            has_shaping = False
+            shaping_confidence = 0.0
+            transient_type = "natural"
+
+        return {
+            "has_transient_shaping": bool(has_shaping),
+            "shaping_confidence": float(shaping_confidence),
+            "transient_type": transient_type,
+        }
+    except Exception:
+        return {
+            "has_transient_shaping": False,
+            "shaping_confidence": 0.0,
+            "transient_type": "unknown",
+        }
+
+
+def sample_detection_heuristic(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 46: Heuristic detection of samples vs live instruments.
+
+    Looks for repetitive patterns and loop characteristics.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "likely_has_samples": False,
+                "sample_confidence": 0.0,
+                "repetition_factor": 0.0,
+            }
+
+        # Look for repeating patterns (samples are often looped)
+        # Compute chromagram and look for strong periodicity
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+
+        # Frame-by-frame correlation to detect repetition
+        correlations = []
+        for i in range(chroma.shape[1] - 64):
+            frame1 = chroma[:, i:i+32]
+            frame2 = chroma[:, i+32:i+64]
+
+            # Correlation between consecutive windows
+            corr = np.mean(frame1 * frame2) / (np.std(frame1) * np.std(frame2) + 1e-8)
+            correlations.append(corr)
+
+        if correlations:
+            mean_corr = np.mean(correlations)
+            repetition_factor = max(0, mean_corr)
+        else:
+            repetition_factor = 0.0
+
+        # Samples typically have higher repetition
+        if repetition_factor > 0.6:
+            likely_samples = True
+            confidence = min(repetition_factor, 1.0)
+        else:
+            likely_samples = False
+            confidence = 0.0
+
+        return {
+            "likely_has_samples": bool(likely_samples),
+            "sample_confidence": float(confidence),
+            "repetition_factor": float(repetition_factor),
+        }
+    except Exception:
+        return {
+            "likely_has_samples": False,
+            "sample_confidence": 0.0,
+            "repetition_factor": 0.0,
+        }
+
+
+def production_era_estimation(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 47: Estimate production era (80s, 90s, 2000s, modern).
+
+    Uses timbre and frequency characteristics.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "estimated_era": "unknown",
+                "era_confidence": 0.0,
+                "era_characteristics": [],
+            }
+
+        # Compute spectral properties
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # MFCC for timbre
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        mfcc_mean = np.mean(mfcc, axis=1)
+
+        # Spectral centroid
+        spec_centroid = librosa.feature.spectral_centroid(S=S, sr=sr)[0]
+        mean_centroid = np.mean(spec_centroid)
+
+        characteristics = []
+
+        # Check for lo-fi characteristics (80s-90s)
+        if sr <= 22050:
+            characteristics.append("low_sample_rate")
+
+        # High presence of sibilance (80s-90s)
+        high_mask = freqs > 8000
+        high_energy = np.mean(S[high_mask, :])
+        total_energy = np.mean(S)
+
+        if high_energy / total_energy > 0.15:
+            characteristics.append("bright_highs")
+
+        # Spectral centroid suggests era
+        if mean_centroid < 2000:
+            characteristics.append("dark_timbre")
+            era = "1980s_1990s"
+            confidence = 0.6
+        elif mean_centroid < 4000:
+            characteristics.append("balanced_timbre")
+            era = "2000s"
+            confidence = 0.65
+        else:
+            characteristics.append("bright_timbre")
+            era = "2010s_modern"
+            confidence = 0.7
+
+        return {
+            "estimated_era": era,
+            "era_confidence": float(confidence),
+            "era_characteristics": characteristics,
+        }
+    except Exception:
+        return {
+            "estimated_era": "unknown",
+            "era_confidence": 0.0,
+            "era_characteristics": [],
+        }
+
+
+def master_bus_processing_detection(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 48: Detect master bus processing (compression, limiting, EQ).
+
+    Analyzes overall processing signature.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "has_master_processing": False,
+                "processing_type": "none",
+                "processing_confidence": 0.0,
+            }
+
+        # Signs of mastering compression:
+        # 1. Low dynamic range
+        result_dr = dynamic_range_measurement(y, sr)
+        dr_score = result_dr["dr_score"]
+
+        # 2. Smooth frequency response (EQ has been applied)
+        D = librosa.stft(y, n_fft=4096)
+        S = np.abs(D) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # Check for notches or peaks (EQ)
+        magnitude = np.mean(S, axis=1)
+        magnitude_smooth = uniform_filter1d(magnitude, size=10)
+
+        eq_signature = np.sum(np.abs(magnitude - magnitude_smooth)) / (np.sum(magnitude_smooth) + 1e-8)
+
+        # 3. Limiting signature (fast peaks cut off)
+        peak_samples = np.percentile(np.abs(y), 99.5)
+        all_samples_percentile = np.percentile(np.abs(y), 99.0)
+
+        limiting_signature = (all_samples_percentile / peak_samples) if peak_samples > 0 else 1.0
+        limiting_signature = 1.0 - limiting_signature
+
+        # Assess overall processing
+        processing_score = (1 - dr_score) * 0.4 + eq_signature * 0.3 + limiting_signature * 0.3
+
+        if processing_score > 0.6:
+            has_processing = True
+            proc_type = "heavy_processing"
+            confidence = min(processing_score, 1.0)
+        elif processing_score > 0.3:
+            has_processing = True
+            proc_type = "moderate_processing"
+            confidence = processing_score
+        else:
+            has_processing = False
+            proc_type = "minimal_processing"
+            confidence = 0.0
+
+        return {
+            "has_master_processing": bool(has_processing),
+            "processing_type": proc_type,
+            "processing_confidence": float(confidence),
+        }
+    except Exception:
+        return {
+            "has_master_processing": False,
+            "processing_type": "unknown",
+            "processing_confidence": 0.0,
+        }
+
+
+def frequency_masking_analysis(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 49: Analyze frequency masking zones.
+
+    Identifies where sounds mask each other.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "masking_zones": [],
+                "overall_masking_ratio": 0.0,
+            }
+
+        # Compute spectrogram with good frequency resolution
+        D = librosa.stft(y, n_fft=4096, hop_length=512)
+        S = np.abs(D) ** 2
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=4096)
+
+        # Average power spectrum
+        avg_spectrum = np.mean(S, axis=1)
+
+        # Identify peaks (important sounds)
+        peaks, properties = find_peaks(avg_spectrum, height=np.percentile(avg_spectrum, 70))
+
+        masking_zones = []
+        for peak in peaks[:10]:  # Top 10 peaks
+            freq = freqs[peak]
+
+            # Estimate masking region (simplified)
+            lower_masking = max(freq * 0.8, 20)
+            upper_masking = min(freq * 1.2, sr // 2)
+
+            masking_zones.append({
+                "center_frequency": float(freq),
+                "lower_bound": float(lower_masking),
+                "upper_bound": float(upper_masking),
+                "power": float(avg_spectrum[peak]),
+            })
+
+        # Overall masking ratio
+        # High masking = one sound dominating
+        if len(masking_zones) > 1:
+            powers = [z["power"] for z in masking_zones]
+            dominant_power = np.max(powers)
+            total_power = np.sum(powers)
+            masking_ratio = dominant_power / (total_power + 1e-8)
+        else:
+            masking_ratio = 0.0
+
+        return {
+            "masking_zones": masking_zones,
+            "overall_masking_ratio": float(masking_ratio),
+        }
+    except Exception:
+        return {
+            "masking_zones": [],
+            "overall_masking_ratio": 0.0,
+        }
+
+
+def overall_production_quality_score(y: np.ndarray, sr: int) -> Dict[str, any]:
+    """
+    Point 50: Compute comprehensive production quality score.
+
+    Combines all production analysis metrics.
+    """
+    try:
+        if len(y) < sr:
+            return {
+                "production_quality_score": 0.5,
+                "production_grade": "C",
+                "quality_summary": {
+                    "audio_quality": 0.5,
+                    "sound_design": 0.5,
+                    "mixing": 0.5,
+                    "mastering": 0.5,
+                },
+            }
+
+        scores = {}
+
+        # Audio Quality (0-1)
+        audio_quality = 1.0
+
+        result_clip = clipping_detection(y, sr)
+        if result_clip["has_clipping"]:
+            audio_quality -= 0.15
+
+        result_noise = noise_floor_estimation(y, sr)
+        if result_noise["noise_floor_db"] > -35:
+            audio_quality -= 0.1
+
+        scores["audio_quality"] = max(audio_quality, 0.3)
+
+        # Sound Design (0-1)
+        sound_design = 0.7  # Base score
+
+        result_pentatonic = pentatonic_index(y, sr)
+        sound_design += result_pentatonic["pentatonic_index"] * 0.2
+
+        result_layering = layering_complexity(y, sr)
+        sound_design = min(sound_design + (result_layering["layer_density"] * 0.1), 1.0)
+
+        scores["sound_design"] = float(sound_design)
+
+        # Mixing (0-1)
+        mixing = 0.7
+
+        result_balance = frequency_response_analysis(y, sr)
+        if 0.35 < result_balance["response_balance"] < 0.65:
+            mixing += 0.15
+
+        result_stereo = stereo_correlation_analysis(y, sr)
+        if result_stereo["is_stereo"]:
+            mixing += 0.1
+
+        scores["mixing"] = float(np.clip(mixing, 0.3, 1.0))
+
+        # Mastering (0-1)
+        result_mastering = mastering_quality_score(y, sr)
+        scores["mastering"] = result_mastering["mastering_quality_score"]
+
+        # Overall weighted score
+        overall = (
+            scores["audio_quality"] * 0.25 +
+            scores["sound_design"] * 0.25 +
+            scores["mixing"] * 0.25 +
+            scores["mastering"] * 0.25
+        )
+        overall = float(np.clip(overall, 0.0, 1.0))
+
+        # Grade
+        if overall > 0.85:
+            grade = "A"
+        elif overall > 0.7:
+            grade = "B"
+        elif overall > 0.55:
+            grade = "C"
+        else:
+            grade = "D"
+
+        return {
+            "production_quality_score": overall,
+            "production_grade": grade,
+            "quality_summary": scores,
+        }
+    except Exception:
+        return {
+            "production_quality_score": 0.5,
+            "production_grade": "C",
+            "quality_summary": {
+                "audio_quality": 0.5,
+                "sound_design": 0.5,
+                "mixing": 0.5,
+                "mastering": 0.5,
+            },
+        }

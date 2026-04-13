@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Track, CuePoint } from '@/types';
-import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
+import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs, ANIMATION_DURATIONS, KEYBOARD_SHORTCUTS, CUE_QUALITY_GRADES, CUE_GROUPING_OPTIONS, CUE_TEMPLATE_PRESETS } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square, Copy, Move, Search, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
@@ -87,10 +87,37 @@ export function CuesTab({
 }: CuesTabProps) {
   const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
+  const cueListRef = useRef<HTMLDivElement>(null);
+  const [selectedCueForScroll, setSelectedCueForScroll] = useState<number | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
+
+  // Improvement #13: Inline editing state
+  const [editingCueId, setEditingCueId] = useState<number | null>(null);
+  const [editingCueName, setEditingCueName] = useState<string>('');
+
+  // Improvement #14: Context menu state for right-click actions
+  const [contextMenuCueId, setContextMenuCueId] = useState<number | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Improvement #15: Cue grouping
+  const [groupingMode, setGroupingMode] = useState<keyof typeof CUE_GROUPING_OPTIONS>('none');
+
+  // Improvement #16: Template save
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
 
   // Improvement #1: Undo/redo for cue operations (keep last 10 states)
   const [undoStack, setUndoStack] = useState<number[][]>([]);
   const [redoStack, setRedoStack] = useState<number[][]>([]);
+
+  // Improvement #15: Prefers reduced motion
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   const pushUndoState = useCallback((state: number[]) => {
     setUndoStack((prev) => [...prev.slice(-9), state]);
@@ -282,8 +309,17 @@ export function CuesTab({
       return primaryCmp;
     });
 
+    // Improvement #15: Apply grouping (optional)
+    if (groupingMode === 'byType') {
+      filtered.sort((aIdx, bIdx) => {
+        const typeA = cuePoints[aIdx]?.cue_type || 'hot_cue';
+        const typeB = cuePoints[bIdx]?.cue_type || 'hot_cue';
+        return typeA.localeCompare(typeB);
+      });
+    }
+
     return filtered;
-  }, [indices, cuePoints, searchFilter, filterType, sortBy, secondarySortBy, confidenceThreshold, pinnedCueIds]);
+  }, [indices, cuePoints, searchFilter, filterType, sortBy, secondarySortBy, confidenceThreshold, pinnedCueIds, groupingMode]);
 
   const cues = indices.map(i => cuePoints[i]);
 
@@ -319,6 +355,67 @@ export function CuesTab({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filteredIndices, cuePoints, onCueClick, handleUndo, handleRedo]);
+
+  // Improvement #1: Smooth scroll to cue on selection
+  const smoothScrollToCue = useCallback((cueId: number) => {
+    if (!cueListRef.current) return;
+    const cueElement = cueListRef.current.querySelector(`[data-cue-id="${cueId}"]`);
+    if (cueElement) {
+      const duration = prefersReducedMotion ? 0 : ANIMATION_DURATIONS.normal;
+      cueElement.scrollIntoView({
+        behavior: duration > 0 ? 'smooth' : 'auto',
+        block: 'nearest',
+      });
+      // Announcement for screen readers
+      announceCue(`Scrolled to cue ${cueId}`);
+    }
+  }, [prefersReducedMotion]);
+
+  // Improvement #13: Handle inline editing
+  const handleStartEdit = useCallback((cue: CuePoint) => {
+    setEditingCueId(cue.id);
+    setEditingCueName(cue.name || '');
+  }, []);
+
+  const handleSaveEdit = useCallback((cueId: number) => {
+    if (editingCueName.trim()) {
+      onUpdateCue?.(cueId, { name: editingCueName.trim() });
+    }
+    setEditingCueId(null);
+  }, [editingCueName, onUpdateCue]);
+
+  // Improvement #14: Handle context menu (right-click)
+  const handleContextMenu = useCallback((e: React.MouseEvent, cue: CuePoint) => {
+    e.preventDefault();
+    setContextMenuCueId(cue.id);
+    setContextMenuPos({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  // Improvement #12: Multi-select with Shift+Click
+  const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
+  const handleCueClick = useCallback((e: React.MouseEvent, idx: number, cue: CuePoint) => {
+    if (e.shiftKey && lastSelectedIdx !== null) {
+      // Shift+Click: select range
+      const start = Math.min(lastSelectedIdx, idx);
+      const end = Math.max(lastSelectedIdx, idx);
+      const newSelected = new Set(selectedCueIds);
+      for (let i = start; i <= end; i++) {
+        const rangeCue = cuePoints[filteredIndices[i]];
+        if (rangeCue) newSelected.add(rangeCue.id);
+      }
+      setSelectedCueIds(newSelected);
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl+Click: toggle single
+      const newSelected = new Set(selectedCueIds);
+      if (newSelected.has(cue.id)) newSelected.delete(cue.id);
+      else newSelected.add(cue.id);
+      setSelectedCueIds(newSelected);
+    } else {
+      // Regular click
+      setSelectedCueIds(new Set([cue.id]));
+    }
+    setLastSelectedIdx(idx);
+  }, [selectedCueIds, filteredIndices, cuePoints, lastSelectedIdx]);
 
   // Cue preview on hover (point 246): play 2s of audio when hovering a cue
   const handleCuePreview = useCallback((positionMs: number) => {
@@ -696,6 +793,53 @@ export function CuesTab({
           </button>
         )}
 
+        {/* Improvement #15: Cue grouping controls */}
+        {cuePoints.length > 0 && (
+          <div className="flex gap-1.5">
+            <select
+              value={groupingMode}
+              onChange={(e) => setGroupingMode(e.target.value as keyof typeof CUE_GROUPING_OPTIONS)}
+              className="flex-1 px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
+              title="Grouper les cues"
+            >
+              {Object.entries(CUE_GROUPING_OPTIONS).map(([key, val]) => (
+                <option key={key} value={key}>{val.icon} {val.label}</option>
+              ))}
+            </select>
+
+            {/* Improvement #16: Template save button */}
+            <button
+              onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+              className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+              title="Sauvegarder comme modèle"
+            >
+              💾
+            </button>
+          </div>
+        )}
+
+        {/* Improvement #16: Template menu */}
+        {showTemplateMenu && (
+          <div className="p-2 bg-[var(--bg-elevated)] rounded border border-[var(--border-default)] space-y-1">
+            <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 pb-1">Modèles:</div>
+            {Object.entries(CUE_TEMPLATE_PRESETS).map(([key, template]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  // Save current cue setup as template
+                  localStorage.setItem(`cueforge_template_${key}`, JSON.stringify(cuePoints));
+                  setShowTemplateMenu(false);
+                }}
+                className="block w-full text-left px-2 py-1.5 rounded hover:bg-[var(--bg-hover)] text-[10px] text-[var(--text-primary)]"
+                title={template.description}
+              >
+                <div className="font-semibold">{template.name}</div>
+                <div className="text-[9px] text-[var(--text-muted)]">{template.description}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Advanced form */}
         {showAddForm && (
           <div className="space-y-2 pt-1">
@@ -777,8 +921,21 @@ export function CuesTab({
       </div>
 
       {/* ═══ Cue list — redesigned ═══ */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredIndices.length === 0 ? (
+      <div className="flex-1 overflow-y-auto" ref={cueListRef}>
+        {/* Improvement #12: Loading skeleton */}
+        {showLoadingSkeleton && (
+          <div className="p-2 flex flex-col gap-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="h-10 rounded-lg bg-[var(--bg-hover)] animate-pulse"
+                style={{ animationDelay: `${i * 100}ms` }}
+              />
+            ))}
+          </div>
+        )}
+
+        {filteredIndices.length === 0 && !showLoadingSkeleton ? (
           <div className="flex flex-col items-center justify-center h-32 text-[var(--text-muted)] text-xs gap-2 p-4">
             {/* Improvement #8: Empty state illustration */}
             <div className="text-4xl opacity-30">🎵</div>
@@ -823,18 +980,23 @@ export function CuesTab({
                 <div key={cue.id}>
                   <div
                     draggable
+                    draggable
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={() => handleDrop(idx)}
                     onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-                    onClick={() => {
+                    onContextMenu={(e) => handleContextMenu(e, cue)}
+                    onClick={(e) => {
                       if (bulkDeleteMode) {
                         const next = new Set(selectedCueIds);
                         if (next.has(cue.id)) next.delete(cue.id);
                         else next.add(cue.id);
                         setSelectedCueIds(next);
                       } else {
-                        onCueClick?.(cue);
+                        handleCueClick(e, idx, cue);
+                        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                          onCueClick?.(cue);
+                        }
                       }
                     }}
                     onMouseEnter={() => {
@@ -919,9 +1081,31 @@ export function CuesTab({
                         {isPinned ? '📌' : '📍'}
                       </button>
 
-                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide flex-1" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
-                        {cue.name || `${typeInfo.label} ${idx + 1}`}
-                      </div>
+                      {/* Improvement #13: Inline editing mode */}
+                      {editingCueId === cue.id ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingCueName}
+                          onChange={(e) => setEditingCueName(e.target.value)}
+                          onBlur={() => handleSaveEdit(cue.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEdit(cue.id);
+                            if (e.key === 'Escape') setEditingCueId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 px-2 py-1 rounded bg-blue-500/20 border border-blue-500/50 text-xs text-[var(--text-primary)] outline-none focus:border-blue-400"
+                        />
+                      ) : (
+                        <div
+                          onDoubleClick={() => handleStartEdit(cue)}
+                          className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}
+                          title="Double-click to edit"
+                        >
+                          {cue.name || `${typeInfo.label} ${idx + 1}`}
+                        </div>
+                      )}
                       <ConfidenceDot confidence={cue.confidence} />
                     </div>
                     <div className="text-[9px] flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: `${color}99` }}>
@@ -1117,6 +1301,60 @@ export function CuesTab({
           ))}
         </div>
       </div>
+
+      {/* Improvement #14: Context menu (right-click actions) */}
+      {contextMenuCueId !== null && contextMenuPos && (
+        <div
+          className="fixed bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded shadow-lg z-50 text-xs"
+          style={{
+            left: `${contextMenuPos.x}px`,
+            top: `${contextMenuPos.y}px`,
+            minWidth: '140px',
+          }}
+          onMouseLeave={() => setContextMenuCueId(null)}
+        >
+          <button
+            onClick={() => {
+              const cue = cuePoints.find(c => c.id === contextMenuCueId);
+              if (cue) handleStartEdit(cue);
+              setContextMenuCueId(null);
+            }}
+            className="block w-full text-left px-3 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          >
+            Éditer
+          </button>
+          <button
+            onClick={() => {
+              const cue = cuePoints.find(c => c.id === contextMenuCueId);
+              if (cue) handleCopyCue(cue);
+              setContextMenuCueId(null);
+            }}
+            className="block w-full text-left px-3 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          >
+            Copier
+          </button>
+          <button
+            onClick={() => {
+              const cue = cuePoints.find(c => c.id === contextMenuCueId);
+              if (cue) onPreviewCue?.(cue);
+              setContextMenuCueId(null);
+            }}
+            className="block w-full text-left px-3 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+          >
+            Écouter
+          </button>
+          <div className="border-t border-[var(--border-subtle)]" />
+          <button
+            onClick={() => {
+              onDeleteCue?.(contextMenuCueId);
+              setContextMenuCueId(null);
+            }}
+            className="block w-full text-left px-3 py-1.5 hover:bg-red-500/15 text-red-400"
+          >
+            Supprimer
+          </button>
+        </div>
+      )}
     </div>
   );
 }

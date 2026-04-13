@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -139,6 +139,13 @@ export default function DashboardV2() {
   const toastIdRef = useRef(0);
   const [contextMenu, setContextMenu] = useState<{trackId: number; x: number; y: number} | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Improvement #46-50: Cue optimization state and handlers
+  const [cueQualityScore, setCueQualityScore] = useState<{ overall: number; byType: Record<string, number> } | null>(null);
+  const [isOptimizingCues, setIsOptimizingCues] = useState(false);
+  const [cueSuggestions, setCueSuggestions] = useState<any[]>([]);
+  const [showCueSuggestions, setShowCueSuggestions] = useState(false);
+  const [cueHistory, setCueHistory] = useState<any[]>([]);
 
   // Repositionner le menu contextuel si il dépasse l'écran (bas ou droite)
   useLayoutEffect(() => {
@@ -485,6 +492,66 @@ export default function DashboardV2() {
     setToasts(prev => [...prev.slice(-4), { id, msg, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
+
+  // Improvement #46: Handle optimize cues
+  const handleOptimizeCues = useCallback(async () => {
+    if (!selectedRawTrack?.id) {
+      addToast('Select a track first', 'error');
+      return;
+    }
+    try {
+      setIsOptimizingCues(true);
+      const result = await optimizeCues(selectedRawTrack.id, {
+        removeWeakCues: true,
+        snapToGrid: true,
+      });
+      addToast(`Optimized: ${result.optimized_count} cues, removed ${result.removed_count}`, 'success');
+      loadTracks();
+    } catch (e: any) {
+      addToast(`Optimization failed: ${e.message}`, 'error');
+    } finally {
+      setIsOptimizingCues(false);
+    }
+  }, [selectedRawTrack?.id, addToast]);
+
+  // Improvement #47: Handle get cue suggestions
+  const handleGetSuggestions = useCallback(async () => {
+    if (!selectedRawTrack?.id) {
+      addToast('Select a track first', 'error');
+      return;
+    }
+    try {
+      const suggestions = await getCueSuggestions(selectedRawTrack.id);
+      setCueSuggestions(suggestions);
+      setShowCueSuggestions(true);
+      addToast(`Found ${suggestions.length} cue suggestions`, 'info');
+    } catch (e: any) {
+      addToast(`Failed to get suggestions: ${e.message}`, 'error');
+    }
+  }, [selectedRawTrack?.id, addToast]);
+
+  // Improvement #48: Load quality score on track selection
+  useEffect(() => {
+    if (!selectedRawTrack?.id || selectedRawTrack.id < 0) return;
+    getCueQualityScore(selectedRawTrack.id)
+      .then(setCueQualityScore)
+      .catch(() => setCueQualityScore(null));
+  }, [selectedRawTrack?.id]);
+
+  // Improvement #49: Load cue history
+  const handleLoadCueHistory = useCallback(async () => {
+    if (!selectedRawTrack?.id) {
+      addToast('Select a track first', 'error');
+      return;
+    }
+    try {
+      const history = await getCueHistory(selectedRawTrack.id);
+      setCueHistory(history);
+      addToast(`Loaded ${history.length} history entries`, 'info');
+    } catch (e: any) {
+      addToast(`Failed to load history: ${e.message}`, 'error');
+    }
+  }, [selectedRawTrack?.id, addToast]);
 
   // ── Stems audio sync avec WaveSurfer ─────────────────────────────────────
   // Ref vers les listeners natifs pour cleanup

@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useCallback, useState } from 'react';
-import { HOT_CUE_COLORS, BAR_COLORS } from '@/lib/constants';
+import { HOT_CUE_COLORS, BAR_COLORS, ANIMATION_DURATIONS, ZOOM_LEVELS } from '@/lib/constants';
 
 interface HotCue {
   slot: number;
@@ -27,6 +27,10 @@ interface WaveformDisplayProps {
   waveformStyle?: 'bars' | 'lines' | 'mirror' | 'filled'; // Improvement #34: style toggle
   bpm?: number; // Improvement #39: BPM for grid
   keyInfo?: string; // Improvement #38: key display
+  enableSectionOverlay?: boolean; // Improvement #21: section coloring
+  enablePhaseInversion?: boolean; // Improvement #29.5: phase meter
+  sectionColors?: Record<string, string>; // Improvement #21: custom section colors
+  onHoverPosition?: (ms: number) => void; // Improvement #28: hover tooltip
 }
 
 // Pseudo-random stable basé sur une seed — évite Math.random() à chaque render
@@ -56,11 +60,17 @@ export default function WaveformDisplay({
   waveformStyle = 'bars',
   bpm = 128,
   keyInfo,
+  enableSectionOverlay = false,
+  enablePhaseInversion = false,
+  sectionColors = {},
+  onHoverPosition,
 }: WaveformDisplayProps) {
   const [zoomLevel, setZoomLevel] = useState(1); // Improvement #26: zoom state
   const bars = Math.round((overview ? 200 : 120) * zoomLevel);
   const [showLUFS, setShowLUFS] = useState(enableLUFS);
   const [currentStyle, setCurrentStyle] = useState<'bars' | 'lines' | 'mirror' | 'filled'>(waveformStyle);
+  const [hoverX, setHoverX] = useState<number | null>(null); // Improvement #28: hover position
+  const [showPhaseInversion, setShowPhaseInversion] = useState(enablePhaseInversion); // Improvement #29.5
 
   // Improvement #24: Memoize bar heights calculation with useMemo
   const barHeights = useMemo(() => {
@@ -131,13 +141,18 @@ export default function WaveformDisplay({
     });
   }, [barHeights, bars, height, progress, enableFrequencyColors, getBarColor]);
 
-  // Improvement #26: Zoom controls
+  // Improvement #26: Zoom controls with smooth easing
   const handleZoom = (direction: 'in' | 'out') => {
     setZoomLevel((prev) => {
       const newZoom = direction === 'in' ? Math.min(4, prev * 1.2) : Math.max(0.5, prev / 1.2);
       return newZoom;
     });
   };
+
+  // Improvement #3: Waveform zoom smooth transition using CSS
+  const zoomStyle = useMemo(() => ({
+    transition: `transform ${ANIMATION_DURATIONS.normal}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+  }), []);
 
   // Improvement #29: Beat grid calculation
   const beatGridLines = useMemo(() => {
@@ -213,7 +228,19 @@ export default function WaveformDisplay({
           e.preventDefault();
           handleZoom(e.deltaY > 0 ? 'out' : 'in');
         }}
-        style={{ cursor: enableZoom ? 'zoom-in' : 'default' }}
+        onMouseMove={(e) => {
+          const svg = e.currentTarget;
+          const rect = svg.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * bars;
+          setHoverX(x);
+          // Improvement #28: Call onHoverPosition callback with time
+          if (onHoverPosition) {
+            const posMs = (x / bars) * 300000; // Assume 5min track
+            onHoverPosition(posMs);
+          }
+        }}
+        onMouseLeave={() => setHoverX(null)}
+        style={{ ...zoomStyle, cursor: enableZoom ? 'zoom-in' : 'default' }}
       >
         {/* Improvement #29: Beat grid lines */}
         {enableBeatGrid && beatGridLines.map((gridX, i) => (
@@ -258,6 +285,41 @@ export default function WaveformDisplay({
               pointerEvents="none"
             />
           ))}
+
+        {/* Improvement #21: Section overlay coloring */}
+        {enableSectionOverlay &&
+          Object.entries(sectionColors).map(([sectionName, color], i) => {
+            const startPct = (i * 100) / Object.keys(sectionColors).length;
+            const widthPct = 100 / Object.keys(sectionColors).length;
+            return (
+              <rect
+                key={`section-${i}`}
+                x={`${startPct}%`}
+                y={0}
+                width={`${widthPct}%`}
+                height={height}
+                fill={color}
+                opacity={0.05}
+                pointerEvents="none"
+              />
+            );
+          })}
+
+        {/* Improvement #29.5: Phase inversion indicator */}
+        {enablePhaseInversion && showPhaseInversion && (
+          <g opacity={0.4} pointerEvents="none">
+            <line x1="0%" y1={height / 4} x2="100%" y2={height / 4} stroke="#ff6b6b" strokeWidth={0.5} strokeDasharray="4,4" />
+            <line x1="0%" y1={(height * 3) / 4} x2="100%" y2={(height * 3) / 4} stroke="#ff6b6b" strokeWidth={0.5} strokeDasharray="4,4" />
+          </g>
+        )}
+
+        {/* Improvement #28: Hover tooltip with position */}
+        {hoverX !== null && !overview && (
+          <g pointerEvents="none">
+            <line x1={hoverX} y1={0} x2={hoverX} y2={height} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
+            <circle cx={hoverX} cy={height / 2} r={3} fill="rgba(255,255,255,0.5)" />
+          </g>
+        )}
 
         {/* Improvement #25: Hover tooltip group */}
         {barPathData.map((bar, i) => {
