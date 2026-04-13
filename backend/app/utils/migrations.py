@@ -98,6 +98,23 @@ PENDING_MIGRATIONS = {
         "key_secondary": "VARCHAR(10)",
         "mood": "VARCHAR(50)",
         "danceability": "FLOAT",
+        # v6.3: Stereo + brightness
+        "stereo_width": "FLOAT",
+        "mono_compatibility": "FLOAT",
+        "stereo_balance": "FLOAT",
+        "stereo_width_label": "VARCHAR(20)",
+        "spectral_centroid_mean": "FLOAT",
+        "brightness_label": "VARCHAR(20)",
+        "bpm_advanced": "JSON",
+        # v6.4: Audio quality metrics
+        "has_clipping": "BOOLEAN",
+        "clipping_ratio": "FLOAT",
+        "has_dc_offset": "BOOLEAN",
+        "dc_offset_mean": "FLOAT",
+        "true_peak_db": "FLOAT",
+        "true_peak_value": "FLOAT",
+        # v6.5: Structural summary
+        "structural_summary": "JSON",
     },
     "subscriptions": {
         # Stripe price ID

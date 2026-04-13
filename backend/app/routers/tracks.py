@@ -491,6 +491,8 @@ def _run_analysis(track_id: int):
             dc_offset_mean=analysis_data.get("dc_offset_mean"),
             true_peak_db=analysis_data.get("true_peak_db"),
             true_peak_value=analysis_data.get("true_peak_value"),
+            # v6.5: Structural summary
+            structural_summary=analysis_data.get("structural_summary"),
         )
         db.add(analysis)
         db.flush()
@@ -1113,6 +1115,8 @@ class LocalAnalysisPayload(BaseModel):
     dc_offset_mean: Optional[float] = None
     true_peak_db: Optional[float] = None
     true_peak_value: Optional[float] = None
+    # v6.5: Structural summary
+    structural_summary: Optional[dict] = None
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -1206,6 +1210,9 @@ async def analyze_track_local(
         analysis.true_peak_db = payload.true_peak_db
     if payload.true_peak_value is not None:
         analysis.true_peak_value = payload.true_peak_value
+    # v6.5: Structural summary
+    if payload.structural_summary is not None:
+        analysis.structural_summary = payload.structural_summary
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)
@@ -2555,6 +2562,45 @@ def get_transition_zones(
         "bpm": analysis.bpm,
         "key": analysis.key,
     }
+
+
+# ── v6.5: Structural summary endpoint ────────────────────────────────────
+@router.get("/{track_id}/structural-summary")
+def get_structural_summary(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return structural analysis summary — hook, climax, form, tension, etc.
+
+    If not yet computed (pre-v6.5 analysis), computes on-the-fly from section_labels.
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    # Return cached if available
+    if analysis.structural_summary and analysis.structural_summary.get("available"):
+        return analysis.structural_summary
+
+    # Compute on-the-fly for tracks analyzed before v6.5
+    if not analysis.section_labels:
+        raise HTTPException(status_code=400, detail="No section data available")
+
+    from app.services.audio_analysis import compute_structural_summary
+    summary = compute_structural_summary(analysis.section_labels)
+
+    # Cache it for next time
+    analysis.structural_summary = summary
+    db.commit()
+
+    return summary
 
 
 # WebSocket endpoint pour les updates temps réel

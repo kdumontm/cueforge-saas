@@ -5481,6 +5481,10 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "true_peak_value": audio_quality_data.get("true_peak_value"),
     }
 
+    # ── v6.5: Structural summary — connect orphaned analysis functions ──
+    structural_summary = compute_structural_summary(section_labels, y, sr_loaded)
+    result["structural_summary"] = structural_summary
+
     # Merge stem data into result if available
     if stem_data:
         result.update(stem_data)
@@ -5494,6 +5498,139 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     logger.info("[CACHE] Analysis complete, checkpoint cleared")
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   v6.5: STRUCTURAL SUMMARY (Points 40-58 from 500-list)
+#   Connects orphaned structural analysis functions into a single wrapper
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_structural_summary(
+    section_labels: List[Dict],
+    y: Optional[np.ndarray] = None,
+    sr: int = 22050,
+) -> Dict:
+    """
+    Unified structural analysis wrapper — aggregates all orphaned section-level
+    detectors into one dict stored on TrackAnalysis.structural_summary (JSON).
+
+    Called from analyze_audio() after section_labels are built.
+    """
+    summary: Dict = {}
+
+    # Convert section_labels (API format) back to the internal format the
+    # orphaned helpers expect: {label, avg_energy, start, duration, ...}
+    sections_internal = []
+    for sl in (section_labels or []):
+        sections_internal.append({
+            "label": sl.get("label", "UNKNOWN"),
+            "avg_energy": sl.get("energy", 0.5),
+            "min_energy": max(0.0, sl.get("energy", 0.5) - 0.15),
+            "max_energy": min(1.0, sl.get("energy", 0.5) + 0.15),
+            "start": sl.get("time_ms", 0) / 1000.0,
+            "start_ms": sl.get("time_ms", 0),
+            "duration": sl.get("duration_ms", 0) / 1000.0,
+            "duration_ms": sl.get("duration_ms", 0),
+        })
+
+    if not sections_internal:
+        return {"available": False}
+
+    try:
+        # Point 45: Hook detection
+        hook = detect_hook_section(sections_internal)
+        summary.update(hook)
+    except Exception:
+        pass
+
+    try:
+        # Point 46: Climax detection
+        climax = detect_climax(sections_internal)
+        summary.update(climax)
+    except Exception:
+        pass
+
+    try:
+        # Point 47: Dynamic range per section
+        dyn_range = compute_dynamic_range_per_section(sections_internal)
+        summary.update(dyn_range)
+    except Exception:
+        pass
+
+    try:
+        # Point 49: Arrangement template matching
+        template = match_arrangement_template(sections_internal)
+        summary.update(template)
+    except Exception:
+        pass
+
+    try:
+        # Point 50: Bridge/breakdown detection
+        bridge = detect_bridge_breakdown(sections_internal)
+        summary.update(bridge)
+    except Exception:
+        pass
+
+    try:
+        # Point 51: Tension curve
+        tension = compute_tension_curve(sections_internal)
+        summary.update(tension)
+    except Exception:
+        pass
+
+    try:
+        # Point 54: Musical form archetype
+        form = detect_musical_form_archetype(sections_internal)
+        summary.update(form)
+    except Exception:
+        pass
+
+    try:
+        # Point 55: Pre-chorus detection
+        pre_chorus = detect_pre_chorus(sections_internal)
+        summary.update(pre_chorus)
+    except Exception:
+        pass
+
+    try:
+        # Point 56: Coda/tag detection
+        coda = detect_coda_tag(sections_internal)
+        summary.update(coda)
+    except Exception:
+        pass
+
+    try:
+        # Point 58: Energy contour per section
+        contour = classify_energy_contour_per_section(sections_internal)
+        summary.update(contour)
+    except Exception:
+        pass
+
+    try:
+        # Point 40: Arrangement density (needs audio signal)
+        if y is not None and len(y) > sr:
+            density = arrangement_density(y, sr)
+            summary["mean_density"] = density.get("mean_density", 0.5)
+            summary["density_variation"] = density.get("density_variation", 0.0)
+    except Exception:
+        pass
+
+    # Derived DJ-useful fields
+    try:
+        summary["section_count"] = len(sections_internal)
+        unique_labels = set(s["label"] for s in sections_internal)
+        summary["unique_section_types"] = len(unique_labels)
+        summary["is_repetitive"] = summary.get("hook_repetitions", 0) > len(sections_internal) * 0.4
+        summary["energy_arc"] = (
+            "rising" if summary.get("tension_curve_slope", 0) > 0.02
+            else "falling" if summary.get("tension_curve_slope", 0) < -0.02
+            else "flat"
+        )
+        summary["available"] = True
+    except Exception:
+        summary["available"] = True
+
+    return summary
 
 
 # ══════════════════════════════════════════════════════════════════════════

@@ -135,6 +135,8 @@ class TrackAnalysisSummary(BaseModel):
     # v6.4: Audio quality flags for quick listing
     has_clipping: Optional[bool] = None
     true_peak_db: Optional[float] = None
+    # v6.5: Structural summary (JSON)
+    structural_summary: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
 
 
@@ -177,6 +179,8 @@ class TrackAnalysisResponse(BaseModel):
     dc_offset_mean: Optional[float] = None
     true_peak_db: Optional[float] = None
     true_peak_value: Optional[float] = None
+    # v6.5: Structural summary
+    structural_summary: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

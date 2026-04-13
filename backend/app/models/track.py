@@ -181,6 +181,8 @@ class TrackAnalysis(Base):
     dc_offset_mean = Column(Float, nullable=True)
     true_peak_db = Column(Float, nullable=True)
     true_peak_value = Column(Float, nullable=True)
+    # v6.5: Structural summary (JSON blob from compute_structural_summary)
+    structural_summary = Column(JSON, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 
