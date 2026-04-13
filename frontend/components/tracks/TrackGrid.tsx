@@ -1,6 +1,6 @@
 'use client';
 
-import { Music, Heart } from 'lucide-react';
+import React, { Music, Heart } from 'lucide-react';
 import type { Track } from '@/types';
 
 interface TrackGridProps {
@@ -15,7 +15,7 @@ interface TrackGridProps {
   onRatingChange?: (trackId: number, rating: number) => void;
 }
 
-const EqBars = ({ isAnimating }: { isAnimating: boolean }) => {
+const EqBars = React.memo(({ isAnimating }: { isAnimating: boolean }) => {
   return (
     <div className="flex items-end justify-center gap-0.5 h-8">
       {[0, 1, 2, 3].map((i) => (
@@ -34,9 +34,11 @@ const EqBars = ({ isAnimating }: { isAnimating: boolean }) => {
       ))}
     </div>
   );
-};
+});
 
-export function TrackGrid({
+EqBars.displayName = 'EqBars';
+
+export const TrackGrid = React.memo(function TrackGrid({
   tracks,
   selectedTrack,
   playingTrackId,
@@ -150,4 +152,4 @@ export function TrackGrid({
       })}
     </div>
   );
-}
+});

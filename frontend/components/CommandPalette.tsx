@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight, Music, Upload, FileDown, Settings, Zap, BookOpen, Globe } from "lucide-react";
 import { useKeyboardAction } from "@/lib/keyboardShortcuts";
@@ -21,7 +21,7 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const commands: Command[] = [
+  const commands = useMemo<Command[]>(() => [
     // Navigation
     {
       id: "dashboard",
@@ -145,12 +145,15 @@ export function CommandPalette() {
       },
       category: "action",
     },
-  ];
+  ], [router]);
 
-  // Filter commands based on query
-  const filteredCommands = commands.filter((cmd) =>
-    cmd.label.toLowerCase().includes(query.toLowerCase()) ||
-    cmd.description.toLowerCase().includes(query.toLowerCase())
+  // Memoize filtered commands to avoid recalculation on every render
+  const filteredCommands = useMemo(() =>
+    commands.filter((cmd) =>
+      cmd.label.toLowerCase().includes(query.toLowerCase()) ||
+      cmd.description.toLowerCase().includes(query.toLowerCase())
+    ),
+    [commands, query]
   );
 
   // Listen for Cmd+K keyboard shortcut

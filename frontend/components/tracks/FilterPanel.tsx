@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import React from 'react';
 import { Filter, X, RotateCcw } from 'lucide-react';
 
@@ -32,6 +32,38 @@ function FilterPanel({
   onReset,
 }: FilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // Local state for debounced numeric inputs
+  const [localBpmMin, setLocalBpmMin] = useState(filters.bpmMin);
+  const [localBpmMax, setLocalBpmMax] = useState(filters.bpmMax);
+  const bpmMinTimerRef = useRef<NodeJS.Timeout>();
+  const bpmMaxTimerRef = useRef<NodeJS.Timeout>();
+
+  // Debounce BPM Min with 300ms delay
+  useEffect(() => {
+    if (localBpmMin === filters.bpmMin) return;
+    bpmMinTimerRef.current = setTimeout(() => {
+      onFilterChange('bpmMin', localBpmMin);
+    }, 300);
+    return () => clearTimeout(bpmMinTimerRef.current);
+  }, [localBpmMin, filters.bpmMin, onFilterChange]);
+
+  // Debounce BPM Max with 300ms delay
+  useEffect(() => {
+    if (localBpmMax === filters.bpmMax) return;
+    bpmMaxTimerRef.current = setTimeout(() => {
+      onFilterChange('bpmMax', localBpmMax);
+    }, 300);
+    return () => clearTimeout(bpmMaxTimerRef.current);
+  }, [localBpmMax, filters.bpmMax, onFilterChange]);
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalBpmMin(filters.bpmMin);
+  }, [filters.bpmMin]);
+
+  useEffect(() => {
+    setLocalBpmMax(filters.bpmMax);
+  }, [filters.bpmMax]);
 
   const handleReset = () => {
     onReset();
@@ -53,7 +85,7 @@ function FilterPanel({
       {/* Expanded Content — dropdown absolu */}
       {isExpanded && (
         <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-xl p-3 space-y-3">
-          {/* BPM Range */}
+          {/* BPM Range — with debounced input */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
@@ -61,8 +93,8 @@ function FilterPanel({
               </label>
               <input
                 type="number"
-                value={filters.bpmMin}
-                onChange={(e) => onFilterChange('bpmMin', parseInt(e.target.value) || 0)}
+                value={localBpmMin}
+                onChange={(e) => setLocalBpmMin(parseInt(e.target.value) || 0)}
                 className="w-full px-2 py-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
@@ -72,8 +104,8 @@ function FilterPanel({
               </label>
               <input
                 type="number"
-                value={filters.bpmMax}
-                onChange={(e) => onFilterChange('bpmMax', parseInt(e.target.value) || 300)}
+                value={localBpmMax}
+                onChange={(e) => setLocalBpmMax(parseInt(e.target.value) || 300)}
                 className="w-full px-2 py-1 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
               />
             </div>

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Trash2, Eye, X, Merge } from 'lucide-react';
 import type { Track } from '@/types';
 
@@ -58,6 +58,9 @@ function findDuplicates(tracks: Track[]): DuplicateGroup[] {
   const groups: DuplicateGroup[] = [];
   const processed = new Set<number>();
 
+  // Optimization: Skip expensive Levenshtein for large datasets
+  const skipFuzzyMatch = tracks.length > 500;
+
   for (let i = 0; i < tracks.length; i++) {
     if (processed.has(tracks[i].id)) continue;
     const a = tracks[i];
@@ -77,8 +80,8 @@ function findDuplicates(tracks: Track[]): DuplicateGroup[] {
         continue;
       }
 
-      // Fuzzy title match with same artist
-      if (artistA && artistA === artistB && titleA && titleB) {
+      // Fuzzy title match with same artist (skip if too many tracks)
+      if (!skipFuzzyMatch && artistA && artistA === artistB && titleA && titleB) {
         const sim = levenshteinSimilarity(titleA, titleB);
         if (sim > 0.85) {
           matches.push({ track: b, confidence: Math.round(sim * 90), reason: 'Titre très similaire, même artiste' });
@@ -86,8 +89,8 @@ function findDuplicates(tracks: Track[]): DuplicateGroup[] {
         }
       }
 
-      // Same title, different artist spelling
-      if (titleA && titleA === titleB && artistA && artistB) {
+      // Same title, different artist spelling (skip if too many tracks)
+      if (!skipFuzzyMatch && titleA && titleA === titleB && artistA && artistB) {
         const artistSim = levenshteinSimilarity(artistA, artistB);
         if (artistSim > 0.8) {
           matches.push({ track: b, confidence: Math.round(artistSim * 85), reason: 'Même titre, artiste similaire' });
@@ -128,10 +131,17 @@ interface DuplicateDetectorProps {
 }
 
 export default function DuplicateDetector({ tracks, onDeleteTrack, onSelectTrack }: DuplicateDetectorProps) {
-  const duplicates = useMemo(() => findDuplicates(tracks), [tracks]);
+  const [debouncedTracks, setDebouncedTracks] = useState<Track[]>(tracks);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
+  // Debounce track changes for 500ms to avoid recalculating on every update
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedTracks(tracks), 500);
+    return () => clearTimeout(timer);
+  }, [tracks]);
+
+  const duplicates = useMemo(() => findDuplicates(debouncedTracks), [debouncedTracks]);
   const visibleDuplicates = duplicates.filter(d => !dismissed.has(d.key));
 
   if (visibleDuplicates.length === 0) return null;
