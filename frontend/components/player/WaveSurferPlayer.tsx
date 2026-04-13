@@ -3,6 +3,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Volume2, VolumeX, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { getToken } from '@/lib/api';
+// Store integrations for player state management
+import { usePlayerStore, useWaveformCache, usePeakCache } from '@/lib/store';
+// Accessibility utilities
+import { announcePlaybackPosition, announceBPM, announce } from '@/lib/accessibility';
 
 interface CuePoint {
   id: number;
@@ -303,6 +307,9 @@ function WaveSurferPlayer({
   onPlay: onPlayCallback,
   mutedStems,
 }: WaveSurferPlayerProps) {
+  // Zustand store selectors for player state
+  const { volume: storeVolume, isMuted: storeIsMuted, setVolume: setStoreVolume, toggleMute: toggleStoreMute } = usePlayerStore();
+
   const wsRef = useRef<any>(null);
   const blobUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -327,8 +334,9 @@ function WaveSurferPlayer({
   }, [trackDuration]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [volume, setVolumeState] = useState(0.8);
-  const [muted, setMuted] = useState(false);
+  // Use store volume and mute state, fallback to local state for backwards compatibility
+  const [volume, setVolumeState] = useState(storeVolume ?? 0.8);
+  const [muted, setMuted] = useState(storeIsMuted ?? false);
 
   // Loop state
   const [loopIn, setLoopIn] = useState<number | null>(null);

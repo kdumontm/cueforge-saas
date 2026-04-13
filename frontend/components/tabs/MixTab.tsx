@@ -5,6 +5,8 @@ import { Track } from '@/types';
 import { toCamelot, getCompatibleKeys, isMixCompatible, getCompatibilityScore, getKeyColor } from '@/lib/constants';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+// Optimized Camelot wheel component
+import { CamelotWheelOptimized } from '@/components/ui/CamelotWheelOptimized';
 
 interface MixTabProps {
   track: Track | null;
@@ -93,6 +95,17 @@ export function MixTab({
               ⚡ {Math.round(currentEnergy * 100)}%
             </div>
           )}
+        </div>
+
+        {/* Optimized Camelot Wheel visualization */}
+        <div className="mt-3 flex justify-center">
+          <CamelotWheelOptimized
+            currentKey={camelotKey || currentKey}
+            currentBpm={currentBpm}
+            matchingKeys={compatibleKeys}
+            energy={currentEnergy > 0.66 ? 'high' : currentEnergy > 0.33 ? 'medium' : 'low'}
+            interactive={false}
+          />
         </div>
 
         {/* Compatible Keys display */}

@@ -433,6 +433,8 @@ from app.routers import cue_templates, blog  # noqa: E402
 from app.routers import referrals, admin_stats  # noqa: E402
 # v9 routers
 from app.routers import tags, activity  # noqa: E402
+# New feature routers (mix, fingerprint, ML, recommendation, quality, advanced analysis)
+from app.routers import mix, fingerprint, ml, recommendation, audio_quality, advanced_analysis  # noqa: E402
 # SEO
 from app.routers import seo  # noqa: E402
 
@@ -484,5 +486,12 @@ app.include_router(admin_stats.router, tags=["admin"])
 # v9 routers
 app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
 app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
+# v10 routers — new feature routers
+app.include_router(mix.router, prefix="/api", tags=["mix"])
+app.include_router(fingerprint.router, prefix="/api", tags=["fingerprint"])
+app.include_router(ml.router, prefix="/api", tags=["ml"])
+app.include_router(recommendation.router, prefix="/api", tags=["recommendation"])
+app.include_router(audio_quality.router, prefix="/api", tags=["quality"])
+app.include_router(advanced_analysis.router, prefix="/api", tags=["advanced-analysis"])
 # SEO
 app.include_router(seo.router)

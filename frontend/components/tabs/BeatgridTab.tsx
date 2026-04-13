@@ -5,6 +5,8 @@ import { Track } from '@/types';
 import { Lock, Unlock, RotateCcw, Music2 } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+// Performance hooks
+import { useThrottle, useRaf } from '@/hooks/usePerformance';
 
 interface Beatgrid {
   bpm: number | null;
@@ -59,7 +61,8 @@ export function BeatgridTab({
     );
   }
 
-  const handleTapTempo = () => {
+  // Throttled tap tempo handler — prevent double-taps within 100ms
+  const handleTapTempo = useThrottle(() => {
     const now = Date.now();
     const newTapTimes = [...tapTimes, now];
 
@@ -75,7 +78,7 @@ export function BeatgridTab({
     }
 
     setTapTimes(newTapTimes.length >= 4 ? [now] : newTapTimes);
-  };
+  }, 100);
 
   const handleResetTapTempo = () => {
     setTapTimes([]);

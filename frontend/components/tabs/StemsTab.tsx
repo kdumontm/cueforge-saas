@@ -5,6 +5,8 @@ import { Download, Loader2, AlertCircle, Scissors } from 'lucide-react';
 import { Track } from '@/types';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+// Zustand store for stems state management
+import { useStemsStore } from '@/lib/store';
 
 interface StemsStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -107,14 +109,26 @@ export function StemsTab({
   onSetStemVolume,
 }: StemsTabProps) {
   const { lang } = useLang();
+  // Zustand store for stems state
+  const { stemVolumes: storeVolumes, setStemVolume, stemPans, setStemPan } = useStemsStore();
 
-  // Volume state per stem (point 327)
+  // Volume state per stem (point 327) — sync with store
   const [stemVolumes, setStemVolumes] = useState<Record<string, number>>({
     vocals_url: 100,
     drums_url: 100,
     bass_url: 100,
     other_url: 100,
   });
+
+  // Sync store volumes to local state
+  useEffect(() => {
+    setStemVolumes({
+      vocals_url: Math.round((storeVolumes?.vocals_url ?? 1) * 100),
+      drums_url: Math.round((storeVolumes?.drums_url ?? 1) * 100),
+      bass_url: Math.round((storeVolumes?.bass_url ?? 1) * 100),
+      other_url: Math.round((storeVolumes?.other_url ?? 1) * 100),
+    });
+  }, [storeVolumes]);
 
   // Keyboard shortcuts for stems: d=drums, b=bass, v=vocals, o=other (point 608)
   useEffect(() => {
