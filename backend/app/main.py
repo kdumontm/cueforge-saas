@@ -323,7 +323,7 @@ def health_check():
 
 # Add Brotli compression middleware for better compression (if available)
 try:
-    from starlette_brotli import BrotliMiddleware
+    from brotli_asgi import BrotliMiddleware
     app.add_middleware(BrotliMiddleware, minimum_size=500)
     logger.info("✅ Brotli compression enabled")
 except ImportError:
