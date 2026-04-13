@@ -8,6 +8,8 @@ import {
   LogOut, Sun, Moon, Menu, X, Bell, ChevronDown,
   Home, Palette, Database, Search, PanelLeftClose, PanelLeft, BarChart3,
   Lock, Music, ListMusic, Disc3, CreditCard, Building2, HeartPulse,
+  Crosshair, Tag, Boxes, BookOpen, Heart, History, FlaskConical,
+  MessageCircle, ScrollText, Key, Webhook, ExternalLink, UserPlus,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -38,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "pages", label: "Pages CMS", icon: FileText, href: "/admin/pages" },
       { id: "navigation", label: "Navigation", icon: Navigation, href: "/admin/navigation" },
       { id: "media", label: "Médias", icon: Image, href: "/admin/media" },
+      { id: "blog", label: "Blog", icon: BookOpen, href: "/admin/blog" },
     ],
   },
   {
@@ -46,6 +49,9 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "tracks", label: "Pistes Musicales", icon: Music, href: "/admin/tracks" },
       { id: "playlists", label: "Listes de Lecture", icon: ListMusic, href: "/admin/playlists" },
       { id: "djsets", label: "DJ Sets", icon: Disc3, href: "/admin/djsets" },
+      { id: "cuepoints", label: "Points de Repère", icon: Crosshair, href: "/admin/cuepoints" },
+      { id: "tags", label: "Tags", icon: Tag, href: "/admin/tags" },
+      { id: "smartcrates", label: "Smart Crates", icon: Boxes, href: "/admin/smart-crates" },
       { id: "modules", label: "Modules Dashboard", icon: LayoutGrid, href: "/admin/modules" },
       { id: "features", label: "Features & Plans", icon: Zap, href: "/admin/features" },
       { id: "locks", label: "Verrouillage Code", icon: Lock, href: "/admin/locks" },
@@ -56,13 +62,28 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "subscriptions", label: "Abonnements", icon: CreditCard, href: "/admin/subscriptions" },
       { id: "organizations", label: "Organisations", icon: Building2, href: "/admin/organizations" },
+      { id: "favorites", label: "Favoris", icon: Heart, href: "/admin/favorites" },
+      { id: "playhistory", label: "Historique", icon: History, href: "/admin/play-history" },
+      { id: "analyses", label: "Analyses", icon: FlaskConical, href: "/admin/analyses" },
       { id: "database", label: "Navigateur DB", icon: Database, href: "/admin/database" },
+    ],
+  },
+  {
+    label: "Communication",
+    items: [
+      { id: "feedbacks", label: "Retours", icon: MessageCircle, href: "/admin/feedbacks" },
+      { id: "notifications", label: "Notifications", icon: Bell, href: "/admin/notifications-admin" },
     ],
   },
   {
     label: "Système",
     items: [
       { id: "health", label: "Santé", icon: HeartPulse, href: "/admin/health" },
+      { id: "logs", label: "Logs", icon: ScrollText, href: "/admin/logs" },
+      { id: "apikeys", label: "Clés API", icon: Key, href: "/admin/apikeys" },
+      { id: "webhooks", label: "Webhooks", icon: Webhook, href: "/admin/webhooks" },
+      { id: "sharedlinks", label: "Liens Partagés", icon: ExternalLink, href: "/admin/shared-links" },
+      { id: "referrals", label: "Parrainage", icon: UserPlus, href: "/admin/referrals" },
     ],
   },
   {
