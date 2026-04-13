@@ -17,6 +17,7 @@ from app.models import User
 from app.models.organization import Organization, OrgInvite, _generate_slug
 from app.middleware.auth import get_current_user
 from app.services.email_service import send_invite_email
+from app.services.billing_service import plan_max_members
 
 router = APIRouter()
 
@@ -120,7 +121,7 @@ async def create_org(
         slug=_generate_slug(data.name),
         owner_id=user.id,
         plan=user.subscription_plan if user.subscription_plan != "free" else "free",
-        max_members=_plan_max_members(user.subscription_plan),
+        max_members=plan_max_members(user.subscription_plan),
     )
     db.add(org)
     db.flush()  # get org.id
@@ -334,12 +335,6 @@ async def accept_invite(
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
-
-
-def _plan_max_members(plan: str) -> int:
-    """Get max members for a plan."""
-    limits = {"free": 1, "pro": 5, "enterprise": 50, "unlimited": 100}
-    return limits.get(plan, 1)
 
 
 def _org_response(org: Organization, db: Session) -> OrgResponse:

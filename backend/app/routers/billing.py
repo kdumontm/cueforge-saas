@@ -23,86 +23,19 @@ from app.database import get_db
 from app.models import User
 from app.models.organization import UsageLog
 from app.middleware.auth import get_current_user
+from app.services.billing_service import (
+    PLANS,
+    get_plan,
+    plan_max_members,
+    handle_checkout_completed,
+    handle_subscription_updated,
+    handle_subscription_deleted,
+    handle_payment_failed,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# ─── Plan definitions (in-code config, can move to DB later) ─────
-
-
-PLANS = {
-    "free": {
-        "id": "free",
-        "name": "Free",
-        "price_monthly": 0,
-        "price_yearly": 0,
-        "max_tracks_per_day": 5,
-        "max_cue_points": 8,
-        "max_members": 1,
-        "max_storage_gb": 2,
-        "features": {
-            "audio_analysis": True,
-            "cue_generation": True,
-            "rekordbox_export": True,
-            "virtualdj_export": False,
-            "serato_export": False,
-            "spotify_lookup": False,
-            "batch_export": False,
-            "priority_analysis": False,
-            "api_access": False,
-        },
-        "stripe_price_monthly": None,
-        "stripe_price_yearly": None,
-    },
-    "pro": {
-        "id": "pro",
-        "name": "Pro",
-        "price_monthly": 999,   # $9.99
-        "price_yearly": 9990,   # $99.90 (2 months free)
-        "max_tracks_per_day": 50,
-        "max_cue_points": 64,
-        "max_members": 5,
-        "max_storage_gb": 50,
-        "features": {
-            "audio_analysis": True,
-            "cue_generation": True,
-            "rekordbox_export": True,
-            "virtualdj_export": True,
-            "serato_export": True,
-            "spotify_lookup": True,
-            "batch_export": True,
-            "priority_analysis": True,
-            "api_access": False,
-        },
-        "stripe_price_monthly": None,  # Set via STRIPE_PRO_MONTHLY_PRICE_ID env
-        "stripe_price_yearly": None,   # Set via STRIPE_PRO_YEARLY_PRICE_ID env
-    },
-    "enterprise": {
-        "id": "enterprise",
-        "name": "Enterprise",
-        "price_monthly": 2999,  # $29.99
-        "price_yearly": 29990,  # $299.90
-        "max_tracks_per_day": 500,
-        "max_cue_points": 128,
-        "max_members": 50,
-        "max_storage_gb": 500,
-        "features": {
-            "audio_analysis": True,
-            "cue_generation": True,
-            "rekordbox_export": True,
-            "virtualdj_export": True,
-            "serato_export": True,
-            "spotify_lookup": True,
-            "batch_export": True,
-            "priority_analysis": True,
-            "api_access": True,
-        },
-        "stripe_price_monthly": None,  # Set via STRIPE_ENT_MONTHLY_PRICE_ID env
-        "stripe_price_yearly": None,   # Set via STRIPE_ENT_YEARLY_PRICE_ID env
-    },
-}
 
 
 # ─── Schemas ──────────────────────────────────────────────────────
@@ -353,133 +286,12 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     db.commit()
 
     if event_type == "checkout.session.completed":
-        _handle_checkout_completed(data, db)
+        handle_checkout_completed(data, db)
     elif event_type == "customer.subscription.updated":
-        _handle_subscription_updated(data, db)
+        handle_subscription_updated(data, db)
     elif event_type == "customer.subscription.deleted":
-        _handle_subscription_deleted(data, db)
+        handle_subscription_deleted(data, db)
     elif event_type == "invoice.payment_failed":
-        _handle_payment_failed(data, db)
+        handle_payment_failed(data, db)
 
     return {"status": "ok", "event_id": event_id}
-
-
-# ─── Webhook handlers ────────────────────────────────────────────
-
-
-def _handle_checkout_completed(data: dict, db: Session):
-    """User completed checkout — activate their plan."""
-    user_id = data.get("metadata", {}).get("cueforge_user_id")
-    plan_id = data.get("metadata", {}).get("plan_id", "pro")
-
-    if not user_id:
-        return
-
-    # SELECT FOR UPDATE — verrouille la ligne pour éviter les race conditions
-    user = db.query(User).filter(User.id == int(user_id)).with_for_update().first()
-    if not user:
-        return
-
-    user.subscription_plan = plan_id
-    if not user.stripe_customer_id:
-        user.stripe_customer_id = data.get("customer")
-
-    # Update org plan if user is org owner
-    if user.organization_id and user.org_role == "owner":
-        from app.models.organization import Organization
-        org = db.query(Organization).filter(Organization.id == user.organization_id).first()
-        if org:
-            org.plan = plan_id
-            org.max_members = _plan_max_members(plan_id)
-
-    db.commit()
-
-    # ── Create welcome/upgrade notification ──────────────────────────────
-    from app.models.notification import Notification
-    plan_name = PLANS.get(plan_id, {}).get("name", "Plan")
-    notif = Notification(
-        user_id=user.id,
-        type="subscription_upgraded",
-        title="Bienvenue sur le plan " + plan_name,
-        message=f"Ton upgrade vers {plan_name} est activé ! Profite de tous les avantages.",
-        link="/dashboard",
-    )
-    db.add(notif)
-    db.commit()
-
-
-def _handle_subscription_updated(data: dict, db: Session):
-    """Subscription was updated (upgrade/downgrade/renewal)."""
-    customer_id = data.get("customer")
-    if not customer_id:
-        return
-
-    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-    if not user:
-        return
-
-    status = data.get("status")
-    if status == "active":
-        # Check for plan changes via items
-        items = data.get("items", {}).get("data", [])
-        # Plan detection could be improved with price → plan mapping
-    elif status in ("past_due", "unpaid"):
-        pass  # Could downgrade or notify
-
-
-def _handle_subscription_deleted(data: dict, db: Session):
-    """Subscription was canceled — downgrade to free."""
-    customer_id = data.get("customer")
-    if not customer_id:
-        return
-
-    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-    if not user:
-        return
-
-    user.subscription_plan = "free"
-
-    if user.organization_id and user.org_role == "owner":
-        from app.models.organization import Organization
-        org = db.query(Organization).filter(Organization.id == user.organization_id).first()
-        if org:
-            org.plan = "free"
-            org.max_members = 1
-
-    db.commit()
-
-
-def _handle_payment_failed(data: dict, db: Session):
-    """Payment failed — notify user via email + notification."""
-    customer_id = data.get("customer")
-    if not customer_id:
-        return
-
-    user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
-    if not user:
-        return
-
-    # Create notification in DB
-    from app.models.notification import Notification
-    plan_name = PLANS.get(user.subscription_plan or "pro", {}).get("name", "Plan")
-    notif = Notification(
-        user_id=user.id,
-        type="payment_failed",
-        title="Paiement échoué",
-        message=f"Ton dernier paiement pour le plan {plan_name} a échoué. Mets à jour tes informations de paiement pour continuer à profiter de CueForge.",
-        link="/billing",
-    )
-    db.add(notif)
-    db.commit()
-
-    # Send email notification
-    try:
-        from app.services.email_service import send_payment_failed_email
-        send_payment_failed_email(user.email, plan_name)
-    except Exception as e:
-        logger.error(f"Failed to send payment_failed email to {user.email}: {e}")
-
-
-def _plan_max_members(plan: str) -> int:
-    limits = {"free": 1, "pro": 5, "enterprise": 50, "unlimited": 100}
-    return limits.get(plan, 1)

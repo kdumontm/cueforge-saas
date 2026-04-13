@@ -532,162 +532,70 @@ async def export_my_data(user: User = Depends(get_current_user), db: Session = D
 @router.post("/oauth/google", response_model=TokenResponse)
 async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
     """Exchange Google OAuth code for CueForge tokens."""
-    import httpx
     import os
+    from app.services.oauth_service import exchange_google_token, oauth_login_or_register
 
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
 
-    # Exchange code for Google access token
-    async with httpx.AsyncClient() as client:
-        token_res = await client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "code": req.code,
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "redirect_uri": req.redirect_uri,
-                "grant_type": "authorization_code",
-            },
+    try:
+        provider_data = await exchange_google_token(
+            code=req.code, redirect_uri=req.redirect_uri,
+            client_id=client_id, client_secret=client_secret,
         )
-        if token_res.status_code != 200:
-            raise HTTPException(status_code=400, detail="Google OAuth failed")
-        token_data = token_res.json()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-        # Get user info
-        userinfo_res = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+    try:
+        result = oauth_login_or_register(
+            db, provider="google", provider_id=provider_data["provider_id"],
+            email=provider_data["email"], name=provider_data["name"],
+            avatar_url=provider_data["avatar_url"],
         )
-        if userinfo_res.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to get Google user info")
-        google_user = userinfo_res.json()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    google_id = google_user["id"]
-    email = google_user.get("email")
-    name = google_user.get("name", email.split("@")[0] if email else "User")
-    avatar = google_user.get("picture")
-
-    return await _oauth_login_or_register(
-        db, provider="google", provider_id=google_id,
-        email=email, name=name, avatar_url=avatar,
+    return TokenResponse(
+        access_token=result["access_token"],
+        refresh_token=result["refresh_token"],
+        token_type=result["token_type"],
+        user=UserResponse.model_validate(result["user"]),
     )
 
 
 @router.post("/oauth/spotify", response_model=TokenResponse)
 async def oauth_spotify(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
     """Exchange Spotify OAuth code for CueForge tokens."""
-    import httpx
     import os
-    import base64
+    from app.services.oauth_service import exchange_spotify_token, oauth_login_or_register
 
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise HTTPException(status_code=501, detail="Spotify OAuth not configured")
 
-    auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-
-    async with httpx.AsyncClient() as client:
-        token_res = await client.post(
-            "https://accounts.spotify.com/api/token",
-            data={
-                "code": req.code,
-                "redirect_uri": req.redirect_uri,
-                "grant_type": "authorization_code",
-            },
-            headers={"Authorization": f"Basic {auth_header}"},
+    try:
+        provider_data = await exchange_spotify_token(
+            code=req.code, redirect_uri=req.redirect_uri,
+            client_id=client_id, client_secret=client_secret,
         )
-        if token_res.status_code != 200:
-            raise HTTPException(status_code=400, detail="Spotify OAuth failed")
-        token_data = token_res.json()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-        userinfo_res = await client.get(
-            "https://api.spotify.com/v1/me",
-            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+    try:
+        result = oauth_login_or_register(
+            db, provider="spotify", provider_id=provider_data["provider_id"],
+            email=provider_data["email"], name=provider_data["name"],
+            avatar_url=provider_data["avatar_url"],
         )
-        if userinfo_res.status_code != 200:
-            raise HTTPException(status_code=400, detail="Failed to get Spotify user info")
-        spotify_user = userinfo_res.json()
-
-    spotify_id = spotify_user["id"]
-    email = spotify_user.get("email")
-    name = spotify_user.get("display_name", spotify_id)
-    images = spotify_user.get("images", [])
-    avatar = images[0]["url"] if images else None
-
-    return await _oauth_login_or_register(
-        db, provider="spotify", provider_id=spotify_id,
-        email=email, name=name, avatar_url=avatar,
-    )
-
-
-async def _oauth_login_or_register(
-    db: Session,
-    provider: str,
-    provider_id: str,
-    email: Optional[str],
-    name: str,
-    avatar_url: Optional[str] = None,
-) -> TokenResponse:
-    """Find or create user from OAuth provider data."""
-    # Check if user already linked this provider
-    user = db.query(User).filter(
-        User.oauth_provider == provider,
-        User.oauth_id == provider_id,
-    ).first()
-
-    # Si le provider ne renvoie pas d'email et qu'on n'a pas de compte lié → erreur
-    if not user and not email:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Votre compte {provider} ne fournit pas d'email. "
-                   "Veuillez autoriser l'accès à votre email ou vous inscrire avec email/mot de passe.",
-        )
-
-    if not user and email:
-        # Check if email already exists (link accounts) — case-insensitive
-        user = db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
-        if user:
-            user.oauth_provider = provider
-            user.oauth_id = provider_id
-            if avatar_url and not user.avatar_url:
-                user.avatar_url = avatar_url
-
-    if not user:
-        # Create new user
-        # Ensure unique username
-        base_name = name or "dj"
-        unique_name = base_name
-        counter = 1
-        while db.query(User).filter(User.name == unique_name).first():
-            unique_name = f"{base_name}{counter}"
-            counter += 1
-
-        user = User(
-            email=email,
-            name=unique_name,
-            password_hash=None,  # OAuth-only, no password
-            oauth_provider=provider,
-            oauth_id=provider_id,
-            avatar_url=avatar_url,
-            email_verified=True,  # OAuth emails are pre-verified
-        )
-        db.add(user)
-
-    user.last_login_at = datetime.utcnow()
-    access = create_access_token({"sub": str(user.id)})
-    refresh = create_refresh_token({"sub": str(user.id)})
-    user.refresh_token = _hash_token(refresh)  # 🔴 FIX (faille 8)
-
-    db.commit()
-    db.refresh(user)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return TokenResponse(
-        access_token=access,
-        refresh_token=refresh,
-        token_type="bearer",
-        user=UserResponse.model_validate(user),
+        access_token=result["access_token"],
+        refresh_token=result["refresh_token"],
+        token_type=result["token_type"],
+        user=UserResponse.model_validate(result["user"]),
     )
