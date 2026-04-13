@@ -517,124 +517,122 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(CacheAndETagMiddleware)
 
-# Routers
-from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks, favorites, duplicates, compare, export_pdf  # noqa: E402
-from app.routers import org_management  # noqa: E402
-# v2 routers
-from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
-# DJ export/import routers
-from app.routers import dj_export, dj_import  # noqa: E402
-# v4 routers
-from app.routers import analytics, mix_analyzer  # noqa: E402
-from app.routers import downloads  # noqa: E402
-# v5 routers
-from app.routers import two_factor, notifications, sharing, feedback  # noqa: E402
-# v6 routers
-from app.routers import profile, user_stats, jobs, push_notifications  # noqa: E402
-# v7 routers
-from app.routers import cue_templates, blog  # noqa: E402
-# v8 routers
-from app.routers import referrals, admin_stats, admin_data, admin_extended, admin_content  # noqa: E402
-from app.routers import admin_email_stripe, admin_security_config, admin_cms_automation  # noqa: E402
-from app.routers import admin_segments_forms, admin_advanced_config  # noqa: E402
-from app.routers import admin_ab_testing, admin_rbac_i18n, admin_files_crons, admin_notif_reports  # noqa: E402
-from app.routers import admin_analytics_advanced, admin_bulk_monitoring, admin_subscriptions_env  # noqa: E402
-# v9 routers
-from app.routers import tags, activity  # noqa: E402
-# New feature routers (mix, fingerprint, ML, recommendation, quality, advanced analysis)
-from app.routers import mix, fingerprint, ml, recommendation, audio_quality, advanced_analysis  # noqa: E402
-# SEO
-from app.routers import seo  # noqa: E402
-# v11 routers — advanced analysis services (2000 optimisations)
-from app.routers import bpm_advanced, key_advanced, cue_ai, stems_hybrid, audio_forensics  # noqa: E402
-# v11 routers — monitoring & observability
-from app.routers import monitoring, quota  # noqa: E402
-
+# ── Routers ─────────────────────────────────────────────────────────────
+# Essentiel : auth (connexion) — doit TOUJOURS être disponible
+from app.routers import auth  # noqa: E402
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
-app.include_router(api_keys.router, tags=["api-keys"])
-app.include_router(webhooks.router, tags=["webhooks"])
-app.include_router(favorites.router, tags=["favorites"])
-app.include_router(duplicates.router, tags=["duplicates"])
-app.include_router(tracks.router, prefix="/api/v1/tracks", tags=["tracks"])
-app.include_router(compare.router, prefix="/api/v1", tags=["compare"])
-app.include_router(cues.router, prefix="/api/v1/cues", tags=["cues"])
-app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
-app.include_router(export_pdf.router, prefix="/api/v1", tags=["export-pdf"])
-app.include_router(billing.router, prefix="/api/v1/billing", tags=["billing"])
-app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
-app.include_router(admin.public_router, prefix="/api/v1", tags=["site"])
-app.include_router(waveforms.router)
-app.include_router(organization.router)
-app.include_router(org_management.router, prefix="/api/v1/org", tags=["organization-management"])
-# v2 routers
-app.include_router(hot_cues.router, prefix="/api/v1", tags=["hot-cues"])
-app.include_router(playlists.router, prefix="/api/v1", tags=["playlists"])
-app.include_router(crates.router, prefix="/api/v1", tags=["smart-crates"])
-app.include_router(sets.router, prefix="/api/v1", tags=["dj-sets"])
-app.include_router(import_dj.router, prefix="/api/v1", tags=["import"])
-app.include_router(advanced.router, prefix="/api/v1", tags=["advanced"])
-app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
-# DJ export/import routers
-app.include_router(dj_export.router)
-app.include_router(dj_import.router)
-# v4 routers
-app.include_router(analytics.router, prefix="/api/v1", tags=["analytics"])
-app.include_router(mix_analyzer.router, prefix="/api/v1", tags=["mix-analyzer"])
-# Desktop app downloads
-app.include_router(downloads.router, prefix="/api/v1", tags=["downloads"])
-# v5 routers
-app.include_router(two_factor.router, prefix="/api/v1", tags=["2fa"])
-app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
-app.include_router(sharing.router, prefix="/api/v1", tags=["sharing"])
-app.include_router(feedback.router, prefix="/api/v1", tags=["feedback"])
-# v6 routers
-app.include_router(profile.router, prefix="/api/v1", tags=["profile"])
-app.include_router(user_stats.router, prefix="/api/v1", tags=["user-stats"])
-app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
-app.include_router(push_notifications.router, tags=["push-notifications"])
-# v7 routers
-app.include_router(cue_templates.router, tags=["cue-templates"])
-app.include_router(blog.router, tags=["blog"])
-# v8 routers
-app.include_router(referrals.router, tags=["referrals"])
-app.include_router(admin_stats.router, tags=["admin"])
-app.include_router(admin_data.router, prefix="/api/v1", tags=["admin-data"])
-app.include_router(admin_content.router, prefix="/api/v1", tags=["admin-content"])
-app.include_router(admin_extended.router, prefix="/api/v1", tags=["admin-extended"])
-app.include_router(admin_email_stripe.router, prefix="/api/v1", tags=["admin-email-stripe"])
-app.include_router(admin_security_config.router, prefix="/api/v1", tags=["admin-security-config"])
-app.include_router(admin_cms_automation.router, prefix="/api/v1", tags=["admin-cms-automation"])
-app.include_router(admin_segments_forms.router, prefix="/api/v1", tags=["admin-segments-forms"])
-app.include_router(admin_advanced_config.router, prefix="/api/v1", tags=["admin-advanced-config"])
-app.include_router(admin_ab_testing.router, prefix="/api/v1", tags=["admin-ab-testing"])
-app.include_router(admin_rbac_i18n.router, prefix="/api/v1", tags=["admin-rbac-i18n"])
-app.include_router(admin_files_crons.router, prefix="/api/v1", tags=["admin-files-crons"])
-app.include_router(admin_notif_reports.router, prefix="/api/v1", tags=["admin-notif-reports"])
-app.include_router(admin_analytics_advanced.router, prefix="/api/v1", tags=["admin-analytics-advanced"])
-app.include_router(admin_bulk_monitoring.router, prefix="/api/v1", tags=["admin-bulk-monitoring"])
-app.include_router(admin_subscriptions_env.router, prefix="/api/v1", tags=["admin-subscriptions-env"])
-# v9 routers
-app.include_router(tags.router, prefix="/api/v1", tags=["tags"])
-app.include_router(activity.router, prefix="/api/v1", tags=["activity"])
-# v10 routers — new feature routers
-app.include_router(mix.router, prefix="/api", tags=["mix"])
-app.include_router(fingerprint.router, prefix="/api", tags=["fingerprint"])
-app.include_router(ml.router, prefix="/api", tags=["ml"])
-app.include_router(recommendation.router, prefix="/api", tags=["recommendation"])
-app.include_router(audio_quality.router, prefix="/api", tags=["quality"])
-app.include_router(advanced_analysis.router, prefix="/api", tags=["advanced-analysis"])
-# SEO
-app.include_router(seo.router)
-# v11 routers — advanced analysis
-app.include_router(bpm_advanced.router)
-app.include_router(key_advanced.router)
-app.include_router(cue_ai.router)
-app.include_router(stems_hybrid.router)
-app.include_router(audio_forensics.router)
-# v11 routers — monitoring & quota
-app.include_router(monitoring.router)
-app.include_router(quota.router)
 
-# v12 routers — dormant services now active
-from app.register_v12_routers import register_v12_routers
-register_v12_routers(app)
+# Helper : monte un router de façon non-bloquante
+def _safe_mount(module_path: str, prefix: str = "", tags: list | None = None,
+                attr: str = "router"):
+    """Importe et monte un router. Si l'import échoue, log l'erreur sans crasher."""
+    try:
+        import importlib
+        mod = importlib.import_module(module_path)
+        r = getattr(mod, attr)
+        app.include_router(r, prefix=prefix, **({"tags": tags} if tags else {}))
+    except Exception as exc:
+        logger.warning("⚠️  Router %s non chargé : %s", module_path, exc)
+
+# Core routers
+_safe_mount("app.routers.tracks", "/api/v1/tracks", ["tracks"])
+_safe_mount("app.routers.cues", "/api/v1/cues", ["cues"])
+_safe_mount("app.routers.export", "/api/v1/export", ["export"])
+_safe_mount("app.routers.billing", "/api/v1/billing", ["billing"])
+_safe_mount("app.routers.admin", "/api/v1", ["admin"])
+_safe_mount("app.routers.admin", "/api/v1", ["site"], attr="public_router")
+_safe_mount("app.routers.waveforms")
+_safe_mount("app.routers.organization")
+_safe_mount("app.routers.org_management", "/api/v1/org", ["organization-management"])
+_safe_mount("app.routers.api_keys", tags=["api-keys"])
+_safe_mount("app.routers.webhooks", tags=["webhooks"])
+_safe_mount("app.routers.favorites", tags=["favorites"])
+_safe_mount("app.routers.duplicates", tags=["duplicates"])
+_safe_mount("app.routers.compare", "/api/v1", ["compare"])
+_safe_mount("app.routers.export_pdf", "/api/v1", ["export-pdf"])
+
+# v2 routers
+_safe_mount("app.routers.hot_cues", "/api/v1", ["hot-cues"])
+_safe_mount("app.routers.playlists", "/api/v1", ["playlists"])
+_safe_mount("app.routers.crates", "/api/v1", ["smart-crates"])
+_safe_mount("app.routers.sets", "/api/v1", ["dj-sets"])
+_safe_mount("app.routers.import_dj", "/api/v1", ["import"])
+_safe_mount("app.routers.advanced", "/api/v1", ["advanced"])
+_safe_mount("app.routers.diagnostics", "/api/v1", ["diagnostics"])
+
+# DJ export/import
+_safe_mount("app.routers.dj_export")
+_safe_mount("app.routers.dj_import")
+
+# v4 routers
+_safe_mount("app.routers.analytics", "/api/v1", ["analytics"])
+_safe_mount("app.routers.mix_analyzer", "/api/v1", ["mix-analyzer"])
+_safe_mount("app.routers.downloads", "/api/v1", ["downloads"])
+
+# v5 routers
+_safe_mount("app.routers.two_factor", "/api/v1", ["2fa"])
+_safe_mount("app.routers.notifications", "/api/v1", ["notifications"])
+_safe_mount("app.routers.sharing", "/api/v1", ["sharing"])
+_safe_mount("app.routers.feedback", "/api/v1", ["feedback"])
+
+# v6 routers
+_safe_mount("app.routers.profile", "/api/v1", ["profile"])
+_safe_mount("app.routers.user_stats", "/api/v1", ["user-stats"])
+_safe_mount("app.routers.jobs", "/api/v1", ["jobs"])
+_safe_mount("app.routers.push_notifications", tags=["push-notifications"])
+
+# v7 routers
+_safe_mount("app.routers.cue_templates", tags=["cue-templates"])
+_safe_mount("app.routers.blog", tags=["blog"])
+
+# v8 routers — admin
+_safe_mount("app.routers.referrals", tags=["referrals"])
+_safe_mount("app.routers.admin_stats", tags=["admin"])
+_safe_mount("app.routers.admin_data", "/api/v1", ["admin-data"])
+_safe_mount("app.routers.admin_content", "/api/v1", ["admin-content"])
+_safe_mount("app.routers.admin_extended", "/api/v1", ["admin-extended"])
+_safe_mount("app.routers.admin_email_stripe", "/api/v1", ["admin-email-stripe"])
+_safe_mount("app.routers.admin_security_config", "/api/v1", ["admin-security-config"])
+_safe_mount("app.routers.admin_cms_automation", "/api/v1", ["admin-cms-automation"])
+_safe_mount("app.routers.admin_segments_forms", "/api/v1", ["admin-segments-forms"])
+_safe_mount("app.routers.admin_advanced_config", "/api/v1", ["admin-advanced-config"])
+_safe_mount("app.routers.admin_ab_testing", "/api/v1", ["admin-ab-testing"])
+_safe_mount("app.routers.admin_rbac_i18n", "/api/v1", ["admin-rbac-i18n"])
+_safe_mount("app.routers.admin_files_crons", "/api/v1", ["admin-files-crons"])
+_safe_mount("app.routers.admin_notif_reports", "/api/v1", ["admin-notif-reports"])
+_safe_mount("app.routers.admin_analytics_advanced", "/api/v1", ["admin-analytics-advanced"])
+_safe_mount("app.routers.admin_bulk_monitoring", "/api/v1", ["admin-bulk-monitoring"])
+_safe_mount("app.routers.admin_subscriptions_env", "/api/v1", ["admin-subscriptions-env"])
+
+# v9 routers
+_safe_mount("app.routers.tags", "/api/v1", ["tags"])
+_safe_mount("app.routers.activity", "/api/v1", ["activity"])
+
+# v10 routers — features avancées
+_safe_mount("app.routers.mix", "/api", ["mix"])
+_safe_mount("app.routers.fingerprint", "/api", ["fingerprint"])
+_safe_mount("app.routers.ml", "/api", ["ml"])
+_safe_mount("app.routers.recommendation", "/api", ["recommendation"])
+_safe_mount("app.routers.audio_quality", "/api", ["quality"])
+_safe_mount("app.routers.advanced_analysis", "/api", ["advanced-analysis"])
+
+# SEO
+_safe_mount("app.routers.seo")
+
+# v11 routers — analyse avancée
+_safe_mount("app.routers.bpm_advanced")
+_safe_mount("app.routers.key_advanced")
+_safe_mount("app.routers.cue_ai")
+_safe_mount("app.routers.stems_hybrid")
+_safe_mount("app.routers.audio_forensics")
+
+# v11 routers — monitoring & quota
+_safe_mount("app.routers.monitoring")
+_safe_mount("app.routers.quota")
+
+# v12 routers — dormant services
+try:
+    from app.register_v12_routers import register_v12_routers
+    register_v12_routers(app)
+except Exception as exc:
+    logger.warning("⚠️  v12 routers non chargés : %s", exc)
