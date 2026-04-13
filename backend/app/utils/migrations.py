@@ -34,6 +34,7 @@ PENDING_MIGRATIONS = {
         "totp_secret": "VARCHAR(255)",
         "totp_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
         "totp_pending_secret": "VARCHAR(255)",
+        "totp_backup_codes": "TEXT",
         # Onboarding & Preferences
         "dj_style": "VARCHAR(100)",
         "dj_software": "VARCHAR(100)",
