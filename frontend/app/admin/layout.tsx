@@ -10,6 +10,8 @@ import {
   Lock, Music, ListMusic, Disc3, CreditCard, Building2, HeartPulse,
   Crosshair, Tag, Boxes, BookOpen, Heart, History, FlaskConical,
   MessageCircle, ScrollText, Key, Webhook, ExternalLink, UserPlus,
+  Mail, Target, DollarSign, Receipt, TrendingUp, ShieldCheck, HardDrive,
+  Import, Rocket, Layers, PaintBucket, Bot, Trophy,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -69,10 +71,48 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Email & Marketing",
+    items: [
+      { id: "email-templates", label: "Templates Email", icon: Mail, href: "/admin/email-templates" },
+      { id: "drip-campaigns", label: "Campagnes Drip", icon: Target, href: "/admin/drip-campaigns" },
+    ],
+  },
+  {
+    label: "Revenue & Stripe",
+    items: [
+      { id: "pricing", label: "Plans & Coupons", icon: DollarSign, href: "/admin/pricing" },
+      { id: "invoices", label: "Factures", icon: Receipt, href: "/admin/invoices" },
+      { id: "revenue", label: "Dashboard Revenue", icon: TrendingUp, href: "/admin/revenue" },
+    ],
+  },
+  {
     label: "Communication",
     items: [
       { id: "feedbacks", label: "Retours", icon: MessageCircle, href: "/admin/feedbacks" },
       { id: "notifications", label: "Notifications", icon: Bell, href: "/admin/notifications-admin" },
+    ],
+  },
+  {
+    label: "Sécurité & Config",
+    items: [
+      { id: "security", label: "Sécurité", icon: ShieldCheck, href: "/admin/security" },
+      { id: "backups", label: "Sauvegardes", icon: HardDrive, href: "/admin/backups" },
+      { id: "import-dj", label: "Import DJ", icon: Import, href: "/admin/import-dj" },
+      { id: "onboarding", label: "Onboarding", icon: Rocket, href: "/admin/onboarding" },
+    ],
+  },
+  {
+    label: "CMS & Design",
+    items: [
+      { id: "cms-templates", label: "CMS Avancé", icon: Layers, href: "/admin/cms-templates" },
+      { id: "theme-editor", label: "Éditeur Thème", icon: PaintBucket, href: "/admin/theme-editor" },
+    ],
+  },
+  {
+    label: "Automatisation",
+    items: [
+      { id: "automation", label: "Règles Auto", icon: Bot, href: "/admin/automation" },
+      { id: "gamification", label: "Gamification", icon: Trophy, href: "/admin/gamification" },
     ],
   },
   {
