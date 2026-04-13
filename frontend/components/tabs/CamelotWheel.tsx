@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { CAMELOT_WHEEL, getCompatibleKeys } from '@/lib/constants';
 
 interface CamelotWheelProps {
@@ -162,3 +163,5 @@ export function CamelotWheel({
     </div>
   );
 }
+
+export default React.memo(CamelotWheel);

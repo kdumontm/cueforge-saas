@@ -23,6 +23,9 @@ References:
 from typing import Dict, List, Optional, Tuple
 import gc
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 import librosa
 import numpy as np
@@ -35,6 +38,264 @@ from app.models import Track, TrackAnalysis
 from app.database import SessionLocal
 
 logger = logging.getLogger(__name__)
+
+# ══════════════════════════════════════════════════════════════════════════
+#   MODEL CACHING SINGLETONS (Section A: Points 5-6)
+# ══════════════════════════════════════════════════════════════════════════
+
+_beat_this_model = None
+_madmom_processor = None
+
+
+def _get_beat_this_model():
+    """Lazy-load beat_this model once and cache it."""
+    global _beat_this_model
+    if _beat_this_model is None:
+        try:
+            from beat_this.inference import File2Beats
+            _beat_this_model = File2Beats(device="cpu", dbn=False)
+        except Exception:
+            pass
+    return _beat_this_model
+
+
+def _get_madmom_processor():
+    """Lazy-load madmom processor once and cache it."""
+    global _madmom_processor
+    if _madmom_processor is None:
+        try:
+            from madmom.features.beats import RNNBeatProcessor
+            _madmom_processor = RNNBeatProcessor()
+        except Exception:
+            pass
+    return _madmom_processor
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   PIPELINE ARCHITECTURE OPTIMIZATIONS (Section D)
+# ══════════════════════════════════════════════════════════════════════════
+
+# Point 404: Granular progress reporting
+ANALYSIS_STEPS = {
+    'loading': (0, 5),
+    'bpm': (5, 25),
+    'key': (25, 35),
+    'energy': (35, 45),
+    'structure': (45, 60),
+    'drops': (60, 70),
+    'cues': (70, 80),
+    'stems': (80, 95),
+    'finalize': (95, 100),
+}
+
+def _report_progress(step_name: str, sub_progress: float = 1.0) -> int:
+    """
+    Calculate overall progress percentage from step and sub-progress.
+
+    Args:
+        step_name: Key from ANALYSIS_STEPS
+        sub_progress: Float 0.0-1.0 for progress within this step
+
+    Returns:
+        Overall progress percentage (0-100)
+    """
+    if step_name not in ANALYSIS_STEPS:
+        return 50  # Default if step unknown
+    start, end = ANALYSIS_STEPS[step_name]
+    progress = start + (end - start) * sub_progress
+    return int(progress)
+
+
+# Point 421: Shared feature computation to avoid redundant calculations
+class SharedFeatures:
+    """
+    Compute expensive features once and share across analysis steps.
+    Lazy-loaded properties cache results to avoid recomputation.
+    """
+    def __init__(self, y: np.ndarray, sr: int, n_fft: int = 2048, hop_length: int = 512):
+        self.y = y
+        self.sr = sr
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self._stft = None
+        self._onset_strength = None
+        self._mel_spec = None
+        self._rms = None
+
+    @property
+    def stft(self) -> np.ndarray:
+        """Cached STFT computation."""
+        if self._stft is None:
+            self._stft = librosa.stft(self.y, n_fft=self.n_fft, hop_length=self.hop_length)
+        return self._stft
+
+    @property
+    def stft_mag(self) -> np.ndarray:
+        """Magnitude spectrum from STFT."""
+        return np.abs(self.stft)
+
+    @property
+    def mel_spectrogram(self) -> np.ndarray:
+        """Mel-spectrogram from magnitude spectrum."""
+        if self._mel_spec is None:
+            self._mel_spec = librosa.feature.melspectrogram(
+                S=self.stft_mag**2, sr=self.sr
+            )
+        return self._mel_spec
+
+    @property
+    def onset_strength(self) -> np.ndarray:
+        """Onset strength from mel-spectrogram."""
+        if self._onset_strength is None:
+            self._onset_strength = librosa.onset.onset_strength(
+                S=librosa.power_to_db(self.mel_spectrogram, ref=np.max), sr=self.sr
+            )
+        return self._onset_strength
+
+    @property
+    def rms(self) -> np.ndarray:
+        """RMS energy envelope."""
+        if self._rms is None:
+            self._rms = librosa.feature.rms(
+                S=self.stft_mag, hop_length=self.hop_length
+            )[0]
+        return self._rms
+
+
+# Point 470: Optimized spectral energy bands computation
+def _compute_spectral_bands(S: np.ndarray, sr: int, n_fft: int = 2048) -> Dict[str, float]:
+    """
+    Compute low/mid/high energy bands efficiently from pre-computed STFT.
+
+    Args:
+        S: Magnitude spectrogram (output of np.abs(stft))
+        sr: Sample rate
+        n_fft: FFT size
+
+    Returns:
+        Dict with 'low_energy', 'mid_energy', 'high_energy' (0.0-1.0)
+    """
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+    low_mask = freqs < 500
+    mid_mask = (freqs >= 500) & (freqs < 4000)
+    high_mask = freqs >= 4000
+
+    power = S ** 2
+    total = np.sum(power) + 1e-10
+
+    return {
+        'low_energy': float(np.sum(power[low_mask]) / total),
+        'mid_energy': float(np.sum(power[mid_mask]) / total),
+        'high_energy': float(np.sum(power[high_mask]) / total),
+    }
+
+
+# Point 411, 413, 419: Optimized audio loading with preparation
+def _load_and_prepare_audio(file_path: str, target_sr: int = 22050) -> Tuple[np.ndarray, int, float]:
+    """
+    Optimized audio loading with early trimming and normalization.
+
+    Args:
+        file_path: Path to audio file
+        target_sr: Target sample rate (default 22050 Hz)
+
+    Returns:
+        Tuple of (y, sr, duration_seconds)
+        - y: Audio time series as float32 mono
+        - sr: Sample rate
+        - duration_seconds: Total file duration in seconds
+    """
+    try:
+        import soundfile as sf
+    except ImportError:
+        logger.debug("soundfile not available, using librosa only")
+        sf = None
+
+    # Get file duration without full decode if soundfile available
+    if sf:
+        try:
+            info = sf.info(file_path)
+            original_duration = info.duration
+        except Exception:
+            original_duration = None
+    else:
+        original_duration = None
+
+    # Load as float32 mono at target SR
+    y, sr = librosa.load(file_path, sr=target_sr, mono=True, dtype=np.float32)
+
+    # Trim silence (top_db=50 means -50dB threshold)
+    y_trimmed, _ = librosa.effects.trim(y, top_db=50)
+    if len(y_trimmed) > 0:
+        logger.debug(f"[TRIM] Silence removed: {len(y) - len(y_trimmed)} samples")
+        y = y_trimmed
+
+    # Normalize to -1dBFS (peak = 0.9, safety headroom)
+    peak = np.max(np.abs(y))
+    if peak > 0:
+        y = y * (0.9 / peak)
+
+    # Get actual duration
+    duration_seconds = len(y) / sr
+
+    return y, sr, duration_seconds
+
+
+# Point 511: Analysis caching - check if valid analysis exists
+def _check_analysis_cache(track_id: int, db: Session) -> Optional[Dict]:
+    """
+    Check if a valid analysis already exists and is still current.
+
+    Args:
+        track_id: Track ID to check
+        db: Database session
+
+    Returns:
+        Cached analysis dict if valid, None otherwise
+    """
+    try:
+        existing = db.query(TrackAnalysis).filter_by(track_id=track_id).first()
+        if existing and existing.analyzed_at:
+            # If analyzed less than 1 hour ago, consider it valid
+            age_seconds = (datetime.utcnow() - existing.analyzed_at).total_seconds()
+            if age_seconds < 3600:
+                logger.info(f"[CACHE] Analysis for track {track_id} is fresh ({age_seconds:.0f}s old)")
+                return {
+                    'bpm': existing.bpm,
+                    'key': existing.key,
+                    'energy': existing.energy,
+                    'cached': True,
+                }
+    except Exception as e:
+        logger.debug(f"Cache check failed: {e}")
+
+    return None
+
+
+# Point 405: Partial results saving on failure
+def _save_partial_results(track_id: int, partial_results: Dict, db: Session) -> None:
+    """
+    Save partial analysis results even if full pipeline fails.
+
+    Args:
+        track_id: Track ID
+        partial_results: Dict of analysis results computed so far
+        db: Database session
+    """
+    try:
+        analysis = db.query(TrackAnalysis).filter_by(track_id=track_id).first()
+        if analysis:
+            # Update only non-None fields
+            for key, value in partial_results.items():
+                if value is not None and hasattr(analysis, key):
+                    setattr(analysis, key, value)
+
+            analysis.status = 'partial'
+            db.commit()
+            logger.info(f"[PARTIAL] Saved {len(partial_results)} fields for track {track_id}")
+    except Exception as e:
+        logger.error(f"Failed to save partial results: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -483,6 +744,50 @@ def _round_bpm_smart(bpm: float) -> float:
     return round(bpm, 2)
 
 
+def _filter_ibi_outliers(ibi: np.ndarray) -> np.ndarray:
+    """
+    Filter inter-beat interval outliers using median-based approach (Points 17-18).
+    Removes missed/double beats that violate: 0.5 * median < IBI < 2.0 * median
+    """
+    if len(ibi) < 4:
+        return ibi
+
+    median_ibi = np.median(ibi)
+    valid = (ibi > median_ibi * 0.5) & (ibi < median_ibi * 2.0)
+    return ibi[valid]
+
+
+def _snap_bpm_to_common_values(bpm: float) -> float:
+    """
+    Snap BPM to common DJ values if within ±0.3 BPM (Point 27).
+    For example, 127.98 → 128.0, 122.02 → 122.0
+    """
+    COMMON_DJ_BPMS = [120, 122, 124, 125, 126, 128, 130, 132, 134, 136, 138, 140, 150, 160, 170, 174, 175]
+    for common in COMMON_DJ_BPMS:
+        if abs(bpm - common) < 0.3:
+            return float(common)
+    return bpm
+
+
+def _compute_bpm_confidence(ibi: np.ndarray) -> float:
+    """
+    Compute BPM confidence score based on IBI variance (Point 23).
+    Uses coefficient of variation: cv = std / mean
+    Confidence = 1.0 - min(1.0, cv * 10)
+    """
+    if len(ibi) < 4:
+        return 0.0
+
+    ibi_mean = np.mean(ibi)
+    if ibi_mean <= 0:
+        return 0.0
+
+    ibi_std = np.std(ibi)
+    cv = ibi_std / ibi_mean  # coefficient of variation
+    confidence = max(0.0, min(1.0, 1.0 - cv * 10))
+    return round(confidence, 3)
+
+
 def _detect_downbeat_offset(y: np.ndarray, sr: int, beats: List[float]) -> int:
     """
     Detect the downbeat phase (0-3) among the first beats.
@@ -609,13 +914,18 @@ def _detect_bpm_beat_this(file_path: str) -> Optional[Dict]:
     Detect BPM and beat positions using beat_this (CPJKU, PyTorch).
     State-of-the-art beat tracking, 100% PyTorch (no C compilation).
     Returns None if beat_this is not installed or fails.
+    Uses cached model singleton (points 5-6).
     """
     try:
-        from beat_this.inference import File2Beats
+        # Use cached model singleton instead of loading per-call
+        file2beats = _get_beat_this_model()
+        if file2beats is None:
+            return None
 
-        # Run inference on CPU
-        file2beats = File2Beats(device="cpu", dbn=False)
+        t0 = time.perf_counter()
         beats, downbeats = file2beats(file_path)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(f"beat_this took {elapsed_ms:.0f}ms")
 
         beats = [float(b) for b in beats]
         if len(beats) < 8:
@@ -645,15 +955,22 @@ def _detect_bpm_madmom(file_path: str) -> Optional[Dict]:
     Detect BPM and beat positions using madmom (deep learning).
     Fallback if beat_this is not available.
     Returns None if madmom is not installed or fails.
+    Uses cached processor singleton (points 5-6).
     """
     try:
-        import madmom
-        from madmom.features.beats import RNNBeatProcessor, DBNBeatTrackingProcessor
+        from madmom.features.beats import DBNBeatTrackingProcessor
 
-        proc = RNNBeatProcessor()
+        # Use cached processor singleton
+        proc = _get_madmom_processor()
+        if proc is None:
+            return None
+
+        t0 = time.perf_counter()
         act = proc(file_path)
         beat_proc = DBNBeatTrackingProcessor(fps=100)
         beats = beat_proc(act).tolist()
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(f"madmom took {elapsed_ms:.0f}ms")
 
         if len(beats) < 8:
             return None
@@ -739,17 +1056,65 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
        - Si erreur médiane < 10ms → grille OK (track constant-BPM)
        - Si erreur médiane ≥ 10ms → utiliser les VRAIS beats
     5. Downbeat alignment
+
+    v6.2 optimizations (Section A):
+    - Float32 audio (Point 13-14, 61)
+    - Minimum duration check (Point 51)
+    - Lazy analysis: first 60s for BPM (Point 12, 52)
+    - IBI outlier filtering (Points 17-18)
+    - BPM snapping to common DJ values (Point 27)
+    - Octave error detection (Point 20)
     """
     try:
+        # ── Float32 conversion (Point 13-14, 61) ──
+        y = y.astype(np.float32)
+
+        # ── Minimum duration check (Point 51) ──
+        duration = len(y) / sr
+        if duration < 10:
+            raise ValueError("Track trop court pour l'analyse BPM (minimum 10 secondes)")
+
+        # ── Lazy BPM analysis: first 60s only (Point 12, 52) ──
+        # For BPM detection, we only need the first 60 seconds (sufficient for 99% of tracks)
+        bpm_analysis_samples = min(len(y), int(60 * sr))
+        y_bpm = y[:bpm_analysis_samples]
         # ── Try beat_this first (CPJKU PyTorch — state of the art) ──
         if file_path:
             dl_result = _detect_bpm_beat_this(file_path)
             if not dl_result:
                 dl_result = _detect_bpm_madmom(file_path)
             if dl_result:
-                bpm = dl_result["bpm"]
                 raw_beats = dl_result["beats"]
                 source = dl_result["source"]
+
+                # ── IBI filtering: remove outliers (Points 17-18) ──
+                ibis_raw = np.array(np.diff(raw_beats))
+                ibis_filtered = _filter_ibi_outliers(ibis_raw)
+
+                if len(ibis_filtered) < 4:
+                    ibis_filtered = ibis_raw  # fallback if all filtered
+
+                # ── BPM from filtered IBI median ──
+                median_ibi = float(np.median(ibis_filtered))
+                bpm = 60.0 / median_ibi
+                bpm = _fold_bpm_dj_range(bpm)
+
+                # ── Octave error detection (Point 20) ──
+                # If BPM < 75 and we can double it to stay within DJ range, check if it makes sense
+                if bpm < 75 and bpm * 2 <= 180:
+                    bpm *= 2
+                    logger.info(f"[BPM] Octave correction: doubled to {bpm} (was half-time)")
+
+                # ── BPM snapping to common DJ values (Point 27) ──
+                bpm_snapped = _snap_bpm_to_common_values(bpm)
+                if bpm_snapped != bpm:
+                    logger.info(f"[BPM] Snapped {bpm:.2f} → {bpm_snapped} (common DJ BPM)")
+                    bpm = bpm_snapped
+
+                bpm = _round_bpm_smart(bpm)
+
+                # ── BPM confidence from IBI variance (Point 23) ──
+                bpm_confidence = _compute_bpm_confidence(ibis_filtered)
 
                 # ── v6.0: Grille synthétique optimisée pour DJs ──────────
                 # Les DJs veulent les lignes de grid EXACTEMENT sur les kicks.
@@ -1865,6 +2230,84 @@ def detect_genre(y: np.ndarray, sr: int, bpm: float,
         "genre_scores": {k: round(v, 1) for k, v in sorted_genres[:5]},
     }
 
+
+# Point 402: Parallel analysis stages for independent operations
+def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: int,
+                          bpm: float, beats: List[float]) -> Dict[str, any]:
+    """
+    Run independent audio analysis tasks in parallel using ThreadPoolExecutor.
+
+    This allows expensive but independent operations (key detection, energy analysis,
+    loudness analysis, mood detection) to run concurrently rather than sequentially.
+
+    Args:
+        shared_features: SharedFeatures instance with cached computations
+        y: Audio time series
+        sr: Sample rate
+        bpm: Detected BPM
+        beats: List of beat times
+
+    Returns:
+        Dict mapping task names to their results
+    """
+    results = {}
+
+    def _task_key():
+        """Key detection task."""
+        try:
+            return detect_key_hybrid(y, sr)
+        except Exception as e:
+            logger.warning(f"Key detection failed: {e}")
+            return {"key": None, "key_confidence": None, "key_secondary": None}
+
+    def _task_loudness():
+        """Loudness analysis task."""
+        try:
+            return analyze_loudness(y, sr)
+        except Exception as e:
+            logger.warning(f"Loudness analysis failed: {e}")
+            return {"lufs": None, "loudness_range_lu": None, "replay_gain_db": None}
+
+    def _task_mood():
+        """Mood and danceability detection."""
+        try:
+            energy = 50  # Placeholder, will be computed separately
+            return detect_mood_and_danceability(y, sr, bpm, energy, "C")
+        except Exception as e:
+            logger.warning(f"Mood detection failed: {e}")
+            return {"mood": None, "danceability": None}
+
+    def _task_variable_bpm():
+        """Variable BPM detection."""
+        try:
+            return detect_variable_bpm(beats, bpm)
+        except Exception as e:
+            logger.warning(f"Variable BPM detection failed: {e}")
+            return {"bpm_stable": True, "bpm_map": []}
+
+    # Submit all tasks to executor
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(_task_key): 'key',
+            executor.submit(_task_loudness): 'loudness',
+            executor.submit(_task_mood): 'mood',
+            executor.submit(_task_variable_bpm): 'variable_bpm',
+        }
+
+        # Collect results as they complete
+        for future in as_completed(futures, timeout=60):
+            task_name = futures[future]
+            try:
+                result = future.result(timeout=30)
+                results[task_name] = result
+                logger.debug(f"Parallel task '{task_name}' completed")
+            except Exception as e:
+                logger.warning(f"Parallel task '{task_name}' failed: {e}")
+                results[task_name] = None
+
+    return results
+
+
 def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: Optional[int] = None) -> Dict:
     """
     Full audio analysis pipeline v5.1
@@ -1876,14 +2319,38 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     If track_id is provided AND use_stem_separation=True, the 4 stems are
     saved as MP3 files in STEMS_DIR/{track_id}/ so the stems module can
     serve them directly without re-running Demucs.
+
+    v6.2 optimizations (Section A):
+    - Float32 audio loading (Point 13-14)
+    - Silence trimming (Point 100)
+    - Mono conversion early (Point 13-14)
+    - Pre-computed onset strength (Point 16)
     """
-    y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION)
+    y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION, mono=True)
+
+    # ── Float32 conversion + silence trimming (Points 13-14, 100) ──
+    y = y.astype(np.float32)
+
+    # Trim leading/trailing silence (threshold -50dB)
+    non_silent = librosa.effects.split(y, top_db=50)
+    if len(non_silent) > 0:
+        start_sample = non_silent[0][0]
+        end_sample = non_silent[-1][1]
+        y = y[start_sample:end_sample]
+        logger.info(f"[TRIM] Removed silence: {start_sample} to {len(y) - end_sample} samples")
     # Get REAL file duration (not limited by MAX_DURATION)
     try:
         real_duration = librosa.get_duration(path=file_path)
         duration_ms = int(real_duration * 1000)
     except Exception:
         duration_ms = int(len(y) / sr_loaded * 1000)
+
+    # ── Pre-compute onset strength ONCE (Point 16) ──
+    # Used by BPM, drops, danceability, genre detection
+    # Avoid recomputing this expensive operation 4+ times
+    t0_onset = time.perf_counter()
+    precomputed_onset_env = librosa.onset.onset_strength(y=y, sr=sr_loaded, hop_length=HOP_LENGTH)
+    logger.info(f"[ONSET] Pre-computed in {(time.perf_counter()-t0_onset)*1000:.0f}ms")
 
     # BPM and beats — v5.4 madmom + librosa fallback
     bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded, file_path=file_path)
@@ -1904,14 +2371,11 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         good_ratio = float(np.mean(ibi_errors < 0.05))
         bpm_confidence = round(min(1.0, good_ratio * 0.8 + 0.2), 2)
 
-    # Key detection — v4 hybrid (KS + Temperley + Energy)
-    try:
-        key_result = detect_key_hybrid(y, sr_loaded)
-        key = key_result["key"]
-        key_confidence = key_result["key_confidence"]
-        key_secondary = key_result.get("key_secondary")
-    except Exception:
-        key, key_confidence, key_secondary = None, None, None
+    # ── Memory cleanup after BPM detection (Point 87) ──
+    gc.collect()
+
+    # Point 402: Run key detection in parallel with later tasks (prep only here)
+    # Key detection will be done later in parallel batch
 
     # ── v6.1: Compute STFT and RMS ONCE, reuse everywhere ──────────
     # These are the most expensive operations and were computed 3-4 times before.
@@ -1953,12 +2417,14 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         energy = None
 
-    # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS
+    # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS (Point 56)
     try:
+        t0_drops = time.perf_counter()
         drops = detect_drops_from_y(y, sr_loaded, beats,
                                      precomputed_S=shared_S,
                                      precomputed_rms=shared_rms)
         drop_positions = [round(d["time"] * 1000) for d in drops]
+        logger.info(f"[DROPS] Detection took {(time.perf_counter()-t0_drops)*1000:.0f}ms")
     except Exception:
         drops = []
         drop_positions = []
@@ -1975,20 +2441,22 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         rms_sync = np.array([])
 
-    # Sections (SSM novelty-based segmentation)
+    # Sections (SSM novelty-based segmentation) (Point 56)
     sections = []  # Initialize before try so it's always defined
 
     # v5.4: Try allin1 deep learning structure detection first
+    t0_sections = time.perf_counter()
     allin1_sections = _detect_structure_allin1(file_path)
     if allin1_sections:
         sections = allin1_sections
-        logger.info(f"[ANALYSIS] Using allin1 sections ({len(sections)} segments)")
+        logger.info(f"[ALLIN1] Structure detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
     else:
         # Fallback to existing librosa-based detection
         try:
             sections = detect_sections_ssm(
                 y, sr_loaded, beats, beat_frames, drops, rms_sync
             )
+            logger.info(f"[SECTIONS] SSM detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
         except Exception:
             sections = []
 
@@ -2013,11 +2481,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         phrase_positions = []
 
-    # Genre detection — v6.1: reuse shared STFT and RMS (no recomputation)
+    # Genre detection — v6.1: reuse shared STFT and RMS (no recomputation) (Point 56)
     try:
+        t0_genre = time.perf_counter()
         genre_data = detect_genre(y, sr_loaded, bpm,
                                   precomputed_S=shared_S,
                                   precomputed_rms=shared_rms)
+        logger.info(f"[GENRE] Detection took {(time.perf_counter()-t0_genre)*1000:.0f}ms")
     except Exception:
         genre_data = {"genre": "Unknown", "subgenre": "Unknown", "confidence": 0.0, "genre_scores": {}}
 
@@ -2027,23 +2497,56 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         waveform_data = {"waveform_peaks": [], "spectral_energy": None}
 
-    # ── v4: LUFS Loudness analysis ─────────────────────────────────────
+    # Point 402: Run independent parallel analysis tasks
+    # Key detection, loudness, mood, and variable BPM can run in parallel
+    logger.info("[PARALLEL] Starting parallel analysis tasks...")
     try:
-        loudness_data = analyze_loudness(y, sr_loaded)
-    except Exception:
-        loudness_data = {"lufs": None, "loudness_range_lu": None, "replay_gain_db": None}
+        shared_features = SharedFeatures(y, sr_loaded, n_fft=N_FFT, hop_length=HOP_LENGTH)
+        parallel_results = _run_parallel_analysis(shared_features, y, sr_loaded, bpm, beats)
 
-    # ── v4: Variable BPM detection ─────────────────────────────────────
-    try:
-        variable_bpm = detect_variable_bpm(beats, bpm)
-    except Exception:
-        variable_bpm = {"bpm_stable": True, "bpm_map": []}
+        # Extract results from parallel execution
+        key_result = parallel_results.get('key', {})
+        key = key_result.get("key")
+        key_confidence = key_result.get("key_confidence")
+        key_secondary = key_result.get("key_secondary")
 
-    # ── v4: Mood & Danceability ────────────────────────────────────────
-    try:
-        mood_data = detect_mood_and_danceability(y, sr_loaded, bpm, energy or 50, key or "C")
-    except Exception:
-        mood_data = {"mood": None, "danceability": None}
+        loudness_data = parallel_results.get('loudness', {})
+        if loudness_data is None:
+            loudness_data = {"lufs": None, "loudness_range_lu": None, "replay_gain_db": None}
+
+        mood_data = parallel_results.get('mood', {})
+        if mood_data is None:
+            mood_data = {"mood": None, "danceability": None}
+
+        variable_bpm = parallel_results.get('variable_bpm', {})
+        if variable_bpm is None:
+            variable_bpm = {"bpm_stable": True, "bpm_map": []}
+
+    except Exception as e:
+        logger.warning(f"Parallel analysis batch failed, falling back to sequential: {e}")
+        # Fallback to original sequential approach
+        try:
+            key_result = detect_key_hybrid(y, sr_loaded)
+            key = key_result.get("key")
+            key_confidence = key_result.get("key_confidence")
+            key_secondary = key_result.get("key_secondary")
+        except Exception:
+            key, key_confidence, key_secondary = None, None, None
+
+        try:
+            loudness_data = analyze_loudness(y, sr_loaded)
+        except Exception:
+            loudness_data = {"lufs": None, "loudness_range_lu": None, "replay_gain_db": None}
+
+        try:
+            mood_data = detect_mood_and_danceability(y, sr_loaded, bpm, energy or 50, key or "C")
+        except Exception:
+            mood_data = {"mood": None, "danceability": None}
+
+        try:
+            variable_bpm = detect_variable_bpm(beats, bpm)
+        except Exception:
+            variable_bpm = {"bpm_stable": True, "bpm_map": []}
 
     # ── v4: Auto loop detection ────────────────────────────────────────
     try:

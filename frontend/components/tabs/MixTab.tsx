@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Track } from '@/types';
 import { toCamelot, getCompatibleKeys, isMixCompatible, getCompatibilityScore, getKeyColor } from '@/lib/constants';
 import { useLang } from '@/components/LangProvider';
@@ -172,7 +172,13 @@ export function MixTab({
           </div>
         ) : (
           <div className="px-2 pb-2 space-y-1">
-            {compatibleTracks.map(({ track: t, score, bpmDiff }) => (
+            {compatibleTracks.map(({ track: t, score, bpmDiff, energyDiff }) => {
+              // Energy match indicator (point 627)
+              const energyMatch = energyDiff ?? Math.abs((t.analysis?.energy || 0) - currentEnergy);
+              const energyColor = energyMatch < 0.1 ? 'text-green-400' : energyMatch < 0.2 ? 'text-yellow-400' : 'text-red-400';
+              const energyPercent = Math.round((1 - energyMatch) * 100);
+
+              return (
               <button
                 key={t.id}
                 onClick={() => onSelectTrack?.(t)}
@@ -190,6 +196,10 @@ export function MixTab({
                   </span>
                   <span className="text-[9px] text-[var(--text-muted)]">
                     ({bpmDiff > 0 ? (bpmDiff > 0 ? '+' : '') + bpmDiff.toFixed(1) : '=0'})
+                  </span>
+                  {/* Energy match indicator (point 627) */}
+                  <span className={`text-[9px] font-semibold ${energyColor}`}>
+                    ⚡ {energyPercent}%
                   </span>
                   <span className="ml-auto text-[10px] font-bold" style={{
                     color: score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : score >= 40 ? '#f97316' : '#ef4444'
@@ -210,11 +220,12 @@ export function MixTab({
                   />
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 }
-export default MixTab;
+export default React.memo(MixTab);

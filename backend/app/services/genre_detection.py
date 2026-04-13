@@ -523,3 +523,58 @@ def detect_genre_from_analysis(
             "all_scores": {name: round(score, 3) for name, score in ranked},
         },
     }
+
+
+# Point 493: Enhanced genre detection using metadata (Spotify/Discogs)
+def detect_genre_with_metadata(audio_features: Dict, spotify_genre: Optional[str] = None,
+                               discogs_genre: Optional[str] = None) -> Dict:
+    """
+    Enhanced genre detection combining audio analysis with metadata from external services.
+
+    When audio analysis is ambiguous (confidence < 0.7), metadata sources provide
+    stronger signals. Spotify genres are more reliable for identifying mainstream
+    electronic music, while Discogs genres are better for niche/underground styles.
+
+    Args:
+        audio_features: Output dict from detect_genre() with 'best_guess' and 'confidence'
+        spotify_genre: Genre from Spotify API, if available
+        discogs_genre: Genre from Discogs API, if available
+
+    Returns:
+        Enhanced genre dict with original audio analysis + metadata adjustment
+    """
+    audio_genre = audio_features.get('best_guess', 'Unknown')
+    audio_confidence = audio_features.get('confidence', 0.5)
+
+    # If audio analysis is confident, trust it
+    if audio_confidence >= 0.7:
+        logger.debug(f"Audio confidence {audio_confidence:.2f} >= 0.7, using audio genre: {audio_genre}")
+        return audio_features
+
+    # If audio is uncertain, favor metadata sources
+    if spotify_genre and spotify_genre != 'Unknown':
+        # Spotify genres tend to be more accurate for mainstream electronic music
+        logger.info(f"Audio uncertain ({audio_confidence:.2f}), using Spotify genre: {spotify_genre}")
+        return {
+            **audio_features,
+            'best_guess': spotify_genre,
+            'confidence': min(0.95, max(audio_confidence, 0.65)),  # Boost confidence but not to max
+            'source': 'spotify_metadata',
+        }
+
+    if discogs_genre and discogs_genre != 'Unknown':
+        # Discogs genres are more detailed/niche
+        logger.info(f"Audio uncertain ({audio_confidence:.2f}), using Discogs genre: {discogs_genre}")
+        return {
+            **audio_features,
+            'best_guess': discogs_genre,
+            'confidence': min(0.90, max(audio_confidence, 0.60)),
+            'source': 'discogs_metadata',
+        }
+
+    # No metadata available, return audio analysis as-is
+    logger.debug(f"No metadata available, returning audio analysis (confidence={audio_confidence:.2f})")
+    return {
+        **audio_features,
+        'source': 'audio_analysis_only',
+    }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Track } from '@/types';
 import { Lock, Unlock, RotateCcw, Music2 } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
@@ -17,6 +17,7 @@ interface BeatgridTabProps {
   beatgrid?: Beatgrid;
   onUpdateBeatgrid?: (beatgrid: Beatgrid) => void;
   onTapTempo?: (bpm: number) => void;
+  currentTime?: number; // Current playback time in seconds for live counter
 }
 
 const formatDuration = (ms: number): string => {
@@ -31,12 +32,23 @@ export function BeatgridTab({
   beatgrid = { bpm: null, downbeat_ms: 0, locked: false },
   onUpdateBeatgrid,
   onTapTempo,
+  currentTime = 0,
 }: BeatgridTabProps) {
   const { lang } = useLang();
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const [calculatedBpm, setCalculatedBpm] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState(beatgrid?.locked || false);
   const [downbeatOffset, setDownbeatOffset] = useState(beatgrid?.downbeat_ms || 0);
+
+  // Live bar:beat counter during playback (point 594)
+  const currentBarBeat = useMemo(() => {
+    if (!currentTime || !beatgrid?.bpm || beatgrid.bpm <= 0) return null;
+    const beatLengthSec = 60 / beatgrid.bpm;
+    const beatNumber = Math.floor(currentTime / beatLengthSec);
+    const bar = Math.floor(beatNumber / 4) + 1;
+    const beat = (beatNumber % 4) + 1;
+    return `${bar}:${beat}`;
+  }, [currentTime, beatgrid?.bpm]);
 
   if (!track) {
     return (
@@ -148,6 +160,12 @@ export function BeatgridTab({
             <div className="text-3xl font-bold text-[var(--text-primary)] font-mono">
               {beatgrid?.bpm?.toFixed(1) || '—'}
             </div>
+            {/* Live bar:beat counter (point 594) */}
+            {currentBarBeat && (
+              <div className="text-sm font-mono text-blue-400 mt-1">
+                Bar {currentBarBeat}
+              </div>
+            )}
           </div>
           <button
             onClick={handleLockToggle}
@@ -427,4 +445,4 @@ export function BeatgridTab({
     </div>
   );
 }
-export default BeatgridTab;
+export default React.memo(BeatgridTab);

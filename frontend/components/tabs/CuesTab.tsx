@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
@@ -29,6 +29,7 @@ interface CuesTabProps {
   onCueClick?: (cue: CuePoint) => void;
   onPreviewCue?: (cue: CuePoint) => void;
   initialPositionMs?: number | null;
+  playerRef?: React.MutableRefObject<{ seekTo?: (ms: number) => void; play?: () => void; pause?: () => void } | null>;
 }
 
 export function CuesTab({
@@ -39,6 +40,7 @@ export function CuesTab({
   onCueClick,
   onPreviewCue,
   initialPositionMs,
+  playerRef,
 }: CuesTabProps) {
   const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
@@ -62,6 +64,36 @@ export function CuesTab({
   useEffect(() => {
     setLocalOrder(cuePoints.map((_, i) => i));
   }, [cuePoints.length]);
+
+  // Keyboard shortcuts: 1-8 to jump to cues (point 250)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return; // Skip if typing in input
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 8) {
+        const cue = cues[num - 1];
+        if (cue && onCueClick) {
+          onCueClick(cue);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cues, onCueClick]);
+
+  // Cue preview on hover (point 246): play 2s of audio when hovering a cue
+  const handleCuePreview = useCallback((positionMs: number) => {
+    if (playerRef?.current) {
+      const player = playerRef.current;
+      if (player.seekTo && player.play) {
+        player.seekTo(positionMs / 1000); // Convert ms to seconds
+        player.play();
+        setTimeout(() => {
+          if (player.pause) player.pause();
+        }, 2000); // 2 second preview
+      }
+    }
+  }, [playerRef]);
 
   // Calculate max position for timeline scaling
   const trackDurationMs = track?.analysis?.duration_ms ?? (track as any)?.duration_ms ?? 0;
@@ -171,7 +203,10 @@ export function CuesTab({
                   className="absolute top-0 bottom-0 cursor-pointer transition-opacity"
                   style={{ left: `${pct}%`, width: 2, background: color, opacity: isHovered ? 1 : 0.7 }}
                   onClick={() => onCueClick?.(cue)}
-                  onMouseEnter={() => setHoveredCue(cue.id)}
+                  onMouseEnter={() => {
+                    setHoveredCue(cue.id);
+                    handleCuePreview(cue.position_ms ?? cue.time_ms ?? 0);
+                  }}
                   onMouseLeave={() => setHoveredCue(null)}
                 >
                   {/* Triangle marker */}
@@ -474,4 +509,4 @@ export function CuesTab({
   );
 }
 
-export default CuesTab;
+export default React.memo(CuesTab);

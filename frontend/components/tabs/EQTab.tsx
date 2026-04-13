@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 
@@ -181,4 +181,4 @@ export function EQTab({ playerRef }: EQTabProps) {
     </div>
   );
 }
-export default EQTab;
+export default React.memo(EQTab);

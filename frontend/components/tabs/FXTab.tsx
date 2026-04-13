@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
@@ -119,4 +119,4 @@ export function FXTab({ track, fxParams = {}, onFxChange, onResetAll }: FXTabPro
     </div>
   );
 }
-export default FXTab;
+export default React.memo(FXTab);

@@ -21,6 +21,7 @@ import os
 import logging
 import tempfile
 import traceback
+import threading
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -32,6 +33,10 @@ logger = logging.getLogger(__name__)
 
 SR = 22050
 HOP_LENGTH = 512
+
+# ── Model caching singleton (point 256) ──────────────────────────────────
+_demucs_model = None
+_demucs_lock = threading.Lock()
 
 # ── Config tunables for Railway (small containers) ──────────────────────
 MAX_DURATION_SEC = 300      # 5 min max (was 10 — Railway OOM)
@@ -63,22 +68,104 @@ def _check_available_memory_mb() -> float:
     return 9999.0
 
 
+def _get_demucs_model():
+    """
+    Get or create a singleton Demucs model instance.
+    Model is loaded once and reused across multiple separation calls.
+    Thread-safe via double-check locking pattern.
+    """
+    global _demucs_model
+    if _demucs_model is None:
+        with _demucs_lock:
+            if _demucs_model is None:
+                import demucs.pretrained
+                logger.info("[STEM] Loading Demucs mdx_extra_q model (singleton)...")
+                _demucs_model = demucs.pretrained.get_model('mdx_extra_q')
+                _demucs_model.eval()
+                logger.info("[STEM] Model loaded and cached in memory")
+    return _demucs_model
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #   DEMUCS STEM SEPARATION
 # ══════════════════════════════════════════════════════════════════════════
+
+def _normalize_stem(audio: np.ndarray, target_db: float = -14.0) -> np.ndarray:
+    """
+    Normalize stem to consistent loudness (point 274).
+
+    Args:
+        audio: Audio waveform to normalize
+        target_db: Target RMS level in dB (default -14.0 dB)
+
+    Returns:
+        Normalized audio clipped to [-1.0, 1.0]
+    """
+    rms = np.sqrt(np.mean(audio ** 2))
+    if rms > 0:
+        current_db = 20 * np.log10(rms)
+        gain = 10 ** ((target_db - current_db) / 20)
+        gain = min(gain, 10.0)  # Safety limit: max 20dB boost
+        audio = audio * gain
+    return np.clip(audio, -1.0, 1.0)
+
+
+def _trim_stem_silence(audio: np.ndarray, threshold_db: float = -50) -> np.ndarray:
+    """
+    Trim leading/trailing silence from a stem (point 282).
+
+    Args:
+        audio: Audio waveform to trim
+        threshold_db: Threshold below which samples are considered silent
+
+    Returns:
+        Trimmed audio, or original if all silent
+    """
+    threshold = 10 ** (threshold_db / 20)
+    abs_audio = np.abs(audio)
+    non_silent = np.where(abs_audio > threshold)[0]
+    if len(non_silent) == 0:
+        return audio  # All silent, return as-is
+    return audio[non_silent[0]:non_silent[-1] + 1]
+
+
+def _apply_micro_fade(audio: np.ndarray, fade_samples: int = 220) -> np.ndarray:
+    """
+    Apply micro-fade to stem start/end to avoid clicks (point 281).
+    Approximately 5ms at 44100Hz sample rate.
+
+    Args:
+        audio: Audio waveform to apply fade to
+        fade_samples: Number of samples for fade (default 220 ≈ 5ms at 44100Hz)
+
+    Returns:
+        Audio with micro-fades applied
+    """
+    if len(audio) < fade_samples * 2:
+        return audio
+
+    audio = audio.copy()  # Don't modify in-place
+    fade_in = np.linspace(0, 1, fade_samples, dtype=np.float32)
+    fade_out = np.linspace(1, 0, fade_samples, dtype=np.float32)
+    audio[:fade_samples] *= fade_in
+    audio[-fade_samples:] *= fade_out
+    return audio
+
 
 def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     """
     Inner function that runs the actual Demucs separation.
     Extracted so it can be called with a timeout wrapper.
+
+    Uses model caching singleton (point 256) and FP16 inference (point 262)
+    for memory optimization.
     """
     import torch
     import torchaudio
-    from demucs.pretrained import get_model
     from demucs.apply import apply_model
 
-    model = get_model("mdx_extra_q")
-    model.eval()
+    # Use singleton model instead of reloading (point 256)
+    model = _get_demucs_model()
 
     wav, sr_orig = torchaudio.load(file_path)
 
@@ -102,23 +189,45 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
 
     wav = wav.unsqueeze(0)
 
+    # FP16 inference for memory savings (point 262)
     with torch.no_grad():
-        sources = apply_model(
-            model, wav, device="cpu",
-            progress=False,
-            split=True,
-            segment=30,
-            overlap=0.25,
-        )
+        try:
+            # Try FP16 for reduced RAM usage
+            logger.info("[STEM] Attempting FP16 inference for memory savings...")
+            sources = apply_model(
+                model, wav.half(), device="cpu",
+                progress=False,
+                split=True,
+                segment=30,
+                overlap=0.25,
+            )
+            sources = sources.float()  # Convert back to FP32
+            logger.info("[STEM] FP16 inference successful")
+        except Exception as e:
+            logger.warning(f"[STEM] FP16 failed ({e}), falling back to FP32")
+            sources = apply_model(
+                model, wav, device="cpu",
+                progress=False,
+                split=True,
+                segment=30,
+                overlap=0.25,
+            )
 
     stem_names = model.sources
     stems = {}
     for i, name in enumerate(stem_names):
         stem_stereo = sources[0, i].numpy()
         stem_mono = np.mean(stem_stereo, axis=0)
-        stems[name] = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
+        stem_mono_resampled = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
 
-    del sources, wav, model
+        # Apply post-processing optimizations
+        stem_mono_resampled = _trim_stem_silence(stem_mono_resampled)  # point 282
+        stem_mono_resampled = _normalize_stem(stem_mono_resampled)     # point 274
+        stem_mono_resampled = _apply_micro_fade(stem_mono_resampled)   # point 281
+
+        stems[name] = stem_mono_resampled
+
+    del sources, wav
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     gc.collect()
 
@@ -130,11 +239,15 @@ def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
     Separate audio into 4 stems using Demucs htdemucs model.
     Returns dict of {stem_name: mono_numpy_array} at 22050 Hz.
 
-    v5.1 safety:
+    v5.2 optimizations:
+    - Model caching singleton (point 256) — loads once, reuses across calls
+    - FP16 inference (point 262) — memory savings during separation
+    - Stem normalization (point 274) — consistent loudness
+    - Silence trimming (point 282) — clean artifact removal
+    - Micro-fades (point 281) — prevent clicks
+    - RAM monitoring (point 269) — check before and during
     - Duration check before loading Demucs (max 600s)
-    - RAM check before loading Demucs
     - Thread-safe timeout (no signal.alarm — works in BackgroundTasks)
-    - Max 5 min audio
     - Segment-based processing (split=True, segment=30s)
     """
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
@@ -148,7 +261,7 @@ def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
             f"Audio duration {duration_sec:.1f}s exceeds max {MAX_DURATION_SEC}s"
         )
 
-    # ── Pre-flight: check RAM ───────────────────────────────────────────
+    # ── Pre-flight: check RAM (point 269) ───────────────────────────────
     free_mb = _check_available_memory_mb()
     logger.info(f"[STEM] Available RAM: {free_mb:.0f} MB (need {MIN_FREE_RAM_MB} MB)")
     if free_mb < MIN_FREE_RAM_MB:
@@ -181,6 +294,90 @@ def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
 # ══════════════════════════════════════════════════════════════════════════
 #   PER-STEM FEATURE EXTRACTION
 # ══════════════════════════════════════════════════════════════════════════
+
+def _analyze_drum_pattern(drum_audio: np.ndarray, sr: int = SR, bpm: float = 128.0) -> str:
+    """
+    Classify drum pattern type based on onset density (point 294).
+
+    Returns one of: "breakbeat", "four_on_the_floor", "half_time", "minimal"
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=drum_audio, sr=sr)
+        beat_length = sr * 60 / bpm
+        n_beats = len(drum_audio) / beat_length
+        n_onsets = len(librosa.onset.onset_detect(y=drum_audio, sr=sr))
+        onsets_per_beat = n_onsets / max(n_beats, 1)
+
+        if onsets_per_beat > 3.0:
+            return "breakbeat"
+        elif onsets_per_beat > 2.0:
+            return "four_on_the_floor"  # Standard EDM
+        elif onsets_per_beat > 1.0:
+            return "half_time"
+        else:
+            return "minimal"
+    except Exception as e:
+        logger.debug(f"[STEM] Drum pattern analysis failed: {e}")
+        return "unknown"
+
+
+def _analyze_bass_range(bass_audio: np.ndarray, sr: int = SR) -> Dict:
+    """
+    Analyze bass frequency characteristics (point 299).
+
+    Returns dict with:
+    - type: "sub_bass" | "deep_bass" | "mid_bass" | "upper_bass" | "silent"
+    - fundamental_hz: dominant frequency in Hz
+    """
+    try:
+        S = np.abs(librosa.stft(bass_audio))
+        freqs = librosa.fft_frequencies(sr=sr)
+
+        mean_spectrum = np.mean(S, axis=1)
+        if np.sum(mean_spectrum) == 0:
+            return {"type": "silent", "fundamental_hz": 0}
+
+        weighted_freq = np.average(freqs, weights=mean_spectrum)
+
+        if weighted_freq < 60:
+            bass_type = "sub_bass"
+        elif weighted_freq < 120:
+            bass_type = "deep_bass"
+        elif weighted_freq < 200:
+            bass_type = "mid_bass"
+        else:
+            bass_type = "upper_bass"
+
+        return {
+            "type": bass_type,
+            "fundamental_hz": round(float(weighted_freq), 1)
+        }
+    except Exception as e:
+        logger.debug(f"[STEM] Bass range analysis failed: {e}")
+        return {"type": "unknown", "fundamental_hz": 0}
+
+
+def _improved_vocal_detection(vocal_audio: np.ndarray, sr: int = SR) -> float:
+    """
+    Improved vocal detection with adaptive threshold (point 166).
+
+    Returns vocal percentage (0-100) of the track.
+    """
+    try:
+        rms = librosa.feature.rms(y=vocal_audio, frame_length=2048, hop_length=512)[0]
+
+        # Adaptive threshold: mean + 0.5*std (catches more vocals than fixed threshold)
+        threshold = np.mean(rms) + 0.5 * np.std(rms)
+        threshold = max(threshold, np.max(rms) * 0.1)  # At least 10% of peak
+
+        vocal_frames = rms > threshold
+        vocal_pct = float(np.mean(vocal_frames) * 100)
+
+        return vocal_pct
+    except Exception as e:
+        logger.debug(f"[STEM] Improved vocal detection failed: {e}")
+        return 0.0
+
 
 def analyze_drum_stem(drums: np.ndarray, sr: int = SR, beats: List[float] = None) -> Dict:
     """
@@ -278,6 +475,9 @@ def analyze_drum_stem(drums: np.ndarray, sr: int = SR, beats: List[float] = None
     drum_drop_times = librosa.frames_to_time(peaks, sr=sr, hop_length=hop)
     drum_drop_candidates = [int(t * 1000) for t in drum_drop_times]
 
+    # Drum pattern analysis (point 294)
+    drum_pattern = _analyze_drum_pattern(drums, sr)
+
     gc.collect()
 
     return {
@@ -289,6 +489,7 @@ def analyze_drum_stem(drums: np.ndarray, sr: int = SR, beats: List[float] = None
         "drum_drop_candidates": drum_drop_candidates,
         "drum_enter_ms": drum_enter_ms,
         "drum_exit_ms": drum_exit_ms,
+        "drum_pattern": drum_pattern,
     }
 
 
@@ -342,6 +543,9 @@ def analyze_bass_stem(bass: np.ndarray, sr: int = SR) -> Dict:
             bass_exit_ms = int(librosa.frames_to_time(i, sr=sr, hop_length=hop) * 1000)
             break
 
+    # Bass frequency range analysis (point 299)
+    bass_range = _analyze_bass_range(bass, sr)
+
     gc.collect()
 
     return {
@@ -349,6 +553,7 @@ def analyze_bass_stem(bass: np.ndarray, sr: int = SR) -> Dict:
         "bass_drop_candidates": bass_drop_candidates,
         "bass_enter_ms": bass_enter_ms,
         "bass_exit_ms": bass_exit_ms,
+        "bass_frequency_range": bass_range,
     }
 
 
@@ -357,6 +562,8 @@ def analyze_vocal_stem(vocals: np.ndarray, sr: int = SR) -> Dict:
     Extract vocal-specific features.
     This is THE game-changer — knowing exactly where vocals are
     allows for far better section labeling and cue placement.
+
+    Uses improved vocal detection (point 166) with adaptive thresholding.
 
     Returns:
     - vocal_energy_curve: vocal RMS over time
@@ -373,9 +580,13 @@ def analyze_vocal_stem(vocals: np.ndarray, sr: int = SR) -> Dict:
     smooth_size = int(1.0 * sr / hop)
     smoothed = uniform_filter1d(rms_norm, size=max(1, smooth_size))
 
-    # Adaptive threshold: vocals are "active" when energy > 15% of peak
-    # Use a higher threshold for cleaner detection
-    threshold = max(0.12, float(np.percentile(smoothed[smoothed > 0.01], 30)) if np.any(smoothed > 0.01) else 0.12)
+    # Improved adaptive threshold (point 166): mean + 0.5*std
+    rms_nonzero = rms_norm[rms_norm > 0.01]
+    if len(rms_nonzero) > 0:
+        threshold = np.mean(rms_nonzero) + 0.5 * np.std(rms_nonzero)
+        threshold = max(threshold, np.max(rms_norm) * 0.1)
+    else:
+        threshold = 0.12
 
     # Find active regions
     is_active = smoothed > threshold
@@ -564,23 +775,90 @@ def _save_stems_to_disk(stems: Dict[str, np.ndarray], track_id: int) -> bool:
     return success
 
 
+def _check_reconstruction_quality(
+    original: np.ndarray, stems_dict: Dict[str, np.ndarray], sr: int = SR
+) -> Dict:
+    """
+    Check reconstruction error of stem separation (point 341).
+    Verifies that stems sum back to approximately the original audio.
+
+    Args:
+        original: Original audio waveform
+        stems_dict: Dict of {stem_name: waveform} from separation
+        sr: Sample rate
+
+    Returns dict with:
+    - reconstruction_snr_db: Signal-to-noise ratio in dB
+    - quality: "good" | "acceptable" | "poor"
+    """
+    try:
+        reconstructed = sum(stems_dict.values())
+        min_len = min(len(original), len(reconstructed))
+        error = np.mean((original[:min_len] - reconstructed[:min_len]) ** 2)
+        snr = -10 * np.log10(error + 1e-10)
+
+        if snr > 20:
+            quality = "good"
+        elif snr > 10:
+            quality = "acceptable"
+        else:
+            quality = "poor"
+
+        return {
+            "reconstruction_snr_db": round(float(snr), 1),
+            "quality": quality
+        }
+    except Exception as e:
+        logger.debug(f"[STEM] Reconstruction quality check failed: {e}")
+        return {
+            "reconstruction_snr_db": 0.0,
+            "quality": "unknown"
+        }
+
+
 def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[int] = None) -> Dict:
     """
     Full stem analysis pipeline:
-    1. Separate with Demucs
+    1. Separate with Demucs (with model caching, FP16, normalization)
     2. Analyze each stem independently
-    3. Cross-stem analysis (drums+bass alignment = drop confidence)
-    4. Optionally save stems to disk (if track_id provided) — avoids re-running Demucs
-    5. Return enriched data dict
+    3. Cross-stem analysis (drums+bass alignment + vocal awareness = drop confidence)
+    4. Check reconstruction quality (point 341)
+    5. Optionally save stems to disk (if track_id provided) — avoids re-running Demucs
+    6. Return enriched data dict
 
     This data is merged into the main analysis_data before cue generation.
     If track_id is provided, stems are saved as MP3 in STEMS_DIR/{track_id}/
     so the stems module can serve them directly without re-analysis.
+
+    Optimizations applied:
+    - Model caching singleton (point 256)
+    - FP16 inference (point 262)
+    - Stem normalization (point 274)
+    - Silence trimming (point 282)
+    - Micro-fades (point 281)
+    - Drum pattern recognition (point 294)
+    - Bass frequency analysis (point 299)
+    - Enhanced cross-validation (point 306)
+    - Reconstruction quality check (point 341)
     """
     logger.info(f"[STEM] Full stem analysis pipeline starting for {file_path}")
 
     # Step 1: Separate
     stems = separate_stems(file_path)
+    original_audio = None
+    reconstruction_quality = None
+
+    # Save original for reconstruction check if possible
+    try:
+        import torchaudio
+        original_audio, orig_sr = torchaudio.load(file_path)
+        original_audio = original_audio.numpy()
+        if original_audio.ndim > 1:
+            original_audio = np.mean(original_audio, axis=0)
+        if orig_sr != SR:
+            original_audio = librosa.resample(original_audio, orig_sr=orig_sr, target_sr=SR)
+    except Exception as e:
+        logger.debug(f"[STEM] Could not load original for reconstruction check: {e}")
 
     # Step 2: Per-stem analysis
     drum_data = analyze_drum_stem(stems.get("drums", np.zeros(1000)), SR, beats)
@@ -588,21 +866,29 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
     vocal_data = analyze_vocal_stem(stems.get("vocals", np.zeros(1000)), SR)
     melody_data = analyze_melody_stem(stems.get("other", np.zeros(1000)), SR)
 
-    # Step 3: Cross-stem drop validation
-    # A "true drop" is where BOTH drums and bass enter simultaneously
-    # This eliminates false positives from the mix-based drop detection
-    validated_drops = _cross_validate_drops(
+    # Step 3: Enhanced cross-stem drop validation (point 306)
+    # Use vocal regions to improve drop detection confidence
+    vocal_regions = vocal_data.get("vocal_active_regions", [])
+    validated_drops = _enhanced_cross_validate_drops(
         drum_data["drum_drop_candidates"],
         bass_data["bass_drop_candidates"],
+        vocal_regions=vocal_regions,
+        tolerance_ms=4000,
     )
 
-    # Step 4: Compute stem-based intro/outro
+    # Step 4: Check reconstruction quality (point 341)
+    if original_audio is not None:
+        reconstruction_quality = _check_reconstruction_quality(original_audio, stems)
+        logger.info(f"[STEM] Reconstruction SNR: {reconstruction_quality['reconstruction_snr_db']} dB "
+                   f"({reconstruction_quality['quality']})")
+
+    # Step 5: Compute stem-based intro/outro
     # Intro ends when drums first appear
     # Outro starts when drums permanently exit
     stem_intro_end_ms = drum_data["drum_enter_ms"]
     stem_outro_start_ms = drum_data["drum_exit_ms"]
 
-    # Step 5: Save stems to disk (avoids re-running Demucs if user opens stems module)
+    # Step 6: Save stems to disk (avoids re-running Demucs if user opens stems module)
     stems_saved = False
     if track_id is not None:
         try:
@@ -611,23 +897,20 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
             logger.warning(f"[STEM] Disk save failed (non-critical): {e}")
 
     # Cleanup
-    del stems
+    del stems, original_audio
     gc.collect()
 
-    logger.info(f"[STEM] Analysis complete: {len(validated_drops)} validated drops, "
-                f"vocal {vocal_data['vocal_percentage']}%, "
-                f"{len(melody_data['riser_candidates'])} risers, "
-                f"stems_saved={stems_saved}")
-
-    return {
+    result = {
         # Drum features
         "drum_drop_candidates": drum_data["drum_drop_candidates"],
         "drum_enter_ms": drum_data["drum_enter_ms"],
         "drum_exit_ms": drum_data["drum_exit_ms"],
+        "drum_pattern": drum_data.get("drum_pattern", "unknown"),
         # Bass features
         "bass_drop_candidates": bass_data["bass_drop_candidates"],
         "bass_enter_ms": bass_data["bass_enter_ms"],
         "bass_exit_ms": bass_data["bass_exit_ms"],
+        "bass_frequency_range": bass_data.get("bass_frequency_range", {}),
         # Vocal features
         "vocal_active_regions": vocal_data["vocal_active_regions"],
         "vocal_percentage": vocal_data["vocal_percentage"],
@@ -638,25 +921,48 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
         "stem_validated_drops": validated_drops,
         "stem_intro_end_ms": stem_intro_end_ms,
         "stem_outro_start_ms": stem_outro_start_ms,
-        # Flags
+        # Quality metrics
         "stem_analysis": True,
         "stems_saved_to_disk": stems_saved,
     }
 
+    # Add reconstruction quality if available
+    if reconstruction_quality is not None:
+        result["reconstruction_quality"] = reconstruction_quality
 
-def _cross_validate_drops(
+    logger.info(f"[STEM] Analysis complete: {len(validated_drops)} validated drops, "
+                f"vocal {vocal_data['vocal_percentage']}%, "
+                f"drum pattern {drum_data.get('drum_pattern', 'unknown')}, "
+                f"bass {bass_data.get('bass_frequency_range', {}).get('type', 'unknown')}, "
+                f"{len(melody_data['riser_candidates'])} risers, "
+                f"stems_saved={stems_saved}")
+
+    return result
+
+
+def _enhanced_cross_validate_drops(
     drum_drops: List[int],
     bass_drops: List[int],
+    vocal_regions: List[Dict] = None,
     tolerance_ms: int = 4000,
 ) -> List[Dict]:
     """
-    Cross-validate drop candidates between drum and bass stems.
-    A validated drop is where both drums and bass enter within tolerance.
+    Enhanced drop validation using all stems (point 306).
+    A validated drop is where drums+bass align, and vocals are usually absent.
 
-    Returns list of {position_ms, confidence, type}
-    - confidence 1.0 = drums + bass aligned perfectly
+    Args:
+        drum_drops: List of drum drop positions in ms
+        bass_drops: List of bass drop positions in ms
+        vocal_regions: List of {start_ms, end_ms} vocal regions
+        tolerance_ms: Max time difference to consider aligned
+
+    Returns list of {position_ms, confidence, type, vocal_clear}
+    - confidence up to 1.0 = drums + bass + no vocals
     - confidence 0.7 = only drums or only bass
     """
+    if vocal_regions is None:
+        vocal_regions = []
+
     validated = []
 
     # Find drum+bass alignments
@@ -673,30 +979,73 @@ def _cross_validate_drops(
         if best_match is not None and best_dist <= tolerance_ms:
             # Both drums and bass — high confidence
             avg_pos = (d_ms + bass_drops[best_match]) // 2
-            conf = 1.0 - (best_dist / tolerance_ms) * 0.3  # 0.7–1.0
+            confidence = 1.0 - (best_dist / tolerance_ms) * 0.3  # 0.7–1.0
+
+            # Check vocal absence (point 306)
+            vocal_absent = not any(
+                r["start_ms"] <= avg_pos <= r["end_ms"]
+                for r in vocal_regions
+            )
+            if vocal_absent:
+                confidence += 0.10
+                confidence = min(1.0, confidence)
+
             validated.append({
                 "position_ms": avg_pos,
-                "confidence": round(conf, 2),
+                "confidence": round(confidence, 2),
                 "type": "drums+bass",
+                "vocal_clear": vocal_absent,
             })
             used_bass.add(best_match)
         else:
             # Drums only — moderate confidence
+            vocal_absent = not any(
+                r["start_ms"] <= d_ms <= r["end_ms"]
+                for r in vocal_regions
+            )
+            confidence = 0.65
+            if vocal_absent:
+                confidence += 0.05
+
             validated.append({
                 "position_ms": d_ms,
-                "confidence": 0.65,
+                "confidence": round(confidence, 2),
                 "type": "drums_only",
+                "vocal_clear": vocal_absent,
             })
 
     # Remaining bass-only drops
     for i, b_ms in enumerate(bass_drops):
         if i not in used_bass:
+            vocal_absent = not any(
+                r["start_ms"] <= b_ms <= r["end_ms"]
+                for r in vocal_regions
+            )
+            confidence = 0.55
+            if vocal_absent:
+                confidence += 0.05
+
             validated.append({
                 "position_ms": b_ms,
-                "confidence": 0.55,
+                "confidence": round(confidence, 2),
                 "type": "bass_only",
+                "vocal_clear": vocal_absent,
             })
 
     # Sort by position
     validated.sort(key=lambda x: x["position_ms"])
     return validated
+
+
+def _cross_validate_drops(
+    drum_drops: List[int],
+    bass_drops: List[int],
+    tolerance_ms: int = 4000,
+) -> List[Dict]:
+    """
+    Legacy wrapper for backward compatibility.
+    Calls enhanced version without vocal data.
+    """
+    return _enhanced_cross_validate_drops(
+        drum_drops, bass_drops, vocal_regions=None, tolerance_ms=tolerance_ms
+    )

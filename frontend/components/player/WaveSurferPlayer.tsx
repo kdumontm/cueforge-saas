@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Volume2, VolumeX, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { getToken } from '@/lib/api';
 
@@ -373,6 +373,7 @@ export default function WaveSurferPlayer({
 
   // Animation
   const rafRef = useRef<number>(0);
+  const lastRenderedPositionRef = useRef(0);
 
   // Zoom: internal visible seconds state (driven by prop + scroll)
   const ZOOM_SEC_MAP: Record<string, number> = { '0.5': 60, '1': 30, '2': 15, '4': 8 };
@@ -454,6 +455,13 @@ export default function WaveSurferPlayer({
       time = audio.currentTime;
       currentTimeRef.current = time;
     }
+
+    // RAF optimization: skip rendering if playhead position hasn't moved significantly (< 1ms)
+    if (Math.abs(time - lastRenderedPositionRef.current) < 0.001) {
+      rafRef.current = requestAnimationFrame(renderFrame);
+      return;
+    }
+    lastRenderedPositionRef.current = time;
     const progress = dur > 0 ? time / dur : 0;
     const numBars = strip.width;
 
@@ -1130,6 +1138,47 @@ export default function WaveSurferPlayer({
     loadAudio(trackId, audioRef.current);
   }, [trackId, loadAudio]);
 
+  // Global keyboard shortcuts for player control (point 692)
+  // Space = play/pause, Left/Right arrow = seek ±5s, Up/Down arrow = volume ±5%
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const audio = audioRef.current;
+      if (!audio || !isReady) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (audio.paused) {
+          audio.play().catch(() => {});
+        } else {
+          audio.pause();
+        }
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        audio.currentTime = Math.max(0, audio.currentTime - 5);
+        currentTimeRef.current = audio.currentTime;
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        audio.currentTime = Math.min(durationRef.current, audio.currentTime + 5);
+        currentTimeRef.current = audio.currentTime;
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        const newVol = Math.min(1, volumeRef.current + 0.05);
+        setVolumeState(newVol);
+        volumeRef.current = newVol;
+        audio.volume = newVol;
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        const newVol = Math.max(0, volumeRef.current - 0.05);
+        setVolumeState(newVol);
+        volumeRef.current = newVol;
+        audio.volume = newVol;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReady]);
+
   // ── Drag-to-scrub state ──
   const isDraggingOverview = useRef(false);
   const isDraggingDetail = useRef(false);
@@ -1423,3 +1472,5 @@ export default function WaveSurferPlayer({
     </div>
   );
 }
+
+export default React.memo(WaveSurferPlayer);

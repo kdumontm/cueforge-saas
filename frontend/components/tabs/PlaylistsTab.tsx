@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 import { useState } from 'react';
 import { Plus, Trash2, GripVertical, Music } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
@@ -211,4 +213,4 @@ export function PlaylistsTab({
   );
 }
 
-export default PlaylistsTab;
+export default React.memo(PlaylistsTab);

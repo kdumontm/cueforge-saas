@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect, useCallback } from 'react';
 import { Download, Loader2, AlertCircle, Scissors } from 'lucide-react';
 import { Track } from '@/types';
 import { useLang } from '@/components/LangProvider';
@@ -20,6 +21,7 @@ interface StemsTabProps {
   mutedStems?: Set<string>;
   onToggleMute?: (key: string) => void;
   onRequestStems?: () => void;
+  onSetStemVolume?: (key: string, volume: number) => void; // point 327: volume fader
 }
 
 const STEM_CONFIG = [
@@ -102,8 +104,31 @@ export function StemsTab({
   mutedStems = new Set(),
   onToggleMute,
   onRequestStems,
+  onSetStemVolume,
 }: StemsTabProps) {
   const { lang } = useLang();
+
+  // Volume state per stem (point 327)
+  const [stemVolumes, setStemVolumes] = useState<Record<string, number>>({
+    vocals_url: 100,
+    drums_url: 100,
+    bass_url: 100,
+    other_url: 100,
+  });
+
+  // Keyboard shortcuts for stems: d=drums, b=bass, v=vocals, o=other (point 608)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return; // Skip if typing in input
+      const key = e.key.toLowerCase();
+      if (key === 'd') onToggleMute?.('drums_url');
+      if (key === 'b') onToggleMute?.('bass_url');
+      if (key === 'v') onToggleMute?.('vocals_url');
+      if (key === 'o') onToggleMute?.('other_url');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onToggleMute]);
 
   if (!track) {
     return (
@@ -199,6 +224,27 @@ export function StemsTab({
                         <span className="text-[8px] font-bold text-red-400 tracking-wide">COUPÉ</span>
                       </div>
                     )}
+                    {/* Volume fader per stem (point 327) */}
+                    {avail && !muted && (
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={stemVolumes[key] ?? 100}
+                          onChange={(e) => {
+                            const newVol = parseInt(e.target.value);
+                            setStemVolumes(prev => ({ ...prev, [key]: newVol }));
+                            onSetStemVolume?.(key, newVol);
+                          }}
+                          className="flex-1 h-1 rounded cursor-pointer accent-green-500"
+                          title={`Volume: ${stemVolumes[key] ?? 100}%`}
+                        />
+                        <span className="text-[8px] font-mono text-[var(--text-muted)] w-6 text-right">
+                          {stemVolumes[key] ?? 100}%
+                        </span>
+                      </div>
+                    )}
                     {isProcessing && !avail && (
                       <Loader2 size={12} className="mt-1 text-[var(--text-muted)] animate-spin" />
                     )}
@@ -265,4 +311,4 @@ export function StemsTab({
   );
 }
 
-export default StemsTab;
+export default React.memo(StemsTab);

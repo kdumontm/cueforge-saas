@@ -1,6 +1,8 @@
 // @ts-nocheck
 'use client';
 
+import React from 'react';
+
 import { useState, useEffect, useCallback } from 'react';
 import { Save, RotateCcw, Check, X, Star, Music } from 'lucide-react';
 import type { Track } from '@/types';
@@ -303,3 +305,5 @@ export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
     </div>
   );
 }
+
+export default React.memo(InfoEditTab);

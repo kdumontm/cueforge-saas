@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 import { useMemo, useState } from 'react';
 import { Trash2, X, History } from 'lucide-react';
 import { Track } from '@/types';
@@ -255,4 +257,4 @@ export function HistoryTab({
   );
 }
 
-export default HistoryTab;
+export default React.memo(HistoryTab);

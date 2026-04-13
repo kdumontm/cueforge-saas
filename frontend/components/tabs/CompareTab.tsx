@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Track } from '@/types';
 import { mixScore, harmonicScore, bpmCompatible, keyToCamelot } from '@/lib/camelot';
 import { ArrowLeftRight, Music, Gauge, Zap, Clock } from 'lucide-react';
@@ -212,3 +212,5 @@ export default function CompareTab({ trackA, allTracks, onSelectTrack }: Compare
     </div>
   );
 }
+
+export default React.memo(CompareTab);

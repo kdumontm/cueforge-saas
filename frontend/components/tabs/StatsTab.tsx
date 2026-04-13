@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 import { useMemo } from 'react';
 import { BarChart3, Music2, Disc3, Zap, Clock, Tag, Star, TrendingUp, LucideIcon } from 'lucide-react';
 import { Track } from '@/types';
@@ -375,4 +377,4 @@ export function StatsTab({ tracks = [], isLoading = false }: StatsTabProps) {
   );
 }
 
-export default StatsTab;
+export default React.memo(StatsTab);
