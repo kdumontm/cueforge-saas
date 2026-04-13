@@ -164,6 +164,16 @@ class TrackAnalysis(Base):
     vocal_percentage = Column(Float, nullable=True)
     mood = Column(String(50), nullable=True)               # v3: calm, energetic, dark, euphoric, etc.
     danceability = Column(Float, nullable=True)            # v3: 0.0 to 1.0
+    # v6.3: Stereo analysis
+    stereo_width = Column(Float, nullable=True)            # 0.0 (mono) to 1.0 (full stereo)
+    mono_compatibility = Column(Float, nullable=True)      # 0.0 (phase issues) to 1.0 (perfect)
+    stereo_balance = Column(Float, nullable=True)          # -1.0 (left) to 1.0 (right)
+    stereo_width_label = Column(String(20), nullable=True) # mono, narrow, normal, wide, very_wide
+    # v6.3: Spectral brightness
+    spectral_centroid_mean = Column(Float, nullable=True)  # Hz — average brightness
+    brightness_label = Column(String(20), nullable=True)   # dark, warm, neutral, bright, very_bright
+    # v6.3: Advanced BPM metadata
+    bpm_advanced = Column(JSON, nullable=True)             # {histogram_peak, cross_validation, etc.}
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

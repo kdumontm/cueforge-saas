@@ -454,7 +454,8 @@ def _run_analysis(track_id: int):
         if not track:
             return
 
-        # Save analysis (v4: includes LUFS, variable BPM, mood, danceability)
+        # Save analysis (v6.3: includes LUFS, variable BPM, mood, danceability,
+        # stereo width, spectral centroid, section confidence, advanced BPM)
         analysis = TrackAnalysis(
             track_id=track.id,
             bpm=analysis_data.get("bpm"),
@@ -475,6 +476,14 @@ def _run_analysis(track_id: int):
             bpm_stable=analysis_data.get("bpm_stable", True),
             mood=analysis_data.get("mood"),
             danceability=analysis_data.get("danceability"),
+            # v6.3: New analysis fields
+            stereo_width=analysis_data.get("stereo_width"),
+            mono_compatibility=analysis_data.get("mono_compatibility"),
+            stereo_balance=analysis_data.get("stereo_balance"),
+            stereo_width_label=analysis_data.get("stereo_width_label"),
+            spectral_centroid_mean=analysis_data.get("spectral_centroid_mean"),
+            brightness_label=analysis_data.get("brightness_label"),
+            bpm_advanced=analysis_data.get("bpm_advanced"),
         )
         db.add(analysis)
         db.flush()
@@ -1082,6 +1091,13 @@ class LocalAnalysisPayload(BaseModel):
     drum_energy_curve: Optional[list] = None   # [float, ...] énergie drums par mesure
     bass_energy_curve: Optional[list] = None   # [float, ...] énergie bass par mesure
     vocal_energy_curve: Optional[list] = None  # [float, ...] énergie vocals par mesure
+    # v6.3: Stereo analysis + spectral brightness
+    stereo_width: Optional[float] = None       # 0.0 (mono) to 1.0 (full stereo)
+    mono_compatibility: Optional[float] = None # 0.0 (phase issues) to 1.0 (perfect)
+    stereo_width_label: Optional[str] = None   # mono, narrow, normal, wide, very_wide
+    brightness_label: Optional[str] = None     # dark, warm, neutral, bright, very_bright
+    spectral_centroid_mean: Optional[float] = None  # Hz
+    bpm_advanced: Optional[dict] = None        # advanced BPM validation metadata
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -1148,6 +1164,20 @@ async def analyze_track_local(
     # v3.1: données stem-enhanced (Demucs local)
     if payload.vocal_percentage is not None:
         analysis.vocal_percentage = payload.vocal_percentage
+
+    # v6.3: Stereo analysis + spectral brightness
+    if payload.stereo_width is not None:
+        analysis.stereo_width = payload.stereo_width
+    if payload.mono_compatibility is not None:
+        analysis.mono_compatibility = payload.mono_compatibility
+    if payload.stereo_width_label is not None:
+        analysis.stereo_width_label = payload.stereo_width_label
+    if payload.brightness_label is not None:
+        analysis.brightness_label = payload.brightness_label
+    if payload.spectral_centroid_mean is not None:
+        analysis.spectral_centroid_mean = payload.spectral_centroid_mean
+    if payload.bpm_advanced is not None:
+        analysis.bpm_advanced = payload.bpm_advanced
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)

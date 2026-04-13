@@ -129,6 +129,9 @@ class TrackAnalysisSummary(BaseModel):
     mood: Optional[str] = None
     danceability: Optional[float] = None
     bpm_stable: Optional[bool] = True
+    # v6.3: Stereo + brightness summary
+    stereo_width_label: Optional[str] = None
+    brightness_label: Optional[str] = None
     analyzed_at: Optional[datetime] = None
 
 
@@ -156,6 +159,14 @@ class TrackAnalysisResponse(BaseModel):
     vocal_percentage: Optional[float] = None
     mood: Optional[str] = None
     danceability: Optional[float] = None
+    # v6.3 fields
+    stereo_width: Optional[float] = None
+    mono_compatibility: Optional[float] = None
+    stereo_balance: Optional[float] = None
+    stereo_width_label: Optional[str] = None
+    spectral_centroid_mean: Optional[float] = None
+    brightness_label: Optional[str] = None
+    bpm_advanced: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

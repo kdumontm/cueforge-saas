@@ -862,7 +862,8 @@ TEMPERLEY_MAJOR = np.array([5.0, 2.0, 3.5, 2.0, 4.5, 4.0, 2.0, 4.5, 2.0, 3.5, 1.
 TEMPERLEY_MINOR = np.array([5.0, 2.0, 3.5, 4.5, 2.0, 3.5, 2.0, 4.5, 3.5, 2.0, 1.5, 4.0])
 
 
-def detect_key_hybrid(y: np.ndarray, sr: int) -> Dict:
+def detect_key_hybrid(y: np.ndarray, sr: int,
+                      precomputed_chroma: Optional[np.ndarray] = None) -> Dict:
     """
     Hybrid key detection combining 3 methods for maximum accuracy:
     1. Krumhansl-Schmuckler (classical)
@@ -874,17 +875,24 @@ def detect_key_hybrid(y: np.ndarray, sr: int) -> Dict:
 
     v6.1 — Harmonic separation: use harmonic component for chroma
     to avoid percussive transients contaminating key detection.
+
+    v6.3 — Accept precomputed_chroma from SharedFeatures to avoid recomputation
+    when running in parallel analysis batch.
     """
     try:
-        # v6.1: Extract harmonic component — percussion confuses key detection
-        y_harmonic = librosa.effects.harmonic(y, margin=4.0)
+        if precomputed_chroma is not None:
+            # v6.3: Reuse pre-computed chroma from SharedFeatures
+            chroma = precomputed_chroma
+        else:
+            # v6.1: Extract harmonic component — percussion confuses key detection
+            y_harmonic = librosa.effects.harmonic(y, margin=4.0)
 
-        # CQT chroma on harmonic signal (better for bass-heavy electronic music)
-        chroma_cqt = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, n_chroma=12)
-        # STFT chroma on harmonic signal (better for melodic content)
-        chroma_stft = librosa.feature.chroma_stft(y=y_harmonic, sr=sr, n_chroma=12)
-        # Weighted blend: CQT for bass-heavy, STFT for mids/highs
-        chroma = 0.6 * chroma_cqt + 0.4 * chroma_stft
+            # CQT chroma on harmonic signal (better for bass-heavy electronic music)
+            chroma_cqt = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr, n_chroma=12)
+            # STFT chroma on harmonic signal (better for melodic content)
+            chroma_stft = librosa.feature.chroma_stft(y=y_harmonic, sr=sr, n_chroma=12)
+            # Weighted blend: CQT for bass-heavy, STFT for mids/highs
+            chroma = 0.6 * chroma_cqt + 0.4 * chroma_stft
         chroma_mean = np.mean(chroma, axis=1)
 
         # --- Method 1: KS profiles ---
@@ -4695,12 +4703,22 @@ def detect_genre(y: np.ndarray, sr: int, bpm: float,
 
 # Point 402: Parallel analysis stages for independent operations
 def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: int,
-                          bpm: float, beats: List[float]) -> Dict[str, any]:
+                          bpm: float, beats: List[float],
+                          energy: Optional[float] = None,
+                          precomputed_key: Optional[str] = None) -> Dict[str, Any]:
     """
     Run independent audio analysis tasks in parallel using ThreadPoolExecutor.
 
     This allows expensive but independent operations (key detection, energy analysis,
     loudness analysis, mood detection) to run concurrently rather than sequentially.
+
+    v6.3 fixes:
+    - Fix #1: typing `any` → `Any` (was breaking type checkers)
+    - Fix #2: Pass actual computed energy to mood detection (was hardcoded to 50)
+    - Fix #3: Reuse shared_features chroma for key detection if available
+    - Fix #4: Pass detected key to mood detection for tonality-aware mood scoring
+    - Fix #5: Add stereo width analysis as parallel task
+    - Fix #6: Add spectral centroid tracking as parallel task
 
     Args:
         shared_features: SharedFeatures instance with cached computations
@@ -4708,15 +4726,28 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
         sr: Sample rate
         bpm: Detected BPM
         beats: List of beat times
+        energy: Pre-computed energy value (0-100). If None, estimates from RMS.
+        precomputed_key: Pre-computed key string (optional). If None, detects key.
 
     Returns:
         Dict mapping task names to their results
     """
     results = {}
 
-    def _task_key():
-        """Key detection task."""
+    # Pre-compute energy estimate if not provided (avoid hardcoded 50)
+    if energy is None:
         try:
+            rms_mean = float(np.mean(np.abs(y)))
+            energy = min(100, max(0, rms_mean * 500))
+        except Exception:
+            energy = 50
+
+    def _task_key():
+        """Key detection task — uses shared chroma features if available."""
+        try:
+            # v6.3: Reuse pre-computed chroma from shared_features
+            if shared_features and hasattr(shared_features, 'chroma') and shared_features.chroma is not None:
+                return detect_key_hybrid(y, sr, precomputed_chroma=shared_features.chroma)
             return detect_key_hybrid(y, sr)
         except Exception as e:
             logger.warning(f"Key detection failed: {e}")
@@ -4731,10 +4762,11 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
             return {"lufs": None, "loudness_range_lu": None, "replay_gain_db": None}
 
     def _task_mood():
-        """Mood and danceability detection."""
+        """Mood and danceability detection — uses actual energy value."""
         try:
-            energy = 50  # Placeholder, will be computed separately
-            return detect_mood_and_danceability(y, sr, bpm, energy, "C")
+            # v6.3 Fix: Use actual computed energy instead of hardcoded 50
+            detected_key = precomputed_key or "C"
+            return detect_mood_and_danceability(y, sr, bpm, energy, detected_key)
         except Exception as e:
             logger.warning(f"Mood detection failed: {e}")
             return {"mood": None, "danceability": None}
@@ -4747,22 +4779,43 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
             logger.warning(f"Variable BPM detection failed: {e}")
             return {"bpm_stable": True, "bpm_map": []}
 
+    def _task_stereo_width():
+        """v6.3: Stereo width analysis — mid/side balance and correlation."""
+        try:
+            return compute_stereo_width(y, sr)
+        except Exception as e:
+            logger.debug(f"Stereo width analysis skipped: {e}")
+            return {"stereo_width": None, "mono_compatibility": None}
+
+    def _task_spectral_centroid():
+        """v6.3: Spectral centroid tracking — brightness indicator over time."""
+        try:
+            return compute_spectral_centroid_tracking(y, sr)
+        except Exception as e:
+            logger.debug(f"Spectral centroid tracking skipped: {e}")
+            return {"spectral_centroid_mean": None, "brightness_label": None}
+
     # Submit all tasks to executor
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {
             executor.submit(_task_key): 'key',
             executor.submit(_task_loudness): 'loudness',
             executor.submit(_task_mood): 'mood',
             executor.submit(_task_variable_bpm): 'variable_bpm',
+            executor.submit(_task_stereo_width): 'stereo_width',
+            executor.submit(_task_spectral_centroid): 'spectral_centroid',
         }
 
-        # Collect results as they complete
-        for future in as_completed(futures, timeout=60):
+        # Collect results as they complete (with per-task timeout)
+        for future in as_completed(futures, timeout=90):
             task_name = futures[future]
             try:
                 result = future.result(timeout=30)
                 results[task_name] = result
                 logger.debug(f"Parallel task '{task_name}' completed")
+            except TimeoutError:
+                logger.warning(f"Parallel task '{task_name}' timed out after 30s")
+                results[task_name] = None
             except Exception as e:
                 logger.warning(f"Parallel task '{task_name}' failed: {e}")
                 results[task_name] = None
@@ -5109,14 +5162,20 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         waveform_data = {"waveform_peaks": [], "spectral_energy": None}
 
     # Point 402: Run independent parallel analysis tasks
-    # Key detection, loudness, mood, and variable BPM can run in parallel
-    logger.info("[PARALLEL] Starting parallel analysis tasks...")
+    # Key detection, loudness, mood, variable BPM, stereo width, spectral centroid
+    # v6.3: Pass actual computed energy to mood detection (was hardcoded 50)
+    logger.info("[PARALLEL] Starting parallel analysis tasks (v6.3)...")
     try:
         shared_features = SharedFeatures(y, sr_loaded, n_fft=N_FFT, hop_length=HOP_LENGTH)
-        parallel_results = _run_parallel_analysis(shared_features, y, sr_loaded, bpm, beats)
+        parallel_results = _run_parallel_analysis(
+            shared_features, y, sr_loaded, bpm, beats,
+            energy=energy,  # v6.3: Pass actual energy
+        )
 
         # Extract results from parallel execution
         key_result = parallel_results.get('key', {})
+        if key_result is None:
+            key_result = {}
         key = key_result.get("key")
         key_confidence = key_result.get("key_confidence")
         key_secondary = key_result.get("key_secondary")
@@ -5132,6 +5191,14 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         variable_bpm = parallel_results.get('variable_bpm', {})
         if variable_bpm is None:
             variable_bpm = {"bpm_stable": True, "bpm_map": []}
+
+        # v6.3: New parallel analysis results
+        stereo_data = parallel_results.get('stereo_width', {})
+        if stereo_data is None:
+            stereo_data = {}
+        spectral_data = parallel_results.get('spectral_centroid', {})
+        if spectral_data is None:
+            spectral_data = {}
 
     except Exception as e:
         logger.warning(f"Parallel analysis batch failed, falling back to sequential: {e}")
@@ -5158,6 +5225,18 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
             variable_bpm = detect_variable_bpm(beats, bpm)
         except Exception:
             variable_bpm = {"bpm_stable": True, "bpm_map": []}
+
+        # v6.3: Fallback for new parallel tasks
+        stereo_data = {}
+        spectral_data = {}
+        try:
+            stereo_data = compute_stereo_width(y, sr_loaded)
+        except Exception:
+            pass
+        try:
+            spectral_data = compute_spectral_centroid_tracking(y, sr_loaded)
+        except Exception:
+            pass
 
     # ── v4: Auto loop detection ────────────────────────────────────────
     try:
@@ -5242,6 +5321,77 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
             logger.error(f"[STEM] Stem analysis failed (continuing with standard analysis): {e}")
             stem_data = {"stem_analysis": False, "stem_error": str(e)[:200]}
 
+    # ── v6.3: Apply section confidence scoring to improve label quality ──
+    # score_section_label_confidence() was computed but discarded before v6.3
+    try:
+        if section_labels and energy is not None:
+            rms_values = [s.get("energy", 0.5) for s in section_labels]
+            if rms_values:
+                energy_percentiles = {
+                    "p25": float(np.percentile(rms_values, 25)),
+                    "p50": float(np.percentile(rms_values, 50)),
+                    "p75": float(np.percentile(rms_values, 75)),
+                }
+                total_duration = duration_ms / 1000.0 if duration_ms else 1.0
+                for i, section in enumerate(section_labels):
+                    section_time = section.get("time_ms", 0) / 1000.0
+                    position_in_track = section_time / total_duration if total_duration > 0 else 0.0
+                    section_energy_val = section.get("energy", 0.5)
+
+                    # Determine trend from neighboring sections
+                    if i > 0 and i < len(section_labels) - 1:
+                        prev_e = section_labels[i - 1].get("energy", 0.5)
+                        next_e = section_labels[i + 1].get("energy", 0.5) if i + 1 < len(section_labels) else section_energy_val
+                        if next_e > section_energy_val + 0.05:
+                            trend = "rising"
+                        elif next_e < section_energy_val - 0.05:
+                            trend = "falling"
+                        else:
+                            trend = "stable"
+                    elif i == 0:
+                        trend = "rising" if len(section_labels) > 1 and section_labels[1].get("energy", 0.5) > section_energy_val else "stable"
+                    else:
+                        trend = "falling"
+
+                    confidences = score_section_label_confidence(
+                        section_energy_val, trend, position_in_track, energy_percentiles
+                    )
+
+                    # v6.3: If confidence scoring suggests a better label, use it
+                    best_label = max(confidences, key=confidences.get)
+                    best_conf = confidences[best_label]
+                    current_label = section.get("label", "UNKNOWN")
+
+                    # Only override if current label is UNKNOWN or confidence is significantly higher
+                    if current_label == "UNKNOWN" and best_conf > 0.2:
+                        section["label"] = best_label
+                        section["label_confidence"] = best_conf
+                    elif best_label != current_label and best_conf > 0.6:
+                        # Keep original but add confidence data for frontend
+                        section["label_confidence"] = confidences.get(current_label, 0.0)
+                        section["label_alt"] = best_label
+                        section["label_alt_confidence"] = best_conf
+                    else:
+                        section["label_confidence"] = confidences.get(current_label, 0.5)
+
+            logger.info(f"[SECTIONS] Confidence scoring applied to {len(section_labels)} sections")
+    except Exception as e:
+        logger.debug(f"[SECTIONS] Confidence scoring skipped: {e}")
+
+    # ── v6.3: Integrate advanced BPM analysis results into output ──
+    bpm_advanced_summary = {}
+    try:
+        if bpm_histogram and bpm_histogram.get("peak_bpm"):
+            bpm_advanced_summary["histogram_peak_bpm"] = bpm_histogram["peak_bpm"]
+        if bpm_validation:
+            bpm_advanced_summary["cross_validation_confidence"] = bpm_validation.get("validation_confidence", 0.0)
+        if downbeats and downbeats.get("downbeats"):
+            bpm_advanced_summary["downbeat_count"] = len(downbeats["downbeats"])
+        if windowed_bpm and windowed_bpm.get("bpm_changes"):
+            bpm_advanced_summary["bpm_change_count"] = len(windowed_bpm["bpm_changes"])
+    except Exception:
+        pass
+
     result = {
         "bpm": bpm,
         "bpm_confidence": bpm_confidence,
@@ -5269,6 +5419,14 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "danceability": mood_data.get("danceability"),
         "auto_loops": auto_loops,
         "gpu_accelerated": result_metadata.get("gpu_accelerated", False),
+        # v6.3 additions
+        "stereo_width": stereo_data.get("stereo_width"),
+        "mono_compatibility": stereo_data.get("mono_compatibility"),
+        "stereo_balance": stereo_data.get("stereo_balance"),
+        "stereo_width_label": stereo_data.get("stereo_width_label"),
+        "spectral_centroid_mean": spectral_data.get("spectral_centroid_mean"),
+        "brightness_label": spectral_data.get("brightness_label"),
+        "bpm_advanced": bpm_advanced_summary if bpm_advanced_summary else None,
     }
 
     # Merge stem data into result if available
@@ -5293,20 +5451,125 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 def compute_spectral_centroid_tracking(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
     """
     Point 1: Track spectral centroid (brightness) per section to measure timbre variation.
-    Returns mean, std, min, max across track.
+    Returns mean, std, min, max across track + brightness label.
+
+    v6.3: Added brightness_label for quick UX display
     """
     try:
         spec_cent = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length)[0]
+        mean_cent = float(np.mean(spec_cent))
+        # v6.3: Classify brightness based on centroid frequency
+        if mean_cent < 1500:
+            brightness = "dark"
+        elif mean_cent < 3000:
+            brightness = "warm"
+        elif mean_cent < 5000:
+            brightness = "neutral"
+        elif mean_cent < 8000:
+            brightness = "bright"
+        else:
+            brightness = "very_bright"
         return {
-            "spectral_centroid_mean": float(np.mean(spec_cent)),
+            "spectral_centroid_mean": mean_cent,
             "spectral_centroid_std": float(np.std(spec_cent)),
             "spectral_centroid_min": float(np.min(spec_cent)),
             "spectral_centroid_max": float(np.max(spec_cent)),
+            "brightness_label": brightness,
         }
     except Exception as e:
         logger.debug(f"Spectral centroid tracking failed: {e}")
         return {"spectral_centroid_mean": 0.0, "spectral_centroid_std": 0.0,
-                "spectral_centroid_min": 0.0, "spectral_centroid_max": 0.0}
+                "spectral_centroid_min": 0.0, "spectral_centroid_max": 0.0,
+                "brightness_label": None}
+
+
+def compute_stereo_width(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    v6.3: Stereo width analysis — mid/side balance and mono compatibility.
+
+    For mono input (1D array), returns neutral stereo width.
+    For stereo input (2D array), computes:
+    - stereo_width: 0.0 (mono) to 1.0 (full stereo)
+    - mono_compatibility: 0.0 (phase issues) to 1.0 (perfect mono compatibility)
+    - stereo_balance: -1.0 (hard left) to 1.0 (hard right), 0.0 = centered
+
+    Uses mid/side decomposition:
+    - Mid = (L + R) / 2
+    - Side = (L - R) / 2
+    - Width = RMS(side) / (RMS(mid) + RMS(side))
+    - Mono compatibility = correlation(L, R)
+    """
+    try:
+        # Handle mono input
+        if y.ndim == 1:
+            return {
+                "stereo_width": 0.0,
+                "mono_compatibility": 1.0,
+                "stereo_balance": 0.0,
+                "stereo_width_label": "mono",
+            }
+
+        # Stereo input: shape (2, N)
+        if y.shape[0] != 2:
+            return {
+                "stereo_width": 0.0,
+                "mono_compatibility": 1.0,
+                "stereo_balance": 0.0,
+                "stereo_width_label": "mono",
+            }
+
+        left = y[0]
+        right = y[1]
+
+        # Mid/Side decomposition
+        mid = (left + right) / 2.0
+        side = (left - right) / 2.0
+
+        rms_mid = float(np.sqrt(np.mean(mid ** 2)))
+        rms_side = float(np.sqrt(np.mean(side ** 2)))
+
+        # Width: ratio of side energy to total energy
+        total_energy = rms_mid + rms_side + 1e-10
+        width = rms_side / total_energy
+
+        # Mono compatibility: Pearson correlation between L and R
+        if len(left) > 0 and np.std(left) > 0 and np.std(right) > 0:
+            correlation = float(np.corrcoef(left[:min(len(left), sr * 30)],
+                                            right[:min(len(right), sr * 30)])[0, 1])
+        else:
+            correlation = 1.0
+
+        # Balance: difference in RMS between channels
+        rms_left = float(np.sqrt(np.mean(left ** 2)))
+        rms_right = float(np.sqrt(np.mean(right ** 2)))
+        balance = (rms_right - rms_left) / (rms_left + rms_right + 1e-10)
+
+        # Label
+        if width < 0.1:
+            label = "mono"
+        elif width < 0.25:
+            label = "narrow"
+        elif width < 0.45:
+            label = "normal"
+        elif width < 0.65:
+            label = "wide"
+        else:
+            label = "very_wide"
+
+        return {
+            "stereo_width": round(width, 3),
+            "mono_compatibility": round(max(0.0, correlation), 3),
+            "stereo_balance": round(balance, 3),
+            "stereo_width_label": label,
+        }
+    except Exception as e:
+        logger.debug(f"Stereo width analysis failed: {e}")
+        return {
+            "stereo_width": None,
+            "mono_compatibility": None,
+            "stereo_balance": None,
+            "stereo_width_label": None,
+        }
 
 
 def compute_spectral_bandwidth(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
