@@ -4,7 +4,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { Search, Grid3x3, List, Upload } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
-import { FilterPanel } from './FilterPanel';
+import FilterPanel from './FilterPanel';
 import { TrackRow } from './TrackRow';
 import { TrackGrid } from './TrackGrid';
 import { VirtualTrackList } from './VirtualTrackList';

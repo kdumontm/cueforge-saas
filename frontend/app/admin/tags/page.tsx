@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Tag, Trash2, Plus, Check, X, Merge2 } from "lucide-react";
+import { Tag, Trash2, Plus, Check, X, GitMerge } from "lucide-react";
 import {
   Input, Btn, Card, Badge, PageWrapper,
   SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, ColorPicker,
@@ -155,7 +155,7 @@ export default function TagsPage() {
             <Btn
               variant="default"
               onClick={() => setShowMergeModal(true)}
-              icon={Merge2}
+              icon={GitMerge}
             >
               Fusionner
             </Btn>
@@ -285,7 +285,7 @@ export default function TagsPage() {
                   variant="primary"
                   onClick={mergeTags}
                   loading={merging}
-                  icon={Merge2}
+                  icon={GitMerge}
                 >
                   Fusionner
                 </Btn>
