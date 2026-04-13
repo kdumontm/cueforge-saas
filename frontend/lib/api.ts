@@ -641,50 +641,85 @@ export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
 }
 
 export async function uploadTracks(formData: FormData): Promise<TrackUploadResponse[]> {
-  const response = await authFetch(`${API_URL}/tracks/`, {
-    method: 'POST',
-    headers: { ...authHeaders() },
-    body: formData,
-  });
-  if (!response.ok) {
-    let detail = 'Upload failed';
-    try { const error = await response.json(); detail = error.detail || detail; } catch {}
-    throw new Error(detail);
+  // Upload fichiers un par un via /tracks/upload (l'endpoint batch n'existe pas)
+  const files = formData.getAll('files') as File[];
+  if (files.length === 0) throw new Error('No files to upload');
+
+  const results: TrackUploadResponse[] = [];
+  for (const file of files) {
+    const singleForm = new FormData();
+    singleForm.append('file', file);
+    const response = await authFetch(`${API_URL}/tracks/upload`, {
+      method: 'POST',
+      headers: { ...authHeaders() },
+      body: singleForm,
+    });
+    if (!response.ok) {
+      let detail = 'Upload failed';
+      try { const error = await response.json(); detail = error.detail || detail; } catch {}
+      throw new Error(detail);
+    }
+    try {
+      results.push(await response.json());
+    } catch (e) {
+      throw new Error('Failed to parse upload response: ' + (e instanceof Error ? e.message : 'unknown error'));
+    }
   }
-  try {
-    return await response.json();
-  } catch (e) {
-    throw new Error('Failed to parse upload response: ' + (e instanceof Error ? e.message : 'unknown error'));
-  }
+  return results;
 }
 
 /**
  * Upload avec barre de progression via XMLHttpRequest.
- * onProgress reçoit un pourcentage 0-100.
+ * Upload les fichiers un par un vers /tracks/upload.
+ * onProgress reçoit un pourcentage global 0-100.
  */
 export function uploadTracksWithProgress(
   formData: FormData,
   onProgress: (pct: number) => void,
 ): Promise<TrackUploadResponse[]> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${API_URL}/tracks/`);
-    const token = getToken();
-    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText)); } catch { resolve([]); }
-      } else {
-        let detail = 'Upload failed';
-        try { detail = JSON.parse(xhr.responseText)?.detail || detail; } catch {}
-        reject(new Error(detail));
-      }
-    };
-    xhr.onerror = () => reject(new Error('Network error'));
-    xhr.send(formData);
+  const files = formData.getAll('files') as File[];
+  if (files.length === 0) return Promise.reject(new Error('No files to upload'));
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  let uploadedSize = 0;
+  const results: TrackUploadResponse[] = [];
+
+  // Upload séquentiel avec progression globale
+  return files.reduce((chain, file) => {
+    return chain.then(() => new Promise<void>((resolve, reject) => {
+      const singleForm = new FormData();
+      singleForm.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_URL}/tracks/upload`);
+      const token = getToken();
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      const baseUploaded = uploadedSize;
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const globalPct = Math.round(((baseUploaded + e.loaded) / totalSize) * 100);
+          onProgress(Math.min(globalPct, 99));
+        }
+      };
+
+      xhr.onload = () => {
+        uploadedSize += file.size;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { results.push(JSON.parse(xhr.responseText)); } catch {}
+          resolve();
+        } else {
+          let detail = 'Upload failed';
+          try { detail = JSON.parse(xhr.responseText)?.detail || detail; } catch {}
+          reject(new Error(detail));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(singleForm);
+    }));
+  }, Promise.resolve()).then(() => {
+    onProgress(100);
+    return results;
   });
 }
 
