@@ -57,18 +57,13 @@ function energyLabel(energy: number | null | undefined): string {
   return 'Intense';
 }
 
-// ── Camelot conversion ─────────────────────────────────────────────────
-const CAMELOT_WHEEL_MAP: Record<string, string> = {
-  'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
-  'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
-  'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A',
-  'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A',
-  'C#': '3B', 'D#m': '2A', 'G#': '4B', 'A#': '6B', 'D#': '5B',
-};
+// ── Camelot conversion (centralisé dans lib/camelot.ts) ──────────────
+import { keyToCamelot, getKeyColor, getCompatibleKeys } from '@/lib/camelot';
+import { getKeyColor as getKeyColorConst } from '@/lib/constants';
 
 function toCamelot(key: string | null | undefined): string | null {
   if (!key) return null;
-  return CAMELOT_WHEEL_MAP[key] || key;
+  return keyToCamelot(key) || key;
 }
 
 function formatDuration(seconds: number | null | undefined): string {

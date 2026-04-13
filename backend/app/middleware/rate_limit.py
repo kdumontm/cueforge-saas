@@ -111,12 +111,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Ne rate-limiter que les POST (pas les GET)
-        if request.method != "POST":
-            return await call_next(request)
-
         path = request.url.path
         client_ip = _get_client_ip(request)
+
+        # Rate-limiter les GET sur endpoints sensibles (anti-énumération)
+        SENSITIVE_GET_PATHS = ["/admin/", "/auth/check", "/auth/verify"]
+        if request.method == "GET":
+            is_sensitive = any(s in path for s in SENSITIVE_GET_PATHS)
+            if not is_sensitive:
+                return await call_next(request)
+            # Rate limit GET sensibles : 30/min par IP
+            key = f"{client_ip}:get:{path}"
+            if not _bucket.is_allowed(key, 30, 60):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Trop de requêtes. Réessayez dans 1 minute."},
+                    headers={"Retry-After": "60"},
+                )
+            return await call_next(request)
+
+        # POST uniquement à partir d'ici
+        if request.method != "POST":
+            return await call_next(request)
 
         # 1. Vérifier les limites d'authentification strictes (5/min)
         for prefix, (max_hits, window) in RATE_LIMITS.items():

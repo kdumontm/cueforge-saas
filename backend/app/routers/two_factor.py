@@ -4,10 +4,14 @@ Uses pyotp for TOTP generation/verification.
 
 Endpoints:
 - POST /2fa/setup → generate TOTP secret + QR code URI (requires auth)
-- POST /2fa/enable { code } → verify TOTP code and enable 2FA
-- POST /2fa/verify { code } → verify TOTP during login
+- POST /2fa/enable { code } → verify TOTP code, enable 2FA, retourne backup codes
+- POST /2fa/verify { code } → verify TOTP during login (avec rate limiting)
 - POST /2fa/disable { code } → disable 2FA
 """
+import hashlib
+import secrets
+import time
+from collections import defaultdict
 from typing import List, Optional
 
 import pyotp
@@ -18,6 +22,35 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import User
 from app.middleware.auth import get_current_user
+
+# ── Rate limiting 2FA verify : 5 tentatives par minute par user ──────
+_verify_attempts: dict = defaultdict(list)
+MAX_VERIFY_ATTEMPTS = 5
+VERIFY_WINDOW_SECONDS = 60
+
+
+def _check_2fa_rate_limit(user_id: int):
+    """Bloque après 5 tentatives 2FA en 1 minute."""
+    now = time.monotonic()
+    cutoff = now - VERIFY_WINDOW_SECONDS
+    _verify_attempts[user_id] = [t for t in _verify_attempts[user_id] if t > cutoff]
+    if len(_verify_attempts[user_id]) >= MAX_VERIFY_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Trop de tentatives 2FA. Réessayez dans {VERIFY_WINDOW_SECONDS}s."
+        )
+    _verify_attempts[user_id].append(now)
+
+
+def _generate_backup_codes(count: int = 10) -> tuple:
+    """Génère des backup codes et retourne (codes_clairs, codes_hashés)."""
+    plain_codes = []
+    hashed_codes = []
+    for _ in range(count):
+        code = secrets.token_hex(4).upper()  # 8 caractères hex
+        plain_codes.append(code)
+        hashed_codes.append(hashlib.sha256(code.encode()).hexdigest())
+    return plain_codes, hashed_codes
 
 router = APIRouter(prefix="/2fa", tags=["2fa"])
 
@@ -114,11 +147,19 @@ async def enable_2fa(
     user.totp_secret = user.totp_pending_secret
     user.totp_pending_secret = None
     user.totp_enabled = True
+
+    # Générer 10 backup codes (retournés UNE SEULE FOIS)
+    import json
+    plain_codes, hashed_codes = _generate_backup_codes(10)
+    user.totp_backup_codes = json.dumps(hashed_codes)
+
     db.commit()
 
     return {
         "message": "2FA activé avec succès",
-        "status": "enabled"
+        "status": "enabled",
+        "backup_codes": plain_codes,
+        "warning": "Sauvegardez ces codes de secours. Ils ne seront plus affichés."
     }
 
 
@@ -144,17 +185,31 @@ async def verify_2fa(
             detail="2FA n'est pas activé pour ce compte"
         )
 
-    totp = pyotp.TOTP(user.totp_secret)
-    if not totp.verify(req.code, valid_window=1):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Code 2FA invalide"
-        )
+    # Rate limit : 5 tentatives par minute
+    _check_2fa_rate_limit(user.id)
 
-    return {
-        "message": "Code vérifié avec succès",
-        "status": "verified"
-    }
+    totp = pyotp.TOTP(user.totp_secret)
+    if totp.verify(req.code, valid_window=1):
+        return {"message": "Code vérifié avec succès", "status": "verified"}
+
+    # Vérifier les backup codes en fallback
+    import json, hashlib as _hl
+    code_hash = _hl.sha256(req.code.strip().upper().encode()).hexdigest()
+    stored_codes = json.loads(user.totp_backup_codes or "[]")
+    if code_hash in stored_codes:
+        stored_codes.remove(code_hash)
+        user.totp_backup_codes = json.dumps(stored_codes)
+        db.commit()
+        return {
+            "message": "Code de secours utilisé avec succès",
+            "status": "verified",
+            "backup_codes_remaining": len(stored_codes),
+        }
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Code 2FA invalide"
+    )
 
 
 @router.post("/disable")

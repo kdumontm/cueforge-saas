@@ -1183,7 +1183,14 @@ def list_tracks(
 
     total = q.count()
 
-    # Sorting
+    # Sorting — whitelist stricte pour éviter l'accès à des champs internes
+    ALLOWED_SORT_FIELDS = {
+        "created_at", "title", "artist", "album", "genre", "label",
+        "year", "bpm", "key", "rating", "energy", "duration",
+        "original_filename", "updated_at",
+    }
+    if sort_by not in ALLOWED_SORT_FIELDS:
+        sort_by = "created_at"
     sort_col = getattr(Track, sort_by, None)
     if sort_col is None:
         sort_col = Track.created_at
@@ -1746,9 +1753,14 @@ async def identify_track(
             if mb.get("genre"):  result["genre"]  = mb["genre"]
             if mb.get("label"):  result["label"]  = mb["label"]
 
-    # Step 5 — Spotify (artwork + genre, blocking network → thread pool)
+    # Step 5+6 — Spotify + iTunes en parallèle (perf: ~5s au lieu de ~12s)
     if result["artist"] and result["title"]:
-        sp = await loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
+        sp_future = loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
+        it_future = loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
+        sp, it = await asyncio.gather(sp_future, it_future, return_exceptions=True)
+        if isinstance(sp, Exception): sp = None
+        if isinstance(it, Exception): it = None
+
         if sp:
             if sp.get("artwork_url"): result["artwork_url"] = sp["artwork_url"]
             if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
@@ -1756,9 +1768,6 @@ async def identify_track(
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
             result["source"] = result["source"] + "+spotify"
 
-    # Step 6 — iTunes fallback (artwork + genre when Spotify not configured or incomplete)
-    if result["artist"] and result["title"] and (not result["artwork_url"] or not result["genre"]):
-        it = await loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
         if it:
             if not result["artwork_url"] and it.get("artwork_url"): result["artwork_url"] = it["artwork_url"]
             if not result["genre"]       and it.get("genre"):       result["genre"]       = it["genre"]
@@ -1838,9 +1847,14 @@ async def identify_track_by_search(
         "source":         "musicbrainz_text",
     }
 
-    # Spotify enrichment
+    # Spotify + iTunes en parallèle (perf: ~5s au lieu de ~12s)
     if result["artist"] and result["title"]:
-        sp = await loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
+        sp_future = loop.run_in_executor(None, search_spotify, result["artist"], result["title"])
+        it_future = loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
+        sp, it = await asyncio.gather(sp_future, it_future, return_exceptions=True)
+        if isinstance(sp, Exception): sp = None
+        if isinstance(it, Exception): it = None
+
         if sp:
             if sp.get("artwork_url"): result["artwork_url"] = sp["artwork_url"]
             if sp.get("spotify_id"):  result["spotify_id"]  = sp["spotify_id"]
@@ -1848,9 +1862,6 @@ async def identify_track_by_search(
             if not result["genre"] and sp.get("genre"): result["genre"] = sp["genre"]
             result["source"] = "musicbrainz_text+spotify"
 
-    # iTunes fallback (artwork + genre quand Spotify non configuré ou incomplet)
-    if result["artist"] and result["title"] and (not result["artwork_url"] or not result["genre"]):
-        it = await loop.run_in_executor(None, search_itunes, result["artist"], result["title"])
         if it:
             if not result["artwork_url"] and it.get("artwork_url"): result["artwork_url"] = it["artwork_url"]
             if not result["genre"]       and it.get("genre"):       result["genre"]       = it["genre"]

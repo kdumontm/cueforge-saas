@@ -17,17 +17,13 @@ import type { Track, CuePoint } from '@/types';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const CAMELOT_WHEEL: Record<string, string> = {
-  'C': '8B', 'Am': '8A', 'G': '9B', 'Em': '9A', 'D': '10B', 'Bm': '10A',
-  'A': '11B', 'F#m': '11A', 'E': '12B', 'C#m': '12A', 'B': '1B', 'G#m': '1A',
-  'F#': '2B', 'Ebm': '2A', 'Db': '3B', 'Bbm': '3A', 'Ab': '4B', 'Fm': '4A',
-  'Eb': '5B', 'Cm': '5A', 'Bb': '6B', 'Gm': '6A', 'F': '7B', 'Dm': '7A',
-  'C#': '3B', 'D#m': '2A', 'G#': '4B', 'A#': '6B', 'D#': '5B',
-};
+// Camelot centralisé : import depuis lib/camelot.ts + lib/constants.ts
+import { keyToCamelot, bpmCompatible } from '@/lib/camelot';
+import { getCompatibleKeys } from '@/lib/constants';
 
 function toCamelot(key: string | null | undefined): string {
-  if (!key) return '\u2014';
-  return CAMELOT_WHEEL[key] || key;
+  if (!key) return '—';
+  return keyToCamelot(key) || key;
 }
 
 function isMixCompatible(trackA, trackB) {
@@ -35,30 +31,11 @@ function isMixCompatible(trackA, trackB) {
   const bpmA = trackA.analysis.bpm;
   const bpmB = trackB.analysis.bpm;
   if (!bpmA || !bpmB) return false;
-  const bpmRatio = Math.abs(bpmA - bpmB) / Math.max(bpmA, bpmB);
-  const halfRatio = Math.abs(bpmA - bpmB * 2) / Math.max(bpmA, bpmB * 2);
-  const doubleRatio = Math.abs(bpmA * 2 - bpmB) / Math.max(bpmA * 2, bpmB);
-  const bpmOk = bpmRatio < 0.06 || halfRatio < 0.06 || doubleRatio < 0.06;
-  if (!bpmOk) return false;
+  if (!bpmCompatible(bpmA, bpmB)) return false;
   const keyA = toCamelot(trackA.analysis.key);
   const keyB = toCamelot(trackB.analysis.key);
-  if (keyA === '\u2014' || keyB === '\u2014') return bpmOk;
+  if (keyA === '—' || keyB === '—') return true;
   return getCompatibleKeys(keyA).includes(keyB);
-}
-
-function getCompatibleKeys(camelotKey) {
-  if (!camelotKey) return [];
-  const match = camelotKey.match(/(\d+)([AB])/);
-  if (!match) return [];
-  const num = parseInt(match[1]);
-  const letter = match[2];
-  const other = letter === 'A' ? 'B' : 'A';
-  return [
-    camelotKey,
-    num + other,
-    ((num % 12) + 1) + letter,
-    ((num - 2 + 12) % 12 + 1) + letter,
-  ];
 }
 
 function msToTime(ms: number): string {
@@ -128,26 +105,16 @@ function energyToColor(energy: number | null | undefined): string {
   return 'rgb(239,68,68)';
 }
 
-const CAMELOT_MAP: Record<string, string> = {
-  'C': '8B', 'Cm': '5A', 'C#': '3B', 'C#m': '12A',
-  'D': '10B', 'Dm': '7A', 'D#': '5B', 'D#m': '2A',
-  'E': '12B', 'Em': '9A', 'F': '7B', 'Fm': '4A',
-  'F#': '2B', 'F#m': '11A', 'G': '9B', 'Gm': '6A',
-  'G#': '4B', 'G#m': '1A', 'A': '11B', 'Am': '8A',
-  'A#': '6B', 'A#m': '3A', 'B': '1B', 'Bm': '10A',
-  'Db': '3B', 'Dbm': '12A', 'Eb': '5B', 'Ebm': '2A',
-  'Gb': '2B', 'Gbm': '11A', 'Ab': '4B', 'Abm': '1A',
-  'Bb': '6B', 'Bbm': '3A',
-};
+// CAMELOT_MAP supprimé — utilise keyToCamelot depuis lib/camelot.ts (déjà importé ci-dessus)
 
 function keyCamelot(key: string): string {
-  return CAMELOT_MAP[key] || '';
+  return keyToCamelot(key) || '';
 }
 
 function mixScore(key1: string, bpm1: number, key2: string, bpm2: number) {
   const bpmDiff = Math.abs(bpm1 - bpm2);
   let bpmS = bpmDiff <= 0.5 ? 50 : bpmDiff <= 2 ? 45 : bpmDiff <= 5 ? 35 : Math.max(0, 25 - bpmDiff);
-  const c1 = CAMELOT_MAP[key1] || '', c2 = CAMELOT_MAP[key2] || '';
+  const c1 = keyToCamelot(key1) || '', c2 = keyToCamelot(key2) || '';
   let keyS = 25;
   if (c1 && c2) {
     if (c1 === c2) keyS = 50;

@@ -28,10 +28,12 @@ from app.models import push_subscription  # noqa: F401 — registers PushSubscri
 from app.models import favorite  # noqa: F401 — registers Favorite with Base
 from app.models import tag  # noqa: F401 — registers Tag and TrackTag with Base
 from app.models import activity_log  # noqa: F401 — registers ActivityLog with Base
+from app.models import webhook_event  # noqa: F401 — registers WebhookEvent with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 from app.utils.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
@@ -275,9 +277,12 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok", "version": "6.0.0-beat_this", "db": db_status}
+    response = {"status": "ok" if db_status == "ok" else "degraded", "version": "6.0.0-beat_this", "db": db_status}
     if db_error:
         response["db_error"] = db_error
+    if db_status != "ok":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content=response)
     return response
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
@@ -285,11 +290,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
 app.add_middleware(RateLimitMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)  # 🔴 FIX (faille 9) : headers HTTP sécurité
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)  # Tracing : X-Request-ID sur chaque requête
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks, favorites, duplicates, compare, export_pdf  # noqa: E402

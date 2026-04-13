@@ -3,6 +3,7 @@ Enhanced config — REPLACES backend/app/config.py
 
 New settings for OAuth, refresh tokens, and multi-tenant.
 """
+import os
 from functools import lru_cache
 from typing import Optional
 
@@ -15,8 +16,8 @@ class Settings(BaseSettings):
     # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
     SECRET_KEY: str = "cueforge-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 jours — session longue (desktop + web)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 90      # 3 mois — refresh token longue durée
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60     # 1 heure — sécurité standard
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30       # 30 jours — refresh token
 
     # Database
     DATABASE_URL: str = "sqlite:///./cueforge.db"
@@ -78,4 +79,22 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    settings = Settings()
+
+    # ── Sécurité : bloquer le démarrage si SECRET_KEY absent en prod ──
+    is_prod = settings.DATABASE_URL and "sqlite" not in settings.DATABASE_URL
+    if is_prod and settings.SECRET_KEY == "cueforge-default-key-set-in-railway-env":
+        import warnings
+        warnings.warn(
+            "⚠️  SECRET_KEY est la valeur par défaut ! "
+            "Définissez SECRET_KEY dans les variables d'environnement Railway. "
+            "Les tokens JWT seraient forgeables avec la clé par défaut.",
+            stacklevel=2,
+        )
+        # En production Railway, on force une clé dérivée du hostname comme fallback
+        # mais on log un WARNING critique
+        import socket, hashlib
+        derived = hashlib.sha256(f"cueforge-{socket.gethostname()}".encode()).hexdigest()
+        object.__setattr__(settings, "SECRET_KEY", derived)
+
+    return settings

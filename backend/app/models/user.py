@@ -10,7 +10,7 @@ New fields added for SaaS:
 """
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -68,6 +68,7 @@ class User(Base):
     totp_secret = Column(String, nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
     totp_pending_secret = Column(String, nullable=True)  # Temporary secret during setup
+    totp_backup_codes = Column(Text, nullable=True)      # JSON array of hashed backup codes
 
     # ── Onboarding & Preferences ──
     dj_style = Column(String, nullable=True)  # Club, Mariage, Radio, Festival, Autre

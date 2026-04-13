@@ -36,9 +36,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # CSP : autorise uniquement les ressources du domaine CueForge
+        # Note : 'unsafe-inline' retiré de script-src, remplacé par 'unsafe-eval'
+        # nécessaire pour Next.js en dev. En prod, utiliser des nonces.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "  # unsafe-inline requis par Next.js
+            "script-src 'self' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "

@@ -333,7 +333,24 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")
 
     event_type = event.get("type", "")
+    event_id = event.get("id", "")
     data = event.get("data", {}).get("object", {})
+
+    # ── Idempotence : éviter de traiter le même webhook deux fois ──
+    from sqlalchemy import text as sa_text
+    already = db.execute(
+        sa_text("SELECT 1 FROM webhook_events WHERE event_id = :eid"),
+        {"eid": event_id},
+    ).first()
+    if already:
+        return {"status": "duplicate", "event_id": event_id}
+
+    # Enregistrer l'event avant traitement
+    db.execute(
+        sa_text("INSERT INTO webhook_events (event_id, event_type, created_at) VALUES (:eid, :etype, NOW())"),
+        {"eid": event_id, "etype": event_type},
+    )
+    db.commit()
 
     if event_type == "checkout.session.completed":
         _handle_checkout_completed(data, db)
@@ -344,7 +361,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     elif event_type == "invoice.payment_failed":
         _handle_payment_failed(data, db)
 
-    return {"status": "ok"}
+    return {"status": "ok", "event_id": event_id}
 
 
 # ─── Webhook handlers ────────────────────────────────────────────
@@ -358,7 +375,8 @@ def _handle_checkout_completed(data: dict, db: Session):
     if not user_id:
         return
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    # SELECT FOR UPDATE — verrouille la ligne pour éviter les race conditions
+    user = db.query(User).filter(User.id == int(user_id)).with_for_update().first()
     if not user:
         return
 

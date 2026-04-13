@@ -10,11 +10,13 @@ import { listTracks, getTrack, listPlaylists, getCrateTracks } from './api';
 // ── Configuration globale SWR ────────────────────────────────────────────────
 
 export const swrConfig: SWRConfiguration = {
-  revalidateOnFocus: false,       // pas de refetch quand on revient sur l'onglet
+  revalidateOnFocus: true,        // rafraîchit quand on revient sur l'onglet
+  focusThrottleInterval: 30000,   // max une revalidation par 30s au focus
   revalidateOnReconnect: true,    // refetch après une coupure réseau
-  dedupingInterval: 5000,         // déduplique les appels identiques sur 5s
-  errorRetryCount: 2,
-  errorRetryInterval: 3000,
+  revalidateIfStale: true,        // revalide si données > dedupingInterval
+  dedupingInterval: 2000,         // déduplique les appels identiques sur 2s
+  errorRetryCount: 3,
+  errorRetryInterval: 1000,
 };
 
 // ── Fetchers typés ───────────────────────────────────────────────────────────
