@@ -118,15 +118,10 @@ export const useWaveformCache = create<WaveformCacheState>((set, get) => ({
       const newCache = new Map(s.cache);
       newCache.set(trackId, data);
 
-      // LRU eviction: remove oldest if over maxSize
+      // LRU eviction: Map preserves insertion order, remove first entry in O(1)
       if (newCache.size > s.maxSize) {
-        let oldest: [number, CachedWaveform] | null = null;
-        for (const entry of newCache.entries()) {
-          if (!oldest || entry[1].timestamp < oldest[1].timestamp) {
-            oldest = entry;
-          }
-        }
-        if (oldest) newCache.delete(oldest[0]);
+        const firstKey = newCache.keys().next().value;
+        if (firstKey !== undefined) newCache.delete(firstKey);
       }
 
       return { cache: newCache };

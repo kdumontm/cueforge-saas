@@ -34,14 +34,11 @@ const formatTime = (seconds: number): string => {
 
 const EqBars = React.memo(({ isAnimating }: { isAnimating: boolean }) => (
   <div className="flex items-center gap-0.5 h-4">
-    {[0, 1, 2].map((i) => (
+    {[1, 2, 3].map((i) => (
       <div
         key={i}
-        className={`w-1 bg-[var(--accent)] rounded-sm ${isAnimating ? 'animate-pulse' : ''}`}
-        style={{
-          height: isAnimating ? `${12 + (i % 2) * 4}px` : '4px',
-          animation: isAnimating ? `pulse ${0.6 + i * 0.1}s ease-in-out infinite` : 'none',
-        }}
+        className={`w-1 bg-[var(--accent)] rounded-sm ${isAnimating ? `eq-bar-animate-${i}` : ''}`}
+        style={{ height: isAnimating ? undefined : '4px' }}
       />
     ))}
   </div>

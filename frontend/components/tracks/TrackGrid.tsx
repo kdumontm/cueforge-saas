@@ -18,18 +18,11 @@ interface TrackGridProps {
 const EqBars = React.memo(({ isAnimating }: { isAnimating: boolean }) => {
   return (
     <div className="flex items-end justify-center gap-0.5 h-8">
-      {[0, 1, 2, 3].map((i) => (
+      {[1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className={`w-1.5 bg-[var(--accent)] rounded-sm ${
-            isAnimating ? 'animate-pulse' : ''
-          }`}
-          style={{
-            height: isAnimating ? `${8 + (i % 3) * 6}px` : '4px',
-            animation: isAnimating
-              ? `pulse ${0.5 + i * 0.1}s ease-in-out infinite`
-              : 'none',
-          }}
+          className={`w-1.5 bg-[var(--accent)] rounded-sm ${isAnimating ? `eq-bar-animate-${i}` : ''}`}
+          style={{ height: isAnimating ? undefined : '4px' }}
         />
       ))}
     </div>
