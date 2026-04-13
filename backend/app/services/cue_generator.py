@@ -34,9 +34,12 @@ from typing import Dict, List, Tuple, Optional
 from sqlalchemy.orm import Session
 import numpy as np
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import NamedTuple
+
+logger = logging.getLogger(__name__)
 
 from app.models import (
     Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
@@ -1033,7 +1036,8 @@ def _detect_loop_candidates(beats: List[int], energy_curve: List[float], bpm: fl
             try:
                 energy_std = float(np.std(segment))
                 energy_mean = float(np.mean(segment))
-            except:
+            except Exception as e:
+                logger.debug("Loop segment energy calc failed: %s", e)
                 continue
 
             if energy_std < 0.05 and energy_mean > 0.3:  # Stable and energetic
@@ -1715,6 +1719,25 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         """O(1) lookup of sections by label (Improvement #31)."""
         return _section_index.get(label, [])
 
+    # ── v6.4: Compute vocal-free zones for mix-point optimization ──
+    vocal_free_zones = _mark_vocal_free_zones(vocal_regions, duration_ms)
+
+    def _is_in_vocal_free_zone(pos_ms: int) -> bool:
+        """Check if a position falls in a vocal-free zone (good for mix points)."""
+        for zone in vocal_free_zones:
+            if zone["start_ms"] <= pos_ms <= zone["end_ms"]:
+                return True
+        return False
+
+    # ── v6.4: Read config overrides from v2 wrapper if present ──
+    if analysis_data.get("_override_min_drop_contrast") is not None:
+        profile["min_drop_contrast"] = analysis_data["_override_min_drop_contrast"]
+    if analysis_data.get("_override_min_build_gradient") is not None:
+        profile["min_build_gradient"] = analysis_data["_override_min_build_gradient"]
+    if analysis_data.get("_override_gap_bars") is not None:
+        gap_bars = analysis_data["_override_gap_bars"]
+        MIN_GAP_MS = max(4000, int(bar_ms * gap_bars))
+
     # ── Score drops — use STEM data when available ──
     scored_drops: List[Tuple[int, float]] = []
     min_contrast = profile.get("min_drop_contrast", 0.15)
@@ -1741,6 +1764,21 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         for d in drops:
             contrast = _energy_contrast(d)
             abs_energy = _energy_at(d + int(bar_ms))
+
+            # v6.4: Anti-drop filtering — reject false drops where energy
+            # decreases instead of increasing (Improvement #12)
+            energy_before = _energy_at(max(0, d - int(bar_ms * 2)))
+            energy_after = _energy_at(d + int(bar_ms))
+            if not _check_anti_drop_filtering(energy_before, energy_after):
+                # Energy decreased — likely a false drop, skip unless structural match
+                is_structural = False
+                for st in section_starts:
+                    if abs(st - d) < bar_ms * 2:
+                        is_structural = True
+                        break
+                if not is_structural:
+                    continue  # Skip this false drop entirely
+
             e_w = profile.get("energy_weight", 0.55)
             score = contrast * e_w + abs_energy * (1.0 - e_w)
 
@@ -1752,6 +1790,11 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
                     struct_bonus = 0.15
                     break
             score += struct_bonus
+
+            # v6.4: Vocal-free bonus — drops in vocal-free zones are
+            # better for DJ mixing (Improvement #40)
+            if _is_in_vocal_free_zone(d):
+                score += 0.05
 
             if contrast >= min_contrast * 0.5 or abs_energy >= 0.6 or struct_bonus > 0:
                 scored_drops.append((d, score))
@@ -1947,10 +1990,14 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         return cue_points
 
     # ── 6. OUTRO — use drum exit point when stems available ──
+    # v6.4: Prefer vocal-free zones for OUTRO (better mix-out points)
     outro_placed = False
     if has_stems and drum_exit_ms is not None and drum_exit_ms < duration_ms and len(cue_points) < 8:
         # v5: Outro = where drums permanently stop
         outro_conf = _compute_confidence("section", -0.4, 0.95, True, profile)
+        # v6.4: Boost confidence if drum exit is in vocal-free zone
+        if _is_in_vocal_free_zone(drum_exit_ms):
+            outro_conf = min(1.0, outro_conf + 0.05)
         outro_name = _generate_cue_name("outro", drum_exit_ms, bpm)
         if _add_cue(drum_exit_ms, "section", outro_name, CUE_COLORS["purple"],
                     snap_4bar=True, confidence=outro_conf):
@@ -2371,7 +2418,7 @@ async def _generate_cues_parallel(analysis_data: Dict) -> List[Dict]:
         if loop.is_closed():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-    except:
+    except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -4897,7 +4944,7 @@ class CueValidator:
                         )
                     )
         except Exception as e:
-            pass  # Non-critical validation issue
+            logger.debug("Validation step skipped: %s", e)
 
     def validate_genre_appropriateness(self, cues: List[CuePointResult]) -> None:
         """Check if cues are appropriate for the genre (Improvement #3)."""
@@ -4933,7 +4980,7 @@ class CueValidator:
                         )
                     )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_energy_flow(self, cues: List[CuePointResult]) -> None:
         """Check if energy enchaînement is logical (Improvement #4)."""
@@ -4956,7 +5003,7 @@ class CueValidator:
                             )
                         )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_naming_consistency(self, cues: List[CuePointResult]) -> None:
         """Check if cue names are consistent (Improvement #5)."""
@@ -4979,7 +5026,7 @@ class CueValidator:
                         )
                     )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_timing_accuracy(self, cues: List[CuePointResult]) -> None:
         """Check timing precision against beat grid (Improvement #6)."""
@@ -5003,7 +5050,7 @@ class CueValidator:
                             )
                         )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_coverage(self, cues: List[CuePointResult]) -> None:
         """Check if track is well covered by cues (Improvement #7)."""
@@ -5043,7 +5090,7 @@ class CueValidator:
                     )
                 )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_redundancy(self, cues: List[CuePointResult]) -> None:
         """Check for redundant cues (Improvement #8)."""
@@ -5068,7 +5115,7 @@ class CueValidator:
                         )
                     )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_type_distribution(self, cues: List[CuePointResult]) -> None:
         """Check for good distribution of cue types (Improvement #9)."""
@@ -5093,7 +5140,7 @@ class CueValidator:
                         )
                     )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def validate_confidence_levels(self, cues: List[CuePointResult]) -> None:
         """Check if confidence levels are sufficient (Improvement #10)."""
@@ -5111,7 +5158,7 @@ class CueValidator:
                     )
                 )
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def _build_report(self) -> ValidationReport:
         """Build final validation report (Improvement #11)."""
@@ -6861,7 +6908,7 @@ class MLCuePredictor:
             self.model = None
             self.feedback_log: List[Dict[str, any]] = []
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def prepare_training_features(
         self,
@@ -6917,7 +6964,7 @@ class MLCuePredictor:
             }
             self.feedback_log.append(feedback_entry)
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def model_confidence_estimation(self) -> float:
         """Estimate overall model confidence."""
@@ -7386,7 +7433,7 @@ class CueGeneratorProfiler:
             self.metrics: Dict[str, any] = {}
             self.cache: Dict[str, any] = {}
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)
 
     def benchmark_generation_speed(
         self,
@@ -7530,4 +7577,4 @@ class CueGeneratorProfiler:
             if callback:
                 callback({"progress": 0, "status": "started"})
         except Exception as e:
-            pass
+            logger.debug("Non-critical error: %s", e)

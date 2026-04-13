@@ -289,7 +289,7 @@ def generate_auto_cues(
     - minimal: Just drop and outro (2 cues)
     - full: All structural markers + hot cues (up to 8)
     """
-    from app.services.cue_generator import generate_cue_points
+    from app.services.cue_generator import generate_cue_points_v2
 
     track = db.query(Track).filter(
         Track.id == track_id, Track.user_id == current_user.id
@@ -325,8 +325,8 @@ def generate_auto_cues(
         "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
     }
 
-    # Generate cue points
-    generated = generate_cue_points(analysis_data)
+    # Generate cue points — v6.4 with generation stats
+    generated, _cue_stats = generate_cue_points_v2(analysis_data)
 
     # Apply style filter
     if style == "minimal":

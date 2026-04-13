@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import User, Track, CuePoint, TrackAnalysis, CueRule, LoopMarker, CueTemplate, CueHistory
 from app.middleware.auth import get_current_user
-from app.services.cue_generator import apply_rules_to_track, generate_cue_points
+from app.services.cue_generator import apply_rules_to_track, generate_cue_points, generate_cue_points_v2
 
 router = APIRouter(tags=["cues"])
 
@@ -756,8 +756,8 @@ async def generate_cues(
             "genre": track.genre,  # v4: pass genre for genre-aware thresholds
         }
 
-        # Generate smart cue points using the pro v4.0 algorithm
-        generated = generate_cue_points(analysis_data)
+        # Generate smart cue points using v6.4 algorithm with stats
+        generated, _cue_stats = generate_cue_points_v2(analysis_data)
 
         if not generated:
             return {"message": "No cue points could be generated", "cues": []}
@@ -846,7 +846,7 @@ async def regenerate_cues(
         "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
     }
 
-    new_cues = generate_cue_points(analysis_data)
+    new_cues, _stats = generate_cue_points_v2(analysis_data)
 
     # Delete old auto-generated cues (keep manual ones)
     db.query(CuePoint).filter(

@@ -511,9 +511,10 @@ def _run_analysis(track_id: int):
         # TODO: Lancer waveform extraction + genre detection EN PARALLÈLE avec cue generation
         # (dès que beats sont détectés, pas besoin d'attendre l'analyse complète)
 
-        # Cue point generation
+        # Cue point generation — v6.4: use v2 with stats
         try:
-            cue_points_data = cue_svc.generate_cue_points(analysis_data)
+            cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
+            logger.info(f"Cue generation: {cue_stats.total_cues} cues in {cue_stats.generation_time_ms:.0f}ms (drop_conf={cue_stats.drop_avg_confidence})")
             for cp in cue_points_data:
                 cue = CuePoint(
                     track_id=track.id,
@@ -598,7 +599,7 @@ def _run_analysis(track_id: int):
                         corrected_analysis_data = dict(analysis_data)
                         corrected_analysis_data["bpm"] = corrected_bpm
                         corrected_analysis_data["beat_positions"] = new_beats
-                        cue_points_data = cue_svc.generate_cue_points(corrected_analysis_data)
+                        cue_points_data, _ = cue_svc.generate_cue_points_v2(corrected_analysis_data)
                         for cp in cue_points_data:
                             cue = CuePoint(
                                 track_id=track.id,
@@ -1206,7 +1207,7 @@ async def analyze_track_local(
     # Utilise les données structurelles fraîches du payload (pas les anciennes de la DB)
     generated_pro = False
     try:
-        from app.services.cue_generator import generate_cue_points
+        from app.services.cue_generator import generate_cue_points_v2
 
         # Priorité : données du payload > données existantes en DB
         beat_pos = payload.beat_positions or analysis.beat_positions or []
@@ -1231,7 +1232,7 @@ async def analyze_track_local(
             "section_labels": sect_labels,
             "genre": genre or track.genre,
         }
-        generated = generate_cue_points(analysis_data)
+        generated, _stats = generate_cue_points_v2(analysis_data)
         if generated and len(generated) >= 2:
             for cp in generated:
                 db.add(CuePoint(
