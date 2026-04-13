@@ -121,8 +121,56 @@ export function CuesTab({
   const [selectedCueIds, setSelectedCueIds] = useState<Set<number>>(new Set());
   const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
 
-  // Improvement #4: Sort by options
+  // Improvement #4: Sort by options (now with secondary sort)
   const [sortBy, setSortBy] = useState<'position' | 'name' | 'type' | 'confidence'>('position');
+  const [secondarySortBy, setSecondarySortBy] = useState<'position' | 'name' | 'type' | 'confidence' | null>(null);
+
+  // Improvement #5: Export selection
+  const [exportMode, setExportMode] = useState(false);
+
+  // Improvement #8: Cue statistics
+  const cueStats = useMemo(() => {
+    const stats = {
+      total: cuePoints.length,
+      byType: {} as Record<string, number>,
+      avgConfidence: 0,
+      confidenceMin: 0,
+      confidenceMax: 0,
+    };
+
+    if (cuePoints.length === 0) return stats;
+
+    const confidences: number[] = [];
+    cuePoints.forEach(c => {
+      const type = c.cue_type || 'hot_cue';
+      stats.byType[type] = (stats.byType[type] || 0) + 1;
+      if (c.confidence != null) confidences.push(c.confidence);
+    });
+
+    if (confidences.length > 0) {
+      stats.avgConfidence = confidences.reduce((a, b) => a + b) / confidences.length;
+      stats.confidenceMin = Math.min(...confidences);
+      stats.confidenceMax = Math.max(...confidences);
+    }
+
+    return stats;
+  }, [cuePoints]);
+
+  // Improvement #16: Confidence threshold filter
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0);
+
+  // Improvement #17: Density heatmap — visual indicator of cue concentration
+  const [showDensityHeatmap, setShowDensityHeatmap] = useState(false);
+
+  // Improvement #20: Pinned cues
+  const [pinnedCueIds, setPinnedCueIds] = useState<Set<number>>(new Set());
+
+  // Improvement #21: Cue notes/comments
+  const [cueNotes, setCueNotes] = useState<Map<number, string>>(new Map());
+  const [notesCueId, setNotesCueId] = useState<number | null>(null);
+
+  // Improvement #25: Collapsible cue details
+  const [expandedCueIds, setExpandedCueIds] = useState<Set<number>>(new Set());
 
   // Improvement #10: Debounce rapid cue creation
   const createDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -179,27 +227,63 @@ export function CuesTab({
       filtered = filtered.filter((idx) => cuePoints[idx]?.cue_type === filterType);
     }
 
-    // Apply sorting
+    // Improvement #16: Apply confidence threshold filter
+    if (confidenceThreshold > 0) {
+      filtered = filtered.filter((idx) => {
+        const conf = cuePoints[idx]?.confidence ?? 0;
+        return conf >= confidenceThreshold;
+      });
+    }
+
+    // Apply sorting with primary + secondary sort (Improvement #24)
     filtered.sort((aIdx, bIdx) => {
       const cueA = cuePoints[aIdx];
       const cueB = cuePoints[bIdx];
       if (!cueA || !cueB) return 0;
 
+      // Improvement #20: Pinned cues come first
+      const aPinned = pinnedCueIds.has(cueA.id) ? 0 : 1;
+      const bPinned = pinnedCueIds.has(cueB.id) ? 0 : 1;
+      if (aPinned !== bPinned) return aPinned - bPinned;
+
+      // Primary sort
+      let primaryCmp = 0;
       switch (sortBy) {
         case 'name':
-          return (cueA.name || '').localeCompare(cueB.name || '');
+          primaryCmp = (cueA.name || '').localeCompare(cueB.name || '');
+          break;
         case 'type':
-          return (cueA.cue_type || '').localeCompare(cueB.cue_type || '');
+          primaryCmp = (cueA.cue_type || '').localeCompare(cueB.cue_type || '');
+          break;
         case 'confidence':
-          return (cueB.confidence || 0) - (cueA.confidence || 0);
+          primaryCmp = (cueB.confidence || 0) - (cueA.confidence || 0);
+          break;
         case 'position':
         default:
-          return (cueA.position_ms || 0) - (cueB.position_ms || 0);
+          primaryCmp = (cueA.position_ms || 0) - (cueB.position_ms || 0);
       }
+
+      if (primaryCmp !== 0 && secondarySortBy) return primaryCmp;
+
+      // Secondary sort
+      if (secondarySortBy && primaryCmp === 0) {
+        switch (secondarySortBy) {
+          case 'name':
+            return (cueA.name || '').localeCompare(cueB.name || '');
+          case 'type':
+            return (cueA.cue_type || '').localeCompare(cueB.cue_type || '');
+          case 'confidence':
+            return (cueB.confidence || 0) - (cueA.confidence || 0);
+          case 'position':
+            return (cueA.position_ms || 0) - (cueB.position_ms || 0);
+        }
+      }
+
+      return primaryCmp;
     });
 
     return filtered;
-  }, [indices, cuePoints, searchFilter, filterType, sortBy]);
+  }, [indices, cuePoints, searchFilter, filterType, sortBy, secondarySortBy, confidenceThreshold, pinnedCueIds]);
 
   const cues = indices.map(i => cuePoints[i]);
 
@@ -516,14 +600,68 @@ export function CuesTab({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
             className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
-            title="Tri"
+            title="Tri principal"
           >
             <option value="position">Position</option>
             <option value="name">Nom</option>
             <option value="type">Type</option>
             <option value="confidence">Confiance</option>
           </select>
+          {/* Improvement #24: Secondary sort */}
+          <select
+            value={secondarySortBy || ''}
+            onChange={(e) => setSecondarySortBy((e.target.value as any) || null)}
+            className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
+            title="Tri secondaire"
+          >
+            <option value="">Aucun</option>
+            <option value="position">Position</option>
+            <option value="name">Nom</option>
+            <option value="type">Type</option>
+            <option value="confidence">Confiance</option>
+          </select>
         </div>
+
+        {/* Improvement #16: Confidence threshold slider */}
+        <div className="flex gap-2 items-center">
+          <label className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">Confiance min:</label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={confidenceThreshold}
+            onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
+            className="flex-1 h-1.5 bg-[var(--bg-hover)] rounded cursor-pointer"
+          />
+          <span className="text-[10px] text-[var(--text-muted)] min-w-[30px] text-right">
+            {Math.round(confidenceThreshold * 100)}%
+          </span>
+        </div>
+
+        {/* Improvement #8: Statistics panel */}
+        {cuePoints.length > 0 && (
+          <div className="px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)] text-xs space-y-1">
+            <div className="flex justify-between text-[var(--text-secondary)]">
+              <span>Total:</span>
+              <strong>{cueStats.total}</strong>
+            </div>
+            {Object.entries(cueStats.byType).length > 0 && (
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Types:</span>
+                <span className="font-mono text-[9px]">
+                  {Object.entries(cueStats.byType).map(([type, count]) => `${type.slice(0, 2)}: ${count}`).join(', ')}
+                </span>
+              </div>
+            )}
+            {cueStats.avgConfidence > 0 && (
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Confiance moy:</span>
+                <strong>{Math.round(cueStats.avgConfidence * 100)}%</strong>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Improvement #3: Bulk delete controls */}
         {bulkDeleteMode && (
@@ -545,6 +683,17 @@ export function CuesTab({
               Annuler
             </button>
           </div>
+        )}
+
+        {/* Improvement #5: Export selection button */}
+        {cuePoints.length > 0 && (
+          <button
+            onClick={() => setExportMode(!exportMode)}
+            className="w-full px-2 py-1.5 text-xs rounded-lg border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            title="Exporter sélection de cues"
+          >
+            📤 Exporter {selectedCueIds.size > 0 ? `(${selectedCueIds.size})` : ''}
+          </button>
         )}
 
         {/* Advanced form */}
@@ -662,6 +811,13 @@ export function CuesTab({
               const posMs = cue.position_ms ?? cue.time_ms ?? 0;
               const barNumber = getBarNumber(posMs);
               const isSelected = selectedCueIds.has(cue.id);
+              const isPinned = pinnedCueIds.has(cue.id);
+              const isExpanded = expandedCueIds.has(cue.id);
+              const cueNote = cueNotes.get(cue.id);
+              const twoBarThreshold = (60000 / Math.max((track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128, 60)) * 8; // 2 bars in ms
+              const nextCue = filteredIndices[filteredIndices.indexOf(idx) + 1];
+              const nextCuePos = nextCue ? cuePoints[nextCue]?.position_ms : null;
+              const distToNext = nextCuePos ? (nextCuePos - posMs) / 1000 : null;
 
               return (
                 <div key={cue.id}>
@@ -748,7 +904,22 @@ export function CuesTab({
                   {/* Name + metadata section */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
+                      {/* Improvement #20: Pin button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = new Set(pinnedCueIds);
+                          if (next.has(cue.id)) next.delete(cue.id);
+                          else next.add(cue.id);
+                          setPinnedCueIds(next);
+                        }}
+                        className="flex-shrink-0 opacity-40 hover:opacity-100 transition-opacity"
+                        style={{ fontSize: '10px' }}
+                      >
+                        {isPinned ? '📌' : '📍'}
+                      </button>
+
+                      <div className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide flex-1" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}>
                         {cue.name || `${typeInfo.label} ${idx + 1}`}
                       </div>
                       <ConfidenceDot confidence={cue.confidence} />
@@ -765,6 +936,19 @@ export function CuesTab({
                           </span>
                         </>
                       )}
+                      {/* Improvement #23: Show estimated time between cues */}
+                      {distToNext !== null && distToNext > 0 && (
+                        <>
+                          <span className="opacity-60">·</span>
+                          <span className="opacity-70 text-[8px]">+{distToNext.toFixed(1)}s</span>
+                        </>
+                      )}
+                      {/* Improvement #22: Visual warning for cues too close */}
+                      {distToNext !== null && distToNext < twoBarThreshold / 1000 && distToNext > 0 && (
+                        <span className="text-[8px] px-1 py-0.5 rounded bg-yellow-500/30 border border-yellow-500/50 text-yellow-300">
+                          ⚠️ Proche
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -780,6 +964,22 @@ export function CuesTab({
                   {/* Action buttons */}
                   {!bulkDeleteMode && (
                     <>
+                      {/* Improvement #25: Expand/collapse button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = new Set(expandedCueIds);
+                          if (next.has(cue.id)) next.delete(cue.id);
+                          else next.add(cue.id);
+                          setExpandedCueIds(next);
+                        }}
+                        className="p-1 rounded hover:bg-blue-500/15 text-[var(--text-muted)] hover:text-blue-400 transition-colors flex-shrink-0"
+                        style={{ opacity: isHovered ? 1 : 0.5 }}
+                        title="Détails complets"
+                      >
+                        <ChevronDown size={11} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </button>
+
                       {/* Improvement #11: Copy cue */}
                       <button
                         onClick={(e) => {
@@ -843,6 +1043,40 @@ export function CuesTab({
                     <div><strong>Position:</strong> {formatTimeMs(posMs)}</div>
                     {cue.confidence && <div><strong>Confiance:</strong> {Math.round(cue.confidence * 100)}%</div>}
                     {cue.end_position_ms && <div><strong>Fin:</strong> {formatTimeMs(cue.end_position_ms)}</div>}
+                  </div>
+                )}
+
+                {/* Improvement #25: Collapsible cue details */}
+                {isExpanded && (
+                  <div className="px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[8px] space-y-2 mb-1">
+                    <div className="space-y-0.5">
+                      <div><strong>Détails complets:</strong></div>
+                      <div className="text-[7px] font-mono space-y-0.5 text-[var(--text-secondary)]">
+                        <div>ID: {cue.id}</div>
+                        <div>Type: {cue.cue_type}</div>
+                        <div>Position: {formatTimeMs(posMs)}</div>
+                        <div>Confiance: {Math.round((cue.confidence || 0) * 100)}%</div>
+                        {cue.end_position_ms && <div>Fin: {formatTimeMs(cue.end_position_ms)}</div>}
+                      </div>
+                    </div>
+
+                    {/* Improvement #21: Cue notes/comments */}
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-semibold text-[var(--text-primary)]">Notes:</label>
+                      <textarea
+                        value={cueNote || ''}
+                        onChange={(e) => {
+                          const next = new Map(cueNotes);
+                          if (e.target.value) next.set(cue.id, e.target.value);
+                          else next.delete(cue.id);
+                          setCueNotes(next);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Ajouter une note..."
+                        className="w-full p-1 rounded text-[7px] bg-[var(--bg-primary)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none"
+                        rows={2}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

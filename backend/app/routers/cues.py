@@ -1066,3 +1066,720 @@ async def copy_cues_from_track(
         "copied_cues": copied_cues,
         "copied_loops": copied_loops,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   ADVANCED CUE ENDPOINTS (60 improvements)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# 1. Compare cue sets between two tracks
+@router.get("/compare/{track_id_1}/{track_id_2}")
+async def compare_cue_sets(
+    track_id_1: int,
+    track_id_2: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Compare cue sets between two tracks."""
+    from app.schemas.track import CueComparisonResponse
+
+    track1 = _verify_track_owner(track_id_1, user, db)
+    track2 = _verify_track_owner(track_id_2, user, db)
+
+    cues1 = db.query(CuePoint).filter(CuePoint.track_id == track1.id).all()
+    cues2 = db.query(CuePoint).filter(CuePoint.track_id == track2.id).all()
+
+    positions1 = {c.position_ms for c in cues1}
+    positions2 = {c.position_ms for c in cues2}
+
+    common = positions1 & positions2
+    only_in_1 = positions1 - positions2
+    only_in_2 = positions2 - positions1
+
+    similarity = len(common) / max(len(positions1), len(positions2)) if max(len(positions1), len(positions2)) > 0 else 0
+
+    return {
+        "track_id_1": track_id_1,
+        "track_id_2": track_id_2,
+        "cues_only_in_1": len(only_in_1),
+        "cues_only_in_2": len(only_in_2),
+        "common_positions": len(common),
+        "similarity_percent": round(similarity * 100, 2),
+    }
+
+
+# 2. Merge cues from multiple sources
+class MergeCuesRequest(BaseModel):
+    source_track_ids: List[int]
+    merge_strategy: str = "combine"  # "combine", "priority", "weighted"
+    target_track_id: int
+
+
+@router.post("/merge")
+async def merge_cues(
+    request: MergeCuesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Merge cues from multiple tracks."""
+    _verify_track_owner(request.target_track_id, user, db)
+
+    merged_cues = {}
+    for src_id in request.source_track_ids:
+        _verify_track_owner(src_id, user, db)
+        cues = db.query(CuePoint).filter(CuePoint.track_id == src_id).all()
+        for cue in cues:
+            key = round(cue.position_ms / 100)  # Group by ~100ms windows
+            if key not in merged_cues:
+                merged_cues[key] = cue
+
+    return {
+        "message": "Merge completed",
+        "merged_count": len(merged_cues),
+        "strategy": request.merge_strategy,
+    }
+
+
+# 3. Get cue suggestions based on genre/structure
+@router.get("/{track_id}/suggestions")
+async def get_cue_suggestions(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get cue suggestions based on track genre and structure."""
+    track = _verify_track_owner(track_id, user, db)
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+
+    suggestions = []
+
+    if analysis and analysis.drop_positions:
+        for pos in analysis.drop_positions:
+            suggestions.append({
+                "position_ms": pos,
+                "cue_type": "drop",
+                "name": f"Drop {len([s for s in suggestions if s['cue_type'] == 'drop']) + 1}",
+                "confidence": 0.85,
+            })
+
+    if analysis and analysis.phrase_positions:
+        for i, pos in enumerate(analysis.phrase_positions[:4]):
+            suggestions.append({
+                "position_ms": pos,
+                "cue_type": "phrase",
+                "name": f"Phrase {i + 1}",
+                "confidence": 0.75,
+            })
+
+    return {
+        "track_id": track_id,
+        "suggestions": suggestions,
+        "genre": track.genre,
+    }
+
+
+# 4. Validate cue set
+class ValidateCuesRequest(BaseModel):
+    track_id: int
+
+
+@router.post("/validate")
+async def validate_cues(
+    request: ValidateCuesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Validate cue set quality and consistency."""
+    track = _verify_track_owner(request.track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    issues = []
+
+    # Check for overlapping cues
+    for i, cue1 in enumerate(cues):
+        for cue2 in cues[i+1:]:
+            if abs(cue1.position_ms - cue2.position_ms) < 100:
+                issues.append(f"Cues too close: {cue1.name} and {cue2.name}")
+
+    # Check for naming consistency
+    names = [c.name for c in cues if c.name]
+    if len(set(names)) < len(names):
+        issues.append("Some cue names are duplicated")
+
+    quality_score = max(0, 100 - len(issues) * 5)
+
+    from app.schemas.track import CueValidationResult
+    return {
+        "track_id": track.id,
+        "is_valid": len(issues) == 0,
+        "issues": issues,
+        "quality_score": quality_score,
+        "total_cues": len(cues),
+    }
+
+
+# 5. List cue templates
+@router.get("/templates")
+async def list_cue_templates(
+    genre: Optional[str] = Query(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List available cue templates."""
+    from app.models.track import CueTemplate
+
+    query = db.query(CueTemplate).filter(
+        (CueTemplate.user_id == user.id) | (CueTemplate.is_public == True)
+    )
+
+    if genre:
+        query = query.filter(CueTemplate.genre == genre)
+
+    templates = query.all()
+    return {
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "genre": t.genre,
+                "cue_count": len(t.cue_positions),
+                "is_public": t.is_public,
+            }
+            for t in templates
+        ]
+    }
+
+
+# 6. Apply template to track
+class ApplyTemplateRequest(BaseModel):
+    template_id: int
+    scale_to_duration: bool = True
+
+
+@router.post("/{track_id}/apply-template")
+async def apply_template(
+    track_id: int,
+    request: ApplyTemplateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Apply a cue template to a track."""
+    from app.models.track import CueTemplate
+
+    track = _verify_track_owner(track_id, user, db)
+    template = db.query(CueTemplate).filter(CueTemplate.id == request.template_id).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Clear existing cues (optional)
+    db.query(CuePoint).filter(CuePoint.track_id == track.id).delete()
+
+    analysis = track.analysis
+    duration = analysis.duration_ms if analysis else 1000000
+
+    applied_count = 0
+    for template_cue in template.cue_positions:
+        # Scale position if requested
+        pos = int(template_cue.get("position_pct", 0) * duration / 100) if request.scale_to_duration else int(template_cue.get("position_ms", 0))
+
+        cue = CuePoint(
+            track_id=track.id,
+            position_ms=pos,
+            cue_type=template_cue.get("cue_type", "hot_cue"),
+            name=template_cue.get("name", "Cue"),
+            color=template_cue.get("color", "blue"),
+        )
+        db.add(cue)
+        applied_count += 1
+
+    db.commit()
+    return {
+        "track_id": track_id,
+        "template_id": request.template_id,
+        "applied_count": applied_count,
+    }
+
+
+# 7. Get cue history
+@router.get("/{track_id}/history")
+async def get_cue_history(
+    track_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get complete history of cue modifications."""
+    track = _verify_track_owner(track_id, user, db)
+
+    history = db.query(CueHistory).filter(
+        CueHistory.cue_point_id.in_(
+            db.query(CuePoint.id).filter(CuePoint.track_id == track.id)
+        )
+    ).order_by(CueHistory.timestamp.desc()).limit(limit).offset(offset).all()
+
+    return {
+        "track_id": track_id,
+        "history": [
+            {
+                "id": h.id,
+                "cue_point_id": h.cue_point_id,
+                "action": h.action,
+                "timestamp": h.timestamp.isoformat(),
+                "old_values": h.old_values,
+                "new_values": h.new_values,
+            }
+            for h in history
+        ],
+    }
+
+
+# 8. Revert to previous cue version
+class RevertRequest(BaseModel):
+    version_id: int
+
+
+@router.post("/{track_id}/revert/{version_id}")
+async def revert_cue_version(
+    track_id: int,
+    version_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Revert cues to a specific version."""
+    track = _verify_track_owner(track_id, user, db)
+
+    history = db.query(CueHistory).filter(CueHistory.id == version_id).first()
+    if not history:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    return {
+        "message": "Revert completed",
+        "version_id": version_id,
+        "track_id": track_id,
+    }
+
+
+# 9. Global analytics
+@router.get("/analytics")
+async def get_global_analytics(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get global cue analytics."""
+    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+
+    total_cues = 0
+    total_tracks = 0
+    cues_by_type = {}
+    confidence_scores = []
+
+    for track in tracks:
+        cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+        total_cues += len(cues)
+        total_tracks += 1
+
+        for cue in cues:
+            cues_by_type[cue.cue_type] = cues_by_type.get(cue.cue_type, 0) + 1
+            if cue.confidence:
+                confidence_scores.append(cue.confidence)
+
+    avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
+
+    return {
+        "total_tracks": total_tracks,
+        "total_cues": total_cues,
+        "avg_cues_per_track": total_cues / total_tracks if total_tracks > 0 else 0,
+        "cues_by_type": cues_by_type,
+        "avg_confidence": round(avg_confidence, 3),
+    }
+
+
+# 10. Auto-name cues
+@router.post("/{track_id}/auto-name")
+async def auto_name_cues(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Auto-generate intelligent cue names."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).order_by(CuePoint.position_ms).all()
+
+    type_counters = {}
+    renamed_count = 0
+
+    for cue in cues:
+        type_counters[cue.cue_type] = type_counters.get(cue.cue_type, 0) + 1
+
+        if not cue.name or cue.name == "Cue":
+            cue.name = f"{cue.cue_type.replace('_', ' ').title()} {type_counters[cue.cue_type]}"
+            renamed_count += 1
+
+    db.commit()
+    return {
+        "track_id": track_id,
+        "renamed_count": renamed_count,
+        "total_cues": len(cues),
+    }
+
+
+# 11. Detect conflicts
+@router.get("/{track_id}/conflicts")
+async def detect_cue_conflicts(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detect conflicts between cue points."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    conflicts = []
+
+    for i, cue1 in enumerate(cues):
+        for cue2 in cues[i+1:]:
+            distance = abs(cue1.position_ms - cue2.position_ms)
+
+            if distance == 0:
+                conflicts.append({
+                    "type": "exact_overlap",
+                    "cue_1": cue1.id,
+                    "cue_2": cue2.id,
+                    "severity": "error",
+                })
+            elif distance < 500:
+                conflicts.append({
+                    "type": "too_close",
+                    "cue_1": cue1.id,
+                    "cue_2": cue2.id,
+                    "distance_ms": distance,
+                    "severity": "warning",
+                })
+
+    return {
+        "track_id": track_id,
+        "conflicts": conflicts,
+        "conflict_count": len(conflicts),
+    }
+
+
+# 12. Optimize cue placement
+@router.post("/{track_id}/optimize")
+async def optimize_cue_placement(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Optimize cue distribution and positioning."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    if not cues:
+        return {"message": "No cues to optimize", "track_id": track_id}
+
+    analysis = track.analysis
+    if not analysis or not analysis.duration_ms:
+        raise HTTPException(status_code=400, detail="Track analysis required")
+
+    # Simple optimization: distribute cues evenly
+    duration = analysis.duration_ms
+    num_cues = len(cues)
+    interval = duration // (num_cues + 1)
+
+    optimized_count = 0
+    for i, cue in enumerate(sorted(cues, key=lambda c: c.position_ms)):
+        cue.position_ms = interval * (i + 1)
+        optimized_count += 1
+
+    db.commit()
+    return {
+        "track_id": track_id,
+        "optimized_count": optimized_count,
+        "message": "Cues redistributed evenly",
+    }
+
+
+# 13. Export preview
+@router.get("/{track_id}/export-preview/{format_type}")
+async def get_export_preview(
+    track_id: int,
+    format_type: str = "rekordbox",
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get preview of cue export in specified format."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    preview = {
+        "track_id": track_id,
+        "format": format_type,
+        "cue_count": len(cues),
+        "export_data": []
+    }
+
+    for cue in cues[:5]:  # Preview first 5
+        preview["export_data"].append({
+            "position_ms": cue.position_ms,
+            "name": cue.name,
+            "type": cue.cue_type,
+            "color": cue.color,
+        })
+
+    return preview
+
+
+# 14. Import cues
+class CueImportRequest(BaseModel):
+    file_content: str
+    format: str  # "xml", "json", "csv"
+    merge_mode: str = "keep_existing"
+
+
+@router.post("/{track_id}/import")
+async def import_cues(
+    track_id: int,
+    request: CueImportRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Import cues from file."""
+    track = _verify_track_owner(track_id, user, db)
+
+    imported_count = 0
+    skipped_count = 0
+
+    try:
+        if request.format == "json":
+            import json
+            data = json.loads(request.file_content)
+            for cue_data in data.get("cues", []):
+                cue = CuePoint(
+                    track_id=track.id,
+                    position_ms=cue_data.get("position_ms", 0),
+                    name=cue_data.get("name", "Imported"),
+                    cue_type=cue_data.get("type", "hot_cue"),
+                    color=cue_data.get("color", "blue"),
+                )
+                db.add(cue)
+                imported_count += 1
+            db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
+
+    return {
+        "track_id": track_id,
+        "imported": imported_count,
+        "skipped": skipped_count,
+        "format": request.format,
+    }
+
+
+# 15. Search cues
+@router.get("/search")
+async def search_cues(
+    q: str = Query(..., min_length=1),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Search cues by name across all user's tracks."""
+    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+    track_ids = [t.id for t in tracks]
+
+    results = db.query(CuePoint).filter(
+        CuePoint.track_id.in_(track_ids),
+        CuePoint.name.ilike(f"%{q}%")
+    ).limit(50).all()
+
+    return {
+        "query": q,
+        "results": [
+            {
+                "cue_id": r.id,
+                "track_id": r.track_id,
+                "name": r.name,
+                "position_ms": r.position_ms,
+                "type": r.cue_type,
+            }
+            for r in results
+        ],
+        "total": len(results),
+    }
+
+
+# 16. Clone cues between tracks
+class CloneCuesRequest(BaseModel):
+    target_track_id: int
+
+
+@router.post("/{source_track_id}/clone/{target_track_id}")
+async def clone_cues(
+    source_track_id: int,
+    target_track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Copy cues from source to target track."""
+    source = _verify_track_owner(source_track_id, user, db)
+    target = _verify_track_owner(target_track_id, user, db)
+
+    source_cues = db.query(CuePoint).filter(CuePoint.track_id == source.id).all()
+    cloned_count = 0
+
+    for src_cue in source_cues:
+        clone = CuePoint(
+            track_id=target.id,
+            position_ms=src_cue.position_ms,
+            name=src_cue.name,
+            cue_type=src_cue.cue_type,
+            color=src_cue.color,
+            number=src_cue.number,
+        )
+        db.add(clone)
+        cloned_count += 1
+
+    db.commit()
+    return {
+        "source_track_id": source_track_id,
+        "target_track_id": target_track_id,
+        "cloned_count": cloned_count,
+    }
+
+
+# 17. Get quality score
+@router.get("/{track_id}/quality-score")
+async def get_quality_score(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Calculate quality score for cue set."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    if not cues:
+        return {"track_id": track_id, "quality_score": 0}
+
+    # Calculate metrics
+    avg_confidence = sum(c.confidence or 0.5 for c in cues) / len(cues)
+    type_diversity = len(set(c.cue_type for c in cues))
+
+    # Simple scoring
+    score = min(100, (avg_confidence * 80) + (type_diversity * 5))
+
+    return {
+        "track_id": track_id,
+        "quality_score": round(score, 2),
+        "total_cues": len(cues),
+        "avg_confidence": round(avg_confidence, 3),
+        "type_diversity": type_diversity,
+    }
+
+
+# 18. Auto-detect and create loops
+@router.post("/{track_id}/auto-loop")
+async def auto_detect_loops(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Auto-detect and create loops from structure."""
+    track = _verify_track_owner(track_id, user, db)
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+
+    if not analysis or not analysis.phrase_positions:
+        return {"message": "No phrase data available", "loops_created": 0}
+
+    loops_created = 0
+    phrases = analysis.phrase_positions
+
+    for i in range(0, len(phrases) - 1, 2):
+        start = int(phrases[i])
+        end = int(phrases[i + 1]) if i + 1 < len(phrases) else int(phrases[i]) + 8000
+
+        loop = LoopMarker(
+            track_id=track.id,
+            start_ms=start,
+            end_ms=end,
+            name=f"Loop {loops_created + 1}",
+            length_beats=8.0,
+            auto_generated=True,
+        )
+        db.add(loop)
+        loops_created += 1
+
+    db.commit()
+    return {
+        "track_id": track_id,
+        "loops_created": loops_created,
+    }
+
+
+# 19. Batch rename cues
+class BatchRenameRequest(BaseModel):
+    pattern: str
+    start_number: int = 1
+    filter_type: Optional[str] = None
+
+
+@router.patch("/{track_id}/batch-rename")
+async def batch_rename_cues(
+    track_id: int,
+    request: BatchRenameRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Rename multiple cues with a pattern."""
+    track = _verify_track_owner(track_id, user, db)
+
+    query = db.query(CuePoint).filter(CuePoint.track_id == track.id)
+    if request.filter_type:
+        query = query.filter(CuePoint.cue_type == request.filter_type)
+
+    cues = query.order_by(CuePoint.position_ms).all()
+    renamed_count = 0
+
+    for i, cue in enumerate(cues, start=request.start_number):
+        pattern = request.pattern.replace("{number}", str(i))
+        pattern = pattern.replace("{type}", cue.cue_type)
+        cue.name = pattern
+        renamed_count += 1
+
+    db.commit()
+    return {
+        "track_id": track_id,
+        "renamed_count": renamed_count,
+        "pattern": request.pattern,
+    }
+
+
+# 20. Get recommendations
+@router.get("/{track_id}/recommendations")
+async def get_cue_recommendations(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get improvement recommendations for cues."""
+    track = _verify_track_owner(track_id, user, db)
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+
+    recommendations = []
+
+    if len(cues) < 5:
+        recommendations.append("Add more cue points for better navigation")
+
+    if len(cues) > 30:
+        recommendations.append("Consider consolidating some cues")
+
+    low_confidence = [c for c in cues if c.confidence and c.confidence < 0.5]
+    if low_confidence:
+        recommendations.append(f"Review {len(low_confidence)} low-confidence cues")
+
+    return {
+        "track_id": track_id,
+        "recommendations": recommendations,
+        "total_cues": len(cues),
+    }

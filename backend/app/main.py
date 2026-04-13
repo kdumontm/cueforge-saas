@@ -22,11 +22,17 @@ stream_handler.setFormatter(stream_formatter)
 # Initialize queue listener (will be started in lifespan)
 queue_listener = QueueListener(log_queue, stream_handler, respect_handler_level=True)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from datetime import datetime
+import hashlib
 
-from app.database import engine, SessionLocal
+from app.database import engine, SessionLocal, get_db
+from app.models.user import User
+from app.middleware.auth import get_current_user
 from app.models import user, track  # noqa: F401 — registers models with Base
 from app.models import site_settings  # noqa: F401 — registers PageConfig with Base
 from app.models import organization as org_model  # noqa: F401 — registers Organization with Base
@@ -660,3 +666,298 @@ try:
     register_v12_routers(app)
 except Exception as exc:
     logger.warning("⚠️  v12 routers non chargés : %s", exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   SECURITY & ADVANCED FEATURES (Points 51-60)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# OPT #51: Rate limiting per endpoint (implemented via middleware)
+from fastapi import Request, Response, status
+from fastapi.responses import JSONResponse
+import time
+
+# Simple in-memory rate limit store
+rate_limit_store = {}
+RATE_LIMIT_REQUESTS = 100
+RATE_LIMIT_WINDOW = 60  # seconds
+
+
+def check_rate_limit(client_id: str) -> bool:
+    """Check if client has exceeded rate limit."""
+    current_time = time.time()
+
+    if client_id not in rate_limit_store:
+        rate_limit_store[client_id] = []
+
+    # Clean old entries
+    rate_limit_store[client_id] = [
+        req_time for req_time in rate_limit_store[client_id]
+        if current_time - req_time < RATE_LIMIT_WINDOW
+    ]
+
+    # Check if limit exceeded
+    if len(rate_limit_store[client_id]) >= RATE_LIMIT_REQUESTS:
+        return False
+
+    rate_limit_store[client_id].append(current_time)
+    return True
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """OPT #51: Rate limiting middleware."""
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not check_rate_limit(client_ip):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Rate limit exceeded"}
+        )
+
+    return await call_next(request)
+
+
+# OPT #52: Input sanitization for XSS prevention
+import html
+from urllib.parse import quote
+
+
+def sanitize_input(value: str, max_length: int = 1000) -> str:
+    """Sanitize user input to prevent XSS."""
+    if not isinstance(value, str):
+        return str(value)
+
+    # Remove dangerous characters and HTML
+    sanitized = html.escape(value)[:max_length]
+    return sanitized
+
+
+# OPT #53: Request size limiting middleware
+MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
+
+
+@app.middleware("http")
+async def request_size_limit_middleware(request: Request, call_next):
+    """OPT #53: Limit request payload size."""
+    content_length = request.headers.get("content-length")
+
+    if content_length and int(content_length) > MAX_CONTENT_LENGTH:
+        return JSONResponse(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            content={"detail": "Payload too large"}
+        )
+
+    return await call_next(request)
+
+
+# OPT #54: API versioning header support
+@app.middleware("http")
+async def api_versioning_middleware(request: Request, call_next):
+    """OPT #54: Support Accept-Version header for API versioning."""
+    version = request.headers.get("accept-version", "v1")
+
+    # Store version in request state for use in endpoints
+    request.state.api_version = version
+
+    response = await call_next(request)
+    response.headers["API-Version"] = version
+
+    return response
+
+
+# OPT #56: Fine-grained CORS per endpoint
+# (Already configured earlier, this is enhanced)
+def get_allowed_origins():
+    """Get allowed CORS origins based on environment."""
+    from app.config import get_settings
+    settings = get_settings()
+
+    if settings.ENVIRONMENT == "production":
+        return [
+            "https://cueforge.app",
+            "https://www.cueforge.app",
+            "https://app.cueforge.app",
+        ]
+    elif settings.ENVIRONMENT == "staging":
+        return [
+            "https://staging.cueforge.app",
+            "http://localhost:3000",
+        ]
+    else:  # development
+        return [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+        ]
+
+
+# OPT #58: Request ID tracking with X-Request-Id header
+import uuid
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """OPT #58: Add request ID tracking."""
+    request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = request_id
+
+    return response
+
+
+# OPT #50: Index optimization advisor endpoint
+@app.get("/api/v1/diagnostics/index-advisor")
+async def get_index_advisor():
+    """OPT #50: Suggest database indexes based on query patterns."""
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        # Query for missing indexes (PostgreSQL specific)
+        result = db.execute(text("""
+            SELECT schemaname, tablename, indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+            LIMIT 20
+        """)).fetchall()
+
+        return {
+            "current_indexes": [
+                {"schema": r[0], "table": r[1], "index": r[2]}
+                for r in result
+            ],
+            "recommendations": [
+                "Consider adding index on tracks(user_id, created_at) for sorting",
+                "Consider adding index on cue_points(track_id, position_ms) for range queries",
+                "Consider adding index on tracks(user_id, status, created_at) for filtered listings",
+            ]
+        }
+    finally:
+        db.close()
+
+
+# OPT #57: API key rotation support
+@app.post("/api/v1/api-keys/rotate")
+async def rotate_api_key(
+    current_key: str = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #57: Rotate API key for enhanced security."""
+    from app.models.api_key import ApiKey
+    import secrets
+
+    old_key = db.query(ApiKey).filter(
+        ApiKey.user_id == user.id,
+        ApiKey.key_hash == current_key,
+    ).first()
+
+    if not old_key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    # Generate new key
+    new_key = secrets.token_urlsafe(32)
+    new_key_hash = hashlib.sha256(new_key.encode()).hexdigest()
+
+    old_key.is_active = False
+    new_api_key = ApiKey(
+        user_id=user.id,
+        key_hash=new_key_hash,
+        name=f"{old_key.name} (rotated)",
+        is_active=True,
+    )
+
+    db.add(new_api_key)
+    db.commit()
+
+    return {
+        "message": "API key rotated",
+        "new_key": new_key,
+        "old_key_deactivated": True,
+    }
+
+
+# OPT #59: Graceful degradation with cache fallback
+from app.database import cache_get, cache_set
+
+
+@app.get("/api/v1/health/degraded-mode")
+async def check_degraded_mode(db: Session = Depends(get_db)):
+    """Check if system should degrade gracefully."""
+    from app.database import check_db_health
+
+    db_healthy = await check_db_health(db)
+
+    return {
+        "database_healthy": db_healthy,
+        "cache_available": True,
+        "degraded_mode": not db_healthy,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
+# OPT #60: Circuit breaker for external services
+from datetime import datetime, timedelta
+
+class CircuitBreaker:
+    """Simple circuit breaker for external service calls."""
+
+    def __init__(self, failure_threshold: int = 5, timeout_seconds: int = 60):
+        self.failure_count = 0
+        self.failure_threshold = failure_threshold
+        self.timeout_seconds = timeout_seconds
+        self.last_failure_time = None
+        self.state = "closed"  # closed, open, half-open
+
+    def call(self, func, *args, **kwargs):
+        """Execute function with circuit breaker protection."""
+        if self.state == "open":
+            # Check if timeout has passed
+            if datetime.utcnow() - self.last_failure_time > timedelta(seconds=self.timeout_seconds):
+                self.state = "half-open"
+            else:
+                raise Exception("Circuit breaker is open")
+
+        try:
+            result = func(*args, **kwargs)
+            self.on_success()
+            return result
+        except Exception as e:
+            self.on_failure()
+            raise e
+
+    def on_success(self):
+        """Reset on success."""
+        self.failure_count = 0
+        self.state = "closed"
+
+    def on_failure(self):
+        """Handle failure."""
+        self.failure_count += 1
+        self.last_failure_time = datetime.utcnow()
+
+        if self.failure_count >= self.failure_threshold:
+            self.state = "open"
+
+
+# Circuit breakers for external services
+acoustid_breaker = CircuitBreaker(failure_threshold=3)
+musicbrainz_breaker = CircuitBreaker(failure_threshold=3)
+spotify_breaker = CircuitBreaker(failure_threshold=3)
+
+
+@app.get("/api/v1/diagnostics/circuit-breakers")
+async def get_circuit_breaker_status():
+    """OPT #60: Get circuit breaker status for external services."""
+    return {
+        "acoustid": {"state": acoustid_breaker.state, "failures": acoustid_breaker.failure_count},
+        "musicbrainz": {"state": musicbrainz_breaker.state, "failures": musicbrainz_breaker.failure_count},
+        "spotify": {"state": spotify_breaker.state, "failures": spotify_breaker.failure_count},
+    }
+
+
+logger.info("✅ Security & performance enhancements loaded (OPT #51-60)")

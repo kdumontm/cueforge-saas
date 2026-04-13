@@ -388,3 +388,213 @@ def generate_serato_waveform_data(track: Dict) -> Dict:
         "peaks": normalized,
         "sample_count": len(normalized),
     }
+
+
+# ── Serato DJ Pro v3 Format Extensions ──────────────────────────────────
+
+SERATO_DJ_PRO_V3_COLORS = {
+    # Serato DJ Pro v3 extended 32-color palette
+    "red": (255, 0, 0),
+    "dark_red": (160, 0, 0),
+    "orange": (255, 128, 0),
+    "yellow": (255, 255, 0),
+    "lime": (128, 255, 0),
+    "green": (0, 255, 0),
+    "mint": (0, 255, 128),
+    "cyan": (0, 255, 255),
+    "light_blue": (0, 128, 255),
+    "blue": (0, 0, 255),
+    "dark_blue": (0, 0, 160),
+    "purple": (128, 0, 255),
+    "magenta": (255, 0, 255),
+    "pink": (255, 0, 128),
+    "white": (255, 255, 255),
+    "light_gray": (192, 192, 192),
+    "gray": (128, 128, 128),
+    "dark_gray": (64, 64, 64),
+    "black": (0, 0, 0),
+}
+
+
+def generate_serato_dj_pro_v3(tracks: List[dict]) -> Dict:
+    """Generate Serato DJ Pro v3 format with extended features."""
+    return {
+        "version": "3.0",
+        "format": "serato_dj_pro_v3",
+        "tracks": [_format_serato_v3_track(t) for t in tracks],
+        "timestamp": __import__('datetime').datetime.now().isoformat(),
+    }
+
+
+def _format_serato_v3_track(track: dict) -> Dict:
+    """Format single track for Serato DJ Pro v3."""
+    return {
+        "title": track.get("title", ""),
+        "artist": track.get("artist", ""),
+        "bpm": track.get("bpm", 0),
+        "key": track.get("key", ""),
+        "file_path": track.get("file_path", ""),
+        "cue_points": track.get("cue_points", []),
+        "loops": track.get("loop_markers", []),
+        "energy": track.get("analysis", {}).get("energy", 0),
+    }
+
+
+def generate_serato_flip_export(tracks: List[dict]) -> Dict:
+    """Export Serato Flip (saved performances/effects chains)."""
+    flip_data = {
+        "version": "1.0",
+        "format": "serato_flip",
+        "performances": []
+    }
+
+    for track_idx, track in enumerate(tracks):
+        perf = {
+            "track_id": track_idx,
+            "title": track.get("title", ""),
+            "effects": track.get("effects", []),
+            "saved_states": track.get("saved_performance_states", []),
+        }
+        flip_data["performances"].append(perf)
+
+    return flip_data
+
+
+def generate_serato_saved_loops(tracks: List[dict]) -> Dict:
+    """Export Serato Saved Loops data."""
+    loops_data = {
+        "version": "1.0",
+        "format": "serato_saved_loops",
+        "loops_by_track": {}
+    }
+
+    for track in tracks:
+        track_title = track.get("title", "unknown")
+        loop_markers = track.get("loop_markers", [])
+
+        loops_data["loops_by_track"][track_title] = [
+            {
+                "start_ms": lm.get("start_ms", 0),
+                "end_ms": lm.get("end_ms", 0),
+                "name": lm.get("name", ""),
+                "locked": lm.get("locked", False),
+                "beats": lm.get("length_beats", 0),
+            }
+            for lm in loop_markers
+        ]
+
+    return loops_data
+
+
+def generate_serato_crate_hierarchy(crates: List[Dict]) -> Dict:
+    """Export Serato crate hierarchy (sub-crates)."""
+    def build_crate_tree(crate):
+        return {
+            "name": crate.get("name", ""),
+            "track_ids": crate.get("track_ids", []),
+            "children": [build_crate_tree(c) for c in crate.get("children", [])],
+        }
+
+    return {
+        "version": "1.0",
+        "format": "serato_crate_hierarchy",
+        "crates": [build_crate_tree(c) for c in crates],
+    }
+
+
+def _calculate_bpm_lock_flag(track: dict) -> bool:
+    """Determine if BPM should be locked based on confidence."""
+    bpm_confidence = track.get("analysis", {}).get("bpm_confidence", 0)
+    return bpm_confidence > 0.85
+
+
+def _generate_beatgrid_anchor(bpm: float, first_beat_ms: float) -> Dict:
+    """Generate Serato beatgrid anchor point."""
+    return {
+        "bpm": bpm,
+        "position_ms": first_beat_ms,
+        "beat_number": 1,
+        "locked": True,
+    }
+
+
+def _snap_to_serato_palette_32(rgb: Tuple[int, int, int]) -> Tuple[int, int, int]:
+    """Snap RGB color to nearest in Serato's 32-color palette."""
+    palette = list(SERATO_DJ_PRO_V3_COLORS.values())
+    r, g, b = rgb
+    min_dist = float('inf')
+    closest = palette[0]
+
+    for pr, pg, pb in palette:
+        dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
+        if dist < min_dist:
+            min_dist = dist
+            closest = (pr, pg, pb)
+
+    return closest
+
+
+def _serato_key_notation(key: str) -> str:
+    """Convert key to Serato notation format."""
+    # Serato uses musical notation with m suffix for minor
+    key_clean = key.strip().replace("major", "").replace("minor", "m").strip()
+    return key_clean
+
+
+def _detect_file_path_os(file_path: str) -> str:
+    """Detect OS from file path (Windows/Mac/Linux)."""
+    if "\\" in file_path:
+        return "windows"
+    elif ":" in file_path and "/" not in file_path.split(":")[0]:
+        return "macos"
+    else:
+        return "unix"
+
+
+def _export_serato_database_structure() -> Dict:
+    """Export Serato _Serato_ folder structure (database format)."""
+    return {
+        "format": "serato_database",
+        "folders": {
+            "_Serato_": {
+                "Autosave": "backup files",
+                "Backups": "library backups",
+                "History": "performance history",
+                "Logs": "debug logs",
+            }
+        }
+    }
+
+
+def _calculate_auto_gain(track: dict) -> float:
+    """Calculate auto-gain value from energy level."""
+    energy = track.get("analysis", {}).get("energy", 0.5)
+    # Map energy (0-1) to gain adjustment (-6 to +6 dB)
+    return -6.0 + (energy * 12.0)
+
+
+def generate_serato_stem_colors(tracks: List[dict]) -> Dict:
+    """Export Serato Stem track colors and assignments."""
+    stem_data = {
+        "version": "1.0",
+        "format": "serato_stem_colors",
+        "tracks": []
+    }
+
+    for track in tracks:
+        stems = track.get("stems", [])
+        track_stem = {
+            "title": track.get("title", ""),
+            "stem_assignments": [
+                {
+                    "stem_name": stem.get("name", ""),
+                    "color": stem.get("color", "#FF0000"),
+                    "muted": stem.get("muted", False),
+                    "solo": stem.get("solo", False),
+                }
+                for stem in stems
+            ]
+        }
+        stem_data["tracks"].append(track_stem)
+
+    return stem_data

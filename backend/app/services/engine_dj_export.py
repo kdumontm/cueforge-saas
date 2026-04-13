@@ -268,10 +268,202 @@ def generate_engine_dj_xml(
         return xml_decl + rough_string
 
 
+def _build_engine_library_database(tracks: List[Dict]) -> Dict:
+    """Build Engine DJ library database structure (SQLite-compatible)."""
+    # Engine DJ uses SQLite database with specific schema
+    return {
+        "version": "3.0",
+        "format": "engine_dj_sqlite",
+        "tables": {
+            "Tracks": [
+                {
+                    "id": idx,
+                    "title": t.get("title", ""),
+                    "artist": t.get("artist", ""),
+                    "album": t.get("album", ""),
+                    "file_path": t.get("file_path", ""),
+                    "duration_ms": t.get("duration_ms", 0),
+                }
+                for idx, t in enumerate(tracks)
+            ],
+            "Cues": [],
+        }
+    }
+
+
+def _export_sc6000_features(track: Dict) -> Dict:
+    """Export SC6000/LC6000 specific features."""
+    return {
+        "hot_cue_slots": 8,
+        "pad_controls": 16,
+        "jog_wheel_modes": ["vinyl", "cdj", "relative"],
+        "browser_search": track.get("searchable_text", ""),
+    }
+
+
+def _generate_smart_crate(tracks: List[Dict], criteria: Dict) -> Dict:
+    """Generate Engine DJ smart crate based on criteria."""
+    # Filter tracks by energy, key, BPM range, etc.
+    filtered = []
+
+    for track in tracks:
+        analysis = track.get("analysis", {}) or {}
+
+        # Check energy range
+        energy = analysis.get("energy", 0.5)
+        if "energy_range" in criteria:
+            min_e, max_e = criteria["energy_range"]
+            if not (min_e <= energy <= max_e):
+                continue
+
+        # Check BPM range
+        bpm = analysis.get("bpm", 0)
+        if "bpm_range" in criteria:
+            min_bpm, max_bpm = criteria["bpm_range"]
+            if not (min_bpm <= bpm <= max_bpm):
+                continue
+
+        # Check key compatibility
+        if "key" in criteria and track.get("key") != criteria["key"]:
+            continue
+
+        filtered.append(track)
+
+    return {
+        "name": criteria.get("name", "Smart Crate"),
+        "criteria": criteria,
+        "track_count": len(filtered),
+        "tracks": filtered,
+    }
+
+
+def _export_engine_performance_data(track: Dict) -> Dict:
+    """Export Engine DJ performance data."""
+    analysis = track.get("analysis", {}) or {}
+    return {
+        "energy": analysis.get("energy", 0),
+        "danceability": analysis.get("danceability", 0),
+        "key": track.get("key", ""),
+        "bpm": analysis.get("bpm", 0),
+        "perceived_loudness": analysis.get("loudness", 0),
+    }
+
+
+def _export_engine_lighting_midi_map(track: Dict) -> Dict:
+    """Export Engine Lighting MIDI map for SC display."""
+    return {
+        "format": "engine_lighting_midi",
+        "pad_assignments": [
+            {
+                "pad_num": idx,
+                "trigger": f"hot_cue_{idx + 1}",
+                "led_color": ENGINE_DJ_COLORS.get("blue", (0, 0, 255)),
+            }
+            for idx in range(8)
+        ],
+    }
+
+
+def _export_soundswitch_integration(track: Dict) -> Dict:
+    """Export SoundSwitch integration markers."""
+    # SoundSwitch is a DJTT utility for beat-synced lighting
+    return {
+        "format": "soundswitch",
+        "lighting_cues": [
+            {
+                "position_ms": cue.get("position_ms", 0),
+                "trigger": cue.get("label", ""),
+                "intensity": 100,
+            }
+            for cue in track.get("cue_points", [])
+        ],
+    }
+
+
+def _export_engine_key_display_format(key: str) -> str:
+    """Export key in Engine DJ display format."""
+    # Engine DJ supports both camelot and musical notation
+    CAMELOT_MAP = {
+        "C": "8B", "Db": "3B", "D": "10B", "Eb": "5B", "E": "12B", "F": "7B",
+        "F#": "2B", "G": "9B", "Ab": "4B", "A": "11B", "Bb": "6B", "B": "1B",
+        "Cm": "5A", "Dbm": "12A", "Dm": "7A", "Ebm": "2A", "Em": "9A",
+    }
+    clean_key = key.strip().replace("minor", "m").replace("major", "").strip()
+    return CAMELOT_MAP.get(clean_key, key)
+
+
+def _export_3band_eq_colors(track: Dict) -> Dict:
+    """Export 3-band EQ color assignments for Engine DJ."""
+    return {
+        "low_freq": {
+            "color": ENGINE_DJ_COLORS.get("blue", (0, 0, 255)),
+            "hz": 100,
+        },
+        "mid_freq": {
+            "color": ENGINE_DJ_COLORS.get("green", (0, 255, 0)),
+            "hz": 1000,
+        },
+        "high_freq": {
+            "color": ENGINE_DJ_COLORS.get("red", (255, 0, 0)),
+            "hz": 10000,
+        },
+    }
+
+
+def _export_drive_format_compatibility(tracks: List[Dict]) -> Dict:
+    """Check drive format compatibility."""
+    return {
+        "format": "drive_format_compatibility",
+        "supported_formats": ["FAT32", "exFAT", "HFS+"],
+        "recommended": "exFAT",
+        "total_tracks": len(tracks),
+        "estimated_size_mb": sum(t.get("file_size_mb", 5) for t in tracks),
+    }
+
+
+def _export_engine_flex_fx_markers(cue_points: List[Dict]) -> Dict:
+    """Export Flex FX markers for effect triggering."""
+    return {
+        "format": "engine_flex_fx",
+        "fx_triggers": [
+            {
+                "position_ms": cue.get("position_ms", 0),
+                "label": cue.get("label", ""),
+                "fx_type": "reverb",  # Could be extended
+            }
+            for cue in cue_points if cue.get("type") in ["drop", "build"]
+        ],
+    }
+
+
+def _export_streaming_service_markers(track: Dict) -> Dict:
+    """Export markers for streaming service integration."""
+    return {
+        "format": "streaming_service_markers",
+        "spotify_uri": track.get("spotify_uri", ""),
+        "apple_music_id": track.get("apple_music_id", ""),
+        "streaming_ready": bool(track.get("file_path", "")),
+    }
+
+
+def _export_local_network_sync_format(tracks: List[Dict]) -> Dict:
+    """Export data in local network sync format for Engine hardware."""
+    return {
+        "format": "engine_local_sync",
+        "version": "3.0",
+        "sync_timestamp": __import__('datetime').datetime.now().isoformat(),
+        "tracks_count": len(tracks),
+        "checksum": __import__('hashlib').md5(str(tracks).encode()).hexdigest(),
+    }
+
+
 def export_tracks_to_engine_dj(
     tracks: List[Dict],
     output_path: Optional[str] = None,
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+    include_sqlite: bool = False,
+    sc_model: str = "SC6000",
+    include_flex_fx: bool = True,
 ) -> Dict:
     """
     Export tracks to Engine DJ format.

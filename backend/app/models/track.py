@@ -299,3 +299,176 @@ class CueHistory(Base):
         Index("ix_cue_history_cue_point_id", "cue_point_id"),
         Index("ix_cue_history_timestamp", "timestamp"),
     )
+
+
+class CueTemplate(Base):
+    """Reusable cue templates for quick cue set generation.
+
+    Allows users to save and apply predefined cue patterns by genre.
+    Optimization: user_id + genre index for quick lookups.
+    """
+    __tablename__ = "cue_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    genre = Column(String(100), nullable=True)
+    description = Column(Text, nullable=True)
+    cue_positions = Column(JSON, default=list)  # [{position_pct, cue_type, name, color}]
+    is_public = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_cue_templates_user_id", "user_id"),
+        Index("ix_cue_templates_user_genre", "user_id", "genre"),
+    )
+
+
+class CueConflict(Base):
+    """Detected conflicts between cue points (overlaps, too close, etc.)."""
+    __tablename__ = "cue_conflicts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    cue_id_1 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
+    cue_id_2 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
+    conflict_type = Column(String(50), nullable=False)  # 'overlap', 'too_close', 'conflicting_types'
+    severity = Column(String(20), default="warning")  # 'info', 'warning', 'error'
+    details = Column(JSON, nullable=True)
+    detected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_cue_conflicts_track_id", "track_id"),
+        Index("ix_cue_conflicts_detected_at", "detected_at"),
+    )
+
+
+class CueAnalytics(Base):
+    """Aggregated metrics for cue sets and tracks."""
+    __tablename__ = "cue_analytics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, unique=True, index=True)
+    total_cues = Column(Integer, default=0)
+    avg_confidence = Column(Float, nullable=True)
+    cues_by_type = Column(JSON, default=dict)  # {"hot_cue": 5, "drop": 2, ...}
+    coverage_percent = Column(Float, nullable=True)  # % of track with cues
+    quality_score = Column(Float, nullable=True)  # 0-100
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CueVersion(Base):
+    """Granular versioning for each cue point."""
+    __tablename__ = "cue_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
+    version_number = Column(Integer, nullable=False)
+    position_ms = Column(Integer, nullable=False)
+    name = Column(String(255), nullable=False)
+    cue_type = Column(String(50), nullable=False)
+    color = Column(String(50), nullable=True)
+    confidence = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    __table_args__ = (
+        Index("ix_cue_versions_cue_point_id", "cue_point_id"),
+        Index("ix_cue_versions_created_at", "created_at"),
+    )
+
+
+class CuePreset(Base):
+    """User presets for cue naming, colors, and slots."""
+    __tablename__ = "cue_presets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    naming_pattern = Column(String(255), nullable=True)  # e.g., "{genre}_{bpm}_{type}"
+    color_scheme = Column(JSON, default=dict)  # {"hot_cue": "red", "drop": "yellow"}
+    slot_mapping = Column(JSON, default=dict)  # {"drop": 1, "intro": 2, ...}
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class UserCuePreference(Base):
+    """Per-user cue preferences and defaults."""
+    __tablename__ = "user_cue_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    preferred_genres = Column(JSON, default=list)  # ["house", "techno"]
+    naming_style = Column(String(50), default="descriptive")  # 'descriptive', 'minimal', 'numbering'
+    auto_template = Column(String(255), nullable=True)  # Default template name
+    min_confidence = Column(Float, default=0.5)
+    max_cues_per_track = Column(Integer, default=20)
+    auto_generate_cues = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CueExportLog(Base):
+    """History of cue exports (Rekordbox, Serato, etc.)."""
+    __tablename__ = "cue_export_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    export_format = Column(String(50), nullable=False)  # "rekordbox", "serato", "json"
+    filename = Column(String(255), nullable=True)
+    file_path = Column(String(512), nullable=True)
+    cues_exported = Column(Integer, default=0)
+    exported_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String(20), default="completed")  # "in_progress", "completed", "failed"
+
+
+class CueImportLog(Base):
+    """History of cue imports."""
+    __tablename__ = "cue_import_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    import_format = Column(String(50), nullable=False)  # "xml", "json", "csv"
+    filename = Column(String(255), nullable=True)
+    cues_imported = Column(Integer, default=0)
+    cues_skipped = Column(Integer, default=0)
+    imported_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String(20), default="completed")  # "in_progress", "completed", "failed"
+    error_details = Column(Text, nullable=True)
+
+
+class CueQualityMetric(Base):
+    """Detailed quality metrics for each track's cue set."""
+    __tablename__ = "cue_quality_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, unique=True, index=True)
+    distribution_score = Column(Float, nullable=True)  # 0-100: how well distributed
+    confidence_score = Column(Float, nullable=True)   # 0-100: avg confidence
+    completeness_score = Column(Float, nullable=True) # 0-100: coverage
+    consistency_score = Column(Float, nullable=True)  # 0-100: naming/color consistency
+    overall_quality = Column(Float, nullable=True)    # 0-100: weighted overall
+    recommendations = Column(JSON, default=list)      # [{"type": "...", "reason": "..."}]
+    calculated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CueCollaborationNote(Base):
+    """Notes and collaboration metadata for cues."""
+    __tablename__ = "cue_collaboration_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    note_text = Column(Text, nullable=False)
+    mentioned_users = Column(JSON, default=list)  # [user_id, ...]
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_cue_collab_notes_cue_point_id", "cue_point_id"),
+        Index("ix_cue_collab_notes_user_id", "user_id"),
+    )

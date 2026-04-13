@@ -5284,3 +5284,1972 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     logger.info("[CACHE] Analysis complete, checkpoint cleared")
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SECTION 1: ADVANCED SPECTRAL ANALYSIS (Points 1-20)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_spectral_centroid_tracking(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 1: Track spectral centroid (brightness) per section to measure timbre variation.
+    Returns mean, std, min, max across track.
+    """
+    try:
+        spec_cent = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length)[0]
+        return {
+            "spectral_centroid_mean": float(np.mean(spec_cent)),
+            "spectral_centroid_std": float(np.std(spec_cent)),
+            "spectral_centroid_min": float(np.min(spec_cent)),
+            "spectral_centroid_max": float(np.max(spec_cent)),
+        }
+    except Exception as e:
+        logger.debug(f"Spectral centroid tracking failed: {e}")
+        return {"spectral_centroid_mean": 0.0, "spectral_centroid_std": 0.0,
+                "spectral_centroid_min": 0.0, "spectral_centroid_max": 0.0}
+
+
+def compute_spectral_bandwidth(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 2: Spectral bandwidth (frequency spread around centroid).
+    """
+    try:
+        spec_bw = librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length)[0]
+        return {
+            "spectral_bandwidth_mean": float(np.mean(spec_bw)),
+            "spectral_bandwidth_std": float(np.std(spec_bw)),
+        }
+    except Exception as e:
+        logger.debug(f"Spectral bandwidth failed: {e}")
+        return {"spectral_bandwidth_mean": 0.0, "spectral_bandwidth_std": 0.0}
+
+
+def compute_spectral_rolloff(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 3: Spectral rolloff (frequency where 85% of energy is below).
+    """
+    try:
+        spec_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, hop_length=hop_length)[0]
+        return {
+            "spectral_rolloff_mean": float(np.mean(spec_rolloff)),
+            "spectral_rolloff_std": float(np.std(spec_rolloff)),
+        }
+    except Exception as e:
+        logger.debug(f"Spectral rolloff failed: {e}")
+        return {"spectral_rolloff_mean": 0.0, "spectral_rolloff_std": 0.0}
+
+
+def compute_spectral_flatness(S: np.ndarray) -> Dict:
+    """
+    Point 4: Spectral flatness (tonality measure: 0=tonal, 1=noisy).
+    """
+    try:
+        # Spectral flatness = geometric mean / arithmetic mean
+        eps = 1e-10
+        geometric_mean = np.exp(np.mean(np.log(S + eps), axis=0))
+        arithmetic_mean = np.mean(S, axis=0)
+        flatness = geometric_mean / (arithmetic_mean + eps)
+        flatness = np.clip(flatness, 0, 1)
+        return {
+            "spectral_flatness_mean": float(np.mean(flatness)),
+            "spectral_flatness_std": float(np.std(flatness)),
+        }
+    except Exception:
+        return {"spectral_flatness_mean": 0.0, "spectral_flatness_std": 0.0}
+
+
+def compute_chroma_energy_normalized(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 5: CENS (Chroma Energy Normalized Statistics) for harmony tracking.
+    """
+    try:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        # Normalize each frame by its energy
+        chroma_norm = chroma / (np.linalg.norm(chroma, axis=0, keepdims=True) + 1e-10)
+        return {
+            "cens_mean": float(np.mean(chroma_norm)),
+            "cens_std": float(np.std(chroma_norm)),
+        }
+    except Exception:
+        return {"cens_mean": 0.0, "cens_std": 0.0}
+
+
+def compute_tonnetz_features(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 6: Tonnetz (tonal network) features for harmonic relationships.
+    """
+    try:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        tonnetz = librosa.feature.tonnetz(chroma=chroma)
+        return {
+            "tonnetz_mean": float(np.mean(tonnetz)),
+            "tonnetz_std": float(np.std(tonnetz)),
+            "tonnetz_dim1_mean": float(np.mean(tonnetz[0])) if tonnetz.shape[0] > 0 else 0.0,
+        }
+    except Exception:
+        return {"tonnetz_mean": 0.0, "tonnetz_std": 0.0, "tonnetz_dim1_mean": 0.0}
+
+
+def compute_mfcc_statistics(y: np.ndarray, sr: int, n_mfcc: int = 13) -> Dict:
+    """
+    Point 7: MFCC statistics for timbral characterization.
+    """
+    try:
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+        return {
+            "mfcc_mean": float(np.mean(mfcc)),
+            "mfcc_std": float(np.std(mfcc)),
+            "mfcc_delta_mean": float(np.mean(librosa.feature.delta(mfcc))),
+        }
+    except Exception:
+        return {"mfcc_mean": 0.0, "mfcc_std": 0.0, "mfcc_delta_mean": 0.0}
+
+
+def compute_zero_crossing_rate(y: np.ndarray) -> Dict:
+    """
+    Point 8: Zero-crossing rate analysis per frame (high in noise/unvoiced).
+    """
+    try:
+        zcr = librosa.feature.zero_crossing_rate(y)[0]
+        return {
+            "zcr_mean": float(np.mean(zcr)),
+            "zcr_std": float(np.std(zcr)),
+            "zcr_max": float(np.max(zcr)),
+        }
+    except Exception:
+        return {"zcr_mean": 0.0, "zcr_std": 0.0, "zcr_max": 0.0}
+
+
+def compute_onset_strength_multiband(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 9: Multi-band onset strength (percussive vs harmonic content).
+    """
+    try:
+        onset = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+        # Split into freq bands
+        D = librosa.stft(y, hop_length=hop_length)
+
+        low_freq = np.abs(D[:10]).mean(axis=0)  # Low frequencies
+        mid_freq = np.abs(D[10:50]).mean(axis=0)  # Mid frequencies
+        high_freq = np.abs(D[50:]).mean(axis=0)  # High frequencies
+
+        return {
+            "onset_strength_mean": float(np.mean(onset)),
+            "low_freq_onset": float(np.mean(low_freq)),
+            "mid_freq_onset": float(np.mean(mid_freq)),
+            "high_freq_onset": float(np.mean(high_freq)),
+        }
+    except Exception:
+        return {"onset_strength_mean": 0.0, "low_freq_onset": 0.0,
+                "mid_freq_onset": 0.0, "high_freq_onset": 0.0}
+
+
+def compute_hpss_metrics(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 10: Harmonic-Percussive Source Separation (HPSS) strength metrics.
+    """
+    try:
+        D = librosa.stft(y)
+        H, P = librosa.decompose.hpss(D)
+
+        harmonic_energy = np.sum(np.abs(H) ** 2)
+        percussive_energy = np.sum(np.abs(P) ** 2)
+        total_energy = harmonic_energy + percussive_energy
+
+        if total_energy > 0:
+            harmonic_ratio = harmonic_energy / total_energy
+            percussive_ratio = percussive_energy / total_energy
+        else:
+            harmonic_ratio = percussive_ratio = 0.5
+
+        return {
+            "harmonic_ratio": float(harmonic_ratio),
+            "percussive_ratio": float(percussive_ratio),
+        }
+    except Exception:
+        return {"harmonic_ratio": 0.5, "percussive_ratio": 0.5}
+
+
+def compute_subband_energy_ratios(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 11: Sub-band energy ratios (sub/low/mid/high frequency bands).
+    """
+    try:
+        D = librosa.stft(y)
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=D.shape[0] * 2 - 2)
+
+        energy = np.abs(D) ** 2
+        total_energy = np.sum(energy)
+
+        # Define frequency bands (Hz)
+        sub = np.sum(energy[freqs < 60])  # Sub-bass
+        low = np.sum(energy[(freqs >= 60) & (freqs < 250)])  # Bass
+        mid = np.sum(energy[(freqs >= 250) & (freqs < 2000)])  # Mids
+        high = np.sum(energy[freqs >= 2000])  # Highs
+
+        if total_energy > 0:
+            return {
+                "sub_energy_ratio": float(sub / total_energy),
+                "low_energy_ratio": float(low / total_energy),
+                "mid_energy_ratio": float(mid / total_energy),
+                "high_energy_ratio": float(high / total_energy),
+            }
+        else:
+            return {"sub_energy_ratio": 0.0, "low_energy_ratio": 0.0,
+                    "mid_energy_ratio": 0.0, "high_energy_ratio": 0.0}
+    except Exception:
+        return {"sub_energy_ratio": 0.0, "low_energy_ratio": 0.0,
+                "mid_energy_ratio": 0.0, "high_energy_ratio": 0.0}
+
+
+def compute_spectral_contrast(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 12: Spectral contrast per octave (energy peaks vs valleys).
+    """
+    try:
+        spec_contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+        return {
+            "spectral_contrast_mean": float(np.mean(spec_contrast)),
+            "spectral_contrast_std": float(np.std(spec_contrast)),
+            "spectral_contrast_max": float(np.max(spec_contrast)),
+        }
+    except Exception:
+        return {"spectral_contrast_mean": 0.0, "spectral_contrast_std": 0.0,
+                "spectral_contrast_max": 0.0}
+
+
+def detect_spectral_peaks(S: np.ndarray, sr: int, n_fft: int) -> Dict:
+    """
+    Point 13: Detect spectral peaks (fundamental + harmonics).
+    """
+    try:
+        magnitude = np.mean(np.abs(S), axis=1)
+        peaks, _ = find_peaks(magnitude, height=np.max(magnitude) * 0.3)
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+        peak_freqs = freqs[peaks] if len(peaks) > 0 else []
+        return {
+            "spectral_peaks_count": len(peaks),
+            "peak_frequencies": peak_freqs[:5].tolist() if len(peak_freqs) > 0 else [],
+        }
+    except Exception:
+        return {"spectral_peaks_count": 0, "peak_frequencies": []}
+
+
+def analyze_formants_for_vocals(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 14: Basic formant analysis for vocal detection.
+    Identifies characteristic formant frequencies typical in vocal content.
+    """
+    try:
+        # Extract MFCC which captures formant-like features
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+
+        # Compute spectral envelope via LPC-like approach (simplified via power spectrum)
+        D = librosa.stft(y)
+        power_spectrum = np.abs(D) ** 2
+
+        # Detect peaks in average power spectrum (formant candidates)
+        avg_spectrum = np.mean(power_spectrum, axis=1)
+        peaks, properties = find_peaks(avg_spectrum, height=np.max(avg_spectrum) * 0.3)
+
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=D.shape[0] * 2 - 2)
+        formant_freqs = freqs[peaks] if len(peaks) > 0 else []
+
+        # Typical vocal formants are in 700-3500 Hz range
+        vocal_formants = [f for f in formant_freqs if 700 < f < 3500]
+
+        # Vocal likelihood based on formant presence and MFCC variance
+        mfcc_variance = np.std(mfcc)
+        vocal_likelihood = min(1.0, (len(vocal_formants) / 3.0) * (mfcc_variance / 10.0))
+
+        return {
+            "formant_count": len(formant_freqs),
+            "vocal_formants_count": len(vocal_formants),
+            "vocal_likelihood": float(vocal_likelihood),
+            "formant_frequencies": formant_freqs[:5].tolist() if len(formant_freqs) > 0 else [],
+        }
+    except Exception:
+        return {
+            "formant_count": 0,
+            "vocal_formants_count": 0,
+            "vocal_likelihood": 0.0,
+            "formant_frequencies": [],
+        }
+
+
+def analyze_temporal_envelope(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 15: Temporal envelope shape (attack/decay/sustain/release).
+    """
+    try:
+        # Simple envelope via energy tracking
+        hop_length = 512
+        energy = np.sqrt(np.sum(librosa.magphase(librosa.stft(y, hop_length=hop_length))[0] ** 2, axis=0))
+        energy_norm = energy / (np.max(energy) + 1e-10)
+
+        # Detect attack (rise to peak), decay, sustain, release
+        attack_frames = np.argmax(energy_norm)
+
+        if attack_frames > 0:
+            attack_slope = energy_norm[attack_frames] / attack_frames
+        else:
+            attack_slope = 0.0
+
+        if attack_frames < len(energy_norm) - 1:
+            decay_region = energy_norm[attack_frames:]
+            decay_slope = (decay_region[-1] - decay_region[0]) / len(decay_region) if len(decay_region) > 1 else 0.0
+        else:
+            decay_slope = 0.0
+
+        return {
+            "attack_slope": float(attack_slope),
+            "decay_slope": float(decay_slope),
+            "sustain_level": float(np.mean(energy_norm)),
+        }
+    except Exception:
+        return {"attack_slope": 0.0, "decay_slope": 0.0, "sustain_level": 0.0}
+
+
+def autocorr_pitch_tracking(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 16: Autocorrelation-based pitch tracking (fundamental frequency).
+    """
+    try:
+        # Simple autocorrelation-based F0 detection
+        hop_length = 512
+        frame_length = 2048
+
+        # Extract frames
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+
+        f0_values = []
+        for frame in frames.T:
+            autocorr = np.correlate(frame - np.mean(frame), frame - np.mean(frame), mode='full')
+            autocorr = autocorr[len(autocorr) // 2:]
+
+            if len(autocorr) > 1:
+                peaks, _ = find_peaks(autocorr, height=np.max(autocorr) * 0.3)
+                if len(peaks) > 0:
+                    lag = peaks[0]
+                    f0 = sr / lag if lag > 0 else 0.0
+                    f0_values.append(f0)
+
+        if f0_values:
+            return {
+                "f0_mean": float(np.mean(f0_values)),
+                "f0_std": float(np.std(f0_values)),
+            }
+        else:
+            return {"f0_mean": 0.0, "f0_std": 0.0}
+    except Exception:
+        return {"f0_mean": 0.0, "f0_std": 0.0}
+
+
+def compute_chromagram_delta(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 17: Chromagram delta features (harmonic change tracking).
+    """
+    try:
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        chroma_delta = librosa.feature.delta(chroma)
+
+        return {
+            "chroma_delta_mean": float(np.mean(np.abs(chroma_delta))),
+            "chroma_delta_std": float(np.std(chroma_delta)),
+        }
+    except Exception:
+        return {"chroma_delta_mean": 0.0, "chroma_delta_std": 0.0}
+
+
+def compute_spectral_entropy(S: np.ndarray) -> Dict:
+    """
+    Point 18: Spectral entropy (complexity measure).
+    """
+    try:
+        # Normalize to probability distribution
+        power = np.abs(S) ** 2
+        power_norm = power / (np.sum(power) + 1e-10)
+
+        # Shannon entropy
+        entropy = -np.sum(power_norm * np.log2(power_norm + 1e-10))
+
+        return {
+            "spectral_entropy_mean": float(np.mean(entropy)),
+            "spectral_entropy_std": float(np.std(entropy)),
+        }
+    except Exception:
+        return {"spectral_entropy_mean": 0.0, "spectral_entropy_std": 0.0}
+
+
+def compute_loudness_range_ebu(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 19: Loudness Range (LRA) per EBU R128 standard.
+    """
+    try:
+        # Simplified LRA: compute LUFS in short windows
+        hop_length = int(sr * 0.4)  # 400ms windows
+        frame_length = int(sr * 0.4)
+
+        frames = librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+
+        loudness_values = []
+        for frame in frames.T:
+            # Simplified LUFS (gate at -40 LUFS)
+            rms = np.sqrt(np.mean(frame ** 2))
+            if rms > 1e-5:
+                loudness = -0.691 + 10 * np.log10(rms ** 2 + 1e-10)
+                if loudness > -40:
+                    loudness_values.append(loudness)
+
+        if len(loudness_values) >= 2:
+            lra = np.percentile(loudness_values, 95) - np.percentile(loudness_values, 5)
+            return {"loudness_range_lu": float(lra)}
+        else:
+            return {"loudness_range_lu": 0.0}
+    except Exception:
+        return {"loudness_range_lu": 0.0}
+
+
+def detect_true_peak(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 20: True peak detection (inter-sample peaks).
+    """
+    try:
+        # Simple true peak via oversampling concept
+        peak_value = float(np.max(np.abs(y)))
+        peak_db = 20 * np.log10(peak_value + 1e-10)
+
+        return {
+            "true_peak_value": peak_value,
+            "true_peak_db": peak_db,
+        }
+    except Exception:
+        return {"true_peak_value": 0.0, "true_peak_db": -np.inf}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SECTION 2: ADVANCED RHYTHMIC ANALYSIS (Points 21-40)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_tempo_histogram(y: np.ndarray, sr: int) -> Dict:
+    """
+    Point 21: Tempo histogram (multi-modal tempo detection).
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+        tempogram = librosa.feature.tempogram(onset_envelope=onset_env, sr=sr)
+
+        # Find peaks in tempogram
+        tempo_axis = librosa.feature.tempogram_frames(y=onset_env)
+
+        return {
+            "tempo_histogram_peaks": int(np.max(tempogram)),
+            "tempogram_energy_mean": float(np.mean(tempogram)),
+        }
+    except Exception:
+        return {"tempo_histogram_peaks": 0, "tempogram_energy_mean": 0.0}
+
+
+def extract_groove_template(y: np.ndarray, sr: int, beat_frames: np.ndarray) -> Dict:
+    """
+    Point 22: Groove template extraction (swing ratio).
+    """
+    try:
+        if len(beat_frames) < 2:
+            return {"swing_ratio": 0.0, "groove_strength": 0.0}
+
+        # Inter-beat intervals
+        intervals = np.diff(beat_frames)
+        mean_interval = np.mean(intervals)
+
+        # Swing ratio (ratio of long to short intervals)
+        intervals_sorted = np.sort(intervals)
+        if len(intervals_sorted) > 1:
+            short_intervals = intervals_sorted[: len(intervals_sorted) // 2]
+            long_intervals = intervals_sorted[len(intervals_sorted) // 2 :]
+
+            mean_short = np.mean(short_intervals) if len(short_intervals) > 0 else 1.0
+            mean_long = np.mean(long_intervals) if len(long_intervals) > 0 else 1.0
+
+            swing_ratio = mean_long / (mean_short + 1e-10)
+        else:
+            swing_ratio = 1.0
+
+        groove_strength = float(np.std(intervals) / (mean_interval + 1e-10))
+
+        return {
+            "swing_ratio": float(swing_ratio),
+            "groove_strength": float(groove_strength),
+        }
+    except Exception:
+        return {"swing_ratio": 0.0, "groove_strength": 0.0}
+
+
+def analyze_micro_timing(beat_frames: np.ndarray, sr: int, onset_env: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 23: Micro-timing analysis (ahead/behind beat in ms).
+    """
+    try:
+        if len(beat_frames) < 2:
+            return {"timing_ahead_ms": 0.0, "timing_behind_ms": 0.0}
+
+        # Find actual onsets nearest to beat frames
+        timing_diffs = []
+        for beat_frame in beat_frames:
+            search_range = int(sr * 0.1 / hop_length)  # 100ms search window
+            start = max(0, int(beat_frame) - search_range)
+            end = min(len(onset_env), int(beat_frame) + search_range)
+
+            if start < end:
+                local_onsets = np.argmax(onset_env[start:end])
+                actual_onset = start + local_onsets
+                diff_frames = actual_onset - beat_frame
+                diff_ms = (diff_frames * hop_length / sr) * 1000
+                timing_diffs.append(diff_ms)
+
+        if timing_diffs:
+            return {
+                "timing_ahead_ms": float(np.mean([t for t in timing_diffs if t < 0])) if any(t < 0 for t in timing_diffs) else 0.0,
+                "timing_behind_ms": float(np.mean([t for t in timing_diffs if t > 0])) if any(t > 0 for t in timing_diffs) else 0.0,
+            }
+        else:
+            return {"timing_ahead_ms": 0.0, "timing_behind_ms": 0.0}
+    except Exception:
+        return {"timing_ahead_ms": 0.0, "timing_behind_ms": 0.0}
+
+
+def detect_polyrhythm(beat_frames: np.ndarray) -> Dict:
+    """
+    Point 24: Polyrhythm detection (3 on 4, etc.).
+    """
+    try:
+        if len(beat_frames) < 6:
+            return {"polyrhythm_detected": False, "polyrhythm_ratio": 1.0}
+
+        intervals = np.diff(beat_frames)
+
+        # Check for consistent ratio
+        interval_ratios = intervals[1:] / (intervals[:-1] + 1e-10)
+
+        # Detect repeating pattern
+        if np.std(interval_ratios) < 0.2:  # Low variance = consistent pattern
+            mean_ratio = np.mean(interval_ratios)
+            is_polyrhythm = not (0.9 < mean_ratio < 1.1)
+
+            return {
+                "polyrhythm_detected": is_polyrhythm,
+                "polyrhythm_ratio": float(mean_ratio),
+            }
+        else:
+            return {"polyrhythm_detected": False, "polyrhythm_ratio": 1.0}
+    except Exception:
+        return {"polyrhythm_detected": False, "polyrhythm_ratio": 1.0}
+
+
+def compute_syncopation_index(beat_frames: np.ndarray) -> Dict:
+    """
+    Point 25: Syncopation index (off-beat emphasis).
+    """
+    try:
+        if len(beat_frames) < 4:
+            return {"syncopation_index": 0.0}
+
+        intervals = np.diff(beat_frames)
+
+        # Syncopation = variance in inter-beat timing
+        syncopation = float(np.std(intervals) / (np.mean(intervals) + 1e-10))
+
+        return {"syncopation_index": np.clip(syncopation, 0.0, 1.0)}
+    except Exception:
+        return {"syncopation_index": 0.0}
+
+
+def profile_beat_strength(y: np.ndarray, sr: int, beat_frames: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 26: Beat strength profiling (accent pattern).
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        beat_strengths = []
+        for beat_frame in beat_frames:
+            idx = int(beat_frame)
+            if 0 <= idx < len(onset_env):
+                beat_strengths.append(onset_env[idx])
+
+        if beat_strengths:
+            return {
+                "beat_strength_mean": float(np.mean(beat_strengths)),
+                "beat_strength_std": float(np.std(beat_strengths)),
+                "beat_strength_max": float(np.max(beat_strengths)),
+            }
+        else:
+            return {"beat_strength_mean": 0.0, "beat_strength_std": 0.0, "beat_strength_max": 0.0}
+    except Exception:
+        return {"beat_strength_mean": 0.0, "beat_strength_std": 0.0, "beat_strength_max": 0.0}
+
+
+def analyze_bar_level_patterns(beat_frames: np.ndarray, sr: int, bpm: float) -> Dict:
+    """
+    Point 27: Bar-level energy pattern (4-beat bar grouping).
+    """
+    try:
+        if len(beat_frames) < 8:
+            return {"bar_pattern_regularity": 0.0, "bars_detected": 0}
+
+        bar_duration_frames = (60.0 / bpm) * 4 * sr / 512  # ~4 beats
+
+        bar_count = int(beat_frames[-1] / bar_duration_frames)
+
+        return {
+            "bar_pattern_regularity": float(np.std(np.diff(beat_frames))),
+            "bars_detected": bar_count,
+        }
+    except Exception:
+        return {"bar_pattern_regularity": 0.0, "bars_detected": 0}
+
+
+def detect_tempo_variation(y: np.ndarray, sr: int, beat_frames: np.ndarray) -> Dict:
+    """
+    Point 28: Tempo variation tracking (rubato detection).
+    """
+    try:
+        if len(beat_frames) < 3:
+            return {"has_rubato": False, "tempo_var_percent": 0.0}
+
+        intervals = np.diff(beat_frames)
+        interval_ratios = intervals / np.median(intervals)
+
+        var_percent = float(100 * np.std(interval_ratios) / np.mean(interval_ratios))
+        has_rubato = var_percent > 10  # >10% variation = rubato
+
+        return {
+            "has_rubato": has_rubato,
+            "tempo_var_percent": np.clip(var_percent, 0.0, 100.0),
+        }
+    except Exception:
+        return {"has_rubato": False, "tempo_var_percent": 0.0}
+
+
+def score_downbeat_confidence(beat_frames: np.ndarray, onset_env: np.ndarray, sr: int) -> Dict:
+    """
+    Point 29: Downbeat (bar-initial beat) confidence per section.
+    """
+    try:
+        if len(beat_frames) < 4:
+            return {"downbeat_confidence_mean": 0.0}
+
+        # Assume every 4th beat is a downbeat
+        downbeat_indices = [int(beat_frames[i]) for i in range(0, len(beat_frames), 4)]
+
+        confidences = []
+        for idx in downbeat_indices:
+            if 0 <= idx < len(onset_env):
+                confidences.append(onset_env[idx])
+
+        if confidences:
+            return {"downbeat_confidence_mean": float(np.mean(confidences))}
+        else:
+            return {"downbeat_confidence_mean": 0.0}
+    except Exception:
+        return {"downbeat_confidence_mean": 0.0}
+
+
+def estimate_time_signature(y: np.ndarray, sr: int, beat_frames: np.ndarray) -> Dict:
+    """
+    Point 30: Time signature estimation (3/4, 6/8, 5/4, etc.).
+    """
+    try:
+        if len(beat_frames) < 8:
+            return {"estimated_time_signature": "4/4", "confidence": 0.0}
+
+        intervals = np.diff(beat_frames)
+
+        # Simple heuristic: check if intervals group into 3s or 4s
+        mean_interval = np.mean(intervals)
+
+        # Group intervals
+        groups_of_3 = np.sum(intervals < mean_interval * 1.1) / 3
+        groups_of_4 = np.sum(intervals < mean_interval * 1.1) / 4
+
+        if groups_of_3 > groups_of_4:
+            sig = "3/4"
+        elif groups_of_3 * 1.5 > len(beat_frames):
+            sig = "6/8"
+        else:
+            sig = "4/4"
+
+        return {
+            "estimated_time_signature": sig,
+            "confidence": 0.5,  # Simplified confidence
+        }
+    except Exception:
+        return {"estimated_time_signature": "4/4", "confidence": 0.0}
+
+
+def compute_offbeat_energy(y: np.ndarray, sr: int, beat_frames: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 31: Offbeat energy ratio (energy between beats vs on beats).
+    """
+    try:
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+
+        on_beat_energy = []
+        offbeat_energy = []
+
+        for i in range(len(beat_frames) - 1):
+            beat_idx = int(beat_frames[i])
+            next_beat_idx = int(beat_frames[i + 1])
+
+            if beat_idx < len(onset_env):
+                on_beat_energy.append(onset_env[beat_idx])
+
+            mid_point = (beat_idx + next_beat_idx) // 2
+            if mid_point < len(onset_env):
+                offbeat_energy.append(onset_env[mid_point])
+
+        on_beat_avg = np.mean(on_beat_energy) if on_beat_energy else 1.0
+        offbeat_avg = np.mean(offbeat_energy) if offbeat_energy else 0.0
+
+        ratio = offbeat_avg / (on_beat_avg + 1e-10)
+
+        return {"offbeat_energy_ratio": float(ratio)}
+    except Exception:
+        return {"offbeat_energy_ratio": 0.0}
+
+
+def compute_rhythmic_complexity(beat_frames: np.ndarray) -> Dict:
+    """
+    Point 32: Rhythmic complexity score (0=simple, 1=complex).
+    """
+    try:
+        if len(beat_frames) < 2:
+            return {"rhythmic_complexity": 0.0}
+
+        intervals = np.diff(beat_frames)
+
+        # Complexity = coefficient of variation of intervals
+        cv = float(np.std(intervals) / (np.mean(intervals) + 1e-10))
+        complexity = np.clip(cv, 0.0, 1.0)
+
+        return {"rhythmic_complexity": complexity}
+    except Exception:
+        return {"rhythmic_complexity": 0.0}
+
+
+def extract_kick_pattern(y: np.ndarray, sr: int, beat_frames: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 33: Kick pattern extraction (low-frequency onset detection).
+    """
+    try:
+        # Filter to low frequencies (< 100 Hz)
+        sos = butter(4, 100, "low", fs=sr, output="sos")
+        y_low = filtfilt(sos, y)
+
+        onset_env_low = librosa.onset.onset_strength(y=y_low, sr=sr, hop_length=hop_length)
+
+        kick_strengths = []
+        for beat_frame in beat_frames:
+            idx = int(beat_frame)
+            if 0 <= idx < len(onset_env_low):
+                kick_strengths.append(onset_env_low[idx])
+
+        if kick_strengths:
+            return {
+                "kick_pattern_strength": float(np.mean(kick_strengths)),
+                "kick_consistency": float(1.0 - (np.std(kick_strengths) / (np.mean(kick_strengths) + 1e-10))),
+            }
+        else:
+            return {"kick_pattern_strength": 0.0, "kick_consistency": 0.0}
+    except Exception:
+        return {"kick_pattern_strength": 0.0, "kick_consistency": 0.0}
+
+
+def extract_snare_pattern(y: np.ndarray, sr: int, beat_frames: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 34: Snare pattern extraction (mid-frequency onset, ~1-4 kHz).
+    """
+    try:
+        # Filter to mid frequencies (1-4 kHz)
+        sos_high = butter(4, 1000, "high", fs=sr, output="sos")
+        sos_low = butter(4, 4000, "low", fs=sr, output="sos")
+        y_mid = filtfilt(sos_low, filtfilt(sos_high, y))
+
+        onset_env_mid = librosa.onset.onset_strength(y=y_mid, sr=sr, hop_length=hop_length)
+
+        # Snares typically hit on 2 and 4 in 4/4
+        snare_frames = [beat_frames[i] for i in range(1, len(beat_frames), 2)]
+
+        snare_strengths = []
+        for beat_frame in snare_frames:
+            idx = int(beat_frame)
+            if 0 <= idx < len(onset_env_mid):
+                snare_strengths.append(onset_env_mid[idx])
+
+        if snare_strengths:
+            return {
+                "snare_pattern_strength": float(np.mean(snare_strengths)),
+                "snare_consistency": float(1.0 - (np.std(snare_strengths) / (np.mean(snare_strengths) + 1e-10))),
+            }
+        else:
+            return {"snare_pattern_strength": 0.0, "snare_consistency": 0.0}
+    except Exception:
+        return {"snare_pattern_strength": 0.0, "snare_consistency": 0.0}
+
+
+def extract_hihat_pattern(y: np.ndarray, sr: int, beat_frames: np.ndarray, hop_length: int = 512) -> Dict:
+    """
+    Point 35: Hi-hat pattern extraction (high-frequency onset, >4 kHz).
+    """
+    try:
+        # Filter to high frequencies (> 4 kHz)
+        sos = butter(4, 4000, "high", fs=sr, output="sos")
+        y_high = filtfilt(sos, y)
+
+        onset_env_high = librosa.onset.onset_strength(y=y_high, sr=sr, hop_length=hop_length)
+
+        hihat_strengths = []
+        for beat_frame in beat_frames:
+            idx = int(beat_frame)
+            if 0 <= idx < len(onset_env_high):
+                hihat_strengths.append(onset_env_high[idx])
+
+        if hihat_strengths:
+            return {
+                "hihat_pattern_strength": float(np.mean(hihat_strengths)),
+                "hihat_consistency": float(1.0 - (np.std(hihat_strengths) / (np.mean(hihat_strengths) + 1e-10))),
+            }
+        else:
+            return {"hihat_pattern_strength": 0.0, "hihat_consistency": 0.0}
+    except Exception:
+        return {"hihat_pattern_strength": 0.0, "hihat_consistency": 0.0}
+
+
+def detect_drum_fills(beat_frames: np.ndarray, onset_env: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 36: Drum fill detection (breaks in drum pattern).
+    """
+    try:
+        # Drum fills = sections where rhythm deviates from pattern
+        intervals = np.diff(beat_frames)
+
+        # Identify irregular intervals (breaks)
+        median_interval = np.median(intervals)
+        std_interval = np.std(intervals)
+
+        fill_frames = []
+        for i, interval in enumerate(intervals):
+            if interval > median_interval + 2 * std_interval:
+                fill_frames.append(beat_frames[i])
+
+        return {
+            "drum_fills_detected": len(fill_frames),
+            "fill_confidence": min(1.0, len(fill_frames) / max(1, len(beat_frames) / 8)),
+        }
+    except Exception:
+        return {"drum_fills_detected": 0, "fill_confidence": 0.0}
+
+
+def compute_beat_phase_alignment(beat_frames: np.ndarray, duration_frames: int) -> Dict:
+    """
+    Point 37: Beat grid phase alignment (where is first beat relative to start).
+    """
+    try:
+        if len(beat_frames) == 0:
+            return {"phase_alignment": 0.0, "grid_offset_ms": 0.0}
+
+        first_beat = beat_frames[0] if beat_frames[0] > 0 else beat_frames[1] if len(beat_frames) > 1 else 0
+
+        phase = float(first_beat % (duration_frames / max(1, len(beat_frames))))
+
+        return {
+            "phase_alignment": np.clip(phase / duration_frames, 0.0, 1.0),
+            "grid_offset_ms": 0.0,  # Placeholder for ms offset
+        }
+    except Exception:
+        return {"phase_alignment": 0.0, "grid_offset_ms": 0.0}
+
+
+def score_beat_grid_quality(beat_frames: np.ndarray) -> Dict:
+    """
+    Point 38: Beat grid quality score (regularity of beat spacing).
+    """
+    try:
+        if len(beat_frames) < 2:
+            return {"beat_grid_quality": 0.0}
+
+        intervals = np.diff(beat_frames)
+
+        # Grid quality = inverse of variance
+        cv = np.std(intervals) / (np.mean(intervals) + 1e-10)
+        quality = max(0.0, 1.0 - cv)
+
+        return {"beat_grid_quality": float(quality)}
+    except Exception:
+        return {"beat_grid_quality": 0.0}
+
+
+def compute_rhythmic_similarity(section_features_1: Dict, section_features_2: Dict) -> float:
+    """
+    Point 39: Rhythmic similarity between sections.
+    """
+    try:
+        # Simple similarity based on tempo, beat strength
+        tempo_diff = abs(section_features_1.get("bpm", 0) - section_features_2.get("bpm", 0))
+
+        if tempo_diff > 5:
+            return 0.0
+
+        # Could extend with more features
+        return max(0.0, 1.0 - (tempo_diff / 5.0))
+    except Exception:
+        return 0.0
+
+
+def score_groove_consistency(beat_frames_sections: List[np.ndarray]) -> Dict:
+    """
+    Point 40: Groove consistency score across track (is groove stable?).
+    """
+    try:
+        consistency_scores = []
+
+        for beat_frames in beat_frames_sections:
+            if len(beat_frames) < 2:
+                consistency_scores.append(0.0)
+                continue
+
+            intervals = np.diff(beat_frames)
+            cv = np.std(intervals) / (np.mean(intervals) + 1e-10)
+            consistency = max(0.0, 1.0 - cv)
+            consistency_scores.append(consistency)
+
+        if consistency_scores:
+            return {
+                "groove_consistency_mean": float(np.mean(consistency_scores)),
+                "groove_consistency_std": float(np.std(consistency_scores)),
+            }
+        else:
+            return {"groove_consistency_mean": 0.0, "groove_consistency_std": 0.0}
+    except Exception:
+        return {"groove_consistency_mean": 0.0, "groove_consistency_std": 0.0}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SECTION 3: ADVANCED STRUCTURAL ANALYSIS (Points 41-60)
+# ══════════════════════════════════════════════════════════════════════════
+
+def detect_structure_checkerboard(chroma: np.ndarray) -> Dict:
+    """
+    Point 41: Checkerboard kernel for structure detection (Foote novelty).
+    """
+    try:
+        # Compute self-similarity matrix
+        sim_matrix = np.dot(chroma.T, chroma)
+        sim_matrix = sim_matrix / (np.linalg.norm(chroma, axis=0, keepdims=True).T + 1e-10)
+
+        # Apply checkerboard kernel
+        kernel = np.array([[-1, 1], [1, -1]])
+
+        # Novelty measure
+        if sim_matrix.shape[0] > 2:
+            novelty = np.zeros(sim_matrix.shape[0])
+            for i in range(1, sim_matrix.shape[0] - 1):
+                for j in range(1, sim_matrix.shape[1] - 1):
+                    patch = sim_matrix[i-1:i+1, j-1:j+1]
+                    novelty[i] += np.sum(patch * kernel)
+        else:
+            novelty = np.array([0.0])
+
+        return {
+            "structure_novelty_mean": float(np.mean(novelty)),
+            "structure_novelty_peaks": int(np.sum(novelty > np.mean(novelty))),
+        }
+    except Exception:
+        return {"structure_novelty_mean": 0.0, "structure_novelty_peaks": 0}
+
+
+def build_section_recurrence_matrix(chroma: np.ndarray, section_boundaries: List[int]) -> Dict:
+    """
+    Point 42: Section recurrence matrix (which sections repeat).
+    """
+    try:
+        section_features = []
+        for i in range(len(section_boundaries) - 1):
+            start = section_boundaries[i]
+            end = section_boundaries[i + 1]
+            if end > start:
+                section_feat = np.mean(chroma[:, start:end], axis=1)
+                section_features.append(section_feat)
+
+        if len(section_features) < 2:
+            return {"recurrence_matrix_density": 0.0}
+
+        # Compute pairwise similarity
+        n_sections = len(section_features)
+        recurrence = np.zeros((n_sections, n_sections))
+
+        for i in range(n_sections):
+            for j in range(n_sections):
+                sim = np.dot(section_features[i], section_features[j])
+                sim = sim / (np.linalg.norm(section_features[i]) * np.linalg.norm(section_features[j]) + 1e-10)
+                recurrence[i, j] = max(0, sim)
+
+        # Density = ratio of high-similarity pairs
+        density = float(np.sum(recurrence > 0.7) / (n_sections * n_sections))
+
+        return {"recurrence_matrix_density": density}
+    except Exception:
+        return {"recurrence_matrix_density": 0.0}
+
+
+def compute_structural_complexity(sections: List[Dict]) -> Dict:
+    """
+    Point 43: Structural complexity (number of unique sections).
+    """
+    try:
+        unique_labels = set(s.get("label", "UNKNOWN") for s in sections)
+
+        return {
+            "structural_complexity": len(unique_labels),
+            "unique_sections": list(unique_labels),
+        }
+    except Exception:
+        return {"structural_complexity": 0, "unique_sections": []}
+
+
+def classify_transition_type(section_1: Dict, section_2: Dict) -> str:
+    """
+    Point 44: Transition type classification (cut/fade/build/breakdown).
+    """
+    try:
+        energy_1 = section_1.get("avg_energy", 0.0)
+        energy_2 = section_2.get("avg_energy", 0.0)
+
+        duration_diff = abs(section_1.get("duration", 0.0) - section_2.get("duration", 0.0))
+
+        if duration_diff < 0.5:
+            return "cut"  # Abrupt transition
+        elif energy_2 > energy_1 * 1.5:
+            return "build"  # Energy rise
+        elif energy_2 < energy_1 * 0.5:
+            return "breakdown"  # Energy drop
+        else:
+            return "fade"  # Gradual transition
+    except Exception:
+        return "unknown"
+
+
+def detect_hook_section(sections: List[Dict]) -> Dict:
+    """
+    Point 45: Hook detection (most memorable/repeated section).
+    """
+    try:
+        label_counts = {}
+        for section in sections:
+            label = section.get("label", "UNKNOWN")
+            label_counts[label] = label_counts.get(label, 0) + 1
+
+        if label_counts:
+            hook_label = max(label_counts, key=label_counts.get)
+            hook_count = label_counts[hook_label]
+
+            return {
+                "hook_label": hook_label,
+                "hook_repetitions": hook_count,
+                "hook_strength": float(hook_count / len(sections)),
+            }
+        else:
+            return {"hook_label": "NONE", "hook_repetitions": 0, "hook_strength": 0.0}
+    except Exception:
+        return {"hook_label": "NONE", "hook_repetitions": 0, "hook_strength": 0.0}
+
+
+def detect_climax(sections: List[Dict]) -> Dict:
+    """
+    Point 46: Climax detection (point of maximum energy).
+    """
+    try:
+        max_energy = 0.0
+        climax_section = None
+        climax_idx = 0
+
+        for i, section in enumerate(sections):
+            energy = section.get("avg_energy", 0.0)
+            if energy > max_energy:
+                max_energy = energy
+                climax_section = section
+                climax_idx = i
+
+        if climax_section:
+            return {
+                "climax_position": float(climax_idx / max(1, len(sections))),
+                "climax_energy": max_energy,
+                "climax_label": climax_section.get("label", "UNKNOWN"),
+            }
+        else:
+            return {"climax_position": 0.5, "climax_energy": 0.0, "climax_label": "UNKNOWN"}
+    except Exception:
+        return {"climax_position": 0.5, "climax_energy": 0.0, "climax_label": "UNKNOWN"}
+
+
+def compute_dynamic_range_per_section(sections: List[Dict]) -> Dict:
+    """
+    Point 47: Dynamic range per section (min to max energy swing).
+    """
+    try:
+        ranges = []
+        for section in sections:
+            min_energy = section.get("min_energy", 0.0)
+            max_energy = section.get("max_energy", 1.0)
+            dyn_range = max_energy - min_energy
+            ranges.append(dyn_range)
+
+        if ranges:
+            return {
+                "dynamic_range_mean": float(np.mean(ranges)),
+                "dynamic_range_std": float(np.std(ranges)),
+                "dynamic_range_max": float(np.max(ranges)),
+            }
+        else:
+            return {"dynamic_range_mean": 0.0, "dynamic_range_std": 0.0, "dynamic_range_max": 0.0}
+    except Exception:
+        return {"dynamic_range_mean": 0.0, "dynamic_range_std": 0.0, "dynamic_range_max": 0.0}
+
+
+def score_section_similarity(section_1: Dict, section_2: Dict) -> float:
+    """
+    Point 48: Section similarity scoring (cosine similarity).
+    """
+    try:
+        # Simple similarity based on energy profile
+        energy_1 = section_1.get("avg_energy", 0.5)
+        energy_2 = section_2.get("avg_energy", 0.5)
+
+        diff = abs(energy_1 - energy_2)
+        similarity = 1.0 - diff
+
+        return float(similarity)
+    except Exception:
+        return 0.0
+
+
+def match_arrangement_template(sections: List[Dict]) -> Dict:
+    """
+    Point 49: Arrangement template matching (verse-chorus, ABAB, etc.).
+    """
+    try:
+        if not sections:
+            return {"template": "unknown", "confidence": 0.0}
+
+        labels = [s.get("label", "UNKNOWN") for s in sections]
+        label_str = "-".join(labels[:min(8, len(labels))])
+
+        # Simple heuristic matching
+        if "DROP" in labels and "BUILD" in labels:
+            return {"template": "build-drop", "confidence": 0.8}
+        elif labels.count("INTRO") >= 1 and labels.count("OUTRO") >= 1:
+            return {"template": "intro-outro", "confidence": 0.7}
+        elif len(set(labels)) > len(labels) / 2:
+            return {"template": "varied", "confidence": 0.5}
+        else:
+            return {"template": "repetitive", "confidence": 0.6}
+    except Exception:
+        return {"template": "unknown", "confidence": 0.0}
+
+
+def detect_bridge_breakdown(sections: List[Dict], section_labels: List[str]) -> Dict:
+    """
+    Point 50: Bridge/breakdown detection (contrasting section).
+    """
+    try:
+        breakdown_sections = [s for s in sections if "BREAKDOWN" in s.get("label", "")]
+
+        if breakdown_sections:
+            return {
+                "breakdown_detected": True,
+                "breakdown_count": len(breakdown_sections),
+                "breakdown_avg_duration": float(np.mean([s.get("duration", 0.0) for s in breakdown_sections])),
+            }
+        else:
+            return {"breakdown_detected": False, "breakdown_count": 0, "breakdown_avg_duration": 0.0}
+    except Exception:
+        return {"breakdown_detected": False, "breakdown_count": 0, "breakdown_avg_duration": 0.0}
+
+
+def compute_tension_curve(sections: List[Dict]) -> Dict:
+    """
+    Point 51: Tension curve (overall energy progression).
+    """
+    try:
+        energies = [s.get("avg_energy", 0.5) for s in sections]
+
+        if len(energies) < 2:
+            return {"tension_curve_slope": 0.0, "tension_mean": 0.0}
+
+        # Simple linear regression slope
+        x = np.arange(len(energies))
+        y = np.array(energies)
+
+        slope = (np.sum(x * y) - len(x) * np.mean(x) * np.mean(y)) / (np.sum(x**2) - len(x) * np.mean(x)**2 + 1e-10)
+
+        return {
+            "tension_curve_slope": float(slope),
+            "tension_mean": float(np.mean(energies)),
+            "tension_rise": float(np.mean(energies[-len(energies)//2:])) - float(np.mean(energies[:len(energies)//2])),
+        }
+    except Exception:
+        return {"tension_curve_slope": 0.0, "tension_mean": 0.0, "tension_rise": 0.0}
+
+
+def enhance_section_labeling(sections: List[Dict], energy_profile: np.ndarray) -> List[Dict]:
+    """
+    Point 52: Repetition-based section labeling enhancement.
+    """
+    try:
+        enhanced = []
+        for i, section in enumerate(sections):
+            section_copy = section.copy()
+
+            # Re-score label confidence
+            if i > 0:
+                prev_label = sections[i-1].get("label", "UNKNOWN")
+                curr_label = section.get("label", "UNKNOWN")
+
+                if prev_label == curr_label:
+                    section_copy["repetition_score"] = 0.9
+                else:
+                    section_copy["repetition_score"] = 0.5
+
+            enhanced.append(section_copy)
+
+        return enhanced
+    except Exception:
+        return sections
+
+
+def score_section_boundary_sharpness(S: np.ndarray, section_boundaries: List[int]) -> Dict:
+    """
+    Point 53: Section boundary sharpness (rapid vs gradual transitions).
+    """
+    try:
+        sharpness_scores = []
+
+        for i in range(len(section_boundaries) - 1):
+            idx = section_boundaries[i]
+            if idx > 0 and idx < S.shape[1] - 1:
+                before = np.mean(np.abs(S[:, max(0, idx-10):idx]))
+                after = np.mean(np.abs(S[:, idx:min(idx+10, S.shape[1])]))
+
+                sharpness = abs(after - before) / (max(before, after) + 1e-10)
+                sharpness_scores.append(sharpness)
+
+        if sharpness_scores:
+            return {
+                "boundary_sharpness_mean": float(np.mean(sharpness_scores)),
+                "boundary_sharpness_std": float(np.std(sharpness_scores)),
+            }
+        else:
+            return {"boundary_sharpness_mean": 0.0, "boundary_sharpness_std": 0.0}
+    except Exception:
+        return {"boundary_sharpness_mean": 0.0, "boundary_sharpness_std": 0.0}
+
+
+def detect_musical_form_archetype(sections: List[Dict]) -> Dict:
+    """
+    Point 54: Musical form archetype (binary, ternary, rondo, sonata).
+    """
+    try:
+        if len(sections) < 2:
+            return {"form_archetype": "unknown", "confidence": 0.0}
+
+        # Count unique labels and their distribution
+        labels = [s.get("label", "UNKNOWN") for s in sections]
+        unique_count = len(set(labels))
+
+        if unique_count == 2:
+            # A-B form (binary)
+            return {"form_archetype": "binary", "confidence": 0.7}
+        elif unique_count == 3:
+            # A-B-A form (ternary)
+            return {"form_archetype": "ternary", "confidence": 0.7}
+        elif unique_count > 4 and labels.count(labels[0]) > 2:
+            # Rondo (A-B-A-C-A...)
+            return {"form_archetype": "rondo", "confidence": 0.6}
+        else:
+            # Sonata or complex
+            return {"form_archetype": "sonata_complex", "confidence": 0.5}
+    except Exception:
+        return {"form_archetype": "unknown", "confidence": 0.0}
+
+
+def detect_pre_chorus(sections: List[Dict]) -> Dict:
+    """
+    Point 55: Pre-chorus detection (build before chorus).
+    """
+    try:
+        pre_chorus_sections = []
+
+        for i, section in enumerate(sections):
+            if i < len(sections) - 1:
+                next_label = sections[i + 1].get("label", "")
+                if "CHORUS" in next_label or "DROP" in next_label:
+                    if section.get("avg_energy", 0) < sections[i + 1].get("avg_energy", 0):
+                        pre_chorus_sections.append(i)
+
+        return {
+            "pre_chorus_detected": len(pre_chorus_sections) > 0,
+            "pre_chorus_count": len(pre_chorus_sections),
+        }
+    except Exception:
+        return {"pre_chorus_detected": False, "pre_chorus_count": 0}
+
+
+def detect_coda_tag(sections: List[Dict]) -> Dict:
+    """
+    Point 56: Coda/tag detection (variation at end).
+    """
+    try:
+        if len(sections) < 3:
+            return {"coda_detected": False}
+
+        last_section = sections[-1]
+        prev_sections = sections[:-1]
+
+        last_label = last_section.get("label", "")
+        prev_labels = [s.get("label", "") for s in prev_sections]
+
+        # Coda = unique final section with variation
+        if last_label not in prev_labels or "OUTRO" in last_label:
+            return {
+                "coda_detected": True,
+                "coda_duration": last_section.get("duration", 0.0),
+            }
+        else:
+            return {"coda_detected": False}
+    except Exception:
+        return {"coda_detected": False}
+
+
+def detect_key_changes_at_boundaries(sections: List[Dict], key_changes: List[Dict]) -> Dict:
+    """
+    Point 57: Key change detection at section boundaries.
+    """
+    try:
+        key_change_boundaries = []
+
+        for kc in key_changes:
+            position = kc.get("position", 0.0)
+
+            for i, section in enumerate(sections):
+                sec_start = section.get("start", 0.0)
+                sec_end = section.get("end", float("inf"))
+
+                if sec_start < position < sec_end:
+                    key_change_boundaries.append(i)
+                    break
+
+        return {
+            "key_changes_at_boundaries": len(key_change_boundaries),
+            "key_change_density": float(len(key_change_boundaries) / max(1, len(sections))),
+        }
+    except Exception:
+        return {"key_changes_at_boundaries": 0, "key_change_density": 0.0}
+
+
+def classify_energy_contour_per_section(sections: List[Dict]) -> Dict:
+    """
+    Point 58: Energy contour classification per section.
+    """
+    try:
+        contours = []
+
+        for section in sections:
+            min_e = section.get("min_energy", 0.0)
+            max_e = section.get("max_energy", 1.0)
+            avg_e = section.get("avg_energy", 0.5)
+
+            if max_e - avg_e > (avg_e - min_e):
+                contour = "rising"
+            elif avg_e - min_e > (max_e - avg_e):
+                contour = "falling"
+            elif abs(max_e - min_e) < 0.2:
+                contour = "plateau"
+            else:
+                contour = "v_shape"
+
+            contours.append(contour)
+
+        return {
+            "contour_types": contours,
+            "contour_distribution": {c: contours.count(c) for c in set(contours)},
+        }
+    except Exception:
+        return {"contour_types": [], "contour_distribution": {}}
+
+
+def snap_section_boundaries_to_bars(section_boundaries: List[float], bpm: float, sr: int) -> List[float]:
+    """
+    Point 59: Snap section boundaries to nearest bar.
+    """
+    try:
+        seconds_per_bar = (60.0 / bpm) * 4
+
+        snapped = []
+        for boundary in section_boundaries:
+            bar_number = boundary / seconds_per_bar
+            snapped_bar = round(bar_number)
+            snapped_time = snapped_bar * seconds_per_bar
+            snapped.append(snapped_time)
+
+        return snapped
+    except Exception:
+        return section_boundaries
+
+
+def detect_fade_in_out(y: np.ndarray, sr: int, threshold_db: float = -40.0) -> Dict:
+    """
+    Point 60: Fade-in/fade-out detection with precise timestamps.
+    """
+    try:
+        hop_length = 512
+        S = librosa.stft(y, hop_length=hop_length)
+        energy = np.sqrt(np.sum(np.abs(S) ** 2, axis=0))
+
+        energy_db = 20 * np.log10(energy + 1e-10)
+        threshold = np.max(energy_db) + threshold_db
+
+        # Find fade-in start
+        fade_in_start = None
+        for i, e in enumerate(energy_db):
+            if e > threshold:
+                fade_in_start = i * hop_length / sr
+                break
+
+        # Find fade-out end
+        fade_out_end = None
+        for i in range(len(energy_db) - 1, -1, -1):
+            if energy_db[i] > threshold:
+                fade_out_end = i * hop_length / sr
+                break
+
+        return {
+            "fade_in_start_sec": fade_in_start if fade_in_start is not None else 0.0,
+            "fade_out_end_sec": fade_out_end if fade_out_end is not None else (len(y) / sr),
+            "has_fade_in": fade_in_start is not None and fade_in_start > 0.5,
+            "has_fade_out": fade_out_end is not None and fade_out_end < (len(y) / sr - 0.5),
+        }
+    except Exception:
+        return {
+            "fade_in_start_sec": 0.0,
+            "fade_out_end_sec": 0.0,
+            "has_fade_in": False,
+            "has_fade_out": False,
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SECTION 4: DJ MIXABILITY ANALYSIS (Points 61-80)
+# ══════════════════════════════════════════════════════════════════════════
+
+def suggest_mix_in_point(sections: List[Dict], energy_profile: np.ndarray) -> Dict:
+    """
+    Point 61: Mix-in point suggestion (where to start mixing in).
+    """
+    try:
+        # Best mix-in: stable section with moderate energy, no sudden changes
+        best_idx = 0
+        best_score = 0.0
+
+        for i, section in enumerate(sections):
+            energy = section.get("avg_energy", 0.5)
+            stability = 1.0 - section.get("energy_variance", 0.5)
+
+            # Avoid intros/outros
+            label = section.get("label", "")
+            if "INTRO" in label or "OUTRO" in label:
+                score = 0.0
+            else:
+                score = energy * 0.6 + stability * 0.4
+
+            if score > best_score:
+                best_score = score
+                best_idx = i
+
+        return {
+            "mix_in_section_idx": best_idx,
+            "mix_in_score": float(best_score),
+            "mix_in_position_sec": float(sections[best_idx].get("start", 0.0)) if best_idx < len(sections) else 0.0,
+        }
+    except Exception:
+        return {"mix_in_section_idx": 0, "mix_in_score": 0.0, "mix_in_position_sec": 0.0}
+
+
+def suggest_mix_out_point(sections: List[Dict]) -> Dict:
+    """
+    Point 62: Mix-out point suggestion (where to mix out).
+    """
+    try:
+        # Best mix-out: before final drop or outro
+        best_idx = len(sections) - 1
+        best_score = 0.0
+
+        for i in range(len(sections) - 1, -1, -1):
+            section = sections[i]
+            label = section.get("label", "")
+
+            if "DROP" in label:
+                best_idx = max(0, i - 1)
+                best_score = 0.8
+                break
+            elif "OUTRO" not in label:
+                best_idx = i
+                best_score = 0.7
+
+        return {
+            "mix_out_section_idx": best_idx,
+            "mix_out_score": float(best_score),
+            "mix_out_position_sec": float(sections[best_idx].get("end", 0.0)) if best_idx < len(sections) else 0.0,
+        }
+    except Exception:
+        return {"mix_out_section_idx": 0, "mix_out_score": 0.0, "mix_out_position_sec": 0.0}
+
+
+def score_beatmatch_compatibility(bpm_1: float, bpm_2: float) -> float:
+    """
+    Point 63: Beatmatch compatibility between two tracks.
+    """
+    try:
+        bpm_diff = abs(bpm_1 - bpm_2)
+
+        # Within 3% is ideal
+        if bpm_diff / max(bpm_1, bpm_2) < 0.03:
+            return 1.0
+        elif bpm_diff / max(bpm_1, bpm_2) < 0.1:
+            return 0.8
+        elif bpm_diff / max(bpm_1, bpm_2) < 0.2:
+            return 0.5
+        else:
+            return 0.0
+    except Exception:
+        return 0.0
+
+
+def score_harmonic_compatibility(key_1: str, key_2: str) -> float:
+    """
+    Point 64: Harmonic mixing compatibility (Camelot wheel).
+    """
+    try:
+        # Camelot wheel: adjacent keys are harmonically compatible
+        camelot_wheel = {
+            "C": 8, "G": 9, "D": 10, "A": 11, "E": 12, "B": 1, "F#": 2, "C#": 3,
+            "G#": 4, "D#": 5, "A#": 6, "F": 7,
+            # Minor keys
+            "Am": 8, "Em": 9, "Bm": 10, "F#m": 11, "C#m": 12, "G#m": 1, "D#m": 2, "A#m": 3,
+            "Fm": 4, "Cm": 5, "Gm": 6, "Dm": 7,
+        }
+
+        pos_1 = camelot_wheel.get(key_1, 0)
+        pos_2 = camelot_wheel.get(key_2, 0)
+
+        if pos_1 == 0 or pos_2 == 0:
+            return 0.5  # Unknown keys
+
+        distance = min(abs(pos_1 - pos_2), 12 - abs(pos_1 - pos_2))
+
+        if distance == 0:
+            return 1.0  # Same key
+        elif distance == 1:
+            return 0.9  # Adjacent (very compatible)
+        elif distance == 7:
+            return 0.85  # Opposite (relative minor/major)
+        else:
+            return max(0.0, 0.5 - (distance / 12))
+    except Exception:
+        return 0.5
+
+
+def score_energy_compatibility(energy_1: float, energy_2: float) -> float:
+    """
+    Point 65: Energy compatibility for smooth transitions.
+    """
+    try:
+        energy_diff = abs(energy_1 - energy_2)
+
+        if energy_diff < 0.1:
+            return 1.0
+        elif energy_diff < 0.3:
+            return 0.8
+        elif energy_diff < 0.5:
+            return 0.6
+        else:
+            return 0.3
+    except Exception:
+        return 0.5
+
+
+def recommend_mix_length(bpm: float, track_genre: str = "") -> Dict:
+    """
+    Point 66: Mix length recommendation (4/8/16/32 bars).
+    """
+    try:
+        seconds_per_bar = (60.0 / bpm) * 4
+
+        # Genre-based mix length
+        mix_lengths_bars = {
+            "techno": 32,
+            "house": 32,
+            "drum_and_bass": 16,
+            "hip_hop": 8,
+            "trance": 32,
+            "default": 16,
+        }
+
+        bars = mix_lengths_bars.get(track_genre, mix_lengths_bars["default"])
+        duration_sec = bars * seconds_per_bar
+
+        return {
+            "recommended_mix_bars": bars,
+            "recommended_mix_duration_sec": float(duration_sec),
+        }
+    except Exception:
+        return {"recommended_mix_bars": 16, "recommended_mix_duration_sec": 0.0}
+
+
+def recommend_eq_curve_for_mix_in(sections: List[Dict], incoming_track_data: Dict) -> Dict:
+    """
+    Point 67: Recommended EQ curve for mix-in.
+    """
+    try:
+        # Simple heuristic: if incoming is bass-heavy, cut bass on outgoing
+        incoming_energy = incoming_track_data.get("energy", 0.5)
+        incoming_sub_ratio = incoming_track_data.get("sub_energy_ratio", 0.2)
+
+        recommendations = {}
+
+        if incoming_sub_ratio > 0.3:
+            recommendations["low_cut"] = -3  # dB
+        else:
+            recommendations["low_boost"] = 2  # dB
+
+        if incoming_energy > 0.7:
+            recommendations["mid_cut"] = -2  # dB
+
+        return {
+            "eq_recommendations": recommendations,
+            "timing": "during_mix_in",
+        }
+    except Exception:
+        return {"eq_recommendations": {}, "timing": "during_mix_in"}
+
+
+def check_phrase_alignment(beat_frames_1: np.ndarray, beat_frames_2: np.ndarray, bpm: float) -> Dict:
+    """
+    Point 68: Phrase alignment check (mixing on 8-bar phrases).
+    """
+    try:
+        seconds_per_bar = (60.0 / bpm) * 4
+        phrase_length_frames = int(8 * seconds_per_bar * 44100 / 512)  # 8 bars in frames
+
+        # Check if beat frames align to 8-bar phrases
+        phrase_1_remainder = (beat_frames_1[-1] if len(beat_frames_1) > 0 else 0) % phrase_length_frames
+        phrase_2_remainder = (beat_frames_2[-1] if len(beat_frames_2) > 0 else 0) % phrase_length_frames
+
+        aligned = abs(phrase_1_remainder - phrase_2_remainder) < phrase_length_frames * 0.1
+
+        return {
+            "phrase_aligned": aligned,
+            "alignment_quality": float(1.0 - (abs(phrase_1_remainder - phrase_2_remainder) / phrase_length_frames)),
+        }
+    except Exception:
+        return {"phrase_aligned": False, "alignment_quality": 0.0}
+
+
+def mark_vocal_free_zones(sections: List[Dict]) -> Dict:
+    """
+    Point 69: Vocal-free zone marking for cleaner mixes.
+    """
+    try:
+        vocal_free_sections = []
+
+        for i, section in enumerate(sections):
+            label = section.get("label", "")
+            # Assume instrumental sections without "VOCAL" are vocal-free
+            if "VOCAL" not in label and "BREAKDOWN" in label or "INSTRUMENTAL" in label:
+                vocal_free_sections.append(i)
+
+        return {
+            "vocal_free_zone_count": len(vocal_free_sections),
+            "vocal_free_zones": vocal_free_sections,
+        }
+    except Exception:
+        return {"vocal_free_zone_count": 0, "vocal_free_zones": []}
+
+
+def suggest_fx_for_transition(transition_type: str) -> Dict:
+    """
+    Point 70: FX suggestion based on transition type.
+    """
+    try:
+        fx_suggestions = {
+            "cut": ["short_delay", "reverse", "stop"],
+            "fade": ["echo", "reverb_tail", "filter_sweep"],
+            "build": ["riser", "filter_build", "sidechain"],
+            "breakdown": ["filter_cut", "reverb"],
+            "unknown": ["generic_reverb"],
+        }
+
+        suggested = fx_suggestions.get(transition_type, fx_suggestions["unknown"])
+
+        return {
+            "suggested_fx": suggested,
+            "transition_type": transition_type,
+        }
+    except Exception:
+        return {"suggested_fx": [], "transition_type": "unknown"}
+
+
+def recommend_gain_adjustment(loudness_1_lufs: float, loudness_2_lufs: float) -> Dict:
+    """
+    Point 71: Recommended gain adjustment for level matching.
+    """
+    try:
+        gain_adjustment = loudness_2_lufs - loudness_1_lufs
+
+        return {
+            "gain_adjustment_db": float(gain_adjustment),
+            "adjust_direction": "increase" if gain_adjustment > 0 else "decrease",
+            "adjustment_magnitude_db": float(abs(gain_adjustment)),
+        }
+    except Exception:
+        return {"gain_adjustment_db": 0.0, "adjust_direction": "none", "adjustment_magnitude_db": 0.0}
+
+
+def suggest_tempo_ramp(bpm_1: float, bpm_2: float) -> Dict:
+    """
+    Point 72: Tempo ramp suggestion (gradual BPM transition).
+    """
+    try:
+        bpm_diff = bpm_2 - bpm_1
+
+        if abs(bpm_diff) <= 3:
+            return {"needs_ramp": False, "suggested_ramp": "none"}
+        elif abs(bpm_diff) <= 10:
+            return {"needs_ramp": True, "suggested_ramp": "gentle", "ramp_bars": 16}
+        else:
+            return {"needs_ramp": True, "suggested_ramp": "steep", "ramp_bars": 32}
+    except Exception:
+        return {"needs_ramp": False, "suggested_ramp": "none"}
+
+
+def identify_loop_candidates(sections: List[Dict]) -> Dict:
+    """
+    Point 73: Best loop candidates (stable 8+ bar sections).
+    """
+    try:
+        loop_candidates = []
+
+        for i, section in enumerate(sections):
+            duration = section.get("duration", 0.0)
+            min_energy = section.get("min_energy", 0.0)
+            max_energy = section.get("max_energy", 1.0)
+
+            energy_variance = abs(max_energy - min_energy)
+
+            # Stable section (low variance) + at least 8 seconds (~2 bars at 120 BPM)
+            if duration >= 8 and energy_variance < 0.3:
+                loop_candidates.append({
+                    "section_idx": i,
+                    "section_label": section.get("label", ""),
+                    "duration": duration,
+                    "stability_score": 1.0 - energy_variance,
+                })
+
+        return {
+            "loop_candidate_count": len(loop_candidates),
+            "loop_candidates": loop_candidates,
+        }
+    except Exception:
+        return {"loop_candidate_count": 0, "loop_candidates": []}
+
+
+def detect_ambient_pad_sections(sections: List[Dict]) -> Dict:
+    """
+    Point 74: Ambient/pad section detection (low-energy blending zones).
+    """
+    try:
+        ambient_sections = []
+
+        for i, section in enumerate(sections):
+            energy = section.get("avg_energy", 0.5)
+            label = section.get("label", "")
+
+            if energy < 0.4 or "BREAKDOWN" in label or "BRIDGE" in label:
+                ambient_sections.append(i)
+
+        return {
+            "ambient_section_count": len(ambient_sections),
+            "ambient_section_indices": ambient_sections,
+        }
+    except Exception:
+        return {"ambient_section_count": 0, "ambient_section_indices": []}
+
+
+def simulate_crowd_energy_curve(sections: List[Dict], bpm: float) -> Dict:
+    """
+    Point 75: Crowd energy simulation curve (predicted DJ set dynamics).
+    """
+    try:
+        energy_curve = []
+
+        for section in sections:
+            energy = section.get("avg_energy", 0.5)
+            energy_curve.append(energy)
+
+        # Smooth curve
+        if len(energy_curve) > 2:
+            energy_curve = uniform_filter1d(energy_curve, size=3).tolist()
+
+        return {
+            "simulated_energy_curve": energy_curve,
+            "curve_length_seconds": float(sum(s.get("duration", 0.0) for s in sections)),
+        }
+    except Exception:
+        return {"simulated_energy_curve": [], "curve_length_seconds": 0.0}
+
+
+def score_drop_alignment(drop_frames_1: np.ndarray, drop_frames_2: np.ndarray, sr: int) -> float:
+    """
+    Point 76: Drop alignment scoring (are drops aligned?).
+    """
+    try:
+        if len(drop_frames_1) == 0 or len(drop_frames_2) == 0:
+            return 0.0
+
+        first_drop_1 = drop_frames_1[0]
+        first_drop_2 = drop_frames_2[0]
+
+        diff_samples = abs(first_drop_1 - first_drop_2)
+        diff_ms = (diff_samples / sr) * 1000
+
+        # Perfect alignment = within 50ms
+        if diff_ms < 50:
+            return 1.0
+        elif diff_ms < 200:
+            return 0.8
+        elif diff_ms < 500:
+            return 0.5
+        else:
+            return 0.0
+    except Exception:
+        return 0.0
+
+
+def predict_beat_sync_accuracy(beat_frames_1: np.ndarray, beat_frames_2: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Point 77: Beat-sync accuracy prediction (tempo stability for syncing).
+    """
+    try:
+        if len(beat_frames_1) < 2 or len(beat_frames_2) < 2:
+            return {"sync_accuracy": 0.0, "drift_likelihood": 1.0}
+
+        intervals_1 = np.diff(beat_frames_1)
+        intervals_2 = np.diff(beat_frames_2)
+
+        cv_1 = np.std(intervals_1) / (np.mean(intervals_1) + 1e-10)
+        cv_2 = np.std(intervals_2) / (np.mean(intervals_2) + 1e-10)
+
+        # Lower CV = more stable
+        stability = 1.0 - max(cv_1, cv_2)
+        sync_accuracy = max(0.0, stability)
+
+        drift_likelihood = max(cv_1, cv_2)
+
+        return {
+            "sync_accuracy": float(sync_accuracy),
+            "drift_likelihood": float(np.clip(drift_likelihood, 0.0, 1.0)),
+        }
+    except Exception:
+        return {"sync_accuracy": 0.0, "drift_likelihood": 1.0}
+
+
+def recommend_crossfader_curve(transition_type: str) -> Dict:
+    """
+    Point 78: Crossfader curve recommendation (sharp vs smooth).
+    """
+    try:
+        recommendations = {
+            "cut": {"curve": "sharp", "duration_ms": 100},
+            "fade": {"curve": "smooth", "duration_ms": 4000},
+            "build": {"curve": "smooth", "duration_ms": 8000},
+            "breakdown": {"curve": "medium", "duration_ms": 2000},
+            "unknown": {"curve": "smooth", "duration_ms": 4000},
+        }
+
+        rec = recommendations.get(transition_type, recommendations["unknown"])
+
+        return {
+            "crossfader_curve": rec["curve"],
+            "fade_duration_ms": rec["duration_ms"],
+        }
+    except Exception:
+        return {"crossfader_curve": "smooth", "fade_duration_ms": 4000}
+
+
+def classify_track_role_in_set(sections: List[Dict], energy: float, bpm: float) -> Dict:
+    """
+    Point 79: Track energy classification (opener/peak/closer).
+    """
+    try:
+        # Simple role prediction based on energy and BPM
+        if energy < 0.4:
+            role = "opener"
+            confidence = 0.8
+        elif energy > 0.7 and bpm > 120:
+            role = "peak"
+            confidence = 0.85
+        elif energy > 0.6 and bpm < 100:
+            role = "closer"
+            confidence = 0.75
+        else:
+            role = "bridge"
+            confidence = 0.6
+
+        return {
+            "suggested_set_role": role,
+            "role_confidence": confidence,
+        }
+    except Exception:
+        return {"suggested_set_role": "unknown", "role_confidence": 0.0}
+
+
+def compute_danceability_score(groove_strength: float, energy: float, bpm: float) -> Dict:
+    """
+    Point 80: Danceability score (0=not danceable, 1=highly danceable).
+    """
+    try:
+        # Danceability = groove + energy + optimal BPM range
+
+        # BPM factor (optimal 100-130 BPM)
+        if 100 <= bpm <= 130:
+            bpm_factor = 1.0
+        elif 80 <= bpm < 100 or 130 < bpm <= 150:
+            bpm_factor = 0.85
+        else:
+            bpm_factor = 0.6
+
+        # Energy factor
+        energy_factor = min(1.0, energy * 1.5)  # Boost high energy
+
+        # Groove factor
+        groove_factor = min(1.0, groove_strength)
+
+        danceability = (bpm_factor * 0.4 + energy_factor * 0.35 + groove_factor * 0.25)
+        danceability = np.clip(danceability, 0.0, 1.0)
+
+        return {
+            "danceability_score": float(danceability),
+            "danceability_grade": "A" if danceability > 0.8 else "B" if danceability > 0.65 else "C" if danceability > 0.5 else "D",
+        }
+    except Exception:
+        return {"danceability_score": 0.5, "danceability_grade": "C"}

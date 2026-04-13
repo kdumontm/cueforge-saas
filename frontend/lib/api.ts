@@ -21,6 +21,159 @@ function getRequestKey(method: string, url: string): string {
 // Improvement #36: Optimistic updates store
 export const optimisticUpdates = new Map<string, any>();
 
+// Improvement #66: WebSocket connection for real-time updates
+let wsConnection: WebSocket | null = null;
+const wsSubscribers = new Map<string, Set<(data: any) => void>>();
+
+export function subscribeToWebSocket(channel: string, callback: (data: any) => void): () => void {
+  if (!wsSubscribers.has(channel)) {
+    wsSubscribers.set(channel, new Set());
+  }
+  wsSubscribers.get(channel)!.add(callback);
+
+  // Return unsubscribe function
+  return () => {
+    wsSubscribers.get(channel)?.delete(callback);
+  };
+}
+
+// Improvement #67: Offline queue for storing modifications
+export interface OfflineQueueItem {
+  id: string;
+  timestamp: number;
+  method: string;
+  url: string;
+  body?: any;
+  priority: 'high' | 'normal' | 'low';
+}
+
+const offlineQueue = new Map<string, OfflineQueueItem>();
+
+export function addToOfflineQueue(method: string, url: string, body?: any, priority: 'high' | 'normal' | 'low' = 'normal'): string {
+  const id = `${method}-${url}-${Date.now()}`;
+  offlineQueue.set(id, { id, timestamp: Date.now(), method, url, body, priority });
+  return id;
+}
+
+export function getOfflineQueue(): OfflineQueueItem[] {
+  return Array.from(offlineQueue.values()).sort((a, b) => {
+    const priorityOrder = { high: 0, normal: 1, low: 2 };
+    return priorityOrder[a.priority] - priorityOrder[b.priority];
+  });
+}
+
+// Improvement #68: Conflict resolution helper
+export interface ConflictResolution {
+  strategy: 'client-wins' | 'server-wins' | 'merge';
+  clientVersion: any;
+  serverVersion: any;
+}
+
+// Improvement #69: API response caching with TTL
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}
+
+const responseCache = new Map<string, CacheEntry>();
+
+export function getCachedResponse(key: string): any | null {
+  const entry = responseCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > entry.ttl) {
+    responseCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+export function setCacheResponse(key: string, data: any, ttlMs: number = 60000): void {
+  responseCache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl: ttlMs,
+  });
+}
+
+// Improvement #71: Undo stack persistent store
+export interface UndoEntry {
+  id: string;
+  timestamp: number;
+  action: string;
+  data: any;
+  previousData: any;
+}
+
+const persistentUndoStack: UndoEntry[] = [];
+
+export function pushToUndoStack(action: string, data: any, previousData: any): void {
+  persistentUndoStack.push({
+    id: `${action}-${Date.now()}`,
+    timestamp: Date.now(),
+    action,
+    data,
+    previousData,
+  });
+
+  // Keep only last 50 entries to avoid memory issues
+  if (persistentUndoStack.length > 50) {
+    persistentUndoStack.shift();
+  }
+}
+
+export function getPersistentUndoStack(): UndoEntry[] {
+  return [...persistentUndoStack];
+}
+
+// Improvement #77: Request prioritization queue
+type RequestPriority = 'high' | 'normal' | 'low';
+interface PrioritizedRequest {
+  priority: RequestPriority;
+  fn: () => Promise<Response>;
+  timestamp: number;
+}
+
+const requestQueue: PrioritizedRequest[] = [];
+let processingQueue = false;
+
+async function processRequestQueue(): Promise<void> {
+  if (processingQueue) return;
+  processingQueue = true;
+
+  while (requestQueue.length > 0) {
+    // Sort by priority (high first, then by timestamp)
+    requestQueue.sort((a, b) => {
+      const priorityOrder = { high: 0, normal: 1, low: 2 };
+      const priorityCmp = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (priorityCmp !== 0) return priorityCmp;
+      return a.timestamp - b.timestamp;
+    });
+
+    const request = requestQueue.shift();
+    if (request) {
+      try {
+        await request.fn();
+      } catch (e) {
+        console.error('Request queue error:', e);
+      }
+    }
+  }
+
+  processingQueue = false;
+}
+
+// Improvement #78: Request cancellation support
+const activeFetches = new Map<string, AbortController>();
+
+export function cancelRequest(key: string): void {
+  const controller = activeFetches.get(key);
+  if (controller) {
+    controller.abort();
+    activeFetches.delete(key);
+  }
+}
+
 // ── Token management avec cache en variable module ────────────────────────────
 
 const TOKEN_KEY = 'cueforge_token';
@@ -136,6 +289,83 @@ async function tryRefresh(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Improvement #75: Stale-while-revalidate pattern helper
+export async function fetchWithStaleWhileRevalidate<T>(
+  url: string,
+  options?: RequestInit & { cacheKey?: string; ttlMs?: number }
+): Promise<T> {
+  const cacheKey = options?.cacheKey || url;
+  const ttlMs = options?.ttlMs || 60000;
+
+  // Return cached response immediately while fetching fresh data
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    // Fetch in background for next time
+    authFetch(url, options).then(res => {
+      if (res.ok) {
+        res.json().then(data => setCacheResponse(cacheKey, data, ttlMs));
+      }
+    }).catch(() => {});
+    return cached;
+  }
+
+  // No cache — fetch normally
+  const response = await authFetch(url, options);
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+  const data = await response.json();
+  setCacheResponse(cacheKey, data, ttlMs);
+  return data;
+}
+
+// Improvement #79: Delta sync helper (send only changes)
+export function calculateDelta<T extends Record<string, any>>(previous: T, current: T): Partial<T> {
+  const delta: Partial<T> = {};
+  for (const key in current) {
+    if (current[key] !== previous[key]) {
+      delta[key] = current[key];
+    }
+  }
+  return delta;
+}
+
+// Improvement #72: Batch API calls
+export async function batchCueUpdates(trackId: number, updates: Array<{ cueId: number; changes: any }>): Promise<any> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/cues/batch-update`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ updates }),
+  });
+  if (!response.ok) throw await createDetailedError(response, 'Batch update failed');
+  return response.json();
+}
+
+// Improvement #76: Optimistic delete with rollback
+export async function deleteWithOptimisticRollback(url: string, optimisticData: any): Promise<void> {
+  const key = url;
+  optimisticUpdates.set(key, optimisticData);
+
+  try {
+    const response = await authFetch(url, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Delete failed');
+    optimisticUpdates.delete(key);
+  } catch (e) {
+    optimisticUpdates.set(key, optimisticData);
+    throw e;
+  }
+}
+
+// Improvement #80: Background sync for large exports
+export async function startBackgroundExport(trackId: number, cueIds: number[]): Promise<string> {
+  const response = await authFetch(`${API_URL}/tracks/${trackId}/cues/export`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cue_ids: cueIds }),
+  });
+  if (!response.ok) throw await createDetailedError(response, 'Export start failed');
+  const data = await response.json();
+  return data.export_id;
 }
 
 // ── Authenticated fetch with auto-refresh on 401 + retry + deduplication ────

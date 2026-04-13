@@ -28,6 +28,20 @@ interface CuePointsSVGProps {
   onCueDrag?: (cue: CuePoint, newPositionMs: number) => void;
   hoveredCueId?: number | null;
   onHoveredCueChange?: (cueId: number | null) => void; // Improvement #19
+  enableSnapToGrid?: boolean; // Improvement #64: snap-to-grid visual feedback
+  enableMarkerShapes?: boolean; // Improvement #65: different shapes per cue type
+  showConnectionLines?: boolean; // Improvement #58: connection lines for loops
+  recentlyDeletedCues?: CuePoint[]; // Improvement #61: ghost markers
+}
+
+/** Improvement #65: Get marker shape based on cue type */
+function getMarkerShape(cueType?: string): 'circle' | 'triangle' | 'square' | 'diamond' {
+  switch (cueType) {
+    case 'drop': return 'triangle';
+    case 'vocal': return 'circle';
+    case 'loop': return 'square';
+    default: return 'diamond';
+  }
 }
 
 /**
@@ -43,6 +57,10 @@ function CuePointElement({
   onCueClick,
   onMouseEnter,
   onMouseLeave,
+  enableSnapToGrid,
+  snapGridX,
+  enableMarkerShapes,
+  showSnapLine,
 }: {
   cue: CuePoint;
   x: number;
@@ -52,9 +70,14 @@ function CuePointElement({
   onCueClick?: (cue: CuePoint) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  enableSnapToGrid?: boolean; // Improvement #64
+  snapGridX?: number; // Improvement #64
+  enableMarkerShapes?: boolean; // Improvement #65
+  showSnapLine?: boolean; // Improvement #64
 }) {
   const color = cue.color || '#22c55e';
   const mid = height / 2;
+  const markerShape = enableMarkerShapes ? getMarkerShape((cue as any).cue_type) : 'circle';
 
   // Improvement #17: Use requestAnimationFrame for hover animations instead of CSS
   const [animationFrame, setAnimationFrame] = useState<number | null>(null);
@@ -78,6 +101,21 @@ function CuePointElement({
 
   return (
     <g key={cue.id}>
+      {/* Improvement #64: Snap-to-grid visual guide */}
+      {enableSnapToGrid && showSnapLine && snapGridX !== undefined && Math.abs(snapGridX - x) < 8 && (
+        <line
+          x1={snapGridX}
+          y1={0}
+          x2={snapGridX}
+          y2={height}
+          stroke="#4ade80"
+          strokeWidth={1}
+          opacity={0.4}
+          strokeDasharray="2,2"
+          pointerEvents="none"
+        />
+      )}
+
       {/* Invisible 44px hitbox (accessibility point 581-590) */}
       <rect
         x={x - 22}
@@ -105,14 +143,40 @@ function CuePointElement({
         opacity={isHovered ? 1 : 0.8}
       />
 
-      {/* Diamond marker at middle */}
-      <circle
-        cx={x}
-        cy={mid}
-        r={isHovered ? 6 : 4}
-        fill={color}
-        opacity={isHovered ? 1 : 0.85}
-      />
+      {/* Improvement #65: Different marker shapes per cue type */}
+      {markerShape === 'circle' && (
+        <circle
+          cx={x}
+          cy={mid}
+          r={isHovered ? 6 : 4}
+          fill={color}
+          opacity={isHovered ? 1 : 0.85}
+        />
+      )}
+      {markerShape === 'triangle' && (
+        <polygon
+          points={`${x},${mid - (isHovered ? 6 : 4)} ${x + (isHovered ? 6 : 4)},${mid + (isHovered ? 6 : 4)} ${x - (isHovered ? 6 : 4)},${mid + (isHovered ? 6 : 4)}`}
+          fill={color}
+          opacity={isHovered ? 1 : 0.85}
+        />
+      )}
+      {markerShape === 'square' && (
+        <rect
+          x={x - (isHovered ? 6 : 4)}
+          y={mid - (isHovered ? 6 : 4)}
+          width={isHovered ? 12 : 8}
+          height={isHovered ? 12 : 8}
+          fill={color}
+          opacity={isHovered ? 1 : 0.85}
+        />
+      )}
+      {markerShape === 'diamond' && (
+        <polygon
+          points={`${x},${mid - (isHovered ? 6 : 4)} ${x + (isHovered ? 6 : 4)},${mid} ${x},${mid + (isHovered ? 6 : 4)} ${x - (isHovered ? 6 : 4)},${mid}`}
+          fill={color}
+          opacity={isHovered ? 1 : 0.85}
+        />
+      )}
 
       {/* Improvement #17: requestAnimationFrame-based pulse animation */}
       {isHovered && (
@@ -146,9 +210,22 @@ export const CuePointsSVG = React.memo(function CuePointsSVG({
   onCueDrag,
   hoveredCueId,
   onHoveredCueChange,
+  enableSnapToGrid = false,
+  enableMarkerShapes = false,
+  showConnectionLines = false,
+  recentlyDeletedCues = [],
 }: CuePointsSVGProps) {
   // Improvement #18: LOD optimization - skip rendering labels for dense cue clusters
   const [selectedCueId, setSelectedCueId] = useState<number | null>(null);
+
+  // Improvement #64: Snap grid state
+  const [showSnapGuide, setShowSnapGuide] = useState(false);
+  const [snapGridX, setSnapGridX] = useState<number | undefined>();
+
+  // Improvement #62: Selection rectangle
+  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<{ x: number; y: number } | null>(null);
+  const [selectedCueIds, setSelectedCueIds] = useState<Set<number>>(new Set());
 
   // Precompute visible cues (LOD optimization)
   const visibleCues = useMemo(() => {
@@ -195,11 +272,66 @@ export const CuePointsSVG = React.memo(function CuePointsSVG({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCueId, precomputedPositions, onCueClick, onHoveredCueChange]);
 
+  // Improvement #61: Ghost markers for recently deleted cues
+  const ghostMarkers = useMemo(() => {
+    return recentlyDeletedCues.map((cue) => {
+      const x = (cue.position_ms / 1000 / duration) * (visibleEnd - visibleStart) + visibleStart;
+      const mid = height / 2;
+      const color = cue.color || '#22c55e';
+
+      if (x < visibleStart || x > visibleEnd) return null;
+
+      return (
+        <circle
+          key={`ghost-${cue.id}`}
+          cx={x}
+          cy={mid}
+          r={4}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          opacity={0.3}
+          strokeDasharray="2,2"
+          style={{ pointerEvents: 'none' }}
+        />
+      );
+    });
+  }, [recentlyDeletedCues, duration, height, visibleStart, visibleEnd]);
+
+  // Improvement #58: Connection lines for loops
+  const connectionLines = useMemo(() => {
+    if (!showConnectionLines) return [];
+
+    return precomputedPositions
+      .filter(({ cue }) => cue.cue_mode === 'loop' && cue.position_ms !== undefined && (cue as any).end_position_ms !== undefined)
+      .map(({ cue, x: startX }) => {
+        const endPosMs = (cue as any).end_position_ms || 0;
+        const endX = (endPosMs / 1000 / duration) * (visibleEnd - visibleStart) + visibleStart;
+        const color = cue.color || '#22c55e';
+
+        return (
+          <line
+            key={`loop-${cue.id}`}
+            x1={startX}
+            y1={height / 2}
+            x2={endX}
+            y2={height / 2}
+            stroke={color}
+            strokeWidth={1}
+            opacity={0.4}
+            strokeDasharray="4,4"
+            pointerEvents="none"
+          />
+        );
+      });
+  }, [precomputedPositions, showConnectionLines, duration, height, visibleStart, visibleEnd]);
+
   // Precompute x positions for all visible cues
   const cueElements = useMemo(() => {
     return precomputedPositions.map(({ cue, x }) => {
       const isNear = Math.abs(cue.position_ms - currentTime) < 500;
       const isHovered = cue.id === hoveredCueId;
+      const isSelected = selectedCueIds.has(cue.id);
 
       return (
         <MemoizedCuePointElement
@@ -216,24 +348,63 @@ export const CuePointsSVG = React.memo(function CuePointsSVG({
           onMouseEnter={() => {
             setSelectedCueId(cue.id);
             onHoveredCueChange?.(cue.id);
+            setShowSnapGuide(enableSnapToGrid);
           }}
           onMouseLeave={() => {
             setSelectedCueId(null);
             onHoveredCueChange?.(null);
+            setShowSnapGuide(false);
           }}
+          enableSnapToGrid={enableSnapToGrid}
+          snapGridX={snapGridX}
+          enableMarkerShapes={enableMarkerShapes}
+          showSnapLine={showSnapGuide && isHovered}
         />
       );
     });
-  }, [precomputedPositions, currentTime, hoveredCueId, onCueClick, onHoveredCueChange]);
+  }, [precomputedPositions, currentTime, hoveredCueId, onCueClick, onHoveredCueChange, enableSnapToGrid, snapGridX, enableMarkerShapes, showSnapGuide, selectedCueIds]);
+
+  // Improvement #62: Selection rectangle handler
+  const handleSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if ((e.target as SVGElement).tagName !== 'svg') return;
+    setSelectionStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!selectionStart) return;
+    setSelectionEnd({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleSvgMouseUp = () => {
+    if (!selectionStart || !selectionEnd) {
+      setSelectionStart(null);
+      setSelectionEnd(null);
+      return;
+    }
+
+    const minX = Math.min(selectionStart.x, selectionEnd.x);
+    const maxX = Math.max(selectionStart.x, selectionEnd.x);
+
+    const selected = precomputedPositions
+      .filter(({ x }) => x >= minX && x <= maxX)
+      .map(({ cue }) => cue.id);
+
+    setSelectedCueIds(new Set(selected));
+    setSelectionStart(null);
+    setSelectionEnd(null);
+  };
 
   return (
     <svg
       width={visibleEnd - visibleStart}
       height={height}
       style={{ position: 'absolute', top: 0 }}
-      // Improvement #20: ARIA roles and labels for SVG
       role="img"
       aria-label={`Cue points timeline with ${visibleCues.length} visible cues`}
+      onMouseDown={handleSvgMouseDown}
+      onMouseMove={handleSvgMouseMove}
+      onMouseUp={handleSvgMouseUp}
+      onMouseLeave={handleSvgMouseUp}
     >
       <style>{`
         @keyframes cue-pulse {
@@ -241,6 +412,29 @@ export const CuePointsSVG = React.memo(function CuePointsSVG({
           100% { r: 20; opacity: 0; }
         }
       `}</style>
+
+      {/* Improvement #61: Ghost markers */}
+      {ghostMarkers}
+
+      {/* Improvement #58: Connection lines */}
+      {connectionLines}
+
+      {/* Improvement #62: Selection rectangle */}
+      {selectionStart && selectionEnd && (
+        <rect
+          x={Math.min(selectionStart.x, selectionEnd.x)}
+          y={0}
+          width={Math.abs(selectionEnd.x - selectionStart.x)}
+          height={height}
+          fill="#3b82f6"
+          opacity={0.1}
+          stroke="#3b82f6"
+          strokeWidth={1}
+          strokeDasharray="2,2"
+          pointerEvents="none"
+        />
+      )}
+
       {cueElements}
     </svg>
   );

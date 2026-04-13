@@ -5,6 +5,56 @@ export const HOT_CUE_COLORS = [
 
 export const HOT_CUE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
+// Improvement #53: Cue type badges for hot cues bar (small icons/labels)
+export const CUE_TYPE_BADGES: Record<string, { emoji: string; label: string; color: string }> = {
+  drop: { emoji: '💥', label: 'D', color: '#ef4444' },
+  build: { emoji: '📈', label: 'B', color: '#f59e0b' },
+  vocal: { emoji: '🎤', label: 'V', color: '#8b5cf6' },
+  loop: { emoji: '🔁', label: 'L', color: '#3b82f6' },
+  phrase: { emoji: '🎵', label: 'P', color: '#22c55e' },
+  section: { emoji: '📍', label: 'S', color: '#06b6d4' },
+  hot_cue: { emoji: '🎯', label: 'C', color: '#22c55e' },
+  fade_in: { emoji: '⬆️', label: 'FI', color: '#f59e0b' },
+  fade_out: { emoji: '⬇️', label: 'FO', color: '#f97316' },
+  load: { emoji: '📌', label: 'LD', color: '#ec4899' },
+};
+
+// Improvement #43: Pad layout configurations
+export const PAD_LAYOUTS = {
+  '1x8': { rows: 1, cols: 8, label: '1×8 Linear' },
+  '2x4': { rows: 2, cols: 4, label: '2×4 Grid' },
+  '4x2': { rows: 4, cols: 2, label: '4×2 Grid' },
+  '8x1': { rows: 8, cols: 1, label: '8×1 Stack' },
+};
+
+// Improvement #46: Pad bank configurations
+export const CUE_BANKS = ['A', 'B', 'C', 'D'];
+
+// Improvement #48: Rekordbox color palette (exact color codes)
+export const REKORDBOX_PAD_COLORS = [
+  '#FF0080', '#FF8000', '#FFFF00', '#00FF00',
+  '#00FFFF', '#0080FF', '#FF00FF', '#FFFFFF',
+];
+
+// Improvement #52: Loop length displays
+export const LOOP_LENGTH_LABELS: Record<number, string> = {
+  1: '1 bar',
+  2: '2 bars',
+  4: '4 bars',
+  8: '8 bars',
+  16: '16 bars',
+  32: '32 bars',
+};
+
+// Improvement #54: Haptic patterns for different actions
+export const HAPTIC_PATTERNS = {
+  tap: [50],
+  doubletap: [50, 100, 50],
+  longpress: [100, 50, 100],
+  success: [50, 150, 50],
+  error: [100, 50, 100, 50, 100],
+};
+
 // Improvement #38: CUE_TYPE_ICONS map with lucide-react icon names per type
 export const CUE_TYPE_ICONS: Record<string, string> = {
   hot_cue: 'Zap',

@@ -123,9 +123,123 @@ def _build_waveform_stripe(analysis: Dict) -> str:
     return base64.b64encode(waveform_data).decode('ascii')
 
 
+def _build_remix_deck_entry(track: dict, remix_idx: int) -> dict:
+    """Build Traktor Remix Deck specific entry."""
+    return {
+        "remix_deck_id": remix_idx,
+        "track_title": track.get("title", ""),
+        "sample_slots": 8,
+        "effects_enabled": track.get("remix_effects_enabled", True),
+    }
+
+
+def _build_flux_mode_markers(cue_points: List[dict]) -> List[dict]:
+    """Build Traktor Flux mode markers from cue points."""
+    flux_markers = []
+    for cue in cue_points:
+        if cue.get("type") == "phrase" or cue.get("label", "").lower() in ["intro", "outro", "verse", "chorus", "drop"]:
+            flux_markers.append({
+                "position_ms": cue.get("position_ms", 0),
+                "label": cue.get("label", ""),
+                "type": "phrase_marker",
+            })
+    return flux_markers
+
+
+def _build_macro_micro_grid(bpm: float, duration_ms: float) -> dict:
+    """Build Traktor macro/micro grid data."""
+    if not bpm or bpm <= 0:
+        return {}
+
+    beat_length_ms = (60.0 / bpm) * 1000
+    # Macro: 4-beat grid, Micro: beat grid
+    return {
+        "bpm": bpm,
+        "beat_length_ms": beat_length_ms,
+        "macro_beat": beat_length_ms * 4,  # 4-beat grid
+        "micro_beat": beat_length_ms,      # 1-beat grid
+    }
+
+
+def _export_traktor_favorites(tracks: List[dict]) -> List[dict]:
+    """Export favorited tracks."""
+    return [
+        {
+            "title": t.get("title", ""),
+            "artist": t.get("artist", ""),
+            "rating": t.get("rating", 0),
+            "is_favorite": t.get("is_favorite", False),
+        }
+        for t in tracks if t.get("is_favorite", False)
+    ]
+
+
+def _build_browser_node_tree(tracks: List[dict]) -> dict:
+    """Build Traktor browser node tree structure."""
+    # Group tracks by genre/artist hierarchy
+    tree = {"root": {"genres": {}, "artists": {}}}
+
+    for track in tracks:
+        genre = track.get("genre", "Other")
+        artist = track.get("artist", "Unknown")
+
+        if genre not in tree["root"]["genres"]:
+            tree["root"]["genres"][genre] = []
+        tree["root"]["genres"][genre].append(track.get("title", ""))
+
+        if artist not in tree["root"]["artists"]:
+            tree["root"]["artists"][artist] = []
+        tree["root"]["artists"][artist].append(track.get("title", ""))
+
+    return tree
+
+
+def _export_effect_snapshot(track: dict, effect_idx: int = 0) -> dict:
+    """Export effect snapshot/preset."""
+    effects = track.get("effects", [])
+    if effect_idx < len(effects):
+        effect = effects[effect_idx]
+        return {
+            "name": effect.get("name", f"Effect {effect_idx}"),
+            "type": effect.get("type", ""),
+            "parameters": effect.get("parameters", {}),
+            "enabled": effect.get("enabled", True),
+        }
+    return {}
+
+
+def _build_prefader_listen_markers(cue_points: List[dict]) -> List[dict]:
+    """Build pre-fader listen (PFL) markers."""
+    return [
+        {
+            "position_ms": cue.get("position_ms", 0),
+            "label": cue.get("label", "") + " (PFL)",
+            "pfl_enabled": True,
+        }
+        for cue in cue_points if cue.get("type") in ["hot_cue", "cue"]
+    ]
+
+
+def _export_elastique_timestretch_settings(track: dict) -> dict:
+    """Export Elastique timestretch settings."""
+    analysis = track.get("analysis", {}) or {}
+    return {
+        "enabled": track.get("timestretch_enabled", False),
+        "mode": track.get("timestretch_mode", "neutral"),  # neutral, conservative, smooth
+        "quality": track.get("timestretch_quality", "high"),  # fast, standard, high
+        "tempo_range": {
+            "min": track.get("min_tempo", 0.8),  # 80% of original
+            "max": track.get("max_tempo", 1.2),  # 120% of original
+        },
+    }
+
+
 def generate_traktor_nml(
     tracks: List[dict],
     collection_name: str = "CueForge Export",
+    version: str = "35",
+    include_remix: bool = False,
+    include_favorites: bool = False,
 ) -> str:
     """
     Generate a Traktor-compatible .nml XML file compatible with Traktor 3.5+.

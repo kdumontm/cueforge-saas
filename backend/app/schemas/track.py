@@ -322,3 +322,129 @@ class TrackUploadResponse(BaseModel):
 class AnalyzeResponse(BaseModel):
     status: str
     message: str
+
+
+# ── CueTemplate schemas ──────────────────────────────────────────────────────
+
+class CueTemplateBase(BaseModel):
+    name: str
+    genre: Optional[str] = None
+    description: Optional[str] = None
+    cue_positions: List[Dict[str, Any]] = Field(default_factory=list)
+    is_public: bool = False
+
+
+class CueTemplateCreate(CueTemplateBase):
+    pass
+
+
+class CueTemplateResponse(CueTemplateBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ── CueComparison schema ─────────────────────────────────────────────────────
+
+class CueComparisonResponse(BaseModel):
+    track_id_1: int
+    track_id_2: int
+    cues_only_in_1: List[CuePointResponse] = Field(default_factory=list)
+    cues_only_in_2: List[CuePointResponse] = Field(default_factory=list)
+    common_cue_positions: List[int] = Field(default_factory=list)
+    similarity_percent: float
+    recommendations: List[str] = Field(default_factory=list)
+
+
+# ── CueSuggestion schema ─────────────────────────────────────────────────────
+
+class CueSuggestionResponse(BaseModel):
+    track_id: int
+    suggested_cues: List[Dict[str, Any]] = Field(default_factory=list)
+    based_on: str  # "genre", "structure", "similar_tracks"
+    confidence_avg: Optional[float] = None
+
+
+# ── CueValidation schema ─────────────────────────────────────────────────────
+
+class CueValidationResult(BaseModel):
+    track_id: int
+    is_valid: bool
+    issues: List[Dict[str, str]] = Field(default_factory=list)  # [{"type": "...", "message": "..."}]
+    quality_score: Optional[float] = None
+    total_cues: int
+    warnings: List[str] = Field(default_factory=list)
+
+
+# ── CueAnalytics schema ──────────────────────────────────────────────────────
+
+class CueAnalyticsResponse(BaseModel):
+    total_tracks_analyzed: int
+    avg_cues_per_track: float
+    cues_by_genre: Dict[str, int] = Field(default_factory=dict)
+    avg_confidence: float
+    most_used_cue_type: Optional[str] = None
+    quality_distribution: Dict[str, int] = Field(default_factory=dict)
+
+
+# ── CueImport/Export schemas ─────────────────────────────────────────────────
+
+class CueImportRequest(BaseModel):
+    track_id: int
+    file_content: str  # XML/JSON/CSV as string
+    format: str  # "xml", "json", "csv"
+    merge_mode: str = "keep_existing"  # "overwrite", "merge", "keep_existing"
+
+
+class CueImportResponse(BaseModel):
+    track_id: int
+    cues_imported: int
+    cues_skipped: int
+    status: str
+    errors: List[str] = Field(default_factory=list)
+
+
+# ── CueSearch schema ─────────────────────────────────────────────────────────
+
+class CueSearchResult(BaseModel):
+    cue_id: int
+    track_id: int
+    position_ms: int
+    name: str
+    cue_type: str
+    match_relevance: float  # 0.0-1.0
+
+
+# ── CueQuality schema ────────────────────────────────────────────────────────
+
+class CueQualityReport(BaseModel):
+    track_id: int
+    distribution_score: Optional[float] = None
+    confidence_score: Optional[float] = None
+    completeness_score: Optional[float] = None
+    consistency_score: Optional[float] = None
+    overall_quality: float
+    recommendations: List[Dict[str, str]] = Field(default_factory=list)
+    calculated_at: datetime
+
+
+# ── CueHistory schema ────────────────────────────────────────────────────────
+
+class CueHistoryEntry(BaseModel):
+    id: int
+    cue_point_id: int
+    action: str
+    old_values: Optional[Dict[str, Any]] = None
+    new_values: Optional[Dict[str, Any]] = None
+    timestamp: datetime
+
+
+# ── CueBatchRename schema ────────────────────────────────────────────────────
+
+class CueBatchRenameRequest(BaseModel):
+    track_id: int
+    pattern: str  # e.g., "{type}_{number}" or "{genre}_{position}"
+    start_number: int = 1
+    filter_type: Optional[str] = None  # Only rename cues of this type

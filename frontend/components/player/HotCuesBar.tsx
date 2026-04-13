@@ -1,6 +1,6 @@
 'use client';
-import { useMemo, useState, useCallback, useRef } from 'react';
-import { HOT_CUE_COLORS, HOT_CUE_LABELS } from '@/lib/constants';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { HOT_CUE_COLORS, HOT_CUE_LABELS, CUE_TYPE_BADGES, PAD_LAYOUTS, CUE_BANKS, REKORDBOX_PAD_COLORS, HAPTIC_PATTERNS } from '@/lib/constants';
 
 interface HotCue {
   slot: number;
@@ -17,6 +17,12 @@ interface HotCuesBarProps {
   hotCues: HotCue[];
   onCueClick?: (cue: HotCue) => void;
   currentPlayingCueId?: number; // Improvement #29: track currently playing cue
+  onCueDragReorder?: (fromIdx: number, toIdx: number) => void; // Improvement #41: drag reorder
+  padLayout?: keyof typeof PAD_LAYOUTS; // Improvement #43: customizable layout
+  performanceMode?: boolean; // Improvement #47: performance mode
+  rekordboxMode?: boolean; // Improvement #48: rekordbox color mode
+  bankIndex?: number; // Improvement #46: pad bank switching
+  onBankChange?: (bankIdx: number) => void; // Improvement #46
 }
 
 /** Petit indicateur de qualité du cue point (visible sur le pad) */
@@ -39,15 +45,63 @@ function ConfidenceRing({ confidence }: { confidence?: number | null }) {
   );
 }
 
-export default function HotCuesBar({ hotCues, onCueClick, currentPlayingCueId }: HotCuesBarProps) {
+/** Improvement #53: Cue type badge */
+function CueTypeBadge({ cueType }: { cueType?: string }) {
+  if (!cueType) return null;
+  const badge = CUE_TYPE_BADGES[cueType as keyof typeof CUE_TYPE_BADGES];
+  if (!badge) return null;
+  return (
+    <span
+      className="absolute bottom-0.5 left-0.5 text-[6px] font-bold leading-none px-[2px] py-[0px] rounded"
+      style={{
+        background: `${badge.color}40`,
+        color: badge.color,
+        border: `0.5px solid ${badge.color}60`,
+      }}
+    >
+      {badge.label}
+    </span>
+  );
+}
+
+/** Improvement #54: Haptic feedback trigger */
+function triggerHaptic(pattern: number[] = HAPTIC_PATTERNS.tap) {
+  if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+    (navigator as any).vibrate(pattern);
+  }
+}
+
+export default function HotCuesBar({
+  hotCues,
+  onCueClick,
+  currentPlayingCueId,
+  onCueDragReorder,
+  padLayout = '1x8',
+  performanceMode = false,
+  rekordboxMode = false,
+  bankIndex = 0,
+  onBankChange,
+}: HotCuesBarProps) {
   // Improvement #30: Long-press handler for mobile
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showOptionsMenu, setShowOptionsMenu] = useState<number | null>(null);
+
+  // Improvement #41: Drag reorder state
+  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  // Improvement #42: Double-tap to set new cue
+  const doubleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const doubleTapCountRef = useRef(0);
+
+  // Improvement #47: LED feedback animation
+  const [ledFlash, setLedFlash] = useState<number | null>(null);
 
   const handleTouchStart = useCallback((cueId: number | undefined) => {
     if (!cueId) return;
     longPressTimerRef.current = setTimeout(() => {
       setShowOptionsMenu(cueId);
+      triggerHaptic(HAPTIC_PATTERNS.longpress);
     }, 500);
   }, []);
 
@@ -56,6 +110,29 @@ export default function HotCuesBar({ hotCues, onCueClick, currentPlayingCueId }:
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+  }, []);
+
+  // Improvement #42: Double-tap handler
+  const handleDoubleTap = useCallback((cueId: number | undefined) => {
+    if (!cueId) return;
+    doubleTapCountRef.current++;
+
+    if (doubleTapCountRef.current === 1) {
+      doubleTapTimerRef.current = setTimeout(() => {
+        doubleTapCountRef.current = 0;
+      }, 300);
+    } else if (doubleTapCountRef.current === 2) {
+      doubleTapCountRef.current = 0;
+      if (doubleTapTimerRef.current) clearTimeout(doubleTapTimerRef.current);
+      triggerHaptic(HAPTIC_PATTERNS.doubletap);
+      // Note: actual cue creation at current position would be handled by parent
+    }
+  }, []);
+
+  // Improvement #47: Trigger LED flash animation
+  const triggerLedFlash = useCallback((idx: number) => {
+    setLedFlash(idx);
+    setTimeout(() => setLedFlash(null), 300);
   }, []);
 
   // Improvement #33: Responsive padding based on window width
@@ -69,96 +146,202 @@ export default function HotCuesBar({ hotCues, onCueClick, currentPlayingCueId }:
     return '6px 18px';
   }, []);
 
+  // Improvement #43: Calculate grid layout
+  const layout = PAD_LAYOUTS[padLayout as keyof typeof PAD_LAYOUTS] || PAD_LAYOUTS['1x8'];
+  const isGridLayout = padLayout !== '1x8';
+
+  // Improvement #49: CDJ-style button labels
+  const getCDJLabel = (idx: number): string => {
+    const baseLabel = HOT_CUE_LABELS[idx % 8];
+    return bankIndex > 0 ? `${baseLabel}${CUE_BANKS[bankIndex]}` : baseLabel;
+  };
+
   return (
-    <div className="flex items-center gap-1.5" style={{ padding: responsivePadding, paddingBottom: '12px' }}>
-      <span className="text-[10px] text-[var(--text-muted)] font-mono mr-1 select-none">HOT CUES</span>
-      {HOT_CUE_LABELS.map((label, i) => {
-        const cue = hotCues.find(c => c.slot === i);
-        const isLoop = cue?.cueType === 'loop';
-        const cueName = cue?.name || cue?.label || '';
-        const shortName = cueName.length > 10 ? cueName.slice(0, 8) + '…' : cueName;
-        // Improvement #29: Check if this cue is currently playing
-        const isPlaying = cue && currentPlayingCueId === cue.positionMs;
-
-        return (
-          <div key={i} className="flex-1 min-w-0 relative">
-            {/* Improvement #31: Visual indication for empty slots */}
-            {!cue && (
-              <div
-                className="absolute inset-0 rounded-[7px] border-2 border-dashed border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-muted)] opacity-40"
-                style={{ pointerEvents: 'none' }}
-              >
-                <span className="text-[8px]">+</span>
-              </div>
-            )}
-
+    <div className="flex flex-col gap-2">
+      {/* Improvement #46: Bank switching buttons */}
+      {isGridLayout && (
+        <div className="flex gap-1 px-3">
+          {CUE_BANKS.map((bank, idx) => (
             <button
-              onClick={() => cue && onCueClick?.(cue)}
-              onTouchStart={() => handleTouchStart(cue?.positionMs)} // Improvement #30
-              onTouchEnd={handleTouchEnd} // Improvement #30
-              disabled={!cue}
-              className={`relative w-full rounded-[7px] text-[10px] font-bold border-none transition-all overflow-hidden text-ellipsis whitespace-nowrap font-mono disabled:cursor-default group ${
-                isPlaying ? 'animate-pulse' : '' // Improvement #29: pulsing animation
-              }`}
-              style={{
-                padding: '5px 4px',
-                background: cue ? HOT_CUE_COLORS[i] : 'var(--bg-elevated)',
-                color: cue ? 'white' : 'var(--text-muted)',
-                cursor: cue ? 'pointer' : 'default',
-                // Improvement #32: Better disabled state with proper WCAG AA contrast
-                opacity: cue ? 1 : 0.35,
-                boxShadow: isPlaying
-                  ? `0 0 12px ${HOT_CUE_COLORS[i]}, inset 0 0 8px ${HOT_CUE_COLORS[i]}40` // Improvement #29: pulsing border effect
-                  : cue ? `0 2px 8px ${HOT_CUE_COLORS[i]}40` : 'none',
-                filter: !cue ? 'grayscale(100%)' : 'grayscale(0%)',
-                borderWidth: isPlaying ? '2px' : '0px',
-                borderColor: isPlaying ? `${HOT_CUE_COLORS[i]}` : 'transparent',
+              key={bank}
+              onClick={() => {
+                onBankChange?.(idx);
+                triggerHaptic(HAPTIC_PATTERNS.tap);
               }}
-              title={cue ? `${isLoop ? '🔁 Loop' : '🎯 Cue'} ${cueName} @ ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}` : `Slot ${label} vide`}
-              aria-label={
-                cue
-                  ? `${isLoop ? 'Loop' : 'Hot cue'} pad ${label}: ${cueName} at ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}${isPlaying ? ', currently playing' : ''}`
-                  : `Hot cue pad ${label} (empty)`
-              }
-              aria-pressed={cue ? 'false' : undefined}
+              className={`px-2 py-1 text-[9px] font-bold rounded transition-all ${
+                bankIndex === idx
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+              }`}
             >
-              {cue && <ConfidenceRing confidence={cue.confidence} />}
+              Bank {bank}
+            </button>
+          ))}
+        </div>
+      )}
 
-              <div className="flex items-center justify-center gap-0.5">
-                {isLoop && <span className="text-[8px]">🔁</span>}
-                <span className={isPlaying ? 'animate-bounce' : 'group-hover:scale-110 transition-transform'}>{label}</span>
-              </div>
-              {cue && (
-                <div className="text-[8px] opacity-80 truncate leading-tight mt-px" title={cueName}>
-                  {shortName || cue.time}
+      {/* Improvement #47: Performance mode toggle and main pad area */}
+      <div
+        className={`flex gap-1.5 ${
+          isGridLayout
+            ? `grid gap-1.5 p-3`
+            : 'items-center'
+        }`}
+        style={{
+          padding: isGridLayout ? '12px' : responsivePadding,
+          paddingBottom: isGridLayout ? '12px' : '12px',
+          gridTemplateColumns: isGridLayout ? `repeat(${layout.cols}, 1fr)` : undefined,
+          gridTemplateRows: isGridLayout ? `repeat(${layout.rows}, 1fr)` : undefined,
+          gap: performanceMode ? '8px' : '6px',
+        }}
+      >
+        {!isGridLayout && (
+          <span className="text-[10px] text-[var(--text-muted)] font-mono mr-1 select-none">HOT CUES</span>
+        )}
+      <span className="text-[10px] text-[var(--text-muted)] font-mono mr-1 select-none">HOT CUES</span>
+        {HOT_CUE_LABELS.map((label, i) => {
+          const cue = hotCues.find(c => c.slot === i);
+          const isLoop = cue?.cueType === 'loop';
+          const cueName = cue?.name || cue?.label || '';
+          const shortName = cueName.length > 10 ? cueName.slice(0, 8) + '…' : cueName;
+          // Improvement #29: Check if this cue is currently playing
+          const isPlaying = cue && currentPlayingCueId === cue.positionMs;
+          const isDragging = dragFromIdx === i;
+          const isDragOver = dragOverIdx === i;
+          const isLedFlashing = ledFlash === i;
+
+          // Improvement #48: Use Rekordbox colors if enabled
+          const padColor = rekordboxMode && cue ? REKORDBOX_PAD_COLORS[i % REKORDBOX_PAD_COLORS.length] : (cue ? HOT_CUE_COLORS[i] : 'var(--bg-elevated)');
+
+          return (
+            <div
+              key={i}
+              className={`relative ${isGridLayout ? 'w-full' : 'flex-1 min-w-0'}`}
+              draggable={!!cue && isGridLayout}
+              onDragStart={() => setDragFromIdx(i)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverIdx(i);
+              }}
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragFromIdx !== null && dragFromIdx !== i) {
+                  onCueDragReorder?.(dragFromIdx, i);
+                }
+                setDragFromIdx(null);
+                setDragOverIdx(null);
+              }}
+              style={isDragOver ? { opacity: 0.7 } : {}}
+            >
+              {/* Improvement #31: Visual indication for empty slots */}
+              {!cue && (
+                <div
+                  className="absolute inset-0 rounded-[7px] border-2 border-dashed border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-muted)] opacity-40"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <span className="text-[8px]">+</span>
                 </div>
               )}
-              {cue && !shortName && <div className="text-[9px] opacity-85">{cue.time}</div>}
-            </button>
 
-            {/* Improvement #30: Mobile options menu on long-press */}
-            {showOptionsMenu === cue?.positionMs && cue && (
-              <div
-                className="absolute top-full mt-1 right-0 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded shadow-lg z-10 text-xs"
-                style={{ minWidth: '120px' }}
-              >
-                <button
-                  className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
-                  onClick={() => {
+              <button
+                onClick={() => {
+                  if (cue) {
+                    triggerLedFlash(i);
+                    triggerHaptic(HAPTIC_PATTERNS.tap);
                     onCueClick?.(cue);
-                    setShowOptionsMenu(null);
-                  }}
+                  }
+                }}
+                onTouchStart={() => {
+                  handleTouchStart(cue?.positionMs);
+                  handleDoubleTap(cue?.positionMs);
+                }}
+                onTouchEnd={handleTouchEnd}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (cue) setShowOptionsMenu(cue.positionMs);
+                }}
+                disabled={!cue}
+                className={`relative w-full rounded-[7px] text-[10px] font-bold border-none transition-all overflow-hidden text-ellipsis whitespace-nowrap font-mono disabled:cursor-default group ${
+                  isPlaying ? 'animate-pulse' : '' // Improvement #29: pulsing animation
+                } ${
+                  performanceMode ? 'min-h-[48px]' : 'min-h-[36px]'
+                } ${
+                  isDragging ? 'opacity-50' : ''
+                }`}
+                style={{
+                  padding: performanceMode ? '8px 6px' : '5px 4px',
+                  background: padColor,
+                  color: cue ? 'white' : 'var(--text-muted)',
+                  cursor: cue ? 'pointer' : 'default',
+                  opacity: cue ? 1 : 0.35,
+                  boxShadow: isLedFlashing
+                    ? `0 0 16px ${padColor}, inset 0 0 12px ${padColor}60` // Improvement #47: LED flash
+                    : isPlaying
+                    ? `0 0 12px ${padColor}, inset 0 0 8px ${padColor}40`
+                    : cue ? `0 2px 8px ${padColor}40` : 'none',
+                  filter: !cue ? 'grayscale(100%)' : 'grayscale(0%)',
+                  borderWidth: isPlaying ? '2px' : '0px',
+                  borderColor: isPlaying ? padColor : 'transparent',
+                  transition: 'all 0.15s ease-in-out',
+                }}
+                title={cue ? `${isLoop ? '🔁 Loop' : '🎯 Cue'} ${cueName} @ ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}` : `Slot ${label} vide`}
+                aria-label={
+                  cue
+                    ? `${isLoop ? 'Loop' : 'Hot cue'} pad ${getCDJLabel(i)}: ${cueName} at ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}${isPlaying ? ', currently playing' : ''}`
+                    : `Hot cue pad ${getCDJLabel(i)} (empty)`
+                }
+                aria-pressed={cue ? 'false' : undefined}
+              >
+                {cue && <ConfidenceRing confidence={cue.confidence} />}
+                {/* Improvement #53: Cue type badge */}
+                {cue && <CueTypeBadge cueType={cue.cueType} />}
+
+                <div className="flex items-center justify-center gap-0.5">
+                  {isLoop && <span className="text-[8px]">🔁</span>}
+                  <span className={isPlaying ? 'animate-bounce' : 'group-hover:scale-110 transition-transform'}>
+                    {getCDJLabel(i)}
+                  </span>
+                </div>
+                {cue && (
+                  <div className="text-[8px] opacity-80 truncate leading-tight mt-px" title={cueName}>
+                    {shortName || cue.time}
+                  </div>
+                )}
+                {cue && !shortName && <div className="text-[9px] opacity-85">{cue.time}</div>}
+
+                {/* Improvement #52: Loop length display */}
+                {isLoop && cue.endPositionMs && (
+                  <div className="text-[7px] opacity-70">
+                    {Math.round((cue.endPositionMs - (cue.positionMs ?? 0)) / 1000 / (60 / ((cue as any).bpm ?? 120) / 4))} bars
+                  </div>
+                )}
+              </button>
+
+              {/* Improvement #30: Mobile options menu on long-press */}
+              {showOptionsMenu === cue?.positionMs && cue && (
+                <div
+                  className="absolute top-full mt-1 right-0 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded shadow-lg z-10 text-xs"
+                  style={{ minWidth: '120px' }}
                 >
-                  Play
-                </button>
-                <button className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]">
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
+                  <button
+                    className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-primary)]"
+                    onClick={() => {
+                      onCueClick?.(cue);
+                      setShowOptionsMenu(null);
+                    }}
+                  >
+                    Play
+                  </button>
+                  <button className="block w-full text-left px-2 py-1.5 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]">
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

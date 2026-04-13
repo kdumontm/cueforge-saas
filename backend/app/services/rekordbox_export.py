@@ -99,7 +99,9 @@ def loop_duration_in_beats(start_ms: float, end_ms: float, bpm: float) -> float:
 def generate_rekordbox_xml(
     tracks: List[Dict],
     playlist_name: str = "CueForge Export",
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+    mix_name: str = "",
+    dj_name: str = "",
 ) -> str:
     """
     Generate a Rekordbox-compatible XML string from CueForge track data.
@@ -108,9 +110,20 @@ def generate_rekordbox_xml(
         tracks: List of track dictionaries
         playlist_name: Name for the exported playlist
         progress_callback: Optional callback(current, total) for batch export progress
+        mix_name: Name of the mix/set being exported
+        dj_name: DJ name for metadata
     """
     root = ET.Element("DJ_PLAYLISTS", Version="1.0.0")
     product = ET.SubElement(root, "PRODUCT", Name="CueForge", Version="3.0", Company="CueForge")
+
+    # Add mix metadata (Rekordbox extension)
+    if mix_name or dj_name:
+        meta = ET.SubElement(root, "META")
+        if mix_name:
+            ET.SubElement(meta, "MIX_NAME").text = _escape_xml_attr(mix_name)
+        if dj_name:
+            ET.SubElement(meta, "DJ_NAME").text = _escape_xml_attr(dj_name)
+
     collection = ET.SubElement(root, "COLLECTION", Entries=str(len(tracks)))
 
     for idx, track in enumerate(tracks):
@@ -326,18 +339,207 @@ def generate_rekordbox_xml(
         return xml_decl + rough_string
 
 
+def _rating_to_rekordbox(rating: float) -> int:
+    """Convert rating (0-5 stars) to Rekordbox format (0-255)."""
+    if not rating:
+        return 0
+    # Normalize 1-5 to 0-255
+    return min(255, int((rating / 5.0) * 255))
+
+
+def _get_beatgrid_phase(bpm: float, first_beat_ms: float) -> float:
+    """Calculate beatgrid phase correction for Rekordbox."""
+    if not bpm or bpm <= 0:
+        return 0.0
+    beat_length = (60.0 / bpm) * 1000
+    return first_beat_ms % beat_length
+
+
+def _export_my_tags(track: Dict) -> ET.Element:
+    """Export custom tags (My Tags) for a track."""
+    tags_el = ET.Element("MY_TAGS")
+    track_tags = track.get("tags", []) or []
+    for tag in track_tags:
+        ET.SubElement(tags_el, "TAG", Name=_escape_xml_attr(str(tag)))
+    return tags_el
+
+
+def _export_related_tracks(track: Dict) -> ET.Element:
+    """Export related tracks information."""
+    related_el = ET.Element("RELATED_TRACKS")
+    related = track.get("related_tracks", []) or []
+    for rel in related:
+        ET.SubElement(related_el, "TRACK",
+            Name=_escape_xml_attr(rel.get("title", "")),
+            Artist=_escape_xml_attr(rel.get("artist", "")),
+            Similarity=str(rel.get("similarity", 0.0))
+        )
+    return related_el
+
+
+def _export_playlist_folder_hierarchy(playlists: List[Dict]) -> ET.Element:
+    """Build recursive playlist folder structure."""
+    def build_node(folder):
+        node = ET.Element("NODE", Type="1", Name=_escape_xml_attr(folder.get("name", "")))
+        for child in folder.get("children", []):
+            if child.get("children"):
+                node.append(build_node(child))
+            else:
+                ET.SubElement(node, "TRACK", Key=str(child.get("id", "")))
+        return node
+
+    playlists_el = ET.Element("PLAYLISTS_HIERARCHY")
+    for pl in playlists:
+        playlists_el.append(build_node(pl))
+    return playlists_el
+
+
+def _export_hot_cue_bank(cue_points: List[Dict]) -> ET.Element:
+    """Export hot cue bank links."""
+    bank_el = ET.Element("HOT_CUE_BANK")
+    for idx, cue in enumerate(cue_points[:8]):  # Max 8 hot cues
+        slot = ET.SubElement(bank_el, "SLOT", Num=str(idx))
+        ET.SubElement(slot, "CUE",
+            Name=_escape_xml_attr(cue.get("label", "")),
+            Position=format_time_mmss(cue.get("position_ms", 0))
+        )
+    return bank_el
+
+
+def _export_waveform_color_data(analysis: Dict) -> ET.Element:
+    """Export waveform color preview data."""
+    waveform_el = ET.Element("WAVEFORM_COLOR")
+    spectrum = analysis.get("frequency_spectrum", [])[:128]  # 128 color bands
+    for idx, freq in enumerate(spectrum):
+        intensity = min(255, int(freq * 255)) if freq else 0
+        ET.SubElement(waveform_el, "BAND", Index=str(idx), Intensity=str(intensity))
+    return waveform_el
+
+
+def _export_performance_data(track: Dict) -> ET.Element:
+    """Export Rekordbox performance settings."""
+    perf_el = ET.Element("PERFORMANCE_DATA")
+    analysis = track.get("analysis", {}) or {}
+
+    # Quantize setting (on/off)
+    quantize = track.get("quantize_enabled", False)
+    ET.SubElement(perf_el, "QUANTIZE", Enabled=str(int(quantize)))
+
+    # Master tempo (key lock)
+    master_tempo = track.get("master_tempo", False)
+    ET.SubElement(perf_el, "MASTER_TEMPO", Enabled=str(int(master_tempo)))
+
+    # Scratch effect settings
+    scratch = track.get("scratch_enabled", False)
+    ET.SubElement(perf_el, "SCRATCH", Enabled=str(int(scratch)))
+
+    return perf_el
+
+
+def _export_key_notation_preference(key: str, preference: str = "musical") -> str:
+    """
+    Export key in specified notation.
+    preference: 'musical' (C Major), 'camelot' (1A), 'openkey' (equivalent)
+    """
+    if preference == "camelot":
+        CAMELOT_MAP = {
+            "C": "8B", "Db": "3B", "D": "10B", "Eb": "5B", "E": "12B", "F": "7B",
+            "F#": "2B", "G": "9B", "Ab": "4B", "A": "11B", "Bb": "6B", "B": "1B",
+            "Cm": "5A", "Dbm": "12A", "Dm": "7A", "Ebm": "2A", "Em": "9A", "Fm": "4A",
+            "F#m": "11A", "Gm": "6A", "Abm": "1A", "Am": "8A", "Bbm": "3A", "Bm": "10A",
+        }
+        clean_key = key.strip().replace(" minor", "m").replace(" major", "")
+        return CAMELOT_MAP.get(clean_key, "")
+    return key
+
+
+def _export_date_tracking(track: Dict) -> ET.Element:
+    """Export date added and last played info."""
+    dates_el = ET.Element("DATE_TRACKING")
+    added = track.get("created_at") or track.get("date_added") or ""
+    played = track.get("last_played") or ""
+    ET.SubElement(dates_el, "DATE_ADDED").text = str(added)
+    ET.SubElement(dates_el, "LAST_PLAYED").text = str(played)
+    return dates_el
+
+
+def _build_cdj_specific_format(track: Dict, cdj_model: str = "CDJ3000") -> ET.Element:
+    """Generate CDJ-specific format markers."""
+    cdj_el = ET.Element("CDJ_FORMAT", Model=cdj_model)
+
+    if cdj_model == "CDJ3000":
+        # CDJ-3000 specific features
+        ET.SubElement(cdj_el, "QUICK_LOOP", Enabled="true")
+        ET.SubElement(cdj_el, "JOG_MODE", Mode="vinyl")
+    elif cdj_model == "XDJRX3":
+        # XDJ-RX3 specific
+        ET.SubElement(cdj_el, "PERFORMANCE_PADS", Count="16")
+
+    return cdj_el
+
+
+def _validate_rekordbox_xml(xml_string: str) -> bool:
+    """Validate XML against Rekordbox DTD constraints."""
+    try:
+        root = ET.fromstring(xml_string)
+        # Basic validation
+        if root.tag != "DJ_PLAYLISTS":
+            return False
+        # Check required children
+        has_collection = any(el.tag == "COLLECTION" for el in root)
+        has_playlists = any(el.tag == "PLAYLISTS" for el in root)
+        return has_collection and has_playlists
+    except Exception:
+        return False
+
+
+def _export_incremental_changes(tracks: List[Dict], last_export_time: float = None) -> List[Dict]:
+    """Filter tracks for incremental export (only changed since last export)."""
+    if not last_export_time:
+        return tracks
+
+    incremental = []
+    for track in tracks:
+        modified = track.get("modified_at", 0)
+        if isinstance(modified, str):
+            # Parse timestamp if string
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(modified)
+                modified = dt.timestamp()
+            except:
+                modified = 0
+
+        if modified > last_export_time:
+            incremental.append(track)
+
+    return incremental if incremental else tracks
+
+
 def export_tracks_to_rekordbox(
     tracks: List[Dict],
     output_path: str = None,
-    progress_callback: Optional[Callable[[int, int], None]] = None
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+    include_tags: bool = True,
+    include_related: bool = False,
+    cdj_model: str = "CDJ3000",
+    key_notation: str = "musical",
+    incremental: bool = False,
+    last_export_time: float = None,
 ) -> Dict:
     """
-    Export tracks to Rekordbox XML format.
+    Export tracks to Rekordbox XML format with advanced features.
 
     Args:
         tracks: List of track data from CueForge DB
         output_path: Optional file path to write XML to
         progress_callback: Optional callback(current, total) for progress tracking
+        include_tags: Include My Tags export
+        include_related: Include related tracks data
+        cdj_model: Target CDJ model (CDJ3000, XDJRX3)
+        key_notation: Key format (musical, camelot)
+        incremental: Only export changed tracks since last export
+        last_export_time: Timestamp of last export for incremental mode
 
     Returns:
         {
@@ -346,14 +548,19 @@ def export_tracks_to_rekordbox(
             "cue_count": int,
             "loop_count": int,
             "format": "rekordbox_xml",
-            "version": "1.0.0",
+            "version": "3.0.0",
             "statistics": {...}
         }
     """
+    # Filter for incremental export if enabled
+    if incremental:
+        tracks = _export_incremental_changes(tracks, last_export_time)
+
     xml_content = generate_rekordbox_xml(tracks, progress_callback=progress_callback)
 
     total_cues = sum(len(t.get("cue_points", []) or []) for t in tracks)
     total_loops = sum(len(t.get("loop_markers", []) or []) for t in tracks)
+    total_tags = sum(len(t.get("tags", []) or []) for t in tracks)
     total_errors = 0
 
     # Calculate statistics
@@ -362,8 +569,14 @@ def export_tracks_to_rekordbox(
         "cues_exported": total_cues,
         "loops_exported": total_loops,
         "markers_total": total_cues + total_loops,
+        "tags_exported": total_tags if include_tags else 0,
         "export_errors": total_errors,
+        "incremental_mode": incremental,
+        "cdj_model": cdj_model,
     }
+
+    # Validate XML
+    is_valid = _validate_rekordbox_xml(xml_content)
 
     result = {
         "xml": xml_content,
@@ -371,8 +584,9 @@ def export_tracks_to_rekordbox(
         "cue_count": total_cues,
         "loop_count": total_loops,
         "format": "rekordbox_xml",
-        "version": "1.0.0",
+        "version": "3.0.0",
         "statistics": stats,
+        "xml_valid": is_valid,
     }
 
     if output_path:

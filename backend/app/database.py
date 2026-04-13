@@ -86,3 +86,129 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   PERFORMANCE & CACHE OPTIMIZATIONS (Points 41-50)
+# ═══════════════════════════════════════════════════════════════════════════
+
+import hashlib
+import gzip
+import json
+from io import BytesIO
+from collections import OrderedDict
+from datetime import datetime, timedelta
+
+
+class SimpleMemoryCache:
+    """Simple in-memory cache for frequently accessed cues (OPT #41)."""
+
+    def __init__(self, max_size: int = 1000, ttl_seconds: int = 300):
+        self.cache: OrderedDict = OrderedDict()
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+        self.timestamps = {}
+
+    def get(self, key: str):
+        """Get from cache, checking TTL."""
+        if key not in self.cache:
+            return None
+
+        # Check TTL
+        if key in self.timestamps:
+            age = (datetime.utcnow() - self.timestamps[key]).total_seconds()
+            if age > self.ttl_seconds:
+                del self.cache[key]
+                del self.timestamps[key]
+                return None
+
+        return self.cache[key]
+
+    def set(self, key: str, value):
+        """Set in cache with LRU eviction."""
+        if len(self.cache) >= self.max_size:
+            oldest_key = next(iter(self.cache))
+            del self.cache[oldest_key]
+            if oldest_key in self.timestamps:
+                del self.timestamps[oldest_key]
+
+        self.cache[key] = value
+        self.timestamps[key] = datetime.utcnow()
+        self.cache.move_to_end(key)
+
+    def invalidate(self, key: str):
+        """Remove from cache."""
+        if key in self.cache:
+            del self.cache[key]
+            if key in self.timestamps:
+                del self.timestamps[key]
+
+
+# Global cache instance
+_memory_cache = SimpleMemoryCache(max_size=1000, ttl_seconds=300)
+
+
+def cache_get(key: str):
+    """Get from memory cache."""
+    return _memory_cache.get(key)
+
+
+def cache_set(key: str, value):
+    """Set in memory cache."""
+    _memory_cache.set(key, value)
+
+
+def cache_invalidate(key: str):
+    """Invalidate cache entry."""
+    _memory_cache.invalidate(key)
+
+
+# OPT #44: GZIP compression for large JSON payloads
+def compress_json(data: dict) -> bytes:
+    """Compress JSON data with gzip."""
+    json_str = json.dumps(data)
+    buf = BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode='wb') as f:
+        f.write(json_str.encode('utf-8'))
+    return buf.getvalue()
+
+
+def decompress_json(data: bytes) -> dict:
+    """Decompress gzip JSON data."""
+    with gzip.GzipFile(fileobj=BytesIO(data), mode='rb') as f:
+        json_str = f.read().decode('utf-8')
+    return json.loads(json_str)
+
+
+# OPT #45: ETag support
+def generate_etag(data: dict) -> str:
+    """Generate ETag from data."""
+    json_str = json.dumps(data, sort_keys=True)
+    return hashlib.md5(json_str.encode()).hexdigest()
+
+
+# OPT #47: Database connection health check
+async def check_db_health(db: Session) -> bool:
+    """Check if database connection is healthy."""
+    try:
+        db.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        logger.error(f"DB health check failed: {e}")
+        return False
+
+
+# OPT #49: Bulk insert optimization
+def bulk_insert_optimized(db: Session, model_class, records: list, batch_size: int = 1000):
+    """Optimized bulk insert using executemany."""
+    if not records:
+        return 0
+
+    inserted = 0
+    for i in range(0, len(records), batch_size):
+        batch = records[i:i+batch_size]
+        db.bulk_insert_mappings(model_class, batch)
+        inserted += len(batch)
+
+    db.commit()
+    return inserted

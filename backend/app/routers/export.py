@@ -21,6 +21,13 @@ from app.services.serato_export import generate_serato_crate, generate_serato_cs
 from app.services.traktor_export import generate_traktor_nml
 from app.services.engine_dj_export import export_tracks_to_engine_dj
 from app.services.virtualdj_export import export_tracks_to_virtualdj
+from app.services.mixxx_export import export_tracks_to_mixxx
+from app.services.djuced_export import export_tracks_to_djuced
+from app.services.algoriddim_djay_export import export_tracks_to_djay_pro
+from app.services.daw_export import export_tracks_to_ableton, export_tracks_to_fl_studio
+from app.services.spotify_export import export_tracks_to_spotify_dj
+from app.services.universal_exchange_export import export_tracks_to_universal_format
+from app.services.csv_detailed_export import export_tracks_to_csv
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -699,4 +706,248 @@ async def export_all_virtualdj(
         headers={
             "Content-Disposition": 'attachment; filename="CueForge_Library_virtualdj.json"'
         }
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   MIXXX (Open Source DJ Software)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/mixxx/batch")
+async def export_batch_mixxx(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to Mixxx SQLite database format."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    import tempfile
+    import os
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "mixxxdb.db")
+        result = export_tracks_to_mixxx(track_dicts, db_path)
+        if result.get("success"):
+            with open(db_path, "rb") as f:
+                db_content = f.read()
+            return Response(
+                content=db_content,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": 'attachment; filename="mixxxdb.db"'}
+            )
+    raise HTTPException(status_code=500, detail="Failed to generate Mixxx database")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   DJUCED (Mobile DJ App)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/djuced/batch")
+async def export_batch_djuced(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to DJUCED format."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_djuced(track_dicts, playlist_name=payload.name or "CueForge Export")
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="djuced_playlist.json"'}
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   ALGORIDDIM DJAY PRO (iOS/Android)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/djay-pro/batch")
+async def export_batch_djay_pro(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to Algoriddim djay Pro format."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_djay_pro(track_dicts, playlist_name=payload.name or "CueForge Export")
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="djay_pro_playlist.json"'}
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   DAW EXPORTS (Ableton Live, FL Studio)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/ableton/batch")
+async def export_batch_ableton(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks as Ableton Live markers."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_ableton(track_dicts)
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="ableton_markers.json"'}
+    )
+
+
+@router.post("/fl-studio/batch")
+async def export_batch_fl_studio(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks as FL Studio markers."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_fl_studio(track_dicts)
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="fl_studio_markers.json"'}
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   SPOTIFY DJ
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/spotify-dj/batch")
+async def export_batch_spotify_dj(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to Spotify DJ format with markers."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_spotify_dj(track_dicts, playlist_name=payload.name or "CueForge Export")
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="spotify_dj_playlist.json"'}
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   UNIVERSAL EXCHANGE FORMAT (JSON)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/universal/batch")
+async def export_batch_universal(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to CueForge Universal Exchange Format (UEF)."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_universal_format(track_dicts)
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="cueforge_universal_exchange.json"'}
+    )
+
+
+@router.get("/universal/all")
+async def export_all_universal(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all tracks to Universal Exchange Format."""
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_universal_format(track_dicts)
+
+    return Response(
+        content=json.dumps(result["data"], indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="CueForge_Library_universal.json"'}
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   DETAILED CSV EXPORTS
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.post("/csv/batch")
+async def export_batch_csv(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export tracks to detailed CSV format (tracks + cues + loops)."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_csv(track_dicts)
+
+    # Return main tracks CSV
+    return Response(
+        content=result["files"]["tracks"]["content"],
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="tracks.csv"'}
+    )
+
+
+@router.get("/csv/all")
+async def export_all_csv(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all tracks to CSV format."""
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_csv(track_dicts)
+
+    return Response(
+        content=result["files"]["tracks"]["content"],
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="CueForge_Library_tracks.csv"'}
     )
