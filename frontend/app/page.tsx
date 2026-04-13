@@ -1,6 +1,12 @@
-'use client';
 import Link from 'next/link';
 import { Music2, Zap, Download, ChevronRight, Check, Disc3, Headphones, BarChart3, Layers, Palette, Wand2, Shield, Globe, ArrowRight, Play, Star, Users, Clock, Target, Sparkles, Radio, Library } from 'lucide-react';
+
+// Pre-computed waveform heights (deterministic, no Math.random)
+const WAVEFORM_HEIGHTS = Array.from({ length: 80 }, (_, i) => {
+  const base = Math.sin(i * 0.15) * 30;
+  const detail = Math.sin(i * 0.4) * 15 + Math.cos(i * 0.25) * 10;
+  return Math.max(10, Math.min(70, base + detail + 35));
+});
 
 export default function LandingPage() {
   return (
@@ -56,10 +62,10 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/register" className="flex items-center gap-2 px-6 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50 glow-purple">
+          <Link href="/register" prefetch={true} className="flex items-center gap-2 px-6 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50 glow-purple">
             Analyser un morceau <ChevronRight size={18} />
           </Link>
-          <Link href="/login" className="flex items-center gap-2 px-6 py-3.5 bg-bg-elevated hover:bg-bg-card text-slate-300 font-medium rounded-xl border border-slate-700/50 transition-all">
+          <Link href="/login" prefetch={true} className="flex items-center gap-2 px-6 py-3.5 bg-bg-elevated hover:bg-bg-card text-slate-300 font-medium rounded-xl border border-slate-700/50 transition-all">
             J&apos;ai déjà un compte
           </Link>
         </div>
@@ -100,19 +106,16 @@ export default function LandingPage() {
               </div>
               {/* Fake waveform bars */}
               <div className="flex items-center gap-px h-16">
-                {Array.from({ length: 80 }, (_, i) => {
-                  const h = Math.sin(i * 0.15) * 30 + Math.random() * 20 + 10;
-                  return (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-sm"
-                      style={{
-                        height: `${h}%`,
-                        background: i < 25 ? 'linear-gradient(to top, #6366f1, #a855f7)' : 'rgba(99, 102, 241, 0.2)',
-                      }}
-                    />
-                  );
-                })}
+                {WAVEFORM_HEIGHTS.map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-sm"
+                    style={{
+                      height: `${h}%`,
+                      background: i < 25 ? 'linear-gradient(to top, #6366f1, #a855f7)' : 'rgba(99, 102, 241, 0.2)',
+                    }}
+                  />
+                ))}
               </div>
               {/* Fake cue points */}
               <div className="flex gap-2 mt-2">
@@ -259,7 +262,7 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-          <Link href="/register" className="inline-flex items-center gap-2 px-8 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50">
+          <Link href="/register" prefetch={true} className="inline-flex items-center gap-2 px-8 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50">
             Créer mon compte gratuit <ChevronRight size={18} />
           </Link>
         </div>
