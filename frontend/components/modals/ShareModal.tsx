@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Share2, Copy, Check, X, Clock, Users } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface ShareModalProps {
   isOpen: boolean;

@@ -4,11 +4,15 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
+// URL interne du backend (utilisée par les rewrites côté serveur)
+const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://cueforge-saas-production.up.railway.app';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1',
+    // Chemin relatif : les appels API passent par le proxy Next.js (rewrites)
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api/v1',
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -30,6 +34,15 @@ const nextConfig = {
       { protocol: 'https', hostname: 'is*.mzstatic.com' },        // iTunes variants
       { protocol: 'https', hostname: 'cueforge.app' },            // Self
     ],
+  },
+  // Proxy /api/v1/* vers le backend Railway (même domaine = plus de CORS)
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${BACKEND_INTERNAL_URL}/api/v1/:path*`,
+      },
+    ];
   },
   // Headers de cache pour les assets statiques
   async headers() {

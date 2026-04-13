@@ -85,7 +85,7 @@ export default function SettingsPage() {
   async function loadTwoFAStatus() {
     try {
       const token = localStorage.getItem('cueforge_token');
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const res = await fetch(`${API_URL}/2fa/status`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -289,7 +289,7 @@ export default function SettingsPage() {
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('cueforge_token');
-                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                      const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                       await fetch(`${API_URL}/auth/sessions`, {
                         method: 'DELETE',
                         headers: { Authorization: `Bearer ${token}` },
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                         setTwoFALoading(true);
                         try {
                           const token = localStorage.getItem('cueforge_token');
-                          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                          const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                           const res = await fetch(`${API_URL}/2fa/setup`, {
                             method: 'POST',
                             headers: { Authorization: `Bearer ${token}` },
@@ -408,7 +408,7 @@ export default function SettingsPage() {
                           setTwoFALoading(true);
                           try {
                             const token = localStorage.getItem('cueforge_token');
-                            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                            const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                             const res = await fetch(`${API_URL}/2fa/enable`, {
                               method: 'POST',
                               headers: {
@@ -476,7 +476,7 @@ export default function SettingsPage() {
                         setTwoFALoading(true);
                         try {
                           const token = localStorage.getItem('cueforge_token');
-                          const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                          const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                           const res = await fetch(`${API_URL}/2fa/disable`, {
                             method: 'POST',
                             headers: {
@@ -748,7 +748,7 @@ export default function SettingsPage() {
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('cueforge_token');
-                      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                      const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                       const res = await fetch(`${API_URL}/auth/me/export`, {
                         headers: { Authorization: `Bearer ${token}` },
                       });
@@ -803,7 +803,7 @@ export default function SettingsPage() {
                           if (deleteConfirmText !== 'SUPPRIMER') return;
                           try {
                             const token = localStorage.getItem('cueforge_token');
-                            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                            const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                             await fetch(`${API_URL}/auth/me`, {
                               method: 'DELETE',
                               headers: { Authorization: `Bearer ${token}` },

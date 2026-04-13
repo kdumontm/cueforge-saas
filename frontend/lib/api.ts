@@ -1,5 +1,5 @@
 // 🔴 FIX (faille 10) : Plus de fallback localhost — l'URL doit être définie dans Railway
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 // ── Improvement #34: Retry logic with exponential backoff ────────────────────
 const MAX_RETRIES = 3;

@@ -821,7 +821,7 @@ export default function DashboardV2() {
       try {
         const { getToken } = await import('@/lib/api');
         const token = getToken();
-        const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+        const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
         const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
         const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
         if (!r.ok) return;
@@ -1973,7 +1973,7 @@ export default function DashboardV2() {
                   setStemsStatus({ status: 'processing' });
                   const { getToken } = await import('@/lib/api');
                   const token = getToken();
-                  const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                  const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                   const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
                   const trackId = selectedTrack.id;
 
@@ -2268,7 +2268,7 @@ export default function DashboardV2() {
                 addToast('Analyse Pro en cours… Stems IA + Cue Points', 'info');
                 const { getToken } = await import('@/lib/api');
                 const token = getToken();
-                const BASE = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
+                const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                 const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
                 try {
                   // 1. Lancer la séparation stems
