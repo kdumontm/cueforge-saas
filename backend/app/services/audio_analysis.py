@@ -5730,6 +5730,26 @@ def compute_structural_summary(
     except Exception:
         pass
 
+    try:
+        # Point 43: Structural complexity
+        complexity = compute_structural_complexity(sections_internal)
+        summary["structural_complexity"] = complexity.get("structural_complexity", 0)
+        summary["unique_sections"] = complexity.get("unique_sections", [])
+    except Exception:
+        pass
+
+    try:
+        # Point 44: Transition types between consecutive sections
+        transitions = []
+        for i in range(len(sections_internal) - 1):
+            t_type = classify_transition_type(sections_internal[i], sections_internal[i + 1])
+            transitions.append(t_type)
+        if transitions:
+            summary["transition_types"] = transitions
+            summary["dominant_transition"] = max(set(transitions), key=transitions.count)
+    except Exception:
+        pass
+
     # Derived DJ-useful fields
     try:
         summary["section_count"] = len(sections_internal)
@@ -5741,6 +5761,17 @@ def compute_structural_summary(
             else "falling" if summary.get("tension_curve_slope", 0) < -0.02
             else "flat"
         )
+        # DJ-specific: classify track role in set
+        climax_pos = summary.get("climax_position", 0.5)
+        tension_slope = summary.get("tension_curve_slope", 0)
+        if tension_slope > 0.03 and climax_pos > 0.6:
+            summary["set_role"] = "peak_time"
+        elif tension_slope < -0.02:
+            summary["set_role"] = "closing"
+        elif summary.get("tension_mean", 0.5) < 0.4:
+            summary["set_role"] = "warm_up"
+        else:
+            summary["set_role"] = "main_set"
         summary["available"] = True
     except Exception:
         summary["available"] = True
