@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
@@ -86,12 +86,15 @@ export function CuesTab({
   const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
 
-  // Bar number calculation helper
-  const getBarNumber = (posMs: number): number => {
-    const bpm = (track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128;
-    const barMs = (60000 / Math.max(bpm, 60)) * 4;
-    return Math.floor(posMs / barMs) + 1;
-  };
+  // Improvement #13: Memoize expensive calculations
+  const getBarNumber = useMemo(() => {
+    return (posMs: number): number => {
+      const bpm = (track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128;
+      const barMs = (60000 / Math.max(bpm, 60)) * 4;
+      return Math.floor(posMs / barMs) + 1;
+    };
+  }, [track?.analysis?.bpm, track?.bpm]);
+
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -102,10 +105,13 @@ export function CuesTab({
   const [loopDurationSec, setLoopDurationSec] = useState<number>(4);
   const [hoveredCue, setHoveredCue] = useState<number | null>(null);
 
-  const indices = localOrder.length === cuePoints.length
-    && localOrder.every(i => i < cuePoints.length)
-    ? localOrder
-    : cuePoints.map((_, i) => i);
+  // Improvement #13: Memoize cue indices calculation
+  const indices = useMemo(() => {
+    return localOrder.length === cuePoints.length
+      && localOrder.every(i => i < cuePoints.length)
+      ? localOrder
+      : cuePoints.map((_, i) => i);
+  }, [localOrder, cuePoints.length]);
 
   const cues = indices.map(i => cuePoints[i]);
 

@@ -62,6 +62,13 @@ export default function HotCuesBar({ hotCues, onCueClick }: HotCuesBarProps) {
                 boxShadow: cue ? `0 2px 8px ${HOT_CUE_COLORS[i]}40` : 'none',
               }}
               title={cue ? `${isLoop ? '🔁 Loop' : '🎯 Cue'} ${cueName} @ ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}` : `Slot ${label} vide`}
+              // Improvement #15: Add ARIA labels for accessibility
+              aria-label={
+                cue
+                  ? `${isLoop ? 'Loop' : 'Hot cue'} pad ${label}: ${cueName} at ${cue.time}${cue.confidence != null ? ` (${Math.round(cue.confidence * 100)}% confidence)` : ''}`
+                  : `Hot cue pad ${label} (empty)`
+              }
+              aria-pressed={cue ? 'false' : undefined}
             >
               {/* Confidence ring en haut à droite */}
               {cue && <ConfidenceRing confidence={cue.confidence} />}

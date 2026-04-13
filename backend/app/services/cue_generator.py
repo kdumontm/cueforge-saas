@@ -135,6 +135,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.10,
         "gap_bars": 8,               # Tight grid, 8-bar minimum gap
         "snap_tolerance_bars": 1.5,  # Strict snap
+        "min_gap_ms": 4000,          # Tight grid, need distance (Improvement #2)
         "energy_weight": 0.7,
         "structure_weight": 0.3,
     },
@@ -143,6 +144,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.12,
         "gap_bars": 8,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 4000,
         "energy_weight": 0.6,
         "structure_weight": 0.4,
     },
@@ -151,6 +153,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.18,
         "gap_bars": 8,
         "snap_tolerance_bars": 2.0,
+        "min_gap_ms": 4000,
         "energy_weight": 0.65,
         "structure_weight": 0.35,
     },
@@ -159,6 +162,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.15,
         "gap_bars": 4,               # DnB: faster, tighter cues
         "snap_tolerance_bars": 1.0,
+        "min_gap_ms": 2500,
         "energy_weight": 0.7,
         "structure_weight": 0.3,
     },
@@ -167,6 +171,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.08,
         "gap_bars": 4,
         "snap_tolerance_bars": 2.0,  # More flexible grid
+        "min_gap_ms": 1500,          # Tighter cues OK (Improvement #2)
         "energy_weight": 0.4,
         "structure_weight": 0.6,     # Structure/vocals matter more
     },
@@ -175,6 +180,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.10,
         "gap_bars": 4,
         "snap_tolerance_bars": 2.0,
+        "min_gap_ms": 1500,
         "energy_weight": 0.4,
         "structure_weight": 0.6,
     },
@@ -183,6 +189,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.08,
         "gap_bars": 4,
         "snap_tolerance_bars": 2.0,
+        "min_gap_ms": 1500,
         "energy_weight": 0.5,
         "structure_weight": 0.5,
     },
@@ -191,6 +198,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.10,
         "gap_bars": 4,
         "snap_tolerance_bars": 1.8,
+        "min_gap_ms": 2000,
         "energy_weight": 0.55,
         "structure_weight": 0.45,
     },
@@ -199,6 +207,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.12,
         "gap_bars": 8,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 4000,
         "energy_weight": 0.65,
         "structure_weight": 0.35,
     },
@@ -207,6 +216,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.11,
         "gap_bars": 8,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 4000,
         "energy_weight": 0.6,
         "structure_weight": 0.4,
     },
@@ -215,6 +225,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.14,
         "gap_bars": 8,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 4000,
         "energy_weight": 0.65,
         "structure_weight": 0.35,
     },
@@ -223,6 +234,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.12,
         "gap_bars": 4,
         "snap_tolerance_bars": 1.2,
+        "min_gap_ms": 2500,
         "energy_weight": 0.75,
         "structure_weight": 0.25,
     },
@@ -231,6 +243,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.09,
         "gap_bars": 8,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 4000,
         "energy_weight": 0.5,
         "structure_weight": 0.5,
     },
@@ -239,6 +252,7 @@ GENRE_PROFILES = {
         "min_build_gradient": 0.12,
         "gap_bars": 6,
         "snap_tolerance_bars": 1.5,
+        "min_gap_ms": 2000,
         "energy_weight": 0.55,
         "structure_weight": 0.45,
     },
@@ -340,13 +354,18 @@ CUE_TEMPLATES = {
 #   BPM-ADAPTIVE 4-BAR GRID QUANTIZATION
 # ══════════════════════════════════════════════════════════════════════════
 
-def _bpm_snap_tolerance(bpm: float, bars: float = 1.5) -> int:
+def _bpm_snap_tolerance(bpm: float, bars: float = None, profile: Dict = None) -> int:
     """
     BPM-based snap tolerance in ms.
     At 128 BPM: 1.5 bars ≈ 2812 ms
     At 170 BPM: 1.5 bars ≈ 2118 ms
     At 90 BPM:  1.5 bars ≈ 4000 ms
+
+    Improvement #1: Use profile's snap_tolerance_bars if available.
     """
+    # Use profile's snap_tolerance_bars if provided, otherwise fallback to parameter
+    if bars is None:
+        bars = profile.get("snap_tolerance_bars", 1.5) if profile else 1.5
     beat_ms = 60000 / max(bpm, 60)
     return int(beat_ms * 4 * bars)
 
@@ -463,6 +482,7 @@ def _compute_confidence(
     snap_quality: float,
     structural_match: bool,
     profile: Dict,
+    energy_level: float = None,
 ) -> float:
     """
     Compute a 0.0–1.0 confidence score for a cue point.
@@ -472,6 +492,7 @@ def _compute_confidence(
     - snap_quality: 1.0 = landed on 4-bar boundary, 0.8 = downbeat, 0.5 = beat, 0.3 = unsnapped
     - structural_match: True if confirmed by section labels from SSM analysis
     - profile: genre-aware weights
+    - energy_level: current energy (Improvement #5: penalize very low energy < 0.05)
     """
     e_weight = profile.get("energy_weight", 0.55)
     s_weight = profile.get("structure_weight", 0.45)
@@ -485,6 +506,11 @@ def _compute_confidence(
     # Structure bonus
     struct_bonus = 0.15 if structural_match else 0.0
 
+    # Improvement #5: Silence penalty — DJs don't want cues in silent zones
+    silence_penalty = 0.0
+    if energy_level is not None and energy_level < 0.05:
+        silence_penalty = 0.3  # Reduce confidence by 0.3 for very low energy
+
     # Type-specific base confidence
     base = {
         "section": 0.6,  # INTRO/OUTRO always reasonable
@@ -492,7 +518,7 @@ def _compute_confidence(
         "phrase": 0.4,    # Phrases are least certain
     }.get(cue_type, 0.5)
 
-    confidence = base + (energy_score * e_weight * 0.3) + (snap_score * 0.2) + struct_bonus
+    confidence = base + (energy_score * e_weight * 0.3) + (snap_score * 0.2) + struct_bonus - silence_penalty
     return round(min(1.0, max(0.0, confidence)), 2)
 
 
@@ -535,8 +561,24 @@ def _snap_quality(original_ms: int, snapped_ms: int, beats: List[int], bpm: floa
 def _deduplicate_cues(cues: List[Dict], min_gap_ms: int = 2000) -> List[Dict]:
     """Remove cues within min_gap_ms of each other, keeping the higher-confidence one.
 
+    Improvement #3: Add type priority in deduplication.
+    When two cues collide, prioritize by type if confidence difference is < 0.3.
+    Priority: DROP > INTRO/OUTRO > BUILD > BREAKDOWN > VOCAL > PHRASE > fallback
+
     Optimization #2 — Cue duplicate check (point 106)
     """
+    TYPE_PRIORITY = {
+        "drop": 100,
+        "drop2": 100,
+        "intro": 90,
+        "outro": 90,
+        "section": 85,
+        "build": 80,
+        "breakdown": 70,
+        "vocal": 60,
+        "phrase": 50,
+    }
+
     if not cues:
         return cues
     sorted_cues = sorted(cues, key=lambda c: c['position_ms'])
@@ -544,8 +586,23 @@ def _deduplicate_cues(cues: List[Dict], min_gap_ms: int = 2000) -> List[Dict]:
     for cue in sorted_cues[1:]:
         if cue['position_ms'] - result[-1]['position_ms'] >= min_gap_ms:
             result.append(cue)
-        elif cue.get('confidence', 0) > result[-1].get('confidence', 0):
-            result[-1] = cue  # Replace with higher confidence cue
+        else:
+            # Collision: decide which to keep
+            last_cue = result[-1]
+            conf_diff = abs(cue.get('confidence', 0) - last_cue.get('confidence', 0))
+
+            # If confidence difference > 0.3, keep higher confidence
+            if conf_diff > 0.3:
+                if cue.get('confidence', 0) > last_cue.get('confidence', 0):
+                    result[-1] = cue
+            else:
+                # Confidence similar: prioritize by type
+                cue_type_pri = TYPE_PRIORITY.get(cue.get('cue_type', '').lower(), 0)
+                last_type_pri = TYPE_PRIORITY.get(last_cue.get('cue_type', '').lower(), 0)
+                if cue_type_pri > last_type_pri:
+                    result[-1] = cue
+                elif cue_type_pri == last_type_pri and cue.get('confidence', 0) > last_cue.get('confidence', 0):
+                    result[-1] = cue
     return result
 
 
@@ -890,6 +947,16 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
     # ── Genre-aware profile ──
     profile = _get_genre_profile(genre)
+
+    # Improvement #4: Get CUE_TEMPLATES priority list for this genre
+    template = CUE_TEMPLATES.get(genre.lower() if genre else "", None) if genre else None
+    if not template:
+        # Try to find matching template by genre family
+        for key in CUE_TEMPLATES:
+            if key in (genre.lower() if genre else ""):
+                template = CUE_TEMPLATES[key]
+                break
+    template_priority = template.get("priority", []) if template else []
 
     # ── Timing constants derived from BPM ──
     beat_ms = 60000 / max(bpm, 60)

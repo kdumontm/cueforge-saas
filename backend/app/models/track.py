@@ -190,6 +190,11 @@ class CuePoint(Base):
     cue_mode = Column(String(20), default="memory")
     confidence = Column(Float, nullable=True)  # v4: 0.0–1.0 confidence score
     color_rgb = Column(String(30), nullable=True)
+    # Improvement #11: Add created_at/updated_at timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Improvement #12: Add source field to track cue origin
+    source = Column(String(50), nullable=True, default="auto")  # 'auto', 'manual', 'imported'
     track = relationship("Track", back_populates="cue_points")
 
 

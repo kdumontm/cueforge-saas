@@ -183,6 +183,23 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Improvement #14: Helper to create detailed error messages with status code
+async function createDetailedError(response: Response, fallbackMsg: string): Promise<Error> {
+  const statusCode = response.status;
+  const statusText = response.statusText;
+  let detail = fallbackMsg;
+  try {
+    const json = await response.json();
+    detail = json.detail || json.message || fallbackMsg;
+  } catch {
+    // If response isn't JSON, just use fallback
+  }
+  const error = new Error(`${detail} (HTTP ${statusCode})`);
+  (error as any).status = statusCode;
+  (error as any).message = detail;
+  return error;
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 import type { Track } from '@/types';
@@ -276,7 +293,9 @@ export async function getCurrentUser(): Promise<User> {
   const response = await authFetch(`${API_URL}/auth/me`, {
     headers: { ...authHeaders() },
   });
-  if (!response.ok) throw new Error('Failed to fetch user');
+  if (!response.ok) {
+    throw await createDetailedError(response, 'Failed to fetch user');
+  }
   return response.json();
 }
 

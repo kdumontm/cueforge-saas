@@ -26,16 +26,32 @@ class CueAIEngine:
     intelligent cue placement and DJ set optimization.
     """
 
-    def __init__(self, sr: int = 22050, hop_length: int = 512):
+    # Improvement #7: Genre-aware combined signal weights (configurable)
+    GENRE_WEIGHTS = {
+        "techno": {"energy": 0.7, "onsets": 0.3},
+        "house": {"energy": 0.65, "onsets": 0.35},
+        "trance": {"energy": 0.6, "onsets": 0.4},
+        "hip_hop": {"energy": 0.4, "onsets": 0.6},
+        "pop": {"energy": 0.5, "onsets": 0.5},
+        "drum_and_bass": {"energy": 0.6, "onsets": 0.4},
+        "reggaeton": {"energy": 0.55, "onsets": 0.45},
+        "afrobeats": {"energy": 0.55, "onsets": 0.45},
+        "default": {"energy": 0.6, "onsets": 0.4},
+    }
+
+    def __init__(self, sr: int = 22050, hop_length: int = 512, genre: str = None):
         """
         Initialize Cue AI Engine.
 
         Args:
             sr: Sample rate (Hz)
             hop_length: Hop length for STFT (samples)
+            genre: Genre for weighted feature combination (Improvement #7)
         """
         self.sr = sr
         self.hop_length = hop_length
+        self.genre = genre or "default"
+        self.weights = self.GENRE_WEIGHTS.get(genre.lower(), self.GENRE_WEIGHTS["default"]) if genre else self.GENRE_WEIGHTS["default"]
 
     def predict_cues_from_features(
         self,
@@ -56,13 +72,34 @@ class CueAIEngine:
             Dictionary with predicted cue points and scores
         """
         try:
+            # Improvement #6: Explicit check for zero-length arrays and NaN values
+            if len(energy) == 0 or len(onsets) == 0:
+                return {
+                    'cue_candidates': [],
+                    'num_candidates': 0,
+                    'combined_signal': [],
+                }
+
+            # Check for NaN values
+            if np.any(np.isnan(energy)) or np.any(np.isnan(onsets)):
+                energy = np.nan_to_num(energy, nan=0.0)
+                onsets = np.nan_to_num(onsets, nan=0.0)
+
             # Normalize features
-            energy_norm = (energy - np.min(energy)) / (np.max(energy) - np.min(energy) + 1e-8)
-            onsets_norm = (onsets - np.min(onsets)) / (np.max(onsets) - np.min(onsets) + 1e-8)
+            energy_min, energy_max = np.min(energy), np.max(energy)
+            onsets_min, onsets_max = np.min(onsets), np.max(onsets)
+
+            # Improvement #6: Better handling when all values are zero
+            energy_norm = (energy - energy_min) / (energy_max - energy_min + 1e-8) if energy_max > energy_min else np.zeros_like(energy)
+            onsets_norm = (onsets - onsets_min) / (onsets_max - onsets_min + 1e-8) if onsets_max > onsets_min else np.zeros_like(onsets)
+
+            # Improvement #7: Use genre-aware weights instead of hardcoded 0.6/0.4
+            energy_weight = self.weights.get("energy", 0.6)
+            onsets_weight = self.weights.get("onsets", 0.4)
 
             # Combine signals: energy and onset strength weighted
             # Cues tend to occur at high energy with strong onsets
-            combined_signal = 0.6 * energy_norm + 0.4 * onsets_norm
+            combined_signal = energy_weight * energy_norm + onsets_weight * onsets_norm
 
             # Smooth slightly
             window = np.hanning(11) / 11

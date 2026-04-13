@@ -51,6 +51,38 @@ class CuePointCreate(BaseModel):
     color: Optional[str] = None
     cue_type: Optional[str] = "hot_cue"
 
+    # Improvement #8: Validation constraints
+    from pydantic import field_validator
+
+    @field_validator('time')
+    @classmethod
+    def validate_time(cls, v):
+        if v < 0:
+            raise ValueError("time must be >= 0")
+        return v
+
+    @field_validator('label')
+    @classmethod
+    def validate_label(cls, v):
+        if not v or not v.strip():
+            raise ValueError("label cannot be empty")
+        return v.strip()
+
+    @field_validator('hot_cue_slot')
+    @classmethod
+    def validate_hot_cue_slot(cls, v):
+        if v is not None and not (0 <= v <= 8):
+            raise ValueError("hot_cue_slot must be between 0 and 8")
+        return v
+
+    @field_validator('cue_type')
+    @classmethod
+    def validate_cue_type(cls, v):
+        valid_types = ['hot_cue', 'loop', 'fade_in', 'fade_out', 'drop', 'phrase', 'section', 'load', 'build', 'breakdown', 'intro', 'outro', 'vocal']
+        if v and v not in valid_types:
+            raise ValueError(f"cue_type must be one of {valid_types}")
+        return v
+
 
 class CuePointUpdate(BaseModel):
     name: Optional[str] = None
@@ -116,10 +148,15 @@ async def get_analysis(
 @router.get("/{track_id}/points", response_model=List[CuePointResponse])
 async def list_cue_points(
     track_id: int,
+    limit: int = 50,  # Improvement #9: Add pagination
+    offset: int = 0,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Liste les cue points d'un track (trié par position)."""
+    """Liste les cue points d'un track (trié par position).
+
+    Improvement #9: Add optional limit and offset query params for pagination.
+    """
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == user.id,
@@ -131,6 +168,8 @@ async def list_cue_points(
         db.query(CuePoint)
         .filter(CuePoint.track_id == track_id)
         .order_by(CuePoint.position_ms)
+        .limit(limit)
+        .offset(offset)
         .all()
     )
     return [CuePointResponse.model_validate(p) for p in points]
