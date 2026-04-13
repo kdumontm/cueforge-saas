@@ -241,6 +241,7 @@ export default function MediaPage() {
                   src={item.file_url}
                   alt={item.alt_text || item.filename}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <div className="text-white text-xs font-medium">Cliquez pour modifier</div>
@@ -283,6 +284,7 @@ export default function MediaPage() {
                 src={selectedMedia.file_url}
                 alt={selectedMedia.alt_text || selectedMedia.filename}
                 className="w-full h-auto max-h-64 object-cover"
+                loading="lazy"
               />
             </div>
 

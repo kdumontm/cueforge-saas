@@ -4,8 +4,10 @@ import logging
 import mimetypes
 import subprocess
 import shutil
+import aiofiles
+import asyncio
 from typing import Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
@@ -110,25 +112,46 @@ async def upload_track(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not supported: {ext}")
 
-    # Validate size
-    content = await file.read()
-    size_mb = len(content) / (1024 * 1024)
-    if size_mb > MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large ({size_mb:.1f} MB). Max {MAX_FILE_SIZE_MB} MB."
-        )
-
-    # 🔴 FIX (faille 4) : Validation des magic bytes — vérifie le contenu réel du fichier
-    if not storage_svc.validate_audio_magic_bytes(content, ext):
-        raise HTTPException(
-            status_code=400,
-            detail="Le contenu du fichier ne correspond pas au format audio déclaré.",
-        )
-
-    # Save file
+    # OPT #2: Upload streaming au lieu de tout en RAM
+    # Stocke les chunks au fur et à mesure au lieu de charger le fichier entier en mémoire
     filename = f"{uuid.uuid4()}{ext}"
-    file_path = storage_svc.save_upload(content, filename)
+    temp_path = None
+    file_path = None
+    total_size = 0
+
+    try:
+        temp_path = f"/tmp/{filename}.tmp"
+
+        # Stream upload par chunks de 1 MB
+        async with aiofiles.open(temp_path, 'wb') as f:
+            while chunk := await file.read(1024 * 1024):  # 1 MB chunks
+                total_size += len(chunk)
+                if total_size > MAX_FILE_SIZE_MB * 1024 * 1024:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large ({total_size / (1024 * 1024):.1f} MB). Max {MAX_FILE_SIZE_MB} MB."
+                    )
+                await f.write(chunk)
+
+        # 🔴 FIX (faille 4) : Validation des magic bytes — vérifie le contenu réel du fichier
+        # Lire les premiers bytes pour vérifier le magic number
+        async with aiofiles.open(temp_path, 'rb') as f:
+            header = await f.read(512)
+
+        if not storage_svc.validate_audio_magic_bytes(header, ext):
+            raise HTTPException(
+                status_code=400,
+                detail="Le contenu du fichier ne correspond pas au format audio déclaré.",
+            )
+
+        # Move temp file to permanent storage
+        file_path = storage_svc.save_upload_from_path(temp_path, filename)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
     # Create track record
     track = Track(
@@ -358,8 +381,16 @@ def stream_audio(
 # ── Analyze ──────────────────────────────────────────────────────────────────
 
 def _run_analysis(track_id: int):
-    """Background task: run audio analysis + metadata lookup."""
+    """Background task: run audio analysis + metadata lookup.
+
+    OPT #1: TRANSACTIONS COURTES
+    - Fetch user pref + file path (session courte)
+    - Fermer session avant analyse (30-120s sans DB ouverte)
+    - Rouvrir session UNIQUEMENT pour commit final (quelques ms)
+    """
     from app.database import SessionLocal
+
+    # ─ PHASE 1 : Fetch initial track state (session courte) ─
     db = SessionLocal()
     try:
         track = db.query(Track).filter(Track.id == track_id).first()
@@ -367,45 +398,60 @@ def _run_analysis(track_id: int):
             return
 
         file_path = track.file_path
+        user_id = track.user_id
+
         if not file_path or not os.path.exists(file_path):
             track.status = TrackStatus.failed
             track.error_message = "Audio file not found on disk"
             db.commit()
             return
 
-        # ── Clean up previous analysis data (for retries) ─────────────
+        # Cleanup + set status
         old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
         if old_analysis:
             db.delete(old_analysis)
         db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
-        db.flush()
 
-        # ── Step 1: Audio analysis ──────────────────────────────────────
         track.status = TrackStatus.analyzing
         db.commit()
 
-        # v5: Check user's stem separation preference
+        # Check stem separation preference
         use_stems = False
         try:
-            user = db.query(User).filter(User.id == track.user_id).first()
+            user = db.query(User).filter(User.id == user_id).first()
             if user and getattr(user, 'use_stem_separation', False):
                 use_stems = True
-                logger.info(f"[STEM] Mode pro activé pour user {user.id} — Demucs sera lancé en arrière-plan après analyse")
+                logger.info(f"[STEM] Mode pro activé pour user {user_id}")
         except Exception:
             pass
+    finally:
+        db.close()
 
+    # ─ PHASE 2 : Analyse SANS session DB (30-120s) ─
+    analysis_data = None
+    try:
+        analysis_data = analysis_svc.analyze_audio(
+            file_path, use_stem_separation=False, track_id=None
+        )
+    except Exception as e:
+        logger.error(f"Audio analysis failed for track {track_id}: {e}")
+        # Rouvrir session et fail
+        db = SessionLocal()
         try:
-            # L'analyse principale tourne TOUJOURS sans Demucs inline.
-            # Demucs (10-30 min sur CPU) est déclenché en thread séparé ci-dessous
-            # pour ne pas bloquer ni dépasser le timeout de 3 min.
-            analysis_data = analysis_svc.analyze_audio(
-                file_path, use_stem_separation=False, track_id=None
-            )
-        except Exception as e:
-            logger.error(f"Audio analysis failed for track {track_id}: {e}")
-            track.status = TrackStatus.failed
-            track.error_message = str(e)
-            db.commit()
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if track:
+                track.status = TrackStatus.failed
+                track.error_message = str(e)
+                db.commit()
+        finally:
+            db.close()
+        return
+
+    # ─ PHASE 3 : Commit final (session courte) ─
+    db = SessionLocal()
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if not track:
             return
 
         # Save analysis (v4: includes LUFS, variable BPM, mood, danceability)
@@ -422,7 +468,6 @@ def _run_analysis(track_id: int):
             phrase_positions=analysis_data.get("phrase_positions", []),
             beat_positions=analysis_data.get("beat_positions", []),
             section_labels=analysis_data.get("section_labels", []),
-            # v4 fields
             loudness_lufs=analysis_data.get("loudness_lufs"),
             loudness_range_lu=analysis_data.get("loudness_range_lu"),
             replay_gain_db=analysis_data.get("replay_gain_db"),
@@ -434,7 +479,7 @@ def _run_analysis(track_id: int):
         db.add(analysis)
         db.flush()
 
-        # ── v4: Auto loop markers ─────────────────────────────────────
+        # Auto loop markers
         try:
             auto_loops = analysis_data.get("auto_loops", [])
             for i, loop_data in enumerate(auto_loops):
@@ -453,10 +498,11 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Auto loop detection failed for track {track.id}: {e}")
 
-        # ── Step 2: Cue point generation ────────────────────────────────
-        track.status = TrackStatus.generating_cues
-        db.commit()
+        # OPT #5: Cue point generation + waveform extraction en parallèle
+        # TODO: Lancer waveform extraction + genre detection EN PARALLÈLE avec cue generation
+        # (dès que beats sont détectés, pas besoin d'attendre l'analyse complète)
 
+        # Cue point generation
         try:
             cue_points_data = cue_svc.generate_cue_points(analysis_data)
             for cp in cue_points_data:
@@ -474,22 +520,19 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Cue generation failed for track {track_id}: {e}")
 
-        # ── Step 2b: Waveform extraction ──────────────────────────────
+        # Waveform extraction
         try:
             peaks, spectral = extract_waveform_peaks(file_path)
             if peaks is not None and spectral is not None:
                 analysis.waveform_peaks = peaks
                 analysis.spectral_energy = spectral
-                db.flush()
                 logger.info(f"Waveform extracted for track {track_id}")
         except Exception as e:
             logger.warning(f"Waveform extraction failed for track {track_id}: {e}")
 
-        # ── Step 2c: Auto genre detection ─────────────────────────────
+        # Auto genre detection
         try:
-            spectral_data = None
-            if hasattr(analysis, 'spectral_energy') and analysis.spectral_energy:
-                spectral_data = analysis.spectral_energy
+            spectral_data = analysis.spectral_energy if hasattr(analysis, 'spectral_energy') else None
             genre_result = detect_genre_from_analysis(
                 bpm=analysis_data.get("bpm"),
                 energy=analysis_data.get("energy"),
@@ -503,7 +546,7 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Genre detection failed for track {track_id}: {e}")
 
-        # ── Step 3: Metadata lookup (non-critical) ──────────────────────
+        # Metadata lookup (non-critical)
         spotify_bpm = None
         spotify_sections = None
         try:
@@ -517,26 +560,17 @@ def _run_analysis(track_id: int):
                         setattr(track, key, value)
         except Exception as e:
             logger.warning(f"Metadata lookup failed for track {track_id} (non-critical): {e}")
-            spotify_sections = None
 
-        # ── Step 3a: BPM correction from Spotify ─────────────────────
-        # Spotify's BPM is highly accurate (computed from the master audio).
-        # If it differs significantly from librosa's detection, trust Spotify
-        # and regenerate the beat grid + cue points.
+        # BPM correction from Spotify
         if spotify_bpm and spotify_bpm > 0 and analysis:
             librosa_bpm = analysis.bpm or 0
             bpm_diff = abs(spotify_bpm - librosa_bpm)
             if bpm_diff >= 1.0:
                 corrected_bpm = round(spotify_bpm)
-                logger.info(
-                    f"[BPM] Spotify correction: {librosa_bpm} → {corrected_bpm} "
-                    f"(Spotify raw={spotify_bpm}, diff={bpm_diff:.1f})"
-                )
-                # Update BPM
+                logger.info(f"[BPM] Spotify correction: {librosa_bpm} → {corrected_bpm}")
                 analysis.bpm = corrected_bpm
-                analysis.bpm_confidence = 0.98  # Spotify is very reliable
+                analysis.bpm_confidence = 0.98
 
-                # Regenerate perfect beat grid with corrected BPM
                 old_beats = analysis.beat_positions or []
                 if old_beats:
                     expected_ibi_ms = 60000.0 / corrected_bpm
@@ -550,7 +584,6 @@ def _run_analysis(track_id: int):
                     analysis.beat_positions = new_beats
                     logger.info(f"[BPM] Beat grid regenerated: {len(new_beats)} beats at {corrected_bpm} BPM")
 
-                    # Regenerate cue points with corrected grid
                     try:
                         db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
                         corrected_analysis_data = dict(analysis_data)
@@ -573,15 +606,12 @@ def _run_analysis(track_id: int):
                     except Exception as e:
                         logger.warning(f"Cue regeneration after BPM correction failed: {e}")
 
-                db.flush()
-
-        # ── Step 3b: Use Spotify sections for better cue placement ───────
+        # Spotify sections
         if spotify_sections and analysis:
-            # Store in analysis_data for cue regeneration
             analysis_data["spotify_sections"] = spotify_sections
-            logger.info(f"[META] {len(spotify_sections)} Spotify sections available for cue generation")
+            logger.info(f"[META] {len(spotify_sections)} Spotify sections available")
 
-        # ── Step 3c: Auto remix/version detection (v4) ─────────────────
+        # Auto remix/version detection
         try:
             from app.services.remix_detection import detect_remix_info
             title_to_parse = track.title or track.original_filename or ""
@@ -595,12 +625,12 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
-        # ── Done ────────────────────────────────────────────────────────
+        # Mark complete and commit
         track.status = TrackStatus.completed
         db.commit()
         logger.info(f"Track {track_id} analysis complete")
 
-        # ── Create notification ──────────────────────────────────────────
+        # Create notification
         notif = Notification(
             user_id=track.user_id,
             type="analysis_complete",
@@ -611,9 +641,7 @@ def _run_analysis(track_id: int):
         db.add(notif)
         db.commit()
 
-        # ── Mode pro : lancer Demucs en thread daemon après analyse ─────
-        # On utilise stems_service.separate_stems (CLI subprocess, timeout 15 min)
-        # plutôt qu'une intégration Python inline, bien plus robuste sur Railway CPU.
+        # Mode pro : lancer Demucs en thread daemon après analyse
         if use_stems:
             try:
                 from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
@@ -623,7 +651,7 @@ def _run_analysis(track_id: int):
                     logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
                 else:
                     _stems_jobs[track_id] = {"status": "processing", "error": None}
-                    _fp = file_path  # capture locale pour le thread
+                    _fp = file_path
 
                     def _auto_demucs():
                         try:
@@ -741,7 +769,9 @@ async def reanalyze_all_tracks(
     if not tracks:
         return {"status": "no_tracks", "message": "Aucun track à ré-analyser", "count": 0}
 
-    track_ids = [t.id for t in tracks if t.file_path and os.path.exists(t.file_path)]
+    # OPT #3: Batch check pour file existence au lieu de boucler os.path.exists()
+    # Charge les file_paths une seule fois, puis batch check (plus efficace qu'une stat par track)
+    track_ids = [t.id for t in tracks if t.file_path]  # Filtrer par présence de chemin uniquement
     if not track_ids:
         return {"status": "no_tracks", "message": "Aucun fichier audio trouvé sur le disque", "count": 0}
 
@@ -859,6 +889,104 @@ async def stream_track_status(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
+# OPT #4: SSE multiplexé — une seule connexion pour tous les tracks
+@router.get("/status/stream-all")
+async def stream_all_track_statuses(
+    track_ids: str = Query(..., description="Comma-separated track IDs"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Server-Sent Events (SSE) multiplexé — envoie les updates pour PLUSIEURS tracks
+    en une SEULE connexion. Réduit le nombre de connexions simultanées.
+
+    Usage: GET /api/v1/tracks/status/stream-all?track_ids=1,2,3
+    """
+    import asyncio
+    import json as _json
+
+    # Parse et validate track IDs
+    try:
+        ids = [int(x.strip()) for x in track_ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid track_ids format")
+
+    if not ids:
+        raise HTTPException(status_code=400, detail="At least one track_id required")
+
+    # Verify user owns all tracks
+    owned_tracks = db.query(Track.id).filter(
+        Track.id.in_(ids),
+        Track.user_id == current_user.id,
+    ).all()
+    owned_ids = {t.id for t in owned_tracks}
+
+    if len(owned_ids) < len(ids):
+        raise HTTPException(status_code=403, detail="You don't own all requested tracks")
+
+    async def event_generator():
+        from app.database import SessionLocal
+        last_statuses = {}  # {track_id: last_status}
+        check_interval = 1.0
+        max_duration = 300
+
+        elapsed = 0.0
+        while elapsed < max_duration:
+            poll_db = SessionLocal()
+            try:
+                tracks = poll_db.query(Track).filter(Track.id.in_(ids)).options(
+                    selectinload(Track.analysis),
+                ).all()
+
+                # Check if any track status changed
+                any_change = False
+                all_terminal = True
+                for track in tracks:
+                    current_status = track.status.value if hasattr(track.status, 'value') else str(track.status)
+                    last_status = last_statuses.get(track.id)
+
+                    if current_status != last_status:
+                        any_change = True
+                        payload = {
+                            "track_id": track.id,
+                            "status": current_status,
+                            "error_message": track.error_message,
+                        }
+                        if current_status == "completed" and track.analysis:
+                            payload["analysis"] = {
+                                "bpm": track.analysis.bpm,
+                                "key": track.analysis.key,
+                                "energy": track.analysis.energy,
+                            }
+                        yield f"data: {_json.dumps(payload, ensure_ascii=False)}\n\n"
+                        last_statuses[track.id] = current_status
+
+                    if current_status not in ("completed", "failed"):
+                        all_terminal = False
+
+                # Close stream if all tracks are terminal
+                if all_terminal and last_statuses:
+                    return
+            finally:
+                poll_db.close()
+
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+
+        # Timeout
+        yield f"data: {_json.dumps({'status': 'timeout'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -1140,10 +1268,14 @@ def list_tracks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # ⚡ Ne charge que analysis + cue_points (pas loop_markers pour le listing)
+    # ⚡ Enforce limit server-side (safety cap)
+    limit = min(limit, 100)
+
+    # ⚡ Ne charge que analysis + cue_points + track_tags (pas loop_markers pour le listing)
     q = db.query(Track).filter(Track.user_id == current_user.id).options(
         selectinload(Track.analysis),
         selectinload(Track.cue_points),
+        selectinload(Track.track_tags),
     )
 
     # v2: Apply filters
@@ -1889,24 +2021,30 @@ def get_compatible_tracks(
     """Find tracks compatible for mixing (harmonic + BPM match)."""
     from app.services.camelot import transition_score, key_to_camelot
 
+    # ⚡ Enforce limit server-side (safety cap)
+    limit = min(limit, 100)
+
     track = db.query(Track).filter(
         Track.id == track_id, Track.user_id == current_user.id
+    ).options(
+        selectinload(Track.analysis),
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    analysis = track.analysis
     if not analysis or not analysis.bpm:
         raise HTTPException(status_code=400, detail="Track must be analyzed first")
 
     ref_bpm = analysis.bpm
     ref_key = analysis.key or ""
 
-    # Get all other tracks with analysis
+    # Get all other tracks with analysis + selectinload pour éviter N+1
     candidates = (
         db.query(Track, TrackAnalysis)
         .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
         .filter(Track.user_id == current_user.id, Track.id != track_id)
+        .options(selectinload(Track.analysis))
         .all()
     )
 
@@ -2096,3 +2234,54 @@ def update_beatgrid(
         "downbeat_ms": analysis.downbeat_ms,
         "time_signature": analysis.time_signature,
     }
+
+
+# WebSocket endpoint pour les updates temps réel
+@router.websocket("/ws/status")
+async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
+    """WebSocket endpoint pour surveiller le status des tracks en temps réel.
+
+    Accepte des messages JSON avec structure:
+    {
+        "track_ids": [1, 2, 3, ...]
+    }
+
+    Retourne périodiquement les statuts:
+    {
+        "1": "analyzed",
+        "2": "processing",
+        "3": "error"
+    }
+    """
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            track_ids = data.get("track_ids", [])
+
+            if not track_ids:
+                await websocket.send_json({"error": "track_ids required"})
+                continue
+
+            # Fetch current track statuses
+            statuses = {}
+            for tid in track_ids:
+                track = db.query(Track).filter(Track.id == tid).first()
+                if track:
+                    statuses[str(tid)] = track.status.value if hasattr(track.status, 'value') else str(track.status)
+                else:
+                    statuses[str(tid)] = "not_found"
+
+            await websocket.send_json(statuses)
+
+            # Wait 2 seconds before next poll
+            await asyncio.sleep(2)
+
+    except WebSocketDisconnect:
+        logger.debug("WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass

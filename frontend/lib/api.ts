@@ -1,30 +1,49 @@
 // 🔴 FIX (faille 10) : Plus de fallback localhost — l'URL doit être définie dans Railway
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
 
-// ── Token management ────────────────────────────────────────────────────────
+// ── Token management avec cache en variable module ────────────────────────────
 
 const TOKEN_KEY = 'cueforge_token';
 const REFRESH_KEY = 'cueforge_refresh';
 
+// Cache tokens en variables module pour éviter les appels localStorage répétés
+let _cachedAccessToken: string | null = null;
+let _cachedRefreshToken: string | null = null;
+
 export function setToken(token: string): void {
+  _cachedAccessToken = token;
   if (typeof window !== 'undefined') localStorage.setItem(TOKEN_KEY, token);
 }
 
 export function setRefreshToken(token: string): void {
+  _cachedRefreshToken = token;
   if (typeof window !== 'undefined') localStorage.setItem(REFRESH_KEY, token);
 }
 
 export function getToken(): string | null {
-  if (typeof window !== 'undefined') return localStorage.getItem(TOKEN_KEY);
-  return null;
+  // Retourner le cache si disponible
+  if (_cachedAccessToken) return _cachedAccessToken;
+  // Sinon charger depuis localStorage (SSR ou première visite)
+  if (typeof window !== 'undefined') {
+    _cachedAccessToken = localStorage.getItem(TOKEN_KEY);
+  }
+  return _cachedAccessToken;
 }
 
 export function getRefreshToken(): string | null {
-  if (typeof window !== 'undefined') return localStorage.getItem(REFRESH_KEY);
-  return null;
+  // Retourner le cache si disponible
+  if (_cachedRefreshToken) return _cachedRefreshToken;
+  // Sinon charger depuis localStorage (SSR ou première visite)
+  if (typeof window !== 'undefined') {
+    _cachedRefreshToken = localStorage.getItem(REFRESH_KEY);
+  }
+  return _cachedRefreshToken;
 }
 
 export function clearToken(): void {
+  // Nettoyer les caches aussi
+  _cachedAccessToken = null;
+  _cachedRefreshToken = null;
   if (typeof window !== 'undefined') {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
@@ -593,6 +612,116 @@ async function _pollViaSSE(
     }
   }
   return null;
+}
+
+/**
+ * Polling multiplexé pour plusieurs tracks via une seule connexion SSE.
+ * Réduit le nombre de connexions réseau en traquant plusieurs tracks à la fois.
+ */
+type TrackUpdateCallback = (trackId: number, track: Track) => void;
+
+export async function pollMultipleTracksUntilDone(
+  trackIds: number[],
+  onUpdate?: TrackUpdateCallback,
+  intervalMs = 2000,
+  maxAttempts = 120
+): Promise<Map<number, Track>> {
+  const results = new Map<number, Track>();
+  const pendingIds = new Set(trackIds);
+
+  // Essayer SSE multiplexé d'abord
+  try {
+    const token = getToken();
+    if (token && trackIds.length > 0) {
+      const url = `${API_URL}/tracks/status-stream?track_ids=${trackIds.join(',')}`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (pendingIds.size > 0) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              const trackId = data.id;
+              if (!trackIds.includes(trackId)) continue;
+
+              if (data.status === 'completed') {
+                const track = await getTrack(trackId);
+                results.set(trackId, track);
+                pendingIds.delete(trackId);
+                if (onUpdate) onUpdate(trackId, track);
+              } else if (data.status === 'failed') {
+                pendingIds.delete(trackId);
+                throw new Error(`Analysis failed for track ${trackId}`);
+              } else if (data.status !== 'timeout' && data.status !== 'not_found') {
+                // Status intermédiaire
+                if (onUpdate) {
+                  onUpdate(trackId, { id: trackId, status: data.status } as Track);
+                }
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message.includes('Analysis failed')) throw e;
+            }
+          }
+        }
+
+        if (pendingIds.size === 0) {
+          return results;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Multiplexed SSE fallback to individual polling:', e);
+  }
+
+  // Fallback: polling individuel classique pour les tracks restants
+  for (let attempt = 0; attempt < maxAttempts && pendingIds.size > 0; attempt++) {
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30000) + Math.random() * 1000;
+
+    for (const trackId of pendingIds) {
+      try {
+        const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
+          headers: { ...authHeaders() },
+        });
+        if (!response.ok) continue;
+        const track: Track = await response.json();
+
+        if (onUpdate) onUpdate(trackId, track);
+
+        if (track.status === 'completed') {
+          results.set(trackId, track);
+          pendingIds.delete(trackId);
+        } else if (track.status === 'failed') {
+          pendingIds.delete(trackId);
+        }
+      } catch (e) {
+        // Continuer avec le prochain track
+      }
+    }
+
+    if (pendingIds.size > 0) {
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+
+  if (pendingIds.size > 0) {
+    throw new Error('Analysis timed out for some tracks');
+  }
+
+  return results;
 }
 
 export async function listTracks(

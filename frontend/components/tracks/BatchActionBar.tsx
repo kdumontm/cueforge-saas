@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Tag, Trash2, Download, Zap, Palette, FolderOpen, Star, CheckSquare } from 'lucide-react';
 import { CATEGORY_PRESETS } from '@/types';
 
@@ -30,7 +30,7 @@ const COLORS = [
   { name: 'Rose', value: '#E91180' },
 ];
 
-export default function BatchActionBar({
+function BatchActionBar({
   selectedCount,
   onClearSelection,
   onBatchTag,
@@ -272,3 +272,5 @@ export default function BatchActionBar({
     </div>
   );
 }
+
+export default React.memo(BatchActionBar);

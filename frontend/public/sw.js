@@ -49,13 +49,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API calls (including /api/): network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
+  // Static assets avec hash (_next/static/...): cache-first (jamais changent)
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
-  // Static assets (JS, CSS, images, fonts): cache-first
+  // API calls (including /api/): network-first, mais skip si Authorization header
+  if (url.pathname.startsWith('/api/') || request.headers.get('Authorization')) {
+    event.respondWith(fetch(request).catch(() => new Response('Offline', { status: 503 })));
+    return;
+  }
+
+  // Autres static assets (JS, CSS, images, fonts): cache-first
   if (isStaticAsset(url.pathname)) {
     event.respondWith(cacheFirst(request));
     return;

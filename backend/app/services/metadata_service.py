@@ -12,6 +12,7 @@ import subprocess
 import json
 import os
 import logging
+import time
 from typing import Optional, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
@@ -20,6 +21,92 @@ logger = logging.getLogger(__name__)
 
 # AcoustID test key — replace with your own from https://acoustid.org/login
 ACOUSTID_API_KEY = os.getenv("ACOUSTID_API_KEY", "8XaBELgH")
+
+
+# ── Cache MusicBrainz (2 min) ──────────────────────────────────────────────────
+_mb_cache = {}
+_MB_CACHE_TTL = 300  # 5 min
+
+def _mb_cache_get(key: str) -> Optional[Dict[str, Any]]:
+    """Get cached MusicBrainz result if still valid."""
+    entry = _mb_cache.get(key)
+    if entry and time.time() - entry[1] < _MB_CACHE_TTL:
+        logger.debug(f"MB cache HIT for '{key}'")
+        return entry[0]
+    return None
+
+def _mb_cache_set(key: str, value: Dict[str, Any]) -> None:
+    """Cache MusicBrainz result with timestamp."""
+    _mb_cache[key] = (value, time.time())
+    logger.debug(f"MB cache SET for '{key}'")
+
+
+# ── Cache Spotify (24h) ────────────────────────────────────────────────────────
+_spotify_cache = {}
+_SPOTIFY_CACHE_TTL = 86400  # 24h
+
+def _spotify_cache_get(spotify_id: str) -> Optional[Dict[str, Any]]:
+    """Get cached Spotify result if still valid."""
+    entry = _spotify_cache.get(spotify_id)
+    if entry and time.time() - entry[1] < _SPOTIFY_CACHE_TTL:
+        logger.debug(f"Spotify cache HIT for '{spotify_id}'")
+        return entry[0]
+    return None
+
+def _spotify_cache_set(spotify_id: str, value: Dict[str, Any]) -> None:
+    """Cache Spotify result with timestamp."""
+    _spotify_cache[spotify_id] = (value, time.time())
+    logger.debug(f"Spotify cache SET for '{spotify_id}'")
+
+
+# ── Cache AcoustID (7 days) ────────────────────────────────────────────────────
+_acoustid_cache = {}
+_ACOUSTID_CACHE_TTL = 604800  # 7 days
+
+def _acoustid_cache_get(fingerprint_hash: str) -> Optional[Dict[str, Any]]:
+    """Get cached AcoustID result if still valid."""
+    entry = _acoustid_cache.get(fingerprint_hash)
+    if entry and time.time() - entry[1] < _ACOUSTID_CACHE_TTL:
+        logger.debug(f"AcoustID cache HIT for fingerprint '{fingerprint_hash}'")
+        return entry[0]
+    return None
+
+def _acoustid_cache_set(fingerprint_hash: str, value: Dict[str, Any]) -> None:
+    """Cache AcoustID result with timestamp."""
+    _acoustid_cache[fingerprint_hash] = (value, time.time())
+    logger.debug(f"AcoustID cache SET for fingerprint '{fingerprint_hash}'")
+
+
+# ── Circuit Breaker ────────────────────────────────────────────────────────────
+_circuit_breakers = {}  # service_name -> (fail_count, last_fail_time)
+_CB_THRESHOLD = 3
+_CB_TIMEOUT = 300  # 5 min
+
+def _is_circuit_open(service: str) -> bool:
+    """Check if circuit breaker is open for a service."""
+    cb = _circuit_breakers.get(service)
+    if not cb:
+        return False
+    fails, last_fail = cb
+    if fails >= _CB_THRESHOLD and time.time() - last_fail < _CB_TIMEOUT:
+        logger.warning(f"Circuit breaker OPEN for {service} (fails={fails})")
+        return True
+    if time.time() - last_fail >= _CB_TIMEOUT:
+        _circuit_breakers.pop(service, None)
+        logger.info(f"Circuit breaker RESET for {service}")
+    return False
+
+def _record_failure(service: str) -> None:
+    """Record a failure for circuit breaker."""
+    cb = _circuit_breakers.get(service, (0, 0))
+    _circuit_breakers[service] = (cb[0] + 1, time.time())
+    logger.debug(f"Circuit breaker FAILURE recorded for {service} (count={cb[0] + 1})")
+
+def _record_success(service: str) -> None:
+    """Record a success and reset failures for a service."""
+    if service in _circuit_breakers:
+        _circuit_breakers.pop(service, None)
+        logger.debug(f"Circuit breaker RESET on success for {service}")
 
 
 # ── Fingerprinting ─────────────────────────────────────────────────────────────
@@ -49,6 +136,18 @@ def fingerprint_file(file_path: str) -> Tuple[Optional[str], Optional[float]]:
 
 def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any]]:
     """Identify the track via AcoustID. Returns best match dict or None."""
+    # Check circuit breaker
+    if _is_circuit_open("acoustid"):
+        logger.debug("AcoustID circuit breaker OPEN — skipping")
+        return None
+
+    # Check cache by fingerprint hash
+    import hashlib
+    fp_hash = hashlib.md5(fingerprint.encode()).hexdigest()
+    cached = _acoustid_cache_get(fp_hash)
+    if cached is not None:
+        return cached
+
     try:
         import acoustid  # type: ignore
         results = acoustid.lookup(
@@ -70,12 +169,16 @@ def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any
                 }
         if best and best_score >= 0.3:   # seuil abaissé de 0.4 → 0.3
             logger.info(f"AcoustID match: {best['artist']} — {best['title']} (score={best_score:.2f})")
+            _acoustid_cache_set(fp_hash, best)
+            _record_success("acoustid")
             return best
         logger.info(f"AcoustID: no confident match (best score={best_score:.2f})")
+        _record_success("acoustid")
     except ImportError:
         logger.warning("acoustid package not installed — pip install acoustid")
     except Exception as e:
         logger.warning(f"AcoustID lookup failed: {e}")
+        _record_failure("acoustid")
     return None
 
 
@@ -83,6 +186,16 @@ def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any
 
 def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
     """Fetch full metadata from MusicBrainz by recording ID."""
+    # Check circuit breaker
+    if _is_circuit_open("musicbrainz"):
+        logger.debug("MusicBrainz circuit breaker OPEN — skipping")
+        return None
+
+    # Check cache by recording_id
+    cached = _mb_cache_get(recording_id)
+    if cached is not None:
+        return cached
+
     try:
         import musicbrainzngs  # type: ignore
         musicbrainzngs.set_useragent("CueForge", "0.1", "https://github.com/kdumontm/cueforge-saas")
@@ -125,7 +238,7 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
         genre = ", ".join(t["name"].capitalize() for t in tags[:3]) if tags else ""
 
         logger.info(f"MusicBrainz: {artist} — {title} / {album} ({year}) [{label}]")
-        return {
+        result = {
             "artist": artist,
             "title": title,
             "album": album,
@@ -134,10 +247,14 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
             "label": label,
             "musicbrainz_id": recording_id,
         }
+        _mb_cache_set(recording_id, result)
+        _record_success("musicbrainz")
+        return result
     except ImportError:
         logger.warning("musicbrainzngs not installed — pip install musicbrainzngs")
     except Exception as e:
         logger.warning(f"MusicBrainz lookup failed: {e}")
+        _record_failure("musicbrainz")
     return None
 
 
@@ -147,12 +264,22 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
     """
     Search MusicBrainz by free-text query (title, artist, or both).
     Falls back to HTTP API to avoid the musicbrainzngs rate limit complexity.
-    Returns best match dict or None.
+    Returns best match dict or None. Cached for 5 min.
     """
+    # Check circuit breaker
+    if _is_circuit_open("musicbrainz"):
+        logger.debug("MusicBrainz circuit breaker OPEN — skipping text search")
+        return None
+
+    # Check cache by query string
+    cache_key = f"mb_text:{query}:{limit}"
+    cached = _mb_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         import urllib.request
         import urllib.parse
-        import time
 
         url = (
             "https://musicbrainz.org/ws/2/recording"
@@ -207,7 +334,7 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
 
         recording_id = best.get("id")
         logger.info(f"MusicBrainz text: {artist} — {title} (score={score}, label={label})")
-        return {
+        result = {
             "artist": artist,
             "title": title,
             "album": album,
@@ -218,9 +345,13 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
             "score": score / 100.0,
             "source": "musicbrainz_text",
         }
+        _mb_cache_set(cache_key, result)
+        _record_success("musicbrainz")
+        return result
 
     except Exception as e:
         logger.warning(f"MusicBrainz text search failed: {e}")
+        _record_failure("musicbrainz")
     return None
 
 
@@ -228,6 +359,11 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
 
 def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
     """Search Spotify for the track. Returns artwork, genre, and IDs."""
+    # Check circuit breaker
+    if _is_circuit_open("spotify"):
+        logger.debug("Spotify circuit breaker OPEN — skipping")
+        return None
+
     client_id = os.getenv("SPOTIFY_CLIENT_ID", "")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET", "")
     if not client_id or not client_secret:
@@ -250,62 +386,92 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
         items = results.get("tracks", {}).get("items", [])
         if not items:
             logger.info(f"Spotify: no result for '{artist} — {title}'")
+            _record_success("spotify")
             return None
 
         track = items[0]
         track_id = track["id"]
+
+        # Check cache by spotify_id
+        cached = _spotify_cache_get(track_id)
+        if cached is not None:
+            return cached
 
         # Artwork
         artwork_url = ""
         if track["album"]["images"]:
             artwork_url = track["album"]["images"][0]["url"]
 
-        # Artist genres
+        # ⚡ Parallelize: artist_data, audio_features, audio_analysis
         artist_id = track["artists"][0]["id"]
-        artist_data = sp.artist(artist_id)
+        spotify_bpm = None
+        spotify_sections = None
+
+        def _get_artist_data():
+            try:
+                return sp.artist(artist_id)
+            except Exception as e:
+                logger.debug(f"Spotify artist() failed: {e}")
+                return {}
+
+        def _get_audio_features():
+            try:
+                features = sp.audio_features([track_id])
+                if features and features[0]:
+                    bpm = round(features[0].get("tempo", 0), 1)
+                    if bpm and bpm > 0:
+                        logger.info(f"Spotify: BPM={bpm} for '{title}'")
+                        return bpm
+            except Exception as e:
+                logger.debug(f"Spotify audio_features failed: {e}")
+            return None
+
+        def _get_audio_analysis():
+            try:
+                audio_analysis = sp.audio_analysis(track_id)
+                if audio_analysis and audio_analysis.get("sections"):
+                    sections = []
+                    for s in audio_analysis["sections"]:
+                        sections.append({
+                            "start_ms": int(s.get("start", 0) * 1000),
+                            "duration_ms": int(s.get("duration", 0) * 1000),
+                            "confidence": round(s.get("confidence", 0), 2),
+                            "loudness": round(s.get("loudness", 0), 1),
+                            "tempo": round(s.get("tempo", 0), 1),
+                        })
+                    if sections:
+                        logger.info(f"Spotify: {len(sections)} sections found")
+                        return sections
+            except Exception as e:
+                logger.debug(f"Spotify audio_analysis failed: {e}")
+            return None
+
+        # Run in parallel with timeout
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_artist = executor.submit(_get_artist_data)
+            future_features = executor.submit(_get_audio_features)
+            future_analysis = executor.submit(_get_audio_analysis)
+
+            try:
+                artist_data = future_artist.result(timeout=10)
+            except Exception as e:
+                logger.debug(f"Spotify artist timeout: {e}")
+                artist_data = {}
+
+            try:
+                spotify_bpm = future_features.result(timeout=10)
+            except Exception as e:
+                logger.debug(f"Spotify features timeout: {e}")
+                spotify_bpm = None
+
+            try:
+                spotify_sections = future_analysis.result(timeout=10)
+            except Exception as e:
+                logger.debug(f"Spotify analysis timeout: {e}")
+                spotify_sections = None
+
         genres = artist_data.get("genres", [])
         genre = ", ".join(g.title() for g in genres[:3])
-
-        # Audio features (BPM, energy, key) — highly accurate reference
-        spotify_bpm = None
-        try:
-            features = sp.audio_features([track_id])
-            if features and features[0]:
-                spotify_bpm = round(features[0].get("tempo", 0), 1)
-                if spotify_bpm and spotify_bpm > 0:
-                    logger.info(f"Spotify: BPM={spotify_bpm} for '{title}'")
-        except Exception as e:
-            logger.debug(f"Spotify audio_features failed: {e}")
-
-        # Audio analysis — get section information for DJ cue placement
-        try:
-            audio_analysis = sp.audio_analysis(track_id)
-            if audio_analysis and audio_analysis.get("sections"):
-                spotify_sections = []
-                for s in audio_analysis["sections"]:
-                    spotify_sections.append({
-                        "start_ms": int(s.get("start", 0) * 1000),
-                        "duration_ms": int(s.get("duration", 0) * 1000),
-                        "confidence": round(s.get("confidence", 0), 2),
-                        "loudness": round(s.get("loudness", 0), 1),
-                        "tempo": round(s.get("tempo", 0), 1),
-                    })
-                if spotify_sections:
-                    logger.info(f"Spotify: {len(spotify_sections)} sections found")
-                    # Build result first, then add sections
-                    logger.info(f"Spotify: found {track['name']} by {track['artists'][0]['name']}, genres={genres[:3]}")
-                    result = {
-                        "spotify_id": track_id,
-                        "spotify_url": track["external_urls"].get("spotify", ""),
-                        "artwork_url": artwork_url,
-                        "genre": genre,
-                        "spotify_sections": spotify_sections,
-                    }
-                    if spotify_bpm and spotify_bpm > 0:
-                        result["spotify_bpm"] = spotify_bpm
-                    return result
-        except Exception as e:
-            logger.debug(f"Spotify audio_analysis failed: {e}")
 
         logger.info(f"Spotify: found {track['name']} by {track['artists'][0]['name']}, genres={genres[:3]}")
         result = {
@@ -316,11 +482,17 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
         }
         if spotify_bpm and spotify_bpm > 0:
             result["spotify_bpm"] = spotify_bpm
+        if spotify_sections:
+            result["spotify_sections"] = spotify_sections
+
+        _spotify_cache_set(track_id, result)
+        _record_success("spotify")
         return result
     except ImportError:
         logger.warning("spotipy not installed — pip install spotipy")
     except Exception as e:
         logger.warning(f"Spotify lookup failed: {e}")
+        _record_failure("spotify")
     return None
 
 
@@ -336,6 +508,11 @@ def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
     catalogue vinyl, etc.
     Returns dict with genre, style (sub-genre), label, year, artwork or None.
     """
+    # Check circuit breaker
+    if _is_circuit_open("discogs"):
+        logger.debug("Discogs circuit breaker OPEN — skipping")
+        return None
+
     if not DISCOGS_TOKEN:
         logger.debug("Discogs not configured — skipping (set DISCOGS_TOKEN)")
         return None
@@ -391,7 +568,7 @@ def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
             f"Discogs: '{discogs_title}' — genre={genre_str}, "
             f"label={label}, year={year}"
         )
-        return {
+        result = {
             "genre": genre_str or None,
             "label": label,
             "year": year,
@@ -400,8 +577,11 @@ def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
             "discogs_url": f"https://www.discogs.com{release.get('resource_url', '').replace('https://api.discogs.com', '')}",
             "source": "discogs",
         }
+        _record_success("discogs")
+        return result
     except Exception as e:
         logger.warning(f"Discogs lookup failed: {e}")
+        _record_failure("discogs")
     return None
 
 
@@ -412,7 +592,13 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
     Search Apple iTunes/Music catalogue. Free, no API key required.
     Returns artwork (600x600), album, year, genre.
     Great coverage of French music.
+    Skipped if artist + title are already known.
     """
+    # Check circuit breaker
+    if _is_circuit_open("itunes"):
+        logger.debug("iTunes circuit breaker OPEN — skipping")
+        return None
+
     try:
         import urllib.request
         import urllib.parse
@@ -459,7 +645,7 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
         found_title = track.get("trackName", "")
 
         logger.info(f"iTunes: {found_artist} — {found_title} / {album} ({year}), genre={genre}")
-        return {
+        result = {
             "artwork_url": artwork or None,
             "genre": genre or None,
             "album": album or None,
@@ -467,8 +653,11 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
             "itunes_artist": found_artist,
             "itunes_title": found_title,
         }
+        _record_success("itunes")
+        return result
     except Exception as e:
         logger.warning(f"iTunes lookup failed: {e}")
+        _record_failure("itunes")
     return None
 
 
@@ -476,6 +665,11 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
 
 def get_lastfm_genre(artist: str, title: str) -> Optional[str]:
     """Get genre tags from Last.fm (great for electronic music)."""
+    # Check circuit breaker
+    if _is_circuit_open("lastfm"):
+        logger.debug("Last.fm circuit breaker OPEN — skipping")
+        return None
+
     api_key = os.getenv("LASTFM_API_KEY", "")
     if not api_key:
         logger.debug("Last.fm not configured — skipping")
@@ -488,11 +682,13 @@ def get_lastfm_genre(artist: str, title: str) -> Optional[str]:
         tags = [t.item.get_name() for t in top_tags if t.item]
         genre = ", ".join(t.capitalize() for t in tags[:3] if t)
         logger.info(f"Last.fm tags: {genre}")
+        _record_success("lastfm")
         return genre or None
     except ImportError:
         logger.warning("pylast not installed — pip install pylast")
     except Exception as e:
         logger.warning(f"Last.fm lookup failed: {e}")
+        _record_failure("lastfm")
     return None
 
 
@@ -572,15 +768,46 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures["discogs"] = executor.submit(search_discogs, artist, title)
                 futures["spotify"] = executor.submit(search_spotify, artist, title)
+
+                # Optimization 6: skip iTunes if metadata already complete (artist + title known)
                 if artist and title:
                     futures["itunes"] = executor.submit(search_itunes, artist, title)
-                    futures["lastfm"] = executor.submit(get_lastfm_genre, artist, title)
+                else:
+                    futures["itunes"] = None
 
-            # Merge results (même logique de priorité qu'avant)
-            discogs = futures.get("discogs") and futures["discogs"].result()
-            sp = futures.get("spotify") and futures["spotify"].result()
-            it = futures.get("itunes") and futures["itunes"].result()
-            lastfm_genre = futures.get("lastfm") and futures["lastfm"].result()
+                # Optimization 5: will skip Last.fm below if genre already known
+                if artist and title:
+                    futures["lastfm"] = executor.submit(get_lastfm_genre, artist, title)
+                else:
+                    futures["lastfm"] = None
+
+            # Merge results with timeout (Optimization 7)
+            try:
+                discogs = futures["discogs"].result(timeout=10) if futures.get("discogs") else None
+            except Exception as e:
+                logger.debug(f"Discogs timeout/error: {e}")
+                discogs = None
+
+            try:
+                sp = futures["spotify"].result(timeout=10) if futures.get("spotify") else None
+            except Exception as e:
+                logger.debug(f"Spotify timeout/error: {e}")
+                sp = None
+
+            try:
+                it = futures["itunes"].result(timeout=10) if futures.get("itunes") else None
+            except Exception as e:
+                logger.debug(f"iTunes timeout/error: {e}")
+                it = None
+
+            # Optimization 5: skip Last.fm if genre already known
+            lastfm_genre = None
+            if not metadata.get("genre") and futures.get("lastfm"):
+                try:
+                    lastfm_genre = futures["lastfm"].result(timeout=10)
+                except Exception as e:
+                    logger.debug(f"Last.fm timeout/error: {e}")
+                    lastfm_genre = None
 
             # Discogs (prioritaire pour l'électro: labels, sous-genres précis)
             if discogs:

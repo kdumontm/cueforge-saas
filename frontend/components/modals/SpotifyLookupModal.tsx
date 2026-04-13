@@ -143,6 +143,7 @@ export default function SpotifyLookupModal({ trackId, onClose, onApply }: Spotif
                     src={selectedResult.album.images[0].url}
                     alt="Album"
                     className="w-32 h-32 rounded-lg shadow-md"
+                    loading="lazy"
                   />
                 </div>
               )}

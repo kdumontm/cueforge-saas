@@ -7,6 +7,7 @@ import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+import { useInitialLoad } from '@/hooks/useInitialLoad';
 
 import PlayerCard from '@/components/player/PlayerCard';
 import TrackList from '@/components/tracks/TrackList';
@@ -26,10 +27,10 @@ const CompareTab    = lazy(() => import('@/components/tabs/CompareTab'));
 import BatchActionBar from '@/components/tracks/BatchActionBar';
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
 import { isDesktopApp } from '@/lib/electron';
-import DuplicateDetector from '@/components/DuplicateDetector';
-import MetadataEnrichModal from '@/components/MetadataEnrichModal';
-import OnboardingTour from '@/components/OnboardingTour';
-import AnalysisProgress from '@/components/AnalysisProgress';
+const DuplicateDetector = lazy(() => import('@/components/DuplicateDetector'));
+const MetadataEnrichModal = lazy(() => import('@/components/MetadataEnrichModal'));
+const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
+const AnalysisProgress = lazy(() => import('@/components/AnalysisProgress'));
 
 const TabFallback = () => {
   const { lang } = useLang();
@@ -215,10 +216,13 @@ export default function DashboardV2() {
     registerExportHandler(() => setShowExport(true));
   }, [registerExportHandler]);
 
-  // Load playlists
+  // Load playlists and sets in parallel at mount
+  const { playlists: initialPlaylists, loading: isLoadingInitial } = useInitialLoad();
   useEffect(() => {
-    listPlaylists().then(setPlaylists).catch(() => {});
-  }, []);
+    if (!isLoadingInitial && initialPlaylists.length > 0) {
+      setPlaylists(initialPlaylists);
+    }
+  }, [initialPlaylists, isLoadingInitial]);
 
   // Load playlist tracks when a playlist section is active
   useEffect(() => {
@@ -295,8 +299,8 @@ export default function DashboardV2() {
 
   // Mode démo : uniquement si activé en admin ET bibliothèque vide
   const isDemo = demoModeEnabled && realDisplayTracks.length === 0 && !loading;
-  const displayTracks = isDemo ? DEMO_DISPLAY_TRACKS : realDisplayTracks;
-  const rawTracksForTabs = isDemo ? DEMO_RAW_TRACKS : sectionFilteredTracks;
+  const displayTracks = useMemo(() => isDemo ? DEMO_DISPLAY_TRACKS : realDisplayTracks, [isDemo, realDisplayTracks]);
+  const rawTracksForTabs = useMemo(() => isDemo ? DEMO_RAW_TRACKS : sectionFilteredTracks, [isDemo, sectionFilteredTracks]);
 
   // Find the raw Track for the selected display track (needed by tabs)
   // Search in ALL tracks first, fallback to section-filtered — avoids null when section changes
@@ -1813,7 +1817,7 @@ export default function DashboardV2() {
               }
               return null;
             })()}
-            {activeTab === 'info' && (
+            <div style={{ display: activeTab === 'info' ? 'block' : 'none' }}>
               <InfoEditTab
                 track={selectedRawTrack}
                 onSave={async (trackId, data) => {
@@ -1822,54 +1826,52 @@ export default function DashboardV2() {
                   await loadTracks();
                 }}
               />
-            )}
-            {activeTab === 'cues' && (
-              <div className="flex flex-col h-full">
-                {selectedTrack && selectedTrack.id > 0 && (
-                  <div className="px-3 pt-2 pb-1 border-b border-[var(--border-subtle)] flex-shrink-0">
-                    <button
-                      onClick={handleAutoCuePoints}
-                      className="w-full px-2 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors cursor-pointer"
-                    >
-                      ✨ Auto-générer les cue points
-                    </button>
-                  </div>
-                )}
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <CuesTab
-                    track={selectedTrack}
-                    cuePoints={effectiveCuePoints}
-                    onCreateCue={handleCreateCue}
-                    onDeleteCue={handleDeleteCue}
-                    initialPositionMs={cuePositionMs}
-                    onCueClick={(cue) => {
-                      if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
-                        // Activate loop and seek to start
-                        playerRef.current?.setLoop?.(cue.position_ms, cue.end_position_ms);
-                      } else {
-                        // Simple seek to cue position
-                        playerRef.current?.seekTo?.(cue.position_ms);
-                      }
-                    }}
-                    onPreviewCue={(cue) => {
-                      const posMs = cue.position_ms ?? cue.time_ms ?? 0;
-                      playerRef.current?.seekTo?.(posMs);
-                      // Start playback
-                      const audio = playerRef.current?.getAudio?.();
-                      if (audio && audio.paused) {
-                        audio.play().catch(() => {});
-                      }
-                      // Stop after 5 seconds
-                      if ((window as any).__cuePreviewTimer) clearTimeout((window as any).__cuePreviewTimer);
-                      (window as any).__cuePreviewTimer = setTimeout(() => {
-                        const a = playerRef.current?.getAudio?.();
-                        if (a && !a.paused) a.pause();
-                      }, 5000);
-                    }}
-                  />
+            </div>
+            <div style={{ display: activeTab === 'cues' ? 'block' : 'none' }} className="flex flex-col h-full">
+              {selectedTrack && selectedTrack.id > 0 && (
+                <div className="px-3 pt-2 pb-1 border-b border-[var(--border-subtle)] flex-shrink-0">
+                  <button
+                    onClick={handleAutoCuePoints}
+                    className="w-full px-2 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors cursor-pointer"
+                  >
+                    ✨ Auto-générer les cue points
+                  </button>
                 </div>
+              )}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <CuesTab
+                  track={selectedTrack}
+                  cuePoints={effectiveCuePoints}
+                  onCreateCue={handleCreateCue}
+                  onDeleteCue={handleDeleteCue}
+                  initialPositionMs={cuePositionMs}
+                  onCueClick={(cue) => {
+                    if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
+                      // Activate loop and seek to start
+                      playerRef.current?.setLoop?.(cue.position_ms, cue.end_position_ms);
+                    } else {
+                      // Simple seek to cue position
+                      playerRef.current?.seekTo?.(cue.position_ms);
+                    }
+                  }}
+                  onPreviewCue={(cue) => {
+                    const posMs = cue.position_ms ?? cue.time_ms ?? 0;
+                    playerRef.current?.seekTo?.(posMs);
+                    // Start playback
+                    const audio = playerRef.current?.getAudio?.();
+                    if (audio && audio.paused) {
+                      audio.play().catch(() => {});
+                    }
+                    // Stop after 5 seconds
+                    if ((window as any).__cuePreviewTimer) clearTimeout((window as any).__cuePreviewTimer);
+                    (window as any).__cuePreviewTimer = setTimeout(() => {
+                      const a = playerRef.current?.getAudio?.();
+                      if (a && !a.paused) a.pause();
+                    }, 5000);
+                  }}
+                />
               </div>
-            )}
+            </div>
             {activeTab === 'stems' && (
               <Suspense fallback={<TabFallback />}>
               <StemsTab

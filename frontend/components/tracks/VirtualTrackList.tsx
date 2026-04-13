@@ -48,7 +48,7 @@ export const VirtualTrackList = React.memo(function VirtualTrackList({
     count: tracks.length,
     getScrollElement: () => containerRef.current,
     estimateSize: () => rowHeight,
-    overscan: 10, // Plus de buffer que l'ancienne implem (5) pour un scroll plus fluide
+    overscan: 5, // Reduced from 10 for better perf while maintaining smooth scroll
   });
 
   return (

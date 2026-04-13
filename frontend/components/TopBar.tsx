@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Search, Sun, Moon, Bell, X, Upload, Download, RefreshCw } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { useDashboardContext } from '@/app/dashboard/DashboardContext';
@@ -33,7 +33,7 @@ function timeAgo(date: string): string {
   return `il y a ${Math.floor(seconds / 86400)}j`;
 }
 
-export default function TopBar({ title, subtitle }: TopBarProps) {
+function TopBar({ title, subtitle }: TopBarProps) {
   const { toggle, isDark } = useTheme();
   const { lang, setLang } = useLang();
   const {
@@ -375,3 +375,5 @@ export default function TopBar({ title, subtitle }: TopBarProps) {
     </header>
   );
 }
+
+export default React.memo(TopBar);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import { Filter, X, RotateCcw } from 'lucide-react';
 
 interface FilterPanelProps {
@@ -24,7 +25,7 @@ const CAMELOT_KEYS = [
   '12A', '7A', '2A', '9A', '4A', '11A', '6A', '1A', '8A', '3A', '10A', '5A',
 ];
 
-export function FilterPanel({
+function FilterPanel({
   filters,
   genres,
   onFilterChange,
@@ -183,3 +184,5 @@ export function FilterPanel({
     </div>
   );
 }
+
+export default React.memo(FilterPanel);

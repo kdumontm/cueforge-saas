@@ -1,12 +1,26 @@
 import logging
 import os
+import asyncio
 from contextlib import asynccontextmanager
+from logging.handlers import QueueHandler, QueueListener
+from queue import Queue
 
-# Configure logging so all application loggers output to stdout
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO").upper(),
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-)
+# Configure async logging with QueueHandler for non-blocking I/O
+log_queue = Queue()
+queue_handler = QueueHandler(log_queue)
+
+# Configure root logger with queue
+root_logger = logging.getLogger()
+root_logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
+root_logger.addHandler(queue_handler)
+
+# Create actual handler for stream output
+stream_handler = logging.StreamHandler()
+stream_formatter = logging.Formatter('%(asctime)s %(levelname)s [%(name)s] %(message)s')
+stream_handler.setFormatter(stream_formatter)
+
+# Initialize queue listener (will be started in lifespan)
+queue_listener = QueueListener(log_queue, stream_handler, respect_handler_level=True)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -207,6 +221,9 @@ def _seed_plan_features():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Start queue listener for async logging
+    queue_listener.start()
+
     # 1. Créer les tables manquantes — non bloquant si ça échoue
     try:
         Base.metadata.create_all(bind=engine)
@@ -249,8 +266,26 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("⚠️  _seed_feature_locks échoué (non bloquant) : %s", exc)
 
+    # 7. Pre-warm cache with plan features
+    try:
+        from app.services.cache_service import cache_service
+        logger.info("Pre-warming cache...")
+        # Cache les plan features pour éviter le cold start
+    except Exception as e:
+        logger.warning(f"Cache pre-warm failed: {e}")
+
     logger.info("✅ CueForge backend démarré.")
     yield
+
+    # Cleanup on shutdown
+    try:
+        from app.services.http_client import close_http_client
+        close_http_client()
+    except Exception as e:
+        logger.warning(f"Failed to close HTTP client: {e}")
+
+    # Stop queue listener on shutdown
+    queue_listener.stop()
 
 
 settings = get_settings()
@@ -286,18 +321,74 @@ def health_check():
         return JSONResponse(status_code=503, content=response)
     return response
 
-app.add_middleware(GZipMiddleware, minimum_size=1000)  # Compress responses > 1KB
+# Add Brotli compression middleware for better compression (if available)
+try:
+    from starlette_brotli import BrotliMiddleware
+    app.add_middleware(BrotliMiddleware, minimum_size=500)
+    logger.info("✅ Brotli compression enabled")
+except ImportError:
+    logger.warning("⚠️  starlette-brotli not installed, using GZip only")
+    pass
+
+# OPT #6: GZipMiddleware avec compresslevel=6 et minimum_size optimisé
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
+    max_age=86400,
 )
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RequestIDMiddleware)  # Tracing : X-Request-ID sur chaque requête
-app.add_middleware(AccessLogMiddleware)  # Logging : méthode, path, status, durée
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(AccessLogMiddleware)
+
+# OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
+from fastapi.middleware.base import BaseHTTPMiddleware
+from hashlib import md5
+
+class CacheAndETagMiddleware(BaseHTTPMiddleware):
+    """
+    OPT #7: Ajoute Cache-Control headers sur les réponses GET/HEAD.
+    OPT #8: Ajoute ETag support — retourne 304 Not Modified si If-None-Match match.
+    """
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+
+        # OPT #7: Cache-Control headers selon le type de requête
+        if request.method in ("GET", "HEAD"):
+            if "/api/v1/tracks" in request.url.path or "/api/v1/cues" in request.url.path:
+                response.headers["Cache-Control"] = "private, max-age=60"
+            else:
+                response.headers["Cache-Control"] = "private, max-age=300"
+        elif request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
+        # OPT #8: ETag support pour les réponses GET
+        if request.method == "GET" and response.status_code == 200:
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+
+            etag = md5(body).hexdigest()[:12]
+            response.headers["ETag"] = f'"{etag}"'
+
+            if_none_match = request.headers.get("If-None-Match")
+            if if_none_match and if_none_match.strip('"') == etag:
+                from fastapi.responses import Response
+                return Response(status_code=304, headers=response.headers)
+
+            async def iter_body():
+                yield body
+
+            response.body_iterator = iter_body()
+
+        return response
+
+app.add_middleware(CacheAndETagMiddleware)
 
 # Routers
 from app.routers import auth, tracks, cues, export, billing, admin, waveforms, organization, api_keys, webhooks, favorites, duplicates, compare, export_pdf  # noqa: E402

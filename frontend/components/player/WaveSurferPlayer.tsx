@@ -712,20 +712,24 @@ export default function WaveSurferPlayer({
     };
   }, [spectralReady, renderFrame, setupCanvasSize, buildStrip]);
 
-  // Resize handler (debounced 150ms to avoid thrashing canvas on every pixel)
+  // Resize handler (debounced 100ms to avoid thrashing canvas on every pixel)
   useEffect(() => {
     let rafId = 0;
+    let timeoutId = 0;
     const handleResize = () => {
       cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        if (overviewCanvasRef.current && overviewContainerRef.current)
-          setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
-        if (detailCanvasRef.current && detailContainerRef.current)
-          setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
-      });
+      clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        rafId = requestAnimationFrame(() => {
+          if (overviewCanvasRef.current && overviewContainerRef.current)
+            setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
+          if (detailCanvasRef.current && detailContainerRef.current)
+            setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
+        });
+      }, 100);
     };
     window.addEventListener('resize', handleResize, { passive: true });
-    return () => { window.removeEventListener('resize', handleResize); cancelAnimationFrame(rafId); };
+    return () => { window.removeEventListener('resize', handleResize); cancelAnimationFrame(rafId); clearTimeout(timeoutId); };
   }, [setupCanvasSize]);
 
   // ── Audio element ref (replaces wavesurfer) ──

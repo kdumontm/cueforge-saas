@@ -1025,6 +1025,7 @@ function ComponentPreview({ component }: { component: Component }) {
           src={content.src || "https://via.placeholder.com/300"}
           alt={content.alt || "Image"}
           className="w-full h-auto rounded"
+          loading="lazy"
         />
       );
 

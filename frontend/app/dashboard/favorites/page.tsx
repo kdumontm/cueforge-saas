@@ -138,6 +138,7 @@ export default function FavoritesPage() {
                   src={track.artwork_url}
                   alt={track.title}
                   className="w-12 h-12 rounded object-cover"
+                  loading="lazy"
                 />
               )}
 

@@ -209,6 +209,7 @@ export default function DuplicatesPage() {
                       src={pair.track_a.artwork_url}
                       alt={pair.track_a.title}
                       className="w-full aspect-square rounded-lg object-cover"
+                      loading="lazy"
                     />
                   )}
                   <div className="space-y-2">
@@ -271,6 +272,7 @@ export default function DuplicatesPage() {
                       src={pair.track_b.artwork_url}
                       alt={pair.track_b.title}
                       className="w-full aspect-square rounded-lg object-cover"
+                      loading="lazy"
                     />
                   )}
                   <div className="space-y-2">

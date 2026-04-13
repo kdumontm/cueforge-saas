@@ -4,10 +4,11 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime,
-    ForeignKey, Text, JSON, Index
+    ForeignKey, Text, JSON, Index, desc
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSON as PGJSON
 
 from app.database import Base
 
@@ -103,6 +104,11 @@ class Track(Base):
         # ⚡ Index pour la recherche textuelle (title, filename)
         Index("ix_tracks_user_title",    "user_id", "title"),
         Index("ix_tracks_user_filename", "user_id", "original_filename"),
+        # ⚡ NEW: Index composite (user_id, status, created_at DESC) pour listings rapides
+        Index("ix_tracks_user_status_created", "user_id", "status", created_at.desc()),
+        # ⚡ NEW: Index trigram pour recherche textuelle fuzzy
+        Index("ix_tracks_title_trgm", "title", postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"}),
+        Index("ix_tracks_artist_trgm", "artist", postgresql_using="gin", postgresql_ops={"artist": "gin_trgm_ops"}),
     )
     analysis = relationship(
         "TrackAnalysis", back_populates="track",
@@ -165,6 +171,8 @@ class TrackAnalysis(Base):
         Index("ix_analysis_track_bpm",    "track_id", "bpm"),
         Index("ix_analysis_track_key",    "track_id", "key"),
         Index("ix_analysis_track_energy", "track_id", "energy"),
+        # ⚡ NEW: Index sur analyzed_at pour tris chronologiques
+        Index("ix_analysis_analyzed_at", "analyzed_at"),
     )
 
 

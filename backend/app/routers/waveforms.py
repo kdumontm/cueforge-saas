@@ -6,10 +6,12 @@ for colored waveform rendering. Stores data in TrackAnalysis for future retrieva
 """
 import logging
 import os
+import struct
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -293,3 +295,52 @@ async def regenerate_waveform(
         "message": "Waveform regeneration queued",
         "track_id": track_id,
     }
+
+
+@router.get("/{track_id}/waveform.bin")
+async def get_waveform_binary(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retrieve waveform peaks in binary format (more efficient than JSON).
+
+    Returns binary data: struct.pack('Nf', peak1, peak2, ..., peakN)
+    where N is the number of peaks (usually 800).
+
+    Media type: application/octet-stream
+    To decode in frontend:
+        const peakCount = data.byteLength / 4;
+        const peaks = new Float32Array(data);
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(
+        TrackAnalysis.track_id == track_id
+    ).first()
+
+    if not analysis or analysis.waveform_peaks is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Waveform data not available",
+        )
+
+    # Pack peaks as binary floats
+    peaks = analysis.waveform_peaks
+    binary_data = struct.pack(f'{len(peaks)}f', *peaks)
+
+    return Response(
+        content=binary_data,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename=waveform_{track_id}.bin",
+            "X-Peak-Count": str(len(peaks)),
+        }
+    )

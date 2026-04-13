@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -44,7 +44,7 @@ const DEFAULT_CRATES = [
   { id: 'crate_vocal', label: 'Avec voix', color: '#8b5cf6' },
 ];
 
-export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
+function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: SidebarProps) {
   const { lang } = useLang();
   const pathname = usePathname();
   const router = useRouter();
@@ -110,9 +110,12 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
   const NavLink = ({ href, icon: Icon, labelKey }: { href: string; icon: any; labelKey: string }) => {
     const isActive = pathname === href;
     const label = tr(labelKey, lang);
+    // Prefetch les pages les plus fréquentes pour améliorer les perfs
+    const shouldPrefetch = ['/dashboard', '/dashboard/playlists', '/dashboard/upload'].includes(href);
     return (
       <Link
         href={href}
+        prefetch={shouldPrefetch}
         className={`w-full flex items-center gap-2.5 rounded-lg text-[13px] transition-all ${
           collapsed ? 'px-0 py-2 justify-center' : 'px-2.5 py-[7px]'
         } ${
@@ -296,3 +299,5 @@ export default function Sidebar({ isAdmin, username = 'User', plan = 'free', onL
     </aside>
   );
 }
+
+export default React.memo(Sidebar);

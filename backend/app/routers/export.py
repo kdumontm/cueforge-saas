@@ -150,7 +150,8 @@ async def export_all_rekordbox(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Rekordbox XML."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    # ⚡ yield_per(100) pour éviter de charger tout en mémoire
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 
@@ -470,7 +471,8 @@ async def export_all_serato(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Serato .crate file."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    # ⚡ yield_per(100) pour éviter de charger tout en mémoire
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 
@@ -537,7 +539,8 @@ async def export_all_traktor(
     current_user: User = Depends(get_current_user),
 ):
     """Export all tracks to Traktor NML format."""
-    tracks = db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    # ⚡ yield_per(100) pour éviter de charger tout en mémoire
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks in library")
 

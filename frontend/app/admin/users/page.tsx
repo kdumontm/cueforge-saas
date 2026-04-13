@@ -502,6 +502,7 @@ export default function UsersPage() {
                               src={user.avatar_url}
                               alt={user.name}
                               className="w-8 h-8 rounded-full bg-bg-elevated"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center">

@@ -84,6 +84,11 @@ class PlaylistTrack(Base):
     playlist = relationship("Playlist", back_populates="tracks")
     track = relationship("Track", backref="playlist_entries")
 
+    # ⚡ NEW: Index composite pour recherches rapides de playlists + tracks
+    __table_args__ = (
+        Index("ix_playlist_tracks_composite", "playlist_id", "track_id"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Smart Crates (Phase 2) — dynamic playlists with filter rules
