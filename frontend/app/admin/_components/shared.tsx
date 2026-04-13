@@ -174,7 +174,7 @@ export function Select({ label, value, onChange, options, className = "" }: Sele
 export function Toggle({ on, onToggle, label, disabled }: { on: boolean; onToggle: () => void; label?: string; disabled?: boolean }) {
   return (
     <button onClick={onToggle} disabled={disabled} className={`flex items-center gap-2 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
-      <div className={`w-9 h-5 rounded-full p-0.5 transition-all ${on ? "bg-accent" : "bg-bg-hover"}`}>
+      <div className={`w-9 h-5 rounded-full p-0.5 transition-all ${on ? "bg-emerald-500" : "bg-zinc-600"}`}>
         <div className={`w-4 h-4 rounded-full bg-white transition-transform ${on ? "translate-x-4" : "translate-x-0"}`} />
       </div>
       {label && <span className="text-xs text-text-secondary">{label}</span>}

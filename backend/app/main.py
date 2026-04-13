@@ -487,7 +487,10 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
 
         # OPT #7: Cache-Control headers selon le type de requête
         if request.method in ("GET", "HEAD"):
-            if "/api/v1/tracks" in request.url.path or "/api/v1/cues" in request.url.path:
+            # Admin endpoints: jamais de cache navigateur (les données changent en temps réel)
+            if "/api/v1/admin" in request.url.path:
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            elif "/api/v1/tracks" in request.url.path or "/api/v1/cues" in request.url.path:
                 response.headers["Cache-Control"] = "private, max-age=60"
             else:
                 response.headers["Cache-Control"] = "private, max-age=300"

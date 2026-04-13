@@ -18,7 +18,7 @@ export async function api<T = any>(path: string, opts: any = {}): Promise<T> {
     headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(opts.body);
   }
-  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...opts, headers, cache: "no-store" as RequestCache });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `HTTP ${res.status}`);
