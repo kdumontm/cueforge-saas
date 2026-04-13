@@ -195,6 +195,12 @@ class TrackAnalysisResponse(BaseModel):
     audio_quality_grade: Optional[str] = None
     audio_quality_breakdown: Optional[Dict[str, Any]] = None
     accent_points: Optional[List[Dict[str, Any]]] = None
+    # v6.5: Sub-bass, loudness war
+    sub_bass_quality: Optional[str] = None
+    sub_bass_clarity: Optional[float] = None
+    loudness_war_detected: Optional[bool] = None
+    loudness_war_severity: Optional[str] = None
+    compression_score: Optional[float] = None
     # v6.5: Rhythm & groove
     groove_swing: Optional[float] = None
     syncopation_index: Optional[float] = None

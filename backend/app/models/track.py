@@ -193,6 +193,12 @@ class TrackAnalysis(Base):
     audio_quality_grade = Column(String(2), nullable=True)
     audio_quality_breakdown = Column(JSON, nullable=True)
     accent_points = Column(JSON, nullable=True)
+    # v6.5: Sub-bass, loudness war, production
+    sub_bass_quality = Column(String(20), nullable=True)
+    sub_bass_clarity = Column(Float, nullable=True)
+    loudness_war_detected = Column(Boolean, nullable=True)
+    loudness_war_severity = Column(String(20), nullable=True)
+    compression_score = Column(Float, nullable=True)
     # v6.5: Rhythm & groove
     groove_swing = Column(Float, nullable=True)
     syncopation_index = Column(Float, nullable=True)

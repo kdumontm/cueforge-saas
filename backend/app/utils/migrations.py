@@ -124,6 +124,12 @@ PENDING_MIGRATIONS = {
         "audio_quality_grade": "VARCHAR(2)",
         "audio_quality_breakdown": "JSON",
         "accent_points": "JSON",
+        # v6.5: Sub-bass, loudness war, production
+        "sub_bass_quality": "VARCHAR(20)",
+        "sub_bass_clarity": "FLOAT",
+        "loudness_war_detected": "BOOLEAN",
+        "loudness_war_severity": "VARCHAR(20)",
+        "compression_score": "FLOAT",
         # v6.5: Rhythm & groove
         "groove_swing": "FLOAT",
         "syncopation_index": "FLOAT",

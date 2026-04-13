@@ -5526,6 +5526,39 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     structural_summary = compute_structural_summary(section_labels, y, sr_loaded)
     result["structural_summary"] = structural_summary
 
+    # ── v6.5: HPSS metrics + subband energy (#11-12) ──
+    try:
+        hpss = compute_hpss_metrics(y, sr_loaded)
+        result["harmonic_ratio"] = hpss.get("harmonic_ratio")
+        result["percussive_ratio"] = hpss.get("percussive_ratio")
+    except Exception:
+        pass
+
+    try:
+        subband = compute_subband_energy_ratios(y, sr_loaded)
+        result["sub_energy_ratio"] = subband.get("sub_energy_ratio")
+        result["low_energy_ratio"] = subband.get("low_energy_ratio")
+        result["mid_energy_ratio"] = subband.get("mid_energy_ratio")
+        result["high_energy_ratio"] = subband.get("high_energy_ratio")
+    except Exception:
+        pass
+
+    # ── v6.5: Sub-bass quality + loudness war + production quality (#39-41) ──
+    try:
+        sub_bass = sub_bass_quality(y, sr_loaded)
+        result["sub_bass_quality"] = sub_bass.get("sub_bass_quality")
+        result["sub_bass_clarity"] = sub_bass.get("clarity_score")
+    except Exception:
+        pass
+
+    try:
+        lw = loudness_war_detection(y, sr_loaded)
+        result["loudness_war_detected"] = lw.get("loudness_war_detected", False)
+        result["loudness_war_severity"] = lw.get("loudness_war_severity", "none")
+        result["compression_score"] = lw.get("compression_score", 0.0)
+    except Exception:
+        pass
+
     # ── v6.5: Encoding quality detection (#492-493) ──
     try:
         enc_quality = detect_encoding_quality(file_path, y, sr_loaded)

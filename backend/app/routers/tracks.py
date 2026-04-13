@@ -503,6 +503,12 @@ def _run_analysis(track_id: int):
             audio_quality_grade=analysis_data.get("audio_quality_grade"),
             audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
             accent_points=analysis_data.get("accent_points"),
+            # v6.5: Sub-bass, loudness war
+            sub_bass_quality=analysis_data.get("sub_bass_quality"),
+            sub_bass_clarity=analysis_data.get("sub_bass_clarity"),
+            loudness_war_detected=analysis_data.get("loudness_war_detected"),
+            loudness_war_severity=analysis_data.get("loudness_war_severity"),
+            compression_score=analysis_data.get("compression_score"),
             # v6.5: Rhythm & groove
             groove_swing=analysis_data.get("groove_swing"),
             syncopation_index=analysis_data.get("syncopation_index"),
