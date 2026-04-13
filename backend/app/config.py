@@ -68,6 +68,42 @@ class Settings(BaseSettings):
     ENTERPRISE_TRACKS_PER_DAY: int = 500
     ENTERPRISE_MAX_CUES: int = 128
 
+    # External APIs
+    ACOUSTID_API_KEY: str = "8XaBELgH"
+    LASTFM_API_KEY: Optional[str] = None
+    DISCOGS_TOKEN: Optional[str] = None
+
+    # Admin
+    ADMIN_PASSWORD: Optional[str] = None
+    ADMIN_SETUP_KEY: Optional[str] = None
+    DIAGNOSTICS_KEY: Optional[str] = None
+
+    # Stripe URLs
+    STRIPE_SUCCESS_URL: Optional[str] = None
+    STRIPE_CANCEL_URL: Optional[str] = None
+    STRIPE_PORTAL_RETURN_URL: Optional[str] = None
+    STRIPE_PUBLIC_KEY: Optional[str] = None
+
+    # Auth tuning
+    BCRYPT_ROUNDS: int = 12
+    MAX_FILE_SIZE_MB: int = 200
+
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
+    # Sentry
+    SENTRY_DSN: Optional[str] = None
+
+    # Redis
+    REDIS_URL: Optional[str] = None
+
+    # Misc storage
+    STEMS_DIR: str = "/tmp/cueforge_stems"
+    MIX_UPLOAD_DIR: str = "/tmp/cueforge_mixes"
+    FEATURE_CACHE_DIR: str = "/tmp/cueforge_feature_cache"
+    ONNX_CACHE_DIR: str = "/tmp/cueforge_onnx_cache"
+    APP_VERSION: str = "unknown"
+
     # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
     CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://cueforge-saas-production.up.railway.app,http://localhost:3000,http://127.0.0.1:3000"
 

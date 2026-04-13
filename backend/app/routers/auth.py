@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated
 from pydantic import BaseModel, EmailStr, field_validator, Field
 
+from app.config import get_settings
 from app.database import get_db
 from app.models import User
 from app.services.auth_service import (
@@ -466,8 +467,8 @@ async def setup_admin(req: AdminSetupRequest, db: Session = Depends(get_db)):
     """Promouvoir un utilisateur en admin.
     Le secret doit être dans le body JSON (jamais en query param → évite les logs serveur).
     """
-    import os
-    key = os.getenv("ADMIN_SETUP_KEY")
+    _s = get_settings()
+    key = _s.ADMIN_SETUP_KEY
     if not key or req.secret != key:
         raise HTTPException(status_code=403, detail="Invalid setup key")
     user = db.query(User).filter(func.lower(User.email) == req.email.strip().lower()).first()
@@ -532,11 +533,11 @@ async def export_my_data(user: User = Depends(get_current_user), db: Session = D
 @router.post("/oauth/google", response_model=TokenResponse)
 async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
     """Exchange Google OAuth code for CueForge tokens."""
-    import os
     from app.services.oauth_service import exchange_google_token, oauth_login_or_register
 
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    _s = get_settings()
+    client_id = _s.GOOGLE_CLIENT_ID
+    client_secret = _s.GOOGLE_CLIENT_SECRET
     if not client_id or not client_secret:
         raise HTTPException(status_code=501, detail="Google OAuth not configured")
 
@@ -568,11 +569,11 @@ async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db))
 @router.post("/oauth/spotify", response_model=TokenResponse)
 async def oauth_spotify(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
     """Exchange Spotify OAuth code for CueForge tokens."""
-    import os
     from app.services.oauth_service import exchange_spotify_token, oauth_login_or_register
 
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    _s = get_settings()
+    client_id = _s.SPOTIFY_CLIENT_ID
+    client_secret = _s.SPOTIFY_CLIENT_SECRET
     if not client_id or not client_secret:
         raise HTTPException(status_code=501, detail="Spotify OAuth not configured")
 

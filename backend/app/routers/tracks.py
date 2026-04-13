@@ -32,7 +32,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".ogg", ".opus"}
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "200"))
+from app.config import get_settings as _get_settings
+MAX_FILE_SIZE_MB = _get_settings().MAX_FILE_SIZE_MB
 
 MIME_TYPES = {
     ".mp3": "audio/mpeg",

@@ -16,17 +16,17 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 
+from app.config import get_settings
+
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = os.getenv("SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
-FRONTEND_URL = os.getenv(
-    "FRONTEND_URL",
-    "https://exquisite-art-production-f4c6.up.railway.app",
-)
+_settings = get_settings()
+SMTP_HOST = _settings.SMTP_HOST or ""
+SMTP_PORT = _settings.SMTP_PORT
+SMTP_USER = _settings.SMTP_USER or ""
+SMTP_PASSWORD = _settings.SMTP_PASSWORD or ""
+SMTP_FROM = _settings.SMTP_FROM or SMTP_USER
+FRONTEND_URL = _settings.FRONTEND_URL
 
 
 def _send_email_sync(to_email: str, subject: str, html_body: str) -> None:

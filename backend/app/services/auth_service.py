@@ -8,44 +8,27 @@ from typing import Dict, Optional
 
 from passlib.context import CryptContext
 from jose import jwt, JWTError
-import os
 import logging
+
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Password hashing — configurable bcrypt rounds (default 12)
-BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
+# Charger la config centralisée
+_settings = get_settings()
+
+# Password hashing — configurable bcrypt rounds
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
-    bcrypt__rounds=BCRYPT_ROUNDS
+    bcrypt__rounds=_settings.BCRYPT_ROUNDS
 )
 
-# JWT settings
-_raw_secret = os.getenv("SECRET_KEY", "")
-_INSECURE_DEFAULT = "cueforge-default-key-set-in-railway-env"
-
-if not _raw_secret or _raw_secret == _INSECURE_DEFAULT:
-    # Génère une clé dérivée du hostname + salt fixe — stable entre redémarrages,
-    # inconnue des attaquants (contrairement à la valeur hardcodée publique).
-    # ⚠️  Ajouter SECRET_KEY dans Railway pour une sécurité maximale.
-    import socket
-    _stable_seed = f"cueforge-auto-{socket.gethostname()}-railway"
-    _raw_secret = hashlib.sha256(_stable_seed.encode()).hexdigest()
-    db_url = os.getenv("DATABASE_URL", "sqlite://")
-    if "sqlite" not in db_url:
-        logger.critical(
-            "🚨 SECRET_KEY non définie en production ! "
-            "Clé auto-générée utilisée (stable mais non recommandée). "
-            "Ajoutez SECRET_KEY dans Railway → Variables dès que possible."
-        )
-    else:
-        logger.warning("⚠️  SECRET_KEY non définie — clé auto-générée pour dev local.")
-
-SECRET_KEY = _raw_secret
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 7 jours
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "90"))       # 3 mois
+# JWT settings — la clé est déjà sécurisée par get_settings() (fallback hostname-based)
+SECRET_KEY = _settings.SECRET_KEY
+ALGORITHM = _settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = _settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = _settings.REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def hash_password(password: str) -> str:

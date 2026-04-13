@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.database import get_db
 from app.models import User
 from app.models.organization import UsageLog
@@ -158,10 +159,10 @@ async def subscribe(
     db: Session = Depends(get_db),
 ):
     """Create a Stripe checkout session for a plan upgrade."""
-    import os
     import stripe
 
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    _s = get_settings()
+    stripe.api_key = _s.STRIPE_SECRET_KEY
     if not stripe.api_key:
         raise HTTPException(status_code=501, detail="Stripe not configured")
 
@@ -169,24 +170,17 @@ async def subscribe(
         raise HTTPException(status_code=400, detail="Invalid plan. Use 'pro' or 'enterprise'")
 
     # Get the right Stripe price ID based on plan + interval
-    price_env_map = {
-        ("pro", "monthly"): "STRIPE_PRO_MONTHLY_PRICE_ID",
-        ("pro", "yearly"): "STRIPE_PRO_YEARLY_PRICE_ID",
-        ("enterprise", "monthly"): "STRIPE_ENT_MONTHLY_PRICE_ID",
-        ("enterprise", "yearly"): "STRIPE_ENT_YEARLY_PRICE_ID",
+    price_map = {
+        ("pro", "monthly"): _s.STRIPE_PRO_MONTHLY_PRICE_ID,
+        ("pro", "yearly"): _s.STRIPE_PRO_YEARLY_PRICE_ID,
+        ("enterprise", "monthly"): _s.STRIPE_ENT_MONTHLY_PRICE_ID,
+        ("enterprise", "yearly"): _s.STRIPE_ENT_YEARLY_PRICE_ID,
     }
-    env_key = price_env_map.get((req.plan_id, req.interval))
-    if not env_key:
-        raise HTTPException(status_code=400, detail="Invalid plan/interval combo")
-
-    price_id = os.getenv(env_key) or os.getenv("STRIPE_PRICE_ID")
+    price_id = price_map.get((req.plan_id, req.interval)) or _s.STRIPE_PRICE_ID
     if not price_id:
         raise HTTPException(status_code=501, detail=f"Stripe price not configured for {req.plan_id}/{req.interval}")
 
-    frontend_url = os.getenv(
-        "FRONTEND_URL",
-        "https://exquisite-art-production-f4c6.up.railway.app",
-    )
+    frontend_url = _s.FRONTEND_URL
 
     # Create or reuse Stripe customer
     if not user.stripe_customer_id:
@@ -222,20 +216,17 @@ async def customer_portal(
     db: Session = Depends(get_db),
 ):
     """Create a Stripe customer portal session for managing subscription."""
-    import os
     import stripe
 
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    _s = get_settings()
+    stripe.api_key = _s.STRIPE_SECRET_KEY
     if not stripe.api_key:
         raise HTTPException(status_code=501, detail="Stripe not configured")
 
     if not user.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No billing account found")
 
-    frontend_url = os.getenv(
-        "FRONTEND_URL",
-        "https://exquisite-art-production-f4c6.up.railway.app",
-    )
+    frontend_url = _s.FRONTEND_URL
 
     session = stripe.billing_portal.Session.create(
         customer=user.stripe_customer_id,
@@ -248,11 +239,11 @@ async def customer_portal(
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     """Handle Stripe webhook events."""
-    import os
     import stripe
 
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    _s = get_settings()
+    stripe.api_key = _s.STRIPE_SECRET_KEY
+    webhook_secret = _s.STRIPE_WEBHOOK_SECRET
 
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")

@@ -312,7 +312,7 @@ def _ensure_admin_account():
     from app.models import User
     from app.services.auth_service import hash_password
 
-    admin_password = os.getenv("ADMIN_PASSWORD")
+    admin_password = get_settings().ADMIN_PASSWORD
     if not admin_password:
         logger.warning(
             "⚠️  ADMIN_PASSWORD non défini — compte admin non créé automatiquement. "

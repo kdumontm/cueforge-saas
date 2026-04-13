@@ -21,8 +21,11 @@ from app.services.circuit_breaker import get_breaker
 
 logger = logging.getLogger(__name__)
 
-# AcoustID test key — replace with your own from https://acoustid.org/login
-ACOUSTID_API_KEY = os.getenv("ACOUSTID_API_KEY", "8XaBELgH")
+from app.config import get_settings as _get_settings
+_cfg = _get_settings()
+
+# AcoustID — clé centralisée dans config.py
+ACOUSTID_API_KEY = _cfg.ACOUSTID_API_KEY
 
 
 # ── Cache MusicBrainz (2 min) ──────────────────────────────────────────────────
@@ -366,8 +369,8 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
         logger.debug("Spotify circuit breaker OPEN — skipping")
         return None
 
-    client_id = os.getenv("SPOTIFY_CLIENT_ID", "")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+    client_id = _cfg.SPOTIFY_CLIENT_ID or ""
+    client_secret = _cfg.SPOTIFY_CLIENT_SECRET or ""
     if not client_id or not client_secret:
         logger.debug("Spotify not configured — skipping")
         return None
@@ -500,7 +503,7 @@ def search_spotify(artist: str, title: str) -> Optional[Dict[str, Any]]:
 
 # ── Discogs — excellent pour la musique électronique (labels, sous-genres) ────
 
-DISCOGS_TOKEN = os.getenv("DISCOGS_TOKEN", "")
+DISCOGS_TOKEN = _cfg.DISCOGS_TOKEN or ""
 
 
 def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
@@ -672,7 +675,7 @@ def get_lastfm_genre(artist: str, title: str) -> Optional[str]:
         logger.debug("Last.fm circuit breaker OPEN — skipping")
         return None
 
-    api_key = os.getenv("LASTFM_API_KEY", "")
+    api_key = _cfg.LASTFM_API_KEY or ""
     if not api_key:
         logger.debug("Last.fm not configured — skipping")
         return None

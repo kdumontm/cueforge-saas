@@ -1,17 +1,18 @@
 from typing import Optional, Dict
-import os
 import stripe
 from sqlalchemy.orm import Session
 
 from app.models import User, Subscription
+from app.config import get_settings
 
-# Initialize Stripe (only if secret key is set)
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+# Initialize Stripe via config centralisée
+_settings = get_settings()
+STRIPE_SECRET_KEY = _settings.STRIPE_SECRET_KEY
 STRIPE_CONFIGURED = STRIPE_SECRET_KEY is not None
 
 if STRIPE_CONFIGURED:
     stripe.api_key = STRIPE_SECRET_KEY
-    STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
+    STRIPE_PUBLIC_KEY = _settings.STRIPE_PUBLIC_KEY
 
 
 def create_checkout_session(user_id: int, db: Session) -> Optional[Dict]:
@@ -36,12 +37,12 @@ def create_checkout_session(user_id: int, db: Session) -> Optional[Dict]:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
-                "price": os.getenv("STRIPE_PRICE_ID_PRO"),
+                "price": _settings.STRIPE_PRO_MONTHLY_PRICE_ID or _settings.STRIPE_PRICE_ID,
                 "quantity": 1
             }],
             mode="subscription",
-            success_url=os.getenv("STRIPE_SUCCESS_URL") or "http://localhost/success",
-            cancel_url=os.getenv("STRIPE_CANCEL_URL") or "http://localhost/cancel",
+            success_url=_settings.STRIPE_SUCCESS_URL or "http://localhost/success",
+            cancel_url=_settings.STRIPE_CANCEL_URL or "http://localhost/cancel",
             customer_email=user.email
         )
 
@@ -74,7 +75,7 @@ def create_portal_session(user_id: int, db: Session) -> Optional[Dict]:
 
         session = stripe.billing_portal.Session.create(
             customer=user.stripe_customer_id,
-            return_url=os.getenv("STRIPE_PORTAL_RETURN_URL") or "http://localhost"
+            return_url=_settings.STRIPE_PORTAL_RETURN_URL or "http://localhost"
         )
 
         return {
@@ -99,7 +100,7 @@ def handle_webhook(payload: Dict, sig_header: str) -> Optional[Dict]:
         return None
 
     try:
-        webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+        webhook_secret = _settings.STRIPE_WEBHOOK_SECRET
         event = stripe.Webhook.construct_event(
             payload,
             sig_header,
