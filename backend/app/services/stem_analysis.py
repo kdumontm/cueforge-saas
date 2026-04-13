@@ -904,6 +904,7 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
 
     # Step 2b: Advanced stem analysis (points 251-400)
     advanced_stem_data = {}
+    stems_phase_corrected = None  # Initialize for later use in mixing suggestions
     if ADVANCED_STEM_FEATURES_AVAILABLE:
         try:
             # 251-270: Separation quality & bleed reduction
@@ -1038,6 +1039,90 @@ def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[
     # Add advanced stem features (points 251-400) if available
     if advanced_stem_data:
         result["advanced_stem_features"] = advanced_stem_data
+
+    # Add advanced mixing suggestions (points 331-380) if available
+    mixing_suggestions = {}
+    if ADVANCED_STEM_FEATURES_AVAILABLE and stems_phase_corrected is not None:
+        stems_for_suggestions = stems_phase_corrected
+
+        try:
+            # Volume automation per stem
+            drum_automation = _generate_stem_volume_automation(
+                stems_for_suggestions.get("drums", np.zeros(1000)), SR, beats
+            )
+            bass_automation = _generate_stem_volume_automation(
+                stems_for_suggestions.get("bass", np.zeros(1000)), SR, beats
+            )
+            vocal_automation = _generate_stem_volume_automation(
+                stems_for_suggestions.get("vocals", np.zeros(1000)), SR, beats
+            )
+            mixing_suggestions["volume_automation"] = {
+                "drums": drum_automation,
+                "bass": bass_automation,
+                "vocals": vocal_automation,
+            }
+            logger.info("[STEM] Volume automation generated")
+        except Exception as e:
+            logger.debug(f"[STEM] Volume automation failed: {e}")
+
+        try:
+            # EQ suggestions per stem
+            drum_eq = _suggest_stem_eq(stems_for_suggestions.get("drums", np.zeros(1000)), SR, "drums")
+            bass_eq = _suggest_stem_eq(stems_for_suggestions.get("bass", np.zeros(1000)), SR, "bass")
+            vocal_eq = _suggest_stem_eq(stems_for_suggestions.get("vocals", np.zeros(1000)), SR, "vocals")
+            other_eq = _suggest_stem_eq(stems_for_suggestions.get("other", np.zeros(1000)), SR, "other")
+            mixing_suggestions["eq_suggestions"] = {
+                "drums": drum_eq,
+                "bass": bass_eq,
+                "vocals": vocal_eq,
+                "other": other_eq,
+            }
+            logger.info("[STEM] EQ suggestions generated")
+        except Exception as e:
+            logger.debug(f"[STEM] EQ suggestions failed: {e}")
+
+        try:
+            # Reverb send suggestions
+            drum_reverb = _suggest_stem_reverb_send(stems_for_suggestions.get("drums", np.zeros(1000)), SR, "drums")
+            bass_reverb = _suggest_stem_reverb_send(stems_for_suggestions.get("bass", np.zeros(1000)), SR, "bass")
+            vocal_reverb = _suggest_stem_reverb_send(stems_for_suggestions.get("vocals", np.zeros(1000)), SR, "vocals")
+            other_reverb = _suggest_stem_reverb_send(stems_for_suggestions.get("other", np.zeros(1000)), SR, "other")
+            mixing_suggestions["reverb_suggestions"] = {
+                "drums": drum_reverb,
+                "bass": bass_reverb,
+                "vocals": vocal_reverb,
+                "other": other_reverb,
+            }
+            logger.info("[STEM] Reverb suggestions generated")
+        except Exception as e:
+            logger.debug(f"[STEM] Reverb suggestions failed: {e}")
+
+        try:
+            # Panning suggestions
+            drum_panning = _suggest_stem_panning(stems_for_suggestions.get("drums", np.zeros(1000)), SR, "drums")
+            bass_panning = _suggest_stem_panning(stems_for_suggestions.get("bass", np.zeros(1000)), SR, "bass")
+            vocal_panning = _suggest_stem_panning(stems_for_suggestions.get("vocals", np.zeros(1000)), SR, "vocals")
+            other_panning = _suggest_stem_panning(stems_for_suggestions.get("other", np.zeros(1000)), SR, "other")
+            mixing_suggestions["panning_suggestions"] = {
+                "drums": drum_panning,
+                "bass": bass_panning,
+                "vocals": vocal_panning,
+                "other": other_panning,
+            }
+            logger.info("[STEM] Panning suggestions generated")
+        except Exception as e:
+            logger.debug(f"[STEM] Panning suggestions failed: {e}")
+
+        try:
+            # Create stem presets (point 385)
+            presets = _create_stem_presets(stems_for_suggestions, SR, beats)
+            mixing_suggestions["presets"] = presets
+            logger.info("[STEM] Stem presets created")
+        except Exception as e:
+            logger.debug(f"[STEM] Preset creation failed: {e}")
+
+    if mixing_suggestions:
+        result["mixing_suggestions"] = mixing_suggestions
 
     # Add reconstruction quality if available
     if reconstruction_quality is not None:

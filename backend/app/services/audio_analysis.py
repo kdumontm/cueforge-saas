@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 import gc
 import logging
 import time
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
@@ -3252,7 +3253,119 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         '_completed_steps': completed_steps + ['bpm'],
     })
 
-    # ── Memory cleanup after BPM detection (Point 87) ──
+    # ── ADVANCED BPM ANALYSIS: 11 nouvelles fonctions intégrées ─────────
+    # Ces fonctions affinent et valident le BPM détecté par les méthodes standard
+
+    # 1. Détecter les edge cases (ambient, silence, etc.)
+    edge_cases = {}
+    try:
+        edge_cases = _detect_edge_cases(y, sr_loaded, beats)
+        if edge_cases.get("edge_case_detected"):
+            logger.info(f"[BPM] Edge case detected: {edge_cases.get('edge_case_type')}")
+            # Adapter le BPM si nécessaire
+            if edge_cases.get("bpm_adjustment"):
+                bpm = edge_cases["bpm_adjustment"]
+    except Exception as e:
+        logger.debug(f"[BPM] Edge case detection failed: {e}")
+
+    # 2. Lire les metadata pour obtenir des hints BPM
+    metadata = {}
+    try:
+        metadata = _read_metadata_mutagen(file_path)
+        if metadata.get("bpm_hint"):
+            logger.info(f"[BPM] Metadata BPM hint: {metadata['bpm_hint']}")
+    except Exception as e:
+        logger.debug(f"[BPM] Metadata reading failed: {e}")
+
+    # 3. Utiliser mmap pour les fichiers très volumineux (>100MB)
+    y_mmap = None
+    try:
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+        if file_size_mb > 100:
+            y_mmap, _, _ = _load_audio_mmap(file_path, target_sr=sr_loaded)
+            logger.info(f"[BPM] Using mmap for large file ({file_size_mb:.1f}MB)")
+    except Exception as e:
+        logger.debug(f"[BPM] mmap loading failed: {e}")
+
+    # 4. Détecter la bande d'emphasis pour les genres EDM
+    emphasis_band = None
+    try:
+        emphasis_band = _detect_onset_emphasis_band(y, sr_loaded)
+        if emphasis_band is not None and len(emphasis_band) > 0:
+            logger.info(f"[BPM] Onset emphasis band detected, energy: {emphasis_band.mean():.3f}")
+    except Exception as e:
+        logger.debug(f"[BPM] Onset emphasis detection failed: {e}")
+
+    # 5. Détecter beats multi-résolution (complémentaire au beat tracking)
+    multiresolution_beats = None
+    try:
+        multiresolution_beats = _detect_multiresolution_beats(file_path)
+        if multiresolution_beats:
+            logger.info(f"[BPM] Multi-resolution beats detected: {len(multiresolution_beats.get('beats', []))} beats")
+    except Exception as e:
+        logger.debug(f"[BPM] Multi-resolution beat detection failed: {e}")
+
+    # 6. Calculer le median IBI pondéré (au lieu du simple median)
+    weighted_median_ibi = None
+    try:
+        if emphasis_band is not None:
+            weighted_median_ibi = _compute_weighted_median_ibi(beats, emphasis_band)
+            weighted_bpm = 60.0 / weighted_median_ibi if weighted_median_ibi > 0 else bpm
+            logger.info(f"[BPM] Weighted median IBI: {weighted_median_ibi:.4f}s → {weighted_bpm:.1f} BPM")
+    except Exception as e:
+        logger.debug(f"[BPM] Weighted median IBI computation failed: {e}")
+
+    # 7. Calculer l'histogramme BPM pour validation
+    bpm_histogram = None
+    try:
+        bpm_histogram = _compute_bpm_histogram(beats, bin_width=1.0)
+        if bpm_histogram and bpm_histogram.get("peak_bpm"):
+            peak_bpm = bpm_histogram["peak_bpm"]
+            if abs(peak_bpm - bpm) > 5:  # Différence significative
+                logger.info(f"[BPM] Histogram peak: {peak_bpm:.1f} BPM (vs detected: {bpm:.1f})")
+    except Exception as e:
+        logger.debug(f"[BPM] Histogram computation failed: {e}")
+
+    # 8. Valider avec autocorrélation multi-scale
+    multiscale_auto = None
+    try:
+        multiscale_auto = _compute_multiscale_autocorrelation(y, sr_loaded)
+        if multiscale_auto and multiscale_auto.get("dominant_bpm"):
+            logger.info(f"[BPM] Multiscale autocorrelation: {multiscale_auto['dominant_bpm']:.1f} BPM")
+    except Exception as e:
+        logger.debug(f"[BPM] Multiscale autocorrelation failed: {e}")
+
+    # 9. Détecter les downbeats avancés
+    downbeats = None
+    try:
+        downbeats = _detect_downbeat_advanced(y, sr_loaded, beats, precomputed_onset_env)
+        if downbeats and downbeats.get("downbeats"):
+            logger.info(f"[BPM] Downbeats detected: {len(downbeats['downbeats'])} positions")
+    except Exception as e:
+        logger.debug(f"[BPM] Downbeat detection failed: {e}")
+
+    # 10. Cross-valider le BPM avec des sources externes (metadata, external APIs)
+    bpm_validation = {}
+    try:
+        external_bpm = metadata.get("bpm_hint") if metadata else None
+        bpm_validation = _cross_validate_bpm(bpm, metadata, external_bpm=external_bpm)
+        logger.info(f"[BPM] Cross-validation confidence: {bpm_validation.get('validation_confidence', 0):.2f}")
+    except Exception as e:
+        logger.debug(f"[BPM] Cross-validation failed: {e}")
+
+    # 11. Détecter le BPM variable pour les tracks longues (>5 min)
+    windowed_bpm = {}
+    try:
+        real_duration_sec = len(y) / sr_loaded
+        if real_duration_sec > 300:  # Plus de 5 minutes
+            windowed_bpm = _detect_windowed_bpm(beats, y, sr_loaded, window_duration=15.0)
+            if windowed_bpm and windowed_bpm.get("bpm_changes"):
+                logger.info(f"[BPM] Variable BPM detected: {len(windowed_bpm['bpm_changes'])} changes")
+    except Exception as e:
+        logger.debug(f"[BPM] Windowed BPM detection failed: {e}")
+
+    # ── Memory cleanup after advanced BPM analysis (Point 87) ──
+    del y_mmap
     gc.collect()
 
     # Point 402: Run key detection in parallel with later tasks (prep only here)
