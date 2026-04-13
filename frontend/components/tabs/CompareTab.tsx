@@ -27,7 +27,7 @@ function StatRow({ label, valueA, valueB, match }: { label: string; valueA: stri
   );
 }
 
-export default function CompareTab({ trackA, allTracks, onSelectTrack }: CompareTabProps) {
+function CompareTab({ trackA, allTracks, onSelectTrack }: CompareTabProps) {
   const [trackBId, setTrackBId] = useState<number | null>(null);
   const trackB = allTracks.find(t => t.id === trackBId) || null;
 

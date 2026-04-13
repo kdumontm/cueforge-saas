@@ -45,7 +45,7 @@ function EnergyBar({ value }: { value: number }) {
   );
 }
 
-export default function InfoEditTab({ track, onSave }: InfoEditTabProps) {
+function InfoEditTab({ track, onSave }: InfoEditTabProps) {
   const [formData, setFormData] = useState({
     title: '', artist: '', album: '', genre: '', label: '',
     category: '', tags: '', comment: '', color_code: '',

@@ -284,7 +284,7 @@ function preRenderWaveformStrip(
   return canvas;
 }
 
-export default function WaveSurferPlayer({
+function WaveSurferPlayer({
   trackId,
   trackDuration,
   cuePoints = [],
