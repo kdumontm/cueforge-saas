@@ -36,21 +36,64 @@ export function clearToken(): void {
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
+// Multi-tab refresh coordination using sessionStorage lock pattern
+const REFRESH_LOCK_KEY = 'cueforge_refresh_lock';
+const REFRESH_LOCK_TIMEOUT = 15000; // 15s max lock duration
+
+function acquireRefreshLock(): boolean {
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return true;
+
+  const now = Date.now();
+  const lockStr = sessionStorage.getItem(REFRESH_LOCK_KEY);
+
+  if (!lockStr) {
+    // No lock, acquire it
+    sessionStorage.setItem(REFRESH_LOCK_KEY, String(now));
+    return true;
+  }
+
+  const lockTime = parseInt(lockStr, 10);
+  if (now - lockTime > REFRESH_LOCK_TIMEOUT) {
+    // Lock expired, acquire it
+    sessionStorage.setItem(REFRESH_LOCK_KEY, String(now));
+    return true;
+  }
+
+  // Lock held by another tab
+  return false;
+}
+
+function releaseRefreshLock(): void {
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(REFRESH_LOCK_KEY);
+}
+
 async function tryRefresh(): Promise<boolean> {
   const refresh = getRefreshToken();
   if (!refresh) return false;
 
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    setToken(data.access_token);
-    if (data.refresh_token) setRefreshToken(data.refresh_token);
-    return true;
+    // Add timeout to prevent hanging indefinitely
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return false;
+      const data = await res.json();
+      setToken(data.access_token);
+      if (data.refresh_token) setRefreshToken(data.refresh_token);
+      return true;
+    } catch (e) {
+      clearTimeout(timeoutId);
+      throw e;
+    }
   } catch {
     return false;
   }
@@ -82,13 +125,15 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
 
   if (response.status === 401) {
     // Tente un refresh silencieux avant de déconnecter
-    if (!isRefreshing) {
+    // Use multi-tab lock to prevent concurrent refresh attempts
+    if (!isRefreshing && acquireRefreshLock()) {
       isRefreshing = true;
       refreshPromise = tryRefresh();
     }
     const refreshed = await refreshPromise;
     isRefreshing = false;
     refreshPromise = null;
+    releaseRefreshLock();
 
     if (refreshed) {
       // Rejoue la requête avec le nouveau token
@@ -254,7 +299,11 @@ export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
     try { const error = await response.json(); detail = error.detail || detail; } catch {}
     throw new Error(detail);
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch (e) {
+    throw new Error('Failed to parse upload response: ' + (e instanceof Error ? e.message : 'unknown error'));
+  }
 }
 
 export async function uploadTracks(formData: FormData): Promise<TrackUploadResponse[]> {
@@ -266,8 +315,13 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
   if (!response.ok) {
     let detail = 'Upload failed';
     try { const error = await response.json(); detail = error.detail || detail; } catch {}
+    throw new Error(detail);
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch (e) {
+    throw new Error('Failed to parse upload response: ' + (e instanceof Error ? e.message : 'unknown error'));
+  }
 }
 
 /**
@@ -466,8 +520,8 @@ export async function pollTrackUntilDone(
     console.warn('SSE fallback to polling:', e);
   }
 
-  // ── Fallback: polling classique ──
-  for (let i = 0; i < maxAttempts; i++) {
+  // ── Fallback: polling classique avec exponential backoff ──
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
       headers: { ...authHeaders() },
     });
@@ -479,7 +533,10 @@ export async function pollTrackUntilDone(
       const errMsg = (track as any).error_message || '';
       throw new Error(errMsg.includes('not found') ? 'Audio file not found' : `Analysis failed for track ${trackId}`);
     }
-    await new Promise(r => setTimeout(r, intervalMs));
+
+    // Exponential backoff with jitter: min 1s, max 30s
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30000) + Math.random() * 1000;
+    await new Promise(r => setTimeout(r, delay));
   }
   throw new Error('Analysis timed out');
 }
