@@ -2421,6 +2421,142 @@ def get_energy_flow(
     }
 
 
+# ── v6.4: Visualization data endpoints ────────────────────────────────
+@router.get("/{track_id}/spectrogram")
+def get_spectrogram(
+    track_id: int,
+    n_mels: int = Query(64, ge=16, le=256, description="Number of mel frequency bins"),
+    time_steps: int = Query(256, ge=64, le=1024, description="Number of time steps"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return mel-spectrogram data for heatmap visualization.
+
+    Returns a 2D array (n_mels x time_steps) in dB scale plus frequency axis.
+    Requires the audio file to still be accessible on disk.
+    """
+    from app.services.audio_analysis import compute_spectrogram_data
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path:
+        raise HTTPException(status_code=400, detail="Audio file not accessible")
+
+    import os
+    if not os.path.exists(track.file_path):
+        raise HTTPException(status_code=410, detail="Audio file no longer on disk")
+
+    result = compute_spectrogram_data(track.file_path, n_mels=n_mels, time_steps=time_steps)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+@router.get("/{track_id}/loudness-timeline")
+def get_loudness_timeline(
+    track_id: int,
+    resolution: int = Query(128, ge=32, le=512, description="Number of loudness data points"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return LUFS loudness over time for live meter visualization.
+
+    Returns short-term (400ms) and momentary loudness values plus integrated LUFS.
+    """
+    from app.services.audio_analysis import compute_loudness_timeline
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path:
+        raise HTTPException(status_code=400, detail="Audio file not accessible")
+
+    import os
+    if not os.path.exists(track.file_path):
+        raise HTTPException(status_code=410, detail="Audio file no longer on disk")
+
+    result = compute_loudness_timeline(track.file_path, resolution=resolution)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+@router.get("/{track_id}/stereo-field")
+def get_stereo_field(
+    track_id: int,
+    resolution: int = Query(128, ge=32, le=512, description="Number of data points"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return M/S (Mid/Side) stereo field data over time.
+
+    Returns mid RMS, side RMS, L/R correlation, balance, and stereo width arrays.
+    Used for M/S waveform display and stereo field visualization.
+    """
+    from app.services.audio_analysis import compute_stereo_field_data
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if not track.file_path:
+        raise HTTPException(status_code=400, detail="Audio file not accessible")
+
+    import os
+    if not os.path.exists(track.file_path):
+        raise HTTPException(status_code=410, detail="Audio file no longer on disk")
+
+    result = compute_stereo_field_data(track.file_path, resolution=resolution)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+@router.get("/{track_id}/transition-zones")
+def get_transition_zones(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return ideal mix-in/mix-out transition zones for DJ mixing.
+
+    Identifies section boundaries where energy changes gradually —
+    these are ideal points for beatmatching and crossfading.
+    """
+    from app.services.audio_analysis import compute_transition_zones
+
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis or not analysis.section_labels:
+        raise HTTPException(status_code=400, detail="Track must be analyzed with sections first")
+
+    zones = compute_transition_zones(
+        sections=analysis.section_labels,
+        duration_ms=analysis.duration_ms or 0,
+        bpm=analysis.bpm or 120,
+    )
+
+    return {
+        "zones": zones,
+        "total": len(zones),
+        "best_mix_in": next((z for z in zones if z["type"] == "mix_in"), None),
+        "best_mix_out": next((z for z in zones if z["type"] == "mix_out"), None),
+        "bpm": analysis.bpm,
+        "key": analysis.key,
+    }
+
+
 # WebSocket endpoint pour les updates temps réel
 @router.websocket("/ws/status")
 async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):

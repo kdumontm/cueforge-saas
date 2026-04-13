@@ -5497,6 +5497,265 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 
 
 # ══════════════════════════════════════════════════════════════════════════
+#   v6.4: VISUALIZATION DATA ENDPOINTS (Points 151-170 from 500-list)
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_spectrogram_data(file_path: str, n_mels: int = 128, time_steps: int = 256) -> Dict:
+    """
+    Compute mel-spectrogram data for frontend visualization.
+    Returns a 2D array (mel_bins x time_steps) in dB scale, suitable
+    for heatmap rendering in the browser.
+
+    Points: 151 (spectrogram display), 153 (frequency resolution)
+    """
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=True, duration=600)
+        duration_ms = int(len(y) / sr * 1000)
+
+        # Compute mel-spectrogram
+        hop_length = max(1, len(y) // time_steps)
+        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels, hop_length=hop_length)
+        S_db = librosa.power_to_db(S, ref=np.max)
+
+        # Resample to exact time_steps if needed
+        if S_db.shape[1] > time_steps:
+            indices = np.linspace(0, S_db.shape[1] - 1, time_steps, dtype=int)
+            S_db = S_db[:, indices]
+
+        # Compute frequency axis (mel bin center frequencies)
+        mel_freqs = librosa.mel_frequencies(n_mels=n_mels, fmin=0, fmax=sr / 2)
+
+        return {
+            "spectrogram": S_db.tolist(),
+            "mel_frequencies_hz": mel_freqs.tolist(),
+            "time_steps": int(S_db.shape[1]),
+            "n_mels": n_mels,
+            "duration_ms": duration_ms,
+            "db_range": [float(S_db.min()), float(S_db.max())],
+            "sample_rate": sr,
+        }
+    except Exception as e:
+        logger.error(f"Spectrogram computation failed: {e}")
+        return {"error": str(e)}
+
+
+def compute_loudness_timeline(file_path: str, resolution: int = 128) -> Dict:
+    """
+    Compute LUFS loudness at regular intervals for a real-time loudness meter.
+    Returns short-term (400ms) and momentary (100ms) loudness values over time.
+
+    Points: 155 (live loudness meter), 156 (loudness history)
+    """
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=True, duration=600)
+        duration_ms = int(len(y) / sr * 1000)
+
+        # Short-term loudness (400ms windows)
+        window_400ms = int(sr * 0.4)
+        hop = max(1, len(y) // resolution)
+
+        short_term = []
+        momentary = []
+        window_100ms = int(sr * 0.1)
+
+        for i in range(0, len(y) - window_400ms, hop):
+            # Short-term (400ms)
+            frame = y[i:i + window_400ms]
+            rms = np.sqrt(np.mean(frame ** 2))
+            if rms > 1e-8:
+                lufs_approx = -0.691 + 10 * np.log10(rms ** 2 + 1e-10)
+            else:
+                lufs_approx = -70.0
+            short_term.append({
+                "time_ms": int(i / sr * 1000),
+                "lufs": round(float(np.clip(lufs_approx, -70, 0)), 1),
+            })
+
+            # Momentary (100ms at same position)
+            frame_m = y[i:i + window_100ms]
+            rms_m = np.sqrt(np.mean(frame_m ** 2))
+            if rms_m > 1e-8:
+                lufs_m = -0.691 + 10 * np.log10(rms_m ** 2 + 1e-10)
+            else:
+                lufs_m = -70.0
+            momentary.append(round(float(np.clip(lufs_m, -70, 0)), 1))
+
+        # Integrated LUFS (gated)
+        all_lufs = [p["lufs"] for p in short_term if p["lufs"] > -70]
+        gated = [l for l in all_lufs if l > -40]  # Absolute gate
+        if gated:
+            relative_threshold = np.mean(gated) - 10
+            final_gated = [l for l in gated if l > relative_threshold]
+            integrated_lufs = float(np.mean(final_gated)) if final_gated else -24.0
+        else:
+            integrated_lufs = -24.0
+
+        return {
+            "short_term": short_term,
+            "momentary": momentary,
+            "integrated_lufs": round(integrated_lufs, 1),
+            "duration_ms": duration_ms,
+            "resolution": len(short_term),
+            "max_lufs": round(float(max(all_lufs)) if all_lufs else -70.0, 1),
+        }
+    except Exception as e:
+        logger.error(f"Loudness timeline computation failed: {e}")
+        return {"error": str(e)}
+
+
+def compute_stereo_field_data(file_path: str, resolution: int = 128) -> Dict:
+    """
+    Compute stereo field data (M/S decomposition, correlation, balance) over time.
+    Used for M/S waveform display and stereo field visualization.
+
+    Points: 157 (M/S display), 158 (stereo field), 159 (phase correlation meter)
+    """
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=False, duration=600)
+        duration_ms = int(y.shape[1] / sr * 1000) if y.ndim == 2 else int(len(y) / sr * 1000)
+
+        if y.ndim == 1:
+            # Mono file — return basic data
+            return {
+                "is_stereo": False,
+                "duration_ms": duration_ms,
+                "mid_rms": [],
+                "side_rms": [],
+                "correlation": [],
+                "balance": [],
+                "stereo_width": [],
+            }
+
+        L = y[0]
+        R = y[1]
+        mid = (L + R) / 2
+        side = (L - R) / 2
+
+        hop = max(1, len(L) // resolution)
+        window = min(hop * 2, len(L))
+
+        mid_rms_arr = []
+        side_rms_arr = []
+        correlation_arr = []
+        balance_arr = []
+        width_arr = []
+
+        for i in range(0, len(L) - window, hop):
+            m_frame = mid[i:i + window]
+            s_frame = side[i:i + window]
+            l_frame = L[i:i + window]
+            r_frame = R[i:i + window]
+
+            m_rms = float(np.sqrt(np.mean(m_frame ** 2)))
+            s_rms = float(np.sqrt(np.mean(s_frame ** 2)))
+            mid_rms_arr.append(round(m_rms, 4))
+            side_rms_arr.append(round(s_rms, 4))
+
+            # Pearson correlation (mono compatibility indicator)
+            l_std = np.std(l_frame)
+            r_std = np.std(r_frame)
+            if l_std > 1e-8 and r_std > 1e-8:
+                corr = float(np.corrcoef(l_frame, r_frame)[0, 1])
+            else:
+                corr = 1.0
+            correlation_arr.append(round(corr, 3))
+
+            # Balance (L/R power ratio, 0 = full L, 0.5 = center, 1 = full R)
+            l_power = np.mean(l_frame ** 2)
+            r_power = np.mean(r_frame ** 2)
+            total = l_power + r_power + 1e-10
+            balance_arr.append(round(float(r_power / total), 3))
+
+            # Stereo width
+            w = s_rms / (m_rms + s_rms + 1e-10)
+            width_arr.append(round(float(w), 3))
+
+        # Average metrics
+        avg_correlation = round(float(np.mean(correlation_arr)), 3) if correlation_arr else 1.0
+        avg_width = round(float(np.mean(width_arr)), 3) if width_arr else 0.0
+
+        return {
+            "is_stereo": True,
+            "duration_ms": duration_ms,
+            "mid_rms": mid_rms_arr,
+            "side_rms": side_rms_arr,
+            "correlation": correlation_arr,
+            "balance": balance_arr,
+            "stereo_width": width_arr,
+            "resolution": len(mid_rms_arr),
+            "avg_correlation": avg_correlation,
+            "avg_stereo_width": avg_width,
+            "mono_compatible": avg_correlation > 0.5,
+        }
+    except Exception as e:
+        logger.error(f"Stereo field computation failed: {e}")
+        return {"error": str(e)}
+
+
+def compute_transition_zones(sections: List[Dict], duration_ms: int, bpm: float) -> List[Dict]:
+    """
+    Identify ideal transition zones (mix-in / mix-out points) from section data.
+    A transition zone is a region where energy changes gradually — ideal for DJ mixing.
+
+    Points: 161 (transition zones), 162 (mix point suggestions)
+    """
+    if not sections or not duration_ms or not bpm:
+        return []
+
+    bar_ms = 60000 / max(bpm, 60) * 4
+    sorted_sections = sorted(sections, key=lambda s: s.get("time_ms", 0))
+    zones = []
+
+    for i in range(len(sorted_sections) - 1):
+        curr = sorted_sections[i]
+        next_s = sorted_sections[i + 1]
+
+        curr_end = curr.get("time_ms", 0) + curr.get("duration_ms", 0)
+        next_start = next_s.get("time_ms", 0)
+        curr_energy = curr.get("energy", 0.5)
+        next_energy = next_s.get("energy", 0.5)
+        energy_change = abs(next_energy - curr_energy)
+
+        curr_label = curr.get("label", "").upper()
+        next_label = next_s.get("label", "").upper()
+
+        # Classify transition type
+        if curr_label == "INTRO" or next_label == "INTRO":
+            zone_type = "mix_in"
+            quality = 0.9 if curr_energy < 0.4 else 0.6
+        elif curr_label == "OUTRO" or next_label == "OUTRO":
+            zone_type = "mix_out"
+            quality = 0.9 if next_energy < 0.4 else 0.6
+        elif curr_label == "BREAKDOWN" or next_label == "BUILD":
+            zone_type = "breakdown_to_build"
+            quality = 0.7
+        elif energy_change > 0.3:
+            zone_type = "energy_transition"
+            quality = 0.5
+        else:
+            continue  # Not a significant transition
+
+        # Zone length (ideal: 8-32 bars)
+        zone_length_ms = max(int(bar_ms * 8), min(int(bar_ms * 32), int(curr.get("duration_ms", bar_ms * 16))))
+
+        zones.append({
+            "start_ms": max(0, int(curr_end - zone_length_ms / 2)),
+            "end_ms": min(duration_ms, int(next_start + zone_length_ms / 2)),
+            "type": zone_type,
+            "quality": round(quality, 2),
+            "from_section": curr_label,
+            "to_section": next_label,
+            "energy_before": round(curr_energy, 2),
+            "energy_after": round(next_energy, 2),
+            "bars": round(zone_length_ms / bar_ms, 1),
+        })
+
+    # Sort by quality
+    zones.sort(key=lambda z: -z["quality"])
+    return zones
+
+
+# ══════════════════════════════════════════════════════════════════════════
 #   SECTION 1: ADVANCED SPECTRAL ANALYSIS (Points 1-20)
 # ══════════════════════════════════════════════════════════════════════════
 
