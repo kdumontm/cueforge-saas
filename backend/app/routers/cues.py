@@ -59,6 +59,10 @@ class CuePointUpdate(BaseModel):
     position_ms: Optional[int] = None
 
 
+class CuePointBatchCreate(BaseModel):
+    cues: List[CuePointCreate]
+
+
 class RuleResponse(BaseModel):
     id: int
     track_id: int
@@ -159,6 +163,41 @@ async def create_cue_point(
     db.commit()
     db.refresh(cue)
     return CuePointResponse.model_validate(cue)
+
+
+@router.post("/{track_id}/points/batch", response_model=List[CuePointResponse], status_code=201)
+async def create_cue_points_batch(
+    track_id: int,
+    batch: CuePointBatchCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Crée plusieurs cue points en une seule requête."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    saved = []
+    for cue_data in batch.cues:
+        cue = CuePoint(
+            track_id=track_id,
+            position_ms=int(cue_data.time * 1000),
+            name=cue_data.label,
+            number=cue_data.hot_cue_slot,
+            color=cue_data.color or "blue",
+            cue_type=cue_data.cue_type or "hot_cue",
+        )
+        db.add(cue)
+        saved.append(cue)
+
+    db.commit()
+    for c in saved:
+        db.refresh(c)
+
+    return [CuePointResponse.model_validate(c) for c in saved]
 
 
 @router.patch("/points/{cue_id}", response_model=CuePointResponse)
@@ -402,6 +441,76 @@ async def generate_cues(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error generating cues: {str(e)}")
+
+
+@router.post("/{track_id}/regenerate", response_model=List[CuePointResponse])
+async def regenerate_cues(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Régénère les cue points à partir de l'analyse existante (sans ré-analyser l'audio)."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(
+        TrackAnalysis.track_id == track_id
+    ).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not available — analyze the track first")
+
+    # Build analysis dict for the generator
+    analysis_data = {
+        "duration_ms": analysis.duration_ms or 0,
+        "bpm": track.bpm or getattr(analysis, 'estimated_bpm', None) or 128,
+        "genre": track.genre or getattr(analysis, 'estimated_genre', None),
+        "section_labels": analysis.section_labels or [],
+        "drop_positions": analysis.drop_positions or [],
+        "phrase_positions": analysis.phrase_positions or [],
+        "beat_positions": analysis.beat_positions or [],
+        "stem_analysis": bool(getattr(analysis, 'stem_analysis', False)),
+        "stem_validated_drops": getattr(analysis, 'stem_validated_drops', None) or [],
+        "vocal_active_regions": getattr(analysis, 'vocal_active_regions', None) or [],
+        "vocal_sections_ms": getattr(analysis, 'vocal_sections_ms', None) or [],
+        "riser_candidates": getattr(analysis, 'riser_candidates', None) or [],
+        "drum_enter_ms": getattr(analysis, 'drum_enter_ms', None),
+        "drum_exit_ms": getattr(analysis, 'drum_exit_ms', None),
+        "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
+    }
+
+    new_cues = generate_cue_points(analysis_data)
+
+    # Delete old auto-generated cues (keep manual ones)
+    db.query(CuePoint).filter(
+        CuePoint.track_id == track_id,
+    ).delete()
+    db.flush()
+
+    # Save new cues
+    saved = []
+    for cue_data in new_cues:
+        cue = CuePoint(
+            track_id=track_id,
+            position_ms=cue_data["position_ms"],
+            end_position_ms=cue_data.get("end_position_ms"),
+            name=cue_data["name"],
+            number=cue_data.get("number", 0),
+            color=cue_data.get("color", "#2B7FFF"),
+            cue_type=cue_data.get("cue_type", "hot_cue"),
+            confidence=cue_data.get("confidence"),
+        )
+        db.add(cue)
+        saved.append(cue)
+
+    db.commit()
+    for c in saved:
+        db.refresh(c)
+
+    return [CuePointResponse.model_validate(c) for c in saved]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
