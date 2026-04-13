@@ -695,6 +695,13 @@ async def analyze_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    # Check quota before allowing analysis
+    from app.services.quota_service import check_analysis_quota
+    plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
+    allowed, message = check_analysis_quota(current_user.id, plan)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=message)
+
     # Allow re-analysis: if already analyzing, warn but allow retry (handles stuck tracks)
     if track.status == TrackStatus.analyzing:
         logger.warning(f"Track {track_id} was in analyzing state, allowing retry")
@@ -1827,6 +1834,13 @@ async def identify_track(
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
+
+    # Check quota before allowing identification
+    from app.services.quota_service import check_analysis_quota
+    plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
+    allowed, message = check_analysis_quota(current_user.id, plan)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=message)
 
     loop = asyncio.get_event_loop()
 

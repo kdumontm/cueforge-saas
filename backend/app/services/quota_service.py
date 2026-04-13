@@ -310,6 +310,34 @@ class QuotaService:
 _quota_service = QuotaService()
 
 
+def check_analysis_quota(user_id: str, plan_type_str: str = "free") -> Tuple[bool, Optional[str]]:
+    """
+    Check if user can start a new analysis.
+    Simple helper function for routes to check quota before analysis.
+
+    Args:
+        user_id: User ID (string)
+        plan_type_str: Plan type as string (free, pro, premium, unlimited, app)
+
+    Returns:
+        (allowed, error_message) tuple
+    """
+    # Map string plan to PlanType
+    plan_map = {
+        "free": PlanType.FREE,
+        "pro": PlanType.PRO,
+        "premium": PlanType.PREMIUM,
+        "unlimited": PlanType.PREMIUM,  # unlimited maps to premium
+        "app": PlanType.PREMIUM,  # app tier also maps to premium
+    }
+
+    plan_type = plan_map.get(plan_type_str.lower(), PlanType.FREE)
+    quota_service = get_quota_service()
+    quota_service.set_plan(user_id, plan_type)
+
+    return quota_service.can_start_analysis(user_id)
+
+
 def get_quota_service() -> QuotaService:
     """Get the global quota service instance."""
     return _quota_service

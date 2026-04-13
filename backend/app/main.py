@@ -420,6 +420,8 @@ from app.routers import auth, tracks, cues, export, billing, admin, waveforms, o
 from app.routers import org_management  # noqa: E402
 # v2 routers
 from app.routers import hot_cues, playlists, crates, sets, import_dj, advanced, diagnostics  # noqa: E402
+# DJ export/import routers
+from app.routers import dj_export, dj_import  # noqa: E402
 # v4 routers
 from app.routers import analytics, mix_analyzer  # noqa: E402
 from app.routers import downloads  # noqa: E402
@@ -462,6 +464,9 @@ app.include_router(sets.router, prefix="/api/v1", tags=["dj-sets"])
 app.include_router(import_dj.router, prefix="/api/v1", tags=["import"])
 app.include_router(advanced.router, prefix="/api/v1", tags=["advanced"])
 app.include_router(diagnostics.router, prefix="/api/v1", tags=["diagnostics"])
+# DJ export/import routers
+app.include_router(dj_export.router)
+app.include_router(dj_import.router)
 # v4 routers
 app.include_router(analytics.router, prefix="/api/v1", tags=["analytics"])
 app.include_router(mix_analyzer.router, prefix="/api/v1", tags=["mix-analyzer"])

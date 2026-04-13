@@ -7,6 +7,8 @@ import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
 import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+// Accessibility
+import { announceCue } from '@/lib/accessibility';
 
 const CUE_TYPES = [
   { value: 'hot_cue',   label: 'Hot Cue',   icon: '🎯', color: '#22c55e' },

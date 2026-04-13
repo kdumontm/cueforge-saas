@@ -17,6 +17,8 @@ from typing import Optional, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
+from app.services.circuit_breaker import get_breaker
+
 logger = logging.getLogger(__name__)
 
 # AcoustID test key — replace with your own from https://acoustid.org/login

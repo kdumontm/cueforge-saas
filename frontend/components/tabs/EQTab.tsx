@@ -3,19 +3,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
+// Performance hook
+import { useDebounce } from '@/hooks/usePerformance';
 
 interface EQTabProps {
   /** Ref exposant setEQ(low, mid, high) depuis WaveSurferPlayer */
   playerRef?: React.MutableRefObject<any>;
-}
-
-// Simple debounce utility (50ms)
-function createDebounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-  let timeoutId: NodeJS.Timeout | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeoutId) clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
 }
 
 const BANDS = [
@@ -40,7 +33,6 @@ export function EQTab({ playerRef }: EQTabProps) {
   const [values, setValues] = useState<Record<BandKey, number>>({ low: 0, mid: 0, high: 0 });
   const [isActive, setIsActive] = useState(false);
   const pendingRef = useRef<Record<BandKey, number>>({ low: 0, mid: 0, high: 0 });
-  const debouncedApplyRef = useRef<((newValues: Record<BandKey, number>, active: boolean) => void) | null>(null);
 
   // Apply EQ changes to player
   const applyEQ = useCallback((newValues: Record<BandKey, number>, active: boolean) => {
@@ -51,16 +43,17 @@ export function EQTab({ playerRef }: EQTabProps) {
     }
   }, [playerRef]);
 
-  // Initialize debounced apply (50ms)
-  useEffect(() => {
-    debouncedApplyRef.current = createDebounce(applyEQ, 50);
-  }, [applyEQ]);
+  // Debounced apply (50ms) using performance hook
+  const debouncedApply = useDebounce(
+    (newValues: Record<BandKey, number>, active: boolean) => applyEQ(newValues, active),
+    50
+  );
 
   const handleChange = (band: BandKey, value: number) => {
     const newValues = { ...values, [band]: value };
     setValues(newValues);
-    if (isActive && debouncedApplyRef.current) {
-      debouncedApplyRef.current(newValues, true);
+    if (isActive) {
+      debouncedApply(newValues, true);
     }
   };
 
