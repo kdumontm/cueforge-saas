@@ -2456,3 +2456,311 @@ export async function searchCues(query: string, filters?: {
   if (!res.ok) throw new Error('Failed to search cues');
   return res.json();
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════
+//   v6.8-6.9: New API functions for advanced analysis, playlist, cues
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Quick Analysis ──────────────────────────────────────────────────────
+export interface QuickAnalysisResult {
+  track_id: number;
+  bpm: number | null;
+  bpm_confidence: number | null;
+  key: string | null;
+  key_confidence: number | null;
+  energy: number | null;
+  loudness_db: number | null;
+  danceability: number | null;
+  duration_ms: number;
+  camelot_code: string | null;
+  quick_mode: boolean;
+  status: string;
+}
+
+export async function analyzeTrackQuick(trackId: number): Promise<QuickAnalysisResult> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/analyze-quick`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Batch Analysis ──────────────────────────────────────────────────────
+export interface BatchAnalyzeResult {
+  analyzed: number;
+  results: Array<QuickAnalysisResult | { track_id: number; status: string } | { track_id: number; error: string }>;
+}
+
+export async function batchAnalyzeTracks(trackIds: number[], quick = true): Promise<BatchAnalyzeResult> {
+  const res = await authFetch(`${API_URL}/tracks/batch-analyze`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds, quick }),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Track Comparison ────────────────────────────────────────────────────
+export interface TrackComparison {
+  overall: number;
+  compatible: boolean;
+  scores: { bpm: number; key: number; energy: number };
+  recommendation: string;
+  bpm_diff: number;
+  energy_diff: number;
+  key_a: string;
+  key_b: string;
+  track_a: Record<string, any>;
+  track_b: Record<string, any>;
+}
+
+export async function compareTracksDetailed(trackIdA: number, trackIdB: number): Promise<TrackComparison> {
+  const res = await authFetch(`${API_URL}/tracks/compare/${trackIdA}/${trackIdB}`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Find Compatible Tracks ──────────────────────────────────────────────
+export interface CompatibleTrackResult {
+  track_id: number;
+  title: string;
+  artist: string | null;
+  bpm: number | null;
+  key: string | null;
+  camelot_code: string | null;
+  energy: number | null;
+  overall_score: number;
+  scores: { bpm: number; key: number; energy: number };
+  recommendation: string;
+}
+
+export async function findCompatibleTracks(trackId: number, limit = 10): Promise<{
+  source_track_id: number;
+  compatible_tracks: CompatibleTrackResult[];
+  total_candidates: number;
+}> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/find-compatible?limit=${limit}`, {
+    method: 'GET',
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Smart Playlist ──────────────────────────────────────────────────────
+export type PlaylistMode = 'energy_flow' | 'harmonic_mix' | 'bpm_flow';
+
+export interface SmartPlaylistResult {
+  mode: string;
+  track_count: number;
+  total_duration_ms: number;
+  total_duration_formatted: string;
+  tracks: Array<{
+    id: number;
+    title: string;
+    artist: string | null;
+    bpm: number | null;
+    key: string | null;
+    energy: number | null;
+    camelot_code: string | null;
+    playlist_position: number;
+    set_phase?: string;
+    harmonic_transition?: string;
+  }>;
+}
+
+export async function generateSmartPlaylist(
+  trackIds: number[],
+  mode: PlaylistMode = 'energy_flow',
+  targetDurationMin = 60,
+): Promise<SmartPlaylistResult> {
+  const res = await authFetch(`${API_URL}/tracks/smart-playlist`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds, mode, target_duration_min: targetDurationMin }),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Cue Suggestions ─────────────────────────────────────────────────────
+export interface CueSuggestion {
+  position_ms: number;
+  cue_type: string;
+  name: string;
+  color: string;
+  confidence: number;
+  source: string;
+  number: number;
+}
+
+export async function suggestCues(trackId: number, maxCues = 8, minConfidence = 0.4): Promise<{
+  track_id: number;
+  genre: string | null;
+  suggested_cues: CueSuggestion[];
+  total_suggestions: number;
+}> {
+  const res = await authFetch(
+    `${API_URL}/tracks/${trackId}/suggest-cues?max_cues=${maxCues}&min_confidence=${minConfidence}`,
+    { method: 'GET', headers: { ...authHeaders() } },
+  );
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function applySuggestedCues(trackId: number, cueIndices?: number[]): Promise<{
+  track_id: number;
+  cues_created: number;
+}> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/apply-suggested-cues`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cue_indices: cueIndices ?? null }),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Visualization Data ──────────────────────────────────────────────────
+export async function getSpectrogram(trackId: number, nMels = 128, timeSteps = 256): Promise<{
+  spectrogram: number[][];
+  mel_frequencies_hz: number[];
+  time_steps: number;
+  n_mels: number;
+  duration_ms: number;
+  db_range: [number, number];
+}> {
+  const res = await authFetch(
+    `${API_URL}/tracks/${trackId}/spectrogram?n_mels=${nMels}&time_steps=${timeSteps}`,
+    { method: 'GET', headers: { ...authHeaders() } },
+  );
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getLoudnessTimeline(trackId: number, resolution = 128): Promise<{
+  short_term: Array<{ time_ms: number; lufs: number }>;
+  momentary: number[];
+  integrated_lufs: number;
+  duration_ms: number;
+  max_lufs: number;
+}> {
+  const res = await authFetch(
+    `${API_URL}/tracks/${trackId}/loudness-timeline?resolution=${resolution}`,
+    { method: 'GET', headers: { ...authHeaders() } },
+  );
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getStereoField(trackId: number, resolution = 128): Promise<{
+  is_stereo: boolean;
+  duration_ms: number;
+  mid_rms: number[];
+  side_rms: number[];
+  correlation: number[];
+  balance: number[];
+  stereo_width: number[];
+}> {
+  const res = await authFetch(
+    `${API_URL}/tracks/${trackId}/stereo-field?resolution=${resolution}`,
+    { method: 'GET', headers: { ...authHeaders() } },
+  );
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+// ── Deep Analysis Endpoints ─────────────────────────────────────────────
+export async function getHarmonicSummary(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/harmonic-summary`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getVocalAnalysis(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/vocal-analysis`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getProductionAnalysis(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/production-analysis`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getMixingCompatibility(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/mixing-compatibility`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getTransitionZones(trackId: number): Promise<Array<Record<string, any>>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/transition-zones`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getRhythmSummary(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/rhythm-summary`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getSpectralSummary(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/spectral-summary`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getMixRecommendations(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/mix-recommendations`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getQualityExtended(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/quality-extended`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getStructuralSummary(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/structural-summary`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function getAudioQuality(trackId: number): Promise<Record<string, any>> {
+  const res = await authFetch(`${API_URL}/tracks/${trackId}/audio-quality`, {
+    method: 'GET', headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
