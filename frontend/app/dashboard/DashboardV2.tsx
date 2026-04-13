@@ -9,11 +9,11 @@ import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 import { useInitialLoad } from '@/hooks/useInitialLoad';
 
-import PlayerCard from '@/components/player/PlayerCard';
-import TrackList from '@/components/tracks/TrackList';
-// Critical tabs — chargés immédiatement
-import InfoEditTab from '@/components/tabs/InfoEditTab';
-import CuesTab from '@/components/tabs/CuesTab';
+// All components lazy-loaded for optimal code splitting
+const PlayerCard = lazy(() => import('@/components/player/PlayerCard'));
+const TrackList = lazy(() => import('@/components/tracks/TrackList'));
+const InfoEditTab = lazy(() => import('@/components/tabs/InfoEditTab'));
+const CuesTab = lazy(() => import('@/components/tabs/CuesTab'));
 // Tabs secondaires — lazy-loaded (code splitting)
 const BeatgridTab   = lazy(() => import('@/components/tabs/BeatgridTab'));
 const StemsTab      = lazy(() => import('@/components/tabs/StemsTab'));
@@ -24,8 +24,8 @@ const PlaylistsTab  = lazy(() => import('@/components/tabs/PlaylistsTab'));
 const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
 // HistoryTab retiré
 const CompareTab    = lazy(() => import('@/components/tabs/CompareTab'));
-import BatchActionBar from '@/components/tracks/BatchActionBar';
-import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal';
+const BatchActionBar = lazy(() => import('@/components/tracks/BatchActionBar'));
+const KeyboardShortcutsModal = lazy(() => import('@/components/KeyboardShortcutsModal'));
 import { isDesktopApp } from '@/lib/electron';
 const DuplicateDetector = lazy(() => import('@/components/DuplicateDetector'));
 const MetadataEnrichModal = lazy(() => import('@/components/MetadataEnrichModal'));
@@ -1631,6 +1631,16 @@ export default function DashboardV2() {
     }
   }
 
+  // Memoize TABS filter for optimal performance — recalculates only when desktop status or feature display changes
+  const filteredTabs = useMemo(() => {
+    return TABS.filter(t => {
+      if ((t as any).desktopOnly && !isDesktopApp()) return false;
+      const fk = (t as any).featureKey;
+      if (fk && getFeatureDisplayMode(fk) === 'hidden') return false;
+      return true;
+    });
+  }, [getFeatureDisplayMode]);
+
   return (
     <div
       className="p-2 sm:p-4 space-y-2 sm:space-y-3 relative"
@@ -1833,13 +1843,7 @@ export default function DashboardV2() {
 
           {/* Onglets verticaux */}
           <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
-            {TABS.filter(t => {
-              if ((t as any).desktopOnly && !isDesktopApp()) return false;
-              // Mode hidden → l'onglet disparaît complètement
-              const fk = (t as any).featureKey;
-              if (fk && getFeatureDisplayMode(fk) === 'hidden') return false;
-              return true;
-            }).map(t => {
+            {filteredTabs.map(t => {
               const noTrack = !selectedTrack && !(t as any).global;
               const fk = (t as any).featureKey;
               const featureLocked = fk ? getFeatureDisplayMode(fk) === 'locked' : false;
