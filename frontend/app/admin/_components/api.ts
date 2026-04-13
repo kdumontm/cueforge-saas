@@ -781,4 +781,170 @@ export const adminApi = {
   getAPIUsageStats: () => api("/admin/api-usage/stats"),
   getAPIRateLimits: () => api("/admin/api-usage/rate-limits"),
   updateAPIRateLimits: (d: any) => api("/admin/api-usage/rate-limits", { method: "PUT", body: d }),
+
+  // ═══════════════ REAL-TIME DASHBOARD ═══════════════
+  getRealtimeStats: () => api("/admin/realtime/stats"),
+  getRealtimeEvents: (params?: any) => api("/admin/realtime/events", { params }),
+  getRealtimeConnections: () => api("/admin/realtime/connections"),
+  getRealtimeGeographic: () => api("/admin/realtime/geographic"),
+
+  // ═══════════════ FUNNEL ANALYSIS ═══════════════
+  getFunnels: (params?: any) => api("/admin/funnels", { params }),
+  getFunnel: (id: number) => api(`/admin/funnels/${id}`),
+  createFunnel: (d: any) => api("/admin/funnels", { method: "POST", body: d }),
+  updateFunnel: (id: number, d: any) => api(`/admin/funnels/${id}`, { method: "PUT", body: d }),
+  deleteFunnel: (id: number) => api(`/admin/funnels/${id}`, { method: "DELETE" }),
+  getFunnelResults: (id: number) => api(`/admin/funnels/${id}/results`),
+  duplicateFunnel: (id: number) => api(`/admin/funnels/${id}/duplicate`, { method: "POST" }),
+  getFunnelTemplates: () => api("/admin/funnels/templates"),
+
+  // ═══════════════ COHORT ANALYSIS ═══════════════
+  getCohorts: (params?: any) => api("/admin/cohorts", { params }),
+  getCohort: (id: number) => api(`/admin/cohorts/${id}`),
+  createCohort: (d: any) => api("/admin/cohorts", { method: "POST", body: d }),
+  updateCohort: (id: number, d: any) => api(`/admin/cohorts/${id}`, { method: "PUT", body: d }),
+  deleteCohort: (id: number) => api(`/admin/cohorts/${id}`, { method: "DELETE" }),
+  getCohortResults: (id: number) => api(`/admin/cohorts/${id}/results`),
+  getCohortPresets: () => api("/admin/cohorts/presets"),
+
+  // ═══════════════ EVENT TRACKING ═══════════════
+  getTrackedEvents: (params?: any) => api("/admin/events", { params }),
+  getEventStats: () => api("/admin/events/stats"),
+  getEventDefinitions: (params?: any) => api("/admin/events/definitions", { params }),
+  getEventDefinition: (id: number) => api(`/admin/events/definitions/${id}`),
+  createEventDefinition: (d: any) => api("/admin/events/definitions", { method: "POST", body: d }),
+  updateEventDefinition: (id: number, d: any) => api(`/admin/events/definitions/${id}`, { method: "PUT", body: d }),
+  deleteEventDefinition: (id: number) => api(`/admin/events/definitions/${id}`, { method: "DELETE" }),
+  exportEvents: (d: any) => api("/admin/events/export", { method: "POST", body: d }),
+
+  // ═══════════════ USER JOURNEYS ═══════════════
+  getJourneys: (params?: any) => api("/admin/journeys", { params }),
+  getJourney: (id: number) => api(`/admin/journeys/${id}`),
+  createJourney: (d: any) => api("/admin/journeys", { method: "POST", body: d }),
+  updateJourney: (id: number, d: any) => api(`/admin/journeys/${id}`, { method: "PUT", body: d }),
+  deleteJourney: (id: number) => api(`/admin/journeys/${id}`, { method: "DELETE" }),
+  getJourneyStats: (id: number) => api(`/admin/journeys/${id}/stats`),
+  getJourneyUsers: (id: number) => api(`/admin/journeys/${id}/users`),
+
+  // ═══════════════ CUSTOM REPORTS ═══════════════
+  getCustomReports: (params?: any) => api("/admin/custom-reports", { params }),
+  getCustomReport: (id: number) => api(`/admin/custom-reports/${id}`),
+  createCustomReport: (d: any) => api("/admin/custom-reports", { method: "POST", body: d }),
+  updateCustomReport: (id: number, d: any) => api(`/admin/custom-reports/${id}`, { method: "PUT", body: d }),
+  deleteCustomReport: (id: number) => api(`/admin/custom-reports/${id}`, { method: "DELETE" }),
+  runCustomReport: (id: number) => api(`/admin/custom-reports/${id}/run`, { method: "POST" }),
+  scheduleCustomReport: (id: number, d: any) => api(`/admin/custom-reports/${id}/schedule`, { method: "POST", body: d }),
+
+  // ═══════════════ BULK OPERATIONS ═══════════════
+  bulkUserAction: (d: any) => api("/admin/bulk/users/action", { method: "POST", body: d }),
+  bulkTrackAction: (d: any) => api("/admin/bulk/tracks/action", { method: "POST", body: d }),
+  bulkEmailSend: (d: any) => api("/admin/bulk/emails/send", { method: "POST", body: d }),
+  getBulkJobs: (params?: any) => api("/admin/bulk/jobs", { params }),
+  getBulkJob: (id: number) => api(`/admin/bulk/jobs/${id}`),
+  cancelBulkJob: (id: number) => api(`/admin/bulk/jobs/${id}`, { method: "DELETE" }),
+
+  // ═══════════════ IMPORT / EXPORT ═══════════════
+  importData: (d: any) => api("/admin/import-export/import", { method: "POST", body: d }),
+  exportData: (type: string, params?: any) => api(`/admin/import-export/export/${type}`, { params }),
+  getImportExportJobs: () => api("/admin/import-export/jobs"),
+  getImportTemplates: () => api("/admin/import-export/templates"),
+  getFieldMappings: () => api("/admin/import-export/mappings"),
+  saveFieldMapping: (d: any) => api("/admin/import-export/mappings", { method: "POST", body: d }),
+
+  // ═══════════════ ADVANCED SEARCH ═══════════════
+  globalSearch: (d: any) => api("/admin/search/global", { method: "POST", body: d }),
+  getRecentSearches: () => api("/admin/search/recent"),
+  saveSearch: (d: any) => api("/admin/search/save", { method: "POST", body: d }),
+  getSavedSearches: () => api("/admin/search/saved"),
+  deleteSavedSearch: (id: number) => api(`/admin/search/saved/${id}`, { method: "DELETE" }),
+
+  // ═══════════════ SYSTEM MONITORING ═══════════════
+  getSystemMetrics: () => api("/admin/monitoring/system"),
+  getDatabaseMetrics: () => api("/admin/monitoring/database"),
+  getCacheMetrics: () => api("/admin/monitoring/cache"),
+  getServicesStatus: () => api("/admin/monitoring/services"),
+  getMetricsHistory: (params?: any) => api("/admin/monitoring/history", { params }),
+  getActiveAlerts: () => api("/admin/monitoring/alerts"),
+  getAlertRules: () => api("/admin/monitoring/alert-rules"),
+  createAlertRule: (d: any) => api("/admin/monitoring/alert-rules", { method: "POST", body: d }),
+  updateAlertRule: (id: number, d: any) => api(`/admin/monitoring/alert-rules/${id}`, { method: "PUT", body: d }),
+  deleteAlertRule: (id: number) => api(`/admin/monitoring/alert-rules/${id}`, { method: "DELETE" }),
+
+  // ═══════════════ ERROR TRACKING ═══════════════
+  getErrors: (params?: any) => api("/admin/errors", { params }),
+  getError: (id: number) => api(`/admin/errors/${id}`),
+  getErrorStats: () => api("/admin/errors/stats"),
+  resolveError: (id: number) => api(`/admin/errors/${id}/resolve`, { method: "POST" }),
+  ignoreError: (id: number) => api(`/admin/errors/${id}/ignore`, { method: "POST" }),
+  getErrorGroups: () => api("/admin/errors/groups"),
+
+  // ═══════════════ PERFORMANCE ═══════════════
+  getEndpointPerformance: () => api("/admin/performance/endpoints"),
+  getSlowQueries: () => api("/admin/performance/database-queries"),
+  getPerformanceOverview: () => api("/admin/performance/overview"),
+  startProfiler: () => api("/admin/performance/profiler/start", { method: "POST" }),
+  stopProfiler: () => api("/admin/performance/profiler/stop", { method: "POST" }),
+  getProfilerResults: () => api("/admin/performance/profiler/results"),
+
+  // ═══════════════ IN-APP NOTIFICATIONS ═══════════════
+  getInAppNotifications: (params?: any) => api("/admin/in-app-notifications", { params }),
+  getInAppNotification: (id: number) => api(`/admin/in-app-notifications/${id}`),
+  createInAppNotification: (d: any) => api("/admin/in-app-notifications", { method: "POST", body: d }),
+  updateInAppNotification: (id: number, d: any) => api(`/admin/in-app-notifications/${id}`, { method: "PUT", body: d }),
+  deleteInAppNotification: (id: number) => api(`/admin/in-app-notifications/${id}`, { method: "DELETE" }),
+  sendInAppNotification: (id: number) => api(`/admin/in-app-notifications/${id}/send`, { method: "POST" }),
+  getInAppNotifStats: () => api("/admin/in-app-notifications/stats"),
+  getAdminNotifFeed: () => api("/admin/in-app-notifications/feed"),
+
+  // ═══════════════ ADVANCED SUBSCRIPTIONS ═══════════════
+  getSubscriptionOverview: () => api("/admin/subscriptions-adv/overview"),
+  getTrials: (params?: any) => api("/admin/subscriptions-adv/trials", { params }),
+  extendTrial: (id: number, d: any) => api(`/admin/subscriptions-adv/trials/${id}/extend`, { method: "POST", body: d }),
+  convertTrial: (id: number) => api(`/admin/subscriptions-adv/trials/${id}/convert`, { method: "POST" }),
+  getUpgradeHistory: (params?: any) => api("/admin/subscriptions-adv/upgrades", { params }),
+  changeSubscriptionPlan: (id: number, d: any) => api(`/admin/subscriptions-adv/${id}/change-plan`, { method: "POST", body: d }),
+  applyDiscount: (id: number, d: any) => api(`/admin/subscriptions-adv/${id}/apply-discount`, { method: "POST", body: d }),
+  pauseSubscription: (id: number) => api(`/admin/subscriptions-adv/${id}/pause`, { method: "POST" }),
+  resumeSubscription: (id: number) => api(`/admin/subscriptions-adv/${id}/resume`, { method: "POST" }),
+  cancelSubscription: (id: number, d: any) => api(`/admin/subscriptions-adv/${id}/cancel`, { method: "POST", body: d }),
+  refundSubscription: (id: number, d: any) => api(`/admin/subscriptions-adv/${id}/refund`, { method: "POST", body: d }),
+  getDunning: () => api("/admin/subscriptions-adv/dunning"),
+  retryDunning: (id: number) => api(`/admin/subscriptions-adv/dunning/${id}/retry`, { method: "POST" }),
+  getRevenueForecast: () => api("/admin/subscriptions-adv/revenue-forecast"),
+
+  // ═══════════════ USER TIMELINE ═══════════════
+  getUserTimeline: (userId: number, params?: any) => api(`/admin/user-timeline/${userId}`, { params }),
+  getUserTimelineStats: (userId: number) => api(`/admin/user-timeline/${userId}/stats`),
+  getUserSessions: (userId: number) => api(`/admin/user-timeline/${userId}/sessions`),
+  addUserNote: (userId: number, d: any) => api(`/admin/user-timeline/${userId}/note`, { method: "POST", body: d }),
+  getUserNotes: (userId: number) => api(`/admin/user-timeline/${userId}/notes`),
+  getUserTags: (userId: number) => api(`/admin/user-timeline/${userId}/tags`),
+  updateUserTags: (userId: number, d: any) => api(`/admin/user-timeline/${userId}/tags`, { method: "POST", body: d }),
+
+  // ═══════════════ MULTI-ENVIRONMENT ═══════════════
+  getEnvironments: () => api("/admin/environments"),
+  getEnvironment: (id: number) => api(`/admin/environments/${id}`),
+  createEnvironment: (d: any) => api("/admin/environments", { method: "POST", body: d }),
+  updateEnvironment: (id: number, d: any) => api(`/admin/environments/${id}`, { method: "PUT", body: d }),
+  deleteEnvironment: (id: number) => api(`/admin/environments/${id}`, { method: "DELETE" }),
+  getEnvironmentStatus: (id: number) => api(`/admin/environments/${id}/status`),
+  syncEnvironment: (id: number, d: any) => api(`/admin/environments/${id}/sync`, { method: "POST", body: d }),
+  deployEnvironment: (id: number) => api(`/admin/environments/${id}/deploy`, { method: "POST" }),
+  getEnvVariables: (id: number) => api(`/admin/environments/${id}/variables`),
+  updateEnvVariables: (id: number, d: any) => api(`/admin/environments/${id}/variables`, { method: "PUT", body: d }),
+  compareEnvironments: (params: any) => api("/admin/environments/compare", { params }),
+
+  // ═══════════════ WEBHOOK TESTING ═══════════════
+  getWebhookEndpoints: () => api("/admin/webhook-testing/endpoints"),
+  testWebhook: (d: any) => api("/admin/webhook-testing/test", { method: "POST", body: d }),
+  getWebhookLogs: (params?: any) => api("/admin/webhook-testing/logs", { params }),
+  getWebhookLogDetail: (id: number) => api(`/admin/webhook-testing/logs/${id}`),
+  replayWebhook: (id: number) => api(`/admin/webhook-testing/logs/${id}/replay`, { method: "POST" }),
+  getWebhookEvents: () => api("/admin/webhook-testing/events"),
+
+  // ═══════════════ ADMIN PREFERENCES ═══════════════
+  getAdminPreferences: () => api("/admin/preferences"),
+  updateAdminPreferences: (d: any) => api("/admin/preferences", { method: "PUT", body: d }),
+  getAdminShortcuts: () => api("/admin/preferences/shortcuts"),
+  updateAdminShortcuts: (d: any) => api("/admin/preferences/shortcuts", { method: "PUT", body: d }),
 };
