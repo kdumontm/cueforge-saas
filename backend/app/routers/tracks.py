@@ -484,6 +484,13 @@ def _run_analysis(track_id: int):
             spectral_centroid_mean=analysis_data.get("spectral_centroid_mean"),
             brightness_label=analysis_data.get("brightness_label"),
             bpm_advanced=analysis_data.get("bpm_advanced"),
+            # v6.4: Audio quality metrics
+            has_clipping=analysis_data.get("has_clipping"),
+            clipping_ratio=analysis_data.get("clipping_ratio"),
+            has_dc_offset=analysis_data.get("has_dc_offset"),
+            dc_offset_mean=analysis_data.get("dc_offset_mean"),
+            true_peak_db=analysis_data.get("true_peak_db"),
+            true_peak_value=analysis_data.get("true_peak_value"),
         )
         db.add(analysis)
         db.flush()
@@ -1099,6 +1106,13 @@ class LocalAnalysisPayload(BaseModel):
     brightness_label: Optional[str] = None     # dark, warm, neutral, bright, very_bright
     spectral_centroid_mean: Optional[float] = None  # Hz
     bpm_advanced: Optional[dict] = None        # advanced BPM validation metadata
+    # v6.4: Audio quality metrics
+    has_clipping: Optional[bool] = None
+    clipping_ratio: Optional[float] = None
+    has_dc_offset: Optional[bool] = None
+    dc_offset_mean: Optional[float] = None
+    true_peak_db: Optional[float] = None
+    true_peak_value: Optional[float] = None
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -1179,6 +1193,19 @@ async def analyze_track_local(
         analysis.spectral_centroid_mean = payload.spectral_centroid_mean
     if payload.bpm_advanced is not None:
         analysis.bpm_advanced = payload.bpm_advanced
+    # v6.4: Audio quality metrics
+    if payload.has_clipping is not None:
+        analysis.has_clipping = payload.has_clipping
+    if payload.clipping_ratio is not None:
+        analysis.clipping_ratio = payload.clipping_ratio
+    if payload.has_dc_offset is not None:
+        analysis.has_dc_offset = payload.has_dc_offset
+    if payload.dc_offset_mean is not None:
+        analysis.dc_offset_mean = payload.dc_offset_mean
+    if payload.true_peak_db is not None:
+        analysis.true_peak_db = payload.true_peak_db
+    if payload.true_peak_value is not None:
+        analysis.true_peak_value = payload.true_peak_value
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)

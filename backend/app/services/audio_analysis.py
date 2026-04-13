@@ -4795,8 +4795,32 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
             logger.debug(f"Spectral centroid tracking skipped: {e}")
             return {"spectral_centroid_mean": None, "brightness_label": None}
 
-    # Submit all tasks to executor
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    def _task_audio_quality():
+        """v6.4: Audio quality metrics — clipping, DC offset, true peak."""
+        try:
+            clip_result = clipping_detection(y, sr)
+            dc_result = dc_offset_detection(y, sr)
+            tp_result = detect_true_peak(y, sr)
+            return {
+                "has_clipping": clip_result.get("has_clipping", False),
+                "clipping_ratio": clip_result.get("clipping_ratio", 0.0),
+                "clipping_samples": clip_result.get("clipping_samples", 0),
+                "dc_offset_mean": dc_result.get("dc_offset_mean", 0.0),
+                "dc_offset_db": dc_result.get("dc_offset_db", -200.0),
+                "has_dc_offset": dc_result.get("has_dc_offset", False),
+                "true_peak_db": tp_result.get("true_peak_db", -100.0),
+                "true_peak_value": tp_result.get("true_peak_value", 0.0),
+            }
+        except Exception as e:
+            logger.debug(f"Audio quality metrics skipped: {e}")
+            return {
+                "has_clipping": None, "clipping_ratio": None,
+                "dc_offset_mean": None, "has_dc_offset": None,
+                "true_peak_db": None, "true_peak_value": None,
+            }
+
+    # Submit all tasks to executor — v6.4: 7 tasks (was 6)
+    with ThreadPoolExecutor(max_workers=7) as executor:
         futures = {
             executor.submit(_task_key): 'key',
             executor.submit(_task_loudness): 'loudness',
@@ -4804,6 +4828,7 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
             executor.submit(_task_variable_bpm): 'variable_bpm',
             executor.submit(_task_stereo_width): 'stereo_width',
             executor.submit(_task_spectral_centroid): 'spectral_centroid',
+            executor.submit(_task_audio_quality): 'audio_quality',
         }
 
         # Collect results as they complete (with per-task timeout)
@@ -5199,6 +5224,10 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         spectral_data = parallel_results.get('spectral_centroid', {})
         if spectral_data is None:
             spectral_data = {}
+        # v6.4: Audio quality metrics from parallel
+        audio_quality_data = parallel_results.get('audio_quality', {})
+        if audio_quality_data is None:
+            audio_quality_data = {}
 
     except Exception as e:
         logger.warning(f"Parallel analysis batch failed, falling back to sequential: {e}")
@@ -5229,12 +5258,28 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         # v6.3: Fallback for new parallel tasks
         stereo_data = {}
         spectral_data = {}
+        audio_quality_data = {}
         try:
             stereo_data = compute_stereo_width(y, sr_loaded)
         except Exception:
             pass
         try:
             spectral_data = compute_spectral_centroid_tracking(y, sr_loaded)
+        except Exception:
+            pass
+        # v6.4: Audio quality fallback
+        try:
+            clip_result = clipping_detection(y, sr_loaded)
+            dc_result = dc_offset_detection(y, sr_loaded)
+            tp_result = detect_true_peak(y, sr_loaded)
+            audio_quality_data = {
+                "has_clipping": clip_result.get("has_clipping", False),
+                "clipping_ratio": clip_result.get("clipping_ratio", 0.0),
+                "dc_offset_mean": dc_result.get("dc_offset_mean", 0.0),
+                "has_dc_offset": dc_result.get("has_dc_offset", False),
+                "true_peak_db": tp_result.get("true_peak_db", -100.0),
+                "true_peak_value": tp_result.get("true_peak_value", 0.0),
+            }
         except Exception:
             pass
 
@@ -5427,6 +5472,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "spectral_centroid_mean": spectral_data.get("spectral_centroid_mean"),
         "brightness_label": spectral_data.get("brightness_label"),
         "bpm_advanced": bpm_advanced_summary if bpm_advanced_summary else None,
+        # v6.4 additions: audio quality metrics
+        "has_clipping": audio_quality_data.get("has_clipping"),
+        "clipping_ratio": audio_quality_data.get("clipping_ratio"),
+        "dc_offset_mean": audio_quality_data.get("dc_offset_mean"),
+        "has_dc_offset": audio_quality_data.get("has_dc_offset"),
+        "true_peak_db": audio_quality_data.get("true_peak_db"),
+        "true_peak_value": audio_quality_data.get("true_peak_value"),
     }
 
     # Merge stem data into result if available
@@ -5977,18 +6029,34 @@ def compute_loudness_range_ebu(y: np.ndarray, sr: int) -> Dict:
 def detect_true_peak(y: np.ndarray, sr: int) -> Dict:
     """
     Point 20: True peak detection (inter-sample peaks).
+    v6.4: Real 4x oversampling via scipy.signal.resample for ITU-R BS.1770-4
+    compliance. Detects peaks BETWEEN samples that can cause clipping in DACs.
     """
     try:
-        # Simple true peak via oversampling concept
-        peak_value = float(np.max(np.abs(y)))
-        peak_db = 20 * np.log10(peak_value + 1e-10)
+        # ITU-R BS.1770-4 recommends 4x oversampling for true peak
+        # Process in chunks to limit memory usage
+        chunk_size = min(len(y), sr * 10)  # 10 seconds max
+        max_peak = 0.0
+
+        for start in range(0, len(y), chunk_size):
+            chunk = y[start:start + chunk_size]
+            try:
+                from scipy.signal import resample
+                oversampled = resample(chunk, len(chunk) * 4)
+                chunk_peak = float(np.max(np.abs(oversampled)))
+            except ImportError:
+                # Fallback: simple sample peak if scipy not available
+                chunk_peak = float(np.max(np.abs(chunk)))
+            max_peak = max(max_peak, chunk_peak)
+
+        peak_db = 20 * np.log10(max_peak + 1e-10)
 
         return {
-            "true_peak_value": peak_value,
-            "true_peak_db": peak_db,
+            "true_peak_value": round(float(max_peak), 6),
+            "true_peak_db": round(float(peak_db), 2),
         }
     except Exception:
-        return {"true_peak_value": 0.0, "true_peak_db": -np.inf}
+        return {"true_peak_value": 0.0, "true_peak_db": -100.0}
 
 
 # ══════════════════════════════════════════════════════════════════════════

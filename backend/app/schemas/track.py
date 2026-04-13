@@ -132,6 +132,9 @@ class TrackAnalysisSummary(BaseModel):
     # v6.3: Stereo + brightness summary
     stereo_width_label: Optional[str] = None
     brightness_label: Optional[str] = None
+    # v6.4: Audio quality flags for quick listing
+    has_clipping: Optional[bool] = None
+    true_peak_db: Optional[float] = None
     analyzed_at: Optional[datetime] = None
 
 
@@ -167,6 +170,13 @@ class TrackAnalysisResponse(BaseModel):
     spectral_centroid_mean: Optional[float] = None
     brightness_label: Optional[str] = None
     bpm_advanced: Optional[Dict[str, Any]] = None
+    # v6.4: Audio quality metrics
+    has_clipping: Optional[bool] = None
+    clipping_ratio: Optional[float] = None
+    has_dc_offset: Optional[bool] = None
+    dc_offset_mean: Optional[float] = None
+    true_peak_db: Optional[float] = None
+    true_peak_value: Optional[float] = None
     analyzed_at: Optional[datetime] = None
     waveform_peaks: Optional[List[float]] = None
     spectral_energy: Optional[Dict[str, float]] = None

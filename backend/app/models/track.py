@@ -174,6 +174,13 @@ class TrackAnalysis(Base):
     brightness_label = Column(String(20), nullable=True)   # dark, warm, neutral, bright, very_bright
     # v6.3: Advanced BPM metadata
     bpm_advanced = Column(JSON, nullable=True)             # {histogram_peak, cross_validation, etc.}
+    # v6.4: Audio quality metrics
+    has_clipping = Column(Boolean, nullable=True)
+    clipping_ratio = Column(Float, nullable=True)
+    has_dc_offset = Column(Boolean, nullable=True)
+    dc_offset_mean = Column(Float, nullable=True)
+    true_peak_db = Column(Float, nullable=True)
+    true_peak_value = Column(Float, nullable=True)
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 
