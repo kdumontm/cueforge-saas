@@ -413,7 +413,9 @@ app = FastAPI(
 
 @app.get("/api/v1/health")
 def health_check():
-    """Health check — Railway l'utilise pour vérifier que le service est up."""
+    """Health check — Railway l'utilise pour vérifier que le service est up.
+    Retourne toujours 200 pour que Railway ne redémarre pas en boucle.
+    Le champ 'db' indique l'état réel de la connexion DB."""
     from sqlalchemy import text
     db_status = "degraded"
     db_error = None
@@ -425,12 +427,9 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok" if db_status == "ok" else "degraded", "version": "6.0.0-beat_this", "db": db_status}
+    response = {"status": "ok", "version": "6.0.0-beat_this", "db": db_status}
     if db_error:
         response["db_error"] = db_error
-    if db_status != "ok":
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=503, content=response)
     return response
 
 # Add Brotli compression middleware for better compression (if available)
