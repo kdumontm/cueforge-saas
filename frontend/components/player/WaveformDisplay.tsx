@@ -110,36 +110,21 @@ export default function WaveformDisplay({
     transform: `translateX(${progress * 100}%)`,
   }), [progress]);
 
-  // Improvement #28: Memoize path data for all bars instead of individual rects
-  const barPathData = useMemo(() => {
-    if (!enableFrequencyColors) {
-      // Standard 3-bar stack rendering
-      return barHeights.map((h, i) => {
-        const isPlayed = i / bars < progress;
-        const mid = height / 2;
+  // Improvement #28: Memoize GEOMETRY ONLY (stable) — remove progress dependency
+  const barGeometry = useMemo(() => {
+    return barHeights.map((h, i) => {
+      const mid = height / 2;
+      const x = i * (100 / bars);
+      const w = (100 / bars) * 0.6;
+      if (!enableFrequencyColors) {
         const low = h * 0.4;
         const mid2 = h * 0.35;
         const high = h - low - mid2;
-        const x = i * (100 / bars);
-        const w = (100 / bars) * 0.6;
-        return {
-          x, w, h, mid, low, mid2, high,
-          color1: isPlayed ? BAR_COLORS.played.bass : BAR_COLORS.unplayed.bass,
-          color2: isPlayed ? BAR_COLORS.played.mids : BAR_COLORS.unplayed.mids,
-          color3: isPlayed ? BAR_COLORS.played.highs : BAR_COLORS.unplayed.highs,
-        };
-      });
-    }
-    // Frequency-colored rendering
-    return barHeights.map((h, i) => {
-      const isPlayed = i / bars < progress;
-      const mid = height / 2;
-      const color = getBarColor(i, isPlayed);
-      const x = i * (100 / bars);
-      const w = (100 / bars) * 0.6;
-      return { x, w, h, mid, color, isFrequencyColored: true };
+        return { x, w, h, mid, low, mid2, high, isStacked: true };
+      }
+      return { x, w, h, mid, isStacked: false, barIndex: i };
     });
-  }, [barHeights, bars, height, progress, enableFrequencyColors, getBarColor]);
+  }, [barHeights, bars, height, enableFrequencyColors]);
 
   // Improvement #26: Zoom controls with smooth easing
   const handleZoom = (direction: 'in' | 'out') => {
@@ -165,11 +150,12 @@ export default function WaveformDisplay({
     return lines;
   }, [enableBeatGrid, bpm, bars]);
 
-  // Improvement #30: Generate fake energy curve
+  // Improvement #30: Generate fake energy curve with seeded randomness
   const energyCurve = useMemo(() => {
     if (!enableEnergyOverlay) return null;
-    return Array.from({ length: bars }, (_, i) => 0.3 + Math.sin(i * 0.05) * 0.3 + Math.random() * 0.2);
-  }, [enableEnergyOverlay, bars]);
+    const rand = seededRand(trackId * 73 + bars);
+    return Array.from({ length: bars }, (_, i) => 0.3 + Math.sin(i * 0.05) * 0.3 + rand() * 0.2);
+  }, [enableEnergyOverlay, bars, trackId]);
 
   // Improvement #31: Generate fake vocal zones
   const vocalZones = useMemo(() => {
@@ -321,21 +307,20 @@ export default function WaveformDisplay({
           </g>
         )}
 
-        {/* Improvement #25: Hover tooltip group */}
-        {barPathData.map((bar, i) => {
-        if ('color1' in bar) {
-          // Standard mode
-          const { x, w, h, mid, low, mid2, high, color1, color2, color3 } = bar;
-          return (
-            <g key={i} style={{ cursor: 'pointer' }} title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`}>
-              <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={color1} />
-              <rect x={`${x}%`} y={mid - h / 2 + low} width={`${w}%`} height={mid2} fill={color2} />
-              <rect x={`${x}%`} y={mid - h / 2 + low + mid2} width={`${w}%`} height={high} fill={color3} />
-            </g>
-          );
-        } else {
-          // Frequency colored mode
-          const { x, w, h, mid, color } = bar as typeof bar & { isFrequencyColored: boolean };
+        {/* Improvement #25: Unplayed bars — stable geometry only */}
+        {barGeometry.map((bar, i) => {
+          if (bar.isStacked) {
+            const { x, w, h, mid, low, mid2, high } = bar;
+            return (
+              <g key={i} style={{ cursor: 'pointer' }} title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`}>
+                <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={BAR_COLORS.unplayed.bass} />
+                <rect x={`${x}%`} y={mid - h / 2 + low} width={`${w}%`} height={mid2} fill={BAR_COLORS.unplayed.mids} />
+                <rect x={`${x}%`} y={mid - h / 2 + low + mid2} width={`${w}%`} height={high} fill={BAR_COLORS.unplayed.highs} />
+              </g>
+            );
+          }
+          const { x, w, h, mid, barIndex } = bar;
+          const color = getBarColor(barIndex!, false);
           return (
             <rect
               key={i}
@@ -348,8 +333,40 @@ export default function WaveformDisplay({
               title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`}
             />
           );
-        }
-      })}
+        })}
+
+        {/* Played overlay — GPU-accelerated via clipPath, updates only progress width */}
+        <defs>
+          <clipPath id={`progress-clip-${trackId}`}>
+            <rect x="0" y="0" width={`${progress * 100}%`} height={height} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#progress-clip-${trackId})`}>
+          {barGeometry.map((bar, i) => {
+            if (bar.isStacked) {
+              const { x, w, h, mid, low, mid2, high } = bar;
+              return (
+                <g key={`p-${i}`}>
+                  <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={BAR_COLORS.played.bass} />
+                  <rect x={`${x}%`} y={mid - h / 2 + low} width={`${w}%`} height={mid2} fill={BAR_COLORS.played.mids} />
+                  <rect x={`${x}%`} y={mid - h / 2 + low + mid2} width={`${w}%`} height={high} fill={BAR_COLORS.played.highs} />
+                </g>
+              );
+            }
+            const { x, w, h, mid, barIndex } = bar;
+            const color = getBarColor(barIndex!, true);
+            return (
+              <rect
+                key={`p-${i}`}
+                x={`${x}%`}
+                y={mid - h / 2}
+                width={`${w}%`}
+                height={h}
+                fill={color}
+              />
+            );
+          })}
+        </g>
 
         {!overview && (
           // Improvement #26: CSS transform for progress line
