@@ -3369,6 +3369,125 @@ def find_compatible_tracks(
     }
 
 
+# ── Library stats (dashboard) ────────────────────────────────────────────
+@router.get("/stats/library")
+def get_library_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return library-wide statistics for dashboard display:
+    total tracks, analyzed count, genre distribution, BPM range, key distribution.
+    """
+    from sqlalchemy import func
+
+    total = db.query(func.count(Track.id)).filter(
+        Track.user_id == current_user.id,
+    ).scalar() or 0
+
+    analyzed = db.query(func.count(Track.id)).filter(
+        Track.user_id == current_user.id,
+        Track.status == TrackStatus.completed,
+    ).scalar() or 0
+
+    # BPM range
+    bpm_stats = db.query(
+        func.min(TrackAnalysis.bpm),
+        func.max(TrackAnalysis.bpm),
+        func.avg(TrackAnalysis.bpm),
+    ).join(Track, Track.id == TrackAnalysis.track_id).filter(
+        Track.user_id == current_user.id,
+        TrackAnalysis.bpm.isnot(None),
+    ).first()
+
+    # Genre distribution (top 10)
+    genre_rows = db.query(
+        Track.genre, func.count(Track.id),
+    ).filter(
+        Track.user_id == current_user.id,
+        Track.genre.isnot(None),
+    ).group_by(Track.genre).order_by(func.count(Track.id).desc()).limit(10).all()
+
+    # Key distribution
+    key_rows = db.query(
+        TrackAnalysis.key, func.count(TrackAnalysis.id),
+    ).join(Track, Track.id == TrackAnalysis.track_id).filter(
+        Track.user_id == current_user.id,
+        TrackAnalysis.key.isnot(None),
+    ).group_by(TrackAnalysis.key).order_by(func.count(TrackAnalysis.id).desc()).limit(12).all()
+
+    # Average audio quality
+    avg_quality = db.query(func.avg(TrackAnalysis.audio_quality_score)).join(
+        Track, Track.id == TrackAnalysis.track_id,
+    ).filter(
+        Track.user_id == current_user.id,
+        TrackAnalysis.audio_quality_score.isnot(None),
+    ).scalar()
+
+    return {
+        "total_tracks": total,
+        "analyzed_tracks": analyzed,
+        "pending_analysis": total - analyzed,
+        "bpm_range": {
+            "min": round(bpm_stats[0], 1) if bpm_stats[0] else None,
+            "max": round(bpm_stats[1], 1) if bpm_stats[1] else None,
+            "avg": round(bpm_stats[2], 1) if bpm_stats[2] else None,
+        },
+        "genre_distribution": {row[0]: row[1] for row in genre_rows},
+        "key_distribution": {row[0]: row[1] for row in key_rows},
+        "avg_audio_quality": round(avg_quality, 1) if avg_quality else None,
+    }
+
+
+# ── Analysis depth endpoint ──────────────────────────────────────────────
+@router.get("/{track_id}/analysis-depth")
+def get_analysis_depth(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Return which analysis blobs are available for a track.
+    Helps frontend decide which tabs/panels to show.
+    """
+    validate_track_id(track_id)
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis:
+        return {"track_id": track_id, "analyzed": False, "available": {}}
+
+    blobs = [
+        "structural_summary", "rhythm_summary", "spectral_summary",
+        "dj_mix_recommendations", "quality_extended", "harmonic_summary",
+        "vocal_analysis", "production_analysis", "mixing_compatibility",
+        "section_deep_analysis", "loudness_deep_analysis", "key_deep_analysis",
+        "audio_quality_breakdown", "accent_points", "bpm_advanced",
+    ]
+
+    available = {}
+    for blob in blobs:
+        val = getattr(analysis, blob, None)
+        if val and isinstance(val, dict):
+            available[blob] = val.get("available", True)
+        elif val is not None:
+            available[blob] = True
+        else:
+            available[blob] = False
+
+    return {
+        "track_id": track_id,
+        "analyzed": True,
+        "has_bpm": analysis.bpm is not None,
+        "has_key": analysis.key is not None,
+        "has_sections": bool(analysis.section_labels),
+        "has_beats": bool(analysis.beat_positions),
+        "available": available,
+    }
+
+
 # WebSocket endpoint pour les updates temps réel
 @router.websocket("/ws/status")
 async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
