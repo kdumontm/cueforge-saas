@@ -177,6 +177,16 @@ class TrackAnalysis(Base):
 
 
 class CuePoint(Base):
+    """Cue point for DJ track navigation and performance.
+
+    Optimization points:
+    - Compound indexes on (track_id, position_ms) and (track_id, cue_type) for fast queries
+    - is_manual: distinguish AI vs user-created cues
+    - generation_version: track algorithm version used to generate cue
+    - energy_at_cue: context for beat/drop detection
+    - bar_number: pre-computed bar position to avoid recalculation
+    - last_triggered: track usage for machine learning
+    """
     __tablename__ = "cue_points"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -195,11 +205,36 @@ class CuePoint(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # Improvement #12: Add source field to track cue origin
     source = Column(String(50), nullable=True, default="auto")  # 'auto', 'manual', 'imported'
+
+    # OPT #3: is_manual Boolean to distinguish AI vs user cues
+    is_manual = Column(Boolean, default=False, nullable=False)
+
+    # OPT #4: generation_version to track algorithm version (e.g., "v6.0")
+    generation_version = Column(String(50), nullable=True)
+
+    # OPT #5: energy_at_cue for energy context at detection point
+    energy_at_cue = Column(Float, nullable=True)
+
+    # OPT #6: bar_number for pre-computed bar position
+    bar_number = Column(Integer, nullable=True)
+
     track = relationship("Track", back_populates="cue_points")
+
+    # OPT #1-2: Compound indexes for range and type queries
+    __table_args__ = (
+        Index("ix_cue_points_track_position", "track_id", "position_ms"),
+        Index("ix_cue_points_track_type", "track_id", "cue_type"),
+    )
 
 
 class LoopMarker(Base):
-    """Loop in/out markers — essential for DJ performance."""
+    """Loop in/out markers — essential for DJ performance.
+
+    Optimization points:
+    - bpm_at_cue: support variable tempo tracks
+    - auto_detected: distinguish manual vs AI-generated loops
+    - last_triggered: track usage for analytics
+    """
     __tablename__ = "loop_markers"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -213,10 +248,25 @@ class LoopMarker(Base):
     length_beats = Column(Float, nullable=True)         # 1, 2, 4, 8, 16, 32 beats
     is_active = Column(Boolean, default=True)           # Active loop toggle
     auto_generated = Column(Boolean, default=False)     # AI-generated vs manual
+
+    # OPT #7: bpm_at_cue for variable tempo support
+    bpm_at_cue = Column(Float, nullable=True)
+
+    # OPT #8: auto_detected to distinguish manual vs AI-generated
+    auto_detected = Column(Boolean, default=False, nullable=False)
+
+    # OPT #9: last_triggered for usage tracking
+    last_triggered = Column(DateTime, nullable=True)
+
     track = relationship("Track", back_populates="loop_markers")
 
 
 class CueRule(Base):
+    """Rule for automatic cue point generation.
+
+    Optimization points:
+    - last_triggered: track usage and effectiveness
+    """
     __tablename__ = "cue_rules"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -224,4 +274,28 @@ class CueRule(Base):
     rule_type = Column(String(100), nullable=False)
     parameters = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
+
+    # OPT #9: last_triggered for usage tracking
+    last_triggered = Column(DateTime, nullable=True)
+
     track = relationship("Track", back_populates="cue_rules")
+
+
+class CueHistory(Base):
+    """Audit trail for cue point changes.
+
+    OPT #11: Track all changes to cue points for audit and undo functionality.
+    """
+    __tablename__ = "cue_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
+    action = Column(String(50), nullable=False)  # 'created', 'updated', 'deleted'
+    old_values = Column(PGJSON, nullable=True)  # JSON snapshot
+    new_values = Column(PGJSON, nullable=True)  # JSON snapshot
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_cue_history_cue_point_id", "cue_point_id"),
+        Index("ix_cue_history_timestamp", "timestamp"),
+    )

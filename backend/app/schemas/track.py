@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 
 
 # ── Loop Markers ─────────────────────────────────────────────────────────
@@ -64,6 +64,53 @@ class CuePointResponse(CuePointBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     track_id: int
+    # OPT #30: Enhanced response with contextual fields
+    bar_number: Optional[int] = None
+    energy_at_cue: Optional[float] = None
+    is_manual: bool = False
+    generation_version: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+# OPT #26: CuePoint statistics response schema
+class CuePointStatsResponse(BaseModel):
+    """Statistics about cue points on a track."""
+    model_config = ConfigDict(from_attributes=True)
+    count: int
+    avg_confidence: Optional[float] = None
+    types_breakdown: Dict[str, int]  # e.g. {"hot_cue": 5, "drop": 2}
+    coverage_percent: float  # % of track with cues
+
+
+# OPT #27: Rekordbox export format schema
+class CuePointExportResponse(BaseModel):
+    """Cue point export in Rekordbox-compatible format."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    track_id: int
+    position_ms: int
+    hot_cue_number: Optional[int] = None
+    color: Optional[str] = None
+    cue_type: str
+    name: str
+    rekordbox_export: Dict[str, Any]  # Rekordbox XML-compatible dict
+
+
+# OPT #28: Bulk update schema
+class BulkCuePointUpdate(BaseModel):
+    """Update multiple cue points in one request."""
+    updates: List[Dict[str, Any]]  # [{id, field, value}]
+
+
+# OPT #29: Cue generation config schema
+class CueGenerationConfig(BaseModel):
+    """Configuration for cue generation."""
+    model_config = ConfigDict(from_attributes=True)
+    genre: Optional[str] = None
+    template: Optional[str] = None
+    max_cues: int = 20
+    min_confidence: float = 0.5
 
 
 # ⚡ Schéma LÉGER pour le listing — exclut waveform/spectral/beats (économise ~90% du payload)

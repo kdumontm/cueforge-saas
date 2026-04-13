@@ -14,7 +14,9 @@ via the "Import Tracks" feature.
 import struct
 import io
 import json
+import os
 from typing import List, Optional, Dict, Tuple
+from pathlib import Path
 
 
 # ── Serato .crate binary format ─────────────────────────────────────────
@@ -37,8 +39,16 @@ def _encode_column(name: str) -> bytes:
     return b'osrt' + struct.pack('>I', len(tvcn)) + tvcn
 
 
-def _validate_track_format(track: dict) -> bool:
-    """Validate that a track dict has required fields for Serato export."""
+def _validate_track_format(track: dict, check_file_exists: bool = False) -> bool:
+    """Validate that a track dict has required fields for Serato export.
+
+    Args:
+        track: Track dictionary to validate
+        check_file_exists: If True, verify file path exists (default False for performance)
+
+    Returns:
+        True if valid, False otherwise
+    """
     if not isinstance(track, dict):
         return False
     # At minimum, need a file_path or title
@@ -49,6 +59,14 @@ def _validate_track_format(track: dict) -> bool:
         try:
             float(track.get('bpm'))
         except (ValueError, TypeError):
+            return False
+    # Optionally validate file path exists
+    if check_file_exists and track.get('file_path'):
+        file_path = track.get('file_path')
+        try:
+            if not os.path.exists(file_path):
+                return False
+        except (OSError, TypeError):
             return False
     return True
 
@@ -102,7 +120,8 @@ def generate_serato_csv(tracks: List[dict]) -> str:
     Serato DJ Pro can import tracks from CSV with columns:
     Name, Artist, Album, Genre, BPM, Key, Comment, Filename
 
-    Cue points are encoded in a Comment field in Serato's internal format.
+    Cue points are encoded in a Comment field with label@time format.
+    Includes cue types and slot numbers for hot cues.
     """
     import csv
     import io as _io
@@ -110,23 +129,31 @@ def generate_serato_csv(tracks: List[dict]) -> str:
     output = _io.StringIO()
     writer = csv.writer(output)
 
-    # Header row
+    # Header row (extended with cue type and color info)
     writer.writerow([
         'Name', 'Artist', 'Album', 'Genre', 'BPM', 'Key',
-        'Comment', 'Duration', 'Filename',
+        'Comment', 'Duration', 'Filename', 'Cue Details',
     ])
 
     for track in tracks:
-        # Encode cue points as comment text for reference
+        # Encode cue points with type and slot information
         cue_comment = ""
+        cue_details = ""
         cue_points = track.get('cue_points', [])
         if cue_points:
             cue_parts = []
-            for cp in cue_points:
+            cue_detail_parts = []
+            for cue_idx, cp in enumerate(cue_points):
                 pos_s = (cp.get('position_ms', 0) or 0) / 1000
                 label = cp.get('label') or cp.get('name', '')
+                cue_type = cp.get('type') or cp.get('cue_type', 'cue')
+                color = cp.get('color', '#FF0000')
+
                 cue_parts.append(f"{label}@{pos_s:.2f}s")
+                cue_detail_parts.append(f"#{cue_idx}:type={cue_type},color={color}")
+
             cue_comment = " | ".join(cue_parts)
+            cue_details = " | ".join(cue_detail_parts)
 
         duration_s = (track.get('duration_ms', 0) or 0) / 1000
         minutes = int(duration_s // 60)
@@ -142,6 +169,7 @@ def generate_serato_csv(tracks: List[dict]) -> str:
             cue_comment,
             f"{minutes}:{seconds:02d}",
             track.get('file_path', ''),
+            cue_details,
         ])
 
     return output.getvalue()
@@ -243,7 +271,7 @@ def generate_serato_markers_v2(tracks: List[dict]) -> Dict:
             cue_type = cue.get('type') or cue.get('cue_type') or 'cue'
 
             if cue_type == 'loop':
-                # Loop marker
+                # Loop marker from cue point
                 end_ms = cue.get('end_position_ms', 0)
                 if end_ms > pos_ms:
                     markers_data["loops"].append({
@@ -266,6 +294,21 @@ def generate_serato_markers_v2(tracks: List[dict]) -> Dict:
                     "color_hex": color_hex,
                     "type": cue_type,
                     "hotcue_num": min(cue_idx, 7),  # Serato supports 8 hot cues (0-7)
+                })
+
+        # Dedicated loop markers (separate from cue points)
+        loop_markers = track.get('loop_markers', []) or []
+        for loop_idx, loop in enumerate(loop_markers):
+            start_ms = loop.get('start_ms', 0)
+            end_ms = loop.get('end_ms', 0)
+            if end_ms > start_ms:
+                label = loop.get('name', f'Loop {loop_idx + 1}')
+                markers_data["loops"].append({
+                    "track_id": track_id,
+                    "start_ms": round(start_ms, 1),
+                    "end_ms": round(end_ms, 1),
+                    "label": label,
+                    "duration_beats": loop.get('length_beats', 0),
                 })
 
     return markers_data

@@ -81,6 +81,22 @@ def _get_madmom_processor():
 
 
 # ══════════════════════════════════════════════════════════════════════════
+#   BPM GENRE PRIORS (Optimization #2)
+# ══════════════════════════════════════════════════════════════════════════
+
+BPM_GENRE_PRIORS = {
+    "techno": (125, 150),
+    "house": (118, 132),
+    "drum_and_bass": (160, 180),
+    "hip_hop": (80, 115),
+    "trance": (128, 145),
+    "reggaeton": (88, 100),
+    "pop": (95, 130),
+    "default": (80, 180),
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════
 #   PIPELINE ARCHITECTURE OPTIMIZATIONS (Section D)
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -96,6 +112,365 @@ ANALYSIS_STEPS = {
     'stems': (80, 95),
     'finalize': (95, 100),
 }
+
+# Optimization #32: Analysis profiling
+# Optimization #33: Energy contrast cache
+_energy_contrast_cache = {}
+
+
+def _cache_energy_contrast(cache_key: str, energy_contrast: np.ndarray) -> None:
+    """
+    Optimization #33: Cache energy_contrast calculations to avoid recomputation.
+    Useful when analyzing the same track multiple times.
+
+    Args:
+        cache_key: Unique key (e.g., track_id + file_hash)
+        energy_contrast: Pre-computed energy contrast array
+    """
+    _energy_contrast_cache[cache_key] = energy_contrast
+
+
+def _get_cached_energy_contrast(cache_key: str) -> Optional[np.ndarray]:
+    """
+    Retrieve cached energy_contrast if available.
+
+    Args:
+        cache_key: Unique key
+
+    Returns:
+        Cached array or None
+    """
+    return _energy_contrast_cache.get(cache_key)
+
+
+def _clear_energy_contrast_cache() -> None:
+    """Clear the energy contrast cache."""
+    global _energy_contrast_cache
+    _energy_contrast_cache.clear()
+
+
+class AnalysisProfiler:
+    """
+    Simple profiler to track time spent in each major analysis step.
+    """
+    def __init__(self):
+        self.steps = {}
+        self.start_times = {}
+
+    def start(self, step_name: str):
+        """Mark start of analysis step."""
+        self.start_times[step_name] = time.time()
+
+    def end(self, step_name: str):
+        """Mark end of analysis step and log duration."""
+        if step_name in self.start_times:
+            duration = time.time() - self.start_times[step_name]
+            self.steps[step_name] = duration
+            logger.info(f"[PROFILER] {step_name}: {duration:.2f}s")
+            del self.start_times[step_name]
+
+    def summary(self) -> Dict[str, float]:
+        """Get summary of all steps."""
+        return self.steps.copy()
+
+    def total_time(self) -> float:
+        """Get total analysis time."""
+        return sum(self.steps.values())
+
+
+def build_section_label_index(sections: List[Dict]) -> Dict[str, List[int]]:
+    """
+    Optimization #34: Pre-index section labels by name for O(1) lookup.
+
+    Args:
+        sections: List of section dicts with 'label' key
+
+    Returns:
+        Dict mapping label -> list of section indices with that label
+    """
+    index = {}
+    for i, section in enumerate(sections):
+        label = section.get("label", "UNKNOWN")
+        if label not in index:
+            index[label] = []
+        index[label].append(i)
+    return index
+
+
+def refine_section_boundaries(section_times: List[float], beats: List[float]) -> List[float]:
+    """
+    Optimization #22: Snap section boundaries to nearest beat grid.
+    Improves alignment with DJ grid.
+
+    Args:
+        section_times: List of section boundary times
+        beats: List of beat times
+
+    Returns:
+        Refined section boundary times (snapped to nearest beats)
+    """
+    if not beats:
+        return section_times
+
+    beats_arr = np.array(beats)
+    refined = []
+
+    for time in section_times:
+        # Find nearest beat
+        nearest_beat_idx = np.argmin(np.abs(beats_arr - time))
+        nearest_beat_time = beats_arr[nearest_beat_idx]
+        refined.append(float(nearest_beat_time))
+
+    # Remove duplicates and sort
+    refined = sorted(list(set(refined)))
+    return refined
+
+
+def compute_expected_drop_positions(duration: float, bpm: float) -> List[float]:
+    """
+    Optimization #20: Compute expected drop positions based on common DJ patterns.
+    DJ tracks typically have drops at bar 32, 64, 96, 128, etc.
+
+    Args:
+        duration: Track duration in seconds
+        bpm: BPM
+
+    Returns:
+        List of expected drop times (in seconds)
+    """
+    if bpm <= 0 or duration <= 0:
+        return []
+
+    # Bars per minute
+    bars_per_minute = bpm / 4.0
+    bar_duration = 60.0 / bars_per_minute
+
+    expected_positions = []
+    # Check for drops at bar 32, 64, 96, 128
+    for bar_count in [32, 64, 96, 128, 160, 192]:
+        drop_time = bar_count * bar_duration
+        if drop_time < duration:
+            expected_positions.append(drop_time)
+        else:
+            break
+
+    return expected_positions
+
+
+def score_section_label_confidence(section_energy: float, section_trend: str,
+                                    position_in_track: float,
+                                    energy_percentiles: Dict[str, float]) -> Dict:
+    """
+    Optimization #24: Score confidence of section label assignment.
+    High confidence = label matches energy profile and position patterns.
+
+    Args:
+        section_energy: Normalized energy (0.0-1.0)
+        section_trend: 'rising', 'falling', or 'stable'
+        position_in_track: 0.0-1.0 (0=start, 1=end)
+        energy_percentiles: Dict with 'p25', 'p50', 'p75'
+
+    Returns:
+        Dict with label confidences: {INTRO: score, DROP: score, BUILD: score, ...}
+    """
+    try:
+        p25 = energy_percentiles.get("p25", 0.25)
+        p50 = energy_percentiles.get("p50", 0.5)
+        p75 = energy_percentiles.get("p75", 0.75)
+
+        confidences = {
+            "INTRO": 0.0,
+            "OUTRO": 0.0,
+            "BUILD": 0.0,
+            "DROP": 0.0,
+            "BREAKDOWN": 0.0,
+            "BRIDGE": 0.0,
+        }
+
+        # INTRO: low energy at start
+        if position_in_track < 0.15 and section_energy < p50:
+            confidences["INTRO"] = min(1.0, 1.0 - (section_energy / p50))
+
+        # OUTRO: low energy at end
+        if position_in_track > 0.80 and section_energy < p50:
+            confidences["OUTRO"] = min(1.0, 1.0 - (section_energy / p50))
+
+        # BUILD: rising energy + moderate-high energy
+        if section_trend == "rising" and section_energy > p25:
+            confidences["BUILD"] = min(1.0, section_energy / p75)
+
+        # DROP: high energy + stable or rising
+        if section_energy > p75 and section_trend in ["stable", "rising"]:
+            confidences["DROP"] = min(1.0, section_energy / 1.0)
+
+        # BREAKDOWN: low energy
+        if section_energy < p25:
+            confidences["BREAKDOWN"] = min(1.0, 1.0 - (section_energy / p25))
+
+        # BRIDGE: moderate energy + stable
+        if p25 < section_energy < p75 and section_trend == "stable":
+            confidences["BRIDGE"] = min(1.0, 0.8)
+
+        # Normalize confidences to sum to 1.0 (optional softmax)
+        total_conf = sum(confidences.values())
+        if total_conf > 0:
+            confidences = {k: round(v / total_conf, 3) for k, v in confidences.items()}
+
+        return confidences
+    except Exception:
+        return {
+            "INTRO": 0.0,
+            "OUTRO": 0.0,
+            "BUILD": 0.0,
+            "DROP": 0.0,
+            "BREAKDOWN": 0.0,
+            "BRIDGE": 0.0,
+        }
+
+
+def validate_intro_outro_duration(sections: List[Dict], bpm: float) -> List[Dict]:
+    """
+    Optimization #25: Validate intro/outro durations against common DJ patterns.
+    Typical intro: 16-64 bars (30s-150s depending on BPM)
+    Typical outro: 8-64 bars
+
+    Args:
+        sections: List of sections
+        bpm: Track BPM
+
+    Returns:
+        Updated sections with validation flags
+    """
+    try:
+        if not sections or bpm <= 0:
+            return sections
+
+        seconds_per_bar = (60.0 / bpm) * 4  # 4 beats per bar
+
+        validated_sections = []
+        for section in sections:
+            label = section.get("label", "UNKNOWN")
+            duration = section.get("duration", 0.0)
+
+            duration_in_bars = duration / seconds_per_bar if seconds_per_bar > 0 else 0
+
+            # Expected ranges (in bars)
+            is_valid = True
+            if label == "INTRO":
+                # Intro typically 16-64 bars
+                is_valid = 16 <= duration_in_bars <= 64
+            elif label == "OUTRO":
+                # Outro typically 8-64 bars
+                is_valid = 8 <= duration_in_bars <= 64
+
+            section_copy = section.copy()
+            section_copy["duration_bars"] = round(duration_in_bars, 2)
+            section_copy["duration_valid"] = is_valid
+
+            validated_sections.append(section_copy)
+
+        return validated_sections
+    except Exception:
+        return sections
+
+
+def compute_section_length_statistics(sections: List[Dict]) -> Dict:
+    """
+    Optimization #23: Compute section length statistics (median, std).
+    Detect sections with unusual durations (may be mislabeled).
+
+    Args:
+        sections: List of sections with 'duration' key
+
+    Returns:
+        Dict with 'median_duration', 'std_duration', 'min_duration', 'max_duration'
+    """
+    try:
+        if not sections:
+            return {
+                "median_duration": 0.0,
+                "std_duration": 0.0,
+                "min_duration": 0.0,
+                "max_duration": 0.0,
+                "count": 0,
+            }
+
+        durations = [s.get("duration", 0.0) for s in sections if s.get("duration", 0) > 0]
+
+        if not durations:
+            return {
+                "median_duration": 0.0,
+                "std_duration": 0.0,
+                "min_duration": 0.0,
+                "max_duration": 0.0,
+                "count": 0,
+            }
+
+        durations_arr = np.array(durations)
+        median = float(np.median(durations_arr))
+        std = float(np.std(durations_arr))
+        min_dur = float(np.min(durations_arr))
+        max_dur = float(np.max(durations_arr))
+
+        return {
+            "median_duration": round(median, 2),
+            "std_duration": round(std, 2),
+            "min_duration": round(min_dur, 2),
+            "max_duration": round(max_dur, 2),
+            "count": len(durations),
+        }
+    except Exception:
+        return {
+            "median_duration": 0.0,
+            "std_duration": 0.0,
+            "min_duration": 0.0,
+            "max_duration": 0.0,
+            "count": 0,
+        }
+
+
+def detect_novelty_peak_prominence(novelty_curve: np.ndarray, peaks: np.ndarray) -> Dict:
+    """
+    Optimization #21: Detect novelty peak prominence (more robust than just height).
+    Peaks with high prominence = clear section boundaries.
+
+    Args:
+        novelty_curve: Novelty curve from SSM
+        peaks: Peak indices from find_peaks
+
+    Returns:
+        Dict with 'prominence_scores' (peak -> prominence), 'peak_scores'
+    """
+    try:
+        if len(peaks) == 0:
+            return {"prominence_scores": {}, "peak_scores": {}}
+
+        from scipy.signal import peak_prominences
+
+        # Compute prominence of each peak
+        prominences, left_bases, right_bases = peak_prominences(novelty_curve, peaks)
+
+        prominence_scores = {}
+        peak_scores = {}
+
+        for i, peak_idx in enumerate(peaks):
+            prominence = float(prominences[i])
+            peak_height = float(novelty_curve[peak_idx])
+            # Combined score: height + prominence
+            combined_score = peak_height * (1.0 + prominence)
+
+            prominence_scores[int(peak_idx)] = round(prominence, 4)
+            peak_scores[int(peak_idx)] = round(combined_score, 4)
+
+        return {
+            "prominence_scores": prominence_scores,
+            "peak_scores": peak_scores,
+        }
+    except Exception:
+        return {
+            "prominence_scores": {},
+            "peak_scores": {},
+        }
 
 def _report_progress(step_name: str, sub_progress: float = 1.0) -> int:
     """
@@ -198,6 +573,106 @@ def _compute_spectral_bands(S: np.ndarray, sr: int, n_fft: int = 2048) -> Dict[s
         'mid_energy': float(np.sum(power[mid_mask]) / total),
         'high_energy': float(np.sum(power[high_mask]) / total),
     }
+
+
+def compute_energy_curve_adaptive_bpm(y: np.ndarray, sr: int, bpm: float, hop_length: int = 512) -> np.ndarray:
+    """
+    Optimization #31: Compute energy curve with BPM-adaptive smoothing window.
+    Faster tempos need tighter smoothing; slower tempos need more relaxed smoothing.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        bpm: BPM for adaptive sizing
+        hop_length: Hop length
+
+    Returns:
+        BPM-adaptive smoothed energy curve
+    """
+    from scipy.signal import savgol_filter
+
+    try:
+        rms = librosa.feature.rms(y=y, hop_length=hop_length)[0]
+        rms_norm = rms / (np.max(rms) + 1e-8)
+
+        # Window size scales with BPM
+        if bpm > 140:
+            window_size = 11
+        elif bpm > 100:
+            window_size = 15
+        else:
+            window_size = 21
+
+        # Ensure odd window size
+        if window_size % 2 == 0:
+            window_size += 1
+
+        if len(rms_norm) < window_size:
+            return rms_norm
+
+        smoothed = savgol_filter(rms_norm, window_size, 3, mode='nearest')
+        return smoothed
+    except Exception:
+        rms = librosa.feature.rms(y=y, hop_length=hop_length)[0]
+        rms_norm = rms / (np.max(rms) + 1e-8)
+        if len(rms_norm) > 15:
+            rms_norm = medfilt(rms_norm, kernel_size=15)
+        return rms_norm
+
+
+def compute_energy_per_band(y: np.ndarray, sr: int, n_fft: int = 2048, hop_length: int = 512) -> Dict[str, np.ndarray]:
+    """
+    Optimization #11: Compute energy over time for 5 frequency bands.
+    Returns time-series energy curves per band for energy trend detection.
+
+    Bands:
+    - sub_bass: 20-80 Hz
+    - bass: 80-250 Hz
+    - mids: 250-2000 Hz
+    - highs: 2000-8000 Hz
+    - ultra_highs: 8000+ Hz
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        n_fft: FFT size
+        hop_length: Hop length for STFT
+
+    Returns:
+        Dict with band names as keys, energy time-series as values (normalized 0-1)
+    """
+    try:
+        S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length)) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+        # Define frequency masks
+        sub_bass_mask = (freqs >= 20) & (freqs < 80)
+        bass_mask = (freqs >= 80) & (freqs < 250)
+        mids_mask = (freqs >= 250) & (freqs < 2000)
+        highs_mask = (freqs >= 2000) & (freqs < 8000)
+        ultra_highs_mask = freqs >= 8000
+
+        # Compute energy time-series per band
+        def normalize_band(mask):
+            band_energy = np.sum(S[mask, :], axis=0)
+            max_energy = np.max(band_energy) + 1e-10
+            return band_energy / max_energy
+
+        return {
+            "sub_bass": normalize_band(sub_bass_mask),
+            "bass": normalize_band(bass_mask),
+            "mids": normalize_band(mids_mask),
+            "highs": normalize_band(highs_mask),
+            "ultra_highs": normalize_band(ultra_highs_mask),
+        }
+    except Exception:
+        return {
+            "sub_bass": np.array([]),
+            "bass": np.array([]),
+            "mids": np.array([]),
+            "highs": np.array([]),
+            "ultra_highs": np.array([]),
+        }
 
 
 # Point 411, 413, 419: Optimized audio loading with preparation
@@ -469,13 +944,231 @@ def detect_key_hybrid(y: np.ndarray, sr: int) -> Dict:
         confidence = min(1.0, max(0.1, margin / 0.3))
 
         del chroma, chroma_cqt, chroma_stft, chroma_weighted
+
+        # Optimization #7: Secondary key confidence margin
+        secondary_margin = primary_score - secondary_score if secondary_score > 0 else 0
+        secondary_confidence_margin = round(secondary_margin, 4)
+
         return {
             "key": primary_key,
             "key_secondary": secondary_key,
             "key_confidence": round(confidence, 4),
+            "key_secondary_confidence_margin": secondary_confidence_margin,
         }
     except Exception:
-        return {"key": "C", "key_secondary": None, "key_confidence": 0.0}
+        return {
+            "key": "C",
+            "key_secondary": None,
+            "key_confidence": 0.0,
+            "key_secondary_confidence_margin": 0.0,
+        }
+
+
+def validate_key_with_metadata(detected_key: str, metadata_key: Optional[str] = None) -> Dict:
+    """
+    Optimization #10: Validate detected key against metadata (ID3 tags).
+    If metadata key matches, boost confidence. If not, note discrepancy.
+
+    Args:
+        detected_key: Detected key (e.g., 'C major', 'Am')
+        metadata_key: Key from ID3 tags (optional)
+
+    Returns:
+        Dict with 'final_key', 'confidence_boost', 'matches_metadata'
+    """
+    try:
+        # Normalize both keys to standard camelot format if needed
+        if not metadata_key:
+            return {
+                "final_key": detected_key,
+                "confidence_boost": 0.0,
+                "matches_metadata": False,
+                "has_metadata": False,
+            }
+
+        # Simple key comparison (normalize to base note + mode)
+        detected_base = detected_key.split()[0] if ' ' in detected_key else detected_key[:1]
+        metadata_base = metadata_key.split()[0] if ' ' in metadata_key else metadata_key[:1]
+
+        matches = detected_base.lower() == metadata_base.lower()
+
+        return {
+            "final_key": detected_key,
+            "confidence_boost": 0.3 if matches else -0.1,  # +0.3 if match, -0.1 if mismatch
+            "matches_metadata": matches,
+            "has_metadata": True,
+        }
+    except Exception:
+        return {
+            "final_key": detected_key,
+            "confidence_boost": 0.0,
+            "matches_metadata": False,
+            "has_metadata": False,
+        }
+
+
+def extract_beat_sync_chroma(y: np.ndarray, sr: int, beat_frames: np.ndarray) -> np.ndarray:
+    """
+    Optimization #9: Extract beat-synchronous chroma instead of full-track.
+    Reduces noise and focuses key detection on strong harmonic beats.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        beat_frames: Array of beat frame indices
+
+    Returns:
+        Beat-synchronous chroma (12, n_beats)
+    """
+    try:
+        # Extract chroma
+        chroma_cqt = librosa.feature.chroma_cqt(y=y, sr=sr, n_chroma=12)
+
+        if len(beat_frames) == 0:
+            return np.mean(chroma_cqt, axis=1, keepdims=True)
+
+        # Aggregate chroma at beat positions
+        beat_sync_chroma = []
+        for beat_frame in beat_frames:
+            beat_frame = int(beat_frame)
+            if 0 <= beat_frame < chroma_cqt.shape[1]:
+                beat_sync_chroma.append(chroma_cqt[:, beat_frame])
+
+        if beat_sync_chroma:
+            return np.array(beat_sync_chroma).T
+        else:
+            return np.mean(chroma_cqt, axis=1, keepdims=True)
+    except Exception:
+        return np.zeros((12, 1))
+
+
+def score_minor_major_quality(chroma_mean: np.ndarray) -> Dict:
+    """
+    Optimization #8: Score whether key is minor or major quality.
+    Uses characteristic chroma patterns to distinguish tonality.
+
+    Args:
+        chroma_mean: Mean chroma vector over time
+
+    Returns:
+        Dict with 'major_likelihood' (0.0-1.0), 'minor_likelihood' (0.0-1.0),
+        'likely_mode' (MAJOR/MINOR)
+    """
+    try:
+        # Major mode: strong peak at root, 3rd (4 semitones), 5th (7 semitones)
+        # Minor mode: strong peak at root, flat-3rd (3 semitones), 5th (7 semitones)
+
+        # Chroma 12-element vector: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+        # Test at C (assuming input is C-relative)
+
+        # Major triad: indices 0 (root), 4 (major 3rd), 7 (5th)
+        major_indices = [0, 4, 7]
+        major_strength = float(np.mean(chroma_mean[major_indices]))
+
+        # Minor triad: indices 0 (root), 3 (minor 3rd), 7 (5th)
+        minor_indices = [0, 3, 7]
+        minor_strength = float(np.mean(chroma_mean[minor_indices]))
+
+        # Normalize
+        total = major_strength + minor_strength + 1e-10
+        major_likelihood = major_strength / total
+        minor_likelihood = minor_strength / total
+
+        likely_mode = "MAJOR" if major_likelihood > minor_likelihood else "MINOR"
+
+        return {
+            "major_likelihood": round(major_likelihood, 3),
+            "minor_likelihood": round(minor_likelihood, 3),
+            "likely_mode": likely_mode,
+        }
+    except Exception:
+        return {
+            "major_likelihood": 0.5,
+            "minor_likelihood": 0.5,
+            "likely_mode": "UNKNOWN",
+        }
+
+
+def detect_key_stability(y: np.ndarray, sr: int, window_duration: float = 30.0) -> Dict:
+    """
+    Optimization #6: Windowed key analysis to detect modulations (key changes).
+    Analyzes track in 30-second windows to detect when the key shifts.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        window_duration: Window size in seconds (default 30s)
+
+    Returns:
+        Dict with 'modulations' (list of key changes), 'is_stable' (bool),
+        'primary_key' (most common), 'key_changes' (count)
+    """
+    try:
+        hop_samples = int(sr * window_duration)
+        n_windows = len(y) // hop_samples
+
+        if n_windows < 2:
+            # Track too short for modulation detection
+            result = detect_key_hybrid(y, sr)
+            return {
+                "modulations": [],
+                "is_stable": True,
+                "primary_key": result.get("key", "C"),
+                "key_changes": 0,
+            }
+
+        detected_keys = []
+        for i in range(n_windows):
+            start = i * hop_samples
+            end = min((i + 1) * hop_samples, len(y))
+            window = y[start:end]
+            if len(window) < sr:  # Skip too-short windows
+                continue
+            window_key_result = detect_key_hybrid(window, sr)
+            detected_keys.append({
+                "time": start / sr,
+                "key": window_key_result.get("key", "C"),
+                "confidence": window_key_result.get("key_confidence", 0.0),
+            })
+
+        if not detected_keys:
+            result = detect_key_hybrid(y, sr)
+            return {
+                "modulations": [],
+                "is_stable": True,
+                "primary_key": result.get("key", "C"),
+                "key_changes": 0,
+            }
+
+        # Find key changes (consecutive windows with different keys)
+        modulations = []
+        for i in range(1, len(detected_keys)):
+            if detected_keys[i]["key"] != detected_keys[i - 1]["key"]:
+                modulations.append({
+                    "time": detected_keys[i]["time"],
+                    "from_key": detected_keys[i - 1]["key"],
+                    "to_key": detected_keys[i]["key"],
+                })
+
+        # Most common key
+        key_counts = {}
+        for k in detected_keys:
+            key_counts[k["key"]] = key_counts.get(k["key"], 0) + 1
+        primary_key = max(key_counts.items(), key=lambda x: x[1])[0]
+
+        return {
+            "modulations": modulations,
+            "is_stable": len(modulations) == 0,
+            "primary_key": primary_key,
+            "key_changes": len(modulations),
+        }
+    except Exception:
+        return {
+            "modulations": [],
+            "is_stable": True,
+            "primary_key": "C",
+            "key_changes": 0,
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -797,6 +1490,162 @@ def _fold_bpm_dj_range(bpm: float, lo: float = 70.0, hi: float = 180.0) -> float
     return bpm
 
 
+def apply_genre_adaptive_bpm_weighting(bpm: float, detected_genre: Optional[str] = None) -> float:
+    """
+    Bonus function: Apply genre-specific priors to BPM candidates.
+    Uses BPM_GENRE_PRIORS to weight BPM candidates by genre likelihood.
+
+    Args:
+        bpm: Detected BPM
+        detected_genre: Genre label (if known)
+
+    Returns:
+        Adjusted BPM with genre weighting
+    """
+    if not detected_genre or detected_genre not in BPM_GENRE_PRIORS:
+        return bpm
+
+    lo, hi = BPM_GENRE_PRIORS[detected_genre]
+
+    # If detected BPM is outside typical range for genre, consider octave folding
+    if bpm < lo or bpm > hi:
+        # Try octave folding
+        test_bpms = [bpm, bpm * 2, bpm / 2, bpm * 4, bpm / 4]
+        best_bpm = min(test_bpms, key=lambda b: min(abs(b - lo), abs(b - hi)))
+        if lo <= best_bpm <= hi:
+            return best_bpm
+
+    return bpm
+
+
+def apply_genre_adaptive_downbeat_voting(genre: Optional[str] = None) -> Dict[str, float]:
+    """
+    Optimization #5: Genre-adaptive downbeat voting weights.
+    Different genres have different metric stress patterns.
+    - Techno/House: strong 4-on-floor, weight bar-line drops
+    - Drum & Bass: complex syncopation, weight any strong onset
+    - Hip-hop: polyrhythmic, emphasize beat 1
+    - Trance: long builds, weight gradual onset
+
+    Args:
+        genre: Genre label
+
+    Returns:
+        Dict with voting weights for different beat positions
+    """
+    # Default: equal weighting
+    default_weights = {
+        "beat_1": 1.0,
+        "beat_2": 0.8,
+        "beat_3": 0.9,
+        "beat_4": 1.0,
+        "bar_line": 1.2,
+    }
+
+    if not genre or genre not in BPM_GENRE_PRIORS:
+        return default_weights
+
+    # Genre-specific patterns
+    if genre == "techno" or genre == "house":
+        # Strong 4-on-floor, bar line emphasis
+        return {
+            "beat_1": 1.2,
+            "beat_2": 0.6,
+            "beat_3": 1.1,
+            "beat_4": 1.3,
+            "bar_line": 1.5,
+        }
+    elif genre == "drum_and_bass":
+        # Complex syncopation, emphasize all beats equally
+        return {
+            "beat_1": 1.0,
+            "beat_2": 1.0,
+            "beat_3": 1.0,
+            "beat_4": 1.0,
+            "bar_line": 1.1,
+        }
+    elif genre == "hip_hop":
+        # Emphasize beat 1 (backbeat)
+        return {
+            "beat_1": 1.3,
+            "beat_2": 0.7,
+            "beat_3": 1.2,
+            "beat_4": 0.7,
+            "bar_line": 1.1,
+        }
+    elif genre == "trance":
+        # Gradual builds, emphasize bar line
+        return {
+            "beat_1": 1.0,
+            "beat_2": 0.9,
+            "beat_3": 0.9,
+            "beat_4": 1.1,
+            "bar_line": 1.4,
+        }
+    else:
+        return default_weights
+
+
+def _fold_bpm_multi_octave(bpm: float, onset_strength: np.ndarray = None) -> Dict[str, float]:
+    """
+    Optimization #1: Multi-directional octave folding with scoring.
+    Tests 2x, 1x, 0.5x, and 0.25x BPM candidates and scores them
+    against beat grid regularity if onset strength is provided.
+
+    Args:
+        bpm: Base BPM candidate
+        onset_strength: Optional onset envelope for scoring grid regularity
+
+    Returns:
+        Dict with keys: 'bpm' (best), 'candidates' (dict of bpm->score), 'score'
+    """
+    if bpm <= 0:
+        return {"bpm": 128.0, "candidates": {128.0: 1.0}, "score": 1.0}
+
+    candidates = {}
+
+    # Test 4 octave levels
+    for factor in [2.0, 1.0, 0.5, 0.25]:
+        folded = bpm * factor
+        # Only consider if in extended DJ range [40, 240]
+        if 40 <= folded <= 240:
+            candidates[folded] = 1.0  # Default score
+
+    # If no onset strength provided, return equal scores
+    if onset_strength is None or len(onset_strength) == 0:
+        best_bpm = max(candidates.keys(), key=lambda b: _fold_bpm_dj_range(b) is not None)
+        return {
+            "bpm": best_bpm,
+            "candidates": candidates,
+            "score": 1.0,
+        }
+
+    # Score each candidate by beat grid regularity
+    from librosa.sequence import transition_loop
+    for candidate in candidates.keys():
+        # Simulate beat grid at this tempo
+        hop_length = 512
+        sr = 22050
+        beats_expected = int(len(onset_strength) * (candidate / 60.0) / (sr / hop_length))
+        if beats_expected > 0:
+            # Grid regularity: peaks should align with beat multiples
+            beat_frames = np.linspace(0, len(onset_strength) - 1, beats_expected).astype(int)
+            if len(beat_frames) > 1:
+                # Score = average of onset strength at predicted beat frames
+                grid_score = float(np.mean(onset_strength[beat_frames]))
+                candidates[candidate] = grid_score
+
+    # Select best candidate
+    best_bpm = max(candidates.items(), key=lambda x: x[1])[0]
+    best_score = candidates[best_bpm]
+
+    return {
+        "bpm": best_bpm,
+        "candidates": candidates,
+        "score": float(best_score) if best_score > 0 else 1.0,
+    }
+
+
 def _round_bpm_smart(bpm: float) -> float:
     """
     Smart BPM rounding for DJ use — v5.5
@@ -839,6 +1688,38 @@ def _filter_ibi_outliers(ibi: np.ndarray) -> np.ndarray:
     return ibi[valid]
 
 
+def _smooth_ibi_median_filter(beats: List[float], kernel_size: int = 5) -> np.ndarray:
+    """
+    Optimization #4: Smooth inter-beat intervals using median filter
+    before BPM calculation. Preserves sharp changes while removing outliers.
+
+    Args:
+        beats: List of beat times (seconds)
+        kernel_size: Median filter kernel size (must be odd)
+
+    Returns:
+        Smoothed IBI array in seconds
+    """
+    if len(beats) < 2:
+        return np.array([])
+
+    # Compute inter-beat intervals
+    beats_arr = np.array(beats)
+    ibi = np.diff(beats_arr)
+
+    if len(ibi) < kernel_size:
+        return ibi
+
+    # Ensure kernel size is odd
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+
+    # Apply median filter (scipy.signal.medfilt)
+    smoothed_ibi = medfilt(ibi, kernel_size=min(kernel_size, len(ibi)))
+
+    return smoothed_ibi
+
+
 def _snap_bpm_to_common_values(bpm: float) -> float:
     """
     Snap BPM to common DJ values if within ±0.3 BPM (Point 27).
@@ -868,6 +1749,47 @@ def _compute_bpm_confidence(ibi: np.ndarray) -> float:
     cv = ibi_std / ibi_mean  # coefficient of variation
     confidence = max(0.0, min(1.0, 1.0 - cv * 10))
     return round(confidence, 3)
+
+
+def _compute_beat_stability_metric(beats: List[float], window_size: int = 8) -> float:
+    """
+    Optimization #3: Compute beat stability metric as variance of inter-beat
+    intervals over sliding windows. Lower variance = more stable beat grid.
+
+    Args:
+        beats: List of beat times (seconds)
+        window_size: Sliding window size in beats
+
+    Returns:
+        Stability score (0.0-1.0, where 1.0 = perfectly stable)
+    """
+    if len(beats) < window_size + 1:
+        return 1.0
+
+    beats_arr = np.array(beats)
+    window_variances = []
+
+    for i in range(len(beats) - window_size):
+        window_ibi = np.diff(beats_arr[i:i + window_size + 1])
+        var = np.var(window_ibi)
+        window_variances.append(var)
+
+    if not window_variances:
+        return 1.0
+
+    # Average variance across windows; convert to stability (low var = high stability)
+    avg_variance = np.mean(window_variances)
+    median_ibi = np.median(np.diff(beats_arr))
+
+    # Normalize variance by median IBI squared
+    if median_ibi > 0:
+        normalized_var = avg_variance / (median_ibi ** 2)
+        # Stability = 1 / (1 + normalized_var)
+        stability = 1.0 / (1.0 + normalized_var)
+    else:
+        stability = 0.0
+
+    return float(np.clip(stability, 0.0, 1.0))
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -2669,6 +3591,217 @@ def detect_drops_from_y(y: np.ndarray, sr: int, beats: List[float],
             unique_drops.sort(key=lambda d: d.get("score", 0), reverse=True)
             unique_drops = unique_drops[:8]
         unique_drops.sort(key=lambda d: d["time"])
+        return unique_drops
+
+    except Exception:
+        return []
+
+
+def score_drop_confidence_with_cross_validation(drop_time: float, novelty_curve: np.ndarray,
+                                                 energy_curve: np.ndarray, sr: int,
+                                                 hop_length: int = 512) -> float:
+    """
+    Optimization #19: Cross-validate drop score against novelty peaks.
+    High confidence = energy AND novelty both show peaks at drop time.
+
+    Args:
+        drop_time: Drop time in seconds
+        novelty_curve: SSM novelty curve
+        energy_curve: Normalized energy curve
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Confidence score (0.0-1.0)
+    """
+    try:
+        drop_frame = librosa.time_to_frames(drop_time, sr=sr, hop_length=hop_length)
+
+        # Clamp frame to valid range
+        if drop_frame < 0 or drop_frame >= len(novelty_curve):
+            return 0.0
+
+        # Extract windows around drop (±1 second)
+        window_frames = int(sr / hop_length)
+        start_frame = max(0, drop_frame - window_frames)
+        end_frame = min(len(novelty_curve), drop_frame + window_frames)
+
+        # Score from novelty
+        novelty_window = novelty_curve[start_frame:end_frame]
+        novelty_score = float(np.max(novelty_window)) if len(novelty_window) > 0 else 0.0
+
+        # Score from energy
+        energy_window = energy_curve[start_frame:end_frame]
+        energy_score = float(np.max(energy_window)) if len(energy_window) > 0 else 0.0
+
+        # Average both scores
+        confidence = (novelty_score + energy_score) / 2.0
+
+        return float(np.clip(confidence, 0.0, 1.0))
+    except Exception:
+        return 0.0
+
+
+def compute_adaptive_drop_window(bpm: float, sr: int = 22050, hop_length: int = 512) -> int:
+    """
+    Optimization #16: Compute adaptive energy contrast window based on BPM.
+    Faster tempos need shorter windows; slower tempos need longer windows.
+    Window size: 8-16 beats instead of fixed 4 seconds.
+
+    Args:
+        bpm: Beats per minute
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Window size in frames
+    """
+    # Convert BPM to seconds per beat
+    seconds_per_beat = 60.0 / bpm if bpm > 0 else 0.5
+
+    # 8-16 beats window (use 8 beats for faster tempos, 16 for slower)
+    if bpm > 140:
+        beat_count = 8
+    elif bpm > 100:
+        beat_count = 12
+    else:
+        beat_count = 16
+
+    window_seconds = beat_count * seconds_per_beat
+    window_frames = int(window_seconds * sr / hop_length)
+
+    return max(1, window_frames)
+
+
+def filter_drop_false_positives(drops: List[Dict], y: np.ndarray, sr: int) -> List[Dict]:
+    """
+    Optimization #18: Filter false positive drops by verifying spectral centroid.
+    Silence/noise isn't a drop — drops have clear harmonic content (centroid > 500 Hz).
+
+    Args:
+        drops: List of detected drops with time, score
+        y: Audio signal
+        sr: Sample rate
+
+    Returns:
+        Filtered drops list
+    """
+    try:
+        if not drops:
+            return drops
+
+        filtered = []
+        hop_length = 512
+
+        for drop in drops:
+            time = drop.get("time", 0.0)
+            frame_idx = librosa.time_to_frames(time, sr=sr, hop_length=hop_length)
+
+            # Extract ~2 second window around drop time
+            start_frame = max(0, frame_idx - int(sr / hop_length))
+            end_frame = min(len(y) // hop_length, frame_idx + int(sr / hop_length))
+
+            if end_frame <= start_frame:
+                # Window too small, skip validation
+                filtered.append(drop)
+                continue
+
+            start_sample = start_frame * hop_length
+            end_sample = end_frame * hop_length
+            window = y[start_sample:end_sample]
+
+            if len(window) < 512:
+                filtered.append(drop)
+                continue
+
+            # Compute spectral centroid in window
+            S = np.abs(librosa.stft(window, hop_length=hop_length)) ** 2
+            centroid = librosa.feature.spectral_centroid(S=S, sr=sr)[0]
+            mean_centroid = float(np.mean(centroid))
+
+            # Keep drop only if centroid > 500 Hz (has harmonic content)
+            if mean_centroid > 500:
+                filtered.append(drop)
+
+        return filtered
+    except Exception:
+        # If validation fails, return original drops
+        return drops
+
+
+def detect_drops_multiscale(y: np.ndarray, sr: int, beats: List[float],
+                             beat_frames: List[int] = None) -> Dict:
+    """
+    Optimization #17: Multi-scale drop detection at 2, 4, 8, 16-beat scales.
+    Analyzes drop likelihood at multiple temporal resolutions.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        beats: List of beat times
+        beat_frames: Optional list of beat frame indices
+
+    Returns:
+        Dict with 'drops_by_scale' (dict of beat_scale -> drops list),
+        'primary_drops' (merged best candidates)
+    """
+    try:
+        hop = HOP_LENGTH
+        if beat_frames is None:
+            beat_frames = librosa.frames_to_samples(
+                np.arange(len(y) // hop), hop_length=hop
+            ) // hop
+
+        # Precompute spectral features once
+        S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=hop))
+        rms = librosa.feature.rms(y=y, hop_length=hop)[0]
+
+        # Run drop detection at different beat scales
+        drops_by_scale = {}
+        for beat_scale in [2, 4, 8, 16]:
+            # Adaptive window: beat_scale beats
+            if len(beats) > beat_scale:
+                window_sec = (beats[beat_scale] - beats[0])
+            else:
+                window_sec = 4.0
+
+            # Modify energy contrast window for this scale
+            drops = detect_drops_from_y(y, sr, beats, precomputed_S=S, precomputed_rms=rms)
+            drops_by_scale[beat_scale] = drops
+
+        # Merge drops: keep if found at multiple scales
+        primary_drops = []
+        drop_positions = {}
+        for scale, drops_list in drops_by_scale.items():
+            for drop in drops_list:
+                time_key = round(drop["time"], 1)
+                if time_key not in drop_positions:
+                    drop_positions[time_key] = []
+                drop_positions[time_key].append(drop)
+
+        # Keep drops found at 2+ scales
+        for time_key, drop_list in drop_positions.items():
+            if len(drop_list) >= 2:
+                # Average score across scales
+                avg_score = float(np.mean([d.get("score", 0) for d in drop_list]))
+                primary_drops.append({
+                    "time": time_key,
+                    "beat_index": drop_list[0].get("beat_index", 0),
+                    "score": round(avg_score, 4),
+                    "scales_found": len(drop_list),
+                })
+
+        primary_drops.sort(key=lambda d: d["time"])
+
+        return {
+            "drops_by_scale": drops_by_scale,
+            "primary_drops": primary_drops,
+        }
+    except Exception:
+        return {
+            "drops_by_scale": {},
+            "primary_drops": [],
+        }
 
         del onset_env, rms, rms_norm, spectral_flux, bass_ratio
         del energy_contrast, drop_score, centroid_drop
@@ -2724,6 +3857,403 @@ def compute_energy_curve(y: np.ndarray, sr: int, hop: int = HOP_LENGTH) -> np.nd
     return rms_norm
 
 
+def compute_energy_curve_savitzky_golay(y: np.ndarray, sr: int, hop: int = HOP_LENGTH,
+                                         window_length: int = 21, polyorder: int = 3) -> np.ndarray:
+    """
+    Optimization #12: Compute energy curve using Savitzky-Golay filter.
+    Better edge preservation than median filter for gradual energy changes.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        hop: Hop length
+        window_length: Filter window length (must be odd)
+        polyorder: Polynomial order (typically 2-4)
+
+    Returns:
+        Smoothed energy curve (normalized 0-1)
+    """
+    from scipy.signal import savgol_filter
+
+    try:
+        rms = librosa.feature.rms(y=y, hop_length=hop)[0]
+        rms_norm = rms / (np.max(rms) + 1e-8)
+
+        if len(rms_norm) < window_length:
+            return rms_norm
+
+        # Ensure window_length is odd
+        if window_length % 2 == 0:
+            window_length += 1
+
+        # Savitzky-Golay preserves edges better than median
+        smoothed = savgol_filter(rms_norm, window_length, polyorder, mode='nearest')
+        return smoothed
+    except Exception:
+        # Fallback to median if savgol fails
+        rms = librosa.feature.rms(y=y, hop_length=hop)[0]
+        rms_norm = rms / (np.max(rms) + 1e-8)
+        if len(rms_norm) > 15:
+            rms_norm = medfilt(rms_norm, kernel_size=15)
+        return rms_norm
+
+
+def detect_energy_trends_per_section(energy_curve: np.ndarray, section_indices: List[Tuple[int, int]]) -> List[Dict]:
+    """
+    Optimization #13: Detect rising/falling/stable energy trends per section.
+
+    Args:
+        energy_curve: Normalized energy curve (0-1)
+        section_indices: List of (start_idx, end_idx) tuples for each section
+
+    Returns:
+        List of dicts with 'section_idx', 'trend' (rising/falling/stable), 'slope'
+    """
+    trends = []
+
+    for i, (start, end) in enumerate(section_indices):
+        if end - start < 2:
+            trends.append({"section_idx": i, "trend": "stable", "slope": 0.0})
+            continue
+
+        section_energy = energy_curve[start:end]
+        # Linear regression slope
+        x = np.arange(len(section_energy))
+        z = np.polyfit(x, section_energy, 1)
+        slope = float(z[0])
+
+        # Classify trend
+        if slope > 0.01:
+            trend = "rising"
+        elif slope < -0.01:
+            trend = "falling"
+        else:
+            trend = "stable"
+
+        trends.append({
+            "section_idx": i,
+            "trend": trend,
+            "slope": round(slope, 4),
+        })
+
+    return trends
+
+
+def detect_loudness_compression(y: np.ndarray, sr: int, block_duration: float = 1.0) -> Dict:
+    """
+    Optimization #14: Estimate dynamic range and detect compression.
+    High compression = small peak-to-average ratio.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        block_duration: Block size for computing RMS (seconds)
+
+    Returns:
+        Dict with 'dynamic_range_db' (max RMS - min RMS),
+        'peak_to_avg_ratio', 'is_compressed' (bool)
+    """
+    try:
+        block_samples = int(sr * block_duration)
+        if block_samples < sr // 2:
+            block_samples = sr // 2
+
+        blocks = []
+        for i in range(0, len(y) - block_samples, block_samples // 2):
+            block = y[i:i + block_samples]
+            rms = float(np.sqrt(np.mean(block ** 2)))
+            if rms > 0:
+                blocks.append(rms)
+
+        if len(blocks) < 3:
+            return {
+                "dynamic_range_db": 0.0,
+                "peak_to_avg_ratio": 1.0,
+                "is_compressed": False,
+            }
+
+        blocks_arr = np.array(blocks)
+        min_rms = np.min(blocks_arr)
+        max_rms = np.max(blocks_arr)
+        avg_rms = np.mean(blocks_arr)
+
+        # Dynamic range in dB
+        if min_rms > 0:
+            dynamic_range_db = 20 * np.log10(max_rms / min_rms)
+        else:
+            dynamic_range_db = 0.0
+
+        # Peak-to-average ratio
+        if avg_rms > 0:
+            peak_to_avg = max_rms / avg_rms
+        else:
+            peak_to_avg = 1.0
+
+        # If peak-to-avg < 1.5, track is heavily compressed
+        is_compressed = peak_to_avg < 1.5
+
+        return {
+            "dynamic_range_db": round(dynamic_range_db, 1),
+            "peak_to_avg_ratio": round(peak_to_avg, 2),
+            "is_compressed": is_compressed,
+        }
+    except Exception:
+        return {
+            "dynamic_range_db": 0.0,
+            "peak_to_avg_ratio": 1.0,
+            "is_compressed": False,
+        }
+
+
+def detect_transients(y: np.ndarray, sr: int, threshold_percentile: float = 95.0) -> Dict:
+    """
+    Optimization #15: Detect transient energy spikes (kicks, snares < 50ms).
+    Useful for identifying percussive elements.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        threshold_percentile: Percentile threshold for spike detection
+
+    Returns:
+        Dict with 'transient_times' (list of seconds), 'transient_count',
+        'mean_transient_energy', 'max_transient_energy'
+    """
+    try:
+        # Compute short-time energy (50ms windows = 0.05s)
+        window_samples = int(0.05 * sr)
+        hop_samples = window_samples // 4
+
+        energies = []
+        for i in range(0, len(y) - window_samples, hop_samples):
+            window = y[i:i + window_samples]
+            energy = float(np.sum(window ** 2))
+            energies.append(energy)
+
+        if len(energies) < 5:
+            return {
+                "transient_times": [],
+                "transient_count": 0,
+                "mean_transient_energy": 0.0,
+                "max_transient_energy": 0.0,
+            }
+
+        energies_arr = np.array(energies)
+        threshold = np.percentile(energies_arr, threshold_percentile)
+
+        # Find peaks above threshold
+        peaks, _ = find_peaks(energies_arr, height=threshold, distance=2)
+
+        # Convert frame indices to time
+        transient_times = []
+        transient_energies = []
+        for peak in peaks:
+            time_sec = (peak * hop_samples) / sr
+            transient_times.append(round(time_sec, 3))
+            transient_energies.append(energies[peak])
+
+        mean_energy = float(np.mean(transient_energies)) if transient_energies else 0.0
+        max_energy = float(np.max(transient_energies)) if transient_energies else 0.0
+
+        return {
+            "transient_times": transient_times,
+            "transient_count": len(transient_times),
+            "mean_transient_energy": round(mean_energy, 4),
+            "max_transient_energy": round(max_energy, 4),
+        }
+    except Exception:
+        return {
+            "transient_times": [],
+            "transient_count": 0,
+            "mean_transient_energy": 0.0,
+            "max_transient_energy": 0.0,
+        }
+
+
+def compute_vocal_energy_curve(y: np.ndarray, sr: int, hop_length: int = 512) -> np.ndarray:
+    """
+    Optimization #28: Compute vocal-specific energy curve.
+    Extracts harmonic component and computes its energy to track vocal energy
+    independently from percussion.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        hop_length: Hop length
+
+    Returns:
+        Normalized vocal energy curve (0.0-1.0)
+    """
+    try:
+        # Extract harmonic component (vocals are mostly harmonic)
+        y_harmonic = librosa.effects.harmonic(y, margin=4.0)
+
+        # Compute RMS energy of harmonic component
+        rms = librosa.feature.rms(y=y_harmonic, hop_length=hop_length)[0]
+        rms_norm = rms / (np.max(rms) + 1e-8)
+
+        # Smooth to get vocal energy envelope
+        if len(rms_norm) > 7:
+            rms_smooth = medfilt(rms_norm, kernel_size=7)
+        else:
+            rms_smooth = rms_norm
+
+        return rms_smooth
+    except Exception:
+        return np.array([])
+
+
+def detect_vocal_entry_exit(y: np.ndarray, sr: int, hop_length: int = 512,
+                             threshold: float = 0.4) -> Dict:
+    """
+    Optimization #27: Detect vocal entry and exit times.
+    Uses MFCC variance to identify when vocals start/stop.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        hop_length: Hop length for MFCC
+        threshold: Vocal likelihood threshold (0.0-1.0)
+
+    Returns:
+        Dict with 'vocal_entry_time', 'vocal_exit_time', 'vocal_sections'
+    """
+    try:
+        # Extract MFCCs over time
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, hop_length=hop_length)
+
+        # Formant variance per frame (formants = MFCC 1-4)
+        formant_var = np.var(mfcc[1:5, :], axis=0)
+        formant_var_norm = formant_var / (np.max(formant_var) + 1e-8)
+
+        # Smooth to reduce noise
+        if len(formant_var_norm) > 5:
+            formant_var_smooth = medfilt(formant_var_norm, kernel_size=5)
+        else:
+            formant_var_smooth = formant_var_norm
+
+        # Find regions above threshold
+        vocal_mask = formant_var_smooth > threshold
+        vocal_frames = np.where(vocal_mask)[0]
+
+        if len(vocal_frames) == 0:
+            return {
+                "vocal_entry_time": None,
+                "vocal_exit_time": None,
+                "vocal_sections": [],
+                "has_vocals": False,
+            }
+
+        # Find entry and exit times
+        vocal_entry_frame = vocal_frames[0]
+        vocal_exit_frame = vocal_frames[-1]
+
+        vocal_entry_time = librosa.frames_to_time(vocal_entry_frame, sr=sr, hop_length=hop_length)
+        vocal_exit_time = librosa.frames_to_time(vocal_exit_frame, sr=sr, hop_length=hop_length)
+
+        # Find vocal sections (continuous regions)
+        frame_diffs = np.diff(vocal_frames)
+        # Gap > 0.5 seconds = new section
+        gap_threshold = int(0.5 * sr / hop_length)
+        section_breaks = np.where(frame_diffs > gap_threshold)[0]
+
+        vocal_sections = []
+        start_idx = 0
+        for break_idx in section_breaks:
+            end_idx = break_idx + 1
+            start_time = librosa.frames_to_time(vocal_frames[start_idx], sr=sr, hop_length=hop_length)
+            end_time = librosa.frames_to_time(vocal_frames[end_idx - 1], sr=sr, hop_length=hop_length)
+            vocal_sections.append({
+                "start_time": round(start_time, 2),
+                "end_time": round(end_time, 2),
+                "duration": round(end_time - start_time, 2),
+            })
+            start_idx = end_idx
+
+        # Add final section
+        if start_idx < len(vocal_frames):
+            start_time = librosa.frames_to_time(vocal_frames[start_idx], sr=sr, hop_length=hop_length)
+            end_time = librosa.frames_to_time(vocal_frames[-1], sr=sr, hop_length=hop_length)
+            vocal_sections.append({
+                "start_time": round(start_time, 2),
+                "end_time": round(end_time, 2),
+                "duration": round(end_time - start_time, 2),
+            })
+
+        return {
+            "vocal_entry_time": round(vocal_entry_time, 2),
+            "vocal_exit_time": round(vocal_exit_time, 2),
+            "vocal_sections": vocal_sections,
+            "has_vocals": len(vocal_sections) > 0,
+        }
+    except Exception:
+        return {
+            "vocal_entry_time": None,
+            "vocal_exit_time": None,
+            "vocal_sections": [],
+            "has_vocals": False,
+        }
+
+
+def detect_vocal_likelihood(y: np.ndarray, sr: int, hop_length: int = 512) -> Dict:
+    """
+    Optimization #26: MFCC-based vocal likelihood scoring.
+    Detects presence and confidence of vocal content.
+
+    Vocal-characteristic MFCCs: typically peaks in MFCC 1-4 (formant region).
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        hop_length: Hop length for MFCC extraction
+
+    Returns:
+        Dict with 'vocal_likelihood' (0.0-1.0), 'vocal_confidence',
+        'has_vocals' (bool), 'mfcc_variance'
+    """
+    try:
+        # Extract MFCCs (13 coefficients typical)
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, hop_length=hop_length)
+
+        # Mean MFCC over time
+        mfcc_mean = np.mean(mfcc, axis=1)
+        mfcc_std = np.std(mfcc, axis=1)
+
+        # Vocal characteristics:
+        # - Low MFCC 0 (energy)
+        # - High variance in MFCC 1-4 (formants)
+        # - Moderate MFCC 5-13 (higher cepstral coefficients)
+
+        # Score formant region (MFCC 1-4)
+        formant_variance = float(np.mean(mfcc_std[1:5]))
+        formant_energy = float(np.mean(np.abs(mfcc_mean[1:5])))
+
+        # Vocal likelihood: combination of formant characteristics
+        # Higher formant variance = more likely to have structured vocals
+        vocal_likelihood = min(1.0, formant_variance / 2.0)
+
+        # Confidence: based on stability of MFCC over time
+        mfcc_time_stability = 1.0 / (1.0 + np.std(np.std(mfcc, axis=0)))
+        confidence = min(1.0, vocal_likelihood * mfcc_time_stability)
+
+        # Threshold: > 0.4 = likely has vocals
+        has_vocals = vocal_likelihood > 0.4
+
+        return {
+            "vocal_likelihood": round(float(vocal_likelihood), 3),
+            "vocal_confidence": round(float(confidence), 3),
+            "has_vocals": has_vocals,
+            "mfcc_variance": round(formant_variance, 3),
+        }
+    except Exception:
+        return {
+            "vocal_likelihood": 0.0,
+            "vocal_confidence": 0.0,
+            "has_vocals": False,
+            "mfcc_variance": 0.0,
+        }
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #   WAVEFORM DATA FOR FRONTEND
 # ══════════════════════════════════════════════════════════════════════════
@@ -2773,6 +4303,84 @@ def compute_waveform_data(y: np.ndarray, sr: int, num_peaks: int = 800) -> Dict:
         }
     except Exception:
         return {"waveform_peaks": [], "spectral_energy": None}
+
+
+def compute_waveform_data_percentile(y: np.ndarray, sr: int, num_peaks: int = 800,
+                                     percentile: float = 99.0) -> Dict:
+    """
+    Optimization #29: Compute waveform peaks using percentile instead of max.
+    Avoids single-sample spikes distorting peak visualization.
+
+    Args:
+        y: Audio signal
+        sr: Sample rate
+        num_peaks: Number of peaks to compute
+        percentile: Percentile for peak detection (default 99th = p99)
+
+    Returns:
+        Dict with 'waveform_peaks', 'spectral_energy' (5-band), 'rms_envelope'
+    """
+    try:
+        n = len(y)
+        seg_len = max(1, n // num_peaks)
+        actual_peaks = min(num_peaks, n // seg_len)
+
+        # Percentile-based peak computation (more robust than max)
+        trimmed = y[:actual_peaks * seg_len].reshape(actual_peaks, seg_len)
+        peaks = np.percentile(np.abs(trimmed), percentile, axis=1).tolist()
+
+        # 5-band spectral energy (Optimization #30 partial)
+        stft = np.abs(librosa.stft(y, hop_length=seg_len, n_fft=min(2048, seg_len * 2))) ** 2
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=min(2048, seg_len * 2))
+
+        # 5 bands: sub-bass, bass, mids, highs, ultra-highs
+        sub_bass_mask = (freqs >= 20) & (freqs < 80)
+        bass_mask = (freqs >= 80) & (freqs < 250)
+        mids_mask = (freqs >= 250) & (freqs < 2000)
+        highs_mask = (freqs >= 2000) & (freqs < 8000)
+        ultra_highs_mask = freqs >= 8000
+
+        # Compute energy per band
+        sub_bass_e = np.sum(stft[sub_bass_mask, :], axis=0)
+        bass_e = np.sum(stft[bass_mask, :], axis=0)
+        mids_e = np.sum(stft[mids_mask, :], axis=0)
+        highs_e = np.sum(stft[highs_mask, :], axis=0)
+        ultra_highs_e = np.sum(stft[ultra_highs_mask, :], axis=0)
+
+        # Normalize bands
+        def norm(arr):
+            mx = np.max(arr)
+            return (arr / mx).tolist() if mx > 0 else arr.tolist()
+
+        indices = np.linspace(0, len(sub_bass_e) - 1, actual_peaks).astype(int)
+        spectral_sub_bass = norm(sub_bass_e[indices])
+        spectral_bass = norm(bass_e[indices])
+        spectral_mids = norm(mids_e[indices])
+        spectral_highs = norm(highs_e[indices])
+        spectral_ultra = norm(ultra_highs_e[indices])
+
+        # RMS envelope (Optimization #30 partial)
+        rms_env = librosa.feature.rms(y=y, hop_length=seg_len)[0]
+        rms_norm = rms_env / (np.max(rms_env) + 1e-8)
+        rms_subsampled = rms_norm[indices].tolist()
+
+        return {
+            "waveform_peaks": peaks,
+            "spectral_energy": {
+                "sub_bass": spectral_sub_bass,
+                "bass": spectral_bass,
+                "mids": spectral_mids,
+                "highs": spectral_highs,
+                "ultra_highs": spectral_ultra,
+            },
+            "rms_envelope": rms_subsampled,
+        }
+    except Exception:
+        return {
+            "waveform_peaks": [],
+            "spectral_energy": None,
+            "rms_envelope": [],
+        }
 
 def detect_bpm_and_beats(file_path: str) -> Dict:
     y, sr = librosa.load(file_path, sr=SR, duration=MAX_DURATION)

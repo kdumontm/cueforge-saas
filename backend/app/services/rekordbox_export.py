@@ -10,10 +10,11 @@ Rekordbox XML format reference:
 
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 from datetime import datetime
 import os
 import math
+import html
 
 
 # Rekordbox color palette (ID to hex)
@@ -33,6 +34,13 @@ CUE_TYPE_MAP = {
     "breakdown": 0, "intro": 0, "outro": 0, "verse": 0,
     "chorus": 0, "loop": 4, "memory": 0,
 }
+
+
+def _escape_xml_attr(text: str) -> str:
+    """Escape special characters in XML attributes."""
+    if not text:
+        return ""
+    return html.escape(str(text), quote=True)
 
 
 def format_time_mmss(ms: float) -> str:
@@ -88,15 +96,28 @@ def loop_duration_in_beats(start_ms: float, end_ms: float, bpm: float) -> float:
     beats = duration_ms / beat_length_ms
     return round(beats, 2)
 
-def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Export") -> str:
+def generate_rekordbox_xml(
+    tracks: List[Dict],
+    playlist_name: str = "CueForge Export",
+    progress_callback: Optional[Callable[[int, int], None]] = None
+) -> str:
     """
     Generate a Rekordbox-compatible XML string from CueForge track data.
+
+    Args:
+        tracks: List of track dictionaries
+        playlist_name: Name for the exported playlist
+        progress_callback: Optional callback(current, total) for batch export progress
     """
     root = ET.Element("DJ_PLAYLISTS", Version="1.0.0")
     product = ET.SubElement(root, "PRODUCT", Name="CueForge", Version="3.0", Company="CueForge")
     collection = ET.SubElement(root, "COLLECTION", Entries=str(len(tracks)))
 
     for idx, track in enumerate(tracks):
+        # Progress callback for batch export
+        if progress_callback:
+            progress_callback(idx + 1, len(tracks))
+
         analysis = track.get("analysis", {}) or {}
         bpm = analysis.get("bpm") or track.get("bpm") or 0
         key = analysis.get("key") or track.get("key") or ""
@@ -105,11 +126,14 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         duration_ms = track.get("duration_ms") or analysis.get("duration_ms") or 0
         duration_sec = duration_ms / 1000.0 if duration_ms else 0
         energy = analysis.get("energy") or 0
+        confidence = track.get("confidence") or analysis.get("confidence") or 0
 
-        # Build comments with metadata (rating, key, etc.)
+        # Build comments with metadata (rating, key, confidence)
         comments_parts = []
         if energy:
             comments_parts.append(f"Energy: {energy:.0%}")
+        if confidence and confidence > 0:
+            comments_parts.append(f"Confidence: {confidence:.0%}")
         track_comment = track.get("comment") or track.get("comments") or ""
         if track_comment:
             comments_parts.append(track_comment)
@@ -121,31 +145,50 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         if open_key:
             tonality_str = open_key
 
+        # Escape special characters in strings
+        title = _escape_xml_attr(track.get("title", "Unknown"))
+        artist = _escape_xml_attr(track.get("artist", "Unknown"))
+        album = _escape_xml_attr(track.get("album", ""))
+        genre_str = f"{genre} / {subgenre}" if subgenre and subgenre != genre else genre
+        genre_str = _escape_xml_attr(genre_str)
+
+        # Use track.created_at if available, otherwise current date
+        date_added = track.get("created_at") or track.get("date_added") or datetime.now().strftime("%Y-%m-%d")
+        if isinstance(date_added, str):
+            date_added = date_added.split("T")[0] if "T" in date_added else date_added
+        else:
+            date_added = date_added.strftime("%Y-%m-%d") if hasattr(date_added, "strftime") else str(date_added)
+
         track_attrs = {
             "TrackID": str(idx + 1),
-            "Name": track.get("title", "Unknown"),
-            "Artist": track.get("artist", "Unknown"),
-            "Album": track.get("album", ""),
-            "Genre": f"{genre} / {subgenre}" if subgenre and subgenre != genre else genre,
+            "Name": title,
+            "Artist": artist,
+            "Album": album,
+            "Genre": genre_str,
             "Kind": "MP3 File",
             "TotalTime": str(int(duration_sec)),
             "AverageBpm": f"{bpm:.2f}" if bpm else "0.00",
             "Tonality": tonality_str,
             "Rating": str(min(255, int(energy * 255))) if energy else "0",
-            "Comments": final_comments,
-            "DateAdded": datetime.now().strftime("%Y-%m-%d"),
+            "Comments": _escape_xml_attr(final_comments),
+            "DateAdded": date_added,
         }
+
+        # Add artwork if available
+        artwork_url = track.get("artwork_url", "")
+        if artwork_url:
+            track_attrs["ArtworkPath"] = _escape_xml_attr(artwork_url)
 
         file_path = track.get("file_path") or track.get("original_filename") or ""
         if file_path:
-            track_attrs["Location"] = f"file://localhost/{file_path}"
+            track_attrs["Location"] = f"file://localhost/{_escape_xml_attr(file_path)}"
 
         track_el = ET.SubElement(collection, "TRACK", **track_attrs)
 
         if bpm:
             ET.SubElement(track_el, "TEMPO", Inizio="0.000", Bpm=f"{bpm:.2f}", Metro="4/4", Battito="1")
 
-        # Beat grid export (BPM + offset)
+        # Beat grid export (BPM + offset/phase information)
         beat_grid = track.get("beat_grid", {}) or {}
         first_beat_ms = beat_grid.get("first_beat_ms", 0)
         if bpm and first_beat_ms >= 0:
@@ -163,8 +206,9 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         for cue_idx, cue in enumerate(cue_points):
             pos_ms = cue.get("position_ms") or cue.get("time") or 0
             end_ms = cue.get("end_position_ms") or 0
-            label = cue.get("label") or cue.get("name") or f"Cue {cue_idx + 1}"
+            label = _escape_xml_attr(cue.get("label") or cue.get("name") or f"Cue {cue_idx + 1}")
             cue_type = cue.get("type") or cue.get("cue_type") or "cue"
+            confidence = cue.get("confidence") or 0
             # Only treat as loop if explicitly tagged as loop type — not just because end_ms exists
             is_loop = cue_type == "loop" and bool(end_ms and end_ms > pos_ms)
             is_memory = cue.get("is_memory") or (cue_type == "memory")
@@ -194,29 +238,39 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
                         mark_attrs["LenBeats"] = f"{loop_beats:.2f}"
 
             # Use the actual color stored in DB (hex string); fall back to palette by index
-            raw_color = cue.get("color") or ""
-            if raw_color and raw_color.startswith("#") and len(raw_color) >= 7:
+            # Support color_rgb tuple format as well
+            raw_color = cue.get("color") or cue.get("color_rgb") or ""
+            if isinstance(raw_color, (list, tuple)) and len(raw_color) >= 3:
+                r, g, b = raw_color[0], raw_color[1], raw_color[2]
+            elif raw_color and isinstance(raw_color, str) and raw_color.startswith("#") and len(raw_color) >= 7:
                 color_hex = raw_color[:7]
+                r = int(color_hex[1:3], 16)
+                g = int(color_hex[3:5], 16)
+                b = int(color_hex[5:7], 16)
             else:
                 color_idx = cue_idx % 8
                 color_hex = REKORDBOX_COLORS.get(color_idx, "#E13535")
-            r = int(color_hex[1:3], 16)
-            g = int(color_hex[3:5], 16)
-            b = int(color_hex[5:7], 16)
+                r = int(color_hex[1:3], 16)
+                g = int(color_hex[3:5], 16)
+                b = int(color_hex[5:7], 16)
             mark_attrs["Red"] = str(r)
             mark_attrs["Green"] = str(g)
             mark_attrs["Blue"] = str(b)
 
+            # Add confidence as comment if available
+            if confidence > 0:
+                mark_attrs["Comments"] = f"Confidence: {confidence:.0%}"
+
             ET.SubElement(track_el, "POSITION_MARK", **mark_attrs)
 
-        # v4: Loop markers as POSITION_MARK Type="4"
+        # v4: Loop markers as separate POSITION_MARK entries (Type="4")
         loop_markers = track.get("loop_markers", []) or []
         for loop_idx, loop in enumerate(loop_markers):
             start_ms = loop.get("start_ms", 0)
             end_ms = loop.get("end_ms", 0)
             if end_ms <= start_ms:
                 continue
-            loop_name = loop.get("name", f"Loop {loop_idx + 1}")
+            loop_name = _escape_xml_attr(loop.get("name", f"Loop {loop_idx + 1}"))
             loop_attrs = {
                 "Name": loop_name,
                 "Type": "4",        # Loop type in Rekordbox
@@ -224,24 +278,31 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
                 "End": format_time_mmss(end_ms),
                 "Num": "-1",
             }
-            # Color
-            color = loop.get("color", "green")
-            loop_colors = {
-                "green": "#1DB954", "red": "#E13535", "yellow": "#E2D420",
-                "cyan": "#21C8DE", "blue": "#2B7FFF", "purple": "#A855F7",
-                "orange": "#FF8C00", "pink": "#FF69B4",
-            }
-            hex_color = loop_colors.get(color, "#1DB954")
-            loop_attrs["Red"] = str(int(hex_color[1:3], 16))
-            loop_attrs["Green"] = str(int(hex_color[3:5], 16))
-            loop_attrs["Blue"] = str(int(hex_color[5:7], 16))
+            # Add loop duration in beats if BPM available
+            if bpm:
+                loop_beats = loop_duration_in_beats(start_ms, end_ms, bpm)
+                if loop_beats > 0:
+                    loop_attrs["LenBeats"] = f"{loop_beats:.2f}"
+
+            # Color handling: support hex, RGB tuple, and named colors
+            raw_color = loop.get("color", "green")
+            if isinstance(raw_color, (list, tuple)) and len(raw_color) >= 3:
+                r, g, b = raw_color[0], raw_color[1], raw_color[2]
+            else:
+                loop_colors = {
+                    "green": "#1DB954", "red": "#E13535", "yellow": "#E2D420",
+                    "cyan": "#21C8DE", "blue": "#2B7FFF", "purple": "#A855F7",
+                    "orange": "#FF8C00", "pink": "#FF69B4",
+                }
+                hex_color = loop_colors.get(str(raw_color), "#1DB954")
+                r = int(hex_color[1:3], 16)
+                g = int(hex_color[3:5], 16)
+                b = int(hex_color[5:7], 16)
+            loop_attrs["Red"] = str(r)
+            loop_attrs["Green"] = str(g)
+            loop_attrs["Blue"] = str(b)
 
             ET.SubElement(track_el, "POSITION_MARK", **loop_attrs)
-
-        # v4: Artwork URL
-        artwork = track.get("artwork_url", "")
-        if artwork:
-            track_el.set("ArtworkPath", artwork)
 
     # Playlists section
     playlists = ET.SubElement(root, "PLAYLISTS")
@@ -251,7 +312,7 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
     for idx in range(len(tracks)):
         ET.SubElement(playlist_node, "TRACK", Key=str(idx + 1))
 
-    # Pretty print
+    # Pretty print with XML validation
     rough_string = ET.tostring(root, encoding="unicode", xml_declaration=False)
     xml_decl = '<?xml version="1.0" encoding="UTF-8"?>\n'
     try:
@@ -265,27 +326,53 @@ def generate_rekordbox_xml(tracks: List[Dict], playlist_name: str = "CueForge Ex
         return xml_decl + rough_string
 
 
-def export_tracks_to_rekordbox(tracks: List[Dict], output_path: str = None) -> Dict:
+def export_tracks_to_rekordbox(
+    tracks: List[Dict],
+    output_path: str = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None
+) -> Dict:
     """
     Export tracks to Rekordbox XML format.
 
     Args:
         tracks: List of track data from CueForge DB
         output_path: Optional file path to write XML to
+        progress_callback: Optional callback(current, total) for progress tracking
 
     Returns:
-        {"xml": str, "track_count": int, "cue_count": int}
+        {
+            "xml": str,
+            "track_count": int,
+            "cue_count": int,
+            "loop_count": int,
+            "format": "rekordbox_xml",
+            "version": "1.0.0",
+            "statistics": {...}
+        }
     """
-    xml_content = generate_rekordbox_xml(tracks)
+    xml_content = generate_rekordbox_xml(tracks, progress_callback=progress_callback)
 
     total_cues = sum(len(t.get("cue_points", []) or []) for t in tracks)
+    total_loops = sum(len(t.get("loop_markers", []) or []) for t in tracks)
+    total_errors = 0
+
+    # Calculate statistics
+    stats = {
+        "tracks_exported": len(tracks),
+        "cues_exported": total_cues,
+        "loops_exported": total_loops,
+        "markers_total": total_cues + total_loops,
+        "export_errors": total_errors,
+    }
 
     result = {
         "xml": xml_content,
         "track_count": len(tracks),
         "cue_count": total_cues,
+        "loop_count": total_loops,
         "format": "rekordbox_xml",
         "version": "1.0.0",
+        "statistics": stats,
     }
 
     if output_path:

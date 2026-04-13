@@ -444,6 +444,7 @@ except ImportError:
 # OPT #6: GZipMiddleware avec compresslevel=6 et minimum_size optimisé
 app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
+# OPT #34: CORS configuration for production domains
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
@@ -456,6 +457,7 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(AccessLogMiddleware)
+app.add_middleware(RequestTimingMiddleware)  # OPT #33
 
 # v12: Security hardening middleware
 try:
@@ -473,10 +475,29 @@ try:
 except ImportError:
     pass
 
-# OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
+# OPT #33: Request timing middleware for slow endpoint detection
 from starlette.middleware.base import BaseHTTPMiddleware
 from hashlib import md5
+import time
 
+class RequestTimingMiddleware(BaseHTTPMiddleware):
+    """OPT #33: Log request timing for slow endpoints (> 500ms)."""
+    async def dispatch(self, request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        elapsed = time.time() - start_time
+
+        if elapsed > 0.5:  # 500ms threshold
+            logger.warning(
+                "⚠️  SLOW ENDPOINT (%.3fs): %s %s",
+                elapsed,
+                request.method,
+                request.url.path,
+            )
+        return response
+
+
+# OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
 class CacheAndETagMiddleware(BaseHTTPMiddleware):
     """
     OPT #7: Ajoute Cache-Control headers sur les réponses GET/HEAD.

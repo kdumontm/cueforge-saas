@@ -19,6 +19,8 @@ from app.models.user import User
 from app.services.rekordbox_export import export_tracks_to_rekordbox, generate_rekordbox_xml
 from app.services.serato_export import generate_serato_crate, generate_serato_csv, generate_serato_markers_csv
 from app.services.traktor_export import generate_traktor_nml
+from app.services.engine_dj_export import export_tracks_to_engine_dj
+from app.services.virtualdj_export import export_tracks_to_virtualdj
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -551,4 +553,150 @@ async def export_all_traktor(
         content=nml_xml,
         media_type="application/xml",
         headers={"Content-Disposition": 'attachment; filename="CueForge_Library.nml"'},
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   ENGINE DJ (Denon/InMusic)
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.get("/{track_id}/engine-dj")
+async def export_single_track_engine_dj(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export a single track to Engine DJ XML format."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    result = export_tracks_to_engine_dj([track_dict])
+
+    return Response(
+        content=result["xml"],
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{track_dict["title"]}_engine_dj.xml"',
+            "X-Export-Stats": f'tracks={result["track_count"]},cues={result["cue_count"]}'
+        }
+    )
+
+
+@router.post("/engine-dj/batch")
+async def export_batch_engine_dj(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export multiple tracks to Engine DJ XML format."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_engine_dj(track_dicts)
+
+    collection_name = payload.name or "CueForge Export"
+    return Response(
+        content=result["xml"],
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{collection_name}_engine_dj.xml"',
+            "X-Export-Stats": f'tracks={result["track_count"]},cues={result["cue_count"]},loops={result["loop_count"]}'
+        }
+    )
+
+
+@router.get("/engine-dj/all")
+async def export_all_engine_dj(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all tracks to Engine DJ XML format."""
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_engine_dj(track_dicts)
+
+    return Response(
+        content=result["xml"],
+        media_type="application/xml",
+        headers={
+            "Content-Disposition": 'attachment; filename="CueForge_Library_engine_dj.xml"',
+            "X-Export-Stats": f'tracks={result["track_count"]},cues={result["cue_count"]},loops={result["loop_count"]}'
+        }
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   VIRTUALDJ
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.get("/{track_id}/virtualdj")
+async def export_single_track_virtualdj(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export a single track to VirtualDJ JSON format."""
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    track_dict = track_to_dict(track)
+    result = export_tracks_to_virtualdj([track_dict])
+
+    return {
+        "track": track_dict,
+        "export": result,
+        "format": "virtualdj_json",
+    }
+
+
+@router.post("/virtualdj/batch")
+async def export_batch_virtualdj(
+    payload: BatchExportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export multiple tracks to VirtualDJ format."""
+    tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks found")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_virtualdj(track_dicts)
+
+    return Response(
+        content=json.dumps(result, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{payload.name or "export"}_virtualdj.json"'
+        }
+    )
+
+
+@router.get("/virtualdj/all")
+async def export_all_virtualdj(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export all tracks to VirtualDJ format."""
+    tracks = list(db.query(Track).filter(Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).yield_per(100))
+    if not tracks:
+        raise HTTPException(status_code=404, detail="No tracks in library")
+
+    track_dicts = [track_to_dict(t) for t in tracks]
+    result = export_tracks_to_virtualdj(track_dicts)
+
+    return Response(
+        content=json.dumps(result, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": 'attachment; filename="CueForge_Library_virtualdj.json"'
+        }
     )

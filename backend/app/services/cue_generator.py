@@ -35,11 +35,156 @@ from sqlalchemy.orm import Session
 import numpy as np
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from typing import NamedTuple
 
 from app.models import (
     Track, TrackAnalysis, CuePoint, CueRule, User, CUE_COLOR_RGB
 )
 from app.services.camelot import key_to_camelot as camelot_key_to_camelot, get_compatible_keys as camelot_get_compatible
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   IMPROVEMENTS #29: TYPED DATACLASSES
+# ══════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class CuePointResult:
+    """Typed result for a single cue point (Improvement #29)."""
+    position_ms: int
+    cue_type: str
+    name: str
+    color: str
+    confidence: float
+    number: int
+    end_position_ms: Optional[int] = None
+    source: str = "auto"
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for API responses."""
+        return {
+            "position_ms": self.position_ms,
+            "cue_type": self.cue_type,
+            "name": self.name,
+            "color": self.color,
+            "confidence": self.confidence,
+            "number": self.number,
+            "end_position_ms": self.end_position_ms,
+            "source": self.source,
+        }
+
+
+@dataclass
+class CueGenerationConfig:
+    """Configuration for cue generation (Improvement #38)."""
+    min_drop_contrast: Optional[float] = None
+    min_build_gradient: Optional[float] = None
+    gap_bars: Optional[float] = None
+    snap_tolerance_bars: Optional[float] = None
+    min_gap_ms: Optional[int] = None
+    max_cues: int = 8
+    prefer_anticipation_points: bool = False
+    validate_silence_zones: bool = True
+    min_zone_margin_ms: int = 200
+    enable_drop_ranking: bool = True
+    enable_anti_drop_filtering: bool = True
+    enable_genre_adaptive_builds: bool = True
+    enable_vocal_free_zones: bool = True
+
+
+@dataclass
+class CueGenerationStats:
+    """Statistics about cue generation (Improvement #39)."""
+    total_candidates: int
+    total_drops: int
+    drop_avg_confidence: float
+    total_cues: int
+    cue_types: Dict[str, int]
+    avg_gap_ms: float
+    generation_time_ms: float
+
+
+class CueConfidenceCalculator:
+    """Centralized confidence calculation (Improvement #30)."""
+
+    def __init__(self, profile: Dict, bpm: float, duration_ms: int):
+        self.profile = profile
+        self.bpm = bpm
+        self.duration_ms = duration_ms
+        self.beat_ms = 60000 / max(bpm, 60)
+
+    def compute(
+        self,
+        cue_type: str,
+        energy_contrast: float,
+        snap_quality: float,
+        structural_match: bool,
+        energy_level: Optional[float] = None,
+        distance_to_nearest_cue: Optional[int] = None,
+        bpm_confidence: Optional[float] = None,
+        section_label_score: Optional[float] = None,
+    ) -> float:
+        """
+        Compute comprehensive confidence score with all factors.
+
+        Improvements:
+        #4: distance_to_nearest_cue bonus
+        #5: BPM uncertainty penalty
+        #6: genre-dependent base
+        #7: section label confidence integration
+        """
+        e_weight = self.profile.get("energy_weight", 0.55)
+        s_weight = self.profile.get("structure_weight", 0.45)
+
+        # Base type-specific confidence (Improvement #6: genre-dependent)
+        genre_base = self.profile.get(f"{cue_type}_base_confidence", None)
+        if genre_base is None:
+            genre_base = {
+                "section": 0.6,
+                "drop": 0.5,
+                "phrase": 0.4,
+            }.get(cue_type, 0.5)
+
+        # Energy component
+        energy_score = min(1.0, abs(energy_contrast) / 0.5)
+
+        # Snap component
+        snap_score = snap_quality
+
+        # Structural bonus (Improvement #7: use section label score if available)
+        struct_bonus = 0.0
+        if structural_match:
+            if section_label_score is not None:
+                struct_bonus = section_label_score * 0.2  # Max +0.2
+            else:
+                struct_bonus = 0.15
+
+        # Improvement #4: Distance-to-nearest-cue bonus
+        distance_bonus = 0.0
+        if distance_to_nearest_cue is not None and distance_to_nearest_cue > 32000:  # > 32 bars at 128 BPM
+            distance_bonus = 0.1
+
+        # Improvement #5: BPM uncertainty penalty
+        bpm_penalty = 0.0
+        if bpm_confidence is not None and bpm_confidence < 0.5:
+            bpm_penalty = (1.0 - bpm_confidence) * 0.2  # Max -0.2
+
+        # Silence penalty — Improvement #8: validation (moved from _compute_confidence)
+        silence_penalty = 0.0
+        if energy_level is not None and energy_level < 0.05:
+            silence_penalty = 0.3
+
+        confidence = (
+            genre_base
+            + (energy_score * e_weight * 0.3)
+            + (snap_score * 0.2)
+            + struct_bonus
+            + distance_bonus
+            - bpm_penalty
+            - silence_penalty
+        )
+
+        return round(min(1.0, max(0.0, confidence)), 2)
 
 # Couleurs hex Rekordbox-compatibles pour chaque type de cue
 CUE_COLORS = {
@@ -138,6 +283,9 @@ GENRE_PROFILES = {
         "min_gap_ms": 4000,          # Tight grid, need distance (Improvement #2)
         "energy_weight": 0.7,
         "structure_weight": 0.3,
+        "drop_base_confidence": 0.75,  # Improvement #6: Genre-dependent
+        "section_base_confidence": 0.65,
+        "phrase_base_confidence": 0.45,
     },
     "house": {
         "min_drop_contrast": 0.15,
@@ -255,6 +403,9 @@ GENRE_PROFILES = {
         "min_gap_ms": 2000,
         "energy_weight": 0.55,
         "structure_weight": 0.45,
+        "drop_base_confidence": 0.65,  # Improvement #6: Genre-dependent
+        "section_base_confidence": 0.60,
+        "phrase_base_confidence": 0.40,
     },
 }
 
@@ -370,13 +521,15 @@ def _bpm_snap_tolerance(bpm: float, bars: float = None, profile: Dict = None) ->
     return int(beat_ms * 4 * bars)
 
 
-def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
+def _snap_to_downbeat(
+    pos_ms: int, beats: List[int], bpm: float = 128, precomputed_downbeats: Optional[List[int]] = None
+) -> int:
     """
     Snap a position to the nearest downbeat (every 4 beats = 1 bar).
     Professional DJ cue points ALWAYS land on a downbeat.
 
     v6.1: Binary search O(log n) instead of linear O(n) for large beat grids.
-    Then snap to nearest downbeat (index multiple of 4).
+    Improvement #1: Use precomputed_downbeats for O(1) lookup instead of recomputing.
     """
     if not beats:
         beat_ms = 60000 / max(bpm, 60)
@@ -384,10 +537,21 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
         nearest_bar = round(pos_ms / bar_ms) * bar_ms
         return int(nearest_bar)
 
-    # Binary search for nearest beat — O(log n) instead of O(n)
+    # Improvement #1: Use pre-computed downbeats if available
+    if precomputed_downbeats:
+        import bisect
+        idx = bisect.bisect_left(precomputed_downbeats, pos_ms)
+        candidates = []
+        if idx > 0:
+            candidates.append(precomputed_downbeats[idx - 1])
+        if idx < len(precomputed_downbeats):
+            candidates.append(precomputed_downbeats[idx])
+        if candidates:
+            return min(candidates, key=lambda b: abs(b - pos_ms))
+
+    # Fallback: compute downbeats from beats
     import bisect
     idx = bisect.bisect_left(beats, pos_ms)
-    # Check idx-1 and idx for closest
     if idx == 0:
         nearest_beat_idx = 0
     elif idx >= len(beats):
@@ -398,7 +562,6 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
         else:
             nearest_beat_idx = idx - 1
 
-    # Snap to nearest downbeat (index multiple of 4)
     downbeat_before = (nearest_beat_idx // 4) * 4
     downbeat_after = downbeat_before + 4
 
@@ -414,7 +577,14 @@ def _snap_to_downbeat(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
     return min(candidates, key=lambda b: abs(b - pos_ms))
 
 
-def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> int:
+def _snap_to_4bar_boundary(
+    pos_ms: int,
+    beats: List[int],
+    bpm: float = 128,
+    precomputed_boundaries_16: Optional[List[int]] = None,
+    precomputed_boundaries_8: Optional[List[int]] = None,
+    precomputed_downbeats: Optional[List[int]] = None,
+) -> int:
     """
     Snap to nearest 4-bar boundary (every 16 beats in 4/4).
 
@@ -422,8 +592,8 @@ def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> i
       1. Essayer 4-bar boundary (16 beats) — idéal pour les sections
       2. Si trop loin (> 2 mesures), fallback sur 2-bar (8 beats)
       3. En dernier recours, downbeat (4 beats)
-    Un DJ travaille en phrases de 4, 8, 16 mesures — le snap doit respecter
-    la hiérarchie métrique sans sauter trop loin du point détecté.
+
+    Improvement #1: Use precomputed boundaries for O(1) lookup.
     """
     if not beats:
         beat_ms = 60000 / max(bpm, 60)
@@ -434,7 +604,7 @@ def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> i
     import bisect
     beat_ms = 60000 / max(bpm, 60)
     bar_ms = beat_ms * 4
-    max_jump_ms = bar_ms * 2.5  # Ne pas sauter plus de 2.5 mesures
+    max_jump_ms = bar_ms * 2.5
 
     def _nearest_in_sorted(sorted_list: List[int], target: int) -> int:
         """Binary search for nearest value — O(log n)."""
@@ -446,22 +616,28 @@ def _snap_to_4bar_boundary(pos_ms: int, beats: List[int], bpm: float = 128) -> i
             candidates.append(sorted_list[idx])
         return min(candidates, key=lambda b: abs(b - target)) if candidates else target
 
-    # Niveau 1: frontières de 4 mesures (16 beats)
-    boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
+    # Improvement #1: Use pre-computed boundaries if available
+    if precomputed_boundaries_16:
+        nearest_16 = _nearest_in_sorted(precomputed_boundaries_16, pos_ms)
+        if abs(nearest_16 - pos_ms) <= max_jump_ms:
+            return nearest_16
+
+    # Niveau 1: frontières de 4 mesures (16 beats) — fallback computation
+    boundaries_16 = precomputed_boundaries_16 or [beats[i] for i in range(0, len(beats), 16)]
     if boundaries_16:
         nearest_16 = _nearest_in_sorted(boundaries_16, pos_ms)
         if abs(nearest_16 - pos_ms) <= max_jump_ms:
             return nearest_16
 
     # Niveau 2: frontières de 2 mesures (8 beats)
-    boundaries_8 = [beats[i] for i in range(0, len(beats), 8)]
+    boundaries_8 = precomputed_boundaries_8 or [beats[i] for i in range(0, len(beats), 8)]
     if boundaries_8:
         nearest_8 = _nearest_in_sorted(boundaries_8, pos_ms)
         if abs(nearest_8 - pos_ms) <= max_jump_ms:
             return nearest_8
 
     # Niveau 3: fallback sur le downbeat le plus proche
-    return _snap_to_downbeat(pos_ms, beats, bpm)
+    return _snap_to_downbeat(pos_ms, beats, bpm, precomputed_downbeats)
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -874,6 +1050,456 @@ def _detect_loop_candidates(beats: List[int], energy_curve: List[float], bpm: fl
 
 
 # ══════════════════════════════════════════════════════════════════════════
+#   SNAP BOUNDARY PRE-COMPUTATION (Improvement #1)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _precompute_snap_boundaries(beats: List[int]) -> Tuple[List[int], List[int], List[int]]:
+    """
+    Pre-compute boundary arrays ONCE instead of in each snap call.
+    Returns (downbeats, boundaries_8, boundaries_16).
+    Improvement #1: O(n) preprocessing instead of O(n*m) per snap.
+    """
+    downbeats = [beats[i] for i in range(0, len(beats), 4)]
+    boundaries_8 = [beats[i] for i in range(0, len(beats), 8)]
+    boundaries_16 = [beats[i] for i in range(0, len(beats), 16)]
+    return downbeats, boundaries_8, boundaries_16
+
+
+def _find_anticipation_points(
+    cue_positions: List[int], beats: List[int], bpm: float = 128
+) -> List[int]:
+    """
+    Improvement #2: Find anticipation points — cues 1-2 beats before structural changes.
+    Returns list of anticipation point positions in ms.
+    """
+    if not beats or not cue_positions:
+        return []
+
+    beat_ms = 60000 / max(bpm, 60)
+    anticipation_distance = int(beat_ms * 1.5)  # 1-2 beats before
+
+    anticipation_points = []
+    for cue_pos in cue_positions:
+        # Look for the beat closest to (cue_pos - anticipation_distance)
+        target = max(0, cue_pos - anticipation_distance)
+        nearest_beat = min(beats, key=lambda b: abs(b - target)) if beats else target
+        if nearest_beat > 0 and nearest_beat not in cue_positions:
+            anticipation_points.append(nearest_beat)
+
+    return anticipation_points
+
+
+def _snap_with_beat_confidence(
+    pos_ms: int, beats: List[int], beat_confidences: Optional[List[float]] = None, bpm: float = 128
+) -> int:
+    """
+    Improvement #3: Use beat confidence weighting in snap.
+    Prefer beats with higher onset strength.
+    If beat_confidences not provided, falls back to regular snap.
+    """
+    if not beats or beat_confidences is None or len(beat_confidences) != len(beats):
+        return _snap_to_downbeat(pos_ms, beats, bpm)
+
+    import bisect
+
+    # Find 4 candidate downbeats (2 before, 2 after nearest beat)
+    idx = bisect.bisect_left(beats, pos_ms)
+    candidates_idx = []
+    for i in [max(0, idx - 2), max(0, idx - 1), idx, min(len(beats) - 1, idx + 1)]:
+        if 0 <= i < len(beats) and i % 4 == 0:
+            candidates_idx.append(i)
+
+    if not candidates_idx:
+        return _snap_to_downbeat(pos_ms, beats, bpm)
+
+    # Score candidates by (distance + inverse confidence)
+    best_idx = candidates_idx[0]
+    best_score = float("inf")
+
+    for i in candidates_idx:
+        distance = abs(beats[i] - pos_ms)
+        confidence = beat_confidences[i]
+        # Lower score is better: prefer close beats with high confidence
+        score = distance / 100.0 - confidence
+        if score < best_score:
+            best_score = score
+            best_idx = i
+
+    return beats[best_idx]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   VALIDATION HELPERS (Improvements #8, #24, #27, #28)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _validate_silence_zones(
+    cue_ms: int, duration_ms: int, margin_ms: int = 200
+) -> bool:
+    """
+    Validate cue isn't within margin_ms of track start/end.
+    Improvement #8: silence zone validation.
+    """
+    if cue_ms < margin_ms or cue_ms > duration_ms - margin_ms:
+        return False
+    return True
+
+
+def _validate_drop_spacing(drops: List[Tuple[int, float]], min_bar_count: int = 16, bpm: float = 128) -> List[Tuple[int, float]]:
+    """
+    Validate drops are far enough apart.
+    Improvement #11: minimum gap enforcement per genre.
+    """
+    if not drops:
+        return drops
+
+    bar_ms = (60000 / max(bpm, 60)) * 4
+    min_gap_ms = min_bar_count * bar_ms
+
+    sorted_drops = sorted(drops, key=lambda x: x[0])
+    result = [sorted_drops[0]]
+
+    for drop_ms, score in sorted_drops[1:]:
+        if drop_ms - result[-1][0] >= min_gap_ms:
+            result.append((drop_ms, score))
+
+    return result
+
+
+def _validate_final_cue_positions(cues: List[Dict], duration_ms: int) -> List[Dict]:
+    """
+    Validation #28: Ensure all final cue positions are valid integers within [0, duration_ms].
+    """
+    valid = []
+    for cue in cues:
+        pos = cue.get("position_ms", 0)
+        if isinstance(pos, int) and 0 <= pos <= duration_ms:
+            valid.append(cue)
+    return valid
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   BUILD DETECTION IMPROVEMENTS (Improvements #14-17)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _get_ideal_build_distance_bars(genre: Optional[str]) -> int:
+    """
+    Improvement #14: Genre-dependent ideal build distance.
+    DnB: 8 bars, House: 12 bars, Trance: 16 bars.
+    """
+    genre_lower = genre.lower() if genre else ""
+    if "drum" in genre_lower and "bass" in genre_lower:
+        return 8
+    elif "trance" in genre_lower:
+        return 16
+    elif "house" in genre_lower or "progressive" in genre_lower:
+        return 12
+    else:
+        return 12  # Default
+
+
+def _measure_energy_variance(energy_curve: List[float], start_idx: int, end_idx: int) -> float:
+    """
+    Improvement #15: Energy variance check during build.
+    Choppy builds (high variance) score lower than smooth builds.
+    """
+    if end_idx <= start_idx or len(energy_curve) < 2:
+        return 1.0
+
+    segment = energy_curve[start_idx:end_idx]
+    if len(segment) < 2:
+        return 1.0
+
+    variance = float(np.var(segment)) if segment else 0.0
+    # Normalize: variance > 0.1 is "choppy"
+    choppiness = min(1.0, variance / 0.1)
+    return 1.0 - (choppiness * 0.3)  # Max -0.3 penalty
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   DROP DETECTION IMPROVEMENTS (Improvements #9-13)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _compute_spectral_onset_clarity(
+    onsets: List[int], drop_ms: int, tolerance_ms: int = 500
+) -> float:
+    """
+    Improvement #9: Spectral onset clarity factor.
+    Drops preceded by clear onsets score higher.
+    """
+    if not onsets:
+        return 0.5
+
+    nearby_onsets = [o for o in onsets if abs(o - drop_ms) < tolerance_ms]
+    if not nearby_onsets:
+        return 0.3
+
+    # More onsets = more clear
+    clarity = min(1.0, len(nearby_onsets) / 3.0)
+    return clarity
+
+
+def _compute_contrast_width(
+    energy_curve: List[float], drop_idx: int, lookback_bars: int = 16, bpm: float = 128
+) -> float:
+    """
+    Improvement #10: Contrast width analysis.
+    Longer energy rises before drops score higher.
+    Returns a 0-1 score.
+    """
+    if drop_idx < 2:
+        return 0.5
+
+    bar_ms = (60000 / max(bpm, 60)) * 4
+    lookback_steps = int(lookback_bars / 4)  # Assuming curve is sampled per bar
+    start_idx = max(0, drop_idx - lookback_steps)
+
+    if start_idx >= drop_idx:
+        return 0.5
+
+    segment = energy_curve[start_idx:drop_idx]
+    if len(segment) < 2:
+        return 0.5
+
+    # Measure average gradient
+    gradients = [segment[i + 1] - segment[i] for i in range(len(segment) - 1)]
+    avg_gradient = float(np.mean(gradients)) if gradients else 0.0
+
+    # Normalize: good gradient = 0.02 per bar
+    width_score = min(1.0, avg_gradient / 0.02) if avg_gradient > 0 else 0.5
+    return width_score
+
+
+def _check_anti_drop_filtering(energy_before: float, energy_after: float) -> bool:
+    """
+    Improvement #12: Anti-drop filtering.
+    Sudden energy decrease without prior increase isn't a drop.
+    Returns True if this looks like a real drop (not a false drop).
+    """
+    if energy_after > energy_before:
+        return True  # Energy increased — real drop
+
+    # If energy decreased, it's not a drop
+    return False
+
+
+def _rank_drops_by_significance(drops: List[Tuple[int, float]], first_drop_ms: int) -> List[Tuple[int, float, str]]:
+    """
+    Improvement #13: Rank drops by musical significance.
+    First drop > second > third, etc.
+    Returns list of (position, score, rank_name).
+    """
+    sorted_drops = sorted(drops, key=lambda x: -x[1])  # Sort by score descending
+    ranked = []
+    for i, (pos, score) in enumerate(sorted_drops):
+        rank_num = i + 1
+        if rank_num == 1:
+            rank_name = "DROP 1"
+        elif rank_num == 2:
+            rank_name = "DROP 2"
+        elif rank_num == 3:
+            rank_name = "DROP 3"
+        else:
+            rank_name = f"DROP {rank_num}"
+
+        ranked.append((pos, score, rank_name))
+
+    return ranked
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   BREAKDOWN DETECTION (Improvements #18-20)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _validate_breakdown_sustained_low_energy(
+    energy_curve: List[float], start_idx: int, end_idx: int, min_bars: int = 4, bpm: float = 128
+) -> bool:
+    """
+    Improvement #18: Sustained low energy validation.
+    Breakdown must last > min_bars at low energy.
+    """
+    if end_idx <= start_idx:
+        return False
+
+    segment = energy_curve[start_idx:end_idx]
+    if len(segment) < min_bars:
+        return False
+
+    # Check if segment is sustained low energy (< 0.5)
+    low_energy_count = sum(1 for e in segment if e < 0.5)
+    low_percentage = low_energy_count / len(segment)
+
+    return low_percentage > 0.7  # At least 70% low energy
+
+
+def _detect_spectral_content_during_breakdown(vocal_regions: List[Dict], breakdown_ms: int, breakdown_duration_ms: int) -> bool:
+    """
+    Improvement #20: Check for interesting spectral content (filtered vocals, sparse drums).
+    Returns True if breakdown has some vocal/spectral activity.
+    """
+    breakdown_end = breakdown_ms + breakdown_duration_ms
+
+    for vocal in vocal_regions:
+        vocal_start = vocal.get("start_ms", 0)
+        vocal_end = vocal.get("end_ms", 0)
+        # Check if vocal overlaps with breakdown
+        if vocal_start < breakdown_end and vocal_end > breakdown_ms:
+            return True
+
+    return False
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   INTRO/OUTRO IMPROVEMENTS (Improvements #21-24)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _validate_intro_rising_energy(
+    energy_curve: List[float], intro_start_idx: int, intro_end_idx: int
+) -> bool:
+    """
+    Improvement #21: Rising energy validation for intro.
+    Energy at bar 8 should be > energy at bar 1.
+    """
+    if intro_end_idx <= intro_start_idx:
+        return False
+
+    segment = energy_curve[intro_start_idx:intro_end_idx]
+    if len(segment) < 2:
+        return False
+
+    start_energy = segment[0]
+    end_energy = segment[-1]
+
+    return end_energy > start_energy
+
+
+def _handle_track_starting_with_drop(drops: List[int], beat_ms: float) -> Optional[int]:
+    """
+    Improvement #22: Handle tracks that start with a drop (no traditional intro).
+    Returns the position of the intro marker (might be before the drop).
+    """
+    if not drops:
+        return None
+
+    first_drop = drops[0]
+    # If first drop is within first 8 bars, track starts with drop
+    if first_drop < beat_ms * 4 * 8:
+        # Place intro at the very beginning
+        return 0
+
+    return None
+
+
+def _check_false_ending(energy_curve: List[float], outro_start_idx: int) -> bool:
+    """
+    Improvement #23: False ending detection for outro.
+    Check that energy doesn't come back up after the outro start.
+    """
+    if outro_start_idx >= len(energy_curve):
+        return False
+
+    segment = energy_curve[outro_start_idx:]
+    if len(segment) < 4:
+        return False
+
+    # Check if energy rises again (false ending)
+    first_quarter_avg = float(np.mean(segment[: len(segment) // 2]))
+    second_quarter_avg = float(np.mean(segment[len(segment) // 2 :]))
+
+    # If energy rises by > 0.15, it's a false ending
+    if second_quarter_avg > first_quarter_avg + 0.15:
+        return True
+
+    return False
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   NAMING IMPROVEMENTS (Improvements #34-37)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _validate_cue_name_length(name: str, max_length: int = 25) -> str:
+    """
+    Improvement #34: Name length validation (max 25 chars).
+    Truncate if needed.
+    """
+    if len(name) > max_length:
+        return name[: max_length - 3] + "..."
+    return name
+
+
+def _generate_drop_subtype_name(energy_contrast: float) -> str:
+    """
+    Improvement #36: Differentiate drop types.
+    Big Drop, Soft Drop, Bass Drop, Filter Drop.
+    """
+    if energy_contrast > 0.4:
+        return "Big Drop"
+    elif energy_contrast > 0.25:
+        return "Bass Drop"
+    elif energy_contrast > 0.15:
+        return "Filter Drop"
+    else:
+        return "Soft Drop"
+
+
+def _generate_breakdown_with_energy_percent(energy_level: float, position_ms: int, bpm: float) -> str:
+    """
+    Improvement #37: Energy percentage in breakdown names.
+    "Breakdown 23% @Bar X"
+    """
+    energy_pct = int(energy_level * 100)
+    bar_pos = _format_bar_position(position_ms, bpm)
+    return f"Breakdown {energy_pct}% {bar_pos}".strip()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   LOOP CANDIDATE NAMING (Improvement #35)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _generate_loop_candidate_name(loop_bars: int, position_ms: int, bpm: float) -> str:
+    """
+    Improvement #35: Loop candidate naming.
+    "Loop 4bars @Bar X"
+    """
+    bar_pos = _format_bar_position(position_ms, bpm)
+    return f"Loop {loop_bars}bars {bar_pos}".strip()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   VOCAL-FREE ZONE MARKING (Improvement #40)
+# ══════════════════════════════════════════════════════════════════════════
+
+def _mark_vocal_free_zones(vocal_regions: List[Dict], duration_ms: int) -> List[Dict]:
+    """
+    Improvement #40: Vocal-free zone marking for mix points.
+    Returns list of (start_ms, end_ms) zones with no vocal activity.
+    """
+    if not vocal_regions:
+        return [{"start_ms": 0, "end_ms": duration_ms}]
+
+    vocal_regions_sorted = sorted(vocal_regions, key=lambda x: x.get("start_ms", 0))
+    vocal_free_zones = []
+
+    # Zone before first vocal
+    first_vocal = vocal_regions_sorted[0]
+    if first_vocal.get("start_ms", 0) > 0:
+        vocal_free_zones.append({"start_ms": 0, "end_ms": first_vocal.get("start_ms", 0)})
+
+    # Zones between vocals
+    for i in range(len(vocal_regions_sorted) - 1):
+        zone_start = vocal_regions_sorted[i].get("end_ms", 0)
+        zone_end = vocal_regions_sorted[i + 1].get("start_ms", 0)
+        if zone_end > zone_start:
+            vocal_free_zones.append({"start_ms": zone_start, "end_ms": zone_end})
+
+    # Zone after last vocal
+    last_vocal = vocal_regions_sorted[-1]
+    if last_vocal.get("end_ms", 0) < duration_ms:
+        vocal_free_zones.append({"start_ms": last_vocal.get("end_ms", 0), "end_ms": duration_ms})
+
+    return vocal_free_zones
+
+
+# ══════════════════════════════════════════════════════════════════════════
 #   MAIN CUE POINT GENERATOR — v4.0
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -1026,23 +1652,36 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     _se_times = [se[0] for se in section_energies]
     _se_energies = [se[1] for se in section_energies]
 
+    # Improvement #32: Cache _energy_at() results with simple dict cache
+    _energy_cache: Dict[int, float] = {}
+
     def _energy_at(t_ms: int) -> float:
+        # Improvement #32: Check cache first
+        if t_ms in _energy_cache:
+            return _energy_cache[t_ms]
+
         if not _se_times:
-            return 0.5
-        if t_ms <= _se_times[0]:
-            return _se_energies[0]
-        if t_ms >= _se_times[-1]:
-            return _se_energies[-1]
-        # Binary search O(log n) instead of linear scan
-        idx = bisect.bisect_right(_se_times, t_ms)
-        if idx <= 0:
-            return _se_energies[0]
-        if idx >= len(_se_times):
-            return _se_energies[-1]
-        t0, e0 = _se_times[idx - 1], _se_energies[idx - 1]
-        t1, e1 = _se_times[idx], _se_energies[idx]
-        ratio = (t_ms - t0) / max(t1 - t0, 1)
-        return e0 + (e1 - e0) * ratio
+            result = 0.5
+        elif t_ms <= _se_times[0]:
+            result = _se_energies[0]
+        elif t_ms >= _se_times[-1]:
+            result = _se_energies[-1]
+        else:
+            # Binary search O(log n) instead of linear scan
+            idx = bisect.bisect_right(_se_times, t_ms)
+            if idx <= 0:
+                result = _se_energies[0]
+            elif idx >= len(_se_times):
+                result = _se_energies[-1]
+            else:
+                t0, e0 = _se_times[idx - 1], _se_energies[idx - 1]
+                t1, e1 = _se_times[idx], _se_energies[idx]
+                ratio = (t_ms - t0) / max(t1 - t0, 1)
+                result = e0 + (e1 - e0) * ratio
+
+        # Store in cache
+        _energy_cache[t_ms] = float(result)
+        return _energy_cache[t_ms]
 
     def _energy_contrast(t_ms: int) -> float:
         before = _energy_at(max(0, t_ms - int(phrase_8bar_ms)))
@@ -1063,6 +1702,18 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
             if region["start_ms"] <= pos_ms <= region["end_ms"]:
                 return True
         return False
+
+    # Improvement #31: Pre-index section_labels by label for O(1) lookup
+    _section_index: Dict[str, List[Dict]] = {}
+    for s in sections:
+        label = s.get("label", "")
+        if label not in _section_index:
+            _section_index[label] = []
+        _section_index[label].append(s)
+
+    def _get_sections_by_label(label: str) -> List[Dict]:
+        """O(1) lookup of sections by label (Improvement #31)."""
+        return _section_index.get(label, [])
 
     # ── Score drops — use STEM data when available ──
     scored_drops: List[Tuple[int, float]] = []
@@ -1479,12 +2130,129 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
         if 'source' not in cue:
             cue['source'] = 'auto'
 
+    # ── IMPROVEMENT #25: Cue count validation after post-processing ──
+    if len(cue_points) < 3 and len(beats) > 0:
+        # Ensure minimum cue count (at least INTRO + DROP + OUTRO)
+        if not any(c.get('name', '').lower().find('intro') >= 0 for c in cue_points):
+            cue_points.insert(0, {
+                "position_ms": beats[0] if beats else 0,
+                "cue_type": "section",
+                "name": "Intro",
+                "color": CUE_COLORS["blue"],
+                "confidence": 0.5,
+                "number": 0,
+                "source": "fallback"
+            })
+
+    # ── IMPROVEMENT #26: Re-validate INTRO and OUTRO exist after dedup ──
+    has_intro = any('intro' in c.get('name', '').lower() for c in cue_points)
+    has_outro = any('outro' in c.get('name', '').lower() for c in cue_points)
+    if not has_outro and duration_ms > 60000:
+        cue_points.append({
+            "position_ms": int(duration_ms * 0.85),
+            "cue_type": "section",
+            "name": "Outro",
+            "color": CUE_COLORS["purple"],
+            "confidence": 0.5,
+            "number": len(cue_points),
+            "source": "fallback"
+        })
+
+    # ── IMPROVEMENT #27: Overlapping loop range detection ──
+    # Check that no two loop cues overlap in time
+    loop_cues = [c for c in cue_points if 'loop' in c.get('name', '').lower()]
+    if len(loop_cues) > 1:
+        loop_cues_sorted = sorted(loop_cues, key=lambda c: c.get('position_ms', 0))
+        for i in range(len(loop_cues_sorted) - 1):
+            curr_end = loop_cues_sorted[i].get('end_position_ms') or loop_cues_sorted[i].get('position_ms', 0) + 8000
+            next_start = loop_cues_sorted[i + 1].get('position_ms', 0)
+            if curr_end > next_start:
+                # Overlap detected — remove the lower-confidence one
+                if loop_cues_sorted[i].get('confidence', 0) < loop_cues_sorted[i + 1].get('confidence', 0):
+                    cue_points.remove(loop_cues_sorted[i])
+                else:
+                    cue_points.remove(loop_cues_sorted[i + 1])
+
+    # ── IMPROVEMENT #28: Validate all final cue positions ──
+    cue_points = _validate_final_cue_positions(cue_points, duration_ms)
+
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])
     for i, cp in enumerate(cue_points):
         cp["number"] = i
 
     return cue_points
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   IMPROVEMENT #38: generate_cue_points_v2() with CueGenerationConfig
+# ══════════════════════════════════════════════════════════════════════════
+
+def generate_cue_points_v2(
+    analysis_data: Dict, config: Optional[CueGenerationConfig] = None
+) -> Tuple[List[Dict], CueGenerationStats]:
+    """
+    Wrapper for generate_cue_points with advanced configuration (Improvement #38).
+
+    Args:
+        analysis_data: Standard analysis dictionary
+        config: CueGenerationConfig with optional overrides
+
+    Returns:
+        (cue_points, statistics) where statistics is a CueGenerationStats object
+    """
+    import time
+
+    start_time = time.time()
+
+    # Apply config overrides if provided
+    if config:
+        if config.min_drop_contrast is not None:
+            analysis_data["_override_min_drop_contrast"] = config.min_drop_contrast
+        if config.min_build_gradient is not None:
+            analysis_data["_override_min_build_gradient"] = config.min_build_gradient
+        if config.gap_bars is not None:
+            analysis_data["_override_gap_bars"] = config.gap_bars
+
+    # Generate cues
+    cue_points = generate_cue_points(analysis_data)
+
+    # Calculate statistics (Improvement #39)
+    drops = analysis_data.get("drop_positions", [])
+    drop_confidences = [c.get("confidence", 0.0) for c in cue_points if c.get("cue_type") == "drop"]
+    avg_drop_confidence = (
+        float(np.mean(drop_confidences)) if drop_confidences else 0.0
+    )
+
+    # Calculate average gap
+    if len(cue_points) > 1:
+        gaps = [
+            cue_points[i + 1]["position_ms"] - cue_points[i]["position_ms"]
+            for i in range(len(cue_points) - 1)
+        ]
+        avg_gap_ms = float(np.mean(gaps)) if gaps else 0.0
+    else:
+        avg_gap_ms = 0.0
+
+    # Count cue types
+    cue_types = {}
+    for cue in cue_points:
+        ct = cue.get("cue_type", "unknown")
+        cue_types[ct] = cue_types.get(ct, 0) + 1
+
+    generation_time_ms = (time.time() - start_time) * 1000
+
+    stats = CueGenerationStats(
+        total_candidates=len(drops),
+        total_drops=len([c for c in cue_points if c.get("cue_type") == "drop"]),
+        drop_avg_confidence=round(avg_drop_confidence, 2),
+        total_cues=len(cue_points),
+        cue_types=cue_types,
+        avg_gap_ms=round(avg_gap_ms, 1),
+        generation_time_ms=round(generation_time_ms, 2),
+    )
+
+    return cue_points, stats
 
 
 # ══════════════════════════════════════════════════════════════════════════

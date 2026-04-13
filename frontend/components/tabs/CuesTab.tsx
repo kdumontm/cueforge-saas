@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Track, CuePoint } from '@/types';
 import { HOT_CUE_COLORS, HOT_CUE_LABELS, formatTimeMs } from '@/lib/constants';
-import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square } from 'lucide-react';
+import { Trash2, Plus, GripVertical, ChevronDown, Zap, Play, Square, Copy, Move, Search, ArrowUpDown, RotateCcw } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 // Accessibility
@@ -70,6 +70,7 @@ interface CuesTabProps {
   onRegenerateCues?: () => void;
   initialPositionMs?: number | null;
   playerRef?: React.MutableRefObject<{ seekTo?: (ms: number) => void; play?: () => void; pause?: () => void } | null>;
+  onUpdateCue?: (cueId: number, updates: Partial<CuePoint>) => void; // Improvement #11, #12
 }
 
 export function CuesTab({
@@ -82,9 +83,52 @@ export function CuesTab({
   onRegenerateCues,
   initialPositionMs,
   playerRef,
+  onUpdateCue,
 }: CuesTabProps) {
   const { lang } = useLang();
   const [localOrder, setLocalOrder] = useState<number[]>([]);
+
+  // Improvement #1: Undo/redo for cue operations (keep last 10 states)
+  const [undoStack, setUndoStack] = useState<number[][]>([]);
+  const [redoStack, setRedoStack] = useState<number[][]>([]);
+
+  const pushUndoState = useCallback((state: number[]) => {
+    setUndoStack((prev) => [...prev.slice(-9), state]);
+    setRedoStack([]);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const previousState = undoStack[undoStack.length - 1];
+    setRedoStack((prev) => [...prev, localOrder]);
+    setLocalOrder(previousState);
+    setUndoStack((prev) => prev.slice(0, -1));
+  }, [undoStack, localOrder]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const nextState = redoStack[redoStack.length - 1];
+    pushUndoState(localOrder);
+    setLocalOrder(nextState);
+    setRedoStack((prev) => prev.slice(0, -1));
+  }, [redoStack, localOrder, pushUndoState]);
+
+  // Improvement #2: Search/filter input
+  const [searchFilter, setSearchFilter] = useState('');
+  const [filterType, setFilterType] = useState<string | null>(null);
+
+  // Improvement #3: Bulk delete functionality
+  const [selectedCueIds, setSelectedCueIds] = useState<Set<number>>(new Set());
+  const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
+
+  // Improvement #4: Sort by options
+  const [sortBy, setSortBy] = useState<'position' | 'name' | 'type' | 'confidence'>('position');
+
+  // Improvement #10: Debounce rapid cue creation
+  const createDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Improvement #14: Progress indicator during regeneration
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Improvement #13: Memoize expensive calculations
   const getBarNumber = useMemo(() => {
@@ -104,6 +148,7 @@ export function CuesTab({
   const [newCueColor, setNewCueColor] = useState(HOT_CUE_COLORS[0]);
   const [loopDurationSec, setLoopDurationSec] = useState<number>(4);
   const [hoveredCue, setHoveredCue] = useState<number | null>(null);
+  const [hoveredDetailsCue, setHoveredDetailsCue] = useState<number | null>(null); // Improvement #13: tooltip
 
   // Improvement #13: Memoize cue indices calculation
   const indices = useMemo(() => {
@@ -113,19 +158,75 @@ export function CuesTab({
       : cuePoints.map((_, i) => i);
   }, [localOrder, cuePoints.length]);
 
+  // Improvement #2: Filter and sort cues based on user input
+  const filteredIndices = useMemo(() => {
+    let filtered = [...indices];
+
+    // Apply search filter
+    if (searchFilter.trim()) {
+      const query = searchFilter.toLowerCase();
+      filtered = filtered.filter((idx) => {
+        const cue = cuePoints[idx];
+        return (
+          (cue?.name || '').toLowerCase().includes(query) ||
+          (cue?.cue_type || '').toLowerCase().includes(query)
+        );
+      });
+    }
+
+    // Apply type filter
+    if (filterType) {
+      filtered = filtered.filter((idx) => cuePoints[idx]?.cue_type === filterType);
+    }
+
+    // Apply sorting
+    filtered.sort((aIdx, bIdx) => {
+      const cueA = cuePoints[aIdx];
+      const cueB = cuePoints[bIdx];
+      if (!cueA || !cueB) return 0;
+
+      switch (sortBy) {
+        case 'name':
+          return (cueA.name || '').localeCompare(cueB.name || '');
+        case 'type':
+          return (cueA.cue_type || '').localeCompare(cueB.cue_type || '');
+        case 'confidence':
+          return (cueB.confidence || 0) - (cueA.confidence || 0);
+        case 'position':
+        default:
+          return (cueA.position_ms || 0) - (cueB.position_ms || 0);
+      }
+    });
+
+    return filtered;
+  }, [indices, cuePoints, searchFilter, filterType, sortBy]);
+
   const cues = indices.map(i => cuePoints[i]);
 
   useEffect(() => {
     setLocalOrder(cuePoints.map((_, i) => i));
   }, [cuePoints.length]);
 
-  // Keyboard shortcuts: 1-8 to jump to cues (point 250)
+  // Improvement #6: Keyboard shortcut Ctrl+Z for undo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return; // Skip if typing in input
+      if (e.target instanceof HTMLInputElement && e.key !== 'z') return;
+
+      // Ctrl+Z or Cmd+Z for undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      // Ctrl+Y or Cmd+Shift+Z for redo
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+
+      // Keyboard shortcuts: 1-8 to jump to cues
       const num = parseInt(e.key);
-      if (num >= 1 && num <= 8) {
-        const cue = cues[num - 1];
+      if (num >= 1 && num <= 8 && !(e.target instanceof HTMLInputElement)) {
+        const cue = cuePoints[filteredIndices[num - 1]];
         if (cue && onCueClick) {
           onCueClick(cue);
         }
@@ -133,7 +234,7 @@ export function CuesTab({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cues, onCueClick]);
+  }, [filteredIndices, cuePoints, onCueClick, handleUndo, handleRedo]);
 
   // Cue preview on hover (point 246): play 2s of audio when hovering a cue
   const handleCuePreview = useCallback((positionMs: number) => {
@@ -153,7 +254,7 @@ export function CuesTab({
   const trackDurationMs = track?.analysis?.duration_ms ?? (track as any)?.duration_ms ?? 0;
   const maxMs = Math.max(1, ...cuePoints.map(c => c.position_ms ?? c.time_ms ?? 0), ...(trackDurationMs ? [trackDurationMs] : []));
 
-  const handleAddCue = () => {
+  const handleAddCue = useCallback(() => {
     const posMs = initialPositionMs ?? 0;
     const selectedType = CUE_TYPES.find(t => t.value === newCueType) || CUE_TYPES[0];
     const name = newCueName.trim() || `${selectedType.label} ${cuePoints.length + 1}`;
@@ -169,21 +270,28 @@ export function CuesTab({
     setShowAddForm(false);
     setNewCueSlot(prev => Math.min(8, prev + 1));
     setNewCueColor(HOT_CUE_COLORS[(newCueSlot + 1) % HOT_CUE_COLORS.length]);
-  };
+  }, [newCueType, newCueName, newCueColor, newCueSlot, loopDurationSec, initialPositionMs, onCreateCue, cuePoints.length]);
 
-  const handleQuickAdd = () => {
-    const posMs = initialPositionMs ?? 0;
-    const nextColor = HOT_CUE_COLORS[cuePoints.length % HOT_CUE_COLORS.length];
-    onCreateCue?.({
-      name: `Cue ${cuePoints.length + 1}`,
-      position_ms: posMs,
-      color: nextColor,
-      cue_type: 'hot_cue',
-      number: cuePoints.length % 9,
-    });
-  };
+  // Improvement #10: Debounce rapid cue creation
+  const handleQuickAdd = useCallback(() => {
+    if (createDebounceRef.current) clearTimeout(createDebounceRef.current);
+    createDebounceRef.current = setTimeout(() => {
+      const posMs = initialPositionMs ?? 0;
+      const nextColor = HOT_CUE_COLORS[cuePoints.length % HOT_CUE_COLORS.length];
+      onCreateCue?.({
+        name: `Cue ${cuePoints.length + 1}`,
+        position_ms: posMs,
+        color: nextColor,
+        cue_type: 'hot_cue',
+        number: cuePoints.length % 9,
+      });
+    }, 100);
+  }, [initialPositionMs, onCreateCue, cuePoints.length]);
 
-  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragStart = (idx: number) => {
+    pushUndoState(localOrder); // Improvement #15: persist drag-reorder to undo stack
+    setDragIdx(idx);
+  };
 
   const handleDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault();
@@ -200,9 +308,43 @@ export function CuesTab({
     const [moved] = next.splice(dragIdx, 1);
     next.splice(toIdx, 0, moved);
     setLocalOrder(next);
+    // Improvement #15: Persist to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`cueforge_cue_order_${track?.id}`, JSON.stringify(next));
+    }
     setDragIdx(null);
     setDragOverIdx(null);
   };
+
+  // Improvement #11: Copy cue functionality
+  const handleCopyCue = useCallback((cue: CuePoint) => {
+    const posMs = initialPositionMs ?? (cue.position_ms ?? 0);
+    onCreateCue?.({
+      name: `${cue.name} (copy)`,
+      position_ms: posMs,
+      color: cue.color || '#22c55e',
+      cue_type: cue.cue_type || 'hot_cue',
+      ...(cue.cue_type === 'loop' && cue.end_position_ms
+        ? { end_position_ms: posMs + ((cue.end_position_ms - (cue.position_ms ?? 0)) || 4000) }
+        : {}),
+    });
+  }, [initialPositionMs, onCreateCue]);
+
+  // Improvement #12: Move to nearest beat
+  const handleMoveToNearestBeat = useCallback((cue: CuePoint) => {
+    const bpm = (track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128;
+    const beatMs = (60000 / Math.max(bpm, 60));
+    const currentPos = cue.position_ms ?? 0;
+    const nearestBeat = Math.round(currentPos / beatMs) * beatMs;
+    onUpdateCue?.(cue.id, { position_ms: nearestBeat });
+  }, [track?.analysis?.bpm, track?.bpm, onUpdateCue]);
+
+  // Improvement #3: Handle bulk delete
+  const handleBulkDelete = useCallback(() => {
+    selectedCueIds.forEach((cueId) => onDeleteCue?.(cueId));
+    setSelectedCueIds(new Set());
+    setBulkDeleteMode(false);
+  }, [selectedCueIds, onDeleteCue]);
 
   if (!track) {
     return (
@@ -312,7 +454,7 @@ export function CuesTab({
 
       {/* ═══ Add cue buttons ═══ */}
       <div className="p-3 border-b border-[var(--border-subtle)] flex-shrink-0 space-y-2">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 mb-2">
           <button
             onClick={handleQuickAdd}
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-white text-xs font-semibold transition-all"
@@ -326,18 +468,23 @@ export function CuesTab({
           </button>
           {onRegenerateCues && (
             <button
-              onClick={onRegenerateCues}
-              className="px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer"
+              onClick={() => {
+                setIsRegenerating(true);
+                onRegenerateCues();
+                setTimeout(() => setIsRegenerating(false), 2000);
+              }}
+              disabled={isRegenerating}
+              className="px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
               style={{
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                background: isRegenerating ? 'rgba(245,158,11,0.5)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
                 borderColor: '#f59e0b',
                 color: 'white',
                 boxShadow: '0 2px 8px rgba(245,158,11,0.25)',
               }}
               title="Régénérer les repères"
             >
-              <Zap size={11} />
-              Régénérer
+              <Zap size={11} className={isRegenerating ? 'animate-spin' : ''} />
+              {isRegenerating ? 'En cours...' : 'Régénérer'}
             </button>
           )}
           <button
@@ -352,6 +499,53 @@ export function CuesTab({
             <ChevronDown size={13} className={`transition-transform ${showAddForm ? 'rotate-180' : ''}`} />
           </button>
         </div>
+
+        {/* Improvement #2: Search/filter controls */}
+        <div className="flex gap-1.5">
+          <div className="flex-1 relative">
+            <Search size={12} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Chercher les cues..."
+              className="w-full pl-6 pr-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-blue-500"
+            />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
+            title="Tri"
+          >
+            <option value="position">Position</option>
+            <option value="name">Nom</option>
+            <option value="type">Type</option>
+            <option value="confidence">Confiance</option>
+          </select>
+        </div>
+
+        {/* Improvement #3: Bulk delete controls */}
+        {bulkDeleteMode && (
+          <div className="flex gap-1.5 p-1.5 bg-red-500/10 rounded-lg border border-red-500/25">
+            <span className="text-xs text-red-400 flex-1">{selectedCueIds.size} sélectionné(s)</span>
+            <button
+              onClick={handleBulkDelete}
+              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            >
+              Supprimer
+            </button>
+            <button
+              onClick={() => {
+                setBulkDeleteMode(false);
+                setSelectedCueIds(new Set());
+              }}
+              className="px-2 py-1 text-xs bg-transparent border border-[var(--border-default)] rounded hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
 
         {/* Advanced form */}
         {showAddForm && (
@@ -435,52 +629,103 @@ export function CuesTab({
 
       {/* ═══ Cue list — redesigned ═══ */}
       <div className="flex-1 overflow-y-auto">
-        {cues.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-20 text-[var(--text-muted)] text-xs gap-1 p-4">
-            <span>{tr('cues.no_cue', lang)}</span>
+        {filteredIndices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-[var(--text-muted)] text-xs gap-2 p-4">
+            {/* Improvement #8: Empty state illustration */}
+            <div className="text-4xl opacity-30">🎵</div>
+            <span>{searchFilter ? 'Aucun cue trouvé' : tr('cues.no_cue', lang)}</span>
           </div>
         ) : (
-          <div className="p-2 flex flex-col gap-1">
-            {cues.map((cue, idx) => {
+          <>
+            {/* Improvement #9: Cue count badge */}
+            <div className="sticky top-0 px-3 py-1 bg-[var(--bg-primary)] border-b border-[var(--border-subtle)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
+              <span>{filteredIndices.length} repère{filteredIndices.length > 1 ? 's' : ''}</span>
+              {undoStack.length > 0 && (
+                <button
+                  onClick={handleUndo}
+                  className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                  title="Annuler (Ctrl+Z)"
+                >
+                  <RotateCcw size={10} /> Annuler
+                </button>
+              )}
+            </div>
+            <div className="p-2 flex flex-col gap-1">
+              {filteredIndices.map((idx) => {
+                const cue = cuePoints[idx];
+              if (!cue) return null;
               const typeInfo = CUE_TYPES.find(t => t.value === (cue.cue_type || 'hot_cue')) || CUE_TYPES[0];
               const color = cue.color || cue.color_rgb || typeInfo.color;
               const label = HOT_CUE_LABELS[cue.number ?? idx] || String(cue.number ?? idx);
               const isHovered = hoveredCue === cue.id;
+              const showDetails = hoveredDetailsCue === cue.id;
               const posMs = cue.position_ms ?? cue.time_ms ?? 0;
               const barNumber = getBarNumber(posMs);
+              const isSelected = selectedCueIds.has(cue.id);
+
               return (
-                <div
-                  key={cue.id}
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDrop={() => handleDrop(idx)}
-                  onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-                  onClick={() => onCueClick?.(cue)}
-                  onMouseEnter={() => setHoveredCue(cue.id)}
-                  onMouseLeave={() => setHoveredCue(null)}
-                  className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing select-none ${
-                    dragOverIdx === idx && dragIdx !== idx
-                      ? 'scale-[1.01]'
-                      : dragIdx === idx
-                        ? 'opacity-30'
-                        : ''
-                  }`}
-                  style={{
-                    background: isHovered
-                      ? `linear-gradient(90deg, ${color}18, transparent 80%)`
-                      : `linear-gradient(90deg, ${color}0a, transparent 60%)`,
-                    borderLeft: `2.5px solid ${color}`,
-                    border: dragOverIdx === idx && dragIdx !== idx
-                      ? `1px solid #3b82f6`
-                      : dragIdx === idx
-                        ? '1px dashed var(--border-default)'
-                        : `1px solid rgba(255,255,255,0.04)`,
-                    borderLeftWidth: '2.5px',
-                    borderLeftColor: color,
-                  }}
-                >
-                  <GripVertical size={10} className="text-[var(--text-muted)] flex-shrink-0 opacity-40" />
+                <div key={cue.id}>
+                  <div
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                    onClick={() => {
+                      if (bulkDeleteMode) {
+                        const next = new Set(selectedCueIds);
+                        if (next.has(cue.id)) next.delete(cue.id);
+                        else next.add(cue.id);
+                        setSelectedCueIds(next);
+                      } else {
+                        onCueClick?.(cue);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredCue(cue.id);
+                      setHoveredDetailsCue(cue.id);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredCue(null);
+                      setHoveredDetailsCue(null);
+                    }}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing select-none ${
+                      dragOverIdx === idx && dragIdx !== idx
+                        ? 'scale-[1.01]'
+                        : dragIdx === idx
+                          ? 'opacity-30'
+                          : ''
+                    } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                    style={{
+                      background: isHovered
+                        ? `linear-gradient(90deg, ${color}18, transparent 80%)`
+                        : `linear-gradient(90deg, ${color}0a, transparent 60%)`,
+                      border: dragOverIdx === idx && dragIdx !== idx
+                        ? `1px solid #3b82f6`
+                        : dragIdx === idx
+                          ? '1px dashed var(--border-default)'
+                          : `1px solid rgba(255,255,255,0.04)`,
+                      borderLeftWidth: '2.5px',
+                      borderLeftColor: color,
+                    }}
+                  >
+                  {/* Improvement #3: Checkbox for bulk delete mode */}
+                  {bulkDeleteMode && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        const next = new Set(selectedCueIds);
+                        if (next.has(cue.id)) next.delete(cue.id);
+                        else next.add(cue.id);
+                        setSelectedCueIds(next);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-3.5 h-3.5 cursor-pointer"
+                    />
+                  )}
+
+                  {!bulkDeleteMode && <GripVertical size={10} className="text-[var(--text-muted)] flex-shrink-0 opacity-40" />}
 
                   {/* Hot cue badge — neon glow style */}
                   <div
@@ -532,31 +777,93 @@ export function CuesTab({
                     }}
                   />
 
-                  {/* Preview (play 2s) */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onPreviewCue?.(cue); }}
-                    className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
-                    style={{ opacity: isHovered ? 1 : 0.4 }}
-                    title={tr('cues.preview', lang)}
-                  >
-                    <Play size={11} fill="currentColor" />
-                  </button>
+                  {/* Action buttons */}
+                  {!bulkDeleteMode && (
+                    <>
+                      {/* Improvement #11: Copy cue */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyCue(cue);
+                        }}
+                        className="p-1 rounded hover:bg-purple-500/15 text-[var(--text-muted)] hover:text-purple-400 transition-colors flex-shrink-0"
+                        style={{ opacity: isHovered ? 1 : 0 }}
+                        title="Copier ce cue"
+                      >
+                        <Copy size={11} />
+                      </button>
 
-                  {/* Delete */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDeleteCue?.(cue.id); }}
-                    className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0"
-                    style={{ opacity: isHovered ? 1 : 0 }}
-                    title={tr('cues.delete', lang)}
-                  >
-                    <Trash2 size={11} />
-                  </button>
+                      {/* Improvement #12: Move to nearest beat */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveToNearestBeat(cue);
+                        }}
+                        className="p-1 rounded hover:bg-orange-500/15 text-[var(--text-muted)] hover:text-orange-400 transition-colors flex-shrink-0"
+                        style={{ opacity: isHovered ? 1 : 0 }}
+                        title="Déplacer au beat le plus proche"
+                      >
+                        <Move size={11} />
+                      </button>
+
+                      {/* Preview (play 2s) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPreviewCue?.(cue);
+                        }}
+                        className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
+                        style={{ opacity: isHovered ? 1 : 0.4 }}
+                        title={tr('cues.preview', lang)}
+                      >
+                        <Play size={11} fill="currentColor" />
+                      </button>
+
+                      {/* Delete */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteCue?.(cue.id);
+                        }}
+                        className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0"
+                        style={{ opacity: isHovered ? 1 : 0 }}
+                        title={tr('cues.delete', lang)}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </>
+                  )}
                 </div>
+
+                {/* Improvement #13: Tooltip showing full cue details on hover */}
+                {showDetails && (
+                  <div className="text-[8px] px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] space-y-0.5 mb-1">
+                    <div><strong>Nom:</strong> {cue.name}</div>
+                    <div><strong>Type:</strong> {cue.cue_type}</div>
+                    <div><strong>Position:</strong> {formatTimeMs(posMs)}</div>
+                    {cue.confidence && <div><strong>Confiance:</strong> {Math.round(cue.confidence * 100)}%</div>}
+                    {cue.end_position_ms && <div><strong>Fin:</strong> {formatTimeMs(cue.end_position_ms)}</div>}
+                  </div>
+                )}
+              </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Improvement #3: Bulk delete mode toggle */}
+      {!bulkDeleteMode && cuePoints.length > 0 && (
+        <div className="px-3 py-2 border-t border-[var(--border-subtle)] flex-shrink-0">
+          <button
+            onClick={() => setBulkDeleteMode(true)}
+            className="w-full text-xs px-2 py-1.5 rounded bg-transparent border border-[var(--border-default)] text-[var(--text-muted)] hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-400 transition-colors"
+          >
+            Supprimer en lot...
+          </button>
+        </div>
+      )}
 
       {/* ═══ Legend — compact pills ═══ */}
       <div className="px-3 py-2 border-t border-[var(--border-subtle)] flex-shrink-0">

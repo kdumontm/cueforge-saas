@@ -5,6 +5,47 @@ export const HOT_CUE_COLORS = [
 
 export const HOT_CUE_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
+// Improvement #38: CUE_TYPE_ICONS map with lucide-react icon names per type
+export const CUE_TYPE_ICONS: Record<string, string> = {
+  hot_cue: 'Zap',
+  loop: 'RotateCw',
+  fade_in: 'Volume2',
+  fade_out: 'VolumeX',
+  drop: 'Zap',
+  phrase: 'Music',
+  section: 'MapPin',
+  load: 'Flag',
+};
+
+// Improvement #39: CUE_TYPE_LABELS_FR map for French translations of cue types
+export const CUE_TYPE_LABELS_FR: Record<string, string> = {
+  hot_cue: 'Hot Cue',
+  loop: 'Boucle',
+  fade_in: 'Fondu entrant',
+  fade_out: 'Fondu sortant',
+  drop: 'Drop',
+  phrase: 'Phrase',
+  section: 'Section',
+  load: 'Point de chargement',
+};
+
+// Improvement #40: BAR_COLORS map (different background for different bar ranges)
+export const BAR_COLORS = {
+  bass: '#ef4444',      // Red for bass (0-250Hz)
+  mids: '#22c55e',      // Green for mids (250-4kHz)
+  highs: '#3b82f6',     // Blue for highs (4kHz+)
+  played: {
+    bass: '#ef444488',
+    mids: '#22c55e88',
+    highs: '#3b82f688',
+  },
+  unplayed: {
+    bass: '#ef444440',
+    mids: '#22c55e40',
+    highs: '#3b82f640',
+  },
+};
+
 export const CAMELOT_WHEEL = [
   { n: "1A", key: "Am", color: "#4a9eff" },
   { n: "1B", key: "C", color: "#6ab4ff" },

@@ -1,6 +1,26 @@
 // 🔴 FIX (faille 10) : Plus de fallback localhost — l'URL doit être définie dans Railway
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://cueforge-saas-production.up.railway.app/api/v1';
 
+// ── Improvement #34: Retry logic with exponential backoff ────────────────────
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 300; // ms
+
+interface RequestState {
+  method: string;
+  url: string;
+  body?: any;
+}
+
+// Track in-flight requests for deduplication (Improvement #35)
+const inFlightRequests = new Map<string, Promise<Response>>();
+
+function getRequestKey(method: string, url: string): string {
+  return `${method}:${url}`;
+}
+
+// Improvement #36: Optimistic updates store
+export const optimisticUpdates = new Map<string, any>();
+
 // ── Token management avec cache en variable module ────────────────────────────
 
 const TOKEN_KEY = 'cueforge_token';
@@ -118,12 +138,47 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
-// ── Authenticated fetch with auto-refresh on 401 ────────────────────────────
+// ── Authenticated fetch with auto-refresh on 401 + retry + deduplication ────
+
+// Improvement #34: Retry with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries = MAX_RETRIES,
+  delay = INITIAL_RETRY_DELAY,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    // Improvement #37: Error classification
+    const isNetworkError = error.message?.includes('Network') || error instanceof TypeError;
+    const isServerError = error.status >= 500;
+    const isValidationError = error.status >= 400 && error.status < 500;
+
+    // Don't retry validation errors
+    if (isValidationError) throw error;
+
+    // Only retry on network or server errors
+    if (retries > 0 && (isNetworkError || isServerError)) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return retryWithBackoff(fn, retries - 1, delay * 2);
+    }
+
+    throw error;
+  }
+}
 
 async function authFetch(url: string, options?: RequestInit): Promise<Response> {
   const token = getToken();
   if (!token) {
     throw new Error('Not authenticated');
+  }
+
+  // Improvement #35: Request deduplication for GET requests
+  const method = options?.method || 'GET';
+  const requestKey = getRequestKey(method, url);
+
+  if (method === 'GET' && inFlightRequests.has(requestKey)) {
+    return inFlightRequests.get(requestKey)!;
   }
 
   // Injecte automatiquement le Bearer token
@@ -135,19 +190,21 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
     },
   };
 
-  let response: Response;
-  try {
-    response = await fetch(url, mergedOptions);
-  } catch (networkError) {
-    throw new Error('Network error — check your connection');
-  }
+  // Improvement #34: Wrap in retry logic
+  const fetchPromise = retryWithBackoff(async () => {
+    let response: Response;
+    try {
+      response = await fetch(url, mergedOptions);
+    } catch (networkError) {
+      throw new Error('Network error — check your connection');
+    }
 
-  if (response.status === 401) {
-    // Tente un refresh silencieux avant de déconnecter
-    // Use multi-tab lock to prevent concurrent refresh attempts
-    if (!isRefreshing && acquireRefreshLock()) {
-      isRefreshing = true;
-      refreshPromise = tryRefresh();
+    if (response.status === 401) {
+      // Tente un refresh silencieux avant de déconnecter
+      // Use multi-tab lock to prevent concurrent refresh attempts
+      if (!isRefreshing && acquireRefreshLock()) {
+        isRefreshing = true;
+        refreshPromise = tryRefresh();
     }
     const refreshed = await refreshPromise;
     isRefreshing = false;
@@ -169,8 +226,17 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
     // Refresh échoué — session vraiment expirée
     clearToken();
     throw new Error('Session expired');
+    }
+    return response;
+  });
+
+  // Store in-flight request for deduplication
+  if (method === 'GET') {
+    inFlightRequests.set(requestKey, fetchPromise);
+    fetchPromise.finally(() => inFlightRequests.delete(requestKey));
   }
-  return response;
+
+  return fetchPromise;
 }
 
 

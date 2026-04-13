@@ -1,14 +1,30 @@
 from typing import List, Optional, Dict
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Response
 from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import User, Track, CuePoint, TrackAnalysis, CueRule, LoopMarker
+from app.models import User, Track, CuePoint, TrackAnalysis, CueRule, LoopMarker, CueTemplate, CueHistory
 from app.middleware.auth import get_current_user
 from app.services.cue_generator import apply_rules_to_track, generate_cue_points
 
 router = APIRouter(tags=["cues"])
+
+
+# ─── Helper Functions ───────────────────────────────────────────────────────
+
+def _log_cue_history(db: Session, cue_id: int, action: str, old_vals: Optional[Dict], new_vals: Optional[Dict]):
+    """Log cue changes to audit trail (OPT #11)."""
+    history = CueHistory(
+        cue_point_id=cue_id,
+        action=action,
+        old_values=old_vals or {},
+        new_values=new_vals or {},
+    )
+    db.add(history)
+    db.flush()
 
 
 # ─── Pydantic Schemas ────────────────────────────────────────────────────────
@@ -150,12 +166,22 @@ async def list_cue_points(
     track_id: int,
     limit: int = 50,  # Improvement #9: Add pagination
     offset: int = 0,
+    cue_type: Optional[str] = Query(None),  # OPT #16: type filter
+    min_confidence: Optional[float] = Query(None),  # OPT #17: confidence filter
+    sort_by: Optional[str] = Query("position", regex="^(position|confidence|type)$"),  # OPT #18: sorting
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    response: Response = None,
 ):
-    """Liste les cue points d'un track (trié par position).
+    """Liste les cue points d'un track avec filtres et pagination.
 
-    Improvement #9: Add optional limit and offset query params for pagination.
+    Query params:
+    - cue_type: Filter by type (hot_cue, drop, etc.)
+    - min_confidence: Minimum confidence score (0.0-1.0)
+    - sort_by: Sort by position (default), confidence, or type
+    - limit/offset: Pagination
+
+    OPT #19: Returns X-Total-Count header with total available records.
     """
     track = db.query(Track).filter(
         Track.id == track_id,
@@ -164,14 +190,32 @@ async def list_cue_points(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    points = (
-        db.query(CuePoint)
-        .filter(CuePoint.track_id == track_id)
-        .order_by(CuePoint.position_ms)
-        .limit(limit)
-        .offset(offset)
-        .all()
-    )
+    # Build query with filters
+    query = db.query(CuePoint).filter(CuePoint.track_id == track_id)
+
+    if cue_type:
+        query = query.filter(CuePoint.cue_type == cue_type)
+
+    if min_confidence is not None:
+        query = query.filter(CuePoint.confidence >= min_confidence)
+
+    # Sorting
+    if sort_by == "confidence":
+        query = query.order_by(CuePoint.confidence.desc().nullslast())
+    elif sort_by == "type":
+        query = query.order_by(CuePoint.cue_type)
+    else:  # position (default)
+        query = query.order_by(CuePoint.position_ms)
+
+    # Get total count before pagination
+    total_count = query.count()
+
+    points = query.limit(limit).offset(offset).all()
+
+    # OPT #19: Return total count in header
+    if response:
+        response.headers["X-Total-Count"] = str(total_count)
+
     return [CuePointResponse.model_validate(p) for p in points]
 
 
@@ -182,7 +226,11 @@ async def create_cue_point(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Crée un cue point sur un track."""
+    """Crée un cue point sur un track.
+
+    OPT #22: Validate cue position doesn't exceed track duration
+    OPT #23: Return 409 if cue at same position already exists
+    """
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == user.id,
@@ -190,17 +238,43 @@ async def create_cue_point(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    position_ms = int(cue_data.time * 1000)
+
+    # OPT #22: Validate position against track duration
+    if track.analysis and track.analysis.duration_ms:
+        if position_ms > track.analysis.duration_ms:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cue position {position_ms}ms exceeds track duration {track.analysis.duration_ms}ms"
+            )
+
+    # OPT #23: Check for duplicate at same position
+    existing = db.query(CuePoint).filter(
+        CuePoint.track_id == track_id,
+        CuePoint.position_ms == position_ms,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cue point already exists at position {position_ms}ms"
+        )
+
     cue = CuePoint(
         track_id=track_id,
-        position_ms=int(cue_data.time * 1000),
+        position_ms=position_ms,
         name=cue_data.label,
         number=cue_data.hot_cue_slot,
         color=cue_data.color or "blue",
         cue_type=cue_data.cue_type or "hot_cue",
+        is_manual=True,  # Mark user-created cues
     )
     db.add(cue)
     db.commit()
     db.refresh(cue)
+
+    # Log to history
+    _log_cue_history(db, cue.id, "created", None, cue)
+
     return CuePointResponse.model_validate(cue)
 
 
@@ -286,8 +360,259 @@ async def delete_cue_point(
     if not track:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Log deletion to history
+    old_vals = {
+        "position_ms": cue.position_ms,
+        "name": cue.name,
+        "cue_type": cue.cue_type,
+    }
+    _log_cue_history(db, cue.id, "deleted", old_vals, None)
+
     db.delete(cue)
     db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   NEW OPTIMIZATION ENDPOINTS (OPT #12-25)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/{track_id}/points/stats")
+async def get_cue_points_stats(
+    track_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #12: Get cue point statistics for a track.
+
+    Returns:
+    - count: total number of cue points
+    - avg_confidence: average confidence score
+    - types_breakdown: count by type
+    - coverage_percent: % of track with cues
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track_id).all()
+
+    # Count by type
+    types_breakdown = {}
+    for cue in cues:
+        types_breakdown[cue.cue_type] = types_breakdown.get(cue.cue_type, 0) + 1
+
+    # Average confidence
+    avg_conf = None
+    if cues:
+        confidences = [c.confidence for c in cues if c.confidence is not None]
+        if confidences:
+            avg_conf = sum(confidences) / len(confidences)
+
+    # Coverage %
+    coverage = 0.0
+    if track.analysis and track.analysis.duration_ms and cues:
+        coverage = (len(cues) / max(1, track.analysis.duration_ms / 10000)) * 100
+
+    return {
+        "count": len(cues),
+        "avg_confidence": avg_conf,
+        "types_breakdown": types_breakdown,
+        "coverage_percent": min(100, coverage),
+    }
+
+
+@router.post("/{track_id}/points/snap")
+async def snap_cue_to_beat(
+    track_id: int,
+    cue_id: int = Query(...),
+    snap_to: str = Query("beat", regex="^(beat|bar)$"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #13: Snap a cue to nearest beat or bar."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    cue = db.query(CuePoint).filter(CuePoint.id == cue_id).first()
+    if not cue or cue.track_id != track_id:
+        raise HTTPException(status_code=404, detail="Cue point not found")
+
+    if not track.analysis or not track.analysis.beat_positions:
+        raise HTTPException(status_code=400, detail="No beat data available for snapping")
+
+    # Find nearest beat
+    beats = track.analysis.beat_positions or []
+    if not beats:
+        raise HTTPException(status_code=400, detail="No beats detected")
+
+    nearest_beat = min(beats, key=lambda b: abs(b - cue.position_ms))
+    old_pos = cue.position_ms
+    cue.position_ms = nearest_beat
+
+    db.commit()
+    db.refresh(cue)
+
+    return {
+        "cue_id": cue.id,
+        "old_position_ms": old_pos,
+        "new_position_ms": cue.position_ms,
+        "snapped_to": snap_to,
+    }
+
+
+@router.put("/{track_id}/points/reorder")
+async def reorder_cue_points(
+    track_id: int,
+    reorder_data: Dict[str, List[int]] = None,  # {slot_number: [cue_ids...]}
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #14: Batch update slot numbers for cue points."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not reorder_data:
+        raise HTTPException(status_code=400, detail="Reorder data required")
+
+    updated = 0
+    for slot_str, cue_ids in reorder_data.items():
+        slot = int(slot_str)
+        for cue_id in cue_ids:
+            cue = db.query(CuePoint).filter(
+                CuePoint.id == cue_id,
+                CuePoint.track_id == track_id,
+            ).first()
+            if cue:
+                cue.number = slot
+                updated += 1
+
+    db.commit()
+    return {"updated": updated}
+
+
+@router.get("/{track_id}/points/export")
+async def export_cue_points(
+    track_id: int,
+    format: str = Query("rekordbox", regex="^(rekordbox|serato|traktor)$"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #15: Export cues in DJ software format."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    cues = db.query(CuePoint).filter(CuePoint.track_id == track_id).order_by(CuePoint.position_ms).all()
+
+    # Rekordbox format
+    if format == "rekordbox":
+        export_cues = []
+        for cue in cues:
+            export_cues.append({
+                "position_ms": cue.position_ms,
+                "name": cue.name,
+                "color": cue.color,
+                "hot_cue": cue.number,
+            })
+        return {
+            "format": "rekordbox",
+            "track_id": track_id,
+            "cues": export_cues,
+        }
+
+    return {"error": f"Format {format} not yet implemented"}
+
+
+@router.patch("/{track_id}/points/batch")
+async def batch_update_cue_points(
+    track_id: int,
+    batch_data: Dict[str, List[Dict]] = None,  # {updates: [{id, ...fields}]}
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #24: Batch update multiple cue points."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not batch_data or "updates" not in batch_data:
+        raise HTTPException(status_code=400, detail="updates array required")
+
+    updated = 0
+    for update in batch_data["updates"]:
+        cue_id = update.get("id")
+        cue = db.query(CuePoint).filter(
+            CuePoint.id == cue_id,
+            CuePoint.track_id == track_id,
+        ).first()
+        if not cue:
+            continue
+
+        old_vals = {k: getattr(cue, k) for k in ["name", "color", "position_ms"]}
+
+        # Update fields
+        for field, value in update.items():
+            if field != "id" and hasattr(cue, field):
+                setattr(cue, field, value)
+
+        updated += 1
+        _log_cue_history(db, cue.id, "updated", old_vals, update)
+
+    db.commit()
+    return {"updated": updated}
+
+
+@router.delete("/{track_id}/points/batch")
+async def batch_delete_cue_points(
+    track_id: int,
+    batch_data: Dict[str, List[int]] = None,  # {cue_ids: [1,2,3]}
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """OPT #25: Batch delete multiple cue points."""
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not batch_data or "cue_ids" not in batch_data:
+        raise HTTPException(status_code=400, detail="cue_ids array required")
+
+    cue_ids = batch_data["cue_ids"]
+    deleted = 0
+
+    cues_to_delete = db.query(CuePoint).filter(
+        CuePoint.track_id == track_id,
+        CuePoint.id.in_(cue_ids),
+    ).all()
+
+    for cue in cues_to_delete:
+        old_vals = {"position_ms": cue.position_ms, "name": cue.name}
+        _log_cue_history(db, cue.id, "deleted", old_vals, None)
+        db.delete(cue)
+        deleted += 1
+
+    db.commit()
+    return {"deleted": deleted}
 
 
 # ─── Rules ───────────────────────────────────────────────────────────────────

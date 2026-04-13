@@ -18,22 +18,22 @@ import struct
 MUSICAL_KEY_TO_TRAKTOR = {
     # Traktor Open Key: majors 0-11, minors 12-23
     "C major": 0,  "C": 0,   "Cm": 12,   "C minor": 12,
-    "Db major": 1, "Db": 1,  "C#m": 13,  "C# minor": 13, "Db minor": 13,
+    "Db major": 1, "Db": 1,  "C#m": 13,  "C# minor": 13, "Dbm": 13, "Db minor": 13,
     "D major": 2,  "D": 2,   "Dm": 14,   "D minor": 14,
-    "Eb major": 3, "Eb": 3,  "D#m": 15,  "D# minor": 15, "Eb minor": 15,
+    "Eb major": 3, "Eb": 3,  "D#m": 15,  "D# minor": 15, "Ebm": 15, "Eb minor": 15,
     "E major": 4,  "E": 4,   "Em": 16,   "E minor": 16,
     "F major": 5,  "F": 5,   "Fm": 17,   "F minor": 17,
-    "F# major": 6, "F#": 6,  "Gb major": 6, "F#m": 18, "F# minor": 18, "Gb minor": 18,
+    "F# major": 6, "F#": 6,  "Gb major": 6, "F#m": 18, "F# minor": 18, "Gbm": 18, "Gb minor": 18,
     "G major": 7,  "G": 7,   "Gm": 19,   "G minor": 19,
-    "Ab major": 8, "Ab": 8,  "G# major": 8, "G#m": 20, "G# minor": 20, "Ab minor": 20,
+    "Ab major": 8, "Ab": 8,  "G# major": 8, "G#m": 20, "G# minor": 20, "Abm": 20, "Ab minor": 20,
     "A major": 9,  "A": 9,   "Am": 21,   "A minor": 21,
-    "Bb major": 10, "Bb": 10, "A# major": 10, "A#m": 22, "A# minor": 22, "Bb minor": 22,
+    "Bb major": 10, "Bb": 10, "A# major": 10, "A#m": 22, "A# minor": 22, "Bbm": 22, "Bb minor": 22,
     "B major": 11, "B": 11,  "Bm": 23,   "B minor": 23,
-    # Camelot notation support
+    # Camelot notation support (Open Key wheel)
     "1A": 21, "1B": 11, "2A": 18, "2B": 6, "3A": 13, "3B": 1,
     "4A": 20, "4B": 8,  "5A": 15, "5B": 3, "6A": 19, "6B": 7,
-    "7A": 14, "7B": 2,  "8A": 21, "8B": 0, "9A": 16, "9B": 7,
-    "10A": 23, "10B": 2, "11A": 18, "11B": 9, "12A": 13, "12B": 4,
+    "7A": 14, "7B": 2,  "8A": 21, "8B": 0, "9A": 16, "9B": 4,
+    "10A": 23, "10B": 5, "11A": 18, "11B": 9, "12A": 13, "12B": 4,
 }
 
 # Traktor cue type mapping
@@ -70,6 +70,8 @@ def _build_beat_grid_stripe(bpm: float, duration_ms: float, first_beat_ms: float
     """
     Build Traktor STRIPE (beat grid) data encoded as base64.
     Represents beat positions within a track at given BPM.
+
+    Supports up to 8192 beats for long tracks (40+ minutes at typical tempos).
     """
     if not bpm or bpm <= 0:
         return ""
@@ -80,9 +82,10 @@ def _build_beat_grid_stripe(bpm: float, duration_ms: float, first_beat_ms: float
     # Start from first beat
     current_ms = first_beat_ms
     beat_count = 0
+    max_beats = 8192  # Increased from 2048 for long tracks
 
-    while current_ms < duration_ms and beat_count < 2048:  # Max 2048 beats
-        # Encode beat position in Traktor stripe format
+    while current_ms < duration_ms and beat_count < max_beats:
+        # Encode beat position in Traktor stripe format (4 bytes, big-endian)
         pos_int = int(current_ms)
         stripe_data.extend(struct.pack('>I', pos_int))
         current_ms += beat_length_ms
@@ -125,7 +128,7 @@ def generate_traktor_nml(
     collection_name: str = "CueForge Export",
 ) -> str:
     """
-    Generate a Traktor-compatible .nml XML file.
+    Generate a Traktor-compatible .nml XML file compatible with Traktor 3.5+.
 
     Each track dict should have:
       - title, artist, album, genre, bpm, key, duration_ms, file_path
@@ -133,9 +136,15 @@ def generate_traktor_nml(
       - loop_markers: list of {start_ms, end_ms, name, color, number}
       - analysis: dict with extra data
 
+    Supports:
+      - Cue names and colors (hex format converted to ARGB)
+      - Beat grid with phase information
+      - Extended stripe data (8192 beats)
+      - Memory markers and loops
+
     Returns: XML string
     """
-    nml = Element('NML', VERSION="19")
+    nml = Element('NML', VERSION="35")  # Updated to Traktor 3.5 version
 
     # HEAD section
     head = SubElement(nml, 'HEAD', COMPANY="www.native-instruments.com", PROGRAM="Traktor Pro 3")
@@ -258,7 +267,7 @@ def generate_traktor_nml(
         if waveform_data:
             SubElement(entry, 'WAVEFORM', DATA=waveform_data)
 
-        # CUE_V2 entries (cue points)
+        # CUE_V2 entries (cue points with names and colors)
         cue_points = track.get('cue_points', [])
         for i, cp in enumerate(cue_points):
             pos_ms = cp.get('position_ms', 0) or 0
@@ -275,6 +284,7 @@ def generate_traktor_nml(
                 'LEN': "0.000000",
                 'REPEATS': "-1",
                 'HOTCUE': str(i),
+                'COLOR': str(color),  # ARGB color format
             }
 
             # Loop: set LEN to duration
@@ -283,6 +293,31 @@ def generate_traktor_nml(
                 cue_attrs['LEN'] = _ms_to_seconds(end_ms - pos_ms)
 
             SubElement(entry, 'CUE_V2', **cue_attrs)
+
+        # Loop markers (separate ENTRY elements if needed)
+        loop_markers = track.get('loop_markers', []) or []
+        for loop_idx, loop in enumerate(loop_markers):
+            start_ms = loop.get('start_ms', 0)
+            end_ms = loop.get('end_ms', 0)
+            if end_ms <= start_ms:
+                continue
+
+            loop_name = loop.get('name', f'Loop {loop_idx + 1}')
+            loop_color = _hex_to_traktor_color(loop.get('color', '#00FF00'))
+            loop_duration = _ms_to_seconds(end_ms - start_ms)
+
+            loop_attrs = {
+                'NAME': loop_name,
+                'DISPL_ORDER': str(len(cue_points) + loop_idx),
+                'TYPE': '4',  # LOOP type
+                'START': _ms_to_seconds(start_ms),
+                'LEN': loop_duration,
+                'REPEATS': '-1',
+                'HOTCUE': str(loop_idx),
+                'COLOR': str(loop_color),
+            }
+
+            SubElement(entry, 'CUE_V2', **loop_attrs)
 
         # LOUDNESS (placeholder)
         SubElement(entry, 'LOUDNESS',
