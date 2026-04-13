@@ -372,7 +372,7 @@ app.add_middleware(RequestIDMiddleware)
 app.add_middleware(AccessLogMiddleware)
 
 # OPT #7 + #8: Cache-Control et ETag middleware pour réduire la bande passante
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from hashlib import md5
 
 class CacheAndETagMiddleware(BaseHTTPMiddleware):
