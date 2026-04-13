@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, StatCard,
+  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, StatCard, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -225,6 +225,12 @@ export default function TracksPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="tracks"
+        icon={Music}
+        title="Gestion des pistes musicales"
+        description="Visualisez toutes les pistes audio uploadées par les utilisateurs. Suivez le statut d'analyse (en attente, en cours, terminé, échoué) et gérez les métadonnées."
+      />
       <SectionHeader
         title="Pistes Musicales"
         description={`Gérez les ${total} pistes de CueForge`}

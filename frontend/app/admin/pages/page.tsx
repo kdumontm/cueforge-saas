@@ -15,6 +15,7 @@ import {
   EmptyState,
   ConfirmModal,
   useToast,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 import { Plus, Trash2, FileText, Edit2, Globe, Lock } from "lucide-react";
@@ -185,6 +186,17 @@ export default function PagesListPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="pages-cms"
+        icon={FileText}
+        title="Gestionnaire de pages CMS"
+        description="Créez et gérez les pages de contenu de votre site (landing pages, mentions légales, FAQ…). Chaque page a un slug unique utilisé pour l'URL."
+        steps={[
+          { text: "Cliquez sur « Créer une page » pour ajouter du contenu" },
+          { text: "Utilisez l'éditeur visuel pour organiser sections et composants" },
+          { text: "Publiez la page quand elle est prête — elle sera accessible publiquement" },
+        ]}
+      />
       <SectionHeader
         title="Pages du site"
         description="Gérez les pages et leur contenu avec l'éditeur visuel"

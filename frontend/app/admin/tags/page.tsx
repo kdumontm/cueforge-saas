@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Tag, Trash2, Plus, Check, X, GitMerge } from "lucide-react";
 import {
   Input, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, ColorPicker,
+  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, ColorPicker, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -147,6 +147,17 @@ export default function TagsPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="tags"
+        icon={Tag}
+        title="Gestion des tags"
+        description="Créez et organisez les tags utilisés pour classer les pistes musicales. Chaque tag a un nom, une couleur, et un compteur d'utilisation."
+        steps={[
+          { text: "Cliquez sur « Nouveau tag » pour en créer un" },
+          { text: "Choisissez un nom et une couleur distinctive" },
+          { text: "Fusionnez les tags en doublon si nécessaire" },
+        ]}
+      />
       <SectionHeader
         title="Tags"
         description={`Gérez les ${tags.length} tags`}

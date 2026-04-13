@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Crosshair, Trash2, Edit3, Check, X } from "lucide-react";
 import {
   Input, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast,
+  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -135,6 +135,12 @@ export default function CuePointsPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="cuepoints"
+        icon={Crosshair}
+        title="Gestion des points de repère"
+        description="Consultez et gérez tous les cue points posés par les utilisateurs sur leurs pistes. Les cue points marquent des positions clés dans l'audio (drop, break, intro…)."
+      />
       <SectionHeader
         title="Points de Repère"
         description={`Gérez les ${total} points de repère`}

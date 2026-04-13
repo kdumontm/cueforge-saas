@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, Toggle, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast,
+  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -180,6 +180,17 @@ export default function UsersPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="users"
+        icon={User}
+        title="Gestion des utilisateurs"
+        description="Consultez et gérez tous les comptes utilisateurs de CueForge. Vous pouvez modifier les plans d'abonnement, promouvoir en admin, et suivre l'activité de chaque utilisateur."
+        steps={[
+          { text: "Recherchez un utilisateur par nom ou email" },
+          { text: "Filtrez par plan d'abonnement (Free, Pro, Unlimited)" },
+          { text: "Cliquez sur l'icône crayon pour modifier un utilisateur" },
+        ]}
+      />
       <SectionHeader
         title="Utilisateurs"
         description={`Gérez les ${total} utilisateurs de CueForge`}

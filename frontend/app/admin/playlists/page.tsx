@@ -4,7 +4,7 @@ import {
   Search, ListMusic,
 } from "lucide-react";
 import {
-  Input, Btn, Card, PageWrapper, SectionHeader, LoadingScreen, EmptyState, useToast, StatCard,
+  Input, Btn, Card, PageWrapper, SectionHeader, LoadingScreen, EmptyState, useToast, StatCard, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -74,6 +74,12 @@ export default function PlaylistsPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="playlists"
+        icon={ListMusic}
+        title="Gestion des playlists"
+        description="Consultez toutes les playlists créées par les utilisateurs de CueForge. Vous pouvez voir le nombre de pistes et la date de création de chaque playlist."
+      />
       <SectionHeader
         title="Listes de Lecture"
         description={`Gérez les ${total} listes de lecture`}

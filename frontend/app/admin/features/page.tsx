@@ -14,6 +14,7 @@ import {
   EmptyState,
   ConfirmModal,
   useToast,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 import { Plus, Trash2, Package, ToggleLeft, ToggleRight, Eye, EyeOff, Lock } from "lucide-react";
@@ -268,6 +269,17 @@ export default function FeaturesPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="features"
+        icon={Package}
+        title="Gestion des fonctionnalités par plan"
+        description="Contrôlez quelles fonctionnalités sont disponibles pour chaque plan d'abonnement (Free, Pro, Unlimited). Activez, masquez ou grisez les features selon le plan."
+        steps={[
+          { text: "Activez/désactivez une feature avec le toggle à droite" },
+          { text: "Utilisez les boutons bulk (Tout activer, Tout masquer…) pour des modifications rapides" },
+          { text: "Ajoutez de nouvelles fonctionnalités avec le bouton + en haut à droite" },
+        ]}
+      />
       <SectionHeader
         title="Gestion des fonctionnalités"
         description="Gérez les fonctionnalités disponibles par plan"

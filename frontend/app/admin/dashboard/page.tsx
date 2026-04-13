@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { Card, Badge, PageWrapper, LoadingScreen } from "../_components/shared";
+import { Card, Badge, PageWrapper, LoadingScreen, PageGuide } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
 interface DashboardStats {
@@ -156,6 +156,12 @@ export default function AdminDashboard() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="dashboard"
+        icon={LayoutGrid}
+        title="Tableau de bord administrateur"
+        description="Vue d'ensemble de votre application CueForge. Les statistiques se mettent à jour automatiquement. Cliquez sur les cartes pour accéder directement aux sections correspondantes."
+      />
       {/* ── Welcome header ───────────────────────────── */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary mb-1">

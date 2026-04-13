@@ -9,6 +9,7 @@ import {
   SectionHeader,
   LoadingScreen,
   useToast,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 import { Lock, Unlock, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -86,6 +87,17 @@ export default function FeatureLocksPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="locks"
+        icon={Lock}
+        title="Verrouillage des features"
+        description="Verrouillez une feature pour empêcher Claude (l'assistant IA) de modifier son code. Utile pour protéger des fonctionnalités stables que vous ne voulez pas qu'elles soient modifiées accidentellement."
+        steps={[
+          { text: "Cliquez sur le badge « Ouvert » pour verrouiller une feature" },
+          { text: "Les features verrouillées sont protégées contre les modifications automatiques" },
+          { text: "Déverrouillez quand vous souhaitez autoriser de nouvelles modifications" },
+        ]}
+      />
       <SectionHeader
         title="Verrouillage des features"
         description="Verrouillez une feature pour empêcher Claude de modifier son code. Déverrouillez-la quand vous voulez qu'il y travaille."

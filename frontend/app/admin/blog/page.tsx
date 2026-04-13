@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { BookOpen, Trash2, Edit3, Plus, Check, X, Copy } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, Toggle,
+  SectionHeader, LoadingScreen, EmptyState, ConfirmModal, useToast, Toggle, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -192,6 +192,17 @@ export default function BlogPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="blog"
+        icon={BookOpen}
+        title="Gestion du blog"
+        description="Rédigez et publiez des articles de blog pour votre communauté de DJs. Les articles peuvent être en brouillon ou publiés, et supportent les tags pour le classement."
+        steps={[
+          { text: "Cliquez sur « Nouvel article » pour commencer à rédiger" },
+          { text: "Rédigez le contenu, ajoutez une image de couverture et des tags" },
+          { text: "Passez le statut en « Publié » quand l'article est prêt" },
+        ]}
+      />
       <SectionHeader
         title="Blog"
         description={`Gérez les ${total} articles`}

@@ -14,6 +14,7 @@ import {
   LoadingScreen,
   EmptyState,
   useToast,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -194,6 +195,18 @@ export default function NavigationPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="navigation"
+        icon={Menu}
+        title="Configuration de la navigation"
+        description="Organisez les menus de votre site : menu principal (header) et pied de page (footer). Réorganisez les pages par glisser-déposer et personnalisez les labels affichés."
+        steps={[
+          { text: "Choisissez l'onglet Menu principal ou Footer" },
+          { text: "Activez/désactivez les pages avec les toggles" },
+          { text: "Réordonnez les pages avec les flèches haut/bas" },
+          { text: "Cliquez sur Sauvegarder pour appliquer" },
+        ]}
+      />
       <SectionHeader
         title="Gestion de la navigation"
         description="Configurez le menu principal et les liens du footer de votre site."

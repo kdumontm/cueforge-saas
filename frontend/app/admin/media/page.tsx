@@ -14,6 +14,7 @@ import {
   ConfirmModal,
   useToast,
   TabBar,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 import { Copy, Trash2, ImageIcon, Upload, CheckCircle } from "lucide-react";
@@ -173,6 +174,17 @@ export default function MediaPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="media"
+        icon={ImageIcon}
+        title="Bibliothèque de médias"
+        description="Uploadez et gérez les images de votre site (logos, héros, icônes…). Les fichiers sont stockés sur le serveur et accessibles via leur URL."
+        steps={[
+          { text: "Glissez-déposez vos fichiers dans la zone ou cliquez pour sélectionner" },
+          { text: "Classez vos médias par catégorie (Général, Logo, Hero, Icône)" },
+          { text: "Cliquez sur un média pour copier son URL" },
+        ]}
+      />
       <SectionHeader
         title="Gestionnaire de médias"
         description="Gérez les images et fichiers de votre site"

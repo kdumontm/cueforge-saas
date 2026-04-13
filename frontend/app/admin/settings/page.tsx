@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Palette, Globe, Share2, AlertCircle } from "lucide-react";
+import { Palette, Globe, Share2, AlertCircle, Info } from "lucide-react";
 import {
   Input,
   Select,
@@ -14,6 +14,7 @@ import {
   LoadingScreen,
   ColorPicker,
   useToast,
+  PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -119,6 +120,19 @@ export default function SettingsPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="settings"
+        icon={Info}
+        title="Réglages du site"
+        description="Personnalisez l'apparence et les métadonnées de votre site CueForge. Les modifications sont sauvegardées onglet par onglet."
+        steps={[
+          { text: "Branding : nom du site, tagline, logo et favicon" },
+          { text: "Couleurs : personnalisez la palette de couleurs de l'interface" },
+          { text: "SEO : titre, description et image pour le partage social" },
+          { text: "Réseaux sociaux : liens vers vos profils Twitter, Instagram, Discord, YouTube" },
+          { text: "Maintenance : activez le mode maintenance si besoin" },
+        ]}
+      />
       <SectionHeader
         title="Réglages du site"
         description="Configurez l'apparence, les couleurs, le SEO et les réseaux sociaux de votre site CueForge."

@@ -4,7 +4,7 @@ import {
   Search, Disc3,
 } from "lucide-react";
 import {
-  Input, Btn, Card, PageWrapper, SectionHeader, LoadingScreen, EmptyState, useToast, StatCard,
+  Input, Btn, Card, PageWrapper, SectionHeader, LoadingScreen, EmptyState, useToast, StatCard, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -83,6 +83,12 @@ export default function DJSetsPage() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="djsets"
+        icon={Disc3}
+        title="Gestion des DJ Sets"
+        description="Visualisez tous les DJ sets créés par les utilisateurs. Chaque set regroupe plusieurs pistes dans un ordre défini avec des durées de mix."
+      />
       <SectionHeader
         title="DJ Sets"
         description={`Gérez les ${total} DJ Sets`}

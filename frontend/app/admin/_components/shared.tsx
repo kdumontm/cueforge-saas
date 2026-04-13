@@ -311,3 +311,62 @@ export function PageWrapper({ children, className = "" }: { children: ReactNode;
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════
+// PAGE GUIDE — Bandeau d'aide contextuelle
+// ═══════════════════════════════════════════════
+
+interface GuideStep {
+  text: string;
+}
+
+interface PageGuideProps {
+  id: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  steps?: GuideStep[];
+}
+
+export function PageGuide({ id, icon: Icon, title, description, steps }: PageGuideProps) {
+  const storageKey = `admin-guide-dismissed-${id}`;
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(storageKey) === "1";
+  });
+
+  if (dismissed) return null;
+
+  return (
+    <div className="mb-6 relative rounded-xl border border-accent/20 bg-accent/5 p-5">
+      <button
+        onClick={() => { localStorage.setItem(storageKey, "1"); setDismissed(true); }}
+        className="absolute top-3 right-3 text-text-muted hover:text-text-primary text-xs opacity-60 hover:opacity-100 transition-opacity"
+        title="Masquer ce guide"
+      >
+        ✕
+      </button>
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+          <Icon size={20} className="text-accent" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-text-primary mb-1">{title}</h3>
+          <p className="text-xs text-text-secondary leading-relaxed mb-3">{description}</p>
+          {steps && steps.length > 0 && (
+            <ol className="space-y-1.5">
+              {steps.map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-text-muted">
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[10px] font-bold mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="leading-relaxed">{step.text}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

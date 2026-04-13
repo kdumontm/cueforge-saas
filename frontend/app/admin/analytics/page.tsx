@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Users, TrendingUp, BarChart3, Zap, DollarSign, DownloadCloud,
 } from "lucide-react";
-import { Card, PageWrapper, LoadingScreen } from "../_components/shared";
+import { Card, PageWrapper, LoadingScreen, PageGuide } from "../_components/shared";
 import { api } from "../_components/api";
 
 interface OverviewStats {
@@ -184,6 +184,12 @@ export default function AdminAnalytics() {
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="analytics"
+        icon={BarChart3}
+        title="Analytiques & Métriques"
+        description="Suivez la croissance de votre plateforme : inscriptions, utilisateurs actifs, revenus et stockage. Les données sont calculées en temps réel depuis la base de données."
+      />
       <div className="space-y-6">
         {/* ── Header ── */}
         <div>
