@@ -18,6 +18,10 @@ import {
   FlaskRound, MousePointerClick, Video, GitBranch,
   ShieldAlert, Languages, FolderOpen, Timer, Inbox, LayoutTemplate,
   BellRing, MessageSquare, FileBarChart, Eye, Gauge,
+  Radio, Filter, Grid3X3, Footprints, FileSpreadsheet, UserCog,
+  Package, Upload, SearchCode, Cpu, Bug, Zap as ZapIcon,
+  BellDot, Wallet, Clock, Server, TestTube, Cog,
+  ArrowUpDown, RefreshCw,
 } from "lucide-react";
 import { ToastProvider } from "./_components/shared";
 
@@ -183,6 +187,51 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "push-notifications", label: "Push & SMS", icon: BellRing, href: "/admin/push-notifications" },
       { id: "sms-templates", label: "Templates SMS", icon: MessageSquare, href: "/admin/sms-templates" },
       { id: "scheduled-reports", label: "Rapports planifiés", icon: FileBarChart, href: "/admin/scheduled-reports" },
+      { id: "in-app-notifications", label: "Notif In-App", icon: BellDot, href: "/admin/in-app-notifications" },
+    ],
+  },
+  {
+    label: "Analytics Avancés",
+    items: [
+      { id: "realtime", label: "Temps Réel", icon: Radio, href: "/admin/realtime" },
+      { id: "funnels", label: "Entonnoirs", icon: Filter, href: "/admin/funnels" },
+      { id: "cohorts", label: "Cohortes", icon: Grid3X3, href: "/admin/cohorts" },
+      { id: "event-tracking", label: "Suivi Événements", icon: Footprints, href: "/admin/event-tracking" },
+      { id: "user-journeys", label: "Parcours Utilisateur", icon: ArrowUpDown, href: "/admin/user-journeys" },
+      { id: "custom-reports", label: "Rapports Custom", icon: FileSpreadsheet, href: "/admin/custom-reports" },
+    ],
+  },
+  {
+    label: "Opérations en Masse",
+    items: [
+      { id: "bulk-operations", label: "Actions en Masse", icon: Package, href: "/admin/bulk-operations" },
+      { id: "import-export", label: "Import / Export", icon: Upload, href: "/admin/import-export" },
+      { id: "global-search", label: "Recherche Globale", icon: SearchCode, href: "/admin/global-search" },
+    ],
+  },
+  {
+    label: "Monitoring Système",
+    items: [
+      { id: "system-monitoring", label: "Métriques Serveur", icon: Cpu, href: "/admin/system-monitoring" },
+      { id: "error-tracking", label: "Suivi Erreurs", icon: Bug, href: "/admin/error-tracking" },
+      { id: "performance", label: "Performance", icon: ZapIcon, href: "/admin/performance" },
+    ],
+  },
+  {
+    label: "Abonnements Avancés",
+    items: [
+      { id: "subscriptions-advanced", label: "Vue d'ensemble Abo", icon: Wallet, href: "/admin/subscriptions-advanced" },
+      { id: "subscription-actions", label: "Actions Abonnement", icon: RefreshCw, href: "/admin/subscription-actions" },
+      { id: "user-timeline", label: "Timeline Utilisateur", icon: Clock, href: "/admin/user-timeline" },
+      { id: "impersonation", label: "Impersonation", icon: UserCog, href: "/admin/impersonation" },
+    ],
+  },
+  {
+    label: "DevOps & Config",
+    items: [
+      { id: "environments", label: "Environnements", icon: Server, href: "/admin/environments" },
+      { id: "webhook-testing", label: "Test Webhooks", icon: TestTube, href: "/admin/webhook-testing" },
+      { id: "admin-preferences", label: "Préférences Admin", icon: Cog, href: "/admin/admin-preferences" },
     ],
   },
   {

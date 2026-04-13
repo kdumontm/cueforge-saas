@@ -199,7 +199,7 @@ export const adminApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     return api(`/admin/users?${q.toString()}`);
   },
-  bulkUserAction: (action: string, userIds: number[], params?: any) =>
+  bulkUserActionLegacy: (action: string, userIds: number[], params?: any) =>
     api(`/admin/users/bulk-action`, { method: "POST", body: { action, user_ids: userIds, ...params } }),
   resetUserPassword: (id: number) => api(`/admin/users/${id}/reset-password`, { method: "POST" }),
   forceVerifyUser: (id: number) => api(`/admin/users/${id}/force-verify`, { method: "POST" }),
