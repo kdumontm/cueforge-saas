@@ -2356,6 +2356,71 @@ def update_beatgrid(
     }
 
 
+# ── v6.4: Energy flow curve endpoint ──────────────────────────────────
+@router.get("/{track_id}/energy-flow")
+def get_energy_flow(
+    track_id: int,
+    resolution: int = Query(64, ge=8, le=512, description="Number of energy data points"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the energy flow curve for waveform visualization.
+
+    Computes energy at evenly-spaced positions across the track using
+    section_labels data. Useful for DJ energy map overlays.
+
+    Returns:
+        {points: [{time_ms, energy, section_label}], duration_ms, avg_energy}
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+    if not analysis or not analysis.duration_ms:
+        raise HTTPException(status_code=400, detail="Track must be analyzed first")
+
+    sections = analysis.section_labels or []
+    duration_ms = analysis.duration_ms
+
+    # Build energy timeline from sections
+    # Each section has: time_ms, duration_ms, energy, label
+    section_list = sorted(sections, key=lambda s: s.get("time_ms", 0))
+
+    def _energy_at(t_ms: int) -> tuple:
+        """Get energy and label at a given time."""
+        label = "UNKNOWN"
+        energy = 0.5  # default
+        for s in reversed(section_list):
+            if s.get("time_ms", 0) <= t_ms:
+                energy = s.get("energy", 0.5)
+                label = s.get("label", "UNKNOWN")
+                break
+        return energy, label
+
+    step = duration_ms / resolution
+    points = []
+    total_energy = 0.0
+    for i in range(resolution):
+        t = int(step * i)
+        e, lbl = _energy_at(t)
+        points.append({"time_ms": t, "energy": round(e, 3), "section_label": lbl})
+        total_energy += e
+
+    avg_energy = round(total_energy / max(resolution, 1), 3)
+
+    return {
+        "points": points,
+        "duration_ms": duration_ms,
+        "resolution": resolution,
+        "avg_energy": avg_energy,
+        "has_clipping": analysis.has_clipping,
+        "true_peak_db": analysis.true_peak_db,
+    }
+
+
 # WebSocket endpoint pour les updates temps réel
 @router.websocket("/ws/status")
 async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
@@ -2378,6 +2443,8 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
         while True:
             data = await websocket.receive_json()
             track_ids = data.get("track_ids", [])
+            # v6.4: Client can request detailed info
+            detailed = data.get("detailed", False)
 
             if not track_ids:
                 await websocket.send_json({"error": "track_ids required"})
@@ -2388,9 +2455,40 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
             for tid in track_ids:
                 track = db.query(Track).filter(Track.id == tid).first()
                 if track:
-                    statuses[str(tid)] = track.status.value if hasattr(track.status, 'value') else str(track.status)
+                    status_str = track.status.value if hasattr(track.status, 'value') else str(track.status)
+                    if detailed:
+                        # v6.4: Granular progress — include analysis summary when available
+                        track_info = {
+                            "status": status_str,
+                            "title": track.title or track.original_filename,
+                        }
+                        if track.analysis:
+                            a = track.analysis
+                            track_info["progress"] = {
+                                "bpm": a.bpm is not None,
+                                "key": a.key is not None,
+                                "energy": a.energy is not None,
+                                "sections": bool(a.section_labels),
+                                "cue_points": bool(a.track and a.track.cue_points),
+                                "stereo": a.stereo_width is not None,
+                                "quality": a.has_clipping is not None,
+                            }
+                            # Count completed analysis steps
+                            steps = track_info["progress"]
+                            done = sum(1 for v in steps.values() if v)
+                            track_info["progress_pct"] = round(done / len(steps) * 100)
+                            # v6.4: Include key metrics for live display
+                            track_info["bpm"] = a.bpm
+                            track_info["key"] = a.key
+                            track_info["has_clipping"] = a.has_clipping
+                            track_info["true_peak_db"] = a.true_peak_db
+                        else:
+                            track_info["progress_pct"] = 0
+                        statuses[str(tid)] = track_info
+                    else:
+                        statuses[str(tid)] = status_str
                 else:
-                    statuses[str(tid)] = "not_found"
+                    statuses[str(tid)] = "not_found" if not detailed else {"status": "not_found"}
 
             await websocket.send_json(statuses)
 
