@@ -299,6 +299,71 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Feature cache cleanup failed (non-blocking): {e}")
 
+    # 9. Initialize inference optimizer (torch.compile, mixed precision)
+    try:
+        from app.services.inference_optimizer import InferenceOptimizer
+        inference_opt = InferenceOptimizer()
+        inference_opt.configure_mixed_precision()
+        app.state.inference_optimizer = inference_opt
+        logger.info("✅ Inference optimizer initialized")
+    except Exception as e:
+        logger.warning(f"Inference optimizer init failed (non-blocking): {e}")
+
+    # 10. Initialize memory optimizer (buffer pools, pressure monitoring)
+    try:
+        from app.services.memory_optimizer import MemoryOptimizer
+        memory_opt = MemoryOptimizer()
+        app.state.memory_optimizer = memory_opt
+        logger.info("✅ Memory optimizer initialized")
+    except Exception as e:
+        logger.warning(f"Memory optimizer init failed (non-blocking): {e}")
+
+    # 11. Initialize CPU optimizer (thread affinity, FFT plans)
+    try:
+        from app.services.cpu_optimizer import CPUOptimizer
+        cpu_opt = CPUOptimizer()
+        cpu_opt.optimize_numpy_backend()
+        app.state.cpu_optimizer = cpu_opt
+        logger.info("✅ CPU optimizer initialized")
+    except Exception as e:
+        logger.warning(f"CPU optimizer init failed (non-blocking): {e}")
+
+    # 12. Initialize cache strategy (multi-tier L1/L2/L3)
+    try:
+        from app.services.cache_strategy import CacheManager
+        cache_mgr = CacheManager()
+        app.state.cache_manager = cache_mgr
+        logger.info("✅ Cache strategy initialized (L1/L2/L3)")
+    except Exception as e:
+        logger.warning(f"Cache strategy init failed (non-blocking): {e}")
+
+    # 13. Initialize observability (structured logging, metrics)
+    try:
+        from app.services.observability import ObservabilityService
+        obs = ObservabilityService()
+        app.state.observability = obs
+        logger.info("✅ Observability service initialized")
+    except Exception as e:
+        logger.warning(f"Observability init failed (non-blocking): {e}")
+
+    # 14. Initialize job manager (background task scheduling)
+    try:
+        from app.services.job_manager import JobManager
+        job_mgr = JobManager()
+        app.state.job_manager = job_mgr
+        logger.info("✅ Job manager initialized")
+    except Exception as e:
+        logger.warning(f"Job manager init failed (non-blocking): {e}")
+
+    # 15. Initialize analytics service (event tracking, cohorts)
+    try:
+        from app.services.analytics_service import AnalyticsService
+        analytics_svc = AnalyticsService()
+        app.state.analytics_service = analytics_svc
+        logger.info("✅ Analytics service initialized")
+    except Exception as e:
+        logger.warning(f"Analytics service init failed (non-blocking): {e}")
+
     logger.info("✅ CueForge backend démarré.")
     yield
 
@@ -308,6 +373,18 @@ async def lifespan(app: FastAPI):
         close_http_client()
     except Exception as e:
         logger.warning(f"Failed to close HTTP client: {e}")
+
+    # Cleanup optimizers
+    try:
+        if hasattr(app.state, 'memory_optimizer'):
+            app.state.memory_optimizer.cleanup()
+    except Exception:
+        pass
+    try:
+        if hasattr(app.state, 'job_manager'):
+            app.state.job_manager.shutdown()
+    except Exception:
+        pass
 
     # Stop queue listener on shutdown
     queue_listener.stop()
@@ -513,3 +590,7 @@ app.include_router(audio_forensics.router)
 # v11 routers — monitoring & quota
 app.include_router(monitoring.router)
 app.include_router(quota.router)
+
+# v12 routers — dormant services now active
+from app.register_v12_routers import register_v12_routers
+register_v12_routers(app)

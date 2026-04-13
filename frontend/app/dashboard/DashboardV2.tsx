@@ -32,6 +32,13 @@ const MetadataEnrichModal = lazy(() => import('@/components/MetadataEnrichModal'
 const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
 const AnalysisProgress = lazy(() => import('@/components/AnalysisProgress'));
 
+// Advanced components (Vague 2000)
+const PlayerAdvanced = lazy(() => import('@/components/player/PlayerAdvanced'));
+const WaveformAdvanced = lazy(() => import('@/components/player/WaveformAdvanced'));
+const StemsAdvanced = lazy(() => import('@/components/tabs/StemsAdvanced'));
+const PlaylistBuilder = lazy(() => import('@/components/playlist/PlaylistBuilder'));
+const SettingsPanel = lazy(() => import('@/components/settings/SettingsPanel'));
+
 const TabFallback = () => {
   const { lang } = useLang();
   return <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs" aria-busy={true}>{tr('general.loading', lang)}</div>;
@@ -56,9 +63,11 @@ const TABS = [
   { id: 'playlists', labelKey: 'tab.playlists',icon: '📂', global: true, featureKey: 'playlists' },
   { id: 'stats',     labelKey: 'tab.stats',     icon: '📊', global: true, featureKey: 'stats' },
   { id: 'notes',     labelKey: 'tab.notes',     icon: '📋', global: true },
+  { id: 'playlist-builder', labelKey: 'tab.playlistBuilder', icon: '🎵', global: true, featureKey: 'playlists' },
+  { id: 'settings', labelKey: 'tab.settings', icon: '⚙️', global: true },
 ];
 
-const GLOBAL_TABS: string[] = ['playlists', 'stats', 'notes'];
+const GLOBAL_TABS: string[] = ['playlists', 'stats', 'notes', 'playlist-builder', 'settings'];
 
 // ── Demo data (full Track objects + flat display objects) ──────────────
 const DEMO_CUE_POINTS = [
@@ -1874,7 +1883,7 @@ export default function DashboardV2() {
             </div>
             {activeTab === 'stems' && (
               <Suspense fallback={<TabFallback />}>
-              <StemsTab
+              <StemsAdvanced
                 track={selectedTrack}
                 stemsStatus={stemsStatus}
                 mutedStems={stemMuted}
@@ -2004,6 +2013,16 @@ export default function DashboardV2() {
               </Suspense>
             )}
             {activeTab === 'stats' && <Suspense fallback={<TabFallback />}><StatsTab tracks={tracks} /></Suspense>}
+            {activeTab === 'playlist-builder' && (
+              <Suspense fallback={<TabFallback />}>
+                <PlaylistBuilder tracks={rawTracksForTabs} />
+              </Suspense>
+            )}
+            {activeTab === 'settings' && (
+              <Suspense fallback={<TabFallback />}>
+                <SettingsPanel />
+              </Suspense>
+            )}
             {activeTab === 'notes' && (
               <div className="flex flex-col h-full p-3 gap-2">
                 <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">Notes de session</div>
