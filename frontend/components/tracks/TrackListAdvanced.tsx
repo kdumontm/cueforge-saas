@@ -22,6 +22,7 @@ interface Track {
   genre: string;
   energy: number;
   dateAdded: Date;
+  date?: string | Date;
   duration: number;
 }
 

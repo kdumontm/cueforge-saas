@@ -72,6 +72,7 @@ export interface Track {
   original_filename: string;
   status: string;
   created_at: string;
+  date?: string;
   file_size?: number | null;
 
   // Metadata (populated after analysis)
@@ -111,6 +112,7 @@ export interface Track {
 
   // Analysis status
   analyzed?: boolean;
+  dateAdded?: string;
 
   // Analysis & markers
   analysis: TrackAnalysis | null;
