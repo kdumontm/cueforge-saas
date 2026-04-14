@@ -9,6 +9,8 @@ const DJ_SOFTWARE = [
   { name: "Traktor", icon: "🔵", desc: "Import NML", accept: ".nml", importFn: 'traktor' as const },
 ];
 
+const MAX_CONCURRENT_UPLOADS = 3;
+
 type UploadStatus = 'idle' | 'uploading' | 'analyzing' | 'done' | 'error';
 
 interface FileUploadState {
@@ -38,34 +40,53 @@ export default function UploadPage() {
     }));
     setFiles(prev => [...prev, ...newFiles]);
 
-    for (let i = 0; i < audioFiles.length; i++) {
-      const file = audioFiles[i];
-      const idx = files.length + i; // NOTE: uses closure, but we update via callback
+    // Upload parallèle par pool de MAX_CONCURRENT_UPLOADS workers
+    let fileIndex = 0;
 
-      setFiles(prev => prev.map((f, j) =>
-        f.file === file ? { ...f, status: 'uploading', progress: 'Upload en cours...' } : f
-      ));
+    async function processNext() {
+      while (fileIndex < audioFiles.length) {
+        const idx = fileIndex++;
+        const file = audioFiles[idx];
 
-      try {
-        const uploaded = await uploadTrack(file);
         setFiles(prev => prev.map(f =>
-          f.file === file ? { ...f, status: 'analyzing', progress: 'Analyse audio...' } : f
+          f.file === file ? { ...f, status: 'uploading', progress: 'Upload en cours...' } : f
         ));
 
-        if (uploaded?.id) {
-          await analyzeTrack(uploaded.id);
-          await pollTrackUntilDone(uploaded.id);
+        try {
+          const uploaded = await uploadTrack(file);
+          setFiles(prev => prev.map(f =>
+            f.file === file ? { ...f, status: 'analyzing', progress: 'Analyse audio...' } : f
+          ));
+
+          if (uploaded?.id) {
+            // Lance l'analyse sans bloquer les autres uploads
+            analyzeTrack(uploaded.id).then(() =>
+              pollTrackUntilDone(uploaded.id)
+            ).then(() => {
+              setFiles(prev => prev.map(f =>
+                f.file === file ? { ...f, status: 'done', progress: 'Terminé !' } : f
+              ));
+            }).catch((e) => {
+              setFiles(prev => prev.map(f =>
+                f.file === file ? { ...f, status: 'error', progress: `Analyse échouée: ${e?.message || 'erreur'}` } : f
+              ));
+            });
+          } else {
+            setFiles(prev => prev.map(f =>
+              f.file === file ? { ...f, status: 'done', progress: 'Uploadé (analyse manuelle)' } : f
+            ));
+          }
+        } catch (e: any) {
+          setFiles(prev => prev.map(f =>
+            f.file === file ? { ...f, status: 'error', progress: e?.message || 'Erreur upload' } : f
+          ));
         }
-
-        setFiles(prev => prev.map(f =>
-          f.file === file ? { ...f, status: 'done', progress: 'Terminé !' } : f
-        ));
-      } catch (e: any) {
-        setFiles(prev => prev.map(f =>
-          f.file === file ? { ...f, status: 'error', progress: e?.message || 'Erreur' } : f
-        ));
       }
     }
+
+    // Lance les workers en parallèle
+    const workers = Math.min(MAX_CONCURRENT_UPLOADS, audioFiles.length);
+    await Promise.all(Array.from({ length: workers }, () => processNext()));
   }, [files.length]);
 
   function handleDrop(e: React.DragEvent) {

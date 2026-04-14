@@ -12,7 +12,10 @@ import {
   ZoomIn, ZoomOut, CheckSquare, Square, AlertTriangle, Image,
   SlidersHorizontal, ListMusic, Copy, BarChart3, Compass, FolderSearch, Lightbulb, PenSquare, LayoutGrid, ChevronLeft, ChevronRight, Palette, Eye, Layers, GitBranch, RotateCcw, Settings, Shield, Lock, Unlock, Crown
 } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints, getCurrentUser } from '@/lib/api';
+import { uploadTrack, uploadTracksWithProgress, analyzeTrack, pollTrackUntilDone, batchAnalyzeTracks, exportRekordbox, listTracks, deleteTrack, getTrack, createCuePoint, deleteCuePoint, getTrackCuePoints, getCurrentUser } from '@/lib/api';
+
+// ── Upload parallèle : nombre de fichiers simultanés ──
+const MAX_CONCURRENT_UPLOADS = 3;
 import type { Track, CuePoint } from '@/types';
 import { CUE_COLORS as CUE_COLOR_MAP } from '@/types';
 
@@ -496,6 +499,43 @@ export function useDashboard() {
     e.preventDefault(); e.stopPropagation();
   }, []);
 
+  // ── Upload parallèle avec pool de workers ──
+  async function _uploadParallel(validFiles: File[]): Promise<any[]> {
+    const results: any[] = [];
+    let completed = 0;
+    const total = validFiles.length;
+    setUploadProgress({ current: 0, total });
+
+    // Pool de promesses : max MAX_CONCURRENT_UPLOADS simultanés
+    const pool: Promise<void>[] = [];
+    let fileIndex = 0;
+
+    async function uploadNext(): Promise<void> {
+      while (fileIndex < total) {
+        const idx = fileIndex++;
+        const file = validFiles[idx];
+        setBatchProgress(`Upload: ${file.name} (${completed + 1}/${total})...`);
+        try {
+          const uploaded = await uploadTrack(file);
+          results.push(uploaded);
+        } catch (e) {
+          console.error(`Upload échoué pour ${file.name}:`, e);
+          showToast(`Erreur upload: ${file.name}`, 'error');
+        }
+        completed++;
+        setUploadProgress({ current: completed, total });
+      }
+    }
+
+    // Lance MAX_CONCURRENT_UPLOADS workers en parallèle
+    const workers = Math.min(MAX_CONCURRENT_UPLOADS, total);
+    for (let w = 0; w < workers; w++) {
+      pool.push(uploadNext());
+    }
+    await Promise.all(pool);
+    return results;
+  }
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
     setIsDragging(false);
@@ -505,14 +545,32 @@ export function useDashboard() {
     setUploading(true);
     showToast(`Upload de ${files.length} fichier(s)...`, 'info');
     try {
-      setUploadProgress({current: 0, total: files.length});
-      for (let i = 0; i < files.length; i++) {
-        setUploadProgress({current: i + 1, total: files.length});
-        await uploadTrack(files[i]);
-      }
+      const uploaded = await _uploadParallel(files);
       setUploadProgress(null);
-      showToast(`${files.length} fichier(s) uploadé(s)`, 'success');
+      setBatchProgress('');
+      showToast(`${uploaded.length} fichier(s) uploadé(s)`, 'success');
       loadTracks();
+
+      // Auto-analyse en arrière-plan (non bloquant)
+      if (autoAnalyze && uploaded.length > 0) {
+        const ids = uploaded.filter(u => u?.id).map(u => u.id);
+        if (ids.length > 0) {
+          showToast('Analyse automatique en cours...', 'info');
+          (async () => {
+            try {
+              // Lance les analyses en parallèle (le backend gère la queue)
+              await Promise.all(ids.map(id => analyzeTrack(id)));
+              // Poll en parallèle
+              await Promise.all(ids.map(id => pollTrackUntilDone(id)));
+              loadTracks();
+              showToast(`${ids.length} analyse(s) terminée(s)`, 'success');
+            } catch (e) {
+              console.error('Auto-analyze batch failed:', e);
+              showToast('Certaines analyses ont échoué', 'error');
+            }
+          })();
+        }
+      }
     } catch (err) { showToast('Erreur lors de l\'upload', 'error'); }
     setUploading(false);
   }, [showToast, loadTracks]);
@@ -520,6 +578,9 @@ export function useDashboard() {
   // ── File Handling ──
   async function handleFiles(files: FileList | File[]) {
     const fileArray = Array.from(files);
+
+    // Filtrer les fichiers valides et détecter les doublons
+    const validFiles: File[] = [];
     for (const file of fileArray) {
       if (!file.name.match(/\.(mp3|wav|flac|aiff|aif|m4a|ogg)$/i)) {
         setError(`Format non supporté: ${file.name}`);
@@ -533,38 +594,53 @@ export function useDashboard() {
         showToast('Doublon détecté : "' + file.name + '" existe déjà dans votre bibliothèque', 'error');
         continue;
       }
-      setError('');
-      setUploading(true);
-      setBatchProgress(`Upload: ${file.name}...`);
-      try {
-        const uploaded = await uploadTrack(file);
-        setBatchProgress('');
-        setUploading(false);
-        loadTracks();
-        showToast('Track uploadé avec succès', 'success');
-        if (!selectedTrack) setSelectedTrack(uploaded);
-        if (autoAnalyze && uploaded?.id) {
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+
+    setError('');
+    setUploading(true);
+
+    try {
+      // Upload parallèle (3 fichiers simultanés)
+      const uploaded = await _uploadParallel(validFiles);
+      setUploadProgress(null);
+      setBatchProgress('');
+      setUploading(false);
+      loadTracks();
+      showToast(`${uploaded.length} track(s) uploadé(s) avec succès`, 'success');
+
+      // Sélectionner le premier track uploadé
+      if (!selectedTrack && uploaded.length > 0) setSelectedTrack(uploaded[0]);
+
+      // Auto-analyse en arrière-plan (non bloquant, parallèle)
+      if (autoAnalyze && uploaded.length > 0) {
+        const ids = uploaded.filter(u => u?.id).map(u => u.id);
+        if (ids.length > 0) {
           showToast('Analyse automatique en cours...', 'info');
           (async () => {
             try {
-              await analyzeTrack(uploaded.id);
-              await pollTrackUntilDone(uploaded.id);
+              // Lance toutes les analyses en parallèle
+              await Promise.all(ids.map(id => analyzeTrack(id)));
+              // Poll en parallèle pour attendre la fin
+              await Promise.all(ids.map(id => pollTrackUntilDone(id)));
               loadTracks();
-              const fresh = await getTrack(uploaded.id);
+              const fresh = await getTrack(ids[0]);
               if (fresh) setSelectedTrack(fresh);
-              showToast('Analyse terminée avec succès', 'success');
+              showToast(`${ids.length} analyse(s) terminée(s)`, 'success');
             } catch (e) {
               console.error('Auto-analyze failed:', e);
-              showToast('Analyse automatique échouée', 'error');
+              showToast('Certaines analyses ont échoué', 'error');
             }
           })();
         }
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Erreur inattendue');
-        showToast('Erreur lors de l\'upload', 'error');
-        setUploading(false);
-        setBatchProgress('');
       }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur inattendue');
+      showToast('Erreur lors de l\'upload', 'error');
+      setUploading(false);
+      setBatchProgress('');
     }
   }
 
