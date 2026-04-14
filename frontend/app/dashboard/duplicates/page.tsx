@@ -51,7 +51,9 @@ export default function DuplicatesPage() {
     const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || `HTTP ${res.status}`);
+      // Gère le cas où detail est un objet (ex: erreur de validation FastAPI)
+      const detail = typeof err.detail === 'string' ? err.detail : (err.detail?.msg || err.message || `HTTP ${res.status}`);
+      throw new Error(detail);
     }
     if (res.status === 204) return {} as T;
     return res.json();

@@ -74,12 +74,14 @@ export default function ActivityPage() {
       );
       if (res.ok) {
         const data = await res.json();
+        // L'API peut retourner un array ou un objet {activities: [...]}
+        const items: ActivityLog[] = Array.isArray(data) ? data : (data.activities || data.items || []);
         if (page === 1) {
-          setActivities(data);
+          setActivities(items);
         } else {
-          setActivities(prev => [...prev, ...data]);
+          setActivities(prev => [...prev, ...items]);
         }
-        setHasMore(data.length >= 20);
+        setHasMore(items.length >= 20);
       }
     } catch {}
     setLoading(false);

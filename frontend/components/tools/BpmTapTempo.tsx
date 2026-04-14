@@ -132,7 +132,7 @@ export default function BpmTapTempo({ onBpmDetected }: BpmTapTempoProps) {
             ) : (
               <>
                 <div className="text-lg font-bold text-[var(--text-muted)]">TAP</div>
-                <div className="text-[11px] text-[var(--text-muted)]">{taps.length > 0 ? `${taps.length} taps` : 'Clique ici'}</div>
+                <div className="text-[11px] text-[var(--text-muted)]">{taps.length > 0 ? `${taps.length} tap${taps.length > 1 ? 's' : ''}` : 'Clique ici'}</div>
               </>
             )}
           </div>

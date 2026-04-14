@@ -168,6 +168,23 @@ export const t: Record<string, Record<Lang, string>> = {
   'settings.notifications':   { fr: 'Notifications',         en: 'Notifications' },
   'settings.save':            { fr: 'Sauvegarder',           en: 'Save' },
 
+  // ── Error Boundary ────────────────────────────────────────
+  'error.boundary_title':     { fr: 'Oups, une erreur est survenue', en: 'Oops, something went wrong' },
+  'error.boundary_reload':    { fr: 'Recharger la page',     en: 'Reload the page' },
+
+  // ── Toast messages ────────────────────────────────────────
+  'toast.cue_created':        { fr: 'Cue point créé',        en: 'Cue point created' },
+  'toast.cue_deleted':        { fr: 'Cue point supprimé',    en: 'Cue point deleted' },
+  'toast.cue_error':          { fr: 'Erreur cue point',      en: 'Cue point error' },
+  'toast.deleted':            { fr: 'Supprimé',              en: 'Deleted' },
+  'toast.analyzed':           { fr: 'analysé ✓',             en: 'analyzed ✓' },
+  'toast.analysis_error':     { fr: 'Erreur d\'analyse',     en: 'Analysis error' },
+
+  // ── Login ─────────────────────────────────────────────────
+  'login.invalid_credentials': { fr: 'Identifiant ou mot de passe incorrect', en: 'Invalid username or password' },
+  'login.email_not_verified': { fr: 'Email non vérifié. Entre ton email ci-dessous pour recevoir un nouveau lien.', en: 'Email not verified. Enter your email below to receive a new link.' },
+  'login.connection_failed':  { fr: 'Connexion échouée',     en: 'Login failed' },
+
   // ── Common / Actions ──────────────────────────────────────
   'common.save':              { fr: 'Sauvegarder',           en: 'Save' },
   'common.cancel':            { fr: 'Annuler',               en: 'Cancel' },

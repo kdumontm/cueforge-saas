@@ -63,11 +63,15 @@ export default function LoginPage() {
       const e = err as Error & { status?: number };
       if (e.status === 403) {
         setNeedsVerification(true);
-        // Pré-remplir l'email si le user a saisi directement son email
         if (username.includes('@')) setResendEmail(username);
         setError('Email non vérifié. Entre ton email ci-dessous pour recevoir un nouveau lien.');
       } else {
-        setError(e.message || 'Connexion échouée');
+        // Traduire les messages d'erreur backend en français
+        const msg = e.message || '';
+        const translated = msg.includes('Invalid') || msg.includes('invalid')
+          ? 'Identifiant ou mot de passe incorrect'
+          : msg || 'Connexion échouée';
+        setError(translated);
       }
     } finally {
       setLoading(false);

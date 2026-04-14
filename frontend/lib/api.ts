@@ -408,7 +408,9 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
   const requestKey = getRequestKey(method, url);
 
   if (method === 'GET' && inFlightRequests.has(requestKey)) {
-    return inFlightRequests.get(requestKey)!;
+    // Clone la réponse pour éviter "body stream already read"
+    // quand plusieurs callers consomment le même Response
+    return inFlightRequests.get(requestKey)!.then(r => r.clone());
   }
 
   // Injecte automatiquement le Bearer token
@@ -553,7 +555,12 @@ export async function login(identifier: string, password: string): Promise<AuthR
       (error as any).status = 403;
       throw error;
     }
-    throw new Error(err.detail || 'Identifiants invalides');
+    // Traduire les erreurs backend anglaises en français
+    const detail = err.detail || 'Identifiants invalides';
+    const translated = typeof detail === 'string' && (detail.includes('Invalid') || detail.includes('invalid'))
+      ? 'Identifiant ou mot de passe incorrect'
+      : detail;
+    throw new Error(typeof translated === 'string' ? translated : 'Identifiants invalides');
   }
   const data: AuthResponse = await response.json();
   setToken(data.access_token);

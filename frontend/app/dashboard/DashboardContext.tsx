@@ -76,8 +76,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadPlanFeatures = async () => {
       try {
-        const user = await getCurrentUser();
-        const plan = (user as any)?.subscription_plan || 'free';
+        let plan = 'free';
+        try {
+          const user = await getCurrentUser();
+          plan = (user as any)?.subscription_plan || 'free';
+        } catch (userErr) {
+          console.warn('Could not fetch user for plan features, defaulting to free:', userErr);
+        }
         setUserPlan(plan);
 
         const token = getToken();
