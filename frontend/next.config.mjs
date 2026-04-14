@@ -20,7 +20,7 @@ const nextConfig = {
     NEXT_PUBLIC_BACKEND_DIRECT_URL: process.env.NEXT_PUBLIC_BACKEND_DIRECT_URL || BACKEND_INTERNAL_URL + '/api/v1',
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
     ignoreDuringBuilds: true,
