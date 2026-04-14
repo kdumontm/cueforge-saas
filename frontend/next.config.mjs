@@ -5,7 +5,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 // URL interne du backend (utilisée par les rewrites côté serveur)
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://cueforge-saas-production.up.railway.app';
+const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://trackcue-saas-production.up.railway.app';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -35,7 +35,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.mzstatic.com' },         // iTunes/Apple Music
       { protocol: 'https', hostname: 'lastfm.freetls.fastly.net' }, // Last.fm
       { protocol: 'https', hostname: 'is*.mzstatic.com' },        // iTunes variants
-      { protocol: 'https', hostname: 'cueforge.app' },            // Self
+      { protocol: 'https', hostname: 'trackcue.app' },            // Self
     ],
   },
   // Proxy /api/v1/* vers le backend Railway (même domaine = plus de CORS)

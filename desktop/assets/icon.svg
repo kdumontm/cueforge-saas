@@ -40,6 +40,6 @@
     <rect x="570" y="-55" width="18" height="110" rx="9"/>
     <rect x="600" y="-30" width="18" height="60" rx="9"/>
   </g>
-  <!-- CueForge text -->
-  <text x="512" y="920" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="72" font-weight="700" letter-spacing="4">CUEFORGE</text>
+  <!-- TrackCue text -->
+  <text x="512" y="920" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="72" font-weight="700" letter-spacing="4">TRACKCUE</text>
 </svg>
