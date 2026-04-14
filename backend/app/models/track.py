@@ -39,8 +39,8 @@ class Track(Base):
     __tablename__ = "tracks"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True)
 
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
@@ -136,7 +136,7 @@ class TrackAnalysis(Base):
     __tablename__ = "track_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     bpm = Column(Float, nullable=True)
     bpm_confidence = Column(Float, nullable=True)
     key = Column(String(10), nullable=True)
@@ -245,7 +245,7 @@ class CuePoint(Base):
     __tablename__ = "cue_points"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     position_ms = Column(Integer, nullable=False)
     end_position_ms = Column(Integer, nullable=True)
     cue_type = Column(String(50), nullable=False)
@@ -293,7 +293,7 @@ class LoopMarker(Base):
     __tablename__ = "loop_markers"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
     start_ms = Column(Integer, nullable=False)          # Loop in position
     end_ms = Column(Integer, nullable=False)            # Loop out position
     name = Column(String(255), nullable=True)           # e.g. "Buildup Loop", "Vocal 4-bar"
@@ -325,7 +325,7 @@ class CueRule(Base):
     __tablename__ = "cue_rules"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False)
     rule_type = Column(String(100), nullable=False)
     parameters = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
@@ -344,7 +344,7 @@ class CueHistory(Base):
     __tablename__ = "cue_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id", ondelete="CASCADE"), nullable=False)
     action = Column(String(50), nullable=False)  # 'created', 'updated', 'deleted'
     old_values = Column(PGJSON, nullable=True)  # JSON snapshot
     new_values = Column(PGJSON, nullable=True)  # JSON snapshot
@@ -364,9 +364,9 @@ class CueConflict(Base):
     __tablename__ = "cue_conflicts"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
-    cue_id_1 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
-    cue_id_2 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False)
+    cue_id_1 = Column(Integer, ForeignKey("cue_points.id", ondelete="CASCADE"), nullable=False)
+    cue_id_2 = Column(Integer, ForeignKey("cue_points.id", ondelete="CASCADE"), nullable=False)
     conflict_type = Column(String(50), nullable=False)  # 'overlap', 'too_close', 'conflicting_types'
     severity = Column(String(20), default="warning")  # 'info', 'warning', 'error'
     details = Column(JSON, nullable=True)
@@ -384,7 +384,7 @@ class CueAnalytics(Base):
     __tablename__ = "cue_analytics"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, unique=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     total_cues = Column(Integer, default=0)
     avg_confidence = Column(Float, nullable=True)
     cues_by_type = Column(JSON, default=dict)  # {"hot_cue": 5, "drop": 2, ...}
@@ -398,7 +398,7 @@ class CueVersion(Base):
     __tablename__ = "cue_versions"
 
     id = Column(Integer, primary_key=True, index=True)
-    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id", ondelete="CASCADE"), nullable=False)
     version_number = Column(Integer, nullable=False)
     position_ms = Column(Integer, nullable=False)
     name = Column(String(255), nullable=False)
@@ -406,7 +406,7 @@ class CueVersion(Base):
     color = Column(String(50), nullable=True)
     confidence = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    changed_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     __table_args__ = (
         Index("ix_cue_versions_cue_point_id", "cue_point_id"),
@@ -419,7 +419,7 @@ class CuePreset(Base):
     __tablename__ = "cue_presets"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     naming_pattern = Column(String(255), nullable=True)  # e.g., "{genre}_{bpm}_{type}"
     color_scheme = Column(JSON, default=dict)  # {"hot_cue": "red", "drop": "yellow"}
@@ -433,7 +433,7 @@ class UserCuePreference(Base):
     __tablename__ = "user_cue_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     preferred_genres = Column(JSON, default=list)  # ["house", "techno"]
     naming_style = Column(String(50), default="descriptive")  # 'descriptive', 'minimal', 'numbering'
     auto_template = Column(String(255), nullable=True)  # Default template name
@@ -449,8 +449,8 @@ class CueExportLog(Base):
     __tablename__ = "cue_export_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     export_format = Column(String(50), nullable=False)  # "rekordbox", "serato", "json"
     filename = Column(String(255), nullable=True)
     file_path = Column(String(512), nullable=True)
@@ -464,8 +464,8 @@ class CueImportLog(Base):
     __tablename__ = "cue_import_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     import_format = Column(String(50), nullable=False)  # "xml", "json", "csv"
     filename = Column(String(255), nullable=True)
     cues_imported = Column(Integer, default=0)
@@ -480,7 +480,7 @@ class CueQualityMetric(Base):
     __tablename__ = "cue_quality_metrics"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, unique=True, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     distribution_score = Column(Float, nullable=True)  # 0-100: how well distributed
     confidence_score = Column(Float, nullable=True)   # 0-100: avg confidence
     completeness_score = Column(Float, nullable=True) # 0-100: coverage
@@ -495,8 +495,8 @@ class CueCollaborationNote(Base):
     __tablename__ = "cue_collaboration_notes"
 
     id = Column(Integer, primary_key=True, index=True)
-    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     note_text = Column(Text, nullable=False)
     mentioned_users = Column(JSON, default=list)  # [user_id, ...]
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -112,12 +112,9 @@ export async function registerServiceWorker() {
   }
 }
 
-/**
- * CSS purging config (for Tailwind)
- * Already done via tailwind.config.js:
- * content: ['./app/**/*.{js,ts,jsx,tsx}', './components/**/*.{js,ts,jsx,tsx}']
- * This prevents unused CSS from being bundled
- */
+// CSS purging config (for Tailwind)
+// Already done via tailwind.config.js — content globs cover app/ and components/
+// This prevents unused CSS from being bundled
 
 /**
  * Bundle size analysis logging

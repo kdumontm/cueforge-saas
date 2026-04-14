@@ -432,7 +432,6 @@ export const OnboardingWizard: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
 
       {/* Footer Navigation */}
       <div className="px-6 py-4 border-t border-slate-700 flex justify-between items-center bg-slate-900/50">
