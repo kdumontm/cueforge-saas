@@ -1594,3 +1594,83 @@ async def get_circuit_breaker_status():
 
 
 logger.info("✅ Security & performance enhancements loaded (OPT #51-60)")
+
+
+# ── Diagnostic temporaire : traquer le 500 sur GET /tracks ────────────────
+@app.get("/api/v1/debug/tracks-error")
+def debug_tracks_error(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Endpoint temporaire pour capturer l'erreur exacte de list_tracks."""
+    import traceback as tb
+    from sqlalchemy.orm import selectinload
+    from app.models.track import Track, TrackAnalysis
+    try:
+        # Étape 1: vérifier que les tables existent
+        tables_check = {}
+        for table_name in ["tracks", "track_analyses", "cue_points", "loop_markers", "track_tags", "tags"]:
+            try:
+                result = db.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+                tables_check[table_name] = result.scalar()
+            except Exception as e:
+                tables_check[table_name] = f"ERROR: {e}"
+
+        # Étape 2: requête simple sans relation
+        try:
+            simple_count = db.query(Track).filter(Track.user_id == current_user.id).count()
+        except Exception as e:
+            return {"step": "simple_count", "error": str(e), "traceback": tb.format_exc(), "tables": tables_check}
+
+        # Étape 3: charger un track avec relations une par une
+        try:
+            t1 = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.analysis)
+            ).first()
+            step3a = f"analysis OK (track_id={t1.id if t1 else None})"
+        except Exception as e:
+            return {"step": "selectinload_analysis", "error": str(e), "traceback": tb.format_exc(), "tables": tables_check}
+
+        try:
+            t2 = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.cue_points)
+            ).first()
+            step3b = "cue_points OK"
+        except Exception as e:
+            return {"step": "selectinload_cue_points", "error": str(e), "traceback": tb.format_exc(), "tables": tables_check}
+
+        try:
+            t3 = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.track_tags)
+            ).first()
+            step3c = "track_tags OK"
+        except Exception as e:
+            return {"step": "selectinload_track_tags", "error": str(e), "traceback": tb.format_exc(), "tables": tables_check}
+
+        # Étape 4: sérialisation Pydantic
+        try:
+            from app.schemas.track import TrackListItemResponse
+            tracks = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.analysis),
+                selectinload(Track.cue_points),
+                selectinload(Track.track_tags),
+            ).limit(5).all()
+            serialized = []
+            for t in tracks:
+                try:
+                    s = TrackListItemResponse.model_validate(t)
+                    serialized.append({"id": t.id, "ok": True})
+                except Exception as e:
+                    serialized.append({"id": t.id, "ok": False, "error": str(e), "traceback": tb.format_exc()})
+        except Exception as e:
+            return {"step": "pydantic_serialize", "error": str(e), "traceback": tb.format_exc(), "tables": tables_check}
+
+        return {
+            "status": "all_steps_passed",
+            "tables": tables_check,
+            "user_track_count": simple_count,
+            "relations": [step3a, step3b, step3c],
+            "serialization": serialized,
+        }
+    except Exception as e:
+        return {"step": "unknown", "error": str(e), "traceback": tb.format_exc()}
