@@ -1,6 +1,7 @@
 'use client';
 
-import React, { Music, Heart } from 'lucide-react';
+import React from 'react';
+import { Music, Heart } from 'lucide-react';
 import type { Track } from '@/types';
 
 interface TrackGridProps {
