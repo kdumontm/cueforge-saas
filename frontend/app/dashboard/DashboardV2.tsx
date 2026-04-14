@@ -1004,19 +1004,20 @@ export default function DashboardV2() {
   }
 
   async function handleDeleteTrack(trackId: number) {
-    if (!window.confirm('Delete this track?')) return;
+    if (!window.confirm('Supprimer ce track ?')) return;
     // Suppression optimiste : retirer du state immédiatement
     const previousTracks = tracks;
     setTracks(prev => prev.filter(t => t.id !== trackId));
     setSelectedTrack(null, 'contextMenu:delete');
     setContextMenu(null);
-    addToast(tr('toast.deleted', lang), 'success');
     try {
       await deleteTrack(trackId);
-    } catch (e) {
+      addToast(tr('toast.deleted', lang), 'success');
+    } catch (e: any) {
       // Rollback si l'API échoue
+      console.error('[TrackCue] Delete failed:', e);
       setTracks(previousTracks);
-      addToast('Échec de la suppression', 'error');
+      addToast(`Échec suppression : ${e?.message || 'erreur inconnue'}`, 'error');
     }
   }
 
@@ -1166,7 +1167,9 @@ export default function DashboardV2() {
         if (r.status === 'fulfilled' && r.value?.id) {
           uploaded.push({ file: chunk[i], result: r.value });
         } else {
-          addToast(`Erreur upload: ${chunk[i].name}`, 'error');
+          const reason = r.status === 'rejected' ? (r.reason?.message || r.reason || 'erreur') : 'réponse invalide';
+          console.error(`[TrackCue] Upload failed for ${chunk[i].name}:`, reason);
+          addToast(`Erreur upload ${chunk[i].name}: ${reason}`, 'error');
         }
       });
     }
@@ -1584,24 +1587,29 @@ export default function DashboardV2() {
   async function handleBatchDeleteSelected() {
     const ids = Array.from(selectedIds);
     if (!window.confirm(`Supprimer ${ids.length} tracks ?`)) return;
-    // Suppression optimiste : retirer du state immédiatement
     const previousTracks = tracks;
     const idSet = new Set(ids);
     setTracks(prev => prev.filter(t => !idSet.has(t.id)));
     setSelectedIds(new Set());
     setSelectedTrack(null, 'batchDelete');
-    addToast(`✓ ${ids.length} tracks supprimées`, 'success');
     try {
       await batchDeleteTracks(ids);
-    } catch {
+      addToast(`${ids.length} tracks supprimées`, 'success');
+    } catch (e: any) {
+      console.error('[TrackCue] Batch delete failed, fallback un par un:', e?.message);
       // Fallback: supprimer un par un
-      try {
-        for (const id of ids) {
-          try { await deleteTrack(id); } catch {}
-        }
-      } catch {
+      let deleted = 0;
+      for (const id of ids) {
+        try { await deleteTrack(id); deleted++; } catch {}
+      }
+      if (deleted === ids.length) {
+        addToast(`${deleted} tracks supprimées`, 'success');
+      } else if (deleted > 0) {
+        addToast(`${deleted}/${ids.length} tracks supprimées (${ids.length - deleted} erreurs)`, 'error');
+        await loadTracks();
+      } else {
         setTracks(previousTracks);
-        addToast('❌ Erreur lors de la suppression', 'error');
+        addToast(`Échec suppression : ${e?.message || 'erreur inconnue'}`, 'error');
       }
     }
   }
@@ -1609,25 +1617,29 @@ export default function DashboardV2() {
   async function handleDeleteAllTracks() {
     const realTracks = tracks.filter(t => t.id > 0);
     if (realTracks.length === 0) { addToast('Bibliothèque déjà vide', 'info'); return; }
-    if (!window.confirm(`⚠️ Supprimer les ${realTracks.length} tracks de ta bibliothèque ?\n\nCette action est irréversible.`)) return;
-    // Suppression optimiste
+    if (!window.confirm(`Supprimer les ${realTracks.length} tracks de ta bibliothèque ?\n\nCette action est irréversible.`)) return;
     const previousTracks = tracks;
     const count = realTracks.length;
     setTracks(prev => prev.filter(t => t.id <= 0));
     setSelectedIds(new Set());
     setSelectedTrack(null);
-    addToast(`✓ ${count} tracks supprimées`, 'success');
     try {
       await batchDeleteTracks(realTracks.map(t => t.id));
-    } catch (err) {
-      // Fallback: supprimer un par un
-      try {
-        for (const t of realTracks) {
-          try { await deleteTrack(t.id); } catch {}
-        }
-      } catch {
+      addToast(`${count} tracks supprimées`, 'success');
+    } catch (e: any) {
+      console.error('[TrackCue] Delete all failed, fallback:', e?.message);
+      let deleted = 0;
+      for (const t of realTracks) {
+        try { await deleteTrack(t.id); deleted++; } catch {}
+      }
+      if (deleted === count) {
+        addToast(`${deleted} tracks supprimées`, 'success');
+      } else if (deleted > 0) {
+        addToast(`${deleted}/${count} supprimées (${count - deleted} erreurs)`, 'error');
+        await loadTracks();
+      } else {
         setTracks(previousTracks);
-        addToast('❌ Erreur lors de la suppression', 'error');
+        addToast(`Échec suppression : ${e?.message || 'erreur inconnue'}`, 'error');
       }
     }
   }

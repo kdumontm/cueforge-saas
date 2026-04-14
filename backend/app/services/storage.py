@@ -23,6 +23,7 @@ AUDIO_MAGIC_BYTES: dict[str, list[bytes]] = {
     ".m4a":  [b"\x00\x00\x00\x18ftypM4A", b"\x00\x00\x00\x20ftyp"],
     ".ogg":  [b"OggS"],
     ".opus": [b"OggS"],
+    ".aac":  [b"\xff\xf1", b"\xff\xf9"],
 }
 
 

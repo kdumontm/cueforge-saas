@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "unknown"
 
     # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
-    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://trackcue-saas-production.up.railway.app,https://www.trackcue.com,https://trackcue.com,https://www.trackcue.fr,https://trackcue.fr,http://localhost:3000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://trackcue-saas-production.up.railway.app,https://www.trackcue.com,https://trackcue.com,https://www.trackcue.fr,https://trackcue.fr,https://trackcue.app,https://www.trackcue.app,http://localhost:3000,http://127.0.0.1:3000"
 
     class Config:
         env_file = ".env"

@@ -45,7 +45,7 @@ def safe_commit(db: Session, context: str = ""):
         logger.error(f"DB commit failed{f' ({context})' if context else ''}: {e}")
         raise HTTPException(status_code=500, detail="Erreur base de données")
 
-ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".ogg", ".opus"}
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".aac", ".ogg", ".opus"}
 from app.config import get_settings as _get_settings
 MAX_FILE_SIZE_MB = _get_settings().MAX_FILE_SIZE_MB
 
@@ -58,6 +58,7 @@ MIME_TYPES = {
     ".m4a": "audio/mp4",
     ".ogg": "audio/ogg",
     ".opus": "audio/opus",
+    ".aac": "audio/aac",
 }
 
 
