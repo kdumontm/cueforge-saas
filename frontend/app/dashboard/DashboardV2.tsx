@@ -1952,7 +1952,7 @@ export default function DashboardV2() {
         ref={fileRef}
         type="file"
         multiple
-        accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.aif"
+        accept=".mp3,.wav,.flac,.aac,.ogg,.m4a,.aif,.aiff,.opus"
         onChange={handleFileSelect}
         className="hidden"
       />

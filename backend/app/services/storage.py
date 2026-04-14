@@ -20,7 +20,7 @@ AUDIO_MAGIC_BYTES: dict[str, list[bytes]] = {
     ".flac": [b"fLaC"],
     ".aiff": [b"FORM"],
     ".aif":  [b"FORM"],
-    ".m4a":  [b"\x00\x00\x00\x18ftypM4A", b"\x00\x00\x00\x20ftyp"],
+    ".m4a":  [b"ftyp"],  # ftyp atom à offset 4 — vérifié dans validate_audio_magic_bytes
     ".ogg":  [b"OggS"],
     ".opus": [b"OggS"],
     ".aac":  [b"\xff\xf1", b"\xff\xf9"],
@@ -40,6 +40,12 @@ def validate_audio_magic_bytes(content: bytes, ext: str) -> bool:
     signatures = AUDIO_MAGIC_BYTES.get(ext, [])
     if not signatures:
         return False  # Extension inconnue → rejeté
+
+    # Cas spécial M4A/AAC containers : le "ftyp" atom est à l'offset 4
+    # (les 4 premiers bytes sont la taille du box, variable selon le fichier)
+    if ext in (".m4a",):
+        return b"ftyp" in content[:12]
+
     return any(content[:len(sig)] == sig for sig in signatures)
 
 

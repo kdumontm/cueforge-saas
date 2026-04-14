@@ -1368,19 +1368,33 @@ def sanitize_input(value: str, max_length: int = 1000) -> str:
 
 
 # OPT #53: Request size limiting middleware
+# Limite par défaut pour les requêtes API normales (JSON, etc.)
 MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
+# Les uploads audio ont leur propre limite (MAX_FILE_SIZE_MB dans config)
+MAX_UPLOAD_CONTENT_LENGTH = 250 * 1024 * 1024  # 250MB — cohérent avec le frontend
+
+# Routes d'upload exclues de la limite basse
+_UPLOAD_PATHS = {"/api/v1/tracks/upload", "/api/v1/mix/upload", "/api/v1/import/"}
 
 
 @app.middleware("http")
 async def request_size_limit_middleware(request: Request, call_next):
-    """OPT #53: Limit request payload size."""
+    """OPT #53: Limit request payload size (uploads exemptés)."""
     content_length = request.headers.get("content-length")
 
-    if content_length and int(content_length) > MAX_CONTENT_LENGTH:
-        return JSONResponse(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            content={"detail": "Payload too large"}
-        )
+    if content_length:
+        size = int(content_length)
+        path = request.url.path
+
+        # Les uploads audio utilisent une limite beaucoup plus haute
+        is_upload = any(path.startswith(p) for p in _UPLOAD_PATHS)
+        limit = MAX_UPLOAD_CONTENT_LENGTH if is_upload else MAX_CONTENT_LENGTH
+
+        if size > limit:
+            return JSONResponse(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                content={"detail": f"Payload too large ({size / (1024*1024):.1f} MB). Max {limit // (1024*1024)} MB."}
+            )
 
     return await call_next(request)
 
