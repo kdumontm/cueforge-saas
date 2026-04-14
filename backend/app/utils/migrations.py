@@ -46,6 +46,23 @@ PENDING_MIGRATIONS = {
         "color_rgb": "VARCHAR(30)",
         # v4: confidence scoring
         "confidence": "FLOAT",
+        # Improvement #11: timestamps
+        "created_at": "TIMESTAMP DEFAULT NOW()",
+        "updated_at": "TIMESTAMP DEFAULT NOW()",
+        # Improvement #12: source field
+        "source": "VARCHAR(50) DEFAULT 'auto'",
+        # OPT #3-6: Additional context fields
+        "is_manual": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "generation_version": "VARCHAR(50)",
+        "energy_at_cue": "FLOAT",
+        "bar_number": "INTEGER",
+    },
+    "loop_markers": {
+        # OPT #7-9: Additional loop marker fields
+        "color_rgb": "VARCHAR(30)",
+        "bpm_at_cue": "FLOAT",
+        "auto_detected": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "last_triggered": "TIMESTAMP",
     },
     "tracks": {
         # Existing metadata columns
@@ -174,15 +191,54 @@ PENDING_MIGRATIONS = {
 }
 
 
+def _sqlalchemy_type_to_ddl(col) -> str:
+    """Convert a SQLAlchemy column type to a PostgreSQL DDL type string."""
+    from sqlalchemy import Integer, String, Float, Boolean, DateTime, Text, JSON
+    from sqlalchemy import Enum as SAEnum
+    t = col.type
+    type_str = str(t.compile(dialect=_pg_dialect()))
+
+    # Add default if present
+    default = ""
+    if col.default is not None:
+        dv = col.default.arg
+        if callable(dv):
+            if "utcnow" in str(dv):
+                default = " DEFAULT NOW()"
+        elif isinstance(dv, bool):
+            default = f" DEFAULT {'TRUE' if dv else 'FALSE'}"
+        elif isinstance(dv, (int, float)):
+            default = f" DEFAULT {dv}"
+        elif isinstance(dv, str):
+            default = f" DEFAULT '{dv}'"
+
+    # Add NOT NULL if needed (only for columns with defaults to be safe)
+    not_null = ""
+    if not col.nullable and col.nullable is not None and default:
+        not_null = " NOT NULL"
+
+    return f"{type_str}{not_null}{default}"
+
+
+def _pg_dialect():
+    from sqlalchemy.dialects import postgresql
+    return postgresql.dialect()
+
+
 def run_migrations(engine: Engine) -> None:
     """
     Add any missing columns to existing tables.
     Safe to call multiple times -- checks for column existence before adding.
     Never modifies existing data.
+
+    Two-pass approach:
+    1. PENDING_MIGRATIONS dict (explicit column definitions)
+    2. Auto-detect from SQLAlchemy Base.metadata (catches any model/DB drift)
     """
     try:
         inspector = inspect(engine)
         with engine.connect() as conn:
+            # ── Pass 1: Explicit migrations from PENDING_MIGRATIONS ──────────
             for table_name, columns in PENDING_MIGRATIONS.items():
                 if table_name not in inspector.get_table_names():
                     continue  # table doesn't exist yet (will be created by create_all)
@@ -198,6 +254,26 @@ def run_migrations(engine: Engine) -> None:
                             ))
                         except Exception as e:
                             logger.warning(f"Failed to add {table_name}.{col_name}: {e}")
+
+            conn.commit()
+
+            # ── Pass 2: Auto-detect missing columns from SQLAlchemy models ───
+            from app.database import Base as AppBase
+            table_names_in_db = set(inspector.get_table_names())
+            for table in AppBase.metadata.sorted_tables:
+                if table.name not in table_names_in_db:
+                    continue
+                existing = {col["name"] for col in inspector.get_columns(table.name)}
+                for col in table.columns:
+                    if col.name not in existing:
+                        try:
+                            ddl_type = _sqlalchemy_type_to_ddl(col)
+                            logger.info(f"Auto-migration: adding {table.name}.{col.name} ({ddl_type})")
+                            conn.execute(text(
+                                f"ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl_type}"
+                            ))
+                        except Exception as e:
+                            logger.warning(f"Auto-migration failed for {table.name}.{col.name}: {e}")
 
             conn.commit()
 
