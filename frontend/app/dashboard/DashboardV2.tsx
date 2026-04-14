@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist, type PlaylistTrackItem } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -35,7 +35,7 @@ const AnalysisProgress = lazy(() => import('@/components/AnalysisProgress'));
 // Advanced components (Vague 2000)
 const PlayerAdvanced = lazy(() => import('@/components/player/PlayerAdvanced'));
 const WaveformAdvanced = lazy(() => import('@/components/player/WaveformAdvanced'));
-const StemsAdvanced = lazy(() => import('@/components/tabs/StemsAdvanced'));
+const StemsAdvanced = lazy(() => import('@/components/tabs/StemsTab'));
 const PlaylistBuilder = lazy(() => import('@/components/playlist/PlaylistBuilder'));
 const SettingsPanel = lazy(() => import('@/components/settings/SettingsPanel'));
 
@@ -102,7 +102,7 @@ const DEMO_DISPLAY_TRACKS: any[] = DEMO_RAW_TRACKS.map(t => ({
 export default function DashboardV2() {
   const { lang } = useLang();
   const {
-    activeSection, globalSearch, registerImportHandler, registerExportHandler,
+    activeSection, setActiveSection, globalSearch, registerImportHandler, registerExportHandler,
     autoAnalyze, setAutoAnalyze,
     setUnanalyzedCount, registerAnalyzeAllHandler,
     persistedTrackId, setPersistedTrackId,
@@ -214,7 +214,7 @@ export default function DashboardV2() {
 
   // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [playlistTracks, setPlaylistTracks] = useState<PlaylistTrackItem[]>([]);
+  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
   const [crateTracks, setCrateTracks] = useState<Track[]>([]);
 
   // ── Mount/Unmount tracking ──
@@ -246,12 +246,18 @@ export default function DashboardV2() {
     if (activeSection.startsWith('playlist_')) {
       const playlistId = parseInt(activeSection.replace('playlist_', ''));
       if (!isNaN(playlistId)) {
-        getPlaylistTracks(playlistId).then(setPlaylistTracks).catch(() => setPlaylistTracks([]));
+        getPlaylistTracks(playlistId)
+          .then((items) => {
+            // PlaylistTrackItem[] -> look up full Track objects
+            const fullTracks = items.map(item => tracks.find(t => t.id === item.track_id)).filter((t): t is Track => t !== undefined);
+            setPlaylistTracks(fullTracks);
+          })
+          .catch(() => setPlaylistTracks([]));
       }
     } else {
       setPlaylistTracks([]);
     }
-  }, [activeSection]);
+  }, [activeSection, tracks]);
 
   // Load crate tracks when a dynamic smart crate is active
   useEffect(() => {
@@ -2046,7 +2052,7 @@ export default function DashboardV2() {
                 }}
                 onCreate={async (name) => {
                   try {
-                    const pl = await createPlaylist(name);
+                    const pl = await createPlaylist({ name });
                     setPlaylists(prev => [...prev, pl]);
                     addToast(`"${name}" créée`, 'success');
                   } catch { addToast(tr('toast.error', lang), 'error'); }
@@ -2064,7 +2070,7 @@ export default function DashboardV2() {
             {activeTab === 'stats' && <Suspense fallback={<TabFallback />}><StatsTab tracks={tracks} /></Suspense>}
             {activeTab === 'playlist-builder' && (
               <Suspense fallback={<TabFallback />}>
-                <PlaylistBuilder tracks={rawTracksForTabs} />
+                <PlaylistBuilder tracks={[]} allAvailableTracks={rawTracksForTabs} />
               </Suspense>
             )}
             {activeTab === 'settings' && (

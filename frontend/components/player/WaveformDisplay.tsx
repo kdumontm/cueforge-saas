@@ -312,7 +312,7 @@ export default function WaveformDisplay({
           if (bar.isStacked) {
             const { x, w, h, mid, low = 0, mid2 = 0, high } = bar;
             return (
-              <g key={i} style={{ cursor: 'pointer' }} title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`} data-bar={i}>
+              <g key={i} style={{ cursor: 'pointer' }}>
                 <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={BAR_COLORS.unplayed.bass} />
                 <rect x={`${x}%`} y={mid - h / 2 + low} width={`${w}%`} height={mid2} fill={BAR_COLORS.unplayed.mids} />
                 <rect x={`${x}%`} y={mid - h / 2 + low + mid2} width={`${w}%`} height={high} fill={BAR_COLORS.unplayed.highs} />
@@ -330,7 +330,6 @@ export default function WaveformDisplay({
               height={h}
               fill={color}
               style={{ cursor: 'pointer' }}
-              data-bar={i}
             />
           );
         })}
@@ -344,7 +343,7 @@ export default function WaveformDisplay({
         <g clipPath={`url(#progress-clip-${trackId})`}>
           {barGeometry.map((bar, i) => {
             if (bar.isStacked) {
-              const { x, w, h, mid, low, mid2, high } = bar;
+              const { x, w, h, mid, low = 0, mid2 = 0, high } = bar;
               return (
                 <g key={`p-${i}`}>
                   <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={BAR_COLORS.played.bass} />

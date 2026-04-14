@@ -638,7 +638,7 @@ export const TrackListAdvanced: React.FC<TrackListAdvancedProps> = ({
                           />
                         ) : (
                           <span className="text-slate-300 text-sm truncate">
-                            {track[col.id as keyof Track]}
+                            {String(track[col.id as keyof Track] || '')}
                           </span>
                         )}
                       </div>

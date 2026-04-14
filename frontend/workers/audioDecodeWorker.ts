@@ -33,7 +33,7 @@ self.onmessage = async (event: MessageEvent<any>) => {
           numberOfChannels: audioBuffer.numberOfChannels,
           data: audioBuffer.getChannelData(0).buffer, // Transfer ownership
         },
-        [audioBuffer.getChannelData(0).buffer] as Transferable[], // Transferable
+        [audioBuffer.getChannelData(0).buffer] as any, // Transferable
       );
     } catch (err) {
       self.postMessage({

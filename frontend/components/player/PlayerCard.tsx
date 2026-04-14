@@ -56,6 +56,8 @@ class WaveSurferErrorBoundary extends React.Component<
 interface CuePoint {
   id: number;
   position_ms: number;
+  cue_type: string;
+  end_position_ms: number | null;
   color?: string | null;
   color_rgb?: string | null;
   name?: string;

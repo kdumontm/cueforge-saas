@@ -3,16 +3,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { GripVertical, Trash2, Plus, TrendingUp, AlertCircle, Share2, Copy } from 'lucide-react';
 import { Slider } from '@/components/ui/Slider';
-
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  bpm?: number | null;
-  key?: string | null;
-  energy?: number | null;
-  duration?: string;
-}
+import type { Track } from '@/types';
 
 interface PlaylistTrack {
   id: string;
