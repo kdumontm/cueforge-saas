@@ -49,6 +49,7 @@ import { toCamelot, formatDuration, energyColor, energyRating, energyLabel } fro
 import { keyToCamelot, getKeyColor, getCompatibleKeys } from '@/lib/camelot';
 import { getKeyColor as getKeyColorConst } from '@/lib/constants';
 import { isDevelopment } from '@/lib/config';
+import { generateTrackCSV, generateTrackTXT, downloadBlob } from './utils/exportHandlers';
 
 // ── Tab config ─────────────────────────────────────────────────────────
 const TABS = [
@@ -1040,31 +1041,8 @@ export default function DashboardV2() {
   function handleExportCSV(trackId: number) {
     const track = tracks.find(t => t.id === trackId);
     if (!track) return;
-    const analysis = (track as any).analysis || {};
-    const cues = cuePoints.filter(() => true); // all loaded cues
-    const rows = [
-      ['Field', 'Value'],
-      ['Title', track.title || track.original_filename || ''],
-      ['Artist', track.artist || ''],
-      ['BPM', analysis.bpm?.toFixed(2) || ''],
-      ['Key', analysis.key || ''],
-      ['Energy', analysis.energy != null ? Math.round(analysis.energy * 100) : ''],
-      ['Duration (ms)', analysis.duration_ms || ''],
-      ['Genre', analysis.genre || ''],
-      ['Rating', track.rating || ''],
-      ['Tags', track.tags || ''],
-      [''],
-      ['#', 'Name', 'Type', 'Position (ms)', 'Color'],
-      ...cues.map((c, i) => [i + 1, c.name || '', c.cue_type || 'hot_cue', c.position_ms, c.color || '']),
-    ];
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title || 'track'}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const blob = generateTrackCSV(track, cuePoints);
+    downloadBlob(blob, `${track.title || 'track'}.csv`);
     addToast('Export CSV OK', 'success');
     setContextMenu(null);
   }
@@ -1072,34 +1050,8 @@ export default function DashboardV2() {
   function handleExportTXT(trackId: number) {
     const track = tracks.find(t => t.id === trackId);
     if (!track) return;
-    const analysis = (track as any).analysis || {};
-    const cues = cuePoints;
-    const lines = [
-      `=== TrackCue — ${track.title || track.original_filename} ===`,
-      `Artist : ${track.artist || '—'}`,
-      `BPM    : ${analysis.bpm?.toFixed(2) || '—'}`,
-      `Key    : ${analysis.key || '—'}`,
-      `Energy : ${analysis.energy != null ? Math.round(analysis.energy * 100) + '%' : '—'}`,
-      `Genre  : ${analysis.genre || '—'}`,
-      `Rating : ${'⭐'.repeat(track.rating || 0)}`,
-      `Tags   : ${track.tags || '—'}`,
-      '',
-      '--- Cue Points ---',
-      ...cues.map((c, i) => {
-        const ms = c.position_ms;
-        const m = Math.floor(ms / 60000);
-        const s = Math.floor((ms % 60000) / 1000);
-        const fmt = `${m}:${String(s).padStart(2, '0')}`;
-        return `[${i + 1}] ${c.name || 'Cue'} @ ${fmt} (${c.cue_type || 'hot_cue'})`;
-      }),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${track.title || 'track'}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const blob = generateTrackTXT(track, cuePoints);
+    downloadBlob(blob, `${track.title || 'track'}.txt`);
     addToast('Export TXT OK', 'success');
     setContextMenu(null);
   }

@@ -2966,6 +2966,13 @@ def batch_analyze_tracks(
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
+    # Pre-fetch toutes les analyses en une seule requête (évite N+1)
+    track_ids = [t.id for t in tracks]
+    existing_analyses = {
+        a.track_id: a for a in db.query(TrackAnalysis)
+        .filter(TrackAnalysis.track_id.in_(track_ids)).all()
+    }
+
     results = []
     for track in tracks:
         if not track.file_path or not os.path.exists(track.file_path):
@@ -2975,7 +2982,7 @@ def batch_analyze_tracks(
         if req.quick:
             data = analysis_svc.analyze_audio_quick(track.file_path)
             # Persist quick results
-            analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+            analysis = existing_analyses.get(track.id)
             if not analysis:
                 analysis = TrackAnalysis(track_id=track.id)
                 db.add(analysis)
@@ -3046,9 +3053,15 @@ def compare_tracks(
     if len(tracks) < 2:
         raise HTTPException(status_code=404, detail="One or both tracks not found")
 
+    # Batch load analyses (évite 2 requêtes séparées)
+    analyses_list = db.query(TrackAnalysis).filter(
+        TrackAnalysis.track_id.in_([t.id for t in tracks])
+    ).all()
+    analyses_by_id = {a.track_id: a for a in analyses_list}
+
     analyses = {}
     for t in tracks:
-        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        a = analyses_by_id.get(t.id)
         if not a:
             raise HTTPException(status_code=400, detail=f"Track {t.id} must be analyzed first")
         analyses[t.id] = {
@@ -3170,10 +3183,17 @@ def generate_smart_playlist_endpoint(
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
 
+    # Pre-fetch toutes les analyses en batch (évite N+1)
+    track_ids = [t.id for t in tracks]
+    analyses_map = {
+        a.track_id: a for a in db.query(TrackAnalysis)
+        .filter(TrackAnalysis.track_id.in_(track_ids)).all()
+    }
+
     # Build track data list with analysis
     tracks_data = []
     for t in tracks:
-        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        a = analyses_map.get(t.id)
         td = {
             "id": t.id,
             "title": t.title or t.original_filename,
@@ -3348,9 +3368,16 @@ def find_compatible_tracks(
         Track.status == TrackStatus.completed,
     ).all()
 
+    # Pre-fetch toutes les analyses en batch (évite N+1 sur potentiellement des centaines de tracks)
+    all_track_ids = [t.id for t in all_tracks]
+    analyses_map = {
+        a.track_id: a for a in db.query(TrackAnalysis)
+        .filter(TrackAnalysis.track_id.in_(all_track_ids)).all()
+    }
+
     scored = []
     for t in all_tracks:
-        a = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).first()
+        a = analyses_map.get(t.id)
         if not a:
             continue
         target = {

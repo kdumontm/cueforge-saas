@@ -16,7 +16,8 @@ let audioContext: AudioContext | null = null;
 
 function initAudioContext() {
   if (!audioContext) {
-    audioContext = new (self as any).AudioContext?.() || new (self as any).webkitAudioContext?.();
+    const AudioCtx = (self as any).AudioContext || (self as any).webkitAudioContext;
+    audioContext = AudioCtx ? new AudioCtx() : null;
   }
   return audioContext;
 }

@@ -349,7 +349,6 @@ export default function HotCuesBar({
                     }
                   }
                 `}</style>
-              >
                 {cue && <ConfidenceRing confidence={cue.confidence} />}
                 {/* Improvement #53: Cue type badge */}
                 {cue && <CueTypeBadge cueType={cue.cueType} />}
