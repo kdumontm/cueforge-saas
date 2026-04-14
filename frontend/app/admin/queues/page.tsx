@@ -17,7 +17,7 @@ interface Queue {
 }
 
 interface QueueJob {
-  id: string;
+  id: number;
   queue: string;
   status: "pending" | "processing" | "completed" | "failed";
   data?: Record<string, any>;
@@ -44,7 +44,7 @@ export default function QueuesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedQueue, setSelectedQueue] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
   const [purging, setPurging] = useState(false);
 
@@ -285,7 +285,7 @@ export default function QueuesPage() {
             ) : (
               jobs.map((job) => (
                 <tr key={job.id} className="border-b border-[#1a1a2e] hover:bg-[#1a1a2e]/50 transition">
-                  <td className="py-3 px-4 text-white font-mono text-xs">{job.id.substring(0, 12)}...</td>
+                  <td className="py-3 px-4 text-white font-mono text-xs">{String(job.id).substring(0, 12)}...</td>
                   <td className="py-3 px-4">
                     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded text-xs font-medium ${getStatusColor(job.status)}`}>
                       {getStatusIcon(job.status)}

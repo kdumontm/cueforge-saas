@@ -87,7 +87,7 @@ export default function SubscriptionsPage() {
       case "active":
         return "success";
       case "trial":
-        return "info";
+        return "default";
       case "canceled":
         return "error";
       default:

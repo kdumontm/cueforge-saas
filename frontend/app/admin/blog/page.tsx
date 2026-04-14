@@ -216,7 +216,7 @@ export default function BlogPage() {
       {/* Form modal */}
       {showForm && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto" onClick={() => setShowForm(false)}>
-          <Card className="w-full max-w-2xl mx-4 my-8 p-6" onClick={(e) => e.stopPropagation()}>
+          <Card className="w-full max-w-2xl mx-4 my-8 p-6" onClick={() => {}}>
             <h3 className="text-lg font-bold text-text-primary mb-4">
               {editingPostId ? "Éditer l'article" : "Nouvel article"}
             </h3>

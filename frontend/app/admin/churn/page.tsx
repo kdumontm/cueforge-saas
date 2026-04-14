@@ -36,8 +36,8 @@ export default function ChurnAdmin() {
     setLoading(true);
     try {
       const [s, u, c] = await Promise.all([
-        adminApi.getChurnStats().catch(() => null),
-        adminApi.getAtRiskUsers().catch(() => []),
+        adminApi.churnStats().catch(() => null),
+        adminApi.listAtRiskUsers().catch(() => []),
         adminApi.getChurnConfig().catch(() => null),
       ]);
       if (s) setStats(s);

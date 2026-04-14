@@ -44,11 +44,10 @@ const getKeyCompatibility = (key1: string | null, key2: string | null): 'green' 
 
 const calculateSetDuration = (tracks: PlaylistTrack[]): { total: string; sections: Record<string, string> } => {
   const totalMs = tracks.reduce((sum, pt) => {
-    if (pt.track.duration) {
-      const parts = pt.track.duration.split(':');
-      const minutes = parseInt(parts[0]) || 0;
-      const seconds = parseInt(parts[1]) || 0;
-      return sum + minutes * 60000 + seconds * 1000;
+    if (pt.track.duration_ms) {
+      return sum + pt.track.duration_ms;
+    } else if (pt.track.duration) {
+      return sum + (typeof pt.track.duration === 'number' ? pt.track.duration * 1000 : 0);
     }
     return sum;
   }, 0);
@@ -194,8 +193,8 @@ export default function PlaylistBuilder({
   const filteredTracks = useMemo(() => {
     return allAvailableTracks.filter((track) => {
       const matchesQuery =
-        track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        track.artist.toLowerCase().includes(searchQuery.toLowerCase());
+        (track.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (track.artist || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       const isNotInPlaylist = !orderedTracks.some((pt) => pt.track.id === track.id);
 
@@ -393,7 +392,7 @@ export default function PlaylistBuilder({
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {orderedTracks.map((pt, idx) => {
             const nextTrack = orderedTracks[idx + 1];
-            const keyCompat = nextTrack ? getKeyCompatibility(pt.track.key, nextTrack.track.key) : 'green';
+            const keyCompat = nextTrack ? getKeyCompatibility(pt.track.key ?? null, nextTrack.track.key ?? null) : 'green';
             const bpmDiff = nextTrack ? Math.abs((pt.track.bpm ?? 0) - (nextTrack.track.bpm ?? 0)) : 0;
 
             return (

@@ -27,7 +27,7 @@ export default function PWAConfigAdmin() {
   async function load() {
     setLoading(true);
     try {
-      const data = await adminApi.getPWAConfig();
+      const data = await adminApi.getPwaConfig();
       if (data && Object.keys(data).length > 0) setConfig({ ...config, ...data });
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -35,7 +35,7 @@ export default function PWAConfigAdmin() {
 
   async function save() {
     setSaving(true);
-    try { await adminApi.updatePWAConfig(config); } catch (e) { console.error(e); }
+    try { await adminApi.updatePwaConfig(config); } catch (e) { console.error(e); }
     setSaving(false);
   }
 

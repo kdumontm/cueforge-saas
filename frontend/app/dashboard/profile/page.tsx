@@ -32,8 +32,9 @@ export default function ProfilePage() {
 
   const initials = (user.username || 'U').slice(0, 2).toUpperCase();
   const plan = (user as any).subscription_plan || 'free';
-  const memberSince = user.created_at
-    ? new Date(user.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+  const createdAt = (user as any).created_at;
+  const memberSince = createdAt
+    ? new Date(createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
     : '—';
 
   return (

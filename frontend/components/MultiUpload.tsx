@@ -51,10 +51,7 @@ export default function MultiUpload({ onSuccess, onError }: MultiUploadProps) {
   const handleDesktopFileSelect = async () => {
     if (!desktopFiles?.openDialog) return;
     try {
-      const paths: string[] = await desktopFiles.openDialog({
-        filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'aiff', 'ogg', 'm4a'] }],
-        multiple: true,
-      });
+      const paths: string[] = await desktopFiles.openDialog();
       if (!paths || paths.length === 0) return;
       const newFiles: FileProgress[] = [];
       for (const filePath of paths) {

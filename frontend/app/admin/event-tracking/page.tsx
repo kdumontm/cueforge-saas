@@ -113,7 +113,7 @@ export default function AdminEventTracking() {
 
   async function handleExport() {
     try {
-      await adminApi.exportEvents?.();
+      await adminApi.exportEvents?.({});
       // In real implementation, this would trigger a download
     } catch (err: any) {
       setError(err.message);

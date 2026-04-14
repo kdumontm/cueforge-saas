@@ -263,7 +263,7 @@ export default function UsersPage() {
         <LoadingScreen />
       ) : users.length === 0 ? (
         <EmptyState
-          icon={Users}
+          icon={User}
           title="Aucun utilisateur trouvé"
           description={search || planFilter !== "all" ? "Modifiez les filtres" : "Aucun utilisateur"}
         />

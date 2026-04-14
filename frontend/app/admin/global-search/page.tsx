@@ -18,7 +18,7 @@ interface SearchResult {
 }
 
 interface SavedSearch {
-  id: string;
+  id: number;
   query: string;
   entity_type: EntityType;
   created_at: string;
@@ -82,7 +82,7 @@ export default function GlobalSearchPage() {
     }
   }
 
-  async function deleteSavedSearch(id: string) {
+  async function deleteSavedSearch(id: number) {
     try {
       await adminApi.deleteSavedSearch(id);
       fetchSearches();

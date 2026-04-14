@@ -31,7 +31,7 @@ export default function SEOConfigAdmin() {
   async function load() {
     setLoading(true);
     try {
-      const data = await adminApi.getSEOConfig();
+      const data = await adminApi.getGlobalSeo();
       if (data && Object.keys(data).length > 0) setConfig({ ...config, ...data });
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -39,7 +39,7 @@ export default function SEOConfigAdmin() {
 
   async function save() {
     setSaving(true);
-    try { await adminApi.updateSEOConfig(config); } catch (e) { console.error(e); }
+    try { await adminApi.updateGlobalSeo(config); } catch (e) { console.error(e); }
     setSaving(false);
   }
 

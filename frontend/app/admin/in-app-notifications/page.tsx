@@ -8,7 +8,7 @@ type NotifType = 'info' | 'warning' | 'success' | 'alert';
 type TargetType = 'all' | 'segment' | 'user';
 
 interface InAppNotification {
-  id: string;
+  id: number;
   title: string;
   body: string;
   type: NotifType;
@@ -94,7 +94,7 @@ export default function InAppNotificationsPage() {
     }
   }
 
-  async function sendNotification(id: string) {
+  async function sendNotification(id: number) {
     try {
       await adminApi.sendInAppNotification(id);
       fetchNotifications();
@@ -103,7 +103,7 @@ export default function InAppNotificationsPage() {
     }
   }
 
-  async function deleteNotification(id: string) {
+  async function deleteNotification(id: number) {
     try {
       await adminApi.deleteInAppNotification(id);
       fetchNotifications();

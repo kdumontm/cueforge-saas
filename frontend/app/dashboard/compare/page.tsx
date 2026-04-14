@@ -38,7 +38,7 @@ export default function ComparePage() {
     const loadTracks = async () => {
       try {
         const data = await getTracks();
-        setTracks(data.tracks || []);
+        setTracks((data.tracks || []) as unknown as Track[]);
       } catch (err) {
         setError('Erreur lors du chargement des tracks');
       }

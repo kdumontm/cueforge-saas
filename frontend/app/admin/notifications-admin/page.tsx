@@ -146,7 +146,7 @@ export default function NotificationsAdminPage() {
       {/* Broadcast modal */}
       {showBroadcast && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowBroadcast(false)}>
-          <Card className="w-full max-w-lg mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <Card className="w-full max-w-lg mx-4 p-6" onClick={() => {}}>
             <h3 className="text-lg font-bold text-text-primary mb-4">Envoyer une notification</h3>
             <div className="space-y-4">
               <Input

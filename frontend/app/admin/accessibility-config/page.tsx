@@ -28,7 +28,7 @@ export default function AccessibilityConfigAdmin() {
   async function load() {
     setLoading(true);
     try {
-      const data = await adminApi.getAccessibilityConfig();
+      const data = await adminApi.getAccessibility();
       if (data && Object.keys(data).length > 0) setConfig({ ...config, ...data });
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -36,7 +36,7 @@ export default function AccessibilityConfigAdmin() {
 
   async function save() {
     setSaving(true);
-    try { await adminApi.updateAccessibilityConfig(config); } catch (e) { console.error(e); }
+    try { await adminApi.updateAccessibility(config); } catch (e) { console.error(e); }
     setSaving(false);
   }
 
@@ -79,36 +79,36 @@ export default function AccessibilityConfigAdmin() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Navigation</h2>
-          <Toggle label="Skip navigation" field="skip_nav" description="Lien pour sauter directement au contenu" />
-          <Toggle label="Labels ARIA" field="aria_labels" description="Attributs ARIA sur tous les éléments interactifs" />
-          <Toggle label="Indicateurs de focus" field="focus_indicators" description="Outline visible lors de la navigation au clavier" />
-          <Toggle label="Navigation clavier" field="keyboard_navigation" description="Support complet de la navigation au clavier" />
+          <Toggle label="Skip navigation" field="skip_nav" desc="Lien pour sauter directement au contenu" />
+          <Toggle label="Labels ARIA" field="aria_labels" desc="Attributs ARIA sur tous les éléments interactifs" />
+          <Toggle label="Indicateurs de focus" field="focus_indicators" desc="Outline visible lors de la navigation au clavier" />
+          <Toggle label="Navigation clavier" field="keyboard_navigation" desc="Support complet de la navigation au clavier" />
         </div>
 
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Visuel</h2>
-          <Toggle label="Mode haut contraste" field="high_contrast_mode" description="Augmenter le contraste des couleurs" />
-          <Toggle label="Mode daltonien" field="color_blind_friendly" description="Palette adaptée aux daltoniens" />
-          <Toggle label="Mouvement réduit" field="reduced_motion" description="Désactiver les animations" />
+          <Toggle label="Mode haut contraste" field="high_contrast_mode" desc="Augmenter le contraste des couleurs" />
+          <Toggle label="Mode daltonien" field="color_blind_friendly" desc="Palette adaptée aux daltoniens" />
+          <Toggle label="Mouvement réduit" field="reduced_motion" desc="Désactiver les animations" />
           <Toggle label="Optimisé lecteur d'écran" field="screen_reader_optimized" />
         </div>
 
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Typographie</h2>
-          <Toggle label="Ajustement taille police" field="font_size_adjustment" description="Permettre aux utilisateurs de changer la taille" />
+          <Toggle label="Ajustement taille police" field="font_size_adjustment" desc="Permettre aux utilisateurs de changer la taille" />
           <div className="py-2">
             <label className="block text-sm text-gray-400 mb-1">Taille minimum (px)</label>
             <input type="number" className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
               value={config.min_font_size} onChange={e => setConfig({ ...config, min_font_size: parseInt(e.target.value) || 12 })} />
           </div>
-          <Toggle label="Espacement du texte" field="text_spacing" description="Augmenter l'espacement entre les lignes/lettres" />
-          <Toggle label="Police dyslexie" field="dyslexia_font" description="Utiliser OpenDyslexic ou similaire" />
+          <Toggle label="Espacement du texte" field="text_spacing" desc="Augmenter l'espacement entre les lignes/lettres" />
+          <Toggle label="Police dyslexie" field="dyslexia_font" desc="Utiliser OpenDyslexic ou similaire" />
         </div>
 
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Contenu</h2>
-          <Toggle label="Texte alternatif requis" field="alt_text_required" description="Obliger les alt-text sur les images" />
-          <Toggle label="Accessibilité activée" field="enabled" description="Activer globalement les fonctions d'accessibilité" />
+          <Toggle label="Texte alternatif requis" field="alt_text_required" desc="Obliger les alt-text sur les images" />
+          <Toggle label="Accessibilité activée" field="enabled" desc="Activer globalement les fonctions d'accessibilité" />
         </div>
       </div>
     </div>

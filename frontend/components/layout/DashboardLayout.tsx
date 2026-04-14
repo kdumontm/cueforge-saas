@@ -137,7 +137,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     draggedTabRef.current = tabId;
   };
 
-  const handleTabDragOver = (e: React.DragEvent<HTMLDiv>) => {
+  const handleTabDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
 

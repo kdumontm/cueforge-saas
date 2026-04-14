@@ -55,9 +55,7 @@ export default function SmartCratesPage() {
   const confirmDelete = async () => {
     if (deletingId === null) return;
     try {
-      // Note: API method for deleting smart crates might not exist yet
-      // This is a placeholder for the correct endpoint
-      await adminApi.api(`/admin/smart-crates/${deletingId}`, { method: "DELETE" });
+      await adminApi.deleteSmartCrate(deletingId);
       toast("Smart Crate supprimée", "success");
       await loadCrates();
       setDeletingId(null);

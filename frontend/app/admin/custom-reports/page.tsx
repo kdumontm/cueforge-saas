@@ -107,7 +107,7 @@ export default function AdminCustomReports() {
 
   async function handleSchedule(report: CustomReport) {
     try {
-      await adminApi.scheduleCustomReport?.(report.id);
+      await adminApi.scheduleCustomReport?.(report.id, {});
       setError(null);
       // Show success message in real implementation
     } catch (err: any) {
@@ -190,7 +190,7 @@ export default function AdminCustomReports() {
                 return (
                   <div key={idx}>
                     <div className="flex justify-between text-xs text-gray-400 mb-1">
-                      <span>{Object.values(row)[0]}</span>
+                      <span>{String(Object.values(row)[0])}</span>
                       <span>{val}</span>
                     </div>
                     <div className="w-full bg-[#0a0a1a] rounded-full h-3 overflow-hidden">

@@ -106,9 +106,9 @@ function StemCard({
             onChange={handleVolumeChange}
             className="w-6 h-32 cursor-pointer"
             style={{
-              writingMode: 'bt-lr',
-              WebkitAppearance: 'slider-vertical',
-              appearance: 'slider-vertical',
+              writingMode: 'bt-lr' as any,
+              WebkitAppearance: 'slider-vertical' as any,
+              appearance: 'slider-vertical' as any,
             }}
             aria-label={`${stem.name} volume`}
           />

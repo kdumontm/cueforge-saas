@@ -65,11 +65,11 @@ function parseMarkdown(markdown: string): MarkdownParseResult {
 
   // Lists
   html = html.replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc">$1</li>');
-  html = html.replace(/(<li class="ml-4 list-disc">.*?<\/li>)/s, '<ul class="mb-4">$1</ul>');
+  html = html.replace(/(<li class="ml-4 list-disc">[\s\S]*?<\/li>)/, '<ul class="mb-4">$1</ul>');
 
   // Code blocks (```code```)
   html = html.replace(
-    /```(.*?)```/gs,
+    /```([\s\S]*?)```/g,
     '<pre class="bg-[var(--bg-primary)] p-4 rounded-lg mb-4 overflow-x-auto border border-[var(--border-color)]"><code class="text-sm text-[var(--text-secondary)]">$1</code></pre>'
   );
 
@@ -166,7 +166,7 @@ export default function BlogPostPage() {
     );
   }
 
-  const parsedContent = parseMarkdown(post.content);
+  const parsedContent = parseMarkdown(post.content || "");
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">

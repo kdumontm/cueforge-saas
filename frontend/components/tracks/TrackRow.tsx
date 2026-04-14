@@ -116,7 +116,7 @@ export const TrackRow = React.memo(function TrackRow({
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
           {isAnalyzing && (
-            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" title={tr('analysis.in_progress', lang)} />
+            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" />
           )}
         </div>
         <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
@@ -178,7 +178,7 @@ export const TrackRow = React.memo(function TrackRow({
           <div className="w-full h-2 bg-[var(--bg-primary)] rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-[var(--accent-low)] via-[var(--accent)] to-[var(--accent-high)] rounded-full"
-              style={{ width: `${(track.energy / 100) * 100}%` }}
+              style={{ width: `${((track.energy ?? 0) / 100) * 100}%` }}
             />
           </div>
         ) : (

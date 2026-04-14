@@ -191,7 +191,7 @@ export default function MediaPage() {
       />
 
       {/* Upload Zone */}
-      <Card className="p-8 mb-6 border-2 border-dashed border-border-default hover:border-accent/50 transition-colors cursor-pointer"
+      <div className="p-8 mb-6 border-2 border-dashed border-border-default hover:border-accent/50 transition-colors cursor-pointer rounded-xl"
         ref={dragRef}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -221,7 +221,7 @@ export default function MediaPage() {
             {uploading ? "Téléchargement..." : "Sélectionner des fichiers"}
           </Btn>
         </label>
-      </Card>
+      </div>
 
       {/* Category Tabs */}
       <TabBar

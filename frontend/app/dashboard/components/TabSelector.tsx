@@ -9,7 +9,7 @@ export interface TabSelectorProps {
   onTabSelect: (tabId: string) => void;
   selectedTrack: any | null;
   userPlan: string;
-  getFeatureDisplayMode: (featureKey: string) => 'enabled' | 'locked' | 'disabled';
+  getFeatureDisplayMode: (featureKey: string) => 'hidden' | 'locked' | 'visible';
 }
 
 export default function TabSelector({

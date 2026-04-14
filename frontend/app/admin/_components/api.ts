@@ -346,6 +346,10 @@ export const adminApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     return api(`/admin/smart-crates?${q.toString()}`);
   },
+  getSmartCrate: (id: number) => api(`/admin/smart-crates/${id}`),
+  createSmartCrate: (d: any) => api("/admin/smart-crates", { method: "POST", body: d }),
+  updateSmartCrate: (id: number, d: any) => api(`/admin/smart-crates/${id}`, { method: "PUT", body: d }),
+  deleteSmartCrate: (id: number) => api(`/admin/smart-crates/${id}`, { method: "DELETE" }),
 
   // ═══════════════ EMAIL TEMPLATES ═══════════════
   listEmailTemplates: (p?: any) => {
@@ -589,6 +593,16 @@ export const adminApi = {
 
   // ═══════════════ ENVIRONMENTS & FLAGS ═══════════════
   getEnvironments: () => api("/admin/environments"),
+  getEnvironment: (id: number) => api(`/admin/environments/${id}`),
+  createEnvironment: (d: any) => api("/admin/environments", { method: "POST", body: d }),
+  updateEnvironment: (id: number, d: any) => api(`/admin/environments/${id}`, { method: "PUT", body: d }),
+  deleteEnvironment: (id: number) => api(`/admin/environments/${id}`, { method: "DELETE" }),
+  getEnvironmentStatus: (id: number) => api(`/admin/environments/${id}/status`),
+  syncEnvironment: (id: number, d: any) => api(`/admin/environments/${id}/sync`, { method: "POST", body: d }),
+  deployEnvironment: (id: number) => api(`/admin/environments/${id}/deploy`, { method: "POST" }),
+  getEnvVariables: (id: number) => api(`/admin/environments/${id}/variables`),
+  updateEnvVariables: (id: number, d: any) => api(`/admin/environments/${id}/variables`, { method: "PUT", body: d }),
+  compareEnvironments: (params: any) => api("/admin/environments/compare", { params }),
   updateEnvironments: (d: any) => api("/admin/environments", { method: "PUT", body: d }),
   getFeatureFlags: () => api("/admin/feature-flags"),
   updateFeatureFlags: (d: any) => api("/admin/feature-flags", { method: "PUT", body: d }),
@@ -921,32 +935,19 @@ export const adminApi = {
   getUserTags: (userId: number) => api(`/admin/user-timeline/${userId}/tags`),
   updateUserTags: (userId: number, d: any) => api(`/admin/user-timeline/${userId}/tags`, { method: "POST", body: d }),
 
-  // ═══════════════ MULTI-ENVIRONMENT ═══════════════
-  getEnvironments: () => api("/admin/environments"),
-  getEnvironment: (id: number) => api(`/admin/environments/${id}`),
-  createEnvironment: (d: any) => api("/admin/environments", { method: "POST", body: d }),
-  updateEnvironment: (id: number, d: any) => api(`/admin/environments/${id}`, { method: "PUT", body: d }),
-  deleteEnvironment: (id: number) => api(`/admin/environments/${id}`, { method: "DELETE" }),
-  getEnvironmentStatus: (id: number) => api(`/admin/environments/${id}/status`),
-  syncEnvironment: (id: number, d: any) => api(`/admin/environments/${id}/sync`, { method: "POST", body: d }),
-  deployEnvironment: (id: number) => api(`/admin/environments/${id}/deploy`, { method: "POST" }),
-  getEnvVariables: (id: number) => api(`/admin/environments/${id}/variables`),
-  updateEnvVariables: (id: number, d: any) => api(`/admin/environments/${id}/variables`, { method: "PUT", body: d }),
-  compareEnvironments: (params: any) => api("/admin/environments/compare", { params }),
-
-  // ═══════════════ WEBHOOK TESTING ═══════════════
-  getWebhookEndpoints: () => api("/admin/webhook-testing/endpoints"),
-  testWebhook: (d: any) => api("/admin/webhook-testing/test", { method: "POST", body: d }),
-  getWebhookLogs: (params?: any) => api("/admin/webhook-testing/logs", { params }),
-  getWebhookLogDetail: (id: number) => api(`/admin/webhook-testing/logs/${id}`),
-  replayWebhook: (id: number) => api(`/admin/webhook-testing/logs/${id}/replay`, { method: "POST" }),
-  getWebhookEvents: () => api("/admin/webhook-testing/events"),
-
   // ═══════════════ ADMIN PREFERENCES ═══════════════
   getAdminPreferences: () => api("/admin/preferences"),
   updateAdminPreferences: (d: any) => api("/admin/preferences", { method: "PUT", body: d }),
   getAdminShortcuts: () => api("/admin/preferences/shortcuts"),
   updateAdminShortcuts: (d: any) => api("/admin/preferences/shortcuts", { method: "PUT", body: d }),
+
+  // ═══════════════ WEBHOOK TESTING ═══════════════
+  getWebhookEndpoints: () => api("/admin/webhook-testing/endpoints"),
+  testWebhookEndpoint: (d: any) => api("/admin/webhook-testing/test", { method: "POST", body: d }),
+  getWebhookLogs: (params?: any) => api("/admin/webhook-testing/logs", { params }),
+  getWebhookLogDetail: (id: number) => api(`/admin/webhook-testing/logs/${id}`),
+  replayWebhook: (id: number) => api(`/admin/webhook-testing/logs/${id}/replay`, { method: "POST" }),
+  getWebhookEvents: () => api("/admin/webhook-testing/events"),
 };
 
 export default adminApi;

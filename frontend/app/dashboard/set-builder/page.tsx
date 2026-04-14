@@ -502,7 +502,7 @@ export default function SetBuilderPage() {
 
           {/* Energy Flow for current set */}
           {setTracks.length >= 2 && (
-            <EnergyFlow tracks={setTracks} title="Energy Flow du set" />
+            <EnergyFlow tracks={setTracks.map(st => st.track).filter(t => t) as unknown as Track[]} title="Energy Flow du set" />
           )}
         </>
       )}

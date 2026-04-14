@@ -113,7 +113,7 @@ export const TrackGrid = React.memo(function TrackGrid({
                 <div className="w-full h-1.5 bg-[var(--bg-primary)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-[var(--accent-low)] via-[var(--accent)] to-[var(--accent-high)]"
-                    style={{ width: `${(track.energy / 100) * 100}%` }}
+                    style={{ width: `${((track.energy ?? 0) / 100) * 100}%` }}
                   />
                 </div>
               )}

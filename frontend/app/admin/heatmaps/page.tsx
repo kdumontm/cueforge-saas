@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '../_components/api';
 
 interface Heatmap {
-  id: string;
+  id: number;
   name: string;
   page_url: string;
   heatmap_type: 'click' | 'scroll' | 'move' | 'attention';
@@ -76,7 +76,7 @@ export default function HeatmapsPage() {
     }
   };
 
-  const handleToggleActive = async (id: string, active: boolean) => {
+  const handleToggleActive = async (id: number, active: boolean) => {
     try {
       await adminApi.updateHeatmap(id, { active: !active });
       loadHeatmaps();
@@ -85,7 +85,7 @@ export default function HeatmapsPage() {
     }
   };
 
-  const handleTogglePaused = async (id: string, paused: boolean) => {
+  const handleTogglePaused = async (id: number, paused: boolean) => {
     try {
       await adminApi.updateHeatmap(id, { paused: !paused });
       loadHeatmaps();

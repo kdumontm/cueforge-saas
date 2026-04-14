@@ -62,7 +62,7 @@ function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: Sideba
     listCrates()
       .then(crates => {
         if (crates.length > 0) {
-          setSmartCrates(crates.map(c => ({ id: `crate_${c.id}`, label: c.name, color: c.color || '#3b82f6' })));
+          setSmartCrates(crates.map(c => ({ id: `crate_${c.id}`, label: c.name, color: '#3b82f6' })));
         }
       })
       .catch(() => {});

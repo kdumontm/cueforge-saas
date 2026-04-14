@@ -31,7 +31,7 @@ interface ServiceStatus {
 }
 
 interface AlertRule {
-  id: string;
+  id: number;
   metric: string;
   threshold: number;
   condition: 'above' | 'below';
@@ -47,10 +47,14 @@ export default function SystemMonitoringPage() {
   const [servicesStatus, setServicesStatus] = useState<ServiceStatus[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [newAlert, setNewAlert] = useState({
+  const [newAlert, setNewAlert] = useState<{
+    metric: string;
+    threshold: number;
+    condition: 'above' | 'below';
+  }>({
     metric: 'cpu_percent',
     threshold: 80,
-    condition: 'above' as const,
+    condition: 'above',
   });
 
   useEffect(() => {
@@ -91,7 +95,7 @@ export default function SystemMonitoringPage() {
     }
   }
 
-  async function deleteAlertRule(id: string) {
+  async function deleteAlertRule(id: number) {
     try {
       await adminApi.deleteAlertRule(id);
       fetchMetrics();

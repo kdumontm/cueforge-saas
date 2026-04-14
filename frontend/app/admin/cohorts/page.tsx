@@ -42,10 +42,15 @@ export default function AdminCohorts() {
   const [presets, setPresets] = useState<CohortPreset[]>([]);
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    metric: string;
+    period: "daily" | "weekly" | "monthly";
+    group_by: string;
+  }>({
     name: "",
     metric: "active_users",
-    period: "weekly" as const,
+    period: "weekly",
     group_by: "signup_date",
   });
 
@@ -118,10 +123,11 @@ export default function AdminCohorts() {
   }
 
   async function applyPreset(preset: CohortPreset) {
+    const period = (["daily", "weekly", "monthly"].includes(preset.period) ? preset.period : "weekly") as "daily" | "weekly" | "monthly";
     setFormData({
       name: preset.name,
       metric: preset.metric,
-      period: (preset.period as "daily" | "weekly" | "monthly"),
+      period,
       group_by: preset.group_by,
     });
   }

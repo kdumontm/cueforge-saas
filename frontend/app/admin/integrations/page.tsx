@@ -24,7 +24,7 @@ export default function IntegrationsAdmin() {
   async function loadAll() {
     setLoading(true);
     try {
-      const data = await adminApi.getIntegrationsConfig();
+      const data = await adminApi.getIntegrations();
       setConfigs(data || {});
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -33,7 +33,7 @@ export default function IntegrationsAdmin() {
   async function saveIntegration(key: string) {
     setSaving(key);
     try {
-      await adminApi.updateIntegrationsConfig({ ...configs });
+      await adminApi.updateIntegrations({ ...configs });
     } catch (e) { console.error(e); }
     setSaving(null);
   }

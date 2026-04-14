@@ -68,7 +68,7 @@ export default function DatabaseBrowserPage() {
         setTableData(dataRes);
 
         // Show all columns by default
-        const allColumns = new Set((schemaRes.schema || []).map((c: ColumnSchema) => c.name));
+        const allColumns = new Set<string>((schemaRes.schema || []).map((c: ColumnSchema) => c.name));
         setVisibleColumns(allColumns);
 
         toast("Données chargées", "success");

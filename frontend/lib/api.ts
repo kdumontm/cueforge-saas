@@ -302,14 +302,14 @@ export async function batchCueUpdates(trackId: number, updates: Array<{ cueId: n
 // Improvement #76: Optimistic delete with rollback
 export async function deleteWithOptimisticRollback(url: string, optimisticData: any): Promise<void> {
   const key = url;
-  optimisticUpdates.set(key, optimisticData);
+  responseCache.set(key, { data: optimisticData, timestamp: Date.now(), ttl: 5000 });
 
   try {
     const response = await authFetch(url, { method: 'DELETE' });
     if (!response.ok) throw new Error('Delete failed');
-    optimisticUpdates.delete(key);
+    responseCache.delete(key);
   } catch (e) {
-    optimisticUpdates.set(key, optimisticData);
+    responseCache.set(key, { data: optimisticData, timestamp: Date.now(), ttl: 5000 });
     throw e;
   }
 }

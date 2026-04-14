@@ -12,7 +12,7 @@
 export function dynamicImport<T extends React.ComponentType<any>>(
   importFn: () => Promise<{ default: T }>,
 ) {
-  return React.lazy(importFn) as T;
+  return React.lazy(importFn) as unknown as T;
 }
 
 /**

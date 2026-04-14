@@ -114,7 +114,7 @@ export default function WebhookTestingPage() {
     }
     try {
       setTestLoading(true);
-      await adminApi.testWebhook({
+      await adminApi.testWebhookEndpoint({
         endpoint_id: selectedEndpoint,
         event_type: selectedEvent,
       });
@@ -203,12 +203,12 @@ export default function WebhookTestingPage() {
                   Endpoint
                 </label>
                 <Select
-                  value={selectedEndpoint || ""}
-                  onChange={(e) => setSelectedEndpoint(parseInt(e.target.value) || null)}
+                  value={selectedEndpoint ? String(selectedEndpoint) : ""}
+                  onChange={(e) => setSelectedEndpoint(e.target.value ? parseInt(e.target.value) : null)}
                 >
                   <option value="">Sélectionner un endpoint...</option>
                   {endpoints.map((ep) => (
-                    <option key={ep.id} value={ep.id}>
+                    <option key={ep.id} value={String(ep.id)}>
                       {ep.url}
                     </option>
                   ))}

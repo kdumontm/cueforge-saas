@@ -61,7 +61,7 @@ export default function AdminImpersonation() {
     try {
       setSubmitting(true);
       setError(null);
-      await adminApi.startImpersonation?.(userId, reason);
+      await adminApi.startImpersonation?.(parseInt(userId, 10), reason);
       setUserId("");
       setReason("");
       loadLogs();
@@ -78,7 +78,7 @@ export default function AdminImpersonation() {
     try {
       setSubmitting(true);
       setError(null);
-      await adminApi.endImpersonation?.();
+      await adminApi.endImpersonation?.(activeSession.id);
       loadLogs();
     } catch (err: any) {
       setError(err.message);

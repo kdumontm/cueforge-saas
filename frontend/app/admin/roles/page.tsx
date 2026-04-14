@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '../_components/api';
 
 interface Permission {
-  id: string;
+  id: number;
   name: string;
   category: string;
   description: string;
 }
 
 interface Role {
-  id: string;
+  id: number;
   name: string;
   display_name: string;
   description: string;
@@ -33,7 +33,7 @@ export default function RolesPage() {
     display_name: '',
     description: '',
     color: '#8b5cf6',
-    permissions: [] as string[],
+    permissions: [] as number[],
   });
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function RolesPage() {
       display_name: role.display_name,
       description: role.description,
       color: role.color,
-      permissions: role.permissions,
+      permissions: (role.permissions || []).map(p => typeof p === 'string' ? parseInt(p, 10) : p).filter(p => !isNaN(p)),
     });
     setShowModal(true);
   };
@@ -127,7 +127,7 @@ export default function RolesPage() {
     }
   };
 
-  const togglePermission = (permissionId: string) => {
+  const togglePermission = (permissionId: number) => {
     setFormData({
       ...formData,
       permissions: formData.permissions.includes(permissionId)

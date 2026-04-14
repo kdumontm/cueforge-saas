@@ -71,7 +71,7 @@ export default function DesktopConfigAdmin() {
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Général</h2>
           <Toggle label="Application desktop activée" field="enabled" />
-          <Toggle label="Deep links" field="deep_links" description="Ouvrir les liens trackcue:// dans l'app" />
+          <Toggle label="Deep links" field="deep_links" desc="Ouvrir les liens trackcue:// dans l'app" />
           <div className="py-2">
             <label className="block text-sm text-gray-400 mb-1">Associations de fichiers</label>
             <input className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
@@ -128,7 +128,7 @@ export default function DesktopConfigAdmin() {
 
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Données</h2>
-          <Toggle label="Mode offline" field="offline_mode" description="Permettre l'utilisation hors ligne" />
+          <Toggle label="Mode offline" field="offline_mode" desc="Permettre l'utilisation hors ligne" />
           <div className="py-2">
             <label className="block text-sm text-gray-400 mb-1">Limite stockage local (Mo)</label>
             <input type="number" className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"

@@ -329,9 +329,15 @@ export function LoadingScreen() {
   );
 }
 
-export function PageWrapper({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function PageWrapper({ children, className = "", title, subtitle }: { children: ReactNode; className?: string; title?: string; subtitle?: string }) {
   return (
     <div className={`p-6 max-w-[1400px] mx-auto ${className}`}>
+      {title && (
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white">{title}</h1>
+          {subtitle && <p className="text-text-muted mt-2">{subtitle}</p>}
+        </div>
+      )}
       {children}
     </div>
   );

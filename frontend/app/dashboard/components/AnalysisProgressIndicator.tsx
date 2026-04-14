@@ -1,6 +1,6 @@
 'use client';
 
-import { AnalysisProgress } from '@/components/AnalysisProgress';
+import AnalysisProgress from '@/components/AnalysisProgress';
 
 export interface AnalysisProgressIndicatorProps {
   analysisProgress: Record<number, { pct: number; title: string; isLocal: boolean }>;

@@ -184,7 +184,7 @@ export default function TrackOrganizer({ track, onClose, onUpdate }: TrackOrgani
     try {
       const result = await setCueColor(cueId, color);
       const updatedCue = state.cuePoints.find(c => c.id === cueId);
-      if (updatedCue) dispatch({ type: 'UPDATE_CUE_POINT', payload: { ...updatedCue, color: result.color, color_rgb: result.color_rgb } });
+      if (updatedCue) dispatch({ type: 'UPDATE_CUE_POINT', payload: { ...updatedCue, color: result.color } });
     } catch (e) { console.error('Failed to set cue color:', e); }
   }
 

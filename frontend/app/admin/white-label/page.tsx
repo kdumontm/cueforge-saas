@@ -25,7 +25,7 @@ export default function WhiteLabelAdmin() {
   async function load() {
     setLoading(true);
     try {
-      const data = await adminApi.getWhiteLabelConfig();
+      const data = await adminApi.getWhiteLabel();
       if (data && Object.keys(data).length > 0) setConfig({ ...config, ...data });
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -34,7 +34,7 @@ export default function WhiteLabelAdmin() {
   async function save() {
     setSaving(true);
     try {
-      await adminApi.updateWhiteLabelConfig(config);
+      await adminApi.updateWhiteLabel(config);
     } catch (e) { console.error(e); }
     setSaving(false);
   }

@@ -39,7 +39,7 @@ export default function FeatureFlagsAdmin() {
     const flag = flags[key];
     if (!flag) return;
     try {
-      await adminApi.toggleFeatureFlag(key, !flag.enabled);
+      await adminApi.toggleFeatureFlag(key);
       setFlags({ ...flags, [key]: { ...flag, enabled: !flag.enabled } });
     } catch (e) { console.error(e); }
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, lazy } from 'react';
-import { tr } from '@/lib/i18n';
+import { tr, type Lang } from '@/lib/i18n';
 import { useLang } from '@/components/LangProvider';
 import { updateTrack } from '@/lib/api';
 
@@ -31,8 +31,8 @@ export interface TabContentProps {
   effectiveCuePoints: any[];
   cuePositionMs: number | null;
   userPlan: string;
-  getFeatureDisplayMode: (featureKey: string) => 'enabled' | 'locked' | 'disabled';
-  lang: string;
+  getFeatureDisplayMode: (featureKey: string) => 'hidden' | 'locked' | 'visible';
+  lang: Lang;
   playerRef: React.MutableRefObject<any>;
   stemsStatus: any;
   stemMuted: Set<string>;
