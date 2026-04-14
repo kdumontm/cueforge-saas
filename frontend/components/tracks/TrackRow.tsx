@@ -116,10 +116,13 @@ export const TrackRow = React.memo(function TrackRow({
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-[var(--text-primary)] truncate">{track.title}</p>
           {isAnalyzing && (
-            <Loader2 size={13} className="animate-spin text-[var(--accent)] flex-shrink-0" />
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/15 text-[10px] font-semibold text-blue-400 flex-shrink-0 whitespace-nowrap">
+              <Loader2 size={10} className="animate-spin" />
+              Analyse…
+            </span>
           )}
         </div>
-        <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
+        <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist || (isAnalyzing ? 'Identification en cours…' : '')}</p>
         <div className="flex items-center gap-2 sm:hidden mt-0.5">
           {track.bpm ? <span className="text-[10px] font-mono text-cyan-400">{Math.round(track.bpm)} BPM</span> : null}
           {track.key ? <span className="text-[10px] font-mono text-blue-400">{track.key}</span> : null}

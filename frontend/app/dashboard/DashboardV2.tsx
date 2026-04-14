@@ -1110,7 +1110,62 @@ export default function DashboardV2() {
       setSelectedTrack(displayTracks[selectedTrackIdx + 1], 'nav:next');
   }
 
-  // File upload — parallel uploads + parallel analyses
+  // ── Lancement d'analyse en arrière-plan (fire-and-forget) ──────────
+  function startBackgroundAnalysis(id: number, fname: string) {
+    setAnalyzingIds(prev => new Set(prev).add(id));
+    setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
+
+    (async () => {
+      try {
+        const result = await analyzeTrack(id, {
+          onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: prev[id]?.isLocal ?? false } })),
+        });
+
+        if (result.usedLocal) {
+          setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: true } }));
+        } else {
+          setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 15, title: fname, isLocal: false } }));
+          let cloudPct = 15;
+          const cloudTimer = setInterval(() => {
+            cloudPct = Math.min(55, cloudPct + 2 + Math.random() * 3);
+            setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct: Math.round(cloudPct), title: fname } }));
+          }, 1500);
+          await pollTrackUntilDone(id, (updated) => {
+            setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+            setAnalysisProgress(prev => {
+              const cur = prev[id]?.pct ?? 0;
+              return { ...prev, [id]: { ...prev[id], pct: Math.min(98, Math.max(cur, 60) + 3), title: fname } };
+            });
+          });
+          clearInterval(cloudTimer);
+          setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: false } }));
+        }
+
+        // Clean up progress state
+        setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+        setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
+        addToast(`${fname} ${tr('toast.analyzed', lang)}`, 'success');
+
+        // Refresh the single track in-place instead of full loadTracks
+        try {
+          const fresh = await getTrack(id);
+          setTracks(prev => prev.map(t => t.id === id ? fresh : t));
+          if (selectedTrackIdRef.current === id) {
+            setSelectedTrack(toDisplayTrack(fresh), 'analysis:complete');
+          }
+        } catch {}
+        if (selectedTrackIdRef.current === id) {
+          try { setCuePoints(await getTrackCuePoints(id)); } catch {}
+        }
+      } catch {
+        setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+        setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+        addToast(`Erreur analyse: ${fname}`, 'error');
+      }
+    })();
+  }
+
+  // File upload — affichage instantané + analyse en arrière-plan
   async function handleFiles(files: FileList) {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
@@ -1118,95 +1173,69 @@ export default function DashboardV2() {
     setUploading(true);
     addToast(`Import de ${fileArray.length} fichier${fileArray.length > 1 ? 's' : ''}…`, 'info');
 
-    // Phase 1: Upload all files in parallel (max 3 concurrent)
     const CONCURRENCY = 3;
-    const uploaded: { file: File; result: any }[] = [];
+    let totalUploaded = 0;
+    let firstTrackSelected = false;
+
+    // Upload par chunks de 3 — chaque track apparaît DÈS qu'elle est uploadée
     const chunks: File[][] = [];
     for (let i = 0; i < fileArray.length; i += CONCURRENCY) {
       chunks.push(fileArray.slice(i, i + CONCURRENCY));
     }
+
     for (const chunk of chunks) {
       const results = await Promise.allSettled(chunk.map(f => uploadTrack(f)));
-      results.forEach((r, i) => {
+
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
         if (r.status === 'fulfilled' && r.value?.id) {
-          uploaded.push({ file: chunk[i], result: r.value });
+          const up = r.value;
+          const fname = chunk[i].name;
+          totalUploaded++;
+
+          // Fetch le track complet et l'injecter EN TÊTE de la liste immédiatement
+          try {
+            const freshTrack = await getTrack(up.id);
+            setTracks(prev => [freshTrack, ...prev.filter(t => t.id !== freshTrack.id)]);
+
+            // Sélectionner le premier track uploadé → le waveform se charge direct
+            if (!firstTrackSelected) {
+              setSelectedTrack(toDisplayTrack(freshTrack), 'upload:instant');
+              firstTrackSelected = true;
+            }
+          } catch {
+            // Fallback : au moins l'ajouter avec les infos du upload response
+            const minimalTrack = {
+              id: up.id,
+              filename: up.filename,
+              original_filename: up.original_filename || fname,
+              status: 'pending' as const,
+              title: fname.replace(/\.[^.]+$/, ''),
+              artist: '',
+              created_at: new Date().toISOString(),
+            } as any;
+            setTracks(prev => [minimalTrack, ...prev.filter(t => t.id !== up.id)]);
+            if (!firstTrackSelected) {
+              setSelectedTrack(toDisplayTrack(minimalTrack), 'upload:instant-minimal');
+              firstTrackSelected = true;
+            }
+          }
+
+          // Lancer l'analyse en arrière-plan (fire-and-forget)
+          if (autoAnalyze) {
+            startBackgroundAnalysis(up.id, fname);
+          }
         } else {
           const reason = r.status === 'rejected' ? (r.reason?.message || r.reason || 'erreur') : 'réponse invalide';
           console.error(`[TrackCue] Upload failed for ${chunk[i].name}:`, reason);
           addToast(`Erreur upload ${chunk[i].name}: ${reason}`, 'error');
         }
-      });
-    }
-    setUploading(false);
-
-    if (uploaded.length === 0) return;
-
-    // Refresh track list once after all uploads
-    await loadTracks();
-    addToast(`${uploaded.length} fichier${uploaded.length > 1 ? 's' : ''} importé${uploaded.length > 1 ? 's' : ''}`, 'success');
-
-    // Phase 2: Auto-analyze all uploaded tracks in parallel
-    if (autoAnalyze && uploaded.length > 0) {
-      // Launch ALL analyses concurrently (non-blocking)
-      for (const { file, result: up } of uploaded) {
-        const id = up.id;
-        const fname = file.name;
-        setAnalyzingIds(prev => new Set(prev).add(id));
-        setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 0, title: fname, isLocal: false } }));
-
-        // Fire-and-forget each analysis
-        (async () => {
-          try {
-            const result = await analyzeTrack(id, {
-              onProgress: (pct) => setAnalysisProgress(prev => ({ ...prev, [id]: { pct, title: fname, isLocal: prev[id]?.isLocal ?? false } })),
-            });
-
-            if (result.usedLocal) {
-              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: true } }));
-            } else {
-              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 15, title: fname, isLocal: false } }));
-              let cloudPct = 15;
-              const cloudTimer = setInterval(() => {
-                cloudPct = Math.min(55, cloudPct + 2 + Math.random() * 3);
-                setAnalysisProgress(prev => ({ ...prev, [id]: { ...prev[id], pct: Math.round(cloudPct), title: fname } }));
-              }, 1500);
-              await pollTrackUntilDone(id, (updated) => {
-                // Update single track in-place without full reload
-                setTracks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
-                setAnalysisProgress(prev => {
-                  const cur = prev[id]?.pct ?? 0;
-                  return { ...prev, [id]: { ...prev[id], pct: Math.min(98, Math.max(cur, 60) + 3), title: fname } };
-                });
-              });
-              clearInterval(cloudTimer);
-              setAnalysisProgress(prev => ({ ...prev, [id]: { pct: 100, title: fname, isLocal: false } }));
-            }
-
-            // Clean up progress state
-            setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-            setTimeout(() => setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; }), 2000);
-            addToast(`${fname} ${tr('toast.analyzed', lang)}`, 'success');
-
-            // Refresh the single track in-place instead of full loadTracks
-            try {
-              const fresh = await getTrack(id);
-              setTracks(prev => prev.map(t => t.id === id ? fresh : t));
-              // Refresh display track if selected
-              if (selectedTrackIdRef.current === id) {
-                setSelectedTrack(toDisplayTrack(fresh), 'analysis:complete');
-              }
-            } catch {}
-            // Reload cues if selected
-            if (selectedTrackIdRef.current === id) {
-              try { setCuePoints(await getTrackCuePoints(id)); } catch {}
-            }
-          } catch {
-            setAnalyzingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-            setAnalysisProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
-            addToast(`Erreur analyse: ${fname}`, 'error');
-          }
-        })();
       }
+    }
+
+    setUploading(false);
+    if (totalUploaded > 0) {
+      addToast(`${totalUploaded} fichier${totalUploaded > 1 ? 's' : ''} importé${totalUploaded > 1 ? 's' : ''}`, 'success');
     }
   }
 
