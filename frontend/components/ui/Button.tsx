@@ -2,7 +2,7 @@
 
 import { type LucideIcon } from 'lucide-react';
 
-type Variant = 'primary' | 'danger' | 'success' | 'default' | 'ghost';
+type Variant = 'primary' | 'danger' | 'success' | 'default' | 'ghost' | 'secondary' | 'error';
 
 interface ButtonProps {
   children?: React.ReactNode;
@@ -11,6 +11,7 @@ interface ButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   small?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
@@ -20,6 +21,8 @@ const variantClasses: Record<Variant, string> = {
   success: 'bg-green-500/15 hover:bg-green-500/25 text-green-400 border-green-500/20',
   default: 'bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-subtle)]',
   ghost: 'bg-transparent hover:bg-[var(--bg-hover)] text-[var(--text-muted)] border-transparent',
+  secondary: 'bg-zinc-500/15 hover:bg-zinc-500/25 text-zinc-400 border-zinc-500/20',
+  error: 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/20',
 };
 
 export default function Button({
@@ -29,6 +32,7 @@ export default function Button({
   onClick,
   disabled,
   small,
+  size = 'md',
   className = '',
 }: ButtonProps) {
   return (

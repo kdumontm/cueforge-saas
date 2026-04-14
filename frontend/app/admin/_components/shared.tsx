@@ -75,11 +75,13 @@ export function Badge({ children, variant = "default", className = "" }: BadgePr
 
 interface BtnProps {
   children?: ReactNode;
-  variant?: "primary" | "danger" | "success" | "warning" | "default" | "ghost";
+  variant?: "primary" | "danger" | "success" | "warning" | "default" | "ghost" | "secondary" | "error";
   icon?: LucideIcon;
   onClick?: () => void;
   className?: string;
   small?: boolean;
+  size?: string;
+  title?: string;
   disabled?: boolean;
   loading?: boolean;
   type?: "button" | "submit";
@@ -92,14 +94,17 @@ const btnVariants: Record<string, string> = {
   warning: "bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25",
   default: "bg-bg-elevated text-text-secondary border border-border-subtle hover:bg-bg-hover",
   ghost: "text-text-muted hover:text-text-secondary hover:bg-bg-hover",
+  secondary: "bg-zinc-500/15 text-zinc-400 border border-zinc-500/25 hover:bg-zinc-500/25",
+  error: "bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25",
 };
 
-export function Btn({ children, variant = "default", icon: Icon, onClick, className = "", small, disabled, loading, type = "button" }: BtnProps) {
+export function Btn({ children, variant = "default", icon: Icon, onClick, className = "", small, size, title, disabled, loading, type = "button" }: BtnProps) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
+      title={title}
       className={`inline-flex items-center gap-1.5 rounded-lg font-medium transition-all cursor-pointer
         ${small ? "px-2 py-1 text-[11px]" : "px-3.5 py-2 text-xs"}
         ${disabled || loading ? "opacity-50 cursor-not-allowed" : ""}
@@ -111,9 +116,11 @@ export function Btn({ children, variant = "default", icon: Icon, onClick, classN
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", title, subtitle, onClick }: { children: ReactNode; className?: string; title?: string; subtitle?: string; onClick?: () => void }) {
   return (
-    <div className={`bg-bg-card border border-border-subtle rounded-xl ${className}`}>
+    <div className={`bg-bg-card border border-border-subtle rounded-xl ${className} ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
+      {title && <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>}
+      {subtitle && <p className="text-sm text-text-muted mb-4">{subtitle}</p>}
       {children}
     </div>
   );
@@ -149,23 +156,38 @@ export function Input({ label, value, onChange, type = "text", placeholder, mult
 interface SelectProps {
   label?: string;
   value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  onChange: (v: string | any) => void;
+  options?: { value: string; label: string }[];
   className?: string;
+  children?: React.ReactNode;
 }
 
-export function Select({ label, value, onChange, options, className = "" }: SelectProps) {
+export function Select({ label, value, onChange, options, className = "", children }: SelectProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newValue = e.target.value;
+    // Handle both old API (onChange gets event) and new API (onChange gets string)
+    if (typeof onChange === 'function') {
+      // Try to detect if the callback expects a string or event
+      try {
+        onChange(newValue);
+      } catch (err) {
+        // Fallback to passing event if string fails
+        onChange(e);
+      }
+    }
+  };
+
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {label && <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">{label}</label>}
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         className="w-full px-3 py-2 rounded-lg border border-border-default bg-bg-secondary text-text-primary text-sm outline-none focus:border-accent transition-colors"
       >
-        {options.map((o) => (
+        {children || (options?.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
+        )) || null)}
       </select>
     </div>
   );
@@ -219,14 +241,17 @@ export function ColorPicker({ label, value, onChange }: { label: string; value: 
   );
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: { icon: LucideIcon; title: string; description: string; action?: ReactNode }) {
+export function EmptyState({ icon: Icon, title, description, desc, action }: { icon?: LucideIcon; title: string; description?: string; desc?: string; action?: ReactNode }) {
+  const descText = desc || description;
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-bg-elevated flex items-center justify-center mb-4">
-        <Icon size={28} className="text-text-muted" />
-      </div>
+      {Icon && (
+        <div className="w-16 h-16 rounded-2xl bg-bg-elevated flex items-center justify-center mb-4">
+          <Icon size={28} className="text-text-muted" />
+        </div>
+      )}
       <h3 className="text-lg font-semibold text-text-primary mb-1">{title}</h3>
-      <p className="text-sm text-text-muted max-w-md mb-4">{description}</p>
+      <p className="text-sm text-text-muted max-w-md mb-4">{descText}</p>
       {action}
     </div>
   );
