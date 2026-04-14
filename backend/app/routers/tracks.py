@@ -667,6 +667,57 @@ def _run_analysis(track_id: int):
                             _demucs_sep(track_id, _fp)
                             _stems_jobs[track_id] = {"status": "completed", "error": None}
                             logger.info(f"[STEM] Demucs auto-terminé pour track {track_id}")
+
+                            # ── Régénérer les cue points avec les données stems ──
+                            try:
+                                from app.services.stem_analysis import analyze_stems
+                                from app.services import cue_points as cue_svc
+                                from app.database import SessionLocal
+
+                                _db = SessionLocal()
+                                try:
+                                    _track = _db.query(Track).filter(Track.id == track_id).first()
+                                    _analysis = _db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+                                    if _track and _analysis:
+                                        # Analyser les stems pour extraire drum_enter, vocal_sections, etc.
+                                        stem_data = analyze_stems(
+                                            _fp,
+                                            beats=_analysis.beat_positions or [],
+                                            track_id=track_id,
+                                        )
+                                        # Construire analysis_data enrichi avec stems
+                                        _ad = {
+                                            "bpm": _analysis.bpm,
+                                            "key": _analysis.key,
+                                            "energy": _analysis.energy,
+                                            "duration_ms": _analysis.duration_ms,
+                                            "beat_positions": _analysis.beat_positions,
+                                            "sections": _analysis.sections,
+                                        }
+                                        _ad.update(stem_data)
+
+                                        # Supprimer les anciens cue points et régénérer
+                                        _db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session='fetch')
+                                        cue_points_data, _ = cue_svc.generate_cue_points_v2(_ad)
+                                        for cp in cue_points_data:
+                                            cue = CuePoint(
+                                                track_id=track_id,
+                                                position_ms=cp["position_ms"],
+                                                end_position_ms=cp.get("end_position_ms"),
+                                                cue_type=cp["cue_type"],
+                                                name=cp["name"],
+                                                color=cp.get("color", "red"),
+                                                number=cp.get("number"),
+                                                confidence=cp.get("confidence"),
+                                            )
+                                            _db.add(cue)
+                                        _db.commit()
+                                        logger.info(f"[STEM] Cue points régénérés avec stems pour track {track_id} ({len(cue_points_data)} cues)")
+                                finally:
+                                    _db.close()
+                            except Exception as _cue_err:
+                                logger.warning(f"[STEM] Cue regeneration after stems failed (non-critical): {_cue_err}")
+
                         except Exception as _e:
                             _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
                             logger.error(f"[STEM] Demucs auto-échoué pour track {track_id}: {_e}")

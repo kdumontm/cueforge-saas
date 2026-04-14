@@ -31,9 +31,11 @@ RUN pip install --no-cache-dir "demucs>=4.0.0" \
     && python -c "import demucs; print('demucs OK')" \
     || echo "WARNING: Demucs install failed — stem separation disabled"
 
-# Pré-télécharger le modèle mdx_extra_q (~80MB)
-RUN python -c "from demucs.pretrained import get_model; get_model('mdx_extra_q'); print('mdx_extra_q model cached')" \
-    || echo "WARNING: mdx_extra_q model download skipped"
+# Pré-télécharger les modèles Demucs (~80MB chacun)
+RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs'); print('htdemucs model cached')" \
+    || echo "WARNING: htdemucs model download skipped"
+RUN python -c "from demucs.pretrained import get_model; get_model('mdx_extra_q'); print('mdx_extra_q model cached (fallback)')" \
+    || echo "WARNING: mdx_extra_q download skipped"
 
 COPY app/ ./app/
 

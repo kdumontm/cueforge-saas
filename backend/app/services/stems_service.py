@@ -24,7 +24,7 @@ STEM_NAMES = ("drums", "bass", "vocals", "other")
 
 def check_demucs_available() -> dict:
     """Diagnostic endpoint."""
-    info = {"method": "demucs_mdx_extra_q", "torch": False, "demucs": False,
+    info = {"method": f"demucs_{os.environ.get('DEMUCS_MODEL', 'htdemucs')}", "torch": False, "demucs": False,
             "model": False, "ffmpeg": False, "errors": []}
     try:
         import torch
@@ -39,7 +39,7 @@ def check_demucs_available() -> dict:
         info["errors"].append(f"demucs: {e}")
     try:
         from demucs.pretrained import get_model
-        get_model("mdx_extra_q")
+        get_model(os.environ.get("DEMUCS_MODEL", "htdemucs"))
         info["model"] = True
     except Exception as e:
         info["errors"].append(f"model: {e}")
@@ -84,14 +84,20 @@ def separate_stems(track_id: int, file_path: str) -> dict:
     demucs_tmp = os.path.join(out_dir, "demucs_raw")
     os.makedirs(demucs_tmp, exist_ok=True)
 
-    # ── Run Demucs ────────────────────────────────────────────────────
+    # ── Run Demucs (optimisé : htdemucs + segments réduits) ─────────
+    demucs_model = os.environ.get("DEMUCS_MODEL", "htdemucs")
+    demucs_segment = os.environ.get("DEMUCS_SEGMENT", "15")
+    demucs_overlap = os.environ.get("DEMUCS_OVERLAP", "0.1")
     cmd = [
         "python", "-m", "demucs",
-        "-n", "mdx_extra_q",
+        "-n", demucs_model,
         "--out", demucs_tmp,
         "--mp3",
         "--mp3-bitrate", "192",
         "--jobs", "2",
+        "--segment", demucs_segment,
+        "--overlap", demucs_overlap,
+        "--shifts", "0",
         file_path,
     ]
     logger.info(f"[stems] CMD: {' '.join(cmd)}")
@@ -119,11 +125,17 @@ def separate_stems(track_id: int, file_path: str) -> dict:
     logger.info("[stems] Demucs finished OK")
 
     # ── Collect output files ──────────────────────────────────────────
-    found = glob.glob(os.path.join(demucs_tmp, "mdx_extra_q", "*", "*.mp3"))
+    # Chercher les stems dans le dossier du modèle utilisé (htdemucs ou mdx_extra_q)
+    found = glob.glob(os.path.join(demucs_tmp, demucs_model, "*", "*.mp3"))
+    if not found:
+        # Fallback: chercher dans tous les sous-dossiers
+        found = glob.glob(os.path.join(demucs_tmp, "*", "*", "*.mp3"))
 
     if not found:
         # Try WAV fallback
-        found_wav = glob.glob(os.path.join(demucs_tmp, "mdx_extra_q", "*", "*.wav"))
+        found_wav = glob.glob(os.path.join(demucs_tmp, demucs_model, "*", "*.wav"))
+        if not found_wav:
+            found_wav = glob.glob(os.path.join(demucs_tmp, "*", "*", "*.wav"))
         if found_wav:
             logger.info("[stems] Converting WAV → MP3...")
             for wav in found_wav:
