@@ -168,9 +168,9 @@ class OAuthCallbackRequest(BaseModel):
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     email_lower = user_data.email.strip().lower()
     if db.query(User).filter(func.lower(User.email) == email_lower).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="Cette adresse email est déjà utilisée")
     if db.query(User).filter(func.lower(User.name) == user_data.name.strip().lower()).first():
-        raise HTTPException(status_code=400, detail="Username already taken")
+        raise HTTPException(status_code=400, detail="Ce nom d'utilisateur est déjà pris")
 
     verify_token = generate_email_verify_token()
 
@@ -215,7 +215,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 async def verify_email(req: VerifyEmailRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email_verify_token == _hash_token(req.token)).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid verification token")
+        raise HTTPException(status_code=400, detail="Lien de vérification invalide")
     if user.email_verified:
         return {"message": "Email already verified"}
 
@@ -270,7 +270,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         )
     ).first()
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
 
     # Auto-verify email on first login if not yet verified (no email service in dev)
     if not user.email_verified:
@@ -301,19 +301,19 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     """Exchange a valid refresh token for a new access + refresh pair (rotation)."""
     payload = decode_refresh_token(req.refresh_token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        raise HTTPException(status_code=401, detail="Session expirée, veuillez vous reconnecter")
 
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="Utilisateur introuvable")
 
     # Compare le hash du token reçu avec le hash stocké en DB
     if user.refresh_token != _hash_token(req.refresh_token):
         # Possible vol de token — invalide tout
         user.refresh_token = None
         db.commit()
-        raise HTTPException(status_code=401, detail="Token reuse detected, please login again")
+        raise HTTPException(status_code=401, detail="Réutilisation de token détectée, veuillez vous reconnecter")
 
     # Rotate tokens
     new_access = create_access_token({"sub": str(user.id)})
@@ -362,13 +362,13 @@ async def update_me(
 ):
     if user_data.name:
         if db.query(User).filter(func.lower(User.name) == user_data.name.strip().lower(), User.id != user.id).first():
-            raise HTTPException(status_code=400, detail="Username already taken")
+            raise HTTPException(status_code=400, detail="Ce nom d'utilisateur est déjà pris")
         user.name = user_data.name
     if user_data.email:
         email_lower = user_data.email.strip().lower()
         existing = db.query(User).filter(func.lower(User.email) == email_lower, User.id != user.id).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Email already in use")
+            raise HTTPException(status_code=400, detail="Cette adresse email est déjà utilisée")
         user.email = user_data.email
         # Re-verify email on change
         user.email_verified = False
@@ -427,7 +427,7 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.reset_token == _hash_token(req.token)).first()
     if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+        raise HTTPException(status_code=400, detail="Lien de réinitialisation invalide ou expiré")
     user.password_hash = hash_password(req.new_password)
     user.reset_token = None
     user.reset_token_expires = None
@@ -470,10 +470,10 @@ async def setup_admin(req: AdminSetupRequest, db: Session = Depends(get_db)):
     _s = get_settings()
     key = _s.ADMIN_SETUP_KEY
     if not key or req.secret != key:
-        raise HTTPException(status_code=403, detail="Invalid setup key")
+        raise HTTPException(status_code=403, detail="Clé de configuration invalide")
     user = db.query(User).filter(func.lower(User.email) == req.email.strip().lower()).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
     user.is_admin = True
     db.commit()
     return {"message": f"{req.email} is now admin"}
@@ -539,7 +539,7 @@ async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db))
     client_id = _s.GOOGLE_CLIENT_ID
     client_secret = _s.GOOGLE_CLIENT_SECRET
     if not client_id or not client_secret:
-        raise HTTPException(status_code=501, detail="Google OAuth not configured")
+        raise HTTPException(status_code=501, detail="Connexion Google non configurée")
 
     try:
         provider_data = await exchange_google_token(
@@ -575,7 +575,7 @@ async def oauth_spotify(req: OAuthCallbackRequest, db: Session = Depends(get_db)
     client_id = _s.SPOTIFY_CLIENT_ID
     client_secret = _s.SPOTIFY_CLIENT_SECRET
     if not client_id or not client_secret:
-        raise HTTPException(status_code=501, detail="Spotify OAuth not configured")
+        raise HTTPException(status_code=501, detail="Connexion Spotify non configurée")
 
     try:
         provider_data = await exchange_spotify_token(

@@ -26,7 +26,8 @@ def test_register_duplicate_email(client):
         "email": "dupe@cueforge.com", "password": "Strong1!Pass", "name": "user2",
     })
     assert res.status_code == 400
-    assert "already" in res.json()["detail"].lower() or "registered" in res.json()["detail"].lower()
+    detail = res.json()["detail"].lower()
+    assert "déjà" in detail or "already" in detail
 
 
 def test_register_duplicate_username(client):
@@ -38,7 +39,8 @@ def test_register_duplicate_username(client):
         "email": "user2@cueforge.com", "password": "Strong1!Pass", "name": "dupename",
     })
     assert res.status_code == 400
-    assert "taken" in res.json()["detail"].lower()
+    detail = res.json()["detail"].lower()
+    assert "pris" in detail or "taken" in detail
 
 
 def test_register_weak_password_short(client):
@@ -117,7 +119,8 @@ def test_login_wrong_password(client):
         "identifier": "wronguser", "password": "WrongPass1!",
     })
     assert res.status_code == 401
-    assert "invalid" in res.json()["detail"].lower()
+    detail = res.json()["detail"].lower()
+    assert "incorrect" in detail or "invalid" in detail
 
 
 def test_login_nonexistent_user(client):
