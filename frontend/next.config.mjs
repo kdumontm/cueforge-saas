@@ -16,6 +16,8 @@ const nextConfig = {
   env: {
     // Chemin relatif : les appels API passent par le proxy Next.js (rewrites)
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api/v1',
+    // URL directe du backend pour les uploads (bypass proxy Next.js → plus de timeout)
+    NEXT_PUBLIC_BACKEND_DIRECT_URL: process.env.NEXT_PUBLIC_BACKEND_DIRECT_URL || BACKEND_INTERNAL_URL + '/api/v1',
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -78,11 +80,19 @@ const nextConfig = {
       },
     ];
   },
+  // Body size limit élevé pour les rewrites proxy (fallback si direct URL non configuré)
+  serverRuntimeConfig: {
+    bodySizeLimit: '250mb',
+  },
   experimental: {
     workerThreads: true,
     scrollRestoration: true,
     // Optimise le tree-shaking des packages les plus lourds
     optimizePackageImports: ['lucide-react', 'wavesurfer.js', 'swr', '@tanstack/react-query', '@tanstack/react-virtual'],
+    // Augmente le body size pour le proxy rewrite (uploads audio)
+    serverActions: {
+      bodySizeLimit: '250mb',
+    },
   },
   // Tree-shaking pour lucide-react
   modularizeImports: {

@@ -1,6 +1,11 @@
 // 🔴 FIX (faille 10) : Plus de fallback localhost — l'URL doit être définie dans Railway
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
+// URL directe du backend pour les uploads (bypass le proxy Next.js qui timeout/bufferise)
+// En prod, NEXT_PUBLIC_BACKEND_DIRECT_URL pointe vers le service Railway backend directement.
+// En dev, on utilise l'API_URL classique (proxy Next.js OK pour petits fichiers dev).
+const UPLOAD_API_URL = process.env.NEXT_PUBLIC_BACKEND_DIRECT_URL || API_URL;
+
 // ── Improvement #34: Retry logic with exponential backoff ────────────────────
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 300; // ms
@@ -630,7 +635,8 @@ export async function resetPassword(token: string, new_password: string): Promis
 export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await authFetch(`${API_URL}/tracks/upload`, {
+  // ⚡ Bypass proxy Next.js pour les uploads (évite timeout + double-hop)
+  const response = await authFetch(`${UPLOAD_API_URL}/tracks/upload`, {
     method: 'POST',
     headers: { ...authHeaders() },
     body: formData,
@@ -656,7 +662,8 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
   for (const file of files) {
     const singleForm = new FormData();
     singleForm.append('file', file);
-    const response = await authFetch(`${API_URL}/tracks/upload`, {
+    // ⚡ Bypass proxy Next.js pour les uploads
+    const response = await authFetch(`${UPLOAD_API_URL}/tracks/upload`, {
       method: 'POST',
       headers: { ...authHeaders() },
       body: singleForm,
@@ -698,7 +705,8 @@ export function uploadTracksWithProgress(
       singleForm.append('file', file);
 
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_URL}/tracks/upload`);
+      // ⚡ Bypass proxy Next.js pour les uploads
+      xhr.open('POST', `${UPLOAD_API_URL}/tracks/upload`);
       const token = getToken();
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
