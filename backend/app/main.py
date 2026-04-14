@@ -1594,3 +1594,21 @@ async def get_circuit_breaker_status():
 
 
 logger.info("✅ Security & performance enhancements loaded (OPT #51-60)")
+
+
+# ── Debug temporaire — vérifier les colonnes de track_analyses ────────────
+@app.get("/api/v1/debug/db-columns")
+def debug_db_columns(db: Session = Depends(get_db)):
+    """Liste les colonnes actuelles de track_analyses vs le modèle."""
+    try:
+        result = db.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'track_analyses' ORDER BY ordinal_position"
+        ))
+        db_cols = [row[0] for row in result]
+        from app.models.track import TrackAnalysis
+        model_cols = [c.name for c in TrackAnalysis.__table__.columns]
+        missing = set(model_cols) - set(db_cols)
+        return {"db_columns": db_cols, "model_columns": model_cols, "missing_in_db": list(missing)}
+    except Exception as e:
+        return {"error": str(e)}
