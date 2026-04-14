@@ -1,7 +1,8 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, FolderSearch, Music, Loader2, CheckCircle2, AlertCircle, FileAudio } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, importRekordbox, importSerato, importTraktor } from '@/lib/api';
+import { useDashboardContext } from '../DashboardContext';
 
 const DJ_SOFTWARE = [
   { name: "Rekordbox", icon: "🔴", desc: "Import XML", accept: ".xml", importFn: 'rekordbox' as const },
@@ -28,6 +29,12 @@ export default function UploadPage() {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const djInputRef = useRef<HTMLInputElement>(null);
   const [currentDjSoftware, setCurrentDjSoftware] = useState<string | null>(null);
+
+  // Register import handler so TopBar Import button works on this page too
+  const { registerImportHandler } = useDashboardContext();
+  useEffect(() => {
+    registerImportHandler(() => audioInputRef.current?.click());
+  }, [registerImportHandler]);
 
   const processFiles = useCallback(async (fileList: FileList | File[]) => {
     const audioFiles = Array.from(fileList).filter(f =>

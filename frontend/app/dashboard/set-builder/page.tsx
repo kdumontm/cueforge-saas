@@ -133,7 +133,9 @@ export default function SetBuilderPage() {
       setCurrentSet({ ...s, tracks: [] });
       setNewSetName('');
       setCreating(false);
-    } catch {}
+    } catch (err) {
+      console.error('Erreur création set:', err);
+    }
   }
 
   async function handleDeleteSet(id: number) {
@@ -251,7 +253,7 @@ export default function SetBuilderPage() {
                 placeholder="Nom du set..."
                 className="px-2 py-1 text-xs rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] text-[var(--text-primary)] outline-none w-36"
               />
-              <button onClick={handleCreateSet} className="text-blue-400 text-xs bg-transparent border-none cursor-pointer">OK</button>
+              <button type="button" onClick={handleCreateSet} className="px-2.5 py-1 text-blue-400 text-xs font-semibold bg-blue-500/10 border border-blue-500/30 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors">OK</button>
             </div>
           ) : (
             <button

@@ -279,7 +279,9 @@ function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: Sideba
       {/* User section */}
       <div className="px-1.5 py-2 border-t border-[var(--border-subtle)]">
         <div className={`flex items-center gap-2 ${collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5'}`}>
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">{initials}</div>
+          <Link href="/dashboard/profile" title="Mon profil" className="flex-shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center text-[11px] font-bold text-white hover:opacity-80 transition-opacity cursor-pointer">{initials}</div>
+          </Link>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <div className="text-xs font-semibold text-[var(--text-primary)] truncate">{username}</div>

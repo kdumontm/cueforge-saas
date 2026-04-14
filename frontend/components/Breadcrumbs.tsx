@@ -15,6 +15,17 @@ const breadcrumbMap: Record<string, string> = {
   analysis: 'Analyse',
   library: 'Bibliothèque',
   search: 'Recherche',
+  favorites: 'Favoris',
+  duplicates: 'Doublons',
+  compatible: 'Mix compatible',
+  upload: 'Import',
+  tools: 'Outils DJ',
+  'set-builder': 'Set Builder',
+  'gig-prep': 'Gig Prep',
+  compare: 'Comparer',
+  crates: 'Crates',
+  activity: 'Activité',
+  referrals: 'Parrainage',
 };
 
 export default function Breadcrumbs() {

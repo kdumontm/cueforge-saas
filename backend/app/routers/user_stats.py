@@ -14,7 +14,8 @@ from sqlalchemy import func
 from app.database import SessionLocal
 from app.middleware.auth import get_current_user
 from app.models.user import User
-from app.models.track import Track
+from app.models.track import Track, TrackAnalysis, TrackStatus
+from app.models.library import Playlist, DJSet
 
 router = APIRouter()
 
@@ -65,9 +66,9 @@ class KeyDistribution(BaseModel):
 
 class BPMRange(BaseModel):
     """BPM range statistics."""
-    min: Optional[float]
-    max: Optional[float]
-    avg: Optional[float]
+    min: Optional[float] = None
+    max: Optional[float] = None
+    avg: Optional[float] = None
 
 
 class StatsOverview(BaseModel):
@@ -111,64 +112,79 @@ def get_stats_overview(
     # Count total tracks
     total_tracks = db.query(func.count(Track.id)).filter(Track.user_id == user.id).scalar() or 0
 
-    # Count analyzed tracks
+    # Count analyzed tracks (status = completed)
     total_analyses = db.query(func.count(Track.id)).filter(
         Track.user_id == user.id,
-        Track.analyzed == True,
+        Track.status == TrackStatus.completed,
     ).scalar() or 0
 
-    # Count playlists (estimate: 0 for now, would need Playlist model)
-    total_playlists = 0
+    # Count playlists
+    total_playlists = db.query(func.count(Playlist.id)).filter(
+        Playlist.user_id == user.id,
+    ).scalar() or 0
 
-    # Count sets (estimate: 0 for now, would need Set model)
-    total_sets = 0
+    # Count sets
+    total_sets = db.query(func.count(DJSet.id)).filter(
+        DJSet.user_id == user.id,
+    ).scalar() or 0
 
     # Genre breakdown (top 5)
     genres_breakdown = []
     genre_query = db.query(Track.genre, func.count(Track.id).label("count")).filter(
         Track.user_id == user.id,
         Track.genre != None,
+        Track.genre != '',
     ).group_by(Track.genre).order_by(func.count(Track.id).desc()).limit(5).all()
 
     for genre, count in genre_query:
         if genre:
             genres_breakdown.append({"genre": genre, "count": count})
 
-    # BPM range
+    # BPM range (from TrackAnalysis joined to Track)
     bpm_stats = db.query(
-        func.min(Track.bpm).label("min_bpm"),
-        func.max(Track.bpm).label("max_bpm"),
-        func.avg(Track.bpm).label("avg_bpm"),
-    ).filter(Track.user_id == user.id, Track.bpm != None).first()
+        func.min(TrackAnalysis.bpm).label("min_bpm"),
+        func.max(TrackAnalysis.bpm).label("max_bpm"),
+        func.avg(TrackAnalysis.bpm).label("avg_bpm"),
+    ).join(Track, Track.id == TrackAnalysis.track_id).filter(
+        Track.user_id == user.id,
+        TrackAnalysis.bpm.isnot(None),
+    ).first()
 
     bpm_range = BPMRange(
-        min=bpm_stats.min_bpm if bpm_stats and bpm_stats.min_bpm else None,
-        max=bpm_stats.max_bpm if bpm_stats and bpm_stats.max_bpm else None,
-        avg=bpm_stats.avg_bpm if bpm_stats and bpm_stats.avg_bpm else None,
+        min=round(bpm_stats.min_bpm, 1) if bpm_stats and bpm_stats.min_bpm else None,
+        max=round(bpm_stats.max_bpm, 1) if bpm_stats and bpm_stats.max_bpm else None,
+        avg=round(bpm_stats.avg_bpm, 1) if bpm_stats and bpm_stats.avg_bpm else None,
     )
 
-    # Key distribution (top 5)
+    # Key distribution (from TrackAnalysis joined to Track, top 5)
     key_distribution = []
-    key_query = db.query(Track.key, func.count(Track.id).label("count")).filter(
+    key_query = db.query(
+        TrackAnalysis.key, func.count(TrackAnalysis.id).label("count"),
+    ).join(Track, Track.id == TrackAnalysis.track_id).filter(
         Track.user_id == user.id,
-        Track.key != None,
-    ).group_by(Track.key).order_by(func.count(Track.id).desc()).limit(5).all()
+        TrackAnalysis.key.isnot(None),
+    ).group_by(TrackAnalysis.key).order_by(func.count(TrackAnalysis.id).desc()).limit(5).all()
 
     for key, count in key_query:
         if key:
             key_distribution.append({"key": key, "count": count})
 
-    # Activity last 30 days (simplified: uploads by day)
+    # Activity last 30 days (uploads by day)
     activity_last_30_days = []
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    activity_query = db.query(
+        func.date(Track.created_at).label("day"),
+        func.count(Track.id).label("uploads"),
+    ).filter(
+        Track.user_id == user.id,
+        Track.created_at >= thirty_days_ago,
+    ).group_by(func.date(Track.created_at)).all()
+
+    activity_map = {str(row.day): row.uploads for row in activity_query}
     for i in range(30):
         date = (datetime.utcnow() - timedelta(days=i)).date()
-        date_str = date.isoformat()
-        # Count tracks uploaded on that day
-        uploads = db.query(func.count(Track.id)).filter(
-            Track.user_id == user.id,
-            func.date(Track.created_at) == date,
-        ).scalar() or 0
-        # Assume analyses = uploads for now
+        date_str = str(date)
+        uploads = activity_map.get(date_str, 0)
         activity_last_30_days.append({
             "date": date_str,
             "uploads": uploads,
@@ -176,7 +192,7 @@ def get_stats_overview(
         })
 
     # Member since
-    member_since = user.created_at.isoformat()
+    member_since = user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat()
 
     # Storage used (rough estimate: 5MB per track)
     storage_used_mb = float(total_tracks * 5)

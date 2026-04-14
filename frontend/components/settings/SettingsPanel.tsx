@@ -107,6 +107,13 @@ export default function SettingsPanel({
   const updateSetting = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
+    // Synchronise immédiatement le thème avec ThemeProvider
+    if (key === 'theme' && (value === 'dark' || value === 'light')) {
+      localStorage.setItem('trackcue-theme', value as string);
+      const root = document.documentElement;
+      root.classList.remove('dark', 'light');
+      root.classList.add(value as string);
+    }
   }, []);
 
   const saveSettings = useCallback(() => {

@@ -44,7 +44,7 @@ export default function PlaylistDetailPage() {
       await removeTrackFromPlaylist(playlist.id, trackId);
       setPlaylist(prev => prev ? {
         ...prev,
-        tracks: prev.tracks.filter(t => t.track_id !== trackId),
+        tracks: (prev.tracks || []).filter(t => t.track_id !== trackId),
         track_count: prev.track_count - 1,
       } : null);
     } catch {}
@@ -63,7 +63,7 @@ export default function PlaylistDetailPage() {
     if (!playlist) return;
     setReordering(true);
     try {
-      const trackIds = playlist.tracks.map(t => t.track_id);
+      const trackIds = (playlist.tracks || []).map(t => t.track_id);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/playlists/${playlist.id}/reorder`,
         {
@@ -159,7 +159,7 @@ export default function PlaylistDetailPage() {
       </div>
 
       {/* Track list */}
-      {playlist.tracks.length === 0 ? (
+      {(!playlist.tracks || playlist.tracks.length === 0) ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-[var(--bg-card)] rounded-2xl border border-dashed border-[var(--border-subtle)]">
           <Music2 size={32} className="text-[var(--text-muted)] mb-3 opacity-40" />
           <p className="text-[14px] font-medium text-[var(--text-secondary)]">Playlist vide</p>
@@ -176,7 +176,7 @@ export default function PlaylistDetailPage() {
             <span></span>
           </div>
           <DragDropList
-            items={playlist.tracks}
+            items={playlist.tracks || []}
             onReorder={handleReorder}
             renderItem={(entry, idx) => (
               <div className="group grid grid-cols-[28px_1fr_80px_40px] gap-3 items-center px-4 py-3 hover:bg-[var(--bg-hover)] border-b border-[var(--border-subtle)] last:border-b-0 transition-colors cursor-move">
@@ -206,7 +206,7 @@ export default function PlaylistDetailPage() {
             <span className="text-right">Durée</span>
             <span></span>
           </div>
-          {playlist.tracks.map((entry, idx) => (
+          {(playlist.tracks || []).map((entry, idx) => (
             <div
               key={entry.id}
               className="group grid grid-cols-[28px_1fr_80px_40px] gap-3 items-center px-4 py-3 hover:bg-[var(--bg-hover)] border-b border-[var(--border-subtle)] last:border-b-0 transition-colors"
