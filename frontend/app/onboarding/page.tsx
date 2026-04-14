@@ -56,7 +56,7 @@ export default function OnboardingPage() {
   const handleSkip = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('trackcue_token');
       await fetch('/api/v1/profile/preferences', {
         method: 'POST',
         headers: {
@@ -80,7 +80,7 @@ export default function OnboardingPage() {
   const completeOnboarding = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('trackcue_token');
       await fetch('/api/v1/profile/preferences', {
         method: 'POST',
         headers: {

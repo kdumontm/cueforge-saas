@@ -181,7 +181,7 @@ interface WaveSurferPlayerProps {
   mutedStems?: Set<string>;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 // ── RGB spectral analysis — derivative approach (Rekordbox-style stacked bands) ──
 function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: number; b: number; amp: number }[] {

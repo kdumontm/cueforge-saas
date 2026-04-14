@@ -25,7 +25,7 @@ import { getCompatibleKeys } from '@/lib/constants';
 // ── Main useDashboard Hook ────────────────────────────────────────────────
 
 export function useDashboard() {
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const API = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
   const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('trackcue_token') : null;
   const token = getToken();
 
@@ -307,7 +307,7 @@ export function useDashboard() {
         const user = await getCurrentUser();
         setCurrentUser(user);
         const token = localStorage.getItem('trackcue_token');
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
         const res = await fetch(apiBase + '/admin/plan-features', { headers: { 'Authorization': 'Bearer ' + token } });
         if (res.ok) {
           const data = await res.json();
@@ -329,7 +329,7 @@ export function useDashboard() {
     try {
       const token = localStorage.getItem('trackcue_token');
       if (!token) return;
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const res = await fetch(apiBase + '/admin/plan-features/' + planName + '/' + featureName, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ is_enabled: enabled })
@@ -343,7 +343,7 @@ export function useDashboard() {
   const resetPlanFeatures = useCallback(async () => {
     try {
       const token = localStorage.getItem('trackcue_token');
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const res = await fetch(apiBase + '/admin/plan-features/reset', {
         method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
       });
@@ -422,7 +422,7 @@ export function useDashboard() {
     if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
     setBulkUpdating(true);
     const token = localStorage.getItem('trackcue_token');
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
     let updated = 0;
     for (const id of selectedIds) {
       try {
@@ -1052,7 +1052,7 @@ export function useDashboard() {
     setWaveformReady(false);
     try { ws.zoom(1); } catch {}
 
-    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + (
+    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '') + (
       (process.env.NEXT_PUBLIC_API_URL || '').endsWith('/api/v1') ? '' : '/api/v1'
     );
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('trackcue_token') : '';

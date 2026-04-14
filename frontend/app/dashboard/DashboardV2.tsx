@@ -371,7 +371,8 @@ export default function DashboardV2() {
   // Load tracks + demo mode setting
   useEffect(() => {
     loadTracks();
-    getDemoMode().then(setDemoModeEnabled).catch(() => setDemoModeEnabled(false));
+    // TODO: réactiver quand l'endpoint /admin/public/demo-mode sera implémenté
+    // getDemoMode().then(setDemoModeEnabled).catch(() => setDemoModeEnabled(false));
   }, []);
 
   // Keyboard shortcuts
@@ -1110,7 +1111,7 @@ export default function DashboardV2() {
     addToast('Génération des cue points (algo pro v4)...', 'info');
     try {
       const token = (await import('@/lib/api')).getToken();
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const res = await fetch(`${API_URL}/cues/${selectedTrack.id}/generate`, {
         method: 'POST',
         headers: {
@@ -2059,7 +2060,7 @@ export default function DashboardV2() {
                   if (!selectedRawTrack) return;
                   try {
                     const token = (await import('@/lib/api')).getToken();
-                    const AURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+                    const AURL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                     await fetch(`${AURL}/tracks/${selectedRawTrack.id}/beatgrid`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },

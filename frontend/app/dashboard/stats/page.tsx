@@ -6,6 +6,8 @@ import { ArrowLeft, BarChart3, Music, Disc3, Zap, Calendar, HardDrive } from 'lu
 import FeatureGate from '@/components/FeatureGate';
 import { useLang } from '@/components/LangProvider';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+
 interface StatsOverview {
   total_tracks: number;
   total_analyses: number;
@@ -28,8 +30,8 @@ export default function StatsPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const response = await fetch('/api/v1/stats/overview', {
+        const token = localStorage.getItem('trackcue_token');
+        const response = await fetch(`${API_URL}/stats/overview`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) throw new Error('Failed to fetch stats');

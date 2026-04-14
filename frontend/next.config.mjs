@@ -5,7 +5,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 // URL interne du backend (utilisée par les rewrites côté serveur)
-const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://trackcue-saas-production.up.railway.app';
+const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://cueforge-saas-production.up.railway.app';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

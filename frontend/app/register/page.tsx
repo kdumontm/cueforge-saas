@@ -6,7 +6,7 @@ import { Music2, Eye, EyeOff, Loader2, Check, X } from 'lucide-react';
 import { register, login } from '@/lib/api';
 import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export default function RegisterPage() {
   const router = useRouter();

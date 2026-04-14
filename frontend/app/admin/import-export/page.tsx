@@ -88,7 +88,7 @@ export default function ImportExportPage() {
     setLoading(true);
     try {
       const url = new URL(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/admin/export`
+        `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/admin/export`
       );
       url.searchParams.set('data_type', exportType);
       url.searchParams.set('format', exportFormat);
