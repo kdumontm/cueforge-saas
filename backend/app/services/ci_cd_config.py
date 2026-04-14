@@ -1,5 +1,5 @@
 """
-CI/CD pipeline configuration for CueForge.
+CI/CD pipeline configuration for TrackCue.
 Handles GitHub Actions workflow generation, test parallelism, build caching,
 security scanning, performance budgets, and automated rollback.
 """
@@ -46,7 +46,7 @@ class PerformanceConfig:
 
 class CICDConfig:
     """
-    CI/CD pipeline configuration class for CueForge.
+    CI/CD pipeline configuration class for TrackCue.
     Generates GitHub Actions workflows, handles test parallelism, caching,
     security scanning, and performance budgets.
     """
@@ -137,7 +137,7 @@ class CICDConfig:
                     "image": "postgres:15",
                     "env": {
                         "POSTGRES_PASSWORD": "test",
-                        "POSTGRES_DB": "cueforge_test",
+                        "POSTGRES_DB": "trackcue_test",
                     },
                     "options": (
                         "--health-cmd pg_isready "
@@ -159,7 +159,7 @@ class CICDConfig:
                 },
             },
             "env": {
-                "DATABASE_URL": "postgresql://postgres:test@localhost:5432/cueforge_test",
+                "DATABASE_URL": "postgresql://postgres:test@localhost:5432/trackcue_test",
                 "REDIS_URL": "redis://localhost:6379/0",
                 "ENVIRONMENT": "test",
             },
@@ -268,20 +268,20 @@ class CICDConfig:
                         "context": ".",
                         "file": "./Dockerfile",
                         "push": "${{ github.ref == 'refs/heads/main' }}",
-                        "tags": "cueforge:${{ github.sha }},cueforge:latest",
+                        "tags": "trackcue:${{ github.sha }},trackcue:latest",
                         "cache-from": "type=gha",
                         "cache-to": "type=gha,mode=max",
                     },
                 },
                 {
                     "name": "Upload Docker image artifact",
-                    "run": "docker save cueforge:latest | gzip > cueforge-image.tar.gz",
+                    "run": "docker save trackcue:latest | gzip > trackcue-image.tar.gz",
                 },
                 {
                     "uses": "actions/upload-artifact@v3",
                     "with": {
                         "name": "docker-image",
-                        "path": "cueforge-image.tar.gz",
+                        "path": "trackcue-image.tar.gz",
                         "retention-days": self.build_config.artifact_retention_days,
                     },
                 },
@@ -379,7 +379,7 @@ class CICDConfig:
                     "name": "Run health checks",
                     "run": (
                         "sleep 30 && "
-                        "curl -f https://api.cueforge.app/health || exit 1"
+                        "curl -f https://api.trackcue.app/health || exit 1"
                     ),
                 },
                 {
@@ -578,7 +578,7 @@ cat CHANGELOG.md
                 "enabled": True,
                 "channels": ["slack", "email"],
                 "slack_webhook": "${{ secrets.SLACK_WEBHOOK }}",
-                "email": "devops@cueforge.app",
+                "email": "devops@trackcue.app",
             },
         }
 
@@ -597,7 +597,7 @@ set -e
 echo "Testing database migrations..."
 
 # Create test database
-export TEST_DATABASE_URL="postgresql://postgres:test@localhost:5432/cueforge_test_migrations"
+export TEST_DATABASE_URL="postgresql://postgres:test@localhost:5432/trackcue_test_migrations"
 
 # Run migrations
 python -m alembic upgrade head

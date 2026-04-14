@@ -407,7 +407,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               {!collapsed && (
                 <div className="overflow-hidden">
-                  <div className="text-sm font-bold text-text-primary truncate">CueForge</div>
+                  <div className="text-sm font-bold text-text-primary truncate">TrackCue</div>
                   <div className="text-[10px] text-text-muted font-mono">Admin Panel</div>
                 </div>
               )}

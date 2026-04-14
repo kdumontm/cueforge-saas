@@ -18,7 +18,7 @@ const testimonials: Testimonial[] = [
     name: 'DJ Marko',
     role: 'Résident Club',
     djType: 'Techno',
-    quote: 'CueForge a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures chaque semaine.',
+    quote: 'TrackCue a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures chaque semaine.',
     initials: 'DM',
     color: 'from-purple-600 to-pink-600',
   },
@@ -45,7 +45,7 @@ const testimonials: Testimonial[] = [
     name: 'Michel L.',
     role: 'DJ Radio',
     djType: 'House',
-    quote: 'J\'utilise CueForge pour ma show radioative de 3h tous les vendredis. Les statistiques me permettent de balancer le flow d\'énergie parfaitement.',
+    quote: 'J\'utilise TrackCue pour ma show radioative de 3h tous les vendredis. Les statistiques me permettent de balancer le flow d\'énergie parfaitement.',
     initials: 'ML',
     color: 'from-green-600 to-emerald-600',
   },
@@ -63,7 +63,7 @@ const testimonials: Testimonial[] = [
     name: 'Alex Stones',
     role: 'DJ Festival',
     djType: 'Trance',
-    quote: 'Avant CueForge, j\'étais bloqué dans Rekordbox pendant des heures. Maintenant, une playlist de 200 tracks est analysée et taggée en 10 minutes.',
+    quote: 'Avant TrackCue, j\'étais bloqué dans Rekordbox pendant des heures. Maintenant, une playlist de 200 tracks est analysée et taggée en 10 minutes.',
     initials: 'AS',
     color: 'from-indigo-600 to-purple-600',
   },
@@ -90,7 +90,7 @@ const testimonials: Testimonial[] = [
     name: 'Chris D.',
     role: 'DJ Producer & Live PA',
     djType: 'Experimental',
-    quote: 'Je vends des tracks en ligne et CueForge m\'aide à déterminer le BPM et la tonalité de mes productions avec précision scientifique.',
+    quote: 'Je vends des tracks en ligne et TrackCue m\'aide à déterminer le BPM et la tonalité de mes productions avec précision scientifique.',
     initials: 'CD',
     color: 'from-red-600 to-pink-600',
   },
@@ -108,7 +108,7 @@ const testimonials: Testimonial[] = [
     name: 'Roberto',
     role: 'DJ Mobile Multi-Genre',
     djType: 'Reggaeton',
-    quote: 'CueForge comprend tous les genres, même les trucs obscurs. L\'API de reconnaissance est vraiment impressionnante, c\'est du pro level.',
+    quote: 'TrackCue comprend tous les genres, même les trucs obscurs. L\'API de reconnaissance est vraiment impressionnante, c\'est du pro level.',
     initials: 'RB',
     color: 'from-lime-600 to-green-600',
   },
@@ -132,7 +132,7 @@ export default function TestimonialsPage() {
           <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
             <Disc3 size={18} className="text-white" />
           </div>
-          <span className="text-xl font-bold text-white">CueForge</span>
+          <span className="text-xl font-bold text-white">TrackCue</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/pricing" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
@@ -152,11 +152,11 @@ export default function TestimonialsPage() {
         <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
           Ce que les DJs disent de{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-purple to-accent-pink">
-            CueForge
+            TrackCue
           </span>
         </h1>
         <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-          Découvre comment des milliers de DJs du monde entier utilisent CueForge pour préparer leurs sets plus vite et mieux.
+          Découvre comment des milliers de DJs du monde entier utilisent TrackCue pour préparer leurs sets plus vite et mieux.
         </p>
       </section>
 
@@ -254,7 +254,7 @@ export default function TestimonialsPage() {
             Rejoins la communauté
           </h2>
           <p className="text-slate-400 mb-8">
-            Deviens l\'un des milliers de DJs qui utilisent CueForge pour préparer leurs sets plus vite et mieux.
+            Deviens l\'un des milliers de DJs qui utilisent TrackCue pour préparer leurs sets plus vite et mieux.
           </p>
           <Link
             href="/register"
@@ -274,7 +274,7 @@ export default function TestimonialsPage() {
                 <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
                   <Disc3 size={18} className="text-white" />
                 </div>
-                <span className="text-xl font-bold text-white">CueForge</span>
+                <span className="text-xl font-bold text-white">TrackCue</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
                 L&apos;outil d&apos;analyse audio et de préparation de sets pour DJs professionnels.
@@ -309,7 +309,7 @@ export default function TestimonialsPage() {
                   </Link>
                 </li>
                 <li>
-                  <a href="mailto:contact@cueforge.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
+                  <a href="mailto:contact@trackcue.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
                     Contact
                   </a>
                 </li>
@@ -319,17 +319,17 @@ export default function TestimonialsPage() {
               <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Communauté</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="https://twitter.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
+                  <a href="https://twitter.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
                     Twitter / X
                   </a>
                 </li>
                 <li>
-                  <a href="https://discord.gg/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
+                  <a href="https://discord.gg/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
                     Discord
                   </a>
                 </li>
                 <li>
-                  <a href="https://instagram.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
+                  <a href="https://instagram.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">
                     Instagram
                   </a>
                 </li>
@@ -337,7 +337,7 @@ export default function TestimonialsPage() {
             </div>
           </div>
           <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500">&copy; 2026 CueForge. Tous droits réservés.</p>
+            <p className="text-xs text-slate-500">&copy; 2026 TrackCue. Tous droits réservés.</p>
             <div className="flex items-center gap-4">
               <Link href="/cgu" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                 CGU
@@ -345,7 +345,7 @@ export default function TestimonialsPage() {
               <Link href="/pricing" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                 Tarifs
               </Link>
-              <a href="mailto:contact@cueforge.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              <a href="mailto:contact@trackcue.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                 Contact
               </a>
             </div>

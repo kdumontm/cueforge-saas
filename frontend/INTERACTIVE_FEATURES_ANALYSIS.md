@@ -899,6 +899,6 @@ From `/dashboard-buttons.test.tsx`:
 
 ## File Locations
 
-- **Component:** `/sessions/kind-pensive-lovelace/cueforge-saas/frontend/app/dashboard/DashboardClient.tsx`
-- **Existing Tests:** `/sessions/kind-pensive-lovelace/cueforge-saas/frontend/__tests__/dashboard-buttons.test.tsx`
-- **Test Strategy Skill:** Could use `cueforge-tests:write-tests` skill to scaffold new tests
+- **Component:** `/sessions/kind-pensive-lovelace/trackcue-saas/frontend/app/dashboard/DashboardClient.tsx`
+- **Existing Tests:** `/sessions/kind-pensive-lovelace/trackcue-saas/frontend/__tests__/dashboard-buttons.test.tsx`
+- **Test Strategy Skill:** Could use `trackcue-tests:write-tests` skill to scaffold new tests

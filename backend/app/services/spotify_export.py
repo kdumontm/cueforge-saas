@@ -1,5 +1,5 @@
 """
-CueForge — Spotify DJ Export Service
+TrackCue — Spotify DJ Export Service
 
 Exports to Spotify DJ format with playlist and cue point markers.
 Includes track positioning for DJ performances and mix annotations.
@@ -12,7 +12,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 
-def generate_spotify_dj_playlist(tracks: List[Dict], playlist_name: str = "CueForge Export") -> Dict:
+def generate_spotify_dj_playlist(tracks: List[Dict], playlist_name: str = "TrackCue Export") -> Dict:
     """
     Generate Spotify DJ-compatible playlist with markers.
 
@@ -37,7 +37,7 @@ def generate_spotify_dj_playlist(tracks: List[Dict], playlist_name: str = "CueFo
     for track_idx, track in enumerate(tracks):
         analysis = track.get("analysis", {}) or {}
 
-        spotify_uri = track.get("spotify_uri") or f"spotify:track:cueforge_{track_idx}"
+        spotify_uri = track.get("spotify_uri") or f"spotify:track:trackcue_{track_idx}"
 
         track_entry = {
             "position": track_idx,
@@ -80,7 +80,7 @@ def generate_spotify_dj_playlist(tracks: List[Dict], playlist_name: str = "CueFo
 def export_tracks_to_spotify_dj(
     tracks: List[Dict],
     output_path: Optional[str] = None,
-    playlist_name: str = "CueForge Export"
+    playlist_name: str = "TrackCue Export"
 ) -> Dict:
     """
     Export tracks to Spotify DJ format.

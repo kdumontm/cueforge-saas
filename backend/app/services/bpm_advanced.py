@@ -1,5 +1,5 @@
 """
-CueForge Advanced BPM & Tempo Intelligence (Section A: Points 1-50)
+TrackCue Advanced BPM & Tempo Intelligence (Section A: Points 1-50)
 Deep learning-based BPM detection with multi-scale spectral analysis,
 multi-band beat tracking, Bayesian tempo estimation, and micro-timing analysis.
 

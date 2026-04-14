@@ -1,5 +1,5 @@
 """
-CueForge Pro Cue Generator v4.0
+TrackCue Pro Cue Generator v4.0
 Next-generation DJ cue point placement — quality comparable to Rekordbox/Mixed In Key.
 
 Key improvements over v3.0:

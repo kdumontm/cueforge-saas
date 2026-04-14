@@ -114,7 +114,7 @@ export default function DownloadPage() {
           </div>
           <h1 className="text-5xl font-bold mb-6">
             <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 bg-clip-text text-transparent">
-              CueForge Desktop
+              TrackCue Desktop
             </span>
           </h1>
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
@@ -166,7 +166,7 @@ export default function DownloadPage() {
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">CueForge pour macOS</h2>
+                  <h2 className="text-2xl font-bold text-white mb-2">TrackCue pour macOS</h2>
                   <p className="text-zinc-400 mb-1">Version {info.latest_version}</p>
                   <p className="text-zinc-500 text-sm mb-8">
                     macOS {info.min_macos}+ requis {info.dmg_arm64_size && `· ${info.dmg_arm64_size}`}
@@ -223,12 +223,12 @@ export default function DownloadPage() {
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-purple-400 font-mono mt-0.5">2.</span>
-                        Glissez CueForge dans le dossier Applications
+                        Glissez TrackCue dans le dossier Applications
                       </li>
                       <li className="flex items-start gap-2">
                         <span className="text-purple-400 font-mono mt-0.5">3.</span>
                         <span>
-                          <strong className="text-zinc-300">Premier lancement :</strong> faites <strong className="text-zinc-300">clic-droit</strong> sur CueForge
+                          <strong className="text-zinc-300">Premier lancement :</strong> faites <strong className="text-zinc-300">clic-droit</strong> sur TrackCue
                           dans Applications → <strong className="text-zinc-300">&quot;Ouvrir&quot;</strong> → confirmez dans la fenêtre
                         </span>
                       </li>
@@ -244,7 +244,7 @@ export default function DownloadPage() {
                       </p>
                       <div className="relative">
                         <code className="block text-xs bg-zinc-950 rounded px-3 py-2 text-green-400 font-mono select-all">
-                          xattr -cr /Applications/CueForge.app && open /Applications/CueForge.app
+                          xattr -cr /Applications/TrackCue.app && open /Applications/TrackCue.app
                         </code>
                       </div>
                       <p className="text-zinc-600 text-xs mt-2">
@@ -263,7 +263,7 @@ export default function DownloadPage() {
                       <path d="M3 12V6.75l8-1.25V12H3zm0 .5h8v6.5l-8-1.25V12.5zM11.5 5.34L21 3.5V12h-9.5V5.34zm0 7.16H21v8.5l-9.5-1.84V12.5z"/>
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">CueForge pour Windows</h2>
+                  <h2 className="text-2xl font-bold text-white mb-2">TrackCue pour Windows</h2>
                   <p className="text-zinc-400 mb-1">Version {info.latest_version}</p>
                   <p className="text-zinc-500 text-sm mb-8">
                     Windows {info.min_windows}+ requis {info.exe_size && `· ${info.exe_size}`}

@@ -159,7 +159,7 @@ const mockUser = { id: 1, email: 'dj@test.com', name: 'DJ Test', subscription_pl
 // ── Setup / Teardown ─────────────────────────────────────────────────────────
 beforeEach(() => {
   jest.clearAllMocks();
-  localStorage.setItem('cueforge_token', 'test-token');
+  localStorage.setItem('trackcue_token', 'test-token');
 
   mockGetCurrentUser.mockResolvedValue(mockUser);
   mockListTracks.mockResolvedValue(mockTracksData);

@@ -30,7 +30,7 @@ interface Page {
   layout?: string;
 }
 
-const FOOTER_STORAGE_KEY = "cueforge_footer_pages";
+const FOOTER_STORAGE_KEY = "trackcue_footer_pages";
 
 export default function NavigationPage() {
   const { toast } = useToast();

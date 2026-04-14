@@ -187,7 +187,7 @@ async def subscribe(
         customer = stripe.Customer.create(
             email=user.email,
             name=user.name,
-            metadata={"cueforge_user_id": str(user.id)},
+            metadata={"trackcue_user_id": str(user.id)},
             idempotency_key=f"cust_create_{user.id}",
         )
         user.stripe_customer_id = customer.id
@@ -202,7 +202,7 @@ async def subscribe(
         success_url=f"{frontend_url}/billing?success=true",
         cancel_url=f"{frontend_url}/billing?canceled=true",
         metadata={
-            "cueforge_user_id": str(user.id),
+            "trackcue_user_id": str(user.id),
             "plan_id": req.plan_id,
         },
     )

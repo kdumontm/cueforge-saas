@@ -491,7 +491,7 @@ export function CuesTab({
     setLocalOrder(next);
     // Improvement #15: Persist to localStorage
     if (typeof window !== 'undefined') {
-      localStorage.setItem(`cueforge_cue_order_${track?.id}`, JSON.stringify(next));
+      localStorage.setItem(`trackcue_cue_order_${track?.id}`, JSON.stringify(next));
     }
     setDragIdx(null);
     setDragOverIdx(null);
@@ -827,7 +827,7 @@ export function CuesTab({
                 key={key}
                 onClick={() => {
                   // Save current cue setup as template
-                  localStorage.setItem(`cueforge_template_${key}`, JSON.stringify(cuePoints));
+                  localStorage.setItem(`trackcue_template_${key}`, JSON.stringify(cuePoints));
                   setShowTemplateMenu(false);
                 }}
                 className="block w-full text-left px-2 py-1.5 rounded hover:bg-[var(--bg-hover)] text-[10px] text-[var(--text-primary)]"

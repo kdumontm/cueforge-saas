@@ -95,7 +95,7 @@ def client():
 def auth_headers(client):
     """Register a user and return auth headers."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "test@cueforge.com",
+        "email": "test@trackcue.com",
         "password": "TestPass1!",
         "name": "testuser",
     })
@@ -109,7 +109,7 @@ def auth_headers(client):
 def registered_user(client):
     """Register a user and return the response."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "user@cueforge.com",
+        "email": "user@trackcue.com",
         "password": "UserPass1!",
         "name": "regularuser",
     })

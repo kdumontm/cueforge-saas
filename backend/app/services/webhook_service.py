@@ -4,8 +4,8 @@ Service pour déclencher les webhooks.
 Fonction trigger_webhooks(user_id, event_type, payload):
 - Cherche tous les webhooks actifs de l'utilisateur pour cet event
 - Envoie un POST HTTP avec le payload JSON
-- Header X-CueForge-Signature : HMAC-SHA256 du body avec le secret
-- Header X-CueForge-Event : le type d'événement
+- Header X-TrackCue-Signature : HMAC-SHA256 du body avec le secret
+- Header X-TrackCue-Event : le type d'événement
 - Timeout 10s, retry with exponential backoff (3 attempts, delays 1s/5s/30s)
 - Incrémente failure_count si erreur, désactive après 10 échecs
 """
@@ -84,8 +84,8 @@ async def _send_webhook(
     ).hexdigest()
 
     headers = {
-        "X-CueForge-Signature": signature,
-        "X-CueForge-Event": event_type,
+        "X-TrackCue-Signature": signature,
+        "X-TrackCue-Event": event_type,
         "Content-Type": "application/json",
     }
 

@@ -333,7 +333,7 @@ export default function PagesListPage() {
                 label="Titre (page)"
                 value={newTitle}
                 onChange={setNewTitle}
-                placeholder="ex: À propos de CueForge"
+                placeholder="ex: À propos de TrackCue"
               />
 
               <Input

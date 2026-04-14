@@ -16,7 +16,7 @@ export default function DesktopConfigAdmin() {
     minimize_to_tray: true,
     start_on_boot: false,
     deep_links: true,
-    file_associations: [".cue", ".cueforge"],
+    file_associations: [".cue", ".trackcue"],
     crash_reporting: true,
     analytics: true,
     local_storage_limit_mb: 500,
@@ -71,13 +71,13 @@ export default function DesktopConfigAdmin() {
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-1">
           <h2 className="text-lg font-semibold text-white mb-2">Général</h2>
           <Toggle label="Application desktop activée" field="enabled" />
-          <Toggle label="Deep links" field="deep_links" desc="Ouvrir les liens cueforge:// dans l'app" />
+          <Toggle label="Deep links" field="deep_links" desc="Ouvrir les liens trackcue:// dans l'app" />
           <div className="py-2">
             <label className="block text-sm text-gray-400 mb-1">Associations de fichiers</label>
             <input className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
               value={(config.file_associations || []).join(", ")}
               onChange={e => setConfig({ ...config, file_associations: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) })}
-              placeholder=".cue, .cueforge" />
+              placeholder=".cue, .trackcue" />
           </div>
         </div>
 

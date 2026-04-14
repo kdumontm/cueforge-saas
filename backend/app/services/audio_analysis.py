@@ -1,5 +1,5 @@
 """
-CueForge Pro Audio Analysis — v4.0
+TrackCue Pro Audio Analysis — v4.0
 State-of-the-art DJ-oriented audio analysis based on:
 - MIREX/ISMIR music structure segmentation research
 - Rekordbox/Mixed In Key/Serato analysis approaches

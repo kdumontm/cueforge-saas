@@ -1,4 +1,4 @@
-// ─── CueForge Audio Analyzer v3.0 — Full Desktop Power ──────────────────────
+// ─── TrackCue Audio Analyzer v3.0 — Full Desktop Power ──────────────────────
 // Analyse audio 100% locale (Web Audio API + algorithmes JS)
 // Tourne dans le navigateur/Electron — utilise le CPU de l'utilisateur
 //

@@ -1,4 +1,4 @@
-# CueForge ML & Recommendation Services Integration Guide
+# TrackCue ML & Recommendation Services Integration Guide
 
 ## Overview
 

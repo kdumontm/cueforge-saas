@@ -58,7 +58,7 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
     )
 
     # Header
-    story.append(Paragraph("CueForge", title_style))
+    story.append(Paragraph("TrackCue", title_style))
     story.append(Paragraph(f"Rapport d'analyse — {datetime.now().strftime('%d/%m/%Y')}", styles['Normal']))
     story.append(Spacer(1, 0.3 * inch))
 
@@ -131,7 +131,7 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 20)
     pdf.set_text_color(168, 85, 247)  # Purple
-    pdf.cell(0, 10, "CueForge", ln=True)
+    pdf.cell(0, 10, "TrackCue", ln=True)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 5, f"Rapport d'analyse — {datetime.now().strftime('%d/%m/%Y')}", ln=True)

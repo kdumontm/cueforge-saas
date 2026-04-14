@@ -176,8 +176,8 @@ export function cancelRequest(key: string): void {
 
 // ── Token management avec cache en variable module ────────────────────────────
 
-const TOKEN_KEY = 'cueforge_token';
-const REFRESH_KEY = 'cueforge_refresh';
+const TOKEN_KEY = 'trackcue_token';
+const REFRESH_KEY = 'trackcue_refresh';
 
 // Cache tokens en variables module pour éviter les appels localStorage répétés
 let _cachedAccessToken: string | null = null;
@@ -229,7 +229,7 @@ let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
 // Multi-tab refresh coordination using sessionStorage lock pattern
-const REFRESH_LOCK_KEY = 'cueforge_refresh_lock';
+const REFRESH_LOCK_KEY = 'trackcue_refresh_lock';
 const REFRESH_LOCK_TIMEOUT = 15000; // 15s max lock duration
 
 function acquireRefreshLock(): boolean {
@@ -750,7 +750,7 @@ export async function analyzeTrack(
     try {
       const { analyzeAudioLocal } = await import('@/lib/audioAnalyzer');
       const onProgress = options?.onProgress ?? (() => {});
-      const bridge = (window as any).cueforge;
+      const bridge = (window as any).trackcue;
       let buffer: ArrayBuffer | null = null;
       let localFilePath: string | null = options?.localFile?.path ?? null;
 
@@ -792,7 +792,7 @@ export async function analyzeTrack(
             const demucsCheck = await bridge.stems.checkAvailable();
             if (demucsCheck.available && localFilePath) {
               onProgress(58);
-              console.log('[CueForge] Demucs détecté — lancement séparation de stems...');
+              console.log('[TrackCue] Demucs détecté — lancement séparation de stems...');
 
               // Écouter la progression Demucs
               bridge.stems.onProgress((pct: number) => {
@@ -835,14 +835,14 @@ export async function analyzeTrack(
                   result.bass_energy_curve = stemAnalysis.bass_energy_curve;
                   result.vocal_energy_curve = stemAnalysis.vocal_energy_curve;
                   stemEnhanced = true;
-                  console.log('[CueForge] Analyse stem-enhanced terminée !');
+                  console.log('[TrackCue] Analyse stem-enhanced terminée !');
                 }
               }
             } else if (demucsCheck.available && !localFilePath) {
-              console.log('[CueForge] Demucs dispo mais pas de fichier local — skip stems');
+              console.log('[TrackCue] Demucs dispo mais pas de fichier local — skip stems');
             }
           } catch (stemErr) {
-            console.warn('[CueForge] Stems Demucs échoué (analyse de base utilisée):', stemErr);
+            console.warn('[TrackCue] Stems Demucs échoué (analyse de base utilisée):', stemErr);
           }
         }
 
@@ -860,7 +860,7 @@ export async function analyzeTrack(
         }
       }
     } catch (e) {
-      console.warn('[CueForge] Analyse locale échouée, fallback cloud:', e);
+      console.warn('[TrackCue] Analyse locale échouée, fallback cloud:', e);
     }
   }
 

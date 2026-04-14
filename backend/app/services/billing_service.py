@@ -114,7 +114,7 @@ def get_plan(plan_id: str) -> dict:
 
 def handle_checkout_completed(data: dict, db: Session) -> None:
     """User completed checkout — activate their plan."""
-    user_id = data.get("metadata", {}).get("cueforge_user_id")
+    user_id = data.get("metadata", {}).get("trackcue_user_id")
     plan_id = data.get("metadata", {}).get("plan_id", "pro")
 
     if not user_id:

@@ -4,7 +4,7 @@ Caches expensive intermediate features (STFT, onset_strength, mel-spectrogram, b
 so re-analyses don't recompute them.
 
 Cache structure:
-  /tmp/cueforge_feature_cache/
+  /tmp/trackcue_feature_cache/
     {file_hash}/
       stft.npy
       onset_strength.npy
@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(os.environ.get('FEATURE_CACHE_DIR', '/tmp/cueforge_feature_cache'))
+CACHE_DIR = Path(os.environ.get('FEATURE_CACHE_DIR', '/tmp/trackcue_feature_cache'))
 CACHE_TTL_DAYS = 30
 MAX_CACHE_SIZE_GB = 5.0
 

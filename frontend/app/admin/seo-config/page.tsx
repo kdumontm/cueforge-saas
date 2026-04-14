@@ -4,7 +4,7 @@ import { adminApi } from "../_components/api";
 
 export default function SEOConfigAdmin() {
   const [config, setConfig] = useState<any>({
-    site_title: "CueForge",
+    site_title: "TrackCue",
     site_description: "",
     site_keywords: "",
     og_image: "",
@@ -75,7 +75,7 @@ export default function SEOConfigAdmin() {
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL canonique</label>
             <input className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              value={config.canonical_url} onChange={e => setConfig({ ...config, canonical_url: e.target.value })} placeholder="https://cueforge.app" />
+              value={config.canonical_url} onChange={e => setConfig({ ...config, canonical_url: e.target.value })} placeholder="https://trackcue.app" />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">Langue par défaut</label>
@@ -116,7 +116,7 @@ export default function SEOConfigAdmin() {
           <div>
             <label className="block text-sm text-gray-400 mb-1">Twitter handle</label>
             <input className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              value={config.twitter_handle} onChange={e => setConfig({ ...config, twitter_handle: e.target.value })} placeholder="@cueforge" />
+              value={config.twitter_handle} onChange={e => setConfig({ ...config, twitter_handle: e.target.value })} placeholder="@trackcue" />
           </div>
         </div>
 

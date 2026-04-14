@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cueforge-backend
+    container_name: trackcue-backend
     ports:
       - "8000:8000"
     volumes:
@@ -19,8 +19,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
     networks:
-      - cueforge-network
+      - trackcue-network
 
 networks:
-  cueforge-network:
+  trackcue-network:
     driver: bridge

@@ -1,5 +1,5 @@
 """
-CMS Models — Back-office visuel pour CueForge.
+CMS Models — Back-office visuel pour TrackCue.
 
 Architecture :
   SiteSettings  → config globale du site (thème, couleurs, logo, meta)
@@ -38,7 +38,7 @@ class SiteSettings(Base):
     id = Column(Integer, primary_key=True, default=1)
 
     # Branding
-    site_name = Column(String, default="CueForge", nullable=False)
+    site_name = Column(String, default="TrackCue", nullable=False)
     tagline = Column(String, default="AI-Powered Cue Points for DJs", nullable=True)
     logo_url = Column(String, nullable=True)
     favicon_url = Column(String, nullable=True)
@@ -52,7 +52,7 @@ class SiteSettings(Base):
     font_family = Column(String, default="Inter", nullable=False)
 
     # SEO global
-    meta_title = Column(String, default="CueForge — Smart Cue Points for DJs", nullable=True)
+    meta_title = Column(String, default="TrackCue — Smart Cue Points for DJs", nullable=True)
     meta_description = Column(Text, nullable=True)
     og_image_url = Column(String, nullable=True)
 

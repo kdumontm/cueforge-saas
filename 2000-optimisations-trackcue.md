@@ -1,6 +1,6 @@
-# CueForge — 2000 Optimisations : Analyse, Rapidité, Backend, Frontend & UX
+# TrackCue — 2000 Optimisations : Analyse, Rapidité, Backend, Frontend & UX
 
-Audit ultra-détaillé couvrant l'ensemble du pipeline CueForge.
+Audit ultra-détaillé couvrant l'ensemble du pipeline TrackCue.
 Document complémentaire aux 1000 optimisations déjà implémentées.
 
 | Section | Domaine | Points | Nb |
@@ -644,7 +644,7 @@ Audit ultra-détaillé ciblant les optimisations avancées d'analyse audio avec 
 
 ## Résumé
 
-Ce document couvre **300 points NOUVEAUX** d'optimisations Deep Learning et de précision audio pour CueForge:
+Ce document couvre **300 points NOUVEAUX** d'optimisations Deep Learning et de précision audio pour TrackCue:
 
 - **BPM & Tempo Intelligence (1-50)** : Transformers, spectral flux adaptatif, multi-band tracking, estimation Bayésienne, live tempo lock, tempo maps, click tracks, tap tempo, MIDI clock sync, etc.
 
@@ -658,7 +658,7 @@ Ce document couvre **300 points NOUVEAUX** d'optimisations Deep Learning et de p
 
 - **Audio Forensics & Quality (271-300)** : Détection codec lossy, loudness war, master vs pre-master, fake stereo, AI-generated audio, chaîne d'encodage, restoration suggestions, clipping, bruit, clicks, aliasing, etc.
 
-Chaque point est réaliste et exploitable pour CueForge.
+Chaque point est réaliste et exploitable pour TrackCue.
 
 
 ---
@@ -1322,7 +1322,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 615. **Cursor-Based Pagination** — Remplacer offset/limit par cursor-based pagination (base64 encoded row identifiers) pour éviter les perf issues sur les grands datasets.
 
-616. **API Versioning Strategy** — Implémenter le versioning via header (Accept: application/vnd.cueforge.v2+json) pour éviter les breaking changes.
+616. **API Versioning Strategy** — Implémenter le versioning via header (Accept: application/vnd.trackcue.v2+json) pour éviter les breaking changes.
 
 617. **Request Coalescing** — Implémenter un middleware qui fusionne les requêtes identiques envoyées simultanément et retourne une seule réponse cachée.
 
@@ -1344,7 +1344,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 626. **CORS Whitelist Optimisé** — Utiliser une whitelist CORS stricte avec validation de Host header pour prévenir les abuses cross-origin.
 
-627. **Custom Media Types** — Créer des custom media types (application/vnd.cueforge.analysis+json) pour versioning content et client negotiation.
+627. **Custom Media Types** — Créer des custom media types (application/vnd.trackcue.analysis+json) pour versioning content et client negotiation.
 
 628. **Link Headers pour Pagination** — Ajouter les headers Link (RFC 5988) pour indiquer next/prev/first/last dans les réponses paginées.
 
@@ -2557,7 +2557,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 **1206. Keep-alive connection pooling** — Utiliser HTTP Keep-Alive pour réduire la connection overhead.
 
-**1207. Domain sharding** — Utiliser le domain sharding (api1.cueforge.com, api2.cueforge.com) pour bypass les connection limits.
+**1207. Domain sharding** — Utiliser le domain sharding (api1.trackcue.com, api2.trackcue.com) pour bypass les connection limits.
 
 **1208. CORS preflight optimization** — Mettre en cache les CORS preflight responses (avec caching headers).
 
@@ -3869,7 +3869,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 1829. **Mobile app links** — Android App Links (`assetlinks.json`) + Universal Links (iOS) direct to native app if installed, fallback web.
 
-1830. **App Store optimization** — Screenshot CueForge on App Store: waveform analysis, key detection, feature highlights.
+1830. **App Store optimization** — Screenshot TrackCue on App Store: waveform analysis, key detection, feature highlights.
 
 ---
 
@@ -3887,7 +3887,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 1836. **Recent files list** — Track recently analyzed files in app menu, reopen dari menu without re-select.
 
-1837. **Open with CueForge** — Register `.mp3` file type avec Windows/macOS, right-click Open with CueForge.
+1837. **Open with TrackCue** — Register `.mp3` file type avec Windows/macOS, right-click Open with TrackCue.
 
 1838. **Native menu integration** — Custom menu bar: File (Open, Recent, Exit), Edit (Copy, Paste), Help (Docs, About).
 
@@ -4181,7 +4181,7 @@ Chaque point est réaliste et exploitable pour CueForge.
 
 1977. **Rate limit documentation** — Document rate limits: 1000req/min/user, 429 response headers (X-RateLimit-Remaining).
 
-1978. **SDK generation** — Generate TypeScript client SDK from OpenAPI: `npm install @cueforge/api`, auto-typed API calls.
+1978. **SDK generation** — Generate TypeScript client SDK from OpenAPI: `npm install @trackcue/api`, auto-typed API calls.
 
 1979. **SDK versioning** — Version SDK with API: v1.0.0 = API v1, client follows SemVer, changelog per release.
 

@@ -124,7 +124,7 @@ export default function SettingsPage() {
         id="settings"
         icon={Info}
         title="Réglages du site"
-        description="Personnalisez l'apparence et les métadonnées de votre site CueForge. Les modifications sont sauvegardées onglet par onglet."
+        description="Personnalisez l'apparence et les métadonnées de votre site TrackCue. Les modifications sont sauvegardées onglet par onglet."
         steps={[
           { text: "Branding : nom du site, tagline, logo et favicon" },
           { text: "Couleurs : personnalisez la palette de couleurs de l'interface" },
@@ -135,7 +135,7 @@ export default function SettingsPage() {
       />
       <SectionHeader
         title="Réglages du site"
-        description="Configurez l'apparence, les couleurs, le SEO et les réseaux sociaux de votre site CueForge."
+        description="Configurez l'apparence, les couleurs, le SEO et les réseaux sociaux de votre site TrackCue."
       />
 
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
@@ -148,7 +148,7 @@ export default function SettingsPage() {
               label="Nom du site"
               value={settings.site_name || ""}
               onChange={(v) => handleSettingChange("site_name", v)}
-              placeholder="CueForge"
+              placeholder="TrackCue"
             />
             <Input
               label="Tagline"
@@ -247,7 +247,7 @@ export default function SettingsPage() {
               label="Titre Meta"
               value={settings.meta_title || ""}
               onChange={(v) => handleSettingChange("meta_title", v)}
-              placeholder="CueForge — Audio Analysis for DJs"
+              placeholder="TrackCue — Audio Analysis for DJs"
             />
             <Input
               label="Description Meta"
@@ -297,31 +297,31 @@ export default function SettingsPage() {
               label="URL Twitter"
               value={settings.twitter_url || ""}
               onChange={(v) => handleSettingChange("twitter_url", v)}
-              placeholder="https://twitter.com/cueforge"
+              placeholder="https://twitter.com/trackcue"
             />
             <Input
               label="URL Instagram"
               value={settings.instagram_url || ""}
               onChange={(v) => handleSettingChange("instagram_url", v)}
-              placeholder="https://instagram.com/cueforge"
+              placeholder="https://instagram.com/trackcue"
             />
             <Input
               label="URL Discord"
               value={settings.discord_url || ""}
               onChange={(v) => handleSettingChange("discord_url", v)}
-              placeholder="https://discord.gg/cueforge"
+              placeholder="https://discord.gg/trackcue"
             />
             <Input
               label="URL YouTube"
               value={settings.youtube_url || ""}
               onChange={(v) => handleSettingChange("youtube_url", v)}
-              placeholder="https://youtube.com/@cueforge"
+              placeholder="https://youtube.com/@trackcue"
             />
             <Input
               label="Texte du pied de page"
               value={settings.footer_text || ""}
               onChange={(v) => handleSettingChange("footer_text", v)}
-              placeholder="© 2026 CueForge. Tous droits réservés."
+              placeholder="© 2026 TrackCue. Tous droits réservés."
               multiline
               rows={3}
             />

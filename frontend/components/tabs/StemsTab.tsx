@@ -87,7 +87,7 @@ async function downloadStem(url: string, filename: string) {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
   } catch (e) {
-    console.error('[CueForge] Download stem failed:', e);
+    console.error('[TrackCue] Download stem failed:', e);
   }
 }
 

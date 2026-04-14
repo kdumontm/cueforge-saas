@@ -1838,8 +1838,8 @@ async def batch_analyze(
     _batch_jobs[batch_id] = asdict(job)
 
     # Emit event
-    from app.main import _event_emitter, EventType, CueForgeEvent
-    _event_emitter.emit(CueForgeEvent(
+    from app.main import _event_emitter, EventType, TrackCueEvent
+    _event_emitter.emit(TrackCueEvent(
         event_type=EventType.analysis_complete,
         data={"batch_id": batch_id, "track_count": len(track_ids)},
     ))

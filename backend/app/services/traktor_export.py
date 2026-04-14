@@ -1,5 +1,5 @@
 """
-CueForge — Traktor NML export service.
+TrackCue — Traktor NML export service.
 
 Generates Traktor DJ Pro compatible .nml (XML) collection files.
 NML format is based on the Native Instruments collection XML schema.
@@ -244,7 +244,7 @@ def _export_elastique_timestretch_settings(track: dict) -> dict:
 
 def generate_traktor_nml(
     tracks: List[dict],
-    collection_name: str = "CueForge Export",
+    collection_name: str = "TrackCue Export",
     version: str = "35",
     include_remix: bool = False,
     include_favorites: bool = False,

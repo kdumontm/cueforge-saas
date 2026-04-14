@@ -155,7 +155,7 @@ def run_diagnostics(
     _:   None    = Depends(_require_key),
 ):
     """
-    Diagnostic complet du système CueForge.
+    Diagnostic complet du système TrackCue.
     Nécessite l'en-tête : X-Diagnostics-Key: <DIAGNOSTICS_KEY>
     """
     t0 = time.perf_counter()

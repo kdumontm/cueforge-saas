@@ -255,7 +255,7 @@ export default function UploadPage() {
           <Music size={16} className="text-[var(--text-secondary)]" />
           <span className="text-sm font-bold text-[var(--text-primary)]">Scanner un dossier</span>
         </div>
-        <p className="text-[13px] text-[var(--text-muted)] mb-3">Pointe vers un dossier contenant tes fichiers audio. CueForge analysera automatiquement tous les tracks trouvés.</p>
+        <p className="text-[13px] text-[var(--text-muted)] mb-3">Pointe vers un dossier contenant tes fichiers audio. TrackCue analysera automatiquement tous les tracks trouvés.</p>
         <button
           onClick={() => folderInputRef.current?.click()}
           className="px-4 py-2 rounded-lg border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-sm cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"

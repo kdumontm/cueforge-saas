@@ -1,5 +1,5 @@
 """
-SEO endpoints for CueForge.
+SEO endpoints for TrackCue.
 """
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, Response
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1/seo", tags=["seo"])
 
 @router.get("/og-image")
 async def get_og_image(
-    title: str = "CueForge",
+    title: str = "TrackCue",
     description: str = "Analyse audio pour DJs",
 ):
     """
@@ -44,7 +44,7 @@ async def get_og_image(
   <text x="150" y="110" font-family="Arial, sans-serif" font-size="28" fill="#a0aec0">{description}</text>
 
   <!-- Footer -->
-  <text x="600" y="600" font-family="Arial, sans-serif" font-size="18" fill="#64748b" text-anchor="middle">cueforge.app</text>
+  <text x="600" y="600" font-family="Arial, sans-serif" font-size="18" fill="#64748b" text-anchor="middle">trackcue.app</text>
 </svg>'''
 
     return FileResponse(
@@ -62,17 +62,17 @@ async def get_sitemap(db: Session = Depends(get_db)):
     """
     # Static pages
     static_urls = [
-        {"loc": "https://cueforge.app/", "lastmod": datetime.utcnow().isoformat(), "priority": "1.0"},
-        {"loc": "https://cueforge.app/features", "lastmod": datetime.utcnow().isoformat(), "priority": "0.9"},
-        {"loc": "https://cueforge.app/blog", "lastmod": datetime.utcnow().isoformat(), "priority": "0.8"},
-        {"loc": "https://cueforge.app/pricing", "lastmod": datetime.utcnow().isoformat(), "priority": "0.8"},
+        {"loc": "https://trackcue.app/", "lastmod": datetime.utcnow().isoformat(), "priority": "1.0"},
+        {"loc": "https://trackcue.app/features", "lastmod": datetime.utcnow().isoformat(), "priority": "0.9"},
+        {"loc": "https://trackcue.app/blog", "lastmod": datetime.utcnow().isoformat(), "priority": "0.8"},
+        {"loc": "https://trackcue.app/pricing", "lastmod": datetime.utcnow().isoformat(), "priority": "0.8"},
     ]
 
     # Fetch all published blog posts from database
     posts = db.query(BlogPost).filter(BlogPost.published == True).all()
     blog_urls = [
         {
-            "loc": f"https://cueforge.app/blog/{post.slug}",
+            "loc": f"https://trackcue.app/blog/{post.slug}",
             "lastmod": (post.published_at or post.created_at).isoformat() if hasattr(post, 'published_at') else datetime.utcnow().isoformat(),
             "priority": "0.7"
         }

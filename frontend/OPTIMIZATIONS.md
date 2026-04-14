@@ -1,6 +1,6 @@
-# CueForge Frontend Optimizations (Points 551-700)
+# TrackCue Frontend Optimizations (Points 551-700)
 
-This document describes the performance optimizations implemented for CueForge frontend.
+This document describes the performance optimizations implemented for TrackCue frontend.
 
 ## 551-560: WaveSurfer & Spectral Waveform
 

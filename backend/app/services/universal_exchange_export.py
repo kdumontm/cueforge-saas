@@ -1,5 +1,5 @@
 """
-CueForge — Universal Exchange Format Export Service
+TrackCue — Universal Exchange Format Export Service
 
 Generates a comprehensive, format-agnostic JSON structure for maximum
 interoperability between DJ software platforms.
@@ -9,7 +9,7 @@ The Universal Exchange Format (UEF) provides:
 - All cue point types (hot cues, loops, memory cues, etc.)
 - Analysis data (BPM, key, energy, etc.)
 - Format-specific hints for import into various DJ software
-- Preservation of all CueForge enhancements
+- Preservation of all TrackCue enhancements
 """
 
 import json
@@ -34,9 +34,9 @@ def generate_universal_exchange_format(
         Universal exchange format structure
     """
     uef = {
-        "format": "cueforge_universal_exchange",
+        "format": "trackcue_universal_exchange",
         "version": "1.0",
-        "specification": "https://cueforge.dev/uef/1.0",
+        "specification": "https://trackcue.dev/uef/1.0",
         "created_at": datetime.now().isoformat(),
         "metadata": {
             "track_count": len(tracks),
@@ -187,7 +187,7 @@ def export_tracks_to_universal_format(
     uef_data = generate_universal_exchange_format(tracks, include_analysis, include_stems)
 
     result = {
-        "format": "cueforge_universal_exchange_json",
+        "format": "trackcue_universal_exchange_json",
         "version": "1.0",
         "track_count": len(tracks),
         "data": uef_data,

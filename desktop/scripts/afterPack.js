@@ -22,7 +22,7 @@ exports.default = async function afterPack(context) {
   const entitlements = path.join(__dirname, 'entitlements.plist');
   const frameworksPath = path.join(appPath, 'Contents', 'Frameworks');
 
-  console.log(`\n🔏 Signing CueForge: ${appPath}`);
+  console.log(`\n🔏 Signing TrackCue: ${appPath}`);
 
   try {
     // 1. Retirer tous les attributs de quarantaine
@@ -47,10 +47,10 @@ exports.default = async function afterPack(context) {
 
     // 3. Signer les binaires helper dans Frameworks
     const helperApps = [
-      'CueForge Helper.app',
-      'CueForge Helper (GPU).app',
-      'CueForge Helper (Plugin).app',
-      'CueForge Helper (Renderer).app',
+      'TrackCue Helper.app',
+      'TrackCue Helper (GPU).app',
+      'TrackCue Helper (Plugin).app',
+      'TrackCue Helper (Renderer).app',
     ];
     for (const helper of helperApps) {
       const helperPath = path.join(frameworksPath, helper);

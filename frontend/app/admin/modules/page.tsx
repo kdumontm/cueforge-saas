@@ -29,8 +29,8 @@ const GRID = 8;
 const MIN_W = 80;
 const MIN_H = 36;
 const HANDLE_SZ = 12; // #27: augmenté de 8 à 12
-const STORAGE_KEY = "cueforge_layout_v5";
-const LAYOUTS_KEY = "cueforge_saved_layouts";
+const STORAGE_KEY = "trackcue_layout_v5";
+const LAYOUTS_KEY = "trackcue_saved_layouts";
 const MAX_UNDO = 50;
 const SNAP_T = 6;
 const AUTOSAVE_DELAY = 2000; // #79: auto-save delay ms
@@ -745,7 +745,7 @@ function Palette({ mods, searchQ, setSearchQ, expandedCats, toggleCat, addToCanv
 function OnboardingOverlay({ onDismiss }:{ onDismiss:()=>void }) {
   const [step, setStep] = useState(0);
   const steps = [
-    { title:"Bienvenue dans le Layout Builder !", desc:"Personnalisez l'interface de votre application CueForge en organisant les modules comme vous le souhaitez.", icon:LayoutDashboard, color:"#3b82f6" },
+    { title:"Bienvenue dans le Layout Builder !", desc:"Personnalisez l'interface de votre application TrackCue en organisant les modules comme vous le souhaitez.", icon:LayoutDashboard, color:"#3b82f6" },
     { title:"Ajoutez des modules", desc:"Glissez ou cliquez sur les modules dans la palette à gauche pour les ajouter au canvas.", icon:Plus, color:"#22c55e" },
     { title:"Déplacez et redimensionnez", desc:"Glissez les modules pour les repositionner. Utilisez les poignées sur les bords pour redimensionner.", icon:Move, color:"#a855f7" },
     { title:"Sauvegardez votre layout", desc:"Cliquez sur 'Sauvegarder' pour enregistrer. Utilisez les presets pour essayer des configurations prédéfinies.", icon:Save, color:"#f59e0b" },
@@ -869,7 +869,7 @@ function LayoutBuilderInner() {
 
   // #111: onboarding first visit
   useEffect(() => {
-    const key = "cueforge_layout_onboarded";
+    const key = "trackcue_layout_onboarded";
     if (!localStorage.getItem(key)) { setShowOnboarding(true); localStorage.setItem(key, "1"); }
   }, []);
 
@@ -1253,7 +1253,7 @@ function LayoutBuilderInner() {
         <div>
           {/* #116: titre plus descriptif */}
           <div style={{fontSize:13,fontWeight:700,color:"#f1f5f9",lineHeight:1.2}}>Layout Builder</div>
-          <div style={{fontSize:9,color:"#475569"}}>Personnalisez votre interface CueForge</div>
+          <div style={{fontSize:9,color:"#475569"}}>Personnalisez votre interface TrackCue</div>
         </div>
 
         {/* Panel toggles - #69: with tooltips */}
@@ -1307,7 +1307,7 @@ function LayoutBuilderInner() {
               {/* #75: import/export */}
               <div style={{display:"flex",gap:4,marginTop:6}}>
                 <button onClick={handleImport} aria-label="Importer un layout" style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"6px",borderRadius:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#64748b",fontSize:10,cursor:"pointer"}}><FileUp size={10}/> Importer</button>
-                <button onClick={()=>exportLayout(mods,"CueForge Layout")} aria-label="Exporter le layout" style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"6px",borderRadius:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#64748b",fontSize:10,cursor:"pointer"}}><FileDown size={10}/> Exporter</button>
+                <button onClick={()=>exportLayout(mods,"TrackCue Layout")} aria-label="Exporter le layout" style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"6px",borderRadius:6,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",color:"#64748b",fontSize:10,cursor:"pointer"}}><FileDown size={10}/> Exporter</button>
               </div>
             </div>
           </div>}
@@ -1376,7 +1376,7 @@ function LayoutBuilderInner() {
             {/* Logo */}
             <div style={{position:"absolute",left:8,top:10,display:"flex",alignItems:"center",gap:7,pointerEvents:"none",zIndex:1}}>
               <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#2563eb,#ec4899)",display:"flex",alignItems:"center",justifyContent:"center"}}><Disc3 size={13} color="white"/></div>
-              <span style={{fontSize:14,fontWeight:700,color:"rgba(255,255,255,0.5)"}}>CueForge</span>
+              <span style={{fontSize:14,fontWeight:700,color:"rgba(255,255,255,0.5)"}}>TrackCue</span>
             </div>
             {/* Snap lines - #24: thicker + fade */}
             {snapLines.map((l,i)=><div key={i} style={{position:"absolute",...(l.axis==="x"?{left:l.pos,top:0,width:2,height:"100%"}:{top:l.pos,left:0,height:2,width:"100%"}),background:"#ec4899",opacity:0.7,pointerEvents:"none",zIndex:999,transition:"opacity 0.3s"}}/>)}

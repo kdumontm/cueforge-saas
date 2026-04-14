@@ -233,7 +233,7 @@ export default function TracksPage() {
       />
       <SectionHeader
         title="Pistes Musicales"
-        description={`Gérez les ${total} pistes de CueForge`}
+        description={`Gérez les ${total} pistes de TrackCue`}
         actions={
           <div className="flex gap-2">
             <Btn

@@ -287,7 +287,7 @@ test('metadata edit modal saves changes', async () => {
 
 ## Related Skills
 
-- `cueforge-tests:write-tests` — Use to scaffold test files
-- `cueforge-tests:validate-flow` — Use to validate test flows
-- `cueforge-tests:run-tests` — Use to execute tests and check coverage
+- `trackcue-tests:write-tests` — Use to scaffold test files
+- `trackcue-tests:validate-flow` — Use to validate test flows
+- `trackcue-tests:run-tests` — Use to execute tests and check coverage
 - `engineering:testing-strategy` — Use for broader test strategy review

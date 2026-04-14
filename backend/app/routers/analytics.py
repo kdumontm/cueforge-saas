@@ -1,5 +1,5 @@
 """
-CueForge v4 — DJ Analytics router.
+TrackCue v4 — DJ Analytics router.
 Statistics de performance, clés favorites, BPM moyen, historique de plays.
 """
 

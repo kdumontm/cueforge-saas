@@ -36,7 +36,7 @@ def _send_email_sync(to_email: str, subject: str, html_body: str) -> None:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"CueForge <{SMTP_FROM}>"
+    msg["From"] = f"TrackCue <{SMTP_FROM}>"
     msg["To"] = to_email
     msg.attach(MIMEText(html_body, "html"))
 
@@ -70,14 +70,14 @@ async def send_email_async(to_email: str, subject: str, html_body: str) -> None:
 
 
 def _wrap_template(content: str) -> str:
-    """Wrap email content in a consistent CueForge template."""
+    """Wrap email content in a consistent TrackCue template."""
     return f"""
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
-        <h2 style="color:#2563eb">🎵 CueForge</h2>
+        <h2 style="color:#2563eb">🎵 TrackCue</h2>
         {content}
         <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
         <p style="color:#999;font-size:11px">
-            CueForge — Audio analysis &amp; cue points for DJs
+            TrackCue — Audio analysis &amp; cue points for DJs
         </p>
     </div>
     """
@@ -101,7 +101,7 @@ def send_reset_email(to_email: str, token: str) -> None:
             Si tu n'as pas fait cette demande, ignore cet email.
         </p>
     """)
-    _send_email(to_email, "CueForge — Réinitialisation de ton mot de passe", html)
+    _send_email(to_email, "TrackCue — Réinitialisation de ton mot de passe", html)
 
 
 # ─── Email verification (NEW) ────────────────────────────────
@@ -111,7 +111,7 @@ def send_verification_email(to_email: str, token: str) -> None:
     """Send email verification link after registration."""
     verify_url = f"{FRONTEND_URL}/verify-email?token={token}"
     html = _wrap_template(f"""
-        <p>Bienvenue sur CueForge ! 🎧</p>
+        <p>Bienvenue sur TrackCue ! 🎧</p>
         <p>Confirme ton adresse email pour activer ton compte.</p>
         <a href="{verify_url}" style="display:inline-block;margin:16px 0;padding:12px 24px;
            background:#2563eb;color:white;border-radius:8px;
@@ -122,7 +122,7 @@ def send_verification_email(to_email: str, token: str) -> None:
             Ce lien expire dans 24 heures.
         </p>
     """)
-    _send_email(to_email, "CueForge — Vérifie ton email", html)
+    _send_email(to_email, "TrackCue — Vérifie ton email", html)
 
 
 # ─── Organization invite (NEW) ───────────────────────────────
@@ -133,7 +133,7 @@ def send_invite_email(to_email: str, org_name: str, inviter_name: str, token: st
     invite_url = f"{FRONTEND_URL}/invite/{token}"
     html = _wrap_template(f"""
         <p><strong>{inviter_name}</strong> t'invite à rejoindre
-           <strong>{org_name}</strong> sur CueForge.</p>
+           <strong>{org_name}</strong> sur TrackCue.</p>
         <a href="{invite_url}" style="display:inline-block;margin:16px 0;padding:12px 24px;
            background:#2563eb;color:white;border-radius:8px;
            text-decoration:none;font-weight:bold">
@@ -143,7 +143,7 @@ def send_invite_email(to_email: str, org_name: str, inviter_name: str, token: st
             Cette invitation expire dans 7 jours.
         </p>
     """)
-    _send_email(to_email, f"CueForge — Invitation à rejoindre {org_name}", html)
+    _send_email(to_email, f"TrackCue — Invitation à rejoindre {org_name}", html)
 
 
 # ─── Welcome email (NEW) ───────────────────────────────────────
@@ -153,7 +153,7 @@ def send_welcome_email(to_email: str, name: str) -> None:
     """Send welcome email after email verification."""
     html = _wrap_template(f"""
         <p>Hey {name} ! 🎉</p>
-        <p>Ton compte CueForge est maintenant vérifié et prêt.</p>
+        <p>Ton compte TrackCue est maintenant vérifié et prêt.</p>
         <p>Voici ce que tu peux faire :</p>
         <ul style="color:#555;line-height:1.8">
             <li>📤 Upload tes tracks pour analyse AI</li>
@@ -163,10 +163,10 @@ def send_welcome_email(to_email: str, name: str) -> None:
         <a href="{FRONTEND_URL}" style="display:inline-block;margin:16px 0;padding:12px 24px;
            background:#2563eb;color:white;border-radius:8px;
            text-decoration:none;font-weight:bold">
-            Ouvrir CueForge
+            Ouvrir TrackCue
         </a>
     """)
-    _send_email(to_email, "Bienvenue sur CueForge ! 🎵", html)
+    _send_email(to_email, "Bienvenue sur TrackCue ! 🎵", html)
 
 
 # ─── Analysis complete (NEW) ────────────────────────────────────
@@ -177,7 +177,7 @@ def send_analysis_complete_email(to_email: str, track_name: str) -> None:
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: white;">🔍 Analyse terminée !</h2>
         <p>Ton track <strong>« {track_name} »</strong> a été analysé avec succès.</p>
@@ -208,13 +208,13 @@ def send_payment_failed_email(to_email: str, plan_name: str) -> None:
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: #f87171;">⚠️ Paiement échoué</h2>
         <p>Nous n'avons pas pu traiter ton paiement pour le plan <strong>{plan_name}</strong>.</p>
         <div style="background: #1a1a2e; border-left: 4px solid #f87171; border-radius: 8px; padding: 16px; margin: 20px 0;">
             <p style="margin: 0; color: #fca5a5;"><strong>Action requise</strong></p>
-            <p style="margin: 8px 0; color: #e2e8f0;">Mets à jour tes informations de paiement pour continuer à profiter de CueForge.</p>
+            <p style="margin: 8px 0; color: #e2e8f0;">Mets à jour tes informations de paiement pour continuer à profiter de TrackCue.</p>
         </div>
         <div style="text-align: center; margin-top: 24px;">
             <a href="{FRONTEND_URL}/billing" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">
@@ -222,7 +222,7 @@ def send_payment_failed_email(to_email: str, plan_name: str) -> None:
             </a>
         </div>
         <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">
-            Si tu as des questions, <a href="mailto:support@cueforge.com" style="color: #a855f7; text-decoration: none;">contacte notre support</a>.
+            Si tu as des questions, <a href="mailto:support@trackcue.com" style="color: #a855f7; text-decoration: none;">contacte notre support</a>.
         </p>
     </div>
     """
@@ -237,7 +237,7 @@ def send_upgrade_email(to_email: str, plan_name: str) -> None:
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: white;">🚀 Bienvenue sur {plan_name} !</h2>
         <p>Ton upgrade est activé. Voici ce que tu peux maintenant utiliser :</p>
@@ -250,7 +250,7 @@ def send_upgrade_email(to_email: str, plan_name: str) -> None:
                 <li>✅ Support prioritaire</li>
             </ul>
         </div>
-        <p style="color: #cbd5e1;">Merci de supporter CueForge ! 🎉 Profite bien de ton nouveau plan.</p>
+        <p style="color: #cbd5e1;">Merci de supporter TrackCue ! 🎉 Profite bien de ton nouveau plan.</p>
         <div style="text-align: center; margin-top: 24px;">
             <a href="{FRONTEND_URL}/dashboard" style="background: linear-gradient(135deg, #a855f7, #ec4899); color: white; padding: 14px 36px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">
                 Accéder au dashboard →

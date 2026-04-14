@@ -21,7 +21,7 @@ async def get_public_settings(db: Session = Depends(get_db)):
     settings = db.query(SiteSettings).first()
     if not settings:
         return {
-            "site_name": "CueForge",
+            "site_name": "TrackCue",
             "tagline": "AI-Powered Cue Points for DJs",
             "primary_color": "#6366f1",
             "secondary_color": "#8b5cf6",

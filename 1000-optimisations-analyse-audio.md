@@ -1,4 +1,4 @@
-# CueForge — 1000 Optimisations : Analyse Audio, Cues, BPM & Stems
+# TrackCue — 1000 Optimisations : Analyse Audio, Cues, BPM & Stems
 
 Audit ultra-détaillé ciblant exclusivement le pipeline d'analyse audio.
 Fichiers principaux : `audio_analysis.py`, `cue_generator.py`, `stem_analysis.py`, `stems_service.py`, `metadata_service.py`, `genre_detection.py`, `camelot.py`, `tracks.py`, `WaveSurferPlayer.tsx`, `CuesTab.tsx`, `BeatgridTab.tsx`, `StemsTab.tsx`.
@@ -295,7 +295,7 @@ Fichiers principaux : `audio_analysis.py`, `cue_generator.py`, `stem_analysis.py
 231. **False positive rate** : % de cues inutiles/incorrects générés.
 232. **User satisfaction score** : % de cues gardés par les DJs (pas supprimés).
 233. **Export compatibility test** : vérifier que les cues exportés s'importent correctement dans Rekordbox/Serato/Traktor.
-234. **Round-trip test** : exporter les cues → importer dans DJ software → réimporter dans CueForge → vérifier l'intégrité.
+234. **Round-trip test** : exporter les cues → importer dans DJ software → réimporter dans TrackCue → vérifier l'intégrité.
 235. **Performance benchmark** : mesurer le temps de génération de cues pour 100 tracks.
 
 ### Cues API
@@ -1006,7 +1006,7 @@ Fichiers principaux : `audio_analysis.py`, `cue_generator.py`, `stem_analysis.py
 804. **Rekordbox grid** : exporter le beat grid avec le BPM et l'offset.
 805. **Rekordbox waveform data** : exporter les données de waveform si possible.
 806. **Rekordbox playlists** : exporter la structure de playlists.
-807. **Rekordbox color mapping** : mapper précisément les couleurs CueForge → Rekordbox.
+807. **Rekordbox color mapping** : mapper précisément les couleurs TrackCue → Rekordbox.
 808. **Rekordbox rating** : exporter le rating (1-5 stars).
 809. **Rekordbox comments** : exporter les commentaires/notes.
 810. **Rekordbox key format** : exporter la clé au format Rekordbox (Open Key notation).
@@ -1072,7 +1072,7 @@ Fichiers principaux : `audio_analysis.py`, `cue_generator.py`, `stem_analysis.py
 858. **Normalized export** : exporter avec le volume normalisé.
 859. **Format conversion** : convertir entre formats audio (FLAC→MP3, WAV→AAC).
 860. **Batch export** : exporter plusieurs tracks en batch.
-861. **Export with tags** : inclure tous les tags CueForge dans l'export audio.
+861. **Export with tags** : inclure tous les tags TrackCue dans l'export audio.
 862. **Export with cues in tags** : écrire les cues dans les tags du fichier audio (Serato markers).
 863. **Export with BPM in tags** : écrire le BPM dans les tags ID3.
 864. **Export with key in tags** : écrire la clé dans les tags.

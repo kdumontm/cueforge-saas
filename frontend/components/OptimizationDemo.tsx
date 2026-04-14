@@ -208,7 +208,7 @@ function RAFDemo() {
 export function OptimizationDemo() {
   return (
     <div className="p-6 space-y-4 bg-gray-900 min-h-screen text-white">
-      <h1 className="text-2xl font-bold">CueForge Optimization Features Demo</h1>
+      <h1 className="text-2xl font-bold">TrackCue Optimization Features Demo</h1>
       <p className="text-gray-400 text-sm">
         This component demonstrates optimizations for points 551-700
       </p>

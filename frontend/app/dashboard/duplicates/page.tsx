@@ -37,7 +37,7 @@ export default function DuplicatesPage() {
 
   function getToken() {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('cueforge_token');
+    return localStorage.getItem('trackcue_token');
   }
 
   async function apiCall<T = any>(path: string, opts: any = {}): Promise<T> {

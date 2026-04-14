@@ -1,5 +1,5 @@
 """
-CueForge Export Router — v3.1
+TrackCue Export Router — v3.1
 Exports vers Rekordbox XML, Serato (.crate / CSV), Traktor NML.
 Corrige: playlist_name kwarg, batch body parsing, endpoint /all manquant, auth.
 """
@@ -141,7 +141,7 @@ async def export_batch_rekordbox(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    playlist_name = payload.name or "CueForge Export"
+    playlist_name = payload.name or "TrackCue Export"
     result = export_tracks_to_rekordbox(track_dicts, playlist_name=playlist_name)
 
     return Response(
@@ -171,7 +171,7 @@ async def export_all_rekordbox(
         content=result["xml"],
         media_type="application/xml",
         headers={
-            "Content-Disposition": 'attachment; filename="CueForge_Library_rekordbox.xml"'
+            "Content-Disposition": 'attachment; filename="TrackCue_Library_rekordbox.xml"'
         }
     )
 
@@ -260,7 +260,7 @@ async def export_playlist_m3u(
         )
         tracks_map = {t.id: t for t in loaded}
 
-    lines = ["#EXTM3U", f"# Playlist: {pl.name}", "# Exported by CueForge"]
+    lines = ["#EXTM3U", f"# Playlist: {pl.name}", "# Exported by TrackCue"]
     for entry in entries:
         track = tracks_map.get(entry.track_id)
         if not track:
@@ -366,7 +366,7 @@ async def export_set_m3u(
         )
         tracks_map = {t.id: t for t in loaded}
 
-    lines = ["#EXTM3U", f"# DJ Set: {dj_set.name}", "# Exported by CueForge"]
+    lines = ["#EXTM3U", f"# DJ Set: {dj_set.name}", "# Exported by TrackCue"]
     for entry in entries:
         track = tracks_map.get(entry.track_id)
         if not track:
@@ -422,7 +422,7 @@ async def export_batch_serato(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    crate_name = payload.name or "CueForge Export"
+    crate_name = payload.name or "TrackCue Export"
     crate_bytes = generate_serato_crate(track_dicts, crate_name=crate_name)
 
     return Response(
@@ -470,7 +470,7 @@ async def export_batch_serato_csv(
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Serato_Export.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Serato_Export.csv"'},
     )
 
 
@@ -486,12 +486,12 @@ async def export_all_serato(
         raise HTTPException(status_code=404, detail="No tracks in library")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    crate_bytes = generate_serato_crate(track_dicts, crate_name="CueForge Full Library")
+    crate_bytes = generate_serato_crate(track_dicts, crate_name="TrackCue Full Library")
 
     return Response(
         content=crate_bytes,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Library.crate"'},
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Library.crate"'},
     )
 
 
@@ -532,7 +532,7 @@ async def export_batch_traktor(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    collection_name = payload.name or "CueForge Export"
+    collection_name = payload.name or "TrackCue Export"
     nml_xml = generate_traktor_nml(track_dicts, collection_name=collection_name)
 
     return Response(
@@ -554,12 +554,12 @@ async def export_all_traktor(
         raise HTTPException(status_code=404, detail="No tracks in library")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    nml_xml = generate_traktor_nml(track_dicts, collection_name="CueForge Full Library")
+    nml_xml = generate_traktor_nml(track_dicts, collection_name="TrackCue Full Library")
 
     return Response(
         content=nml_xml,
         media_type="application/xml",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Library.nml"'},
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Library.nml"'},
     )
 
 
@@ -605,7 +605,7 @@ async def export_batch_engine_dj(
     track_dicts = [track_to_dict(t) for t in tracks]
     result = export_tracks_to_engine_dj(track_dicts)
 
-    collection_name = payload.name or "CueForge Export"
+    collection_name = payload.name or "TrackCue Export"
     return Response(
         content=result["xml"],
         media_type="application/xml",
@@ -633,7 +633,7 @@ async def export_all_engine_dj(
         content=result["xml"],
         media_type="application/xml",
         headers={
-            "Content-Disposition": 'attachment; filename="CueForge_Library_engine_dj.xml"',
+            "Content-Disposition": 'attachment; filename="TrackCue_Library_engine_dj.xml"',
             "X-Export-Stats": f'tracks={result["track_count"]},cues={result["cue_count"]},loops={result["loop_count"]}'
         }
     )
@@ -704,7 +704,7 @@ async def export_all_virtualdj(
         content=json.dumps(result, indent=2, ensure_ascii=False),
         media_type="application/json",
         headers={
-            "Content-Disposition": 'attachment; filename="CueForge_Library_virtualdj.json"'
+            "Content-Disposition": 'attachment; filename="TrackCue_Library_virtualdj.json"'
         }
     )
 
@@ -757,7 +757,7 @@ async def export_batch_djuced(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    result = export_tracks_to_djuced(track_dicts, playlist_name=payload.name or "CueForge Export")
+    result = export_tracks_to_djuced(track_dicts, playlist_name=payload.name or "TrackCue Export")
 
     return Response(
         content=json.dumps(result["data"], indent=2, ensure_ascii=False),
@@ -782,7 +782,7 @@ async def export_batch_djay_pro(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    result = export_tracks_to_djay_pro(track_dicts, playlist_name=payload.name or "CueForge Export")
+    result = export_tracks_to_djay_pro(track_dicts, playlist_name=payload.name or "TrackCue Export")
 
     return Response(
         content=json.dumps(result["data"], indent=2, ensure_ascii=False),
@@ -853,7 +853,7 @@ async def export_batch_spotify_dj(
         raise HTTPException(status_code=404, detail="No tracks found")
 
     track_dicts = [track_to_dict(t) for t in tracks]
-    result = export_tracks_to_spotify_dj(track_dicts, playlist_name=payload.name or "CueForge Export")
+    result = export_tracks_to_spotify_dj(track_dicts, playlist_name=payload.name or "TrackCue Export")
 
     return Response(
         content=json.dumps(result["data"], indent=2, ensure_ascii=False),
@@ -872,7 +872,7 @@ async def export_batch_universal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Export tracks to CueForge Universal Exchange Format (UEF)."""
+    """Export tracks to TrackCue Universal Exchange Format (UEF)."""
     tracks = db.query(Track).filter(Track.id.in_(payload.track_ids), Track.user_id == current_user.id).options(selectinload(Track.analysis), selectinload(Track.cue_points), selectinload(Track.loop_markers)).all()
     if not tracks:
         raise HTTPException(status_code=404, detail="No tracks found")
@@ -883,7 +883,7 @@ async def export_batch_universal(
     return Response(
         content=json.dumps(result["data"], indent=2, ensure_ascii=False),
         media_type="application/json",
-        headers={"Content-Disposition": 'attachment; filename="cueforge_universal_exchange.json"'}
+        headers={"Content-Disposition": 'attachment; filename="trackcue_universal_exchange.json"'}
     )
 
 
@@ -903,7 +903,7 @@ async def export_all_universal(
     return Response(
         content=json.dumps(result["data"], indent=2, ensure_ascii=False),
         media_type="application/json",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Library_universal.json"'}
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Library_universal.json"'}
     )
 
 
@@ -949,7 +949,7 @@ async def export_all_csv(
     return Response(
         content=result["files"]["tracks"]["content"],
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Library_tracks.csv"'}
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Library_tracks.csv"'}
     )
 
 
@@ -998,7 +998,7 @@ async def export_zip_bundle_endpoint(
     return Response(
         content=zip_content,
         media_type="application/zip",
-        headers={"Content-Disposition": 'attachment; filename="CueForge_Export_Bundle.zip"'},
+        headers={"Content-Disposition": 'attachment; filename="TrackCue_Export_Bundle.zip"'},
     )
 
 

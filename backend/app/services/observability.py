@@ -311,7 +311,7 @@ class ObservabilityService:
         Retourne dict avec config Grafana/Datadog-compatible
         """
         dashboard = {
-            "title": "CueForge Monitoring Dashboard",
+            "title": "TrackCue Monitoring Dashboard",
             "panels": [],
             "refresh": "30s",
             "time": {"from": "now-1h", "to": "now"},

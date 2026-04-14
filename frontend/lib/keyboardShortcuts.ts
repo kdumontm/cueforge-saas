@@ -1,6 +1,6 @@
 /**
  * Keyboard Shortcuts Library
- * Global keyboard event handling for CueForge
+ * Global keyboard event handling for TrackCue
  */
 
 import { useEffect } from "react";

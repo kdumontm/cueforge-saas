@@ -3,7 +3,7 @@
  * Cache strategies, offline support, SSE reconnection
  */
 
-const CACHE_NAME = 'cueforge-v1';
+const CACHE_NAME = 'trackcue-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',

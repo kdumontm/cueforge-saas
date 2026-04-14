@@ -1,5 +1,5 @@
 """
-CueForge v2 — Smart Crates router (Phase 2).
+TrackCue v2 — Smart Crates router (Phase 2).
 
 Smart Crates are dynamic playlists that auto-populate based on filter rules.
 Rules are stored as JSON and evaluated at query time.

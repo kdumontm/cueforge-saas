@@ -1,5 +1,5 @@
 """
-CueForge Rekordbox XML Export Service
+TrackCue Rekordbox XML Export Service
 Exports tracks, cue points, and analysis data to Rekordbox-compatible XML format.
 
 Rekordbox XML format reference:
@@ -98,13 +98,13 @@ def loop_duration_in_beats(start_ms: float, end_ms: float, bpm: float) -> float:
 
 def generate_rekordbox_xml(
     tracks: List[Dict],
-    playlist_name: str = "CueForge Export",
+    playlist_name: str = "TrackCue Export",
     progress_callback: Optional[Callable[[int, int], None]] = None,
     mix_name: str = "",
     dj_name: str = "",
 ) -> str:
     """
-    Generate a Rekordbox-compatible XML string from CueForge track data.
+    Generate a Rekordbox-compatible XML string from TrackCue track data.
 
     Args:
         tracks: List of track dictionaries
@@ -114,7 +114,7 @@ def generate_rekordbox_xml(
         dj_name: DJ name for metadata
     """
     root = ET.Element("DJ_PLAYLISTS", Version="1.0.0")
-    product = ET.SubElement(root, "PRODUCT", Name="CueForge", Version="3.0", Company="CueForge")
+    product = ET.SubElement(root, "PRODUCT", Name="TrackCue", Version="3.0", Company="TrackCue")
 
     # Add mix metadata (Rekordbox extension)
     if mix_name or dj_name:
@@ -531,7 +531,7 @@ def export_tracks_to_rekordbox(
     Export tracks to Rekordbox XML format with advanced features.
 
     Args:
-        tracks: List of track data from CueForge DB
+        tracks: List of track data from TrackCue DB
         output_path: Optional file path to write XML to
         progress_callback: Optional callback(current, total) for progress tracking
         include_tags: Include My Tags export

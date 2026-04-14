@@ -26,7 +26,7 @@ export default function ShareModal({ isOpen, onClose, shareType, resourceId, res
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const res = await fetch(`${API_URL}/share`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

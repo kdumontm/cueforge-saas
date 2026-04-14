@@ -1,5 +1,5 @@
 """
-DocumentationService - Documentation & Developer Experience pour CueForge
+DocumentationService - Documentation & Developer Experience pour TrackCue
 Points 1971-2000: OpenAPI, TypeScript client gen, error registry, migration guides, etc.
 """
 
@@ -48,7 +48,7 @@ class ErrorCode:
 class DocumentationService:
     """Service de documentation et DX"""
 
-    def __init__(self, project_root: str = "/tmp/cueforge-saas"):
+    def __init__(self, project_root: str = "/tmp/trackcue-saas"):
         self.project_root = project_root
         self.backend_dir = os.path.join(project_root, "backend")
         self.frontend_dir = os.path.join(project_root, "frontend")
@@ -56,7 +56,7 @@ class DocumentationService:
     # ============================================================================
     # 1972: generate_openapi_spec - Génération OpenAPI 3.1 complète
     # ============================================================================
-    def generate_openapi_spec(self, api_base_url: str = "https://api.cueforge.app") -> Dict[str, Any]:
+    def generate_openapi_spec(self, api_base_url: str = "https://api.trackcue.app") -> Dict[str, Any]:
         """
         Générer une spécification OpenAPI 3.1 complète.
 
@@ -71,13 +71,13 @@ class DocumentationService:
         openapi_spec = {
             "openapi": "3.1.0",
             "info": {
-                "title": "CueForge API",
+                "title": "TrackCue API",
                 "description": "Professional DJ audio analysis SaaS API",
                 "version": "1.0.0",
                 "contact": {
-                    "name": "CueForge Support",
-                    "url": "https://support.cueforge.app",
-                    "email": "support@cueforge.app",
+                    "name": "TrackCue Support",
+                    "url": "https://support.trackcue.app",
+                    "email": "support@trackcue.app",
                 },
                 "license": {
                     "name": "Proprietary",
@@ -291,7 +291,7 @@ class DocumentationService:
         """
         client_code = """
 /**
- * CueForge API Client (auto-generated)
+ * TrackCue API Client (auto-generated)
  * Generated at: {timestamp}
  */
 
@@ -303,7 +303,7 @@ export interface ApiConfig {{
   headers?: Record<string, string>;
 }}
 
-export class CueForgeClient {{
+export class TrackCueClient {{
   private client: AxiosInstance;
 
   constructor(token: string, config: ApiConfig) {{
@@ -433,7 +433,7 @@ export interface ApiError {{
   code?: string;
 }}
 
-export default CueForgeClient;
+export default TrackCueClient;
 """.format(timestamp=datetime.utcnow().isoformat())
 
         return client_code
@@ -685,7 +685,7 @@ graph TB
             Runbook structuré avec toutes les étapes
         """
         runbook = {
-            "title": "CueForge Deployment Runbook",
+            "title": "TrackCue Deployment Runbook",
             "created_at": datetime.utcnow().isoformat(),
             "pre_deployment": [
                 {
@@ -723,7 +723,7 @@ graph TB
                 {
                     "step": 6,
                     "action": "Verify staging deployment",
-                    "command": "curl https://staging-api.cueforge.app/health",
+                    "command": "curl https://staging-api.trackcue.app/health",
                     "expected_result": "200 OK response",
                 },
                 {
@@ -743,7 +743,7 @@ graph TB
                 {
                     "step": 9,
                     "action": "Verify production health",
-                    "command": "curl https://api.cueforge.app/health",
+                    "command": "curl https://api.trackcue.app/health",
                     "expected_result": "200 OK, all dependencies up",
                 },
                 {
@@ -886,7 +886,7 @@ graph TB
             Guide d'onboarding structuré
         """
         onboarding = {
-            "title": "CueForge Developer Onboarding Guide",
+            "title": "TrackCue Developer Onboarding Guide",
             "version": "1.0.0",
             "last_updated": datetime.utcnow().isoformat(),
 
@@ -900,8 +900,8 @@ graph TB
                     {
                         "task": "Clone the repository",
                         "commands": [
-                            "git clone https://github.com/kdumontm/cueforge-saas",
-                            "cd cueforge-saas",
+                            "git clone https://github.com/kdumontm/trackcue-saas",
+                            "cd trackcue-saas",
                         ],
                         "time_estimate_minutes": 10,
                     },
@@ -980,8 +980,8 @@ graph TB
             },
 
             "resources": {
-                "api_documentation": "https://api.cueforge.app/docs",
-                "github_repo": "https://github.com/kdumontm/cueforge-saas",
+                "api_documentation": "https://api.trackcue.app/docs",
+                "github_repo": "https://github.com/kdumontm/trackcue-saas",
                 "slack_channel": "#engineers",
                 "onboarding_buddy": "{{ASSIGN_BUDDY}}",
             },

@@ -174,7 +174,7 @@ export async function isPushSubscribed(): Promise<boolean> {
  */
 export async function sendTestNotification(
   title: string = "Test Notification",
-  body: string = "This is a test push notification from CueForge",
+  body: string = "This is a test push notification from TrackCue",
   token?: string
 ): Promise<boolean> {
   try {

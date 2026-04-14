@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CueForge — Diagnostic local du codebase
+TrackCue — Diagnostic local du codebase
 Usage: python3 scripts/diagnose.py [--url https://app.railway.app] [--key DIAGNOSTICS_KEY]
 
 Sans --url  : analyse statique du codebase seulement
@@ -266,13 +266,13 @@ def print_summary():
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="CueForge diagnostic")
+    parser = argparse.ArgumentParser(description="TrackCue diagnostic")
     parser.add_argument("--url", help="URL Railway (ex: https://monapp.railway.app)")
     parser.add_argument("--key", help="DIAGNOSTICS_KEY")
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  CueForge — Diagnostic codebase")
+    print("  TrackCue — Diagnostic codebase")
     print("=" * 60)
 
     check_key_files()

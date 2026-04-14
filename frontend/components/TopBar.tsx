@@ -57,7 +57,7 @@ function TopBar({ title, subtitle }: TopBarProps) {
   const fetchNotifications = async () => {
     try {
       setLoadingNotifications(true);
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const response = await fetch(`${API_URL}/notifications?limit=20&offset=0`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -77,7 +77,7 @@ function TopBar({ title, subtitle }: TopBarProps) {
   // Fetch unread count
   const fetchUnreadCount = async () => {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const response = await fetch(`${API_URL}/notifications/unread-count`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -95,7 +95,7 @@ function TopBar({ title, subtitle }: TopBarProps) {
   // Mark notification as read
   const markAsRead = async (id: number) => {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const response = await fetch(`${API_URL}/notifications/${id}/read`, {
         method: 'PATCH',
         headers: {
@@ -116,7 +116,7 @@ function TopBar({ title, subtitle }: TopBarProps) {
   // Mark all as read
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const response = await fetch(`${API_URL}/notifications/read-all`, {
         method: 'POST',
         headers: {
@@ -366,7 +366,7 @@ function TopBar({ title, subtitle }: TopBarProps) {
           <button
             onClick={() => {
               if (updateState.downloaded) {
-                const bridge = (window as any).cueforge;
+                const bridge = (window as any).trackcue;
                 bridge?.updater?.install?.();
               }
             }}

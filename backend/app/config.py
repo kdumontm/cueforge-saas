@@ -14,13 +14,13 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
-    SECRET_KEY: str = "cueforge-default-key-set-in-railway-env"
+    SECRET_KEY: str = "trackcue-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60     # 1 heure — sécurité standard
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30       # 30 jours — refresh token
 
     # Database
-    DATABASE_URL: str = "sqlite:///./cueforge.db"
+    DATABASE_URL: str = "sqlite:///./trackcue.db"
 
     # Storage
     STORAGE_BACKEND: str = "local"
@@ -98,14 +98,14 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
 
     # Misc storage
-    STEMS_DIR: str = "/tmp/cueforge_stems"
-    MIX_UPLOAD_DIR: str = "/tmp/cueforge_mixes"
-    FEATURE_CACHE_DIR: str = "/tmp/cueforge_feature_cache"
-    ONNX_CACHE_DIR: str = "/tmp/cueforge_onnx_cache"
+    STEMS_DIR: str = "/tmp/trackcue_stems"
+    MIX_UPLOAD_DIR: str = "/tmp/trackcue_mixes"
+    FEATURE_CACHE_DIR: str = "/tmp/trackcue_feature_cache"
+    ONNX_CACHE_DIR: str = "/tmp/trackcue_onnx_cache"
     APP_VERSION: str = "unknown"
 
     # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
-    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://cueforge-saas-production.up.railway.app,http://localhost:3000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://trackcue-saas-production.up.railway.app,http://localhost:3000,http://127.0.0.1:3000"
 
     class Config:
         env_file = ".env"
@@ -119,7 +119,7 @@ def get_settings() -> Settings:
 
     # ── Sécurité : bloquer le démarrage si SECRET_KEY absent en prod ──
     is_prod = settings.DATABASE_URL and "sqlite" not in settings.DATABASE_URL
-    if is_prod and settings.SECRET_KEY == "cueforge-default-key-set-in-railway-env":
+    if is_prod and settings.SECRET_KEY == "trackcue-default-key-set-in-railway-env":
         import warnings
         warnings.warn(
             "⚠️  SECRET_KEY est la valeur par défaut ! "
@@ -130,7 +130,7 @@ def get_settings() -> Settings:
         # En production Railway, on force une clé dérivée du hostname comme fallback
         # mais on log un WARNING critique
         import socket, hashlib
-        derived = hashlib.sha256(f"cueforge-{socket.gethostname()}".encode()).hexdigest()
+        derived = hashlib.sha256(f"trackcue-{socket.gethostname()}".encode()).hexdigest()
         object.__setattr__(settings, "SECRET_KEY", derived)
 
     return settings

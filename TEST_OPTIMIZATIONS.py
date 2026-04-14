@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test examples for CueForge Cue Generator v5.0 optimizations.
+Test examples for TrackCue Cue Generator v5.0 optimizations.
 Demonstrates usage of points 101-250.
 """
 
@@ -142,7 +142,7 @@ def test_intelligent_naming():
 
 
 if __name__ == "__main__":
-    print("CueForge Cue Generator v5.0 — Optimization Tests\n")
+    print("TrackCue Cue Generator v5.0 — Optimization Tests\n")
     
     # Note: These tests will fail without proper database/SQLAlchemy setup
     # They demonstrate the API usage patterns

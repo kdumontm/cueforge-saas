@@ -106,7 +106,7 @@ export default function WhiteLabelAdmin() {
         <div className="bg-[#1a1a2e] rounded-xl p-6 space-y-4">
           <h2 className="text-lg font-semibold text-white">Personnalisation</h2>
           <Field label="Texte du footer" field="footer_text" placeholder="© 2026 MonApp" />
-          <Field label="Masquer 'Powered by CueForge'" field="hide_powered_by" type="checkbox" />
+          <Field label="Masquer 'Powered by TrackCue'" field="hide_powered_by" type="checkbox" />
           <Field label="CSS personnalisé" field="custom_css" type="textarea" placeholder=".header { ... }" />
         </div>
       </div>

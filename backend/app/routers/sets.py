@@ -1,5 +1,5 @@
 """
-CueForge v2 — DJ Set Builder router (Phase 2).
+TrackCue v2 — DJ Set Builder router (Phase 2).
 
 Endpoints:
   GET    /sets                              — list DJ sets

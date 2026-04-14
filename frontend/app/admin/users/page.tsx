@@ -184,7 +184,7 @@ export default function UsersPage() {
         id="users"
         icon={User}
         title="Gestion des utilisateurs"
-        description="Consultez et gérez tous les comptes utilisateurs de CueForge. Vous pouvez modifier les plans d'abonnement, promouvoir en admin, et suivre l'activité de chaque utilisateur."
+        description="Consultez et gérez tous les comptes utilisateurs de TrackCue. Vous pouvez modifier les plans d'abonnement, promouvoir en admin, et suivre l'activité de chaque utilisateur."
         steps={[
           { text: "Recherchez un utilisateur par nom ou email" },
           { text: "Filtrez par plan d'abonnement (Free, Pro, Unlimited)" },
@@ -193,7 +193,7 @@ export default function UsersPage() {
       />
       <SectionHeader
         title="Utilisateurs"
-        description={`Gérez les ${total} utilisateurs de CueForge`}
+        description={`Gérez les ${total} utilisateurs de TrackCue`}
       />
 
       {/* Filters & Search */}

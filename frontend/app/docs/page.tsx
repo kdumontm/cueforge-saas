@@ -167,15 +167,15 @@ export default function DocsPage() {
           {/* Introduction */}
           {activeSection === 'introduction' && (
             <div>
-              <h1 className="text-4xl font-bold text-slate-100 mb-4">CueForge API Documentation</h1>
+              <h1 className="text-4xl font-bold text-slate-100 mb-4">TrackCue API Documentation</h1>
               <p className="text-lg text-slate-400 mb-6">
-                Welcome to the CueForge API. Our API provides powerful tools for DJs to analyze, manage, and export their music library programmatically.
+                Welcome to the TrackCue API. Our API provides powerful tools for DJs to analyze, manage, and export their music library programmatically.
               </p>
 
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">
                 <h3 className="text-lg font-semibold text-slate-200 mb-4">Quick Start</h3>
                 <div className="space-y-3 text-slate-400">
-                  <p>• Base URL: <code className="bg-slate-900 px-2 py-1 rounded text-slate-200">https://api.cueforge.app/api/v1</code></p>
+                  <p>• Base URL: <code className="bg-slate-900 px-2 py-1 rounded text-slate-200">https://api.trackcue.app/api/v1</code></p>
                   <p>• Authentication: JWT Token or API Key (header: <code className="bg-slate-900 px-2 py-1 rounded text-slate-200">X-API-Key</code>)</p>
                   <p>• Format: JSON</p>
                   <p>• Rate Limits: See Rate Limits section</p>
@@ -217,7 +217,7 @@ export default function DocsPage() {
             <div>
               <h1 className="text-4xl font-bold text-slate-100 mb-6">Authentication</h1>
               <p className="text-slate-400 mb-6">
-                CueForge API supports two authentication methods: JWT tokens (session-based) and API Keys (programmatic).
+                TrackCue API supports two authentication methods: JWT tokens (session-based) and API Keys (programmatic).
               </p>
 
               <h2 className="text-2xl font-semibold text-slate-200 mb-4">JWT Token (Session)</h2>
@@ -225,7 +225,7 @@ export default function DocsPage() {
                 Use JWT tokens for browser-based authentication. Tokens are obtained via login and included in the Authorization header.
               </p>
               <CodeBlock
-                code={`curl -X POST https://api.cueforge.app/api/v1/auth/login \\
+                code={`curl -X POST https://api.trackcue.app/api/v1/auth/login \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "user@example.com",
@@ -235,7 +235,7 @@ export default function DocsPage() {
 # Response includes 'access_token'
 # Use it in subsequent requests:
 curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/tracks`}
+  https://api.trackcue.app/api/v1/tracks`}
                 language="bash"
                 codeId="jwt-auth"
               />
@@ -246,7 +246,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \\
               </p>
               <CodeBlock
                 code={`# Create an API key via dashboard or API
-curl -X POST https://api.cueforge.app/api/v1/api-keys \\
+curl -X POST https://api.trackcue.app/api/v1/api-keys \\
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -257,7 +257,7 @@ curl -X POST https://api.cueforge.app/api/v1/api-keys \\
 
 # Use the key in requests
 curl -H "X-API-Key: your_secret_key" \\
-  https://api.cueforge.app/api/v1/tracks`}
+  https://api.trackcue.app/api/v1/tracks`}
                 language="bash"
                 codeId="api-key-auth"
               />
@@ -293,7 +293,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  "https://api.cueforge.app/api/v1/tracks?skip=0&limit=20"`,
+  "https://api.trackcue.app/api/v1/tracks?skip=0&limit=20"`,
                 }}
               />
 
@@ -307,7 +307,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/tracks/123`,
+  https://api.trackcue.app/api/v1/tracks/123`,
                 }}
               />
 
@@ -323,7 +323,7 @@ curl -H "X-API-Key: your_secret_key" \\
                   code: `curl -X POST \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -F "file=@/path/to/track.mp3" \\
-  https://api.cueforge.app/api/v1/tracks/upload`,
+  https://api.trackcue.app/api/v1/tracks/upload`,
                 }}
               />
 
@@ -346,7 +346,7 @@ curl -H "X-API-Key: your_secret_key" \\
     "key": "C minor",
     "genre": "House"
   }' \\
-  https://api.cueforge.app/api/v1/tracks/123`,
+  https://api.trackcue.app/api/v1/tracks/123`,
                 }}
               />
             </div>
@@ -371,7 +371,7 @@ curl -H "X-API-Key: your_secret_key" \\
                   language: 'bash',
                   code: `curl -X POST \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/tracks/123/analyze`,
+  https://api.trackcue.app/api/v1/tracks/123/analyze`,
                 }}
               />
 
@@ -385,7 +385,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/tracks/123/analysis
+  https://api.trackcue.app/api/v1/tracks/123/analysis
 
 # Response example:
 # {
@@ -419,7 +419,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/export/rekordbox > library.xml`,
+  https://api.trackcue.app/api/v1/export/rekordbox > library.xml`,
                 }}
               />
 
@@ -430,7 +430,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/export/serato > library.crates`,
+  https://api.trackcue.app/api/v1/export/serato > library.crates`,
                 }}
               />
 
@@ -441,7 +441,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/export/traktor > collection.nml`,
+  https://api.trackcue.app/api/v1/export/traktor > collection.nml`,
                 }}
               />
             </div>
@@ -462,7 +462,7 @@ curl -H "X-API-Key: your_secret_key" \\
                 example={{
                   language: 'bash',
                   code: `curl -H "Authorization: Bearer YOUR_TOKEN" \\
-  https://api.cueforge.app/api/v1/playlists`,
+  https://api.trackcue.app/api/v1/playlists`,
                 }}
               />
 
@@ -479,7 +479,7 @@ curl -H "X-API-Key: your_secret_key" \\
     "name": "Deep House Mix",
     "description": "My favorite deep house tracks"
   }' \\
-  https://api.cueforge.app/api/v1/playlists`,
+  https://api.trackcue.app/api/v1/playlists`,
                 }}
               />
 
@@ -496,7 +496,7 @@ curl -H "X-API-Key: your_secret_key" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"track_id": 456}' \\
-  https://api.cueforge.app/api/v1/playlists/789/tracks`,
+  https://api.trackcue.app/api/v1/playlists/789/tracks`,
                 }}
               />
             </div>
@@ -507,7 +507,7 @@ curl -H "X-API-Key: your_secret_key" \\
             <div>
               <h1 className="text-4xl font-bold text-slate-100 mb-6">Webhooks</h1>
               <p className="text-slate-400 mb-6">
-                Webhooks allow you to receive real-time notifications for events in your CueForge account.
+                Webhooks allow you to receive real-time notifications for events in your TrackCue account.
               </p>
 
               <h2 className="text-2xl font-semibold text-slate-200 mb-4">Setting Up Webhooks</h2>
@@ -525,7 +525,7 @@ curl -H "X-API-Key: your_secret_key" \\
     "url": "https://example.com/webhook",
     "events": ["track.analyzed", "track.uploaded"]
   }' \\
-  https://api.cueforge.app/api/v1/webhooks`,
+  https://api.trackcue.app/api/v1/webhooks`,
                 }}
               />
 
@@ -559,7 +559,7 @@ curl -H "X-API-Key: your_secret_key" \\
 
               <h2 className="text-2xl font-semibold text-slate-200 mt-8 mb-4">Verifying Webhooks</h2>
               <p className="text-slate-400 mb-4">
-                Each webhook includes a <code className="bg-slate-900 px-2 py-1 rounded">X-CueForge-Signature</code> header containing an HMAC-SHA256 signature of the request body.
+                Each webhook includes a <code className="bg-slate-900 px-2 py-1 rounded">X-TrackCue-Signature</code> header containing an HMAC-SHA256 signature of the request body.
               </p>
               <CodeBlock
                 code={`import hashlib
@@ -575,7 +575,7 @@ def verify_webhook(body: bytes, signature: str, secret: str) -> bool:
     return hmac.compare_digest(signature, expected_signature)
 
 # In your webhook handler:
-# signature = request.headers['X-CueForge-Signature']
+# signature = request.headers['X-TrackCue-Signature']
 # is_valid = verify_webhook(request.body, signature, webhook_secret)`}
                 language="python"
                 codeId="verify-webhook"

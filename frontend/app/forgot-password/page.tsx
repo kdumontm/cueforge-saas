@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
             <div className="w-10 h-10 bg-accent-purple rounded-xl flex items-center justify-center">
               <Music2 size={20} className="text-white" />
             </div>
-            <span className="text-2xl font-bold text-white">CueForge</span>
+            <span className="text-2xl font-bold text-white">TrackCue</span>
           </Link>
         </div>
 

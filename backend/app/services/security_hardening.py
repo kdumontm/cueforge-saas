@@ -243,8 +243,8 @@ class SecurityService:
         allowed_origins = {
             "http://localhost:3000",
             "http://localhost:8000",
-            os.getenv("FRONTEND_URL", "https://cueforge.app"),
-            "https://app.cueforge.app",
+            os.getenv("FRONTEND_URL", "https://trackcue.app"),
+            "https://app.trackcue.app",
         }
 
         if origin not in allowed_origins:
@@ -390,7 +390,7 @@ class SecurityService:
 
         # Checker requirements.txt
         try:
-            with open("/tmp/cueforge-saas/backend/requirements.txt", "r") as f:
+            with open("/tmp/trackcue-saas/backend/requirements.txt", "r") as f:
                 packages = [line.strip() for line in f if line.strip()]
 
             # Simuler un scan (en vrai, faire API call à safety.io ou pip-audit)

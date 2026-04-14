@@ -1,5 +1,5 @@
 """
-GPU acceleration pipeline for CueForge audio analysis.
+GPU acceleration pipeline for TrackCue audio analysis.
 Points 481-520: GPU setup, CUDA streams, GPU memory management,
 FFT/onset/chroma/mel-spectrogram on GPU, Tensor Cores, profiling,
 memory transfer optimization, GPU capability detection, CPU fallback.

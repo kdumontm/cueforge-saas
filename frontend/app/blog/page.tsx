@@ -55,7 +55,7 @@ export default function BlogPage() {
       <div className="bg-gradient-to-br from-[var(--accent)] to-purple-600 py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Blog CueForge
+            Blog TrackCue
           </h1>
           <p className="text-xl text-white/80">
             Tips, tutoriels et actualités pour optimiser votre workflow DJ

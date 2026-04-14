@@ -118,7 +118,7 @@ export default function OnboardingPage() {
         {step === 'style' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold text-white">
-              Bienvenue sur CueForge!
+              Bienvenue sur TrackCue!
             </h1>
             <p className="text-gray-400 text-lg">
               Quel est ton style DJ principal?

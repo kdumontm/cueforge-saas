@@ -1,5 +1,5 @@
 /**
- * CueForge Advanced UI/UX Components
+ * TrackCue Advanced UI/UX Components
  * Section E: Points 1451-1650
  *
  * This file is the primary export index for all advanced components.

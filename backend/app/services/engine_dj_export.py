@@ -1,5 +1,5 @@
 """
-CueForge — Engine DJ Export Service
+TrackCue — Engine DJ Export Service
 
 Exports tracks and cue data to Engine DJ (Denon/InMusic ecosystem) format.
 Engine DJ uses a proprietary database format with XML-based metadata.
@@ -506,7 +506,7 @@ def export_tracks_to_engine_dj(
     Export tracks to Engine DJ format.
 
     Args:
-        tracks: List of track data from CueForge DB
+        tracks: List of track data from TrackCue DB
         output_path: Optional file path to write XML to
         progress_callback: Optional callback(current, total) for progress tracking
 

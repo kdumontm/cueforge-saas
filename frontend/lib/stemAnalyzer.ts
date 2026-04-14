@@ -1,4 +1,4 @@
-// ─── CueForge Stem Analyzer v1.0 — Analyse par stems pour précision DJ ─────
+// ─── TrackCue Stem Analyzer v1.0 — Analyse par stems pour précision DJ ─────
 // Utilise les 4 stems séparés par Demucs (drums, bass, vocals, other) pour
 // affiner l'analyse audio bien au-delà de ce que le mix complet permet.
 //

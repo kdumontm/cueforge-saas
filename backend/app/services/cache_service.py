@@ -93,7 +93,7 @@ _memory_cache = _LRUCache()
 
 def _make_key(namespace: str, identifier: str) -> str:
     """Build a cache key."""
-    return f"cueforge:{namespace}:{identifier}"
+    return f"trackcue:{namespace}:{identifier}"
 
 
 def cache_get(namespace: str, identifier: str) -> Optional[dict]:

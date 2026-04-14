@@ -109,7 +109,7 @@ export default function ActivityPage() {
           <Clock size={20} /> Historique d'activité
         </h1>
         <p className="text-[13px] text-[var(--text-muted)]">
-          Suivi de toutes vos actions sur CueForge
+          Suivi de toutes vos actions sur TrackCue
         </p>
       </div>
 

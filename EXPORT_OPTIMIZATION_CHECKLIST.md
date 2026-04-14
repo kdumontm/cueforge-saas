@@ -1,4 +1,4 @@
-# CueForge DJ Export Optimizations — Implementation Checklist
+# TrackCue DJ Export Optimizations — Implementation Checklist
 
 **Date**: 2026-04-13  
 **Status**: ✓ COMPLETE (80/80 points)

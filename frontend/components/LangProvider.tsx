@@ -15,13 +15,13 @@ export function LangProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from localStorage after mount
   useEffect(() => {
-    const stored = localStorage.getItem('cueforge_lang') as Lang | null;
+    const stored = localStorage.getItem('trackcue_lang') as Lang | null;
     if (stored === 'en' || stored === 'fr') setLangState(stored);
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem('cueforge_lang', l);
+    localStorage.setItem('trackcue_lang', l);
   };
 
   return (

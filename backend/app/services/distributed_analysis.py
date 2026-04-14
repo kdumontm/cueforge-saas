@@ -1,5 +1,5 @@
 """
-Distributed audio analysis pipeline for CueForge.
+Distributed audio analysis pipeline for TrackCue.
 Points 521-550: Task DAG generation, stage distribution, worker affinity,
 backpressure handling, async result collection, partial result merging,
 worker failure handling, pipeline throughput measurement, stage reordering,

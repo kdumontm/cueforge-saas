@@ -1,5 +1,5 @@
 """
-CueForge AI Cue Point Engine (Section A: Points 101-160)
+TrackCue AI Cue Point Engine (Section A: Points 101-160)
 Machine learning-based cue point prediction with structure detection,
 novelty analysis, crowd energy estimation, and intelligent cue refinement.
 

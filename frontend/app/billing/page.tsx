@@ -36,7 +36,7 @@ function BillingContent() {
   const [interval, setInterval] = useState<'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
-    const token = localStorage.getItem('cueforge_token');
+    const token = localStorage.getItem('trackcue_token');
     if (!token) {
       router.push('/login');
       return;

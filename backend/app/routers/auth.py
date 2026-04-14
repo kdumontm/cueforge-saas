@@ -143,7 +143,7 @@ class ResetPasswordRequest(BaseModel):
 
 _ALLOWED_REDIRECT_PREFIXES = (
     "https://exquisite-art-production-f4c6.up.railway.app",
-    "https://cueforge-saas-production.up.railway.app",
+    "https://trackcue-saas-production.up.railway.app",
     "http://localhost",   # dev only
     "http://127.0.0.1",  # dev only
 )
@@ -532,7 +532,7 @@ async def export_my_data(user: User = Depends(get_current_user), db: Session = D
 
 @router.post("/oauth/google", response_model=TokenResponse)
 async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
-    """Exchange Google OAuth code for CueForge tokens."""
+    """Exchange Google OAuth code for TrackCue tokens."""
     from app.services.oauth_service import exchange_google_token, oauth_login_or_register
 
     _s = get_settings()
@@ -568,7 +568,7 @@ async def oauth_google(req: OAuthCallbackRequest, db: Session = Depends(get_db))
 
 @router.post("/oauth/spotify", response_model=TokenResponse)
 async def oauth_spotify(req: OAuthCallbackRequest, db: Session = Depends(get_db)):
-    """Exchange Spotify OAuth code for CueForge tokens."""
+    """Exchange Spotify OAuth code for TrackCue tokens."""
     from app.services.oauth_service import exchange_spotify_token, oauth_login_or_register
 
     _s = get_settings()

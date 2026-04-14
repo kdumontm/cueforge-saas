@@ -13,7 +13,7 @@ interface TourStep {
 
 const TOUR_STEPS: TourStep[] = [
   {
-    title: 'Bienvenue sur CueForge !',
+    title: 'Bienvenue sur TrackCue !',
     description: 'L\'outil ultime pour les DJs. Analyse tes morceaux, génère des cue points pro, et prépare tes sets comme un pro.',
     icon: <Sparkles size={28} className="text-yellow-400" />,
     tip: 'Ce tour ne s\'affiche qu\'une seule fois. Tu peux le relancer dans les paramètres.',
@@ -26,7 +26,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: '2. Analyse automatique',
-    description: 'CueForge analyse le BPM, la tonalité, l\'énergie et la structure de chaque morceau. Les cue points sont générés automatiquement sur les mesures.',
+    description: 'TrackCue analyse le BPM, la tonalité, l\'énergie et la structure de chaque morceau. Les cue points sont générés automatiquement sur les mesures.',
     icon: <Zap size={28} className="text-purple-400" />,
     tip: 'L\'analyse utilise l\'IA pour détecter intros, drops, breakdowns et outros.',
   },
@@ -50,13 +50,13 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'C\'est parti !',
-    description: 'Tu es prêt à utiliser CueForge. Commence par importer un morceau pour voir la magie opérer.',
+    description: 'Tu es prêt à utiliser TrackCue. Commence par importer un morceau pour voir la magie opérer.',
     icon: <Layers size={28} className="text-pink-400" />,
     tip: 'Raccourcis : Espace = Play/Pause, ← → = Skip, 1-8 = Cue points.',
   },
 ];
 
-const ONBOARDING_KEY = 'cueforge_onboarding_done';
+const ONBOARDING_KEY = 'trackcue_onboarding_done';
 
 interface OnboardingTourProps {
   forceShow?: boolean;

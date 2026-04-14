@@ -28,7 +28,7 @@ def send_first_upload_tip(email: str, track_name: str) -> None:
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: white;">Ton premier track « {track_name} » est uploadé ! 🎉</h2>
         <p style="color: #cbd5e1;">Voici ce que tu peux faire maintenant :</p>
@@ -61,7 +61,7 @@ def send_analysis_tip(email: str, bpm: float, key: str) -> None:
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: white;">Analyse terminée !</h2>
         <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 16px 0;">
@@ -87,14 +87,14 @@ def send_upgrade_nudge(email: str, name: str) -> None:
         email: User email address
         name: User's first name
     """
-    subject = "🚀 Passe au niveau supérieur avec CueForge Pro"
+    subject = "🚀 Passe au niveau supérieur avec TrackCue Pro"
     html = f"""
     <div style="font-family: -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; padding: 40px; border-radius: 16px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #a855f7; margin: 0;">CueForge</h1>
+            <h1 style="color: #a855f7; margin: 0;">TrackCue</h1>
         </div>
         <h2 style="color: white;">Hey {name} 👋</h2>
-        <p style="color: #cbd5e1;">Tu utilises CueForge depuis quelques jours — voici ce que tu débloques avec <strong style="color: #a855f7;">Pro</strong> :</p>
+        <p style="color: #cbd5e1;">Tu utilises TrackCue depuis quelques jours — voici ce que tu débloques avec <strong style="color: #a855f7;">Pro</strong> :</p>
         <div style="background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0;">
             <ul style="margin: 0; color: #e2e8f0; line-height: 2;">
                 <li>🎯 <strong>50 analyses/jour</strong> (vs 5 en free)</li>

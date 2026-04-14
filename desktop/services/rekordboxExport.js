@@ -56,13 +56,13 @@ function exportRekordbox(tracks, outputPath) {
 
   const xml = `<?xml version="1.0" encoding="utf-8"?>
 <DJ_PLAYLISTS Version="1.0.0">
-  <PRODUCT Name="CueForge" Version="2.0.0" Company="CueForge"/>
+  <PRODUCT Name="TrackCue" Version="2.0.0" Company="TrackCue"/>
   <COLLECTION Entries="${tracks.length}">
 ${tracksXml}
   </COLLECTION>
   <PLAYLISTS>
     <NODE Type="0" Name="ROOT" Count="1">
-      <NODE Name="CueForge Export" Type="1" KeyType="0" Entries="${tracks.length}">
+      <NODE Name="TrackCue Export" Type="1" KeyType="0" Entries="${tracks.length}">
 ${tracks.map((t, i) => `        <TRACK Key="${i + 1}"/>`).join('\n')}
       </NODE>
     </NODE>

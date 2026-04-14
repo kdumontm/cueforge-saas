@@ -1,5 +1,5 @@
 """
-CueForge v4 — Mix Analyzer router.
+TrackCue v4 — Mix Analyzer router.
 
 Upload a recorded DJ mix → identify tracks via fingerprinting,
 extract timestamps, transition points, and quality score.
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/mix-analyzer", tags=["mix-analyzer"])
 # In-memory job store
 _mix_jobs: dict = {}
 
-UPLOAD_DIR = os.getenv("MIX_UPLOAD_DIR", "/tmp/cueforge_mixes")
+UPLOAD_DIR = os.getenv("MIX_UPLOAD_DIR", "/tmp/trackcue_mixes")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

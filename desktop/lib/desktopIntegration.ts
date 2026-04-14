@@ -1,5 +1,5 @@
 /**
- * DesktopIntegration - Intégration complète Electron pour CueForge Desktop
+ * DesktopIntegration - Intégration complète Electron pour TrackCue Desktop
  * Points 1831-1880: Fonctionnalités desktop natives
  */
 
@@ -196,12 +196,12 @@ export class DesktopIntegration {
         label: 'Help',
         submenu: [
           {
-            label: 'About CueForge',
+            label: 'About TrackCue',
             click: () => {
               dialog.showMessageBox({
                 type: 'info',
-                title: 'About CueForge',
-                message: 'CueForge v1.0.0',
+                title: 'About TrackCue',
+                message: 'TrackCue v1.0.0',
                 detail: 'Professional DJ audio analysis tool',
               });
             },
@@ -283,7 +283,7 @@ export class DesktopIntegration {
     this.tray.setContextMenu(contextMenu);
 
     // Tooltip du tray
-    this.tray.setToolTip('CueForge');
+    this.tray.setToolTip('TrackCue');
 
     // Double-click = afficher l'app
     this.tray.on('double-click', () => {
@@ -337,9 +337,9 @@ export class DesktopIntegration {
    */
   setupCrashReporter(): void {
     crashReporter.start({
-      productName: 'CueForge',
-      companyName: 'CueForge Inc',
-      submitURL: 'https://api.cueforge.app/crashes',
+      productName: 'TrackCue',
+      companyName: 'TrackCue Inc',
+      submitURL: 'https://api.trackcue.app/crashes',
       uploadToServer: true,
     });
 
@@ -364,7 +364,7 @@ export class DesktopIntegration {
    * 1839: createLocalCache - SQLite cache local pour les analyses
    */
   createLocalCache(): Database.Database {
-    const dbPath = path.join(app.getPath('userData'), 'cueforge.db');
+    const dbPath = path.join(app.getPath('userData'), 'trackcue.db');
 
     this.localCache = new Database(dbPath);
 

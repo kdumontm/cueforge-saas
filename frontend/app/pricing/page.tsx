@@ -11,7 +11,7 @@ const PLANS = [
     name: 'Free',
     monthlyPrice: 0,
     yearlyPrice: 0,
-    description: 'Pour découvrir CueForge',
+    description: 'Pour découvrir TrackCue',
     features: [
       { text: '5 analyses par jour', included: true },
       { text: 'BPM, Key, Energy', included: true },
@@ -128,7 +128,7 @@ export default function PricingPage() {
             <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center">
               <Music2 size={14} className="text-white" />
             </div>
-            <span className="text-lg font-bold text-[var(--text-primary)]">CueForge</span>
+            <span className="text-lg font-bold text-[var(--text-primary)]">TrackCue</span>
           </Link>
           <Link href="/login" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
             Connexion
@@ -259,7 +259,7 @@ export default function PricingPage() {
         <div className="space-y-3">
           {[
             { q: 'Puis-je changer de plan à tout moment ?', a: 'Oui, tu peux upgrader ou downgrader ton plan à tout moment. Les changements prennent effet immédiatement avec un prorata.' },
-            { q: 'Les exports sont-ils compatibles avec Rekordbox ?', a: 'Oui, CueForge exporte des fichiers XML 100% compatibles avec Rekordbox 6 et 7. Le support Serato et Traktor est disponible avec le plan Pro.' },
+            { q: 'Les exports sont-ils compatibles avec Rekordbox ?', a: 'Oui, TrackCue exporte des fichiers XML 100% compatibles avec Rekordbox 6 et 7. Le support Serato et Traktor est disponible avec le plan Pro.' },
             { q: 'Comment fonctionne la limite quotidienne ?', a: 'La limite se réinitialise chaque jour à minuit (UTC). Les morceaux déjà analysés ne comptent pas dans la limite.' },
             { q: 'Y a-t-il un engagement ?', a: 'Aucun engagement ! Tu peux annuler à tout moment. Avec le plan annuel, tu es facturé une fois par an avec 20% de réduction.' },
           ].map((faq) => (

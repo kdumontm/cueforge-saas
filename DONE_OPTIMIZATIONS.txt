@@ -1,5 +1,5 @@
 ================================================================================
-  CueForge Cue Generator v5.0 — Optimizations 101-250 COMPLETE
+  TrackCue Cue Generator v5.0 — Optimizations 101-250 COMPLETE
 ================================================================================
 
 FILE MODIFIED:

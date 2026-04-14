@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const [twoFALoading, setTwoFALoading] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("cueforge_token");
+    const token = localStorage.getItem("trackcue_token");
     if (!token) {
       router.push("/login");
       return;
@@ -52,7 +52,7 @@ export default function SettingsPage() {
     loadProfile();
     loadTwoFAStatus();
     // Load DJ prefs from localStorage
-    const savedPrefs = localStorage.getItem("cueforge_dj_prefs");
+    const savedPrefs = localStorage.getItem("trackcue_dj_prefs");
     if (savedPrefs) {
       try { setDjPrefs(JSON.parse(savedPrefs)); } catch {}
     }
@@ -60,7 +60,7 @@ export default function SettingsPage() {
 
   function saveDjPrefs(newPrefs: typeof djPrefs) {
     setDjPrefs(newPrefs);
-    localStorage.setItem("cueforge_dj_prefs", JSON.stringify(newPrefs));
+    localStorage.setItem("trackcue_dj_prefs", JSON.stringify(newPrefs));
     showMessage("success", "Préférences sauvegardées !");
   }
 
@@ -84,7 +84,7 @@ export default function SettingsPage() {
 
   async function loadTwoFAStatus() {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const res = await fetch(`${API_URL}/2fa/status`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={async () => {
                     try {
-                      const token = localStorage.getItem('cueforge_token');
+                      const token = localStorage.getItem('trackcue_token');
                       const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                       await fetch(`${API_URL}/auth/sessions`, {
                         method: 'DELETE',
@@ -334,7 +334,7 @@ export default function SettingsPage() {
                       onClick={async () => {
                         setTwoFALoading(true);
                         try {
-                          const token = localStorage.getItem('cueforge_token');
+                          const token = localStorage.getItem('trackcue_token');
                           const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                           const res = await fetch(`${API_URL}/2fa/setup`, {
                             method: 'POST',
@@ -407,7 +407,7 @@ export default function SettingsPage() {
                           }
                           setTwoFALoading(true);
                           try {
-                            const token = localStorage.getItem('cueforge_token');
+                            const token = localStorage.getItem('trackcue_token');
                             const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                             const res = await fetch(`${API_URL}/2fa/enable`, {
                               method: 'POST',
@@ -475,7 +475,7 @@ export default function SettingsPage() {
                         }
                         setTwoFALoading(true);
                         try {
-                          const token = localStorage.getItem('cueforge_token');
+                          const token = localStorage.getItem('trackcue_token');
                           const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                           const res = await fetch(`${API_URL}/2fa/disable`, {
                             method: 'POST',
@@ -747,7 +747,7 @@ export default function SettingsPage() {
                 <button
                   onClick={async () => {
                     try {
-                      const token = localStorage.getItem('cueforge_token');
+                      const token = localStorage.getItem('trackcue_token');
                       const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                       const res = await fetch(`${API_URL}/auth/me/export`, {
                         headers: { Authorization: `Bearer ${token}` },
@@ -757,7 +757,7 @@ export default function SettingsPage() {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `cueforge-data-export-${new Date().toISOString().split('T')[0]}.json`;
+                      a.download = `trackcue-data-export-${new Date().toISOString().split('T')[0]}.json`;
                       a.click();
                       URL.revokeObjectURL(url);
                       showMessage('success', 'Données exportées !');
@@ -802,7 +802,7 @@ export default function SettingsPage() {
                         onClick={async () => {
                           if (deleteConfirmText !== 'SUPPRIMER') return;
                           try {
-                            const token = localStorage.getItem('cueforge_token');
+                            const token = localStorage.getItem('trackcue_token');
                             const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
                             await fetch(`${API_URL}/auth/me`, {
                               method: 'DELETE',

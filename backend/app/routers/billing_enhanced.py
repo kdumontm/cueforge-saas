@@ -259,7 +259,7 @@ async def subscribe(
         customer = stripe.Customer.create(
             email=user.email,
             name=user.name,
-            metadata={"cueforge_user_id": str(user.id)},
+            metadata={"trackcue_user_id": str(user.id)},
         )
         user.stripe_customer_id = customer.id
         db.commit()
@@ -272,7 +272,7 @@ async def subscribe(
         success_url=f"{frontend_url}/billing?success=true",
         cancel_url=f"{frontend_url}/billing?canceled=true",
         metadata={
-            "cueforge_user_id": str(user.id),
+            "trackcue_user_id": str(user.id),
             "plan_id": req.plan_id,
         },
     )
@@ -355,7 +355,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
 def _handle_checkout_completed(data: dict, db: Session):
     """User completed checkout — activate their plan."""
-    user_id = data.get("metadata", {}).get("cueforge_user_id")
+    user_id = data.get("metadata", {}).get("trackcue_user_id")
     plan_id = data.get("metadata", {}).get("plan_id", "pro")
 
     if not user_id:

@@ -19,7 +19,7 @@ jest.mock('lucide-react', () => {
 describe('LandingPage', () => {
   test('renders hero section', () => {
     render(<LandingPage />);
-    const matches = screen.getAllByText(/CueForge/);
+    const matches = screen.getAllByText(/TrackCue/);
     expect(matches.length).toBeGreaterThan(0);
   });
 

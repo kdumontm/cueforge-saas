@@ -1,5 +1,5 @@
 /**
- * Admin API Client — CueForge Back-office
+ * Admin API Client — TrackCue Back-office
  * Centralise tous les appels API admin.
  */
 
@@ -7,7 +7,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("cueforge_token");
+  return localStorage.getItem("trackcue_token");
 }
 
 export async function api<T = any>(path: string, opts: any = {}): Promise<T> {

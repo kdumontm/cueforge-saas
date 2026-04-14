@@ -1,5 +1,5 @@
 """
-CueForge — Detailed CSV Export Service
+TrackCue — Detailed CSV Export Service
 
 Generates comprehensive CSV exports with all metadata, cue points, and analysis data.
 Ideal for spreadsheet analysis, archival, and cross-platform compatibility.
@@ -54,7 +54,7 @@ def generate_tracks_csv(tracks: List[Dict]) -> str:
         "Loudness (dB)",
         "Tempo Range Min",
         "Tempo Range Max",
-        # CueForge specific
+        # TrackCue specific
         "Cue Count",
         "Loop Count",
         "First Cue (ms)",

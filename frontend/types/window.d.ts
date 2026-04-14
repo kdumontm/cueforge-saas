@@ -2,7 +2,7 @@
  * Déclarations globales pour window — évite les (window as any).
  */
 
-interface CueForgeElectronBridge {
+interface TrackCueElectronBridge {
   isDesktop?: boolean;
   analyzeLocal?: (filePath: string) => Promise<unknown>;
   getFilePath?: (trackId: number) => Promise<string | null>;
@@ -13,7 +13,7 @@ interface CueForgeElectronBridge {
 
 declare global {
   interface Window {
-    cueforge?: CueForgeElectronBridge;
+    trackcue?: TrackCueElectronBridge;
     __cuePreviewTimer?: ReturnType<typeof setTimeout>;
     webkitAudioContext?: typeof AudioContext;
   }

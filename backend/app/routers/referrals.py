@@ -171,12 +171,12 @@ async def invite_by_email(
     referral_link = f"{FRONTEND_URL}/register?ref={code}"
     html = f"""
     <p>Salut ! 👋</p>
-    <p><strong>{user.name or user.email}</strong> t'invite à rejoindre CueForge.</p>
-    <p>CueForge est une plateforme d'analyse audio et de génération de cue points pour les DJs.</p>
+    <p><strong>{user.name or user.email}</strong> t'invite à rejoindre TrackCue.</p>
+    <p>TrackCue est une plateforme d'analyse audio et de génération de cue points pour les DJs.</p>
     <a href="{referral_link}" style="display:inline-block;margin:16px 0;padding:12px 24px;
        background:#7c3aed;color:white;border-radius:8px;
        text-decoration:none;font-weight:bold">
-        S'inscrire avec CueForge
+        S'inscrire avec TrackCue
     </a>
     <p style="color:#888;font-size:13px">
         Lien d'invitation : {referral_link}
@@ -184,7 +184,7 @@ async def invite_by_email(
     """
     _send_email(
         body.email,
-        "Vous êtes invité à rejoindre CueForge",
+        "Vous êtes invité à rejoindre TrackCue",
         html
     )
 

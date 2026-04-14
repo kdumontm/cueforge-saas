@@ -92,7 +92,7 @@ export default function SettingsPanel({
 
   // ========== Load from localStorage on mount ==========
   useEffect(() => {
-    const saved = localStorage.getItem('cueforge-settings');
+    const saved = localStorage.getItem('trackcue-settings');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -110,7 +110,7 @@ export default function SettingsPanel({
   }, []);
 
   const saveSettings = useCallback(() => {
-    localStorage.setItem('cueforge-settings', JSON.stringify(settings));
+    localStorage.setItem('trackcue-settings', JSON.stringify(settings));
     onSave(settings);
     setHasChanges(false);
   }, [settings, onSave]);
@@ -161,7 +161,7 @@ export default function SettingsPanel({
       <div className="flex items-center justify-between gap-4 border-b border-gray-700 pb-4">
         <div>
           <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-sm text-gray-400">Customize CueForge to your preference</p>
+          <p className="text-sm text-gray-400">Customize TrackCue to your preference</p>
         </div>
 
         <div className="flex gap-2">

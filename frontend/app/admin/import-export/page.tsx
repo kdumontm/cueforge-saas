@@ -96,7 +96,7 @@ export default function ImportExportPage() {
         url.searchParams.set('filters', exportFilters);
       }
 
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 

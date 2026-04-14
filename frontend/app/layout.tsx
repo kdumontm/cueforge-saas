@@ -21,29 +21,29 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CueForge — Analyse audio pour DJs',
+  title: 'TrackCue — Analyse audio pour DJs',
   description: 'Analyse automatique BPM, cue points et export Rekordbox pour DJs professionnels',
   icons: { icon: '/favicon.ico' },
   manifest: '/manifest.json',
   openGraph: {
-    title: 'CueForge — Analyse audio pour DJs',
+    title: 'TrackCue — Analyse audio pour DJs',
     description: 'Prépare tes sets 10× plus vite. Analyse BPM, cue points, et export automatique Rekordbox',
-    url: 'https://cueforge.app',
+    url: 'https://trackcue.app',
     type: 'website',
     images: [
       {
-        url: 'https://cueforge.app/og-image.png',
+        url: 'https://trackcue.app/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'CueForge — Audio analysis for DJs',
+        alt: 'TrackCue — Audio analysis for DJs',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CueForge — Analyse audio pour DJs',
+    title: 'TrackCue — Analyse audio pour DJs',
     description: 'Analyse automatique BPM, cue points et export Rekordbox',
-    images: ['https://cueforge.app/og-image.png'],
+    images: ['https://trackcue.app/og-image.png'],
   },
 };
 
@@ -56,12 +56,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#a855f7" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="CueForge" />
+        <meta name="apple-mobile-web-app-title" content="TrackCue" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         {/* DNS prefetch + Preconnect backend API (Railway) */}
-        <link rel="dns-prefetch" href="https://cueforge-saas-production.up.railway.app" />
-        <link rel="preconnect" href="https://cueforge-saas-production.up.railway.app" />
+        <link rel="dns-prefetch" href="https://trackcue-saas-production.up.railway.app" />
+        <link rel="preconnect" href="https://trackcue-saas-production.up.railway.app" />
         {/* Preconnect CDN artworks (Spotify + Apple Music) */}
         <link rel="preconnect" href="https://i.scdn.co" />
         <link rel="preconnect" href="https://is1-ssl.mzstatic.com" />
@@ -73,9 +73,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'SoftwareApplication',
-              name: 'CueForge',
+              name: 'TrackCue',
               description: 'Analyse automatique BPM, cue points et export Rekordbox pour DJs professionnels',
-              url: 'https://cueforge.app',
+              url: 'https://trackcue.app',
               applicationCategory: 'AudioApplication',
               operatingSystem: 'Web, Windows, macOS, Linux',
               offers: {
@@ -85,10 +85,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               },
               author: {
                 '@type': 'Organization',
-                name: 'CueForge',
-                url: 'https://cueforge.app',
+                name: 'TrackCue',
+                url: 'https://trackcue.app',
               },
-              image: 'https://cueforge.app/og-image.png',
+              image: 'https://trackcue.app/og-image.png',
               aggregateRating: {
                 '@type': 'AggregateRating',
                 ratingValue: '4.8',

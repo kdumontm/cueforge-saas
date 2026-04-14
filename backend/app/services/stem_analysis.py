@@ -1,5 +1,5 @@
 """
-CueForge Stem Analysis Service — v5.1
+TrackCue Stem Analysis Service — v5.1
 Demucs-powered source separation for ultra-precise DJ cue point detection.
 
 v5.1 fixes:

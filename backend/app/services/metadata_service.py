@@ -203,7 +203,7 @@ def lookup_musicbrainz(recording_id: str) -> Optional[Dict[str, Any]]:
 
     try:
         import musicbrainzngs  # type: ignore
-        musicbrainzngs.set_useragent("CueForge", "0.1", "https://github.com/kdumontm/cueforge-saas")
+        musicbrainzngs.set_useragent("TrackCue", "0.1", "https://github.com/kdumontm/trackcue-saas")
         result = musicbrainzngs.get_recording_by_id(
             recording_id,
             includes=["artists", "releases", "tags"]
@@ -291,7 +291,7 @@ def search_musicbrainz_by_text(query: str, limit: int = 5) -> Optional[Dict[str,
             f"?query={urllib.parse.quote(query)}&limit={limit}&fmt=json"
         )
         req = urllib.request.Request(url, headers={
-            "User-Agent": "CueForge/0.1 (https://github.com/kdumontm/cueforge-saas)",
+            "User-Agent": "TrackCue/0.1 (https://github.com/kdumontm/trackcue-saas)",
             "Accept": "application/json",
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -535,7 +535,7 @@ def search_discogs(artist: str, title: str) -> Optional[Dict[str, Any]]:
             f"&token={DISCOGS_TOKEN}"
         )
         req = urllib.request.Request(url, headers={
-            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "User-Agent": "TrackCue/0.1 +https://github.com/kdumontm/trackcue-saas",
             "Accept": "application/json",
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -614,7 +614,7 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
             f"?term={urllib.parse.quote(query)}&media=music&entity=song&limit=5&lang=fr_FR"
         )
         req = urllib.request.Request(url, headers={
-            "User-Agent": "CueForge/0.1 (https://github.com/kdumontm/cueforge-saas)",
+            "User-Agent": "TrackCue/0.1 (https://github.com/kdumontm/trackcue-saas)",
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -626,7 +626,7 @@ def search_itunes(artist: str, title: str) -> Optional[Dict[str, Any]]:
                 "https://itunes.apple.com/search"
                 f"?term={urllib.parse.quote(title)}&media=music&entity=song&limit=5&lang=fr_FR"
             )
-            req2 = urllib.request.Request(url2, headers={"User-Agent": "CueForge/0.1"})
+            req2 = urllib.request.Request(url2, headers={"User-Agent": "TrackCue/0.1"})
             with urllib.request.urlopen(req2, timeout=10) as resp2:
                 data2 = json.loads(resp2.read().decode("utf-8"))
             results = data2.get("results", [])
@@ -754,7 +754,7 @@ def search_deezer(artist: str, title: str) -> Optional[Dict[str, Any]]:
 
         url = f"https://api.deezer.com/search?q={urllib.parse.quote(query)}&limit=5"
         req = urllib.request.Request(url, headers={
-            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "User-Agent": "TrackCue/0.1 +https://github.com/kdumontm/trackcue-saas",
             "Accept": "application/json",
         })
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -776,7 +776,7 @@ def search_deezer(artist: str, title: str) -> Optional[Dict[str, Any]]:
             try:
                 detail_url = f"https://api.deezer.com/track/{track_id}"
                 detail_req = urllib.request.Request(detail_url, headers={
-                    "User-Agent": "CueForge/0.1",
+                    "User-Agent": "TrackCue/0.1",
                     "Accept": "application/json",
                 })
                 with urllib.request.urlopen(detail_req, timeout=8) as detail_resp:
@@ -792,7 +792,7 @@ def search_deezer(artist: str, title: str) -> Optional[Dict[str, Any]]:
                     try:
                         album_url = f"https://api.deezer.com/album/{album_data['id']}"
                         album_req = urllib.request.Request(album_url, headers={
-                            "User-Agent": "CueForge/0.1",
+                            "User-Agent": "TrackCue/0.1",
                             "Accept": "application/json",
                         })
                         with urllib.request.urlopen(album_req, timeout=5) as album_resp:
@@ -883,7 +883,7 @@ def get_songlink(
 
         url = f"https://api.song.link/v1-alpha.1/links?url={urllib.parse.quote(source_url)}"
         req = urllib.request.Request(url, headers={
-            "User-Agent": "CueForge/0.1 +https://github.com/kdumontm/cueforge-saas",
+            "User-Agent": "TrackCue/0.1 +https://github.com/kdumontm/trackcue-saas",
             "Accept": "application/json",
         })
         with urllib.request.urlopen(req, timeout=15) as resp:

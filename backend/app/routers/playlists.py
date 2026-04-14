@@ -1,5 +1,5 @@
 """
-CueForge v2 — Playlists CRUD router (Phase 2).
+TrackCue v2 — Playlists CRUD router (Phase 2).
 
 Supports folders (is_folder=True) and nested playlists (parent_id).
 Endpoints:

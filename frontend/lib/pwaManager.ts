@@ -1,5 +1,5 @@
 /**
- * PWA Manager for CueForge
+ * PWA Manager for TrackCue
  * Handles service worker registration, offline support, push notifications,
  * background sync, adaptive loading, battery optimization, and resumable uploads.
  */
@@ -63,7 +63,7 @@ export interface ResumableUploadState {
  */
 export class PWAManager {
   private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
-  private backgroundSyncTag = 'cueforge-sync';
+  private backgroundSyncTag = 'trackcue-sync';
   private cacheStrategy: Map<string, CacheStrategy> = new Map();
   private resumableUploads: Map<string, ResumableUploadState> = new Map();
   private isOnline: boolean = navigator.onLine;
@@ -212,7 +212,7 @@ export class PWAManager {
     }
 
     try {
-      const dbRequest = indexedDB.open('cueforge', 1);
+      const dbRequest = indexedDB.open('trackcue', 1);
 
       dbRequest.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
@@ -540,7 +540,7 @@ export class PWAManager {
     if (!('indexedDB' in window)) return;
 
     try {
-      const dbRequest = indexedDB.open('cueforge', 1);
+      const dbRequest = indexedDB.open('trackcue', 1);
       dbRequest.onsuccess = async (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         const transaction = db.transaction('queue', 'readonly');

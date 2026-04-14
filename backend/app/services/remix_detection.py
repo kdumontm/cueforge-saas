@@ -1,5 +1,5 @@
 """
-CueForge v4 — Remix/Version Detection Service.
+TrackCue v4 — Remix/Version Detection Service.
 
 Parses track titles to extract remix info, version type, and featured artists.
 Follows standard music industry naming conventions:

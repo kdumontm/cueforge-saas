@@ -24,7 +24,7 @@ interface OnboardingState {
 const STEPS: OnboardingStep[] = [
   {
     id: 0,
-    title: 'Welcome to CueForge',
+    title: 'Welcome to TrackCue',
     description: 'Choose your DJ experience level to get started',
   },
   {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# ─── CueForge — Script de release automatique ────────────────────────────────
+# ─── TrackCue — Script de release automatique ────────────────────────────────
 # Usage : ./scripts/release.sh <patch|minor|major> "Description de la release"
 #
 # Ce script :
@@ -46,7 +46,7 @@ echo "✅ desktop/package.json → v$NEW_VERSION"
 
 # ── Mettre à jour le fallback dans downloads.py ───────────────────────────────
 sed -i.bak "s/\"version\": \"[0-9]*\.[0-9]*\.[0-9]*\"/\"version\": \"$NEW_VERSION\"/" backend/app/routers/downloads.py
-sed -i.bak "s|/download/v[0-9]*\.[0-9]*\.[0-9]*/CueForge-[0-9]*\.[0-9]*\.[0-9]*|/download/v${NEW_VERSION}/CueForge-${NEW_VERSION}|g" backend/app/routers/downloads.py
+sed -i.bak "s|/download/v[0-9]*\.[0-9]*\.[0-9]*/TrackCue-[0-9]*\.[0-9]*\.[0-9]*|/download/v${NEW_VERSION}/TrackCue-${NEW_VERSION}|g" backend/app/routers/downloads.py
 rm -f backend/app/routers/downloads.py.bak
 echo "✅ downloads.py fallback → v$NEW_VERSION"
 
@@ -60,16 +60,16 @@ echo "✅ Commit + tag v$NEW_VERSION pushé"
 # ── Créer la release GitHub ───────────────────────────────────────────────────
 if command -v gh &> /dev/null; then
     gh release create "v$NEW_VERSION" \
-        --title "CueForge v$NEW_VERSION" \
+        --title "TrackCue v$NEW_VERSION" \
         --notes "$DESCRIPTION" \
         --latest
     echo "✅ Release GitHub créée : v$NEW_VERSION"
     echo "⏳ Le workflow build-desktop.yml va builder les .dmg/.exe automatiquement"
 else
     echo "⚠️  gh CLI non disponible — release GitHub à créer manuellement"
-    echo "   gh release create v$NEW_VERSION --title 'CueForge v$NEW_VERSION' --notes '$DESCRIPTION'"
+    echo "   gh release create v$NEW_VERSION --title 'TrackCue v$NEW_VERSION' --notes '$DESCRIPTION'"
 fi
 
 echo ""
 echo "🎉 Release v$NEW_VERSION terminée !"
-echo "   → GitHub : https://github.com/kdumontm/cueforge-saas/releases/tag/v$NEW_VERSION"
+echo "   → GitHub : https://github.com/kdumontm/trackcue-saas/releases/tag/v$NEW_VERSION"

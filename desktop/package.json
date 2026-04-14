@@ -1,7 +1,7 @@
 {
-  "name": "cueforge",
+  "name": "trackcue",
   "version": "3.5.0",
-  "description": "CueForge — App desktop pour DJs. Analyse audio locale, cue points, export Rekordbox/Serato.",
+  "description": "TrackCue — App desktop pour DJs. Analyse audio locale, cue points, export Rekordbox/Serato.",
   "main": "src/main.js",
   "author": {
     "name": "Kevin Dumont",
@@ -10,7 +10,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kdumontm/cueforge-saas"
+    "url": "https://github.com/kdumontm/trackcue-saas"
   },
   "scripts": {
     "start": "electron .",
@@ -23,8 +23,8 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
-    "appId": "com.cueforge.app",
-    "productName": "CueForge",
+    "appId": "com.trackcue.app",
+    "productName": "TrackCue",
     "afterPack": "./scripts/afterPack.js",
     "npmRebuild": true,
     "asar": true,
@@ -80,11 +80,11 @@
       "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "CueForge"
+      "shortcutName": "TrackCue"
     },
-    "artifactName": "CueForge-${version}-${arch}.${ext}",
+    "artifactName": "TrackCue-${version}-${arch}.${ext}",
     "dmg": {
-      "title": "CueForge-${arch}",
+      "title": "TrackCue-${arch}",
       "backgroundColor": "#0a0a0a",
       "contents": [
         {
@@ -108,7 +108,7 @@
     "publish": {
       "provider": "github",
       "owner": "kdumontm",
-      "repo": "cueforge-saas",
+      "repo": "trackcue-saas",
       "releaseType": "release"
     },
     "directories": {

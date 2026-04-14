@@ -24,7 +24,7 @@ export default function LandingPage() {
           <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
             <Music2 size={18} className="text-white" />
           </div>
-          <span className="text-xl font-bold text-white">CueForge</span>
+          <span className="text-xl font-bold text-white">TrackCue</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/testimonials" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
@@ -57,7 +57,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Upload ton audio, CueForge détecte automatiquement le BPM, les drops, les phrases
+          Upload ton audio, TrackCue détecte automatiquement le BPM, les drops, les phrases
           et génère tes cue points prêts pour Rekordbox, Serato et Traktor.
         </p>
 
@@ -90,7 +90,7 @@ export default function LandingPage() {
                 <div className="w-3 h-3 rounded-full bg-green-500/50" />
               </div>
               <div className="flex-1 text-center">
-                <span className="text-[10px] text-slate-500 font-mono">cueforge.app/dashboard</span>
+                <span className="text-[10px] text-slate-500 font-mono">trackcue.app/dashboard</span>
               </div>
             </div>
             {/* Fake waveform */}
@@ -272,11 +272,11 @@ export default function LandingPage() {
       <section className="relative z-10 max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-12">
           <span className="text-xs font-bold uppercase tracking-widest text-accent-purple">Témoignages</span>
-          <h2 className="text-3xl font-bold text-white mt-2">Les DJs adorent CueForge</h2>
+          <h2 className="text-3xl font-bold text-white mt-2">Les DJs adorent TrackCue</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { name: 'DJ Marko', role: 'Résident Club', quote: 'CueForge a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures.' },
+            { name: 'DJ Marko', role: 'Résident Club', quote: 'TrackCue a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures.' },
             { name: 'Sarah B.', role: 'DJ Mobile & Mariages', quote: 'Le système de tags et de catégories est parfait pour organiser mes milliers de tracks. Je retrouve le bon morceau en secondes.' },
             { name: 'TechnoKid', role: 'DJ Producer', quote: 'L\'Energy Flow me permet de visualiser l\'énergie de mes sets avant de jouer. C\'est un game changer pour les festivals.' },
           ].map((t, i) => (
@@ -302,9 +302,9 @@ export default function LandingPage() {
         </div>
         <div className="space-y-3">
           {[
-            { q: 'CueForge est-il gratuit ?', a: 'Oui ! Le plan gratuit permet d\'analyser jusqu\'à 50 tracks par mois. Pour un usage intensif, le plan Pro offre des analyses illimitées et des fonctionnalités avancées.' },
-            { q: 'Quels formats audio sont supportés ?', a: 'CueForge supporte MP3, WAV, FLAC, AIFF, AAC, OGG et M4A. Tes fichiers sont analysés dans le cloud et ne sont jamais partagés.' },
-            { q: 'Puis-je exporter vers Rekordbox, Serato ou Traktor ?', a: 'Absolument ! CueForge exporte en XML Rekordbox, M3U, CSV, et prend aussi en charge l\'import depuis ces trois logiciels.' },
+            { q: 'TrackCue est-il gratuit ?', a: 'Oui ! Le plan gratuit permet d\'analyser jusqu\'à 50 tracks par mois. Pour un usage intensif, le plan Pro offre des analyses illimitées et des fonctionnalités avancées.' },
+            { q: 'Quels formats audio sont supportés ?', a: 'TrackCue supporte MP3, WAV, FLAC, AIFF, AAC, OGG et M4A. Tes fichiers sont analysés dans le cloud et ne sont jamais partagés.' },
+            { q: 'Puis-je exporter vers Rekordbox, Serato ou Traktor ?', a: 'Absolument ! TrackCue exporte en XML Rekordbox, M3U, CSV, et prend aussi en charge l\'import depuis ces trois logiciels.' },
             { q: 'L\'analyse est-elle précise ?', a: 'Notre moteur d\'analyse utilise des algorithmes avancés pour détecter le BPM, la tonalité, l\'énergie et la structure des morceaux avec une précision professionnelle.' },
             { q: 'Mes fichiers sont-ils sécurisés ?', a: 'Tes fichiers audio sont chiffrés pendant le transfert et l\'analyse, puis supprimés de nos serveurs après traitement. Seules les métadonnées sont conservées.' },
           ].map((faq, i) => (
@@ -330,7 +330,7 @@ export default function LandingPage() {
                 <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
                   <Music2 size={18} className="text-white" />
                 </div>
-                <span className="text-xl font-bold text-white">CueForge</span>
+                <span className="text-xl font-bold text-white">TrackCue</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
                 L&apos;outil d&apos;analyse audio et de préparation de sets pour DJs professionnels.
@@ -348,24 +348,24 @@ export default function LandingPage() {
               <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Légal</h4>
               <ul className="space-y-2">
                 <li><Link href="/cgu" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">CGU</Link></li>
-                <li><a href="mailto:contact@cueforge.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Contact</a></li>
+                <li><a href="mailto:contact@trackcue.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Contact</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Communauté</h4>
               <ul className="space-y-2">
-                <li><a href="https://twitter.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Twitter / X</a></li>
-                <li><a href="https://discord.gg/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Discord</a></li>
-                <li><a href="https://instagram.com/cueforge" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Instagram</a></li>
+                <li><a href="https://twitter.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Twitter / X</a></li>
+                <li><a href="https://discord.gg/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Discord</a></li>
+                <li><a href="https://instagram.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Instagram</a></li>
               </ul>
             </div>
           </div>
           <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500">&copy; 2026 CueForge. Tous droits réservés.</p>
+            <p className="text-xs text-slate-500">&copy; 2026 TrackCue. Tous droits réservés.</p>
             <div className="flex items-center gap-4">
               <Link href="/cgu" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">CGU</Link>
               <Link href="/pricing" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Tarifs</Link>
-              <a href="mailto:contact@cueforge.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Contact</a>
+              <a href="mailto:contact@trackcue.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Contact</a>
             </div>
           </div>
         </div>

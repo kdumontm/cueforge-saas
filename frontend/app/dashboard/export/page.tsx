@@ -37,7 +37,7 @@ export default function ExportPage() {
       switch (format) {
         case 'rekordbox': {
           const blob = await exportAllRekordbox();
-          downloadBlob(blob, 'CueForge_Library.xml');
+          downloadBlob(blob, 'TrackCue_Library.xml');
           break;
         }
         case 'm3u': {
@@ -64,7 +64,7 @@ export default function ExportPage() {
             `${i + 1}. ${t.artist || 'Unknown'} - ${t.title || t.original_filename}`
           );
           const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-          downloadBlob(blob, 'CueForge_Tracklist.txt');
+          downloadBlob(blob, 'TrackCue_Tracklist.txt');
           break;
         }
         case 'json': {
@@ -74,7 +74,7 @@ export default function ExportPage() {
             duration_ms: t.analysis?.duration_ms, rating: t.rating, tags: t.tags,
           }));
           const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-          downloadBlob(blob, 'CueForge_Export.json');
+          downloadBlob(blob, 'TrackCue_Export.json');
           break;
         }
         case 'csv': {
@@ -88,7 +88,7 @@ export default function ExportPage() {
           ].map(v => `"${v.replace(/"/g, '""')}"`).join(','));
           const csv = [headers.join(','), ...rows].join('\n');
           const blob = new Blob([csv], { type: 'text/csv' });
-          downloadBlob(blob, 'CueForge_Export.csv');
+          downloadBlob(blob, 'TrackCue_Export.csv');
           break;
         }
         default:

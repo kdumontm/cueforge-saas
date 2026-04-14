@@ -28,9 +28,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[CueForge][ErrorBoundary] 🔴 ERREUR CAPTURÉE :', error?.message);
-    console.error('[CueForge][ErrorBoundary] Stack:', error?.stack);
-    console.error('[CueForge][ErrorBoundary] Component stack:', info.componentStack);
+    console.error('[TrackCue][ErrorBoundary] 🔴 ERREUR CAPTURÉE :', error?.message);
+    console.error('[TrackCue][ErrorBoundary] Stack:', error?.stack);
+    console.error('[TrackCue][ErrorBoundary] Component stack:', info.componentStack);
   }
 
   handleReload = () => {
@@ -40,7 +40,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   private getLang(): Lang {
     try {
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('cueforge_lang') : null;
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('trackcue_lang') : null;
       if (stored === 'en' || stored === 'fr') return stored;
     } catch {}
     return 'fr';

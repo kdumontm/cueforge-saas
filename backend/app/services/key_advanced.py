@@ -1,5 +1,5 @@
 """
-CueForge Advanced Key & Harmonic Analysis (Section A: Points 51-100)
+TrackCue Advanced Key & Harmonic Analysis (Section A: Points 51-100)
 Deep learning-based harmonic analysis with key detection per section,
 chord progression recognition, modal analysis, and harmonic tension tracking.
 

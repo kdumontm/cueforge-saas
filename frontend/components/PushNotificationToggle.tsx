@@ -62,7 +62,7 @@ export function PushNotificationToggle() {
           setTimeout(() => {
             sendTestNotification(
               "Notifications activées",
-              "Vous recevrez maintenant des notifications push de CueForge"
+              "Vous recevrez maintenant des notifications push de TrackCue"
             );
           }, 500);
         } else {
@@ -130,7 +130,7 @@ export function PushNotificationToggle() {
           </p>
           <p className="text-xs text-gray-500">
             {isSubscribed
-              ? "Vous recevez les notifications push de CueForge"
+              ? "Vous recevez les notifications push de TrackCue"
               : "Activez les notifications pour rester informé"}
           </p>
         </div>

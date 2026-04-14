@@ -1,4 +1,4 @@
-# CueForge Desktop — Feuille de route
+# TrackCue Desktop — Feuille de route
 
 ## Pourquoi une version desktop ?
 
@@ -22,7 +22,7 @@ Une version desktop change la donne :
 ### Architecture cible
 
 ```
-CueForge Desktop
+TrackCue Desktop
 ├── Electron shell           → gère la fenêtre, menus OS, accès fichiers
 ├── Next.js WebView          → frontend actuel (INCHANGÉ)
 ├── FastAPI local (port 8000) → backend actuel (INCHANGÉ ou légèrement adapté)
@@ -45,8 +45,8 @@ Le web reste sur **`mdx_extra_q`** (rapide sur CPU serveur).
 ### Backend (minimal)
 | Changement | Raison |
 |---|---|
-| `STEMS_DIR` → chemin local OS (`~/CueForge/stems/`) | `/tmp` n'est pas persistant |
-| `UPLOAD_DIR` → chemin local OS (`~/CueForge/audio/`) | Fichiers restent en local |
+| `STEMS_DIR` → chemin local OS (`~/TrackCue/stems/`) | `/tmp` n'est pas persistant |
+| `UPLOAD_DIR` → chemin local OS (`~/TrackCue/audio/`) | Fichiers restent en local |
 | `DATABASE_URL` → SQLite local au lieu de PostgreSQL Railway | Pas de DB distante |
 | Supprimer authentification JWT (optionnel) | App mono-utilisateur |
 | Port 8000 lancé par Electron au démarrage | FastAPI = processus enfant |

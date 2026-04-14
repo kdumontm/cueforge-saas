@@ -855,7 +855,7 @@ function WaveSurferPlayer({
           fxReverbRef.current = { dry: reverbDry, wet: reverbWet, convolver };
           fxDelayRef.current = { dry: delayDry, wet: delayWet, delay: delayNode, feedback: delayFeedback };
         }
-      } catch (e) { console.warn('[CueForge] FX chain setup error:', e); }
+      } catch (e) { console.warn('[TrackCue] FX chain setup error:', e); }
     };
 
     const onPlay = () => { if (!destroyed) { setIsPlaying(true); eqContextRef.current?.resume().catch(() => {}); onPlayCallback?.(); } };

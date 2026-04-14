@@ -1,5 +1,5 @@
 """
-CueForge v2 — Library models for DJ workflow.
+TrackCue v2 — Library models for DJ workflow.
 
 Tables: HotCue, Playlist, PlaylistTrack, SmartCrate, DJSet, DJSetTrack, PlayHistory
 """

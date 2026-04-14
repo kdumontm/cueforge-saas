@@ -40,7 +40,7 @@ export default function ReferralsPage() {
 
   function getToken() {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('cueforge_token');
+    return localStorage.getItem('trackcue_token');
   }
 
   async function apiCall<T = any>(path: string, opts: any = {}): Promise<T> {
@@ -128,7 +128,7 @@ export default function ReferralsPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-[var(--text-primary)]">Inviter des amis</h1>
-        <p className="text-[var(--text-muted)] mt-2">Gagnez des récompenses en invitant tes amis à CueForge</p>
+        <p className="text-[var(--text-muted)] mt-2">Gagnez des récompenses en invitant tes amis à TrackCue</p>
       </div>
 
       {/* Error / Success Messages */}

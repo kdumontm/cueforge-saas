@@ -1,5 +1,5 @@
 """
-CueForge v2 — DJ Library Import router (Phase 2).
+TrackCue v2 — DJ Library Import router (Phase 2).
 
 Import from Rekordbox XML, Serato crate, and Traktor NML.
 Endpoints:

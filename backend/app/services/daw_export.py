@@ -1,5 +1,5 @@
 """
-CueForge — DAW Export Service
+TrackCue — DAW Export Service
 
 Exports cue points and analysis data to DAW formats:
 - Ableton Live (.als project with clip markers)

@@ -1,6 +1,6 @@
 """
 Track tools: clean title, parse remix, fix tags, detect genre, Spotify lookup.
-Professional DJ-oriented utilities for CueForge.
+Professional DJ-oriented utilities for TrackCue.
 """
 import re
 import os

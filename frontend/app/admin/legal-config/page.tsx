@@ -140,7 +140,7 @@ export default function LegalConfigAdmin() {
           <div>
             <label className="block text-sm text-gray-400 mb-1">Email du DPO</label>
             <input className="w-full bg-[#0a0a1a] border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              value={config.dpo_email} onChange={e => setConfig({ ...config, dpo_email: e.target.value })} placeholder="dpo@cueforge.app" />
+              value={config.dpo_email} onChange={e => setConfig({ ...config, dpo_email: e.target.value })} placeholder="dpo@trackcue.app" />
           </div>
           <div>
             <label className="block text-sm text-gray-400 mb-1">URL politique de confidentialité</label>

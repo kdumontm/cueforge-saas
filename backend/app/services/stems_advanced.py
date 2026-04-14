@@ -1,5 +1,5 @@
 """
-CueForge Advanced Stem Optimization — Points 251-400
+TrackCue Advanced Stem Optimization — Points 251-400
 
 Advanced stem analysis features:
 - 251-270: Separation quality with chunk overlap, model ensemble, stem bleed reduction, phase-aware mixing

@@ -5,8 +5,8 @@ import { adminApi } from "../_components/api";
 export default function PWAConfigAdmin() {
   const [config, setConfig] = useState<any>({
     enabled: false,
-    app_name: "CueForge",
-    short_name: "CueForge",
+    app_name: "TrackCue",
+    short_name: "TrackCue",
     description: "",
     theme_color: "#7c3aed",
     background_color: "#0a0a1a",

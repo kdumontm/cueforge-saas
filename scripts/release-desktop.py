@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script de release automatique pour CueForge Desktop.
+Script de release automatique pour TrackCue Desktop.
 
 Usage :
   python3 scripts/release-desktop.py              # auto-bump patch (2.8.0 → 2.8.1)
@@ -107,7 +107,7 @@ def main():
     current = read_version(package_path)
     new_version = bump_version(current, bump_type)
 
-    print(f"\n🔖 CueForge Desktop Release")
+    print(f"\n🔖 TrackCue Desktop Release")
     print(f"  Version actuelle : {current}")
     print(f"  Nouvelle version : {new_version}")
     print()
@@ -133,7 +133,7 @@ def main():
     print(f"  → L'app desktop proposera la mise à jour automatiquement")
     print(f"  → Le site web affichera v{new_version} dans ~5 min")
     print()
-    print(f"Suivre le build : https://github.com/kdumontm/cueforge-saas/actions")
+    print(f"Suivre le build : https://github.com/kdumontm/trackcue-saas/actions")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """
 Updated migrations.py with new columns for track metadata, cue customization, and waveform data.
-Adds to CueForge's lightweight auto-migration system.
+Adds to TrackCue's lightweight auto-migration system.
 
 Called at app startup to add missing columns without data loss.
 """

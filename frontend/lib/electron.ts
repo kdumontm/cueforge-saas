@@ -3,14 +3,14 @@
 // Electron et d'accéder aux capacités locales (fichiers, exports, updater).
 //
 // PRINCIPE : le web gère TOUT (auth, API, BDD, admin, settings, sécu).
-// Le desktop ajoute juste 3 capacités locales via window.cueforge :
+// Le desktop ajoute juste 3 capacités locales via window.trackcue :
 //   1. files   → ouvrir/lire/sauvegarder des fichiers sur le disque
 //   2. export  → générer des fichiers Rekordbox XML / Serato .crate
 //   3. updater → auto-mise à jour de l'app
 
 // ── Types pour le bridge Electron ────────────────────────────────────────────
 
-export interface CueForgeFiles {
+export interface TrackCueFiles {
   openDialog: () => Promise<string[]>;
   readBuffer: (path: string) => Promise<ArrayBuffer>;
   readMetadata: (path: string) => Promise<Record<string, any>>;
@@ -19,19 +19,19 @@ export interface CueForgeFiles {
   getFilePath: (file: File) => string;
 }
 
-export interface CueForgeExport {
+export interface TrackCueExport {
   rekordbox: (tracks: any[], outputPath?: string) => Promise<string>;
   serato: (tracks: any[], outputPath?: string) => Promise<string>;
 }
 
-export interface CueForgeUpdater {
+export interface TrackCueUpdater {
   check: () => Promise<void>;
   onAvailable: (cb: (info: any) => void) => void;
   onDownloaded: (cb: (info: any) => void) => void;
   onProgress: (cb: (data: { percent: number }) => void) => void;
 }
 
-export interface CueForgeStems {
+export interface TrackCueStems {
   checkAvailable: () => Promise<{ available: boolean; python: string | null }>;
   separate: (filePath: string) => Promise<{
     stemDir: string;
@@ -42,31 +42,31 @@ export interface CueForgeStems {
   onProgress: (cb: (pct: number) => void) => void;
 }
 
-export interface CueForgeBridge {
+export interface TrackCueBridge {
   isDesktop: true;
   getAppVersion: () => Promise<string>;
-  files: CueForgeFiles;
-  export: CueForgeExport;
-  updater: CueForgeUpdater;
-  stems: CueForgeStems;
+  files: TrackCueFiles;
+  export: TrackCueExport;
+  updater: TrackCueUpdater;
+  stems: TrackCueStems;
 }
 
 // ── Détection ────────────────────────────────────────────────────────────────
 
 /**
- * Vérifie si l'app tourne dans Electron (= le bridge cueforge est injecté)
+ * Vérifie si l'app tourne dans Electron (= le bridge trackcue est injecté)
  * Safe pour SSR (Next.js) : vérifie typeof window
  */
 export function isDesktopApp(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).cueforge?.isDesktop;
+  return typeof window !== 'undefined' && !!(window as any).trackcue?.isDesktop;
 }
 
 /**
  * Retourne le bridge Electron ou null si on est sur le web
  */
-function getBridge(): CueForgeBridge | null {
+function getBridge(): TrackCueBridge | null {
   if (!isDesktopApp()) return null;
-  return (window as any).cueforge as CueForgeBridge;
+  return (window as any).trackcue as TrackCueBridge;
 }
 
 // ── Hook React ───────────────────────────────────────────────────────────────

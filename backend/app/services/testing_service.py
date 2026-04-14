@@ -1,5 +1,5 @@
 """
-TestingService - Testing & Quality Assurance pour CueForge
+TestingService - Testing & Quality Assurance pour TrackCue
 Points 1931-1970: E2E, visual regression, performance budgets, accessibility, etc.
 """
 
@@ -43,7 +43,7 @@ class TestResult:
 class TestingService:
     """Service de testing et quality assurance"""
 
-    def __init__(self, project_root: str = "/tmp/cueforge-saas"):
+    def __init__(self, project_root: str = "/tmp/trackcue-saas"):
         self.project_root = project_root
         self.backend_dir = os.path.join(project_root, "backend")
         self.frontend_dir = os.path.join(project_root, "frontend")

@@ -1,5 +1,5 @@
 """
-CueForge v2 — Hot Cues CRUD router (Phase 1).
+TrackCue v2 — Hot Cues CRUD router (Phase 1).
 
 Endpoints:
   GET    /tracks/{track_id}/hot-cues         — list hot cues for a track

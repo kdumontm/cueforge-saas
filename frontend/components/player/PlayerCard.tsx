@@ -23,8 +23,8 @@ class WaveSurferErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[CueForge][WaveSurfer] 🔴 CRASH attrapé :', error?.message);
-    console.error('[CueForge][WaveSurfer] Stack:', info.componentStack);
+    console.error('[TrackCue][WaveSurfer] 🔴 CRASH attrapé :', error?.message);
+    console.error('[TrackCue][WaveSurfer] Stack:', info.componentStack);
   }
   componentDidUpdate(prevProps: any) {
     // Reset l'erreur quand on change de track

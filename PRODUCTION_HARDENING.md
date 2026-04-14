@@ -5,7 +5,7 @@ Status: Implementation Complete
 
 ## Overview
 
-Production hardening for CueForge SaaS covering points 951-1000 (production resilience) and 481-550 (metadata/monitoring).
+Production hardening for TrackCue SaaS covering points 951-1000 (production resilience) and 481-550 (metadata/monitoring).
 
 ## Services Implemented
 
@@ -276,14 +276,14 @@ result, success = breaker.call(search_spotify, artist, title)
 Recommended Prometheus/Grafana metrics to scrape:
 
 ```
-cueforge_analyses_total{status="success|failed"}
-cueforge_latency_p95_ms{stage="fingerprint|metadata|stems|bpm|key|cues|structure"}
-cueforge_error_rate{type="timeout|oom|corrupt|network"}
-cueforge_queue_depth
-cueforge_cache_hit_rate
-cueforge_worker_utilization_percent
-cueforge_quota_used_percent{plan="free|pro|premium"}
-cueforge_circuit_breaker_state{service="spotify|musicbrainz|..."}
+trackcue_analyses_total{status="success|failed"}
+trackcue_latency_p95_ms{stage="fingerprint|metadata|stems|bpm|key|cues|structure"}
+trackcue_error_rate{type="timeout|oom|corrupt|network"}
+trackcue_queue_depth
+trackcue_cache_hit_rate
+trackcue_worker_utilization_percent
+trackcue_quota_used_percent{plan="free|pro|premium"}
+trackcue_circuit_breaker_state{service="spotify|musicbrainz|..."}
 ```
 
 ---

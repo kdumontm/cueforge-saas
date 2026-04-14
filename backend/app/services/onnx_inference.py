@@ -14,7 +14,7 @@ from typing import Optional, Tuple, Dict, Any
 logger = logging.getLogger(__name__)
 
 # Cache directory for ONNX models
-ONNX_CACHE_DIR = Path(os.environ.get('ONNX_CACHE_DIR', '/tmp/cueforge_onnx_cache'))
+ONNX_CACHE_DIR = Path(os.environ.get('ONNX_CACHE_DIR', '/tmp/trackcue_onnx_cache'))
 
 _onnx_session = None
 _onnx_available = None

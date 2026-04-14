@@ -1,11 +1,11 @@
 'use strict';
-// ─── CueForge Desktop — Preload Bridge (simplifié) ─────────────────────────
+// ─── TrackCue Desktop — Preload Bridge (simplifié) ─────────────────────────
 // Expose UNIQUEMENT les capacités locales au site web chargé dans Electron.
 // Auth, API, BDD, admin, settings → tout est géré par le web, pas ici.
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('cueforge', {
+contextBridge.exposeInMainWorld('trackcue', {
   // ── Indicateur desktop ──────────────────────────────────────────────────
   isDesktop: true,
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('cueforge', {
   // ── Connectivité (pour offline.html) ───────────────────────────────────
   checkOnline: async () => {
     try {
-      const res = await fetch('https://cueforge-saas-production.up.railway.app/api/v1/health', {
+      const res = await fetch('https://trackcue-saas-production.up.railway.app/api/v1/health', {
         method: 'HEAD', mode: 'no-cors', cache: 'no-store',
       });
       return true;

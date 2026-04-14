@@ -22,7 +22,7 @@ def seed_site_settings(db: Session) -> SiteSettings:
 
     settings = SiteSettings(
         id=1,
-        site_name="CueForge",
+        site_name="TrackCue",
         tagline="AI-Powered Cue Points for DJs",
         primary_color="#6366f1",
         secondary_color="#8b5cf6",
@@ -30,9 +30,9 @@ def seed_site_settings(db: Session) -> SiteSettings:
         background_color="#0f172a",
         text_color="#f8fafc",
         font_family="Inter",
-        meta_title="CueForge — Smart Cue Points for DJs",
+        meta_title="TrackCue — Smart Cue Points for DJs",
         meta_description="Analysez vos morceaux avec l'IA et générez des cue points intelligents pour Rekordbox, Serato et VirtualDJ.",
-        footer_text="© 2026 CueForge. All rights reserved.",
+        footer_text="© 2026 TrackCue. All rights reserved.",
     )
     db.add(settings)
     db.flush()
@@ -48,7 +48,7 @@ def seed_landing_page(db: Session, admin_id: int = None) -> Page:
     page = Page(
         name="Page d'accueil",
         slug="landing",
-        title="CueForge — Smart Cue Points for DJs",
+        title="TrackCue — Smart Cue Points for DJs",
         is_published=True,
         is_system=True,
         sort_order=0,
@@ -171,7 +171,7 @@ def seed_pricing_page(db: Session, admin_id: int = None) -> Page:
     page = Page(
         name="Tarifs",
         slug="pricing",
-        title="Tarifs — CueForge",
+        title="Tarifs — TrackCue",
         is_published=True,
         is_system=True,
         sort_order=1,

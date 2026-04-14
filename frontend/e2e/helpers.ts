@@ -8,7 +8,7 @@ export const TEST_USER = {
 };
 
 // Local backend (dev): no email verification required
-// Switch to production URL if needed: https://cueforge-saas-production.up.railway.app
+// Switch to production URL if needed: https://trackcue-saas-production.up.railway.app
 export const API_URL = process.env.E2E_API_URL || 'http://localhost:8000';
 export const TEST_AUDIO_PATH = '/sessions/kind-pensive-lovelace/test-audio.mp3';
 
@@ -32,7 +32,7 @@ export async function loginViaToken(page: Page) {
   const data = await resp.json() as { access_token: string };
   await page.goto('/');
   await page.evaluate((token: string) => {
-    localStorage.setItem('cueforge_token', token);
+    localStorage.setItem('trackcue_token', token);
   }, data.access_token);
   return data.access_token;
 }

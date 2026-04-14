@@ -5,8 +5,8 @@ test.describe('🔐 Authentification', () => {
 
   test('Landing page se charge correctement', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/cueforge/i);
-    await expect(page.getByText('CueForge').first()).toBeVisible();
+    await expect(page).toHaveTitle(/trackcue/i);
+    await expect(page.getByText('TrackCue').first()).toBeVisible();
     await expect(page.getByText(/10.*plus vite/i).first()).toBeVisible();
   });
 

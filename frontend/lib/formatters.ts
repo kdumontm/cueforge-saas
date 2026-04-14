@@ -1,5 +1,5 @@
 /**
- * Utilitaires de formatage centralisés pour le dashboard CueForge.
+ * Utilitaires de formatage centralisés pour le dashboard TrackCue.
  */
 
 import { keyToCamelot } from '@/lib/camelot';

@@ -45,7 +45,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
   // Load saved theme preference
   useEffect(() => {
-    const saved = localStorage.getItem('cueforge-theme') as ThemeMode | null;
+    const saved = localStorage.getItem('trackcue-theme') as ThemeMode | null;
     if (saved === 'light' || saved === 'dark') setMode(saved);
   }, []);
 
@@ -54,7 +54,7 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
     const root = document.documentElement;
     root.classList.remove('dark', 'light');
     root.classList.add(mode);
-    localStorage.setItem('cueforge-theme', mode);
+    localStorage.setItem('trackcue-theme', mode);
 
     // Apply admin CSS variable overrides if available
     if (themeConfig) {

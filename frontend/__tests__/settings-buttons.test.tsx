@@ -28,7 +28,7 @@ const mockProfile = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  localStorage.setItem('cueforge_token', 'test-token');
+  localStorage.setItem('trackcue_token', 'test-token');
   mockGetMyProfile.mockResolvedValue(mockProfile);
 });
 

@@ -148,7 +148,7 @@ async function selectTrack(title: string) {
 // ── Setup / Teardown ─────────────────────────────────────────────────────
 beforeEach(() => {
   jest.clearAllMocks();
-  localStorage.setItem('cueforge_token', 'test-token');
+  localStorage.setItem('trackcue_token', 'test-token');
   mockGetCurrentUser.mockResolvedValue(mockUser);
   mockListTracks.mockResolvedValue(mockTracksData);
   mockGetTrackCuePoints.mockResolvedValue([]);

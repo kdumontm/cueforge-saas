@@ -159,7 +159,7 @@ class EventType(str, Enum):
 
 
 @dataclass
-class CueForgeEvent:
+class TrackCueEvent:
     """Événement applicatif."""
     event_type: EventType
     timestamp: datetime = field(default_factory=datetime.utcnow)
@@ -179,20 +179,20 @@ class WebhookConfig:
     failure_count: int = 0
 
 
-class CueForgeEventEmitter:
-    """Bus d'événements in-memory pour CueForge."""
+class TrackCueEventEmitter:
+    """Bus d'événements in-memory pour TrackCue."""
 
     def __init__(self, max_events: int = 1000):
         self.events: deque = deque(maxlen=max_events)
         self.webhooks: List[WebhookConfig] = []
         self.dead_letter_queue: List[tuple] = []  # (webhook, event, error)
 
-    def emit(self, event: CueForgeEvent) -> None:
+    def emit(self, event: TrackCueEvent) -> None:
         """Émet un événement."""
         self.events.append(event)
         asyncio.create_task(self._dispatch_webhooks(event))
 
-    async def _dispatch_webhooks(self, event: CueForgeEvent) -> None:
+    async def _dispatch_webhooks(self, event: TrackCueEvent) -> None:
         """Dispatche l'événement aux webhooks avec retry."""
         import httpx
 
@@ -209,8 +209,8 @@ class CueForgeEventEmitter:
             ).hexdigest()
 
             headers = {
-                "X-CueForge-Event": event.event_type.value,
-                "X-CueForge-Signature": signature,
+                "X-TrackCue-Event": event.event_type.value,
+                "X-TrackCue-Signature": signature,
                 "Content-Type": "application/json",
             }
 
@@ -231,13 +231,13 @@ class CueForgeEventEmitter:
                     else:
                         await asyncio.sleep(2 ** attempt)  # Exponential backoff
 
-    def get_events(self, event_type: Optional[EventType] = None) -> List[CueForgeEvent]:
+    def get_events(self, event_type: Optional[EventType] = None) -> List[TrackCueEvent]:
         """Retourne tous les événements, optionnellement filtrés par type."""
         if event_type:
             return [e for e in self.events if e.event_type == event_type]
         return list(self.events)
 
-    def get_event_by_id(self, event_id: str) -> Optional[CueForgeEvent]:
+    def get_event_by_id(self, event_id: str) -> Optional[TrackCueEvent]:
         """Retourne un événement par ID."""
         for event in self.events:
             if event.event_id == event_id:
@@ -246,7 +246,7 @@ class CueForgeEventEmitter:
 
 
 # Global event emitter
-_event_emitter = CueForgeEventEmitter()
+_event_emitter = TrackCueEventEmitter()
 
 
 class ConfigManager:
@@ -269,7 +269,7 @@ class ConfigManager:
         self.cors_origins: List[str] = [
             "http://localhost:3000",
             "http://localhost:8000",
-            "https://cueforge.app",
+            "https://trackcue.app",
         ]
 
     def to_dict(self) -> Dict[str, Any]:
@@ -322,10 +322,10 @@ def _ensure_admin_account():
 
     db = SessionLocal()
     try:
-        existing = db.query(User).filter(User.email == "kenin@cueforge.app").first()
+        existing = db.query(User).filter(User.email == "kenin@trackcue.app").first()
         if not existing:
             admin = User(
-                email="kenin@cueforge.app",
+                email="kenin@trackcue.app",
                 name="kenin",
                 password_hash=hash_password(admin_password),
                 subscription_plan="unlimited",
@@ -606,7 +606,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Distributed analyzer init failed (non-blocking): {e}")
 
-    logger.info("✅ CueForge backend démarré.")
+    logger.info("✅ TrackCue backend démarré.")
     yield
 
     # Cleanup on shutdown
@@ -635,7 +635,7 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 
 app = FastAPI(
-    title="CueForge SaaS API",
+    title="TrackCue SaaS API",
     description="Audio analysis and cue point generation for DJs",
     version="4.5.0",
     lifespan=lifespan,
@@ -1408,13 +1408,13 @@ def get_allowed_origins():
 
     if settings.ENVIRONMENT == "production":
         return [
-            "https://cueforge.app",
-            "https://www.cueforge.app",
-            "https://app.cueforge.app",
+            "https://trackcue.app",
+            "https://www.trackcue.app",
+            "https://app.trackcue.app",
         ]
     elif settings.ENVIRONMENT == "staging":
         return [
-            "https://staging.cueforge.app",
+            "https://staging.trackcue.app",
             "http://localhost:3000",
         ]
     else:  # development

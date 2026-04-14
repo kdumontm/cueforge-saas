@@ -77,13 +77,13 @@ function generateId() {
 function loadGigs(): GigPrep[] {
   if (typeof window === 'undefined') return [];
   try {
-    return JSON.parse(localStorage.getItem('cueforge_gig_preps') || '[]');
+    return JSON.parse(localStorage.getItem('trackcue_gig_preps') || '[]');
   } catch { return []; }
 }
 
 function saveGigs(gigs: GigPrep[]) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('cueforge_gig_preps', JSON.stringify(gigs));
+  localStorage.setItem('trackcue_gig_preps', JSON.stringify(gigs));
 }
 
 // ── Component ──────────────────────────────────────────────────────────

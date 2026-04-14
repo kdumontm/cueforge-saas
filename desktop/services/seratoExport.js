@@ -11,7 +11,7 @@ function exportSerato(tracks, outputDir) {
   const crateDir = path.join(outputDir, '_Serato_', 'Subcrates');
   fs.mkdirSync(crateDir, { recursive: true });
 
-  const crateName = 'CueForge Export';
+  const crateName = 'TrackCue Export';
   const cratePath = path.join(crateDir, `${crateName}.crate`);
 
   // Serato crate format (binary)
@@ -36,8 +36,8 @@ function exportSerato(tracks, outputDir) {
   fs.writeFileSync(cratePath, crateData);
 
   // Also generate a simple text summary
-  const summaryPath = path.join(outputDir, 'CueForge_Serato_Export.txt');
-  const lines = ['CueForge Export for Serato DJ', '=' .repeat(40), ''];
+  const summaryPath = path.join(outputDir, 'TrackCue_Serato_Export.txt');
+  const lines = ['TrackCue Export for Serato DJ', '=' .repeat(40), ''];
   tracks.forEach(t => {
     const cues = JSON.parse(t.cue_points || '[]');
     lines.push(`${t.title || t.file_name} | ${t.artist || 'Unknown'}`);

@@ -27,7 +27,7 @@ def test_complete_dj_workflow():
     """Test a complete DJ workflow: analyze track, get feedback, recommend next track."""
     
     print("\n" + "="*70)
-    print("CUEFORGE ML SERVICES - INTEGRATION TEST")
+    print("TRACKCUE ML SERVICES - INTEGRATION TEST")
     print("="*70)
     
     # ========== PHASE 1: DJ uploads and analyzes a track ==========

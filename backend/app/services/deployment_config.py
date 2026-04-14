@@ -1,5 +1,5 @@
 """
-Deployment configuration management for CueForge infrastructure.
+Deployment configuration management for TrackCue infrastructure.
 Handles Dockerfile generation, Railway config, health checks, SSL, scaling, etc.
 """
 
@@ -59,14 +59,14 @@ class SSLConfig:
 
 class DeploymentConfig:
     """
-    Main deployment configuration class for CueForge.
+    Main deployment configuration class for TrackCue.
     Generates Dockerfile, Railway config, health checks, SSL, scaling rules, etc.
     """
 
     def __init__(
         self,
         stage: DeploymentStage = DeploymentStage.PRODUCTION,
-        app_name: str = "cueforge",
+        app_name: str = "trackcue",
     ):
         self.stage = stage
         self.app_name = app_name
@@ -77,13 +77,13 @@ class DeploymentConfig:
 
     def generate_dockerfile(self, python_version: str = "3.11") -> str:
         """
-        Generate optimized multi-stage Dockerfile for CueForge backend.
+        Generate optimized multi-stage Dockerfile for TrackCue backend.
         Uses builder stage for dependencies, minimal runtime stage.
 
         Returns:
             str: Complete Dockerfile content
         """
-        dockerfile = f"""# Multi-stage build for CueForge backend
+        dockerfile = f"""# Multi-stage build for TrackCue backend
 # Stage 1: Builder
 FROM python:{python_version}-slim as builder
 
@@ -116,19 +116,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \\
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN groupadd -r cueforge && useradd -r -g cueforge cueforge
+RUN groupadd -r trackcue && useradd -r -g trackcue trackcue
 
 # Copy Python dependencies from builder
-COPY --from=builder /root/.local /home/cueforge/.local
-ENV PATH=/home/cueforge/.local/bin:$PATH
+COPY --from=builder /root/.local /home/trackcue/.local
+ENV PATH=/home/trackcue/.local/bin:$PATH
 
 # Copy application code
 COPY backend/ /app/
 
 # Set ownership
-RUN chown -R cueforge:cueforge /app
+RUN chown -R trackcue:trackcue /app
 
-USER cueforge
+USER trackcue
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \\
@@ -399,18 +399,18 @@ async def liveness_check() -> dict:
         Returns:
             str: Environment variables template
         """
-        template = """# CueForge Environment Configuration Template
+        template = """# TrackCue Environment Configuration Template
 # Copy this file to .env and fill in your actual values
 
 # Application
 ENVIRONMENT=production
-APP_NAME=CueForge
+APP_NAME=TrackCue
 APP_VERSION=1.0.0
 DEBUG=false
 SECRET_KEY=your-secret-key-here
 
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/cueforge
+DATABASE_URL=postgresql://user:password@localhost:5432/trackcue
 DB_POOL_SIZE=20
 DB_MAX_OVERFLOW=40
 
@@ -423,7 +423,7 @@ ITUNES_API_KEY=your-itunes-key
 LASTFM_API_KEY=your-lastfm-key
 
 # Frontend
-NEXT_PUBLIC_API_URL=https://api.cueforge.app
+NEXT_PUBLIC_API_URL=https://api.trackcue.app
 NEXT_PUBLIC_ENVIRONMENT=production
 
 # Email Service
@@ -431,12 +431,12 @@ SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=your-email@example.com
 SMTP_PASSWORD=your-email-password
-SUPPORT_EMAIL=support@cueforge.app
+SUPPORT_EMAIL=support@trackcue.app
 
 # Cloud Storage
 AWS_ACCESS_KEY_ID=your-aws-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret
-AWS_S3_BUCKET=cueforge-assets
+AWS_S3_BUCKET=trackcue-assets
 AWS_REGION=us-east-1
 
 # Redis Cache
@@ -444,12 +444,12 @@ REDIS_URL=redis://localhost:6379/0
 CACHE_TTL_SECONDS=3600
 
 # Security
-CORS_ORIGINS=https://cueforge.app,https://www.cueforge.app
-ALLOWED_HOSTS=cueforge.app,www.cueforge.app,api.cueforge.app
+CORS_ORIGINS=https://trackcue.app,https://www.trackcue.app
+ALLOWED_HOSTS=trackcue.app,www.trackcue.app,api.trackcue.app
 
 # Deployment
 RAILWAY_ENVIRONMENT=production
-RAILWAY_STATIC_URL=https://assets.cueforge.app
+RAILWAY_STATIC_URL=https://assets.trackcue.app
 
 # Monitoring & Logging
 SENTRY_DSN=your-sentry-dsn

@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
             <div className="w-10 h-10 bg-accent-purple rounded-xl flex items-center justify-center">
               <Music2 size={20} className="text-white" />
             </div>
-            <span className="text-2xl font-bold text-white">CueForge</span>
+            <span className="text-2xl font-bold text-white">TrackCue</span>
           </Link>
         </div>
         <div className="bg-bg-secondary border border-slate-800/60 rounded-2xl p-8">

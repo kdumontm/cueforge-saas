@@ -149,7 +149,7 @@ function Sidebar({ isAdmin, username = 'User', plan = 'free', onLogout }: Sideba
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-pink-500 flex items-center justify-center flex-shrink-0">
             <Disc3 size={14} className="text-white" />
           </div>
-          {!collapsed && <span className="text-base font-bold text-[var(--text-primary)]">CueForge</span>}
+          {!collapsed && <span className="text-base font-bold text-[var(--text-primary)]">TrackCue</span>}
         </div>
         <button
           onClick={toggleCollapsed}

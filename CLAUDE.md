@@ -1,4 +1,4 @@
-# CueForge — Instructions pour Claude
+# TrackCue — Instructions pour Claude
 
 ## Git Setup (obligatoire en début de session)
 ```bash
@@ -10,7 +10,7 @@ git config --global user.email "kenin.dumont@gmail.com"
 Exécuter ces commandes via Bash **automatiquement** au début de chaque session, sans demander confirmation.
 
 ## Repo
-- URL: https://github.com/kdumontm/cueforge-saas
+- URL: https://github.com/kdumontm/trackcue-saas
 - Branche principale: main
 - Cloner dans le sandbox puis push directement après chaque modification
 
@@ -19,7 +19,7 @@ Exécuter ces commandes via Bash **automatiquement** au début de chaque session
 Dès qu'une session implique un bug ou une nouvelle fonctionnalité, lancer le diagnostic **avant de toucher au code** :
 
 ```bash
-cd /sessions/*/cueforge* 2>/dev/null || git clone https://github.com/kdumontm/cueforge-saas /tmp/cueforge && cd /tmp/cueforge
+cd /sessions/*/trackcue* 2>/dev/null || git clone https://github.com/kdumontm/trackcue-saas /tmp/trackcue && cd /tmp/trackcue
 python3 scripts/diagnose.py
 ```
 
@@ -56,7 +56,7 @@ python3 scripts/diagnose.py --url https://<app>.railway.app --key <DIAGNOSTICS_K
 **Avant de modifier le code d'une feature, TOUJOURS vérifier si elle est verrouillée.**
 
 ```bash
-curl -s "https://cueforge-saas-production.up.railway.app/api/v1/site/feature-locks" | python3 -m json.tool
+curl -s "https://trackcue-saas-production.up.railway.app/api/v1/site/feature-locks" | python3 -m json.tool
 ```
 
 Si la feature est dans la liste (= verrouillée), **NE PAS toucher au code** et informer Kevin :
@@ -69,7 +69,7 @@ Les features verrouillées sont celles qu'il considère comme terminées et stab
 L'app desktop = coquille Electron qui charge le site web via `loadURL()`.
 - **Un seul code UI** : tout dans `frontend/`, jamais d'UI dans `desktop/`
 - **Features desktop** : détectées via `isDesktopApp()` depuis `frontend/lib/electron.ts`
-- **Bridge minimal** : `window.cueforge` expose fichiers + exports DJ + auto-updater
+- **Bridge minimal** : `window.trackcue` expose fichiers + exports DJ + auto-updater
 - **Desktop ne contient que** : `src/main.js`, `src/preload.js`, `src/offline.html`, `services/rekordboxExport.js`, `services/seratoExport.js`
 
 ## Release obligatoire après chaque modification (CRITIQUE)
@@ -81,7 +81,7 @@ Procédure automatique :
 3. Commit avec message `release: vX.Y.Z — description`
 4. Créer le tag git : `git tag -a vX.Y.Z -m "description"`
 5. Push avec tags : `git push origin main --tags`
-6. Créer la release GitHub : `gh release create vX.Y.Z --title "CueForge vX.Y.Z" --notes "description" --latest`
+6. Créer la release GitHub : `gh release create vX.Y.Z --title "TrackCue vX.Y.Z" --notes "description" --latest`
 
 Le workflow `build-desktop.yml` se déclenche automatiquement sur le tag et :
 - Build macOS (arm64 + x64) : .dmg + .zip

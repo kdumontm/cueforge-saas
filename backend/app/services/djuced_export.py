@@ -1,5 +1,5 @@
 """
-CueForge — DJUCED Export Service
+TrackCue — DJUCED Export Service
 
 Exports to DJUCED (mobile DJ app) compatible format.
 DJUCED uses JSON-based metadata and supports cueing, loops, and smart mixing.
@@ -12,7 +12,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 
-def generate_djuced_playlist(tracks: List[Dict], playlist_name: str = "CueForge Export") -> Dict:
+def generate_djuced_playlist(tracks: List[Dict], playlist_name: str = "TrackCue Export") -> Dict:
     """
     Generate DJUCED-compatible playlist JSON.
 
@@ -82,7 +82,7 @@ def generate_djuced_playlist(tracks: List[Dict], playlist_name: str = "CueForge 
 def export_tracks_to_djuced(
     tracks: List[Dict],
     output_path: Optional[str] = None,
-    playlist_name: str = "CueForge Export"
+    playlist_name: str = "TrackCue Export"
 ) -> Dict:
     """
     Export tracks to DJUCED format.

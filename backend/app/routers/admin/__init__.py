@@ -1,5 +1,5 @@
 """
-Admin routers — Back-office API pour CueForge.
+Admin routers — Back-office API pour TrackCue.
 
 Chaque sous-module gère un domaine isolé :
   settings    → Config globale du site

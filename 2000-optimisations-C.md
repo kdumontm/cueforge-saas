@@ -1,4 +1,4 @@
-# CueForge — 2000 Optimisations | Section C — Backend Architecture & API
+# TrackCue — 2000 Optimisations | Section C — Backend Architecture & API
 
 **Plage** : Points 551–900 (350 optimisations)
 
@@ -140,7 +140,7 @@
 
 615. **Cursor-Based Pagination** — Remplacer offset/limit par cursor-based pagination (base64 encoded row identifiers) pour éviter les perf issues sur les grands datasets.
 
-616. **API Versioning Strategy** — Implémenter le versioning via header (Accept: application/vnd.cueforge.v2+json) pour éviter les breaking changes.
+616. **API Versioning Strategy** — Implémenter le versioning via header (Accept: application/vnd.trackcue.v2+json) pour éviter les breaking changes.
 
 617. **Request Coalescing** — Implémenter un middleware qui fusionne les requêtes identiques envoyées simultanément et retourne une seule réponse cachée.
 
@@ -162,7 +162,7 @@
 
 626. **CORS Whitelist Optimisé** — Utiliser une whitelist CORS stricte avec validation de Host header pour prévenir les abuses cross-origin.
 
-627. **Custom Media Types** — Créer des custom media types (application/vnd.cueforge.analysis+json) pour versioning content et client negotiation.
+627. **Custom Media Types** — Créer des custom media types (application/vnd.trackcue.analysis+json) pour versioning content et client negotiation.
 
 628. **Link Headers pour Pagination** — Ajouter les headers Link (RFC 5988) pour indiquer next/prev/first/last dans les réponses paginées.
 

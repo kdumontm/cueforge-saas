@@ -1,4 +1,4 @@
-# 2000 Optimisations CueForge — Section F
+# 2000 Optimisations TrackCue — Section F
 ## Infrastructure, DevOps, Mobile & Données (Points 1651-2000)
 
 ---
@@ -371,7 +371,7 @@
 
 1829. **Mobile app links** — Android App Links (`assetlinks.json`) + Universal Links (iOS) direct to native app if installed, fallback web.
 
-1830. **App Store optimization** — Screenshot CueForge on App Store: waveform analysis, key detection, feature highlights.
+1830. **App Store optimization** — Screenshot TrackCue on App Store: waveform analysis, key detection, feature highlights.
 
 ---
 
@@ -389,7 +389,7 @@
 
 1836. **Recent files list** — Track recently analyzed files in app menu, reopen dari menu without re-select.
 
-1837. **Open with CueForge** — Register `.mp3` file type avec Windows/macOS, right-click Open with CueForge.
+1837. **Open with TrackCue** — Register `.mp3` file type avec Windows/macOS, right-click Open with TrackCue.
 
 1838. **Native menu integration** — Custom menu bar: File (Open, Recent, Exit), Edit (Copy, Paste), Help (Docs, About).
 
@@ -683,7 +683,7 @@
 
 1977. **Rate limit documentation** — Document rate limits: 1000req/min/user, 429 response headers (X-RateLimit-Remaining).
 
-1978. **SDK generation** — Generate TypeScript client SDK from OpenAPI: `npm install @cueforge/api`, auto-typed API calls.
+1978. **SDK generation** — Generate TypeScript client SDK from OpenAPI: `npm install @trackcue/api`, auto-typed API calls.
 
 1979. **SDK versioning** — Version SDK with API: v1.0.0 = API v1, client follows SemVer, changelog per release.
 

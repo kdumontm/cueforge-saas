@@ -1,5 +1,5 @@
 """
-CueForge — VirtualDJ Export Service
+TrackCue — VirtualDJ Export Service
 
 VirtualDJ database export with:
 - POI (Points of Interest): cue points, loops, hot cues

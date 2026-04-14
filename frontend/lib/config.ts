@@ -1,5 +1,5 @@
 /**
- * Configuration centralisée pour le frontend CueForge.
+ * Configuration centralisée pour le frontend TrackCue.
  */
 
 export function getApiUrl(): string {

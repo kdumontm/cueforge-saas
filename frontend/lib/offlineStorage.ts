@@ -26,7 +26,7 @@ export interface PendingAction {
 }
 
 class OfflineStorage {
-  private dbName = "cueforge-offline";
+  private dbName = "trackcue-offline";
   private version = 1;
   private db: IDBDatabase | null = null;
 

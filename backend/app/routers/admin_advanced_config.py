@@ -84,7 +84,7 @@ def _set_config(db: Session, key: str, value: dict):
 @router.get("/admin/white-label/config")
 def get_white_label(db: Session = Depends(get_db)):
     return _get_config(db, "white_label", {
-        "enabled": False, "custom_domain": "", "brand_name": "CueForge",
+        "enabled": False, "custom_domain": "", "brand_name": "TrackCue",
         "logo_url": "", "favicon_url": "", "primary_color": "#6366f1",
         "hide_powered_by": False, "custom_login_bg": "",
         "support_email": "", "support_url": "",
@@ -103,7 +103,7 @@ def update_white_label(config: Dict[str, Any], db: Session = Depends(get_db)):
 @router.get("/admin/pwa/config")
 def get_pwa_config(db: Session = Depends(get_db)):
     return _get_config(db, "pwa", {
-        "enabled": True, "name": "CueForge", "short_name": "CueForge",
+        "enabled": True, "name": "TrackCue", "short_name": "TrackCue",
         "description": "AI-Powered Cue Points for DJs",
         "theme_color": "#6366f1", "background_color": "#0f172a",
         "display": "standalone", "orientation": "portrait",
@@ -331,7 +331,7 @@ def storage_stats(db: Session = Depends(get_db)):
 @router.get("/admin/notifications/config")
 def get_notif_config(db: Session = Depends(get_db)):
     return _get_config(db, "notifications", {
-        "email": {"enabled": True, "provider": "smtp", "from_name": "CueForge", "from_email": "noreply@cueforge.com"},
+        "email": {"enabled": True, "provider": "smtp", "from_name": "TrackCue", "from_email": "noreply@trackcue.com"},
         "push": {"enabled": True, "vapid_public_key": "", "vapid_private_key": ""},
         "in_app": {"enabled": True, "max_unread": 50, "auto_dismiss_hours": 72},
         "slack_webhook": "",
@@ -350,11 +350,11 @@ def update_notif_config(config: Dict[str, Any], db: Session = Depends(get_db)):
 @router.get("/admin/seo/global")
 def get_global_seo(db: Session = Depends(get_db)):
     return _get_config(db, "seo_global", {
-        "default_title_suffix": " | CueForge",
+        "default_title_suffix": " | TrackCue",
         "default_description": "AI-powered cue point detection for DJs",
         "robots_txt": "User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: /sitemap.xml",
         "google_site_verification": "", "bing_site_verification": "",
-        "structured_data": {"@type": "SoftwareApplication", "name": "CueForge"},
+        "structured_data": {"@type": "SoftwareApplication", "name": "TrackCue"},
         "open_graph": {"type": "website", "image": "", "locale": "fr_FR"},
     })
 

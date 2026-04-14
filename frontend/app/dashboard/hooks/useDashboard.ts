@@ -26,7 +26,7 @@ import { getCompatibleKeys } from '@/lib/constants';
 
 export function useDashboard() {
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
-  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : null;
+  const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('trackcue_token') : null;
   const token = getToken();
 
   // ── Core Track State ──
@@ -306,7 +306,7 @@ export function useDashboard() {
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
-        const token = localStorage.getItem('cueforge_token');
+        const token = localStorage.getItem('trackcue_token');
         const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
         const res = await fetch(apiBase + '/admin/plan-features', { headers: { 'Authorization': 'Bearer ' + token } });
         if (res.ok) {
@@ -327,7 +327,7 @@ export function useDashboard() {
 
   const togglePlanFeature = useCallback(async (planName: string, featureName: string, enabled: boolean) => {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       if (!token) return;
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
       const res = await fetch(apiBase + '/admin/plan-features/' + planName + '/' + featureName, {
@@ -342,7 +342,7 @@ export function useDashboard() {
 
   const resetPlanFeatures = useCallback(async () => {
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
       const res = await fetch(apiBase + '/admin/plan-features/reset', {
         method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
@@ -369,11 +369,11 @@ export function useDashboard() {
 
   // ── Column Visibility Persistence ──
   useEffect(() => {
-    try { const s = localStorage.getItem('cueforge_columns'); if (s) setVisibleCols(JSON.parse(s)); } catch {}
+    try { const s = localStorage.getItem('trackcue_columns'); if (s) setVisibleCols(JSON.parse(s)); } catch {}
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cueforge_columns', JSON.stringify(visibleCols));
+    localStorage.setItem('trackcue_columns', JSON.stringify(visibleCols));
   }, [visibleCols]);
 
   const gridTemplate = useMemo(() => {
@@ -421,7 +421,7 @@ export function useDashboard() {
   const bulkUpdateGenre = async () => {
     if (!bulkGenreValue.trim() || selectedIds.size === 0) return;
     setBulkUpdating(true);
-    const token = localStorage.getItem('cueforge_token');
+    const token = localStorage.getItem('trackcue_token');
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
     let updated = 0;
     for (const id of selectedIds) {
@@ -447,16 +447,16 @@ export function useDashboard() {
   // ── Favorites Persistence ──
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('cueforge_favorites');
+      const saved = localStorage.getItem('trackcue_favorites');
       if (saved) setFavoriteIds(new Set(JSON.parse(saved)));
     } catch {}
   }, []);
 
   useEffect(() => {
     if (favoriteIds.size > 0) {
-      localStorage.setItem('cueforge_favorites', JSON.stringify([...favoriteIds]));
+      localStorage.setItem('trackcue_favorites', JSON.stringify([...favoriteIds]));
     } else {
-      localStorage.removeItem('cueforge_favorites');
+      localStorage.removeItem('trackcue_favorites');
     }
   }, [favoriteIds]);
 
@@ -761,7 +761,7 @@ export function useDashboard() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'CueForge_Library_rekordbox.xml';
+        a.download = 'TrackCue_Library_rekordbox.xml';
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -1055,7 +1055,7 @@ export function useDashboard() {
     const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + (
       (process.env.NEXT_PUBLIC_API_URL || '').endsWith('/api/v1') ? '' : '/api/v1'
     );
-    const authToken = typeof window !== 'undefined' ? localStorage.getItem('cueforge_token') : '';
+    const authToken = typeof window !== 'undefined' ? localStorage.getItem('trackcue_token') : '';
     const audioUrl = `${apiUrl}/tracks/${selectedTrack.id}/audio?format=ogg&token=${authToken}`;
     const trackId = selectedTrack.id;
 
@@ -1334,12 +1334,12 @@ export function useDashboard() {
 
   // ── Session Notes Persistence ──
   useEffect(function() {
-    var saved = localStorage.getItem("cueforge_session_notes");
+    var saved = localStorage.getItem("trackcue_session_notes");
     if (saved) setSessionNotes(saved);
   }, []);
 
   useEffect(function() {
-    localStorage.setItem("cueforge_session_notes", sessionNotes);
+    localStorage.setItem("trackcue_session_notes", sessionNotes);
   }, [sessionNotes]);
 
   // ── DJ Set Timer ──

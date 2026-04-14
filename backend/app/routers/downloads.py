@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 # ─── Configuration ──────────────────────────────────────────
-GITHUB_REPO = "kdumontm/cueforge-saas"
+GITHUB_REPO = "kdumontm/trackcue-saas"
 GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 CACHE_TTL = 300  # 5 minutes
 
@@ -37,12 +37,12 @@ _release_cache_time: float = 0
 
 _FALLBACK = {
     "version": "3.5.0",
-    "release_notes": "CueForge Desktop v3.5.0 — Cue points v2.0 sur les mesures + fix stems",
-    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-arm64.dmg",
+    "release_notes": "TrackCue Desktop v3.5.0 — Cue points v2.0 sur les mesures + fix stems",
+    "dmg_arm64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/TrackCue-3.5.0-arm64.dmg",
     "dmg_arm64_size": "~80 MB",
-    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-x64.dmg",
+    "dmg_x64_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/TrackCue-3.5.0-x64.dmg",
     "dmg_x64_size": "~80 MB",
-    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/CueForge-3.5.0-x64.exe",
+    "exe_url": f"https://github.com/{GITHUB_REPO}/releases/download/v3.5.0/TrackCue-3.5.0-x64.exe",
     "exe_size": "~65 MB",
 }
 
@@ -59,14 +59,14 @@ async def _fetch_latest_release() -> dict:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(GITHUB_API, headers={
                 "Accept": "application/vnd.github+json",
-                "User-Agent": "CueForge-Backend",
+                "User-Agent": "TrackCue-Backend",
             })
             resp.raise_for_status()
             data = resp.json()
 
         tag = data.get("tag_name", "")
         version = tag.lstrip("v")
-        body = data.get("body", "") or f"CueForge Desktop v{version}"
+        body = data.get("body", "") or f"TrackCue Desktop v{version}"
 
         # Parser les assets — distinguer arm64 vs x64
         assets = data.get("assets", [])
@@ -98,11 +98,11 @@ async def _fetch_latest_release() -> dict:
         # Construire les URLs par convention si pas trouvées
         base = f"https://github.com/{GITHUB_REPO}/releases/download/v{version}"
         if not dmg_arm64_url:
-            dmg_arm64_url = f"{base}/CueForge-{version}-arm64.dmg"
+            dmg_arm64_url = f"{base}/TrackCue-{version}-arm64.dmg"
         if not dmg_x64_url:
-            dmg_x64_url = f"{base}/CueForge-{version}-x64.dmg"
+            dmg_x64_url = f"{base}/TrackCue-{version}-x64.dmg"
         if not exe_url:
-            exe_url = f"{base}/CueForge-{version}-x64.exe"
+            exe_url = f"{base}/TrackCue-{version}-x64.exe"
 
         result = {
             "version": version,

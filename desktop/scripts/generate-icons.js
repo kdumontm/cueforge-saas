@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Script pour générer les icônes de l'app CueForge.
+ * Script pour générer les icônes de l'app TrackCue.
  * Utilise un SVG simple comme base.
  *
  * Usage: node scripts/generate-icons.js
@@ -24,7 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// SVG de l'icône CueForge
+// SVG de l'icône TrackCue
 const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -67,8 +67,8 @@ const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="10
     <rect x="570" y="-55" width="18" height="110" rx="9"/>
     <rect x="600" y="-30" width="18" height="60" rx="9"/>
   </g>
-  <!-- CueForge text -->
-  <text x="512" y="920" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="72" font-weight="700" letter-spacing="4">CUEFORGE</text>
+  <!-- TrackCue text -->
+  <text x="512" y="920" text-anchor="middle" fill="rgba(255,255,255,0.95)" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="72" font-weight="700" letter-spacing="4">TRACKCUE</text>
 </svg>`;
 
 const trayIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">

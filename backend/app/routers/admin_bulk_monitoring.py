@@ -1,5 +1,5 @@
 """
-Admin Router — Opérations en masse ET monitoring système pour CueForge.
+Admin Router — Opérations en masse ET monitoring système pour TrackCue.
 
 Endpoints regroupés :
   /admin/bulk/users              → Actions groupées sur utilisateurs
@@ -99,7 +99,7 @@ class FieldMapping(Base):
     __tablename__ = "admin_field_mappings"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)  # ex: "spotify_tracks_to_cueforge"
+    name = Column(String, nullable=False, unique=True)  # ex: "spotify_tracks_to_trackcue"
     data_type = Column(String, nullable=False)  # "users", "tracks", "playlists"
 
     # JSON: {"source_field": "target_field", ...}

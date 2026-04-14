@@ -28,15 +28,15 @@ DEFAULT_ARTICLES = [
     {
         "title": "Comment analyser vos tracks comme un pro",
         "slug": "analyser-tracks-comme-pro",
-        "excerpt": "Découvrez les techniques essentielles pour analyser vos morceaux avec CueForge et préparer vos sets comme un vrai professionnel.",
+        "excerpt": "Découvrez les techniques essentielles pour analyser vos morceaux avec TrackCue et préparer vos sets comme un vrai professionnel.",
         "content": """# Comment analyser vos tracks comme un pro
 
-Analyser vos tracks est une étape cruciale pour tout DJ moderne. Avec CueForge, vous pouvez extraire automatiquement les informations essentielles de vos morceaux et préparer vos sets efficacement.
+Analyser vos tracks est une étape cruciale pour tout DJ moderne. Avec TrackCue, vous pouvez extraire automatiquement les informations essentielles de vos morceaux et préparer vos sets efficacement.
 
 ## Les étapes clés
 
 ### 1. Téléchargement et importation
-Importez vos fichiers audio (MP3, WAV, FLAC) dans CueForge. L'application détecte automatiquement le BPM, la tonalité et l'énergie de chaque morceau.
+Importez vos fichiers audio (MP3, WAV, FLAC) dans TrackCue. L'application détecte automatiquement le BPM, la tonalité et l'énergie de chaque morceau.
 
 ### 2. Identification du métadonnées
 Utilisez le service d'identification automatique pour récupérer les informations depuis MusicBrainz, Spotify et iTunes. Cela vous permet de maintenir votre bibliothèque bien organisée.
@@ -55,7 +55,7 @@ Ajoutez des tags personnalisés et des notes pour retrouver rapidement vos track
 
 Commencez dès maintenant et optimisez votre préparation de sets!
 """,
-        "author": "CueForge Team",
+        "author": "TrackCue Team",
         "cover_image_url": None,
         "tags": ["tutoriel", "analyse", "tips"],
         "published": True,
@@ -101,19 +101,19 @@ Enregistrez votre set pour l'analyser et vous améliorer ensuite.
 
 Évitez ces erreurs et vos sets seront beaucoup plus fluides et professionnels!
 """,
-        "author": "CueForge Team",
+        "author": "TrackCue Team",
         "cover_image_url": None,
         "tags": ["tips", "dj-technique", "set-preparation"],
         "published": True,
         "published_at": datetime.utcnow(),
     },
     {
-        "title": "Nouveautés CueForge v2 : tout ce qui change",
-        "slug": "cueforge-v2-nouveautes",
-        "excerpt": "CueForge version 2 est là! Découvrez les nouvelles fonctionnalités, les améliorations de performance et tout ce que nous avons changé.",
-        "content": """# Nouveautés CueForge v2 : tout ce qui change
+        "title": "Nouveautés TrackCue v2 : tout ce qui change",
+        "slug": "trackcue-v2-nouveautes",
+        "excerpt": "TrackCue version 2 est là! Découvrez les nouvelles fonctionnalités, les améliorations de performance et tout ce que nous avons changé.",
+        "content": """# Nouveautés TrackCue v2 : tout ce qui change
 
-Nous sommes heureux d'annoncer le lancement de **CueForge v2**, la version la plus ambitieuse à ce jour. Voici un aperçu des changements majeurs.
+Nous sommes heureux d'annoncer le lancement de **TrackCue v2**, la version la plus ambitieuse à ce jour. Voici un aperçu des changements majeurs.
 
 ## Interface redessinée
 
@@ -148,7 +148,7 @@ Nous travaillons sur :
 
 Merci pour votre confiance et vos retours!
 """,
-        "author": "CueForge Team",
+        "author": "TrackCue Team",
         "cover_image_url": None,
         "tags": ["release-notes", "announcement", "v2"],
         "published": True,

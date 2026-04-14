@@ -1,5 +1,5 @@
 """
-AnalyticsService - Data & Analytics pour CueForge
+AnalyticsService - Data & Analytics pour TrackCue
 Points 1881-1930: Tracking d'événements, funnels, cohort retention, engagement, etc.
 """
 
@@ -54,7 +54,7 @@ class CoreWebVitals:
 
 
 class AnalyticsService:
-    """Service d'analytics pour CueForge"""
+    """Service d'analytics pour TrackCue"""
 
     def __init__(self, db: Session):
         self.db = db

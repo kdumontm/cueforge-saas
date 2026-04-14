@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 _redis_client = None
 _redis_available = None
 
-QUEUE_KEY = "cueforge:analysis:queue"
-PROCESSING_KEY = "cueforge:analysis:processing"
-DEAD_LETTER_KEY = "cueforge:analysis:dead_letter"
-STATS_KEY = "cueforge:analysis:stats"
+QUEUE_KEY = "trackcue:analysis:queue"
+PROCESSING_KEY = "trackcue:analysis:processing"
+DEAD_LETTER_KEY = "trackcue:analysis:dead_letter"
+STATS_KEY = "trackcue:analysis:stats"
 MAX_RETRIES = 3
 AVG_ANALYSIS_TIME = 45  # seconds, updated dynamically
 

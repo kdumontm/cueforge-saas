@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CueForge — Hors ligne</title>
+  <title>TrackCue — Hors ligne</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -97,7 +97,7 @@
     <div class="icon">📡</div>
     <h1>Vous êtes hors ligne</h1>
     <p>
-      CueForge a besoin d'une connexion internet pour fonctionner.
+      TrackCue a besoin d'une connexion internet pour fonctionner.
       Vérifiez votre connexion et réessayez.
     </p>
     <button class="retry-btn" onclick="retry()">Réessayer</button>
@@ -113,7 +113,7 @@
       const text = document.getElementById('statusText');
       text.textContent = 'Vérification...';
 
-      const online = await window.cueforge.checkOnline();
+      const online = await window.trackcue.checkOnline();
       if (online) {
         dot.classList.add('online');
         text.textContent = 'Connecté ! Rechargement...';
@@ -127,7 +127,7 @@
 
     // Vérifier automatiquement toutes les 10 secondes
     setInterval(async () => {
-      const online = await window.cueforge.checkOnline();
+      const online = await window.trackcue.checkOnline();
       if (online) {
         window.location.href = 'https://exquisite-art-production-f4c6.up.railway.app/dashboard';
       }

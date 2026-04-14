@@ -97,7 +97,7 @@ async def setup_2fa(
     totp = pyotp.TOTP(secret)
     uri = totp.provisioning_uri(
         name=user.email,
-        issuer_name="CueForge"
+        issuer_name="TrackCue"
     )
 
     return TOTPSetupResponse(secret=secret, uri=uri)

@@ -1,5 +1,5 @@
 """
-CueForge — Serato Crate (.crate) + CSV export service.
+TrackCue — Serato Crate (.crate) + CSV export service.
 
 Serato .crate format:
   - Binary format with UTF-16 encoded file paths
@@ -71,7 +71,7 @@ def _validate_track_format(track: dict, check_file_exists: bool = False) -> bool
     return True
 
 
-def generate_serato_crate(tracks: List[dict], crate_name: str = "CueForge Export") -> bytes:
+def generate_serato_crate(tracks: List[dict], crate_name: str = "TrackCue Export") -> bytes:
     """
     Generate a Serato .crate binary file.
 

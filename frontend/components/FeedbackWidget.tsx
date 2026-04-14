@@ -17,7 +17,7 @@ export default function FeedbackWidget() {
     if (!message.trim()) return;
     setSending(true);
     try {
-      const token = localStorage.getItem('cueforge_token');
+      const token = localStorage.getItem('trackcue_token');
       await fetch(`${API_URL}/feedback`, {
         method: 'POST',
         headers: {

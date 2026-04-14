@@ -45,9 +45,9 @@ describe('LoginPage', () => {
     expect(screen.getByText('Se connecter')).toBeInTheDocument();
   });
 
-  test('renders CueForge branding', () => {
+  test('renders TrackCue branding', () => {
     render(<LoginPage />);
-    expect(screen.getByText('CueForge')).toBeInTheDocument();
+    expect(screen.getByText('TrackCue')).toBeInTheDocument();
   });
 
   test('shows link to register page', () => {

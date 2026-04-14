@@ -109,7 +109,7 @@ async def upload_track(
                     morceaux aujourd'hui sur ton plan <strong>{plan}</strong>.</p>
                     <p>Passe au plan superieur pour analyser plus de tracks !</p>
                 """)
-                _send_email(current_user.email, "CueForge - Limite d'usage bientot atteinte", html)
+                _send_email(current_user.email, "TrackCue - Limite d'usage bientot atteinte", html)
             except Exception:
                 pass  # email is best-effort
 

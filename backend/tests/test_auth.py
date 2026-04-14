@@ -4,7 +4,7 @@
 def test_register_success(client):
     """Test successful user registration."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "new@cueforge.com",
+        "email": "new@trackcue.com",
         "password": "Strong1!Pass",
         "name": "newuser",
     })
@@ -12,7 +12,7 @@ def test_register_success(client):
     data = res.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["user"]["email"] == "new@cueforge.com"
+    assert data["user"]["email"] == "new@trackcue.com"
     assert data["user"]["name"] == "newuser"
     assert data["token_type"] == "bearer"
 
@@ -20,10 +20,10 @@ def test_register_success(client):
 def test_register_duplicate_email(client):
     """Test registration fails with duplicate email."""
     client.post("/api/v1/auth/register", json={
-        "email": "dupe@cueforge.com", "password": "Strong1!Pass", "name": "user1",
+        "email": "dupe@trackcue.com", "password": "Strong1!Pass", "name": "user1",
     })
     res = client.post("/api/v1/auth/register", json={
-        "email": "dupe@cueforge.com", "password": "Strong1!Pass", "name": "user2",
+        "email": "dupe@trackcue.com", "password": "Strong1!Pass", "name": "user2",
     })
     assert res.status_code == 400
     detail = res.json()["detail"].lower()
@@ -33,10 +33,10 @@ def test_register_duplicate_email(client):
 def test_register_duplicate_username(client):
     """Test registration fails with duplicate username."""
     client.post("/api/v1/auth/register", json={
-        "email": "user1@cueforge.com", "password": "Strong1!Pass", "name": "dupename",
+        "email": "user1@trackcue.com", "password": "Strong1!Pass", "name": "dupename",
     })
     res = client.post("/api/v1/auth/register", json={
-        "email": "user2@cueforge.com", "password": "Strong1!Pass", "name": "dupename",
+        "email": "user2@trackcue.com", "password": "Strong1!Pass", "name": "dupename",
     })
     assert res.status_code == 400
     detail = res.json()["detail"].lower()
@@ -46,7 +46,7 @@ def test_register_duplicate_username(client):
 def test_register_weak_password_short(client):
     """Test registration fails with password too short."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "weak@cueforge.com", "password": "short", "name": "weakuser",
+        "email": "weak@trackcue.com", "password": "short", "name": "weakuser",
     })
     assert res.status_code == 422
 
@@ -54,7 +54,7 @@ def test_register_weak_password_short(client):
 def test_register_weak_password_no_uppercase(client):
     """Test registration fails with no uppercase in password."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "weak@cueforge.com", "password": "noupppercase1!", "name": "weakuser",
+        "email": "weak@trackcue.com", "password": "noupppercase1!", "name": "weakuser",
     })
     assert res.status_code == 422
 
@@ -62,7 +62,7 @@ def test_register_weak_password_no_uppercase(client):
 def test_register_weak_password_no_number(client):
     """Test registration fails with no number in password."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "weak@cueforge.com", "password": "NoNumbers!", "name": "weakuser",
+        "email": "weak@trackcue.com", "password": "NoNumbers!", "name": "weakuser",
     })
     assert res.status_code == 422
 
@@ -70,7 +70,7 @@ def test_register_weak_password_no_number(client):
 def test_register_weak_password_no_special_char(client):
     """Test registration fails with no special character in password."""
     res = client.post("/api/v1/auth/register", json={
-        "email": "weak@cueforge.com", "password": "NoSpecial1", "name": "weakuser",
+        "email": "weak@trackcue.com", "password": "NoSpecial1", "name": "weakuser",
     })
     assert res.status_code == 422
 
@@ -86,7 +86,7 @@ def test_register_invalid_email(client):
 def test_login_success_by_username(client):
     """Test successful login by username."""
     client.post("/api/v1/auth/register", json={
-        "email": "login@cueforge.com", "password": "Strong1!Pass", "name": "loginuser",
+        "email": "login@trackcue.com", "password": "Strong1!Pass", "name": "loginuser",
     })
     res = client.post("/api/v1/auth/login", json={
         "identifier": "loginuser", "password": "Strong1!Pass",
@@ -100,20 +100,20 @@ def test_login_success_by_username(client):
 def test_login_success_by_email(client):
     """Test successful login by email."""
     client.post("/api/v1/auth/register", json={
-        "email": "email@cueforge.com", "password": "Strong1!Pass", "name": "emailuser",
+        "email": "email@trackcue.com", "password": "Strong1!Pass", "name": "emailuser",
     })
     res = client.post("/api/v1/auth/login", json={
-        "identifier": "email@cueforge.com", "password": "Strong1!Pass",
+        "identifier": "email@trackcue.com", "password": "Strong1!Pass",
     })
     assert res.status_code == 200
     assert "access_token" in res.json()
-    assert res.json()["user"]["email"] == "email@cueforge.com"
+    assert res.json()["user"]["email"] == "email@trackcue.com"
 
 
 def test_login_wrong_password(client):
     """Test login fails with wrong password."""
     client.post("/api/v1/auth/register", json={
-        "email": "wrong@cueforge.com", "password": "Strong1!Pass", "name": "wronguser",
+        "email": "wrong@trackcue.com", "password": "Strong1!Pass", "name": "wronguser",
     })
     res = client.post("/api/v1/auth/login", json={
         "identifier": "wronguser", "password": "WrongPass1!",
@@ -135,7 +135,7 @@ def test_get_profile(client, auth_headers):
     """Test getting current user profile."""
     res = client.get("/api/v1/auth/me", headers=auth_headers)
     assert res.status_code == 200
-    assert res.json()["email"] == "test@cueforge.com"
+    assert res.json()["email"] == "test@trackcue.com"
     assert res.json()["name"] == "testuser"
 
 
@@ -154,15 +154,15 @@ def test_update_profile(client, auth_headers):
 
 def test_update_profile_email(client, auth_headers):
     """Test updating user email."""
-    res = client.put("/api/v1/auth/me", json={"email": "newemail@cueforge.com"}, headers=auth_headers)
+    res = client.put("/api/v1/auth/me", json={"email": "newemail@trackcue.com"}, headers=auth_headers)
     assert res.status_code == 200
-    assert res.json()["email"] == "newemail@cueforge.com"
+    assert res.json()["email"] == "newemail@trackcue.com"
 
 
 def test_refresh_token(client):
     """Test token refresh."""
     reg = client.post("/api/v1/auth/register", json={
-        "email": "refresh@cueforge.com", "password": "Strong1!Pass", "name": "refreshuser",
+        "email": "refresh@trackcue.com", "password": "Strong1!Pass", "name": "refreshuser",
     })
     refresh = reg.json()["refresh_token"]
     res = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
@@ -183,15 +183,15 @@ def test_refresh_token_invalid(client):
 def test_forgot_password(client):
     """Test forgot password endpoint."""
     client.post("/api/v1/auth/register", json={
-        "email": "forgot@cueforge.com", "password": "Strong1!Pass", "name": "forgotuser",
+        "email": "forgot@trackcue.com", "password": "Strong1!Pass", "name": "forgotuser",
     })
-    res = client.post("/api/v1/auth/forgot-password", json={"email": "forgot@cueforge.com"})
+    res = client.post("/api/v1/auth/forgot-password", json={"email": "forgot@trackcue.com"})
     assert res.status_code == 200
 
 
 def test_forgot_password_nonexistent_email(client):
     """Test forgot password with non-existent email."""
-    res = client.post("/api/v1/auth/forgot-password", json={"email": "nonexistent@cueforge.com"})
+    res = client.post("/api/v1/auth/forgot-password", json={"email": "nonexistent@trackcue.com"})
     # Should return 200 for security (don't reveal if email exists)
     assert res.status_code == 200
 

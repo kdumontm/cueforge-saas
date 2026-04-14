@@ -1,5 +1,5 @@
 """
-CueForge — Advanced DJ Export Service
+TrackCue — Advanced DJ Export Service
 
 Features:
 - Stem export in NI format (.stem.mp4)

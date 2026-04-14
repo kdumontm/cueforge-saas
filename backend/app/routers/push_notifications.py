@@ -128,7 +128,7 @@ async def unsubscribe_from_push(
 
 
 class PushTestRequest(BaseModel):
-    title: str = "CueForge Notification"
+    title: str = "TrackCue Notification"
     body: str = "This is a test notification"
     url: str = None
     icon: str = None

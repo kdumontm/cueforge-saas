@@ -1,5 +1,5 @@
 """
-CueForge v2 — Advanced features router (Phase 3 stubs).
+TrackCue v2 — Advanced features router (Phase 3 stubs).
 
 These endpoints are stubs that return 501 until the heavy processing services
 are implemented (demucs for stems, ML for auto-cues, etc.).

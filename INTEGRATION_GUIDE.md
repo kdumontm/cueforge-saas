@@ -159,7 +159,7 @@ Create Prometheus scrape target for `GET /api/monitoring/metrics`:
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'cueforge'
+  - job_name: 'trackcue'
     static_configs:
       - targets: ['localhost:8000']
     metrics_path: '/api/monitoring/metrics'
@@ -330,7 +330,7 @@ curl -X POST http://localhost:8000/api/admin/circuit-breaker/reset?service=spoti
 ## Support
 
 For issues or questions:
-1. Check logs in `/var/log/cueforge/`
+1. Check logs in `/var/log/trackcue/`
 2. Review metrics in Grafana
 3. Run diagnostic: `python3 scripts/diagnose.py`
-4. File issue: https://github.com/kdumontm/cueforge-saas/issues
+4. File issue: https://github.com/kdumontm/trackcue-saas/issues

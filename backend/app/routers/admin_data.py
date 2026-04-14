@@ -1,5 +1,5 @@
 """
-Admin Data Router — Advanced admin endpoints for CueForge.
+Admin Data Router — Advanced admin endpoints for TrackCue.
 
 Endpoints:
   /admin/tracks         → CRUD tracks with advanced filtering

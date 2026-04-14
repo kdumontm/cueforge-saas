@@ -269,7 +269,7 @@ export class NetworkManager {
    */
   private async initializeIndexedDB(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('CueForgeCache', 1);
+      const request = indexedDB.open('TrackCueCache', 1);
 
       request.onerror = () => {
         reject(request.error);

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Tarifs — CueForge',
+  title: 'Tarifs — TrackCue',
   description: 'Découvrez nos plans de tarification flexibles pour DJs professionnels et passionnés. Essai gratuit inclus.',
 };
 

@@ -1,5 +1,5 @@
 """
-Audio quality analysis service for CueForge.
+Audio quality analysis service for TrackCue.
 Points 781-800: Bitrate detection, spectral holes, phase coherence,
 DC offset, peak normalization, multi-channel handling, file integrity,
 ReplayGain, BPM tag writeback.

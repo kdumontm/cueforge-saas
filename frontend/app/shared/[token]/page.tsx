@@ -36,7 +36,7 @@ export default function SharedPage() {
   }, [token]);
 
   async function handleCopyToLibrary() {
-    const authToken = localStorage.getItem('cueforge_token');
+    const authToken = localStorage.getItem('trackcue_token');
     if (!authToken) {
       window.location.href = `/login?redirect=/shared/${token}`;
       return;
@@ -69,7 +69,7 @@ export default function SharedPage() {
         <h1 className="text-xl font-bold text-white mb-2">{error}</h1>
         <p className="text-slate-400 text-sm mb-6">Ce lien de partage n'est plus disponible.</p>
         <Link href="/" className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 transition-colors inline-block">
-          Retour à CueForge
+          Retour à TrackCue
         </Link>
       </div>
     </div>
@@ -88,7 +88,7 @@ export default function SharedPage() {
             <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
               <Music2 size={16} />
             </div>
-            <span className="text-lg font-bold">CueForge</span>
+            <span className="text-lg font-bold">TrackCue</span>
           </Link>
           <Link href="/register" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-semibold transition-colors">
             Essayer gratuitement

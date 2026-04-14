@@ -1,5 +1,5 @@
 """
-Advanced audio analysis service for CueForge.
+Advanced audio analysis service for TrackCue.
 Points 701-770: Groove, meter, tempo stability, rhythmic complexity,
 chord progression, harmonic rhythm, tension/release, scale detection,
 key affinity, timbral features, transients, compression detection, dynamic range.
@@ -168,7 +168,7 @@ class NoiseAnalysis:
 
 
 class AdvancedAudioAnalyzer:
-    """Comprehensive audio analysis engine for CueForge."""
+    """Comprehensive audio analysis engine for TrackCue."""
 
     def __init__(self, sr: int = 22050):
         self.sr = sr

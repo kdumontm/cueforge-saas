@@ -160,7 +160,7 @@ export default function AdminDashboard() {
         id="dashboard"
         icon={LayoutGrid}
         title="Tableau de bord administrateur"
-        description="Vue d'ensemble de votre application CueForge. Les statistiques se mettent à jour automatiquement. Cliquez sur les cartes pour accéder directement aux sections correspondantes."
+        description="Vue d'ensemble de votre application TrackCue. Les statistiques se mettent à jour automatiquement. Cliquez sur les cartes pour accéder directement aux sections correspondantes."
       />
       {/* ── Welcome header ───────────────────────────── */}
       <div className="mb-8">
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
           Bienvenue, Kevin 👋
         </h1>
         <p className="text-sm text-text-muted">
-          Voici un aperçu de votre application CueForge.
+          Voici un aperçu de votre application TrackCue.
         </p>
       </div>
 

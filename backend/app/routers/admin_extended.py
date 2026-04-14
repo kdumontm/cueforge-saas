@@ -1,5 +1,5 @@
 """
-Admin Extended Router — Advanced admin endpoints for CueForge.
+Admin Extended Router — Advanced admin endpoints for TrackCue.
 
 Endpoints grouped by domain:
   /admin/users/advanced      → Enhanced user list with advanced filters

@@ -1,5 +1,5 @@
 """
-CueForge v2 — Camelot Wheel harmonic compatibility service.
+TrackCue v2 — Camelot Wheel harmonic compatibility service.
 
 The Camelot wheel maps musical keys to a number+letter code (e.g., 8B = C major).
 Compatible keys are: same key, ±1 on the wheel, and inner/outer switch (A↔B).

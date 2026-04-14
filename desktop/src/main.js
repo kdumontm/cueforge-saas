@@ -1,5 +1,5 @@
 'use strict';
-// ─── CueForge Desktop — Main Process (simplifié) ───────────────────────────
+// ─── TrackCue Desktop — Main Process (simplifié) ───────────────────────────
 // L'app charge le site web directement. Electron est juste une coquille qui
 // expose les ressources locales (fichiers, exports DJ, auto-updater).
 // Auth, API, BDD, admin, settings, sécu → tout est géré par le web.
@@ -57,7 +57,7 @@ function createWindow() {
 
   // Drag & drop depuis le Finder / Explorateur
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    // Empêcher la navigation hors du site CueForge
+    // Empêcher la navigation hors du site TrackCue
     if (!url.startsWith(WEB_URL) && !url.startsWith('file://')) {
       event.preventDefault();
       shell.openExternal(url);
@@ -81,9 +81,9 @@ function createTray() {
     if (!fs.existsSync(iconPath)) return;
     const icon = nativeImage.createFromPath(iconPath);
     tray = new Tray(icon.resize({ width: 18, height: 18 }));
-    tray.setToolTip('CueForge');
+    tray.setToolTip('TrackCue');
     tray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Afficher CueForge', click: () => mainWindow?.show() },
+      { label: 'Afficher TrackCue', click: () => mainWindow?.show() },
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() },
     ]));
@@ -175,7 +175,7 @@ function setupIPC() {
     const os = require('os');
 
     // Déterminer le dossier de sortie
-    const outputDir = path.join(os.tmpdir(), 'cueforge-stems');
+    const outputDir = path.join(os.tmpdir(), 'trackcue-stems');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     // Trouver Python

@@ -322,38 +322,38 @@ class PrometheusMetrics:
         summary = self.get_metrics_summary()
         lines = []
 
-        lines.append("# HELP cueforge_cues_created_total Total cues created")
-        lines.append("# TYPE cueforge_cues_created_total counter")
-        lines.append(f'cueforge_cues_created_total{{}} {summary["cues"]["created"]}')
+        lines.append("# HELP trackcue_cues_created_total Total cues created")
+        lines.append("# TYPE trackcue_cues_created_total counter")
+        lines.append(f'trackcue_cues_created_total{{}} {summary["cues"]["created"]}')
 
-        lines.append("# HELP cueforge_cues_deleted_total Total cues deleted")
-        lines.append("# TYPE cueforge_cues_deleted_total counter")
-        lines.append(f'cueforge_cues_deleted_total{{}} {summary["cues"]["deleted"]}')
+        lines.append("# HELP trackcue_cues_deleted_total Total cues deleted")
+        lines.append("# TYPE trackcue_cues_deleted_total counter")
+        lines.append(f'trackcue_cues_deleted_total{{}} {summary["cues"]["deleted"]}')
 
-        lines.append("# HELP cueforge_analysis_queued Queued analysis tasks")
-        lines.append("# TYPE cueforge_analysis_queued gauge")
-        lines.append(f'cueforge_analysis_queued{{}} {summary["analysis"]["queued"]}')
+        lines.append("# HELP trackcue_analysis_queued Queued analysis tasks")
+        lines.append("# TYPE trackcue_analysis_queued gauge")
+        lines.append(f'trackcue_analysis_queued{{}} {summary["analysis"]["queued"]}')
 
-        lines.append("# HELP cueforge_analysis_processing Processing analysis tasks")
-        lines.append("# TYPE cueforge_analysis_processing gauge")
-        lines.append(f'cueforge_analysis_processing{{}} {summary["analysis"]["processing"]}')
+        lines.append("# HELP trackcue_analysis_processing Processing analysis tasks")
+        lines.append("# TYPE trackcue_analysis_processing gauge")
+        lines.append(f'trackcue_analysis_processing{{}} {summary["analysis"]["processing"]}')
 
-        lines.append("# HELP cueforge_cache_hit_ratio Cache hit ratio percentage")
-        lines.append("# TYPE cueforge_cache_hit_ratio gauge")
-        lines.append(f'cueforge_cache_hit_ratio{{}} {summary["cache"]["hit_rate_percent"]}')
+        lines.append("# HELP trackcue_cache_hit_ratio Cache hit ratio percentage")
+        lines.append("# TYPE trackcue_cache_hit_ratio gauge")
+        lines.append(f'trackcue_cache_hit_ratio{{}} {summary["cache"]["hit_rate_percent"]}')
 
         if summary["resources"]:
-            lines.append("# HELP cueforge_memory_usage Memory usage percentage")
-            lines.append("# TYPE cueforge_memory_usage gauge")
-            lines.append(f'cueforge_memory_usage{{}} {summary["resources"]["memory_percent"]}')
+            lines.append("# HELP trackcue_memory_usage Memory usage percentage")
+            lines.append("# TYPE trackcue_memory_usage gauge")
+            lines.append(f'trackcue_memory_usage{{}} {summary["resources"]["memory_percent"]}')
 
-            lines.append("# HELP cueforge_cpu_usage CPU usage percentage")
-            lines.append("# TYPE cueforge_cpu_usage gauge")
-            lines.append(f'cueforge_cpu_usage{{}} {summary["resources"]["cpu_percent"]}')
+            lines.append("# HELP trackcue_cpu_usage CPU usage percentage")
+            lines.append("# TYPE trackcue_cpu_usage gauge")
+            lines.append(f'trackcue_cpu_usage{{}} {summary["resources"]["cpu_percent"]}')
 
-        lines.append("# HELP cueforge_uptime_seconds Uptime in seconds")
-        lines.append("# TYPE cueforge_uptime_seconds counter")
-        lines.append(f'cueforge_uptime_seconds{{}} {summary["uptime_seconds"]}')
+        lines.append("# HELP trackcue_uptime_seconds Uptime in seconds")
+        lines.append("# TYPE trackcue_uptime_seconds counter")
+        lines.append(f'trackcue_uptime_seconds{{}} {summary["uptime_seconds"]}')
 
         return "\n".join(lines) + "\n"
 

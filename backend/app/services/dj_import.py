@@ -1,5 +1,5 @@
 """
-CueForge — DJ Import Service
+TrackCue — DJ Import Service
 
 Multi-format DJ import with:
 - Rekordbox XML import
@@ -25,10 +25,10 @@ from pathlib import Path
 class ConflictResolution(Enum):
     """Strategy for resolving conflicts in metadata."""
     SKIP = "skip"              # Skip conflicting track
-    MERGE = "merge"            # Merge metadata (CueForge + imported)
+    MERGE = "merge"            # Merge metadata (TrackCue + imported)
     OVERWRITE = "overwrite"    # Overwrite with imported data
     NEWEST = "newest"          # Keep newest timestamp
-    KEEP_LOCAL = "keep_local"  # Keep CueForge data
+    KEEP_LOCAL = "keep_local"  # Keep TrackCue data
 
 
 class ImportFormat(Enum):

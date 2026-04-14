@@ -38,8 +38,8 @@ export default function RegisterPage() {
         .then(res => res.json())
         .then(data => {
           if (data.access_token) {
-            localStorage.setItem('cueforge_token', data.access_token);
-            if (data.refresh_token) localStorage.setItem('cueforge_refresh', data.refresh_token);
+            localStorage.setItem('trackcue_token', data.access_token);
+            if (data.refresh_token) localStorage.setItem('trackcue_refresh', data.refresh_token);
             router.push('/dashboard');
           } else {
             setError(data.detail || 'OAuth échoué');
@@ -81,7 +81,7 @@ export default function RegisterPage() {
             <div className="w-10 h-10 bg-accent-purple rounded-xl flex items-center justify-center">
               <Music2 size={20} className="text-white" />
             </div>
-            <span className="text-2xl font-bold text-white">CueForge</span>
+            <span className="text-2xl font-bold text-white">TrackCue</span>
           </Link>
           <p className="text-slate-400 mt-3 text-sm">Crée ton compte gratuit en 30 secondes.</p>
         </div>

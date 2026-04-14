@@ -299,7 +299,7 @@ class ImportJobSchema(BaseModel):
 
 class ImportMappingConfigSchema(BaseModel):
     source: str  # "rekordbox", "serato", "traktor", "virtualdj"
-    field_mappings: Optional[Dict[str, str]] = None  # {source_field: cueforge_field}
+    field_mappings: Optional[Dict[str, str]] = None  # {source_field: trackcue_field}
 
 
 class OnboardingStepSchema(BaseModel):

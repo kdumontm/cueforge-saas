@@ -35,7 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=(), payment=()"
         )
 
-        # CSP : autorise uniquement les ressources du domaine CueForge
+        # CSP : autorise uniquement les ressources du domaine TrackCue
         # Note : 'unsafe-inline' retiré de script-src, remplacé par 'unsafe-eval'
         # nécessaire pour Next.js en dev. En prod, utiliser des nonces.
         response.headers["Content-Security-Policy"] = (
@@ -44,7 +44,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' https://cueforge-saas-production.up.railway.app https://exquisite-art-production-f4c6.up.railway.app; "
+            "connect-src 'self' https://trackcue-saas-production.up.railway.app https://exquisite-art-production-f4c6.up.railway.app; "
             "frame-ancestors 'none';"
         )
 

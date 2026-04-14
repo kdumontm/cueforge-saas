@@ -64,7 +64,7 @@ const UPDATES = [
   {
     version: '2.0.0',
     date: '28 mars 2026',
-    title: 'CueForge SaaS',
+    title: 'TrackCue SaaS',
     icon: Music2,
     color: 'text-pink-400',
     changes: [
@@ -94,7 +94,7 @@ export default function ChangelogPage() {
             <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
               <Music2 size={16} />
             </div>
-            <span className="text-lg font-bold">CueForge</span>
+            <span className="text-lg font-bold">TrackCue</span>
           </Link>
           <Link href="/dashboard" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-semibold transition-colors">
             Dashboard
@@ -105,7 +105,7 @@ export default function ChangelogPage() {
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold mb-3">Nouveautés</h1>
-          <p className="text-slate-400">Toutes les mises à jour et améliorations de CueForge</p>
+          <p className="text-slate-400">Toutes les mises à jour et améliorations de TrackCue</p>
         </div>
 
         <div className="space-y-12">

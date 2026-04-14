@@ -1,5 +1,5 @@
 """
-CPU optimization service for CueForge.
+CPU optimization service for TrackCue.
 Points 441-480: CPU feature detection, FFT optimization, CPU affinity,
 thread pool optimization, cache optimization, SIMD operations,
 CPU profiling, NUMA topology detection, performance benchmarking.

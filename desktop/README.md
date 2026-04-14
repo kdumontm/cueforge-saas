@@ -1,6 +1,6 @@
-# CueForge — App Mac
+# TrackCue — App Mac
 
-Application de bureau pour macOS qui wrape le site CueForge avec des fonctionnalités natives.
+Application de bureau pour macOS qui wrape le site TrackCue avec des fonctionnalités natives.
 
 ## Fonctionnalités
 

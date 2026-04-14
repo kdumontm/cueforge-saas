@@ -49,7 +49,7 @@ export default function CGUPage() {
             Retour
           </Link>
           <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-            CueForge
+            TrackCue
           </h1>
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function CGUPage() {
             <h3 className="text-xl font-semibold text-white mb-3">1. Objet</h3>
             <p>
               Les presentes Conditions Générales d&apos;Utilisation (CGU) regissent l&apos;accès et l&apos;utilisation
-              du service CueForge, plateforme SaaS d&apos;analyse audio et de preparation de morceaux
+              du service TrackCue, plateforme SaaS d&apos;analyse audio et de preparation de morceaux
               destinee aux DJs professionnels et amateurs.
             </p>
           </section>
@@ -82,14 +82,14 @@ export default function CGUPage() {
 
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">3. Plans et tarification</h3>
-            <p className="mb-2">CueForge propose trois niveaux de service :</p>
+            <p className="mb-2">TrackCue propose trois niveaux de service :</p>
             <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
               <li><span className="text-white font-medium">Free</span> : 5 morceaux par jour, fonctionnalites de base</li>
               <li><span className="text-white font-medium">Pro</span> : 20 morceaux par jour, toutes les fonctionnalites en ligne</li>
               <li><span className="text-white font-medium">App Desktop</span> : morceaux illimites via l&apos;application desktop</li>
             </ul>
             <p className="mt-2">
-              Les tarifs sont indiques en euros TTC. CueForge se reserve le droit de modifier
+              Les tarifs sont indiques en euros TTC. TrackCue se reserve le droit de modifier
               ses tarifs avec un preavis de 30 jours.
             </p>
           </section>
@@ -97,20 +97,20 @@ export default function CGUPage() {
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">4. Propriété intellectuelle</h3>
             <p>
-              L&apos;utilisateur reste pleinement proprietaire de ses fichiers audio. CueForge n&apos;acquiert
+              L&apos;utilisateur reste pleinement proprietaire de ses fichiers audio. TrackCue n&apos;acquiert
               aucun droit sur les morceaux uploades. Les fichiers sont stockes temporairement
               pour le traitement et peuvent etre supprimes a tout moment par l&apos;utilisateur.
             </p>
             <p className="mt-2">
-              Le logiciel CueForge, son interface, ses algorithmes et sa marque sont la propriété
-              exclusive de CueForge SAS. Toute reproduction non autorisee est interdite.
+              Le logiciel TrackCue, son interface, ses algorithmes et sa marque sont la propriété
+              exclusive de TrackCue SAS. Toute reproduction non autorisee est interdite.
             </p>
           </section>
 
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">5. Protection des données</h3>
             <p>
-              CueForge s&apos;engage a proteger les données personnelles de ses utilisateurs
+              TrackCue s&apos;engage a proteger les données personnelles de ses utilisateurs
               conformement au Reglement General sur la Protection des Données (RGPD).
               Les données collectées sont : adresse e-mail, nom, historique d&apos;utilisation.
               Aucune donnee n&apos;est revendue a des tiers.
@@ -131,9 +131,9 @@ export default function CGUPage() {
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">7. Responsabilité</h3>
             <p>
-              CueForge fournit son service &quot;en l&apos;etat&quot;. Bien que nous nous efforcions
+              TrackCue fournit son service &quot;en l&apos;etat&quot;. Bien que nous nous efforcions
               d&apos;assurer la precision des analyses audio (BPM, tonalite, points cue),
-              CueForge ne garantit pas une precision absolue. L&apos;utilisateur reste responsable
+              TrackCue ne garantit pas une precision absolue. L&apos;utilisateur reste responsable
               de la verification des resultats avant utilisation en conditions live.
             </p>
           </section>
@@ -150,7 +150,7 @@ export default function CGUPage() {
           <section>
             <h3 className="text-xl font-semibold text-white mb-3">9. Modifications des CGU</h3>
             <p>
-              CueForge se reserve le droit de modifier les presentes CGU a tout moment.
+              TrackCue se reserve le droit de modifier les presentes CGU a tout moment.
               Les utilisateurs seront informes par e-mail de toute modification substantielle.
               La poursuite de l&apos;utilisation du service apres modification vaut acceptation.
             </p>
@@ -167,8 +167,8 @@ export default function CGUPage() {
           <section className="border-t border-gray-800 pt-8 mt-8">
             <p className="text-gray-500 text-sm">
               Pour toute question concernant ces conditions, contactez-nous a :
-              <a href="mailto:contact@cueforge.app" className="text-green-400 hover:underline ml-1">
-                contact@cueforge.app
+              <a href="mailto:contact@trackcue.app" className="text-green-400 hover:underline ml-1">
+                contact@trackcue.app
               </a>
             </p>
           </section>

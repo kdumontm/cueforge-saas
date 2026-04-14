@@ -16,7 +16,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-STEMS_DIR = os.getenv("STEMS_DIR", "/tmp/cueforge_stems")
+STEMS_DIR = os.getenv("STEMS_DIR", "/tmp/trackcue_stems")
 os.makedirs(STEMS_DIR, exist_ok=True)
 
 STEM_NAMES = ("drums", "bass", "vocals", "other")

@@ -1,4 +1,4 @@
-# CueForge — 2000 Optimisations Techniques
+# TrackCue — 2000 Optimisations Techniques
 ## Section D — Frontend Performance & Rendering (Points 901-1250)
 
 ---
@@ -637,7 +637,7 @@
 
 **1206. Keep-alive connection pooling** — Utiliser HTTP Keep-Alive pour réduire la connection overhead.
 
-**1207. Domain sharding** — Utiliser le domain sharding (api1.cueforge.com, api2.cueforge.com) pour bypass les connection limits.
+**1207. Domain sharding** — Utiliser le domain sharding (api1.trackcue.com, api2.trackcue.com) pour bypass les connection limits.
 
 **1208. CORS preflight optimization** — Mettre en cache les CORS preflight responses (avec caching headers).
 

@@ -1,6 +1,6 @@
 {
-  "name": "CueForge — DJ Audio Analysis",
-  "short_name": "CueForge",
+  "name": "TrackCue — DJ Audio Analysis",
+  "short_name": "TrackCue",
   "description": "Analyse audio, cue points automatiques et export Rekordbox/Serato/Traktor pour DJs professionnels",
   "start_url": "/dashboard",
   "scope": "/",

@@ -1,5 +1,5 @@
 """
-CueForge — Mixxx Library Export Service
+TrackCue — Mixxx Library Export Service
 
 Exports tracks and cue data to Mixxx (open-source DJ software) SQLite database format.
 Mixxx uses SQLite for library management and supports cue points, loops, and metadata.
@@ -22,7 +22,7 @@ def generate_mixxx_database(
     Generate a Mixxx-compatible SQLite library database.
 
     Args:
-        tracks: List of track data from CueForge
+        tracks: List of track data from TrackCue
         db_path: Path to output .db file
 
     Returns:

@@ -1,7 +1,7 @@
 """
 Circuit Breaker pattern for external service resilience.
 
-Protects CueForge from cascading failures when external services
+Protects TrackCue from cascading failures when external services
 (Spotify, MusicBrainz, iTunes, AcoustID, Discogs, Last.fm) fail.
 
 States:

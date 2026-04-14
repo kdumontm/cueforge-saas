@@ -1,5 +1,5 @@
 """
-CueForge — Algoriddim djay Pro Export Service
+TrackCue — Algoriddim djay Pro Export Service
 
 Exports to Algoriddim djay Pro (iOS/Android) compatible format.
 djay Pro uses JSON playlists and supports Spotify integration, cueing, and smart mixing.
@@ -12,7 +12,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 
-def generate_djay_pro_playlist(tracks: List[Dict], playlist_name: str = "CueForge Export") -> Dict:
+def generate_djay_pro_playlist(tracks: List[Dict], playlist_name: str = "TrackCue Export") -> Dict:
     """
     Generate djay Pro-compatible playlist.
 
@@ -76,7 +76,7 @@ def generate_djay_pro_playlist(tracks: List[Dict], playlist_name: str = "CueForg
 def export_tracks_to_djay_pro(
     tracks: List[Dict],
     output_path: Optional[str] = None,
-    playlist_name: str = "CueForge Export"
+    playlist_name: str = "TrackCue Export"
 ) -> Dict:
     """
     Export tracks to djay Pro format.

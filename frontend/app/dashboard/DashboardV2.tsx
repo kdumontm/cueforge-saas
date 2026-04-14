@@ -168,7 +168,7 @@ export default function DashboardV2() {
 
   // Session notes
   const [sessionNotes, setSessionNotes] = useState<string>(() => {
-    try { return localStorage.getItem('cueforge_session_notes') || ''; } catch { return ''; }
+    try { return localStorage.getItem('trackcue_session_notes') || ''; } catch { return ''; }
   });
   // Keyboard shortcuts modal
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -620,13 +620,13 @@ export default function DashboardV2() {
 
         const onPause = () => {
           if (!stemsLoadedRef.current) return;
-          console.log('[CueForge] native onPause → deferred timer 150ms');
+          console.log('[TrackCue] native onPause → deferred timer 150ms');
           // Différer la pause de 150ms — si c'est un seek, seeked annulera ce timer
           if (pauseTimer) clearTimeout(pauseTimer);
           pauseTimer = setTimeout(() => {
             pauseTimer = null;
-            if (!audio.paused) { console.log('[CueForge] pause timer: audio resumed, skip'); return; }
-            console.log('[CueForge] pause timer: REAL pause → stopping stems, restoring volume');
+            if (!audio.paused) { console.log('[TrackCue] pause timer: audio resumed, skip'); return; }
+            console.log('[TrackCue] pause timer: REAL pause → stopping stems, restoring volume');
             Object.values(stemAudioMapRef.current).forEach(a => a.pause());
             playerRef.current?.setVolume?.(1);
           }, 150);
@@ -636,12 +636,12 @@ export default function DashboardV2() {
         audio.addEventListener('seeked', onSeeked);
         audio.addEventListener('pause', onPause);
         stemNativeListenersRef.current = { seeking: onSeeking, seeked: onSeeked, pause: onPause, audio };
-        console.log('[CueForge] Native listeners attachés (seeking/seeked/pause)');
+        console.log('[TrackCue] Native listeners attachés (seeking/seeked/pause)');
 
         // Si WaveSurfer joue déjà quand les stems chargent → muter immédiatement
         if (!audio.paused) {
           playerRef.current?.setVolume?.(0);
-          console.log('[CueForge] WaveSurfer déjà en lecture → muté');
+          console.log('[TrackCue] WaveSurfer déjà en lecture → muté');
         }
       };
       tryAttach();
@@ -671,7 +671,7 @@ export default function DashboardV2() {
 
       if (!cancelled && Object.keys(stemAudioMapRef.current).length > 0) {
         stemsLoadedRef.current = true;
-        console.log('[CueForge] Stems chargés:', Object.keys(stemAudioMapRef.current).length, 'stems');
+        console.log('[TrackCue] Stems chargés:', Object.keys(stemAudioMapRef.current).length, 'stems');
         attachNativeListeners();
       }
     };
@@ -696,8 +696,8 @@ export default function DashboardV2() {
   // handleStemPlay: appelé par le callback onPlay de WaveSurferPlayer (TOUJOURS fiable)
   // C'est le signal principal pour muter WaveSurfer et lancer les stems
   const handleStemPlay = useCallback(() => {
-    if (!stemsLoadedRef.current) { console.log('[CueForge] handleStemPlay: stems not loaded, skip'); return; }
-    console.log('[CueForge] handleStemPlay: muting wavesurfer, starting stems');
+    if (!stemsLoadedRef.current) { console.log('[TrackCue] handleStemPlay: stems not loaded, skip'); return; }
+    console.log('[TrackCue] handleStemPlay: muting wavesurfer, starting stems');
     playerRef.current?.setVolume?.(0);
     const audio = playerRef.current?.getAudio?.();
     const t = audio?.currentTime ?? stemLastTimeRef.current;
@@ -930,7 +930,7 @@ export default function DashboardV2() {
     try {
       const t = tracks.find(t => t.id === trackId);
       const title = t?.title || t?.original_filename || 'Track';
-      const desktop = typeof window !== 'undefined' && (window as any).cueforge?.isDesktop;
+      const desktop = typeof window !== 'undefined' && (window as any).trackcue?.isDesktop;
       setAnalyzingIds(prev => new Set(prev).add(trackId));
       setAnalysisProgress(prev => ({ ...prev, [trackId]: { pct: 2, title, isLocal: !!desktop } }));
 
@@ -998,7 +998,7 @@ export default function DashboardV2() {
       } else {
         addToast(tr('toast.analysis_error', lang), 'error');
       }
-      console.error('[CueForge] Reanalyze failed:', e);
+      console.error('[TrackCue] Reanalyze failed:', e);
     }
   }
 
@@ -1073,7 +1073,7 @@ export default function DashboardV2() {
     const analysis = (track as any).analysis || {};
     const cues = cuePoints;
     const lines = [
-      `=== CueForge — ${track.title || track.original_filename} ===`,
+      `=== TrackCue — ${track.title || track.original_filename} ===`,
       `Artist : ${track.artist || '—'}`,
       `BPM    : ${analysis.bpm?.toFixed(2) || '—'}`,
       `Key    : ${analysis.key || '—'}`,
@@ -1289,7 +1289,7 @@ export default function DashboardV2() {
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'cueforge-library.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'trackcue-library.csv'; a.click();
     URL.revokeObjectURL(url);
     addToast(`Export CSV — ${tracks.length} tracks`, 'success');
     setShowExport(false);
@@ -1297,7 +1297,7 @@ export default function DashboardV2() {
 
   function handleExportAllTXT() {
     const lines = [
-      `=== CueForge — Bibliothèque complète (${tracks.length} tracks) ===`,
+      `=== TrackCue — Bibliothèque complète (${tracks.length} tracks) ===`,
       `Exporté le ${new Date().toLocaleDateString('fr-FR')}`,
       '',
       ...tracks.map((t, i) => {
@@ -1307,7 +1307,7 @@ export default function DashboardV2() {
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'cueforge-library.txt'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'trackcue-library.txt'; a.click();
     URL.revokeObjectURL(url);
     addToast(`Export TXT — ${tracks.length} tracks`, 'success');
     setShowExport(false);
@@ -1321,7 +1321,7 @@ export default function DashboardV2() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'CueForge_Library_rekordbox.xml';
+      a.download = 'TrackCue_Library_rekordbox.xml';
       a.click();
       URL.revokeObjectURL(url);
       addToast(`Export Rekordbox — ${tracks.length} tracks`, 'success');
@@ -1339,7 +1339,7 @@ export default function DashboardV2() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'CueForge_Library_serato.csv';
+      a.download = 'TrackCue_Library_serato.csv';
       a.click();
       URL.revokeObjectURL(url);
       addToast(`Export Serato — ${tracks.length} tracks`, 'success');
@@ -1357,7 +1357,7 @@ export default function DashboardV2() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'CueForge_Library_traktor.nml';
+      a.download = 'TrackCue_Library_traktor.nml';
       a.click();
       URL.revokeObjectURL(url);
       addToast(`Export Traktor — ${tracks.length} tracks`, 'success');
@@ -1571,7 +1571,7 @@ export default function DashboardV2() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `CueForge_${ids.length}_tracks_rekordbox.xml`;
+      a.download = `TrackCue_${ids.length}_tracks_rekordbox.xml`;
       a.click();
       URL.revokeObjectURL(url);
       addToast(`${ids.length} tracks exportées en Rekordbox XML`, 'success');
@@ -2115,14 +2115,14 @@ export default function DashboardV2() {
                   onChange={e => {
                     const v = e.target.value;
                     setSessionNotes(v);
-                    try { localStorage.setItem('cueforge_session_notes', v); } catch {}
+                    try { localStorage.setItem('trackcue_session_notes', v); } catch {}
                   }}
                   placeholder="Tes notes, idées, setlist, observations…"
                   className="flex-1 min-h-[200px] p-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-blue-500 resize-none leading-relaxed"
                 />
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setSessionNotes(''); try { localStorage.removeItem('cueforge_session_notes'); } catch {} }}
+                    onClick={() => { setSessionNotes(''); try { localStorage.removeItem('trackcue_session_notes'); } catch {} }}
                     className="px-2 py-1 rounded border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
                   >
                     Effacer

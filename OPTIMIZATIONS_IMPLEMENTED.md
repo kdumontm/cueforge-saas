@@ -1,4 +1,4 @@
-# CueForge Cue Generator v5.0 — Optimisations implémentées (Points 101-250)
+# TrackCue Cue Generator v5.0 — Optimisations implémentées (Points 101-250)
 
 ## Résumé
 Ajout de **652 lignes** de code pour implémenter les optimisations avancées restantes.

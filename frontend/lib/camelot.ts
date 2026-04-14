@@ -1,5 +1,5 @@
 /**
- * CueForge — Camelot Wheel compatibility scoring (client-side).
+ * TrackCue — Camelot Wheel compatibility scoring (client-side).
  * Mirrors backend camelot.py logic for instant UI feedback.
  */
 

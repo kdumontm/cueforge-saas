@@ -519,7 +519,7 @@ class DatabaseOptimizer:
 
             # Définir le timeout
             set_timeout = text(f"""
-                ALTER DATABASE cueforge_db SET statement_timeout = '{timeout_seconds}s'
+                ALTER DATABASE trackcue_db SET statement_timeout = '{timeout_seconds}s'
             """)
 
             try:
