@@ -39,6 +39,12 @@ const StemsAdvanced = lazy(() => import('@/components/tabs/StemsTab'));
 const PlaylistBuilder = lazy(() => import('@/components/playlist/PlaylistBuilder'));
 const SettingsPanel = lazy(() => import('@/components/settings/SettingsPanel'));
 
+// Extracted sub-components
+import TabSelector from './components/TabSelector';
+import TabContent from './components/TabContent';
+import TrackContextMenu from './components/TrackContextMenu';
+import AnalysisProgressIndicator from './components/AnalysisProgressIndicator';
+
 const TabFallback = () => {
   const { lang } = useLang();
   return <div className="p-4 flex items-center justify-center text-[var(--text-muted)] text-xs" aria-busy={true}>{tr('general.loading', lang)}</div>;
@@ -1655,20 +1661,7 @@ export default function DashboardV2() {
       )}
 
       {/* ── Barre de progression d'analyse (bottom-right mini popup) ── */}
-      {Object.keys(analysisProgress).length > 0 && (
-        <div className="fixed bottom-4 right-4 z-[9990] w-72 space-y-2">
-          {Object.entries(analysisProgress).map(([id, info]) => (
-            <AnalysisProgress
-              key={id}
-              trackTitle={info.title}
-              progress={info.pct}
-              isLocal={info.isLocal}
-              queueSize={Object.keys(analysisProgress).length}
-              queuePosition={Object.keys(analysisProgress).indexOf(id) + 1}
-            />
-          ))}
-        </div>
-      )}
+      <AnalysisProgressIndicator analysisProgress={analysisProgress} />
 
       {/* Duplicate Detection */}
       {!isDemo && tracks.length > 1 && (
@@ -1812,311 +1805,142 @@ export default function DashboardV2() {
         {/* Right: Tab panel vertical — full width on mobile, fluid on desktop */}
         <div className="w-full lg:w-[clamp(260px,25vw,380px)] flex-shrink-0 bg-[var(--bg-card)] rounded-[14px] border border-[var(--border-subtle)] flex overflow-hidden max-h-[60vh] sm:max-h-[50vh] lg:max-h-none">
 
-          {/* Onglets verticaux */}
-          <div className="w-11 sm:w-14 flex-shrink-0 flex flex-col bg-[var(--bg-primary)] border-r border-[var(--border-subtle)] py-1 overflow-y-auto">
-            {filteredTabs.map(t => {
-              const noTrack = !selectedTrack && !(t as any).global;
-              const fk = (t as any).featureKey;
-              const featureLocked = fk ? getFeatureDisplayMode(fk) === 'locked' : false;
-              const disabled = noTrack || featureLocked;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => !disabled && setActiveTab(t.id)}
-                  disabled={disabled}
-                  title={featureLocked ? `Upgrade vers ${userPlan === 'free' ? 'Pro' : 'Unlimited'} pour débloquer` : undefined}
-                  className={`relative flex flex-col items-center gap-0.5 sm:gap-1 py-2 sm:py-3 px-0.5 sm:px-1 transition-all border-none ${
-                    activeTab === t.id
-                      ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
-                      : featureLocked
-                        ? 'text-[var(--text-muted)] opacity-25 cursor-not-allowed'
-                        : noTrack
-                          ? 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer'
-                  }`}
-                >
-                  {activeTab === t.id && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-blue-500 rounded-r" />
-                  )}
-                  <span className="text-base leading-none">{featureLocked ? '🔒' : t.icon}</span>
-                  <span className="text-[7px] sm:text-[8px] font-semibold uppercase tracking-wider leading-none">{tr((t as any).labelKey, lang)}</span>
-                  {featureLocked && (
-                    <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded">PRO</span>
-                  )}
-                  {!featureLocked && (t as any).desktopOnly && (
-                    <span className="absolute top-0.5 right-0.5 text-[6px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded">PRO</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {/* Tab Selector - Extracted Component */}
+          <TabSelector
+            tabs={filteredTabs}
+            activeTab={activeTab}
+            onTabSelect={setActiveTab}
+            selectedTrack={selectedTrack}
+            userPlan={userPlan}
+            getFeatureDisplayMode={getFeatureDisplayMode}
+          />
 
-          {/* Contenu de l'onglet */}
+          {/* Tab Content Container */}
           <div className="flex-1 min-w-0 overflow-y-auto">
-            {/* Overlay verrouillé si la feature de l'onglet actif est désactivée */}
-            {(() => {
-              const activeTabDef = TABS.find(t => t.id === activeTab);
-              const fk = activeTabDef && (activeTabDef as any).featureKey;
-              const locked = fk && getFeatureDisplayMode(fk) === 'locked';
-              if (locked) {
-                const upgradePlan = userPlan === 'free' ? 'Pro' : 'Unlimited';
-                return (
-                  <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
-                    <div className="text-4xl">🔒</div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Fonctionnalité verrouillée
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)] max-w-[200px]">
-                      Passe au plan <span className="text-amber-400 font-bold">{upgradePlan}</span> pour débloquer cette fonctionnalité.
-                    </p>
-                    <a
-                      href="/billing"
-                      className="mt-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold hover:opacity-90 transition-opacity no-underline"
-                    >
-                      Voir les plans
-                    </a>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <div style={{ display: activeTab === 'info' ? 'block' : 'none' }}>
-              <InfoEditTab
-                track={selectedRawTrack}
-                onSave={async (trackId, data) => {
-                  await updateTrack(trackId, data);
-                  addToast(tr('toast.saved', lang), 'success');
-                  await loadTracks();
-                }}
-              />
-            </div>
-            <div style={{ display: activeTab === 'cues' ? 'block' : 'none' }} className="flex flex-col h-full">
-              {selectedTrack && selectedTrack.id > 0 && (
-                <div className="px-3 pt-2 pb-1 border-b border-[var(--border-subtle)] flex-shrink-0">
-                  <button
-                    onClick={handleAutoCuePoints}
-                    className="w-full px-2 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-semibold hover:bg-purple-500/20 transition-colors cursor-pointer"
-                  >
-                    ✨ Auto-générer les cue points
-                  </button>
-                </div>
-              )}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <CuesTab
-                  track={selectedTrack}
-                  cuePoints={effectiveCuePoints}
-                  onCreateCue={handleCreateCue}
-                  onDeleteCue={handleDeleteCue}
-                  onRegenerateCues={handleRegenerateCues}
-                  initialPositionMs={cuePositionMs}
-                  onCueClick={(cue) => {
-                    if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
-                      // Activate loop and seek to start
-                      playerRef.current?.setLoop?.(cue.position_ms, cue.end_position_ms);
-                    } else {
-                      // Simple seek to cue position
-                      playerRef.current?.seekTo?.(cue.position_ms);
-                    }
-                  }}
-                  onPreviewCue={(cue) => {
-                    const posMs = cue.position_ms ?? 0;
-                    playerRef.current?.seekTo?.(posMs);
-                    // Start playback
-                    const audio = playerRef.current?.getAudio?.();
-                    if (audio && audio.paused) {
-                      audio.play().catch(() => {});
-                    }
-                    // Stop after 5 seconds
-                    if ((window as any).__cuePreviewTimer) clearTimeout((window as any).__cuePreviewTimer);
-                    (window as any).__cuePreviewTimer = setTimeout(() => {
-                      const a = playerRef.current?.getAudio?.();
-                      if (a && !a.paused) a.pause();
-                    }, 5000);
-                  }}
-                />
-              </div>
-            </div>
-            {activeTab === 'stems' && (
-              <Suspense fallback={<TabFallback />}>
-              <StemsAdvanced
-                track={selectedTrack}
-                stemsStatus={stemsStatus}
-                mutedStems={stemMuted}
-                onToggleMute={toggleStemMute}
-                onRequestStems={async () => {
-                  if (!selectedTrack || selectedTrack.id < 0) return;
-                  setStemsStatus({ status: 'processing' });
-                  const { getToken } = await import('@/lib/api');
-                  const token = getToken();
-                  const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-                  const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
-                  const trackId = selectedTrack.id;
-
-                  try {
-                    // Start the background job
-                    const res = await fetch(`${BASE}/advanced/stems/${trackId}`, {
-                      method: 'POST', headers,
-                    });
-                    if (!res.ok) {
-                      const err = await res.json().catch(() => ({}));
-                      throw new Error(err.detail || `HTTP ${res.status}`);
-                    }
-                    addToast('Séparation Demucs en cours… (~3-5 min)', 'info');
-
-                    // Poll status every 5s
-                    const poll = async () => {
-                      const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
-                      if (!r.ok) return;
-                      const d = await r.json();
-                      if (d.status === 'completed') {
-                        // Construire les URLs complètes (le backend retourne des chemins relatifs)
-                        const origin = BASE.replace(/\/api\/v1\/?$/, '');
-                        const abs = (u?: string) => u && !u.startsWith('http') ? `${origin}${u}` : u;
-                        setStemsStatus({
-                          status: 'completed',
-                          vocals_url: abs(d.vocals_url),
-                          drums_url:  abs(d.drums_url),
-                          bass_url:   abs(d.bass_url),
-                          other_url:  abs(d.other_url),
-                        });
-                        addToast(tr('toast.saved', lang), 'success');
-                      } else if (d.status === 'failed') {
-                        setStemsStatus({ status: 'failed', error: d.error || null });
-                        addToast(d.error || tr('toast.error', lang), 'error');
-                      } else {
-                        setTimeout(poll, 5000);
-                      }
-                    };
-                    setTimeout(poll, 5000);
-                  } catch (e: any) {
-                    setStemsStatus({ status: 'failed', error: e.message || null });
-                    addToast(e.message || tr('toast.error', lang), 'error');
-                  }
-                }}
-              />
-              </Suspense>
-            )}
-            {activeTab === 'eq' && <Suspense fallback={<TabFallback />}><EQTab playerRef={playerRef} /></Suspense>}
-            {activeTab === 'fx' && (
-              <Suspense fallback={<TabFallback />}>
-              <FXTab
-                fxParams={fxParams}
-                onFxChange={(effect, value) => {
-                  setFxParams(prev => ({ ...prev, [effect]: value }));
-                  playerRef.current?.setFX?.(effect, value);
-                }}
-                onResetAll={() => {
-                  setFxParams({});
-                  // Reset tous les FX à 0
-                  ['reverb', 'delay', 'filter_lp', 'filter_hp', 'flanger', 'phaser', 'distortion', 'compressor'].forEach(fx => {
-                    playerRef.current?.setFX?.(fx, 0);
+            {/* Tab Content - Extracted Component */}
+            <TabContent
+              activeTab={activeTab}
+              selectedTrack={selectedTrack}
+              selectedRawTrack={selectedRawTrack}
+              effectiveCuePoints={effectiveCuePoints}
+              cuePositionMs={cuePositionMs}
+              userPlan={userPlan}
+              getFeatureDisplayMode={getFeatureDisplayMode}
+              lang={lang}
+              playerRef={playerRef}
+              stemsStatus={stemsStatus}
+              stemMuted={stemMuted}
+              fxParams={fxParams}
+              sessionNotes={sessionNotes}
+              playlists={playlists}
+              rawTracksForTabs={rawTracksForTabs}
+              onAutoCuePoints={handleAutoCuePoints}
+              onCreateCue={handleCreateCue}
+              onDeleteCue={handleDeleteCue}
+              onRegenerateCues={handleRegenerateCues}
+              onCueClick={(cue) => {
+                if (cue.cue_type === 'loop' && cue.end_position_ms != null) {
+                  playerRef.current?.setLoop?.(cue.position_ms, cue.end_position_ms);
+                } else {
+                  playerRef.current?.seekTo?.(cue.position_ms);
+                }
+              }}
+              onPreviewCue={(cue) => {
+                const posMs = cue.position_ms ?? 0;
+                playerRef.current?.seekTo?.(posMs);
+                const audio = playerRef.current?.getAudio?.();
+                if (audio && audio.paused) {
+                  audio.play().catch(() => {});
+                }
+                if ((window as any).__cuePreviewTimer) clearTimeout((window as any).__cuePreviewTimer);
+                (window as any).__cuePreviewTimer = setTimeout(() => {
+                  const a = playerRef.current?.getAudio?.();
+                  if (a && !a.paused) a.pause();
+                }, 5000);
+              }}
+              onSaveTrack={updateTrack}
+              onToggleStemMute={toggleStemMute}
+              onRequestStems={async () => {
+                if (!selectedTrack || selectedTrack.id < 0) return;
+                setStemsStatus({ status: 'processing' });
+                const { getToken } = await import('@/lib/api');
+                const token = getToken();
+                const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+                const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+                const trackId = selectedTrack.id;
+                try {
+                  const res = await fetch(`${BASE}/advanced/stems/${trackId}`, {
+                    method: 'POST', headers,
                   });
-                }}
-              />
-              </Suspense>
-            )}
-            {activeTab === 'mix' && <Suspense fallback={<TabFallback />}><MixTab track={selectedRawTrack} tracks={rawTracksForTabs} /></Suspense>}
-            {activeTab === 'compare' && <Suspense fallback={<TabFallback />}><CompareTab trackA={selectedRawTrack} allTracks={rawTracksForTabs} onSelectTrack={(t) => handleSelectTrack(t)} /></Suspense>}
-            {activeTab === 'beatgrid' && (
-              <Suspense fallback={<TabFallback />}>
-              <BeatgridTab
-                track={selectedRawTrack}
-                beatgrid={selectedRawTrack?.analysis ? {
-                  bpm: selectedRawTrack.analysis.bpm ?? null,
-                  downbeat_ms: (selectedRawTrack.analysis as any).downbeat_ms ?? 0,
-                  locked: false,
-                } : undefined}
-                onUpdateBeatgrid={async (bg) => {
-                  if (!selectedRawTrack) return;
-                  try {
-                    const token = (await import('@/lib/api')).getToken();
-                    const AURL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-                    await fetch(`${AURL}/tracks/${selectedRawTrack.id}/beatgrid`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                      body: JSON.stringify(bg),
-                    });
-                    addToast(tr('toast.saved', lang), 'success');
-                  } catch { addToast(tr('toast.error', lang), 'error'); }
-                }}
-              />
-              </Suspense>
-            )}
-            {activeTab === 'playlists' && (
-              <Suspense fallback={<TabFallback />}>
-              <PlaylistsTab
-                playlists={playlists}
-                onSelect={(pl) => {
-                  setActiveSection(`playlist_${pl.id}`);
-                  addToast(`Playlist "${pl.name}" chargée`, 'info');
-                }}
-                onCreate={async (name) => {
-                  try {
-                    const pl = await createPlaylist({ name });
-                    setPlaylists(prev => [...prev, pl]);
-                    addToast(`"${name}" créée`, 'success');
-                  } catch { addToast(tr('toast.error', lang), 'error'); }
-                }}
-                onDelete={async (id) => {
-                  try {
-                    await apiDeletePlaylist(id);
-                    setPlaylists(prev => prev.filter(p => p.id !== id));
-                    addToast('Playlist supprimée', 'success');
-                  } catch { addToast(tr('toast.error', lang), 'error'); }
-                }}
-              />
-              </Suspense>
-            )}
-            {activeTab === 'stats' && <Suspense fallback={<TabFallback />}><StatsTab tracks={tracks} /></Suspense>}
-            {activeTab === 'playlist-builder' && (
-              <Suspense fallback={<TabFallback />}>
-                <PlaylistBuilder tracks={[]} allAvailableTracks={rawTracksForTabs} />
-              </Suspense>
-            )}
-            {activeTab === 'settings' && (
-              <Suspense fallback={<TabFallback />}>
-                <SettingsPanel />
-              </Suspense>
-            )}
-            {activeTab === 'notes' && (
-              <div className="flex flex-col h-full p-3 gap-2">
-                <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase">Notes de session</div>
-                <textarea
-                  value={sessionNotes}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setSessionNotes(v);
-                    try { localStorage.setItem('trackcue_session_notes', v); } catch {}
-                  }}
-                  placeholder="Tes notes, idées, setlist, observations…"
-                  className="flex-1 min-h-[200px] p-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none focus:border-blue-500 resize-none leading-relaxed"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setSessionNotes(''); try { localStorage.removeItem('trackcue_session_notes'); } catch {} }}
-                    className="px-2 py-1 rounded border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-                  >
-                    Effacer
-                  </button>
-                  <button
-                    onClick={() => {
-                      const blob = new Blob([sessionNotes], { type: 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url; a.download = 'notes-session.txt'; a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="px-2 py-1 rounded border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors cursor-pointer"
-                    title="Exporter les notes"
-                  >
-                    ⬇ Export
-                  </button>
-                  <span className="ml-auto text-[10px] text-[var(--text-muted)] self-end">
-                    {sessionNotes.length} car.
-                  </span>
-                </div>
-              </div>
-            )}
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${res.status}`);
+                  }
+                  addToast('Séparation Demucs en cours… (~3-5 min)', 'info');
+                  const poll = async () => {
+                    const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
+                    if (!r.ok) return;
+                    const d = await r.json();
+                    if (d.status === 'completed') {
+                      const origin = BASE.replace(/\/api\/v1\/?$/, '');
+                      const abs = (u?: string) => u && !u.startsWith('http') ? `${origin}${u}` : u;
+                      setStemsStatus({
+                        status: 'completed',
+                        vocals_url: abs(d.vocals_url),
+                        drums_url:  abs(d.drums_url),
+                        bass_url:   abs(d.bass_url),
+                        other_url:  abs(d.other_url),
+                      });
+                      addToast(tr('toast.saved', lang), 'success');
+                    } else if (d.status === 'failed') {
+                      setStemsStatus({ status: 'failed', error: d.error || null });
+                      addToast(d.error || tr('toast.error', lang), 'error');
+                    } else {
+                      setTimeout(poll, 5000);
+                    }
+                  };
+                  setTimeout(poll, 5000);
+                } catch (e: any) {
+                  setStemsStatus({ status: 'failed', error: e.message || null });
+                  addToast(e.message || tr('toast.error', lang), 'error');
+                }
+              }}
+              onFxChange={(effect, value) => {
+                setFxParams(prev => ({ ...prev, [effect]: value }));
+                playerRef.current?.setFX?.(effect, value);
+              }}
+              onResetAllFx={() => {
+                setFxParams({});
+                ['reverb', 'delay', 'filter_lp', 'filter_hp', 'flanger', 'phaser', 'distortion', 'compressor'].forEach(fx => {
+                  playerRef.current?.setFX?.(fx, 0);
+                });
+              }}
+              onSessionNotesChange={(notes) => {
+                setSessionNotes(notes);
+                try { localStorage.setItem('trackcue_session_notes', notes); } catch {}
+              }}
+              onSelectTrack={handleSelectTrack}
+              onPlaylistSelect={(pl) => {
+                setActiveSection(`playlist_${pl.id}`);
+                addToast(`Playlist "${pl.name}" chargée`, 'info');
+              }}
+              onPlaylistCreate={async (name) => {
+                try {
+                  const pl = await createPlaylist({ name });
+                  setPlaylists(prev => [...prev, pl]);
+                  addToast(`"${name}" créée`, 'success');
+                } catch { addToast(tr('toast.error', lang), 'error'); }
+              }}
+              onPlaylistDelete={async (id) => {
+                try {
+                  await apiDeletePlaylist(id);
+                  setPlaylists(prev => prev.filter(p => p.id !== id));
+                  addToast('Playlist supprimée', 'success');
+                } catch { addToast(tr('toast.error', lang), 'error'); }
+              }}
+              onToast={addToast}
+              onLoadTracks={loadTracks}
+            />
           </div>
         </div>
 
@@ -2218,118 +2042,58 @@ export default function DashboardV2() {
         />
       )}
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <div
-          ref={contextMenuRef}
-          className="fixed z-50 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg shadow-lg overflow-hidden"
-          style={{left: `${contextMenu.x}px`, top: `${contextMenu.y}px`}}
-        >
-          <button
-            onClick={() => {
-              const trackId = contextMenu.trackId;
-              setContextMenu(null);
-              handleReanalyzeTrack(trackId);
-            }}
-            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-          >
-            <RefreshCw size={14} /> Analyze
-          </button>
-          {isDesktopApp() && (
-            <button
-              onClick={async () => {
-                const trackId = contextMenu.trackId;
-                setContextMenu(null);
-                addToast('Analyse Pro en cours… Stems IA + Cue Points', 'info');
-                const { getToken } = await import('@/lib/api');
-                const token = getToken();
-                const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-                const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
-                try {
-                  // 1. Lancer la séparation stems
-                  const stemsRes = await fetch(`${BASE}/advanced/stems/${trackId}`, { method: 'POST', headers });
-                  if (!stemsRes.ok) throw new Error((await stemsRes.json().catch(() => ({}))).detail || 'Erreur stems');
-                  // 2. Attendre la fin des stems
-                  const waitStems = async (): Promise<void> => {
-                    const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
-                    const d = await r.json();
-                    if (d.status === 'completed') return;
-                    if (d.status === 'failed') throw new Error(d.error || 'Stems échoué');
-                    await new Promise(res => setTimeout(res, 5000));
-                    return waitStems();
-                  };
-                  await waitStems();
-                  addToast('Stems terminés ! Génération des cue points IA…', 'success');
-                  // 3. Régénérer les cue points pro
-                  const cueRes = await fetch(`${BASE}/cues/${trackId}/generate`, { method: 'POST', headers });
-                  if (!cueRes.ok) throw new Error('Erreur génération cues');
-                  addToast('Analyse Pro terminée !', 'success');
-                  await loadTracks();
-                } catch (e: any) {
-                  addToast(e.message || 'Erreur Analyse Pro', 'error');
-                }
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 font-medium"
-            >
-              <Zap size={14} /> Analyse Pro (Stems IA)
-            </button>
-          )}
-          <button
-            onClick={() => {
-              const t = rawTracksForTabs.find(t => t.id === contextMenu.trackId);
-              if (t) setEnrichTracks([t]);
-              setContextMenu(null);
-            }}
-            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-          >
-            🔍 Enrichir les métadonnées
-          </button>
-          <button
-            onClick={() => handleExportRekordbox(contextMenu.trackId)}
-            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-          >
-            <Download size={14} /> Export Rekordbox XML
-          </button>
-          <button
-            onClick={() => handleExportCSV(contextMenu.trackId)}
-            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-          >
-            <Download size={14} /> Export CSV
-          </button>
-          <button
-            onClick={() => handleExportTXT(contextMenu.trackId)}
-            className="w-full text-left px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-          >
-            <Download size={14} /> Export TXT
-          </button>
-          {playlists.length > 0 && (
-            <div className="border-t border-[var(--border-subtle)]">
-              <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] uppercase">Ajouter à playlist</div>
-              {playlists.slice(0, 5).map(pl => (
-                <button
-                  key={pl.id}
-                  onClick={async () => {
-                    try {
-                      await addTracksToPlaylist(pl.id, [contextMenu.trackId]);
-                      addToast(`Ajouté à "${pl.name}"`, 'success');
-                      setContextMenu(null);
-                    } catch { addToast(tr('toast.error', lang), 'error'); }
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2"
-                >
-                  <Copy size={12} /> {pl.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <button
-            onClick={() => handleDeleteTrack(contextMenu.trackId)}
-            className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
-          >
-            <Trash2 size={14} /> Delete
-          </button>
-        </div>
-      )}
+      {/* Context Menu - Extracted Component */}
+      <TrackContextMenu
+        contextMenu={contextMenu}
+        contextMenuRef={contextMenuRef}
+        playlists={playlists}
+        isDesktop={isDesktopApp()}
+        onAnalyze={handleReanalyzeTrack}
+        onAnalyzePro={async (trackId) => {
+          addToast('Analyse Pro en cours… Stems IA + Cue Points', 'info');
+          const { getToken } = await import('@/lib/api');
+          const token = getToken();
+          const BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+          const headers: any = token ? { Authorization: `Bearer ${token}` } : {};
+          try {
+            const stemsRes = await fetch(`${BASE}/advanced/stems/${trackId}`, { method: 'POST', headers });
+            if (!stemsRes.ok) throw new Error((await stemsRes.json().catch(() => ({}))).detail || 'Erreur stems');
+            const waitStems = async (): Promise<void> => {
+              const r = await fetch(`${BASE}/advanced/stems/${trackId}/status`, { headers });
+              const d = await r.json();
+              if (d.status === 'completed') return;
+              if (d.status === 'failed') throw new Error(d.error || 'Stems échoué');
+              await new Promise(res => setTimeout(res, 5000));
+              return waitStems();
+            };
+            await waitStems();
+            addToast('Stems terminés ! Génération des cue points IA…', 'success');
+            const cueRes = await fetch(`${BASE}/cues/${trackId}/generate`, { method: 'POST', headers });
+            if (!cueRes.ok) throw new Error('Erreur génération cues');
+            addToast('Analyse Pro terminée !', 'success');
+            await loadTracks();
+          } catch (e: any) {
+            addToast(e.message || 'Erreur Analyse Pro', 'error');
+          }
+        }}
+        onEnrich={(trackId) => {
+          const t = rawTracksForTabs.find(t => t.id === trackId);
+          if (t) setEnrichTracks([t]);
+        }}
+        onExportRekordbox={handleExportRekordbox}
+        onExportCSV={handleExportCSV}
+        onExportTXT={handleExportTXT}
+        onAddToPlaylist={async (trackId, playlistId) => {
+          try {
+            await addTracksToPlaylist(playlistId, [trackId]);
+            addToast(`Ajouté à "${playlists.find(p => p.id === playlistId)?.name}"`, 'success');
+          } catch {
+            addToast(tr('toast.error', lang), 'error');
+          }
+        }}
+        onDelete={handleDeleteTrack}
+        onClose={() => setContextMenu(null)}
+      />
     </div>
   );
 }
