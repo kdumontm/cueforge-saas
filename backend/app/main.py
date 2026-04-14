@@ -1596,19 +1596,79 @@ async def get_circuit_breaker_status():
 logger.info("✅ Security & performance enhancements loaded (OPT #51-60)")
 
 
-# ── Debug temporaire — vérifier les colonnes de track_analyses ────────────
-@app.get("/api/v1/debug/db-columns")
-def debug_db_columns(db: Session = Depends(get_db)):
-    """Liste les colonnes actuelles de track_analyses vs le modèle."""
+# ── Debug temporaire — traquer le 500 sur GET /tracks ────────────────────
+@app.get("/api/v1/debug/tracks-error")
+def debug_tracks_error(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    import traceback as tb
+    from sqlalchemy.orm import selectinload
+    from app.models.track import Track
     try:
-        result = db.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'track_analyses' ORDER BY ordinal_position"
-        ))
-        db_cols = [row[0] for row in result]
-        from app.models.track import TrackAnalysis
-        model_cols = [c.name for c in TrackAnalysis.__table__.columns]
-        missing = set(model_cols) - set(db_cols)
-        return {"db_columns": db_cols, "model_columns": model_cols, "missing_in_db": list(missing)}
+        # Step 1: simple count
+        count = db.query(Track).filter(Track.user_id == current_user.id).count()
+
+        # Step 2: load with analysis
+        try:
+            t = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.analysis)
+            ).first()
+            s2 = f"analysis OK (id={t.id if t else None})"
+        except Exception as e:
+            return {"step": "analysis", "error": str(e), "tb": tb.format_exc()}
+
+        # Step 3: load with cue_points
+        try:
+            db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.cue_points)
+            ).first()
+            s3 = "cue_points OK"
+        except Exception as e:
+            return {"step": "cue_points", "error": str(e), "tb": tb.format_exc()}
+
+        # Step 4: load with track_tags
+        try:
+            db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.track_tags)
+            ).first()
+            s4 = "track_tags OK"
+        except Exception as e:
+            return {"step": "track_tags", "error": str(e), "tb": tb.format_exc()}
+
+        # Step 5: full query like list_tracks
+        try:
+            tracks = db.query(Track).filter(Track.user_id == current_user.id).options(
+                selectinload(Track.analysis),
+                selectinload(Track.cue_points),
+                selectinload(Track.track_tags),
+            ).limit(5).all()
+            s5 = f"full_query OK ({len(tracks)} tracks)"
+        except Exception as e:
+            return {"step": "full_query", "error": str(e), "tb": tb.format_exc()}
+
+        # Step 6: Pydantic serialization
+        from app.schemas.track import TrackListItemResponse
+        results = []
+        for t in tracks:
+            try:
+                TrackListItemResponse.model_validate(t)
+                results.append({"id": t.id, "ok": True})
+            except Exception as e:
+                results.append({"id": t.id, "ok": False, "error": str(e), "tb": tb.format_exc()})
+
+        # Step 7: full response like list_tracks
+        try:
+            from app.schemas.track import TrackListResponse
+            total = count
+            resp = TrackListResponse(
+                tracks=[TrackListItemResponse.model_validate(t) for t in tracks],
+                total=total, page=1, pages=1,
+            )
+            s7 = "TrackListResponse OK"
+        except Exception as e:
+            return {"step": "TrackListResponse", "error": str(e), "tb": tb.format_exc()}
+
+        return {"status": "ALL OK", "count": count, "steps": [s2, s3, s4, s5, s7], "serialization": results}
     except Exception as e:
-        return {"error": str(e)}
+        return {"step": "unknown", "error": str(e), "tb": tb.format_exc()}
