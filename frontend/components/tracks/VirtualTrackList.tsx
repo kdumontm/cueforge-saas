@@ -22,6 +22,8 @@ interface VirtualTrackListProps {
   onReanalyzeTrack?: (trackId: number) => void;
   onDeleteTrack?: (trackId: number) => void;
   onAddTagTrack?: (trackId: number) => void;
+  onIdentifyTrack?: (trackId: number) => void;
+  identifyingIds?: Set<number>;
 }
 
 export const VirtualTrackList = React.memo(function VirtualTrackList({
@@ -41,6 +43,8 @@ export const VirtualTrackList = React.memo(function VirtualTrackList({
   onReanalyzeTrack,
   onDeleteTrack,
   onAddTagTrack,
+  onIdentifyTrack,
+  identifyingIds = new Set(),
 }: VirtualTrackListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +99,8 @@ export const VirtualTrackList = React.memo(function VirtualTrackList({
                 onReanalyze={onReanalyzeTrack}
                 onDelete={onDeleteTrack}
                 onAddTag={onAddTagTrack}
+                onIdentify={onIdentifyTrack}
+                isIdentifying={identifyingIds.has(track.id)}
               />
             </div>
           );

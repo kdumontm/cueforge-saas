@@ -189,28 +189,131 @@ def full_analysis(
 
 # ── Spotify/MusicBrainz enrichment (Phase 3) ──────────────────────────────
 
-@router.post("/enrich/{track_id}")
-def enrich_track(
+@router.post("/identify/{track_id}")
+def identify_track(
     track_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Auto-enrich track metadata from Spotify + MusicBrainz.
+    """Identification on-demand : AcoustID → MusicBrainz → Spotify/Deezer/iTunes/Last.fm/Discogs.
 
-    Fills in: genre, year, album, artwork, label, ISRC, etc.
-    Currently a stub — the basic Spotify lookup is in tracks.py.
-    This endpoint will do automatic best-match enrichment.
+    Remplit : artist, title, album, year, label, artwork, ISRC, etc.
+    Le genre n'est PAS écrasé (détecté par ML durant l'analyse audio).
+    Corrige aussi le BPM via Spotify si disponible.
     """
-    track = db.query(Track).filter(
+    track = db.query(Track).options(
+        selectinload(Track.analysis)
+    ).filter(
         Track.id == track_id, Track.user_id == current_user.id
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    raise HTTPException(
-        status_code=501,
-        detail="Auto-enrichment is coming soon. Will auto-match and fill metadata from Spotify + MusicBrainz."
-    )
+    file_path = track.file_path
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Audio file not found on disk")
+
+    # ── Appel au pipeline de métadonnées ──
+    try:
+        from app.services.metadata_service import get_track_metadata
+        metadata = get_track_metadata(file_path)
+    except Exception as e:
+        logger.error(f"[IDENTIFY] Metadata lookup failed for track {track_id}: {e}")
+        raise HTTPException(status_code=502, detail=f"Metadata lookup error: {str(e)[:200]}")
+
+    if not metadata:
+        return {"status": "no_match", "message": "Aucune correspondance trouvée pour ce morceau."}
+
+    # ── Extraire BPM Spotify avant de patcher le track ──
+    spotify_bpm = metadata.pop("spotify_bpm", None)
+    spotify_sections = metadata.pop("spotify_sections", None)
+
+    # ── Appliquer les métadonnées (sauf genre — déjà détecté par ML) ──
+    updated_fields = []
+    for key, value in metadata.items():
+        if key == "genre":
+            continue  # Ne pas écraser le genre ML
+        if hasattr(track, key) and value is not None:
+            old_val = getattr(track, key, None)
+            setattr(track, key, value)
+            if old_val != value:
+                updated_fields.append(key)
+
+    # ── Correction BPM via Spotify ──
+    analysis = track.analysis
+    bpm_corrected = False
+    if spotify_bpm and spotify_bpm > 0 and analysis:
+        librosa_bpm = analysis.bpm or 0
+        bpm_diff = abs(spotify_bpm - librosa_bpm)
+        if bpm_diff >= 1.0:
+            corrected_bpm = round(spotify_bpm)
+            logger.info(f"[IDENTIFY] BPM correction: {librosa_bpm} → {corrected_bpm}")
+            analysis.bpm = corrected_bpm
+            analysis.bpm_confidence = 0.98
+            bpm_corrected = True
+
+            # Régénérer la grille de beats
+            old_beats = analysis.beat_positions or []
+            if old_beats:
+                expected_ibi_ms = 60000.0 / corrected_bpm
+                first_beat_ms = old_beats[0]
+                duration_ms = analysis.duration_ms or (old_beats[-1] + expected_ibi_ms * 4)
+                new_beats = []
+                t = float(first_beat_ms)
+                while t <= duration_ms:
+                    new_beats.append(round(t))
+                    t += expected_ibi_ms
+                analysis.beat_positions = new_beats
+
+                # Régénérer les cue points
+                try:
+                    from app.services import cue_points as cue_svc
+                    db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
+                    analysis_data = {
+                        "bpm": corrected_bpm,
+                        "beat_positions": new_beats,
+                        "key": analysis.key,
+                        "energy": analysis.energy,
+                        "duration_ms": analysis.duration_ms,
+                        "sections": analysis.sections,
+                    }
+                    cue_points_data, _ = cue_svc.generate_cue_points_v2(analysis_data)
+                    for cp in cue_points_data:
+                        cue = CuePoint(
+                            track_id=track.id,
+                            position_ms=cp["position_ms"],
+                            end_position_ms=cp.get("end_position_ms"),
+                            cue_type=cp["cue_type"],
+                            name=cp["name"],
+                            color=cp.get("color", "red"),
+                            number=cp.get("number"),
+                            confidence=cp.get("confidence"),
+                        )
+                        db.add(cue)
+                    logger.info(f"[IDENTIFY] Cue points regenerated with BPM={corrected_bpm}")
+                except Exception as e:
+                    logger.warning(f"[IDENTIFY] Cue regeneration failed: {e}")
+
+    # ── Spotify sections ──
+    if spotify_sections and analysis:
+        logger.info(f"[IDENTIFY] {len(spotify_sections)} Spotify sections available")
+
+    db.commit()
+    db.refresh(track)
+
+    logger.info(f"[IDENTIFY] Track {track_id} identified — updated: {updated_fields}, bpm_corrected={bpm_corrected}")
+
+    return {
+        "status": "identified",
+        "updated_fields": updated_fields,
+        "bpm_corrected": bpm_corrected,
+        "artist": track.artist,
+        "title": track.title,
+        "album": getattr(track, "album", None),
+        "year": getattr(track, "year", None),
+        "label": getattr(track, "label", None),
+        "artwork_url": getattr(track, "artwork_url", None),
+    }
 
 
 # ── Duplicate detection (Phase 3) ──────────────────────────────────────────

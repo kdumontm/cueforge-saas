@@ -186,6 +186,19 @@ export const t: Record<string, Record<Lang, string>> = {
   'login.connection_failed':  { fr: 'Connexion échouée',     en: 'Login failed' },
 
   // ── Common / Actions ──────────────────────────────────────
+  // ── Context menu (TrackRow) ──────────────────────────────
+  'ctx.reanalyze':            { fr: 'Réanalyser',            en: 'Re-analyze' },
+  'ctx.copy_title':           { fr: 'Copier le titre',       en: 'Copy title' },
+  'ctx.add_tag':              { fr: 'Ajouter un tag',        en: 'Add tag' },
+  'ctx.add_fav':              { fr: 'Ajouter aux favoris',   en: 'Add to favorites' },
+  'ctx.remove_fav':           { fr: 'Retirer des favoris',   en: 'Remove from favorites' },
+  'ctx.delete':               { fr: 'Supprimer',             en: 'Delete' },
+  'ctx.reveal_finder':        { fr: 'Voir dans le Finder',   en: 'Reveal in Finder' },
+  'ctx.export_rekordbox':     { fr: 'Exporter Rekordbox',    en: 'Export Rekordbox' },
+  'ctx.export_serato':        { fr: 'Exporter Serato',       en: 'Export Serato' },
+  'ctx.identify':             { fr: 'Identifier',            en: 'Identify' },
+  'ctx.identifying':          { fr: 'Identification…',       en: 'Identifying…' },
+
   'common.save':              { fr: 'Sauvegarder',           en: 'Save' },
   'common.cancel':            { fr: 'Annuler',               en: 'Cancel' },
   'common.delete':            { fr: 'Supprimer',             en: 'Delete' },

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen, Disc3, Music2 } from 'lucide-react';
+import { MoreVertical, Star, Volume2, Trash2, Zap, Copy, Tag, Loader2, FolderOpen, Disc3, Music2, Fingerprint } from 'lucide-react';
 import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 import type { Track } from '@/types';
@@ -25,6 +25,8 @@ interface TrackRowProps {
   onReanalyze?: (trackId: number) => void;
   onDelete?: (trackId: number) => void;
   onAddTag?: (trackId: number) => void;
+  onIdentify?: (trackId: number) => void;
+  isIdentifying?: boolean;
 }
 
 const formatTime = (seconds: number): string => {
@@ -62,6 +64,8 @@ export const TrackRow = React.memo(function TrackRow({
   onReanalyze,
   onDelete,
   onAddTag,
+  onIdentify,
+  isIdentifying = false,
 }: TrackRowProps) {
   const { isDesktop, files, export: localExport } = useElectron();
   const { lang } = useLang();
@@ -240,6 +244,7 @@ export const TrackRow = React.memo(function TrackRow({
           >
             {[
               { icon: Zap, label: tr('ctx.reanalyze', lang), action: () => { onReanalyze?.(track.id); setShowContextMenu(false); } },
+              { icon: Fingerprint, label: isIdentifying ? tr('ctx.identifying', lang) : tr('ctx.identify', lang), action: () => { if (!isIdentifying) { onIdentify?.(track.id); setShowContextMenu(false); } }, disabled: isIdentifying },
               { icon: Copy, label: tr('ctx.copy_title', lang), action: () => { navigator.clipboard?.writeText(track.title || ''); setShowContextMenu(false); } },
               { icon: Tag, label: tr('ctx.add_tag', lang), action: () => { onAddTag?.(track.id); setShowContextMenu(false); } },
               { icon: Star, label: isFavorite ? tr('ctx.remove_fav', lang) : tr('ctx.add_fav', lang), action: () => { onFavoriteToggle(track.id); setShowContextMenu(false); } },
@@ -263,15 +268,17 @@ export const TrackRow = React.memo(function TrackRow({
                 },
               ] : []),
               { icon: Trash2, label: tr('ctx.delete', lang), action: () => { onDelete?.(track.id); setShowContextMenu(false); }, danger: true },
-            ].map(({ icon: Icon, label, action, danger }: any) => (
+            ].map(({ icon: Icon, label, action, danger, disabled }: any) => (
               <button
                 key={label}
                 onClick={action}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors bg-transparent border-none cursor-pointer ${
-                  danger ? 'text-red-400 hover:bg-red-500/10' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                disabled={disabled}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors bg-transparent border-none ${
+                  disabled ? 'text-[var(--text-muted)] cursor-not-allowed opacity-50' :
+                  danger ? 'text-red-400 hover:bg-red-500/10 cursor-pointer' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] cursor-pointer'
                 }`}
               >
-                <Icon size={13} />
+                <Icon size={13} className={disabled ? 'animate-pulse' : ''} />
                 {label}
               </button>
             ))}

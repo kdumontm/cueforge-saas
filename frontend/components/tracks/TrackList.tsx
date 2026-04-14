@@ -53,6 +53,8 @@ interface TrackListProps {
   onReanalyzeTrack?: (trackId: number) => void;
   onDeleteTrack?: (trackId: number) => void;
   onAddTagTrack?: (trackId: number) => void;
+  onIdentifyTrack?: (trackId: number) => void;
+  identifyingIds?: Set<number>;
 }
 
 const getSortOptions = (lang: 'fr' | 'en') => [
@@ -116,6 +118,8 @@ export const TrackList = React.memo(function TrackList({
   onReanalyzeTrack,
   onDeleteTrack,
   onAddTagTrack,
+  onIdentifyTrack,
+  identifyingIds = new Set(),
 }: TrackListProps) {
   const { lang } = useLang();
   const [showFilters, setShowFilters] = useState(false);
@@ -363,6 +367,8 @@ export const TrackList = React.memo(function TrackList({
                 onReanalyzeTrack={onReanalyzeTrack}
                 onDeleteTrack={onDeleteTrack}
                 onAddTagTrack={onAddTagTrack}
+                onIdentifyTrack={onIdentifyTrack}
+                identifyingIds={identifyingIds}
               />
             ) : (
               <div className="flex flex-col">
@@ -385,6 +391,8 @@ export const TrackList = React.memo(function TrackList({
                     onReanalyze={onReanalyzeTrack}
                     onDelete={onDeleteTrack}
                     onAddTag={onAddTagTrack}
+                    onIdentify={onIdentifyTrack}
+                    isIdentifying={identifyingIds.has(track.id)}
                   />
                 ))}
               </div>

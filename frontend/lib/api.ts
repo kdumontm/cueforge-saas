@@ -1097,6 +1097,30 @@ export async function deleteTrack(trackId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete track');
 }
 
+/** Identification on-demand : AcoustID → MusicBrainz → Spotify/Deezer/iTunes etc. */
+export async function identifyTrack(trackId: number): Promise<{
+  status: string;
+  updated_fields?: string[];
+  bpm_corrected?: boolean;
+  artist?: string;
+  title?: string;
+  album?: string;
+  year?: number;
+  label?: string;
+  artwork_url?: string;
+  message?: string;
+}> {
+  const response = await authFetch(`${API_URL}/advanced/identify/${trackId}`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Identification failed' }));
+    throw new Error(err.detail || 'Identification failed');
+  }
+  return response.json();
+}
+
 export async function batchDeleteTracks(trackIds: number[]): Promise<{ deleted_count: number; deleted_ids: number[] }> {
   const response = await authFetch(`${API_URL}/tracks/batch-delete`, {
     method: 'POST',

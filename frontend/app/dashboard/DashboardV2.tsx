@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, identifyTrack, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -188,6 +188,8 @@ export default function DashboardV2() {
 
   // IDs des tracks en cours d'analyse (roue de chargement dans la liste)
   const [analyzingIds, setAnalyzingIds] = useState<Set<number>>(new Set());
+  // IDs des tracks en cours d'identification métadonnées
+  const [identifyingIds, setIdentifyingIds] = useState<Set<number>>(new Set());
 
   // Progression d'analyse par track
   const [analysisProgress, setAnalysisProgress] = useState<Record<number, { pct: number; title: string; isLocal: boolean }>>({});
@@ -1016,6 +1018,36 @@ export default function DashboardV2() {
     }
   }
 
+  async function handleIdentifyTrack(trackId: number) {
+    const t = tracks.find(t => t.id === trackId);
+    const title = t?.title || t?.original_filename || 'Track';
+    setIdentifyingIds(prev => new Set(prev).add(trackId));
+    try {
+      const result = await identifyTrack(trackId);
+      if (result.status === 'no_match') {
+        addToast(`${title} — aucune correspondance trouvée`, 'info');
+      } else {
+        // Rafraîchir le track dans la liste
+        const fresh = await getTrack(trackId);
+        setTracks(prev => prev.map(t => t.id === trackId ? fresh : t));
+        if (selectedTrackIdRef.current === trackId) {
+          setSelectedTrack(toDisplayTrack(fresh), 'identify:complete');
+        }
+        // Rafraîchir les cue points si BPM corrigé
+        if (result.bpm_corrected && selectedTrackIdRef.current === trackId) {
+          try { setCuePoints(await getTrackCuePoints(trackId)); } catch {}
+        }
+        const fields = result.updated_fields?.join(', ') || '';
+        addToast(`${title} identifié ✓${fields ? ` (${fields})` : ''}`, 'success');
+      }
+    } catch (e: any) {
+      addToast(`Erreur identification: ${e?.message || 'erreur inconnue'}`, 'error');
+      console.error('[TrackCue] Identify failed:', e);
+    } finally {
+      setIdentifyingIds(prev => { const n = new Set(prev); n.delete(trackId); return n; });
+    }
+  }
+
   async function handleDeleteTrack(trackId: number) {
     if (!window.confirm('Supprimer ce track ?')) return;
     // Suppression optimiste : retirer du state immédiatement
@@ -1815,6 +1847,8 @@ export default function DashboardV2() {
                 const t = displayTracks.find((dt: any) => dt.id === trackId);
                 if (t) { handleSelectTrack(t); setActiveTab('info'); }
               }}
+              onIdentifyTrack={handleIdentifyTrack}
+              identifyingIds={identifyingIds}
             />
             {/* Charger plus */}
             {hasMoreTracks && (
@@ -2105,10 +2139,7 @@ export default function DashboardV2() {
             addToast(e.message || 'Erreur Analyse Pro', 'error');
           }
         }}
-        onEnrich={(trackId) => {
-          const t = rawTracksForTabs.find(t => t.id === trackId);
-          if (t) setEnrichTracks([t]);
-        }}
+        onEnrich={(trackId) => handleIdentifyTrack(trackId)}
         onExportRekordbox={handleExportRekordbox}
         onExportCSV={handleExportCSV}
         onExportTXT={handleExportTXT}
