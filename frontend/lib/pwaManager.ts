@@ -299,7 +299,7 @@ export class PWAManager {
       this.networkInfo.effectiveType === '2g' ||
       this.networkInfo.effectiveType === '3g' ||
       this.networkInfo.effectiveType === 'slow-4g' ||
-      (this.networkInfo.downlink && this.networkInfo.downlink < 1)
+      (this.networkInfo.downlink > 0 && this.networkInfo.downlink < 1)
     );
   }
 

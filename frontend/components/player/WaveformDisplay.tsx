@@ -310,9 +310,9 @@ export default function WaveformDisplay({
         {/* Improvement #25: Unplayed bars — stable geometry only */}
         {barGeometry.map((bar, i) => {
           if (bar.isStacked) {
-            const { x, w, h, mid, low, mid2, high } = bar;
+            const { x, w, h, mid, low = 0, mid2 = 0, high } = bar;
             return (
-              <g key={i} style={{ cursor: 'pointer' }} title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`}>
+              <g key={i} style={{ cursor: 'pointer' }} title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`} data-bar={i}>
                 <rect x={`${x}%`} y={mid - h / 2} width={`${w}%`} height={low} fill={BAR_COLORS.unplayed.bass} />
                 <rect x={`${x}%`} y={mid - h / 2 + low} width={`${w}%`} height={mid2} fill={BAR_COLORS.unplayed.mids} />
                 <rect x={`${x}%`} y={mid - h / 2 + low + mid2} width={`${w}%`} height={high} fill={BAR_COLORS.unplayed.highs} />
@@ -330,7 +330,7 @@ export default function WaveformDisplay({
               height={h}
               fill={color}
               style={{ cursor: 'pointer' }}
-              title={`Bar ${i + 1} (${((i / bars) * 100).toFixed(1)}%)`}
+              data-bar={i}
             />
           );
         })}

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, type Playlist, type PlaylistTrackItem } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -46,8 +46,8 @@ const TabFallback = () => {
 
 // ── Helpers centralisés ───────────────────────────────────────────────
 import { toCamelot, formatDuration, energyColor, energyRating, energyLabel } from '@/lib/formatters';
-import { keyToCamelot, getKeyColor, getCompatibleKeys } from '@/lib/camelot';
-import { getKeyColor as getKeyColorConst } from '@/lib/constants';
+import { keyToCamelot } from '@/lib/camelot';
+import { getKeyColor, getCompatibleKeys } from '@/lib/constants';
 import { isDevelopment } from '@/lib/config';
 import { generateTrackCSV, generateTrackTXT, downloadBlob } from './utils/exportHandlers';
 
@@ -214,7 +214,7 @@ export default function DashboardV2() {
 
   // Playlists & crate state
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [playlistTracks, setPlaylistTracks] = useState<Track[]>([]);
+  const [playlistTracks, setPlaylistTracks] = useState<PlaylistTrackItem[]>([]);
   const [crateTracks, setCrateTracks] = useState<Track[]>([]);
 
   // ── Mount/Unmount tracking ──
@@ -1913,7 +1913,7 @@ export default function DashboardV2() {
                     }
                   }}
                   onPreviewCue={(cue) => {
-                    const posMs = cue.position_ms ?? cue.time_ms ?? 0;
+                    const posMs = cue.position_ms ?? 0;
                     playerRef.current?.seekTo?.(posMs);
                     // Start playback
                     const audio = playerRef.current?.getAudio?.();

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '../_components/api';
 
 interface EmailWorkflow {
-  id: string;
+  id: number;
   name: string;
   description: string;
   trigger_type: string;
@@ -15,7 +15,7 @@ interface EmailWorkflow {
 }
 
 interface WorkflowStats {
-  id: string;
+  id: number;
   enrolled: number;
   completed: number;
   open_rate: number;
@@ -83,7 +83,7 @@ export default function EmailWorkflowsPage() {
     }
   };
 
-  const handleActivateWorkflow = async (id: string) => {
+  const handleActivateWorkflow = async (id: number) => {
     try {
       await adminApi.activateEmailWorkflow(id);
       loadWorkflows();
@@ -92,7 +92,7 @@ export default function EmailWorkflowsPage() {
     }
   };
 
-  const handlePauseWorkflow = async (id: string) => {
+  const handlePauseWorkflow = async (id: number) => {
     try {
       await adminApi.pauseEmailWorkflow(id);
       loadWorkflows();
@@ -101,7 +101,7 @@ export default function EmailWorkflowsPage() {
     }
   };
 
-  const handleDuplicateWorkflow = async (id: string) => {
+  const handleDuplicateWorkflow = async (id: number) => {
     try {
       await adminApi.duplicateEmailWorkflow(id);
       loadWorkflows();
@@ -110,7 +110,7 @@ export default function EmailWorkflowsPage() {
     }
   };
 
-  const handleDeleteWorkflow = async (id: string) => {
+  const handleDeleteWorkflow = async (id: number) => {
     if (!confirm('Êtes-vous sûr?')) return;
 
     try {

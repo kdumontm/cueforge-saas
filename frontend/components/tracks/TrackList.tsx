@@ -137,8 +137,8 @@ export const TrackList = React.memo(function TrackList({
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (t) =>
-          t.title.toLowerCase().includes(query) ||
-          t.artist.toLowerCase().includes(query) ||
+          (t.title?.toLowerCase() || '').includes(query) ||
+          (t.artist?.toLowerCase() || '').includes(query) ||
           (t.genre && t.genre.toLowerCase().includes(query))
       );
     }
@@ -165,6 +165,7 @@ export const TrackList = React.memo(function TrackList({
       result = result.filter(
         (t) =>
           t.energy !== undefined &&
+          t.energy !== null &&
           t.energy >= filters.energyMin &&
           t.energy <= filters.energyMax
       );
@@ -185,7 +186,7 @@ export const TrackList = React.memo(function TrackList({
       switch (sortBy) {
         case 'bpm':    return (b.bpm || 0) - (a.bpm || 0);
         case 'key':    return (a.key || '').localeCompare(b.key || '');
-        case 'title':  return a.title.localeCompare(b.title);
+        case 'title':  return (a.title || '').localeCompare(b.title || '');
         case 'energy': return (b.energy || 0) - (a.energy || 0);
         case 'genre':  return (a.genre || '').localeCompare(b.genre || '');
         case 'duration': return (b.duration || 0) - (a.duration || 0);

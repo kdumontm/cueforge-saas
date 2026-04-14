@@ -13,7 +13,7 @@ interface ErrorStats {
 }
 
 interface ErrorItem {
-  id: string;
+  id: number;
   level: ErrorLevel;
   message: string;
   source: string;
@@ -25,7 +25,7 @@ interface ErrorItem {
 }
 
 interface ErrorGroup {
-  id: string;
+  id: number;
   fingerprint: string;
   message: string;
   level: ErrorLevel;
@@ -43,7 +43,7 @@ export default function ErrorTrackingPage() {
   const [filterLevel, setFilterLevel] = useState<ErrorLevel | 'all'>('all');
   const [filterSource, setFilterSource] = useState('all');
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
-  const [expandedError, setExpandedError] = useState<string | null>(null);
+  const [expandedError, setExpandedError] = useState<number | null>(null);
   const [sources, setSources] = useState<string[]>([]);
 
   useEffect(() => {
@@ -62,16 +62,14 @@ export default function ErrorTrackingPage() {
           to_date: dateRange.to || undefined,
         }),
         adminApi.getErrorStats(),
-        adminApi.getErrorGroups({
-          level: filterLevel === 'all' ? undefined : filterLevel,
-        }),
+        adminApi.getErrorGroups(),
       ]);
 
       setErrors(errorsData.errors || []);
       setStats(statsData);
       setGroups(groupsData.groups || []);
 
-      const uniqueSources = [...new Set((errorsData.errors || []).map(e => e.source))];
+      const uniqueSources = Array.from(new Set((errorsData.errors || []).map((e: any) => e.source))) as string[];
       setSources(uniqueSources);
     } catch (err) {
       console.error('Error loading errors:', err);
@@ -80,7 +78,7 @@ export default function ErrorTrackingPage() {
     }
   }
 
-  async function resolveError(errorId: string) {
+  async function resolveError(errorId: number) {
     try {
       await adminApi.resolveError(errorId);
       fetchErrors();
@@ -89,7 +87,7 @@ export default function ErrorTrackingPage() {
     }
   }
 
-  async function ignoreError(errorId: string) {
+  async function ignoreError(errorId: number) {
     try {
       await adminApi.ignoreError(errorId);
       fetchErrors();

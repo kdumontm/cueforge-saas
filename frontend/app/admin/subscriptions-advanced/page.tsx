@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, useToast, StatCard, Tabs,
+  SectionHeader, LoadingScreen, EmptyState, useToast, StatCard, TabBar,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
 
@@ -203,30 +203,33 @@ export default function SubscriptionsAdvancedPage() {
       {overview && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <StatCard
+            icon={overview.growth_rate > 0 ? TrendingUp : TrendingDown}
             label="MRR"
             value={`€${overview.mrr.toLocaleString()}`}
-            trend={overview.growth_rate > 0 ? "up" : "down"}
-            icon={overview.growth_rate > 0 ? <TrendingUp /> : <TrendingDown />}
+            sub={overview.growth_rate > 0 ? "up" : "down"}
           />
           <StatCard
+            icon={TrendingUp}
             label="ARR"
             value={`€${overview.arr.toLocaleString()}`}
-            trend={overview.growth_rate > 0 ? "up" : "down"}
+            sub={overview.growth_rate > 0 ? "up" : "down"}
           />
           <StatCard
+            icon={overview.churn_rate > 0.05 ? AlertCircle : CheckCircle}
             label="Taux churn"
             value={`${(overview.churn_rate * 100).toFixed(1)}%`}
-            trend={overview.churn_rate > 0.05 ? "down" : "up"}
-            icon={overview.churn_rate > 0.05 ? <AlertCircle /> : <CheckCircle />}
+            sub={overview.churn_rate > 0.05 ? "down" : "up"}
           />
           <StatCard
+            icon={CheckCircle}
             label="LTV"
             value={`€${overview.ltv.toFixed(2)}`}
           />
           <StatCard
+            icon={TrendingUp}
             label="Croissance"
             value={`${(overview.growth_rate * 100).toFixed(1)}%`}
-            trend={overview.growth_rate > 0 ? "up" : "down"}
+            sub={overview.growth_rate > 0 ? "up" : "down"}
           />
         </div>
       )}
@@ -429,7 +432,7 @@ export default function SubscriptionsAdvancedPage() {
                   <Input
                     type="text"
                     value={trialExtendModal.user_email}
-                    disabled
+                    onChange={() => {}}
                   />
                 </div>
                 <div>
@@ -438,10 +441,8 @@ export default function SubscriptionsAdvancedPage() {
                   </label>
                   <Input
                     type="number"
-                    value={trialExtendDays}
-                    onChange={(e) => setTrialExtendDays(parseInt(e.target.value) || 0)}
-                    min={1}
-                    max={365}
+                    value={String(trialExtendDays)}
+                    onChange={(v) => setTrialExtendDays(parseInt(v) || 0)}
                   />
                 </div>
                 <div className="flex gap-2 pt-4">

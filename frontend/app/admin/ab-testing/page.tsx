@@ -82,7 +82,7 @@ export default function ABTestingPage() {
     }
   };
 
-  const handleStartTest = async (id: string) => {
+  const handleStartTest = async (id: number) => {
     try {
       await adminApi.startABTest(id);
       loadTests();
@@ -92,7 +92,7 @@ export default function ABTestingPage() {
     }
   };
 
-  const handleStopTest = async (id: string) => {
+  const handleStopTest = async (id: number) => {
     try {
       await adminApi.stopABTest(id);
       loadTests();
@@ -102,7 +102,7 @@ export default function ABTestingPage() {
     }
   };
 
-  const handlePauseTest = async (id: string) => {
+  const handlePauseTest = async (id: number) => {
     try {
       await adminApi.pauseABTest(id);
       loadTests();
@@ -112,7 +112,7 @@ export default function ABTestingPage() {
     }
   };
 
-  const handleDuplicateTest = async (id: string) => {
+  const handleDuplicateTest = async (id: number) => {
     try {
       await adminApi.duplicateABTest(id);
       loadTests();
@@ -122,7 +122,7 @@ export default function ABTestingPage() {
     }
   };
 
-  const handleDeleteTest = async (id: string) => {
+  const handleDeleteTest = async (id: number) => {
     if (!confirm('Êtes-vous sûr?')) return;
 
     try {

@@ -116,7 +116,7 @@ export default function RolesPage() {
     }
   };
 
-  const handleDeleteRole = async (id: string) => {
+  const handleDeleteRole = async (id: number) => {
     if (!confirm('Êtes-vous sûr? Cette action est irréversible.')) return;
 
     try {

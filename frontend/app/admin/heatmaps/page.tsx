@@ -94,7 +94,7 @@ export default function HeatmapsPage() {
     }
   };
 
-  const handleDeleteHeatmap = async (id: string) => {
+  const handleDeleteHeatmap = async (id: number) => {
     if (!confirm('Êtes-vous sûr?')) return;
 
     try {

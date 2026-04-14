@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import {
-  Search, MessageSquare, Tag, Clock, Eye, X,
+  Search, MessageSquare, Tag, Clock, Eye, X, Activity, User,
 } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, PageWrapper,
@@ -155,7 +155,7 @@ export default function UserTimelinePage() {
               type="number"
               placeholder="ID utilisateur"
               value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              onChange={(v) => setUserId(v)}
               className="flex-1"
             />
             <Btn variant="primary" onClick={loadUserTimeline} disabled={!userId}>
@@ -177,18 +177,22 @@ export default function UserTimelinePage() {
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <StatCard
+                icon={Activity}
                 label="Événements"
                 value={stats.total_events.toString()}
               />
               <StatCard
+                icon={Clock}
                 label="Dernier actif"
                 value={new Date(stats.last_active).toLocaleDateString("fr-FR")}
               />
               <StatCard
+                icon={User}
                 label="Sessions"
                 value={stats.session_count.toString()}
               />
               <StatCard
+                icon={Clock}
                 label="Durée moyenne"
                 value={`${Math.round(stats.avg_session_duration / 60)}m`}
               />
@@ -331,8 +335,7 @@ export default function UserTimelinePage() {
                       type="text"
                       placeholder="Nouveau tag"
                       value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+                      onChange={(v) => setNewTag(v)}
                     />
                     <Btn
                       variant="primary"

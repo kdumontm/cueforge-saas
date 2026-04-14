@@ -197,11 +197,11 @@ export default function PlayerCard({
     slot: c.number ?? i,
     time: c.position_ms
       ? `${Math.floor(c.position_ms / 60000)}:${String(Math.floor((c.position_ms % 60000) / 1000)).padStart(2, '0')}`
-      : (c.time || '0:00'),
-    label: c.name || c.label || `Cue ${i + 1}`,
+      : '0:00',
+    label: c.name || `Cue ${i + 1}`,
     positionMs: c.position_ms,
-    cueType: c.cue_type || c.cueType,
-    endPositionMs: c.end_position_ms ?? c.endPositionMs ?? null,
+    cueType: c.cue_type,
+    endPositionMs: c.end_position_ms ?? null,
   }));
 
   const handleHotCueClick = (cue: typeof hotCues[0]) => {

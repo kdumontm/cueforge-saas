@@ -208,8 +208,7 @@ export default function SubscriptionActionsPage() {
               type="text"
               placeholder="ID utilisateur ou email"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              onChange={(v) => setSearchInput(v)}
               className="flex-1"
             />
             <Btn
@@ -464,7 +463,7 @@ export default function SubscriptionActionsPage() {
                   <Input
                     type="number"
                     value={discountValue}
-                    onChange={(e) => setDiscountValue(e.target.value)}
+                    onChange={(v) => setDiscountValue(v)}
                     placeholder="ex: 10"
                   />
                 </div>
@@ -563,9 +562,8 @@ export default function SubscriptionActionsPage() {
                   <Input
                     type="number"
                     value={refundAmount}
-                    onChange={(e) => setRefundAmount(e.target.value)}
-                    placeholder={subscription.amount.toFixed(2)}
-                    step="0.01"
+                    onChange={(v) => setRefundAmount(v)}
+                    placeholder={String(subscription.amount.toFixed(2))}
                   />
                 </div>
                 <div className="flex gap-2 pt-4">

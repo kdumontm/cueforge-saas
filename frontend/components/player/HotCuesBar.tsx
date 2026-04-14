@@ -94,6 +94,9 @@ export default function HotCuesBar({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showOptionsMenu, setShowOptionsMenu] = useState<number | null>(null);
 
+  // Improvement #38: Quick preview on hover
+  const [hoveredDetailsCue, setHoveredDetailsCue] = useState<number | null>(null);
+
   // Improvement #41: Drag reorder state
   const [dragFromIdx, setDragFromIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -290,7 +293,7 @@ export default function HotCuesBar({
                 onTouchEnd={handleTouchEnd}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (cue) setShowOptionsMenu(cue.positionMs);
+                  if (cue && cue.positionMs !== undefined) setShowOptionsMenu(cue.positionMs);
                 }}
                 disabled={!cue}
                 className={`relative w-full rounded-[7px] text-[10px] font-bold border-none transition-all overflow-hidden text-ellipsis whitespace-nowrap font-mono disabled:cursor-default group ${

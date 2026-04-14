@@ -86,7 +86,7 @@ export default function QueuesPage() {
     }
   }, [selectedQueue, selectedStatus]);
 
-  const handleRetryJob = async (id: string) => {
+  const handleRetryJob = async (id: number) => {
     try {
       await adminApi.retryQueueJob(id);
       loadJobs();
@@ -95,7 +95,7 @@ export default function QueuesPage() {
     }
   };
 
-  const handleDeleteJob = async (id: string) => {
+  const handleDeleteJob = async (id: number) => {
     if (window.confirm("Confirmer la suppression de ce job ?")) {
       try {
         await adminApi.deleteQueueJob(id);

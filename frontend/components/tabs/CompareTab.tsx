@@ -33,7 +33,7 @@ function CompareTab({ trackA, allTracks, onSelectTrack }: CompareTabProps) {
 
   // Sort tracks by compatibility with trackA
   const sortedTracks = useMemo(() => {
-    if (!trackA) return allTracks;
+    if (!trackA) return [];
     return [...allTracks]
       .filter(t => t.id !== trackA.id)
       .map(t => ({
@@ -134,11 +134,11 @@ function CompareTab({ trackA, allTracks, onSelectTrack }: CompareTabProps) {
           {/* Column headers */}
           <div className="flex items-center gap-2 pb-1 mb-1 border-b border-[var(--border-subtle)]">
             <span className="text-[10px] text-[var(--text-muted)] w-16 text-right flex-shrink-0"></span>
-            <span className="flex-1 text-[10px] text-blue-400 font-semibold text-right truncate" title={trackA.title}>
+            <span className="flex-1 text-[10px] text-blue-400 font-semibold text-right truncate" title={trackA.title || undefined}>
               {trackA.title?.slice(0, 15)}
             </span>
             <span className="w-5 flex-shrink-0"></span>
-            <span className="flex-1 text-[10px] text-purple-400 font-semibold truncate" title={trackB.title}>
+            <span className="flex-1 text-[10px] text-purple-400 font-semibold truncate" title={trackB.title || undefined}>
               {trackB.title?.slice(0, 15)}
             </span>
           </div>
@@ -169,8 +169,8 @@ function CompareTab({ trackA, allTracks, onSelectTrack }: CompareTabProps) {
           />
           <StatRow
             label="Durée"
-            valueA={formatDuration(trackA.analysis?.duration_ms)}
-            valueB={formatDuration(trackB.analysis?.duration_ms)}
+            valueA={formatDuration(trackA.analysis?.duration_ms ?? undefined)}
+            valueB={formatDuration(trackB.analysis?.duration_ms ?? undefined)}
           />
         </div>
       )}

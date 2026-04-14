@@ -57,9 +57,9 @@ export default function StatusPageAdmin() {
     setLoading(true);
     try {
       const [svc, inc, ov] = await Promise.all([
-        adminApi.getStatusServices(),
-        adminApi.getStatusIncidents(),
-        adminApi.getStatusOverview(),
+        adminApi.listStatusServices(),
+        adminApi.listIncidents(),
+        adminApi.statusOverview(),
       ]);
       setServices(svc.items || svc);
       setIncidents(inc.items || inc);
@@ -87,8 +87,8 @@ export default function StatusPageAdmin() {
 
   async function saveIncident() {
     try {
-      if (editItem) await adminApi.updateStatusIncident(editItem.id, incidentForm);
-      else await adminApi.createStatusIncident(incidentForm);
+      if (editItem) await adminApi.updateIncident(editItem.id, incidentForm);
+      else await adminApi.createIncident(incidentForm);
       setShowIncidentModal(false);
       setEditItem(null);
       setIncidentForm({ title: "", description: "", severity: "minor", status: "investigating", affected_services: [] });

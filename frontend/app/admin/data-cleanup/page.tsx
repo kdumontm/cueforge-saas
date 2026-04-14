@@ -25,9 +25,9 @@ export default function DataCleanupAdmin() {
     setLoading(true);
     try {
       const [j, t, s] = await Promise.all([
-        adminApi.getDataCleanupJobs().catch(() => []),
-        adminApi.getAvailableCleanupTypes().catch(() => []),
-        adminApi.getStorageStats().catch(() => null),
+        adminApi.listCleanupJobs().catch(() => []),
+        adminApi.availableCleanups().catch(() => []),
+        adminApi.storageStats().catch(() => null),
       ]);
       setJobs(Array.isArray(j) ? j : j?.items || []);
       setAvailableTypes(Array.isArray(t) ? t : []);
@@ -39,7 +39,7 @@ export default function DataCleanupAdmin() {
   async function runJob(jobType: string) {
     setRunning(jobType);
     try {
-      await adminApi.runDataCleanup(jobType);
+      await adminApi.runCleanup(jobType);
       await loadAll();
     } catch (e) { console.error(e); }
     setRunning(null);

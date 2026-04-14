@@ -68,7 +68,7 @@ export default function SessionRecordingsPage() {
     }
   };
 
-  const handleStarRecording = async (id: string, starred: boolean) => {
+  const handleStarRecording = async (id: number, starred: boolean) => {
     try {
       await adminApi.updateSessionRecording(id, { starred: !starred });
       loadRecordings();
@@ -109,7 +109,7 @@ export default function SessionRecordingsPage() {
     }
   };
 
-  const handleDeleteRecording = async (id: string) => {
+  const handleDeleteRecording = async (id: number) => {
     if (!confirm('Êtes-vous sûr?')) return;
 
     try {
