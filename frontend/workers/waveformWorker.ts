@@ -5,14 +5,6 @@
  * Returns: Array<{ r, g, b, amp }>
  */
 
-type MessageEvent = {
-  data: {
-    type: 'compute';
-    buffer: AudioBuffer;
-    numBars: number;
-  };
-};
-
 function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: number; b: number; amp: number }[] {
   const data = buf.getChannelData(0);
   const segLen = Math.max(1, Math.floor(data.length / numBars));
@@ -62,7 +54,7 @@ function computeRGBWaveform(buf: AudioBuffer, numBars = 8000): { r: number; g: n
   });
 }
 
-self.onmessage = (event: MessageEvent) => {
+self.onmessage = (event: MessageEvent<any>) => {
   if (event.data.type === 'compute') {
     const { buffer, numBars } = event.data;
     const result = computeRGBWaveform(buffer, numBars);

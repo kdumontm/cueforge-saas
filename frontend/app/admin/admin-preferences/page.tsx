@@ -124,7 +124,7 @@ export default function AdminPreferencesPage() {
     <PageWrapper>
       <SectionHeader
         title="Préférences admin"
-        desc="Langue, fuseau horaire, thème, notifications, raccourcis"
+        description="Langue, fuseau horaire, thème, notifications, raccourcis"
       />
 
       {/* Tabs */}
@@ -309,7 +309,7 @@ export default function AdminPreferencesPage() {
                       <Input
                         type="text"
                         value={editingKeys}
-                        onChange={(e) => setEditingKeys(e.target.value)}
+                        onChange={(v) => setEditingKeys(v)}
                         placeholder="ex: Ctrl+K"
                         className="w-32"
                       />

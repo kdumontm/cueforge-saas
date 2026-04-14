@@ -7,6 +7,14 @@
 import { useEffect, useCallback, useRef } from 'react';
 
 /**
+ * BeforeInstallPromptEvent (non-standard API)
+ */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+/**
  * Cache strategy types
  */
 export type CacheStrategy = 'network-first' | 'cache-first' | 'stale-while-revalidate';
@@ -145,8 +153,8 @@ export class PWAManager {
 
     try {
       const registration = await navigator.serviceWorker.ready;
-      if (registration.sync) {
-        await registration.sync.register(this.backgroundSyncTag);
+      if ((registration as any).sync) {
+        await (registration as any).sync.register(this.backgroundSyncTag);
         console.log('Background sync enabled');
       }
     } catch (error) {
@@ -175,7 +183,7 @@ export class PWAManager {
         userVisibleOnly: true,
         applicationServerKey: this.urlBase64ToUint8Array(
           process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
-        ),
+        ) as BufferSource,
       });
 
       // Send subscription to backend

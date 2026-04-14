@@ -197,7 +197,7 @@ export default function SubscriptionActionsPage() {
     <PageWrapper>
       <SectionHeader
         title="Actions sur les abonnements"
-        desc="Modifier les plans, appliquer des remises, mettre en pause, annuler"
+        description="Modifier les plans, appliquer des remises, mettre en pause, annuler"
       />
 
       {/* Search Section */}
@@ -339,7 +339,7 @@ export default function SubscriptionActionsPage() {
               {actionHistory.length === 0 ? (
                 <EmptyState
                   title="Aucune action"
-                  desc="Aucune action enregistrée pour cet utilisateur"
+                  description="Aucune action enregistrée pour cet utilisateur"
                 />
               ) : (
                 <div className="space-y-2">

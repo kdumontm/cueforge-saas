@@ -196,7 +196,7 @@ export default function SubscriptionsAdvancedPage() {
     <PageWrapper>
       <SectionHeader
         title="Gestion avancée des abonnements"
-        desc="MRR, ARR, essais, actions, dunning, prévisions"
+        description="MRR, ARR, essais, actions, dunning, prévisions"
       />
 
       {/* Overview Cards */}
@@ -262,7 +262,7 @@ export default function SubscriptionsAdvancedPage() {
             {trialsLoading ? (
               <div className="text-gray-400 text-center py-4">Chargement...</div>
             ) : trials.length === 0 ? (
-              <EmptyState title="Aucun essai" desc="Tous les essais ont expiré ou ont été convertis" />
+              <EmptyState title="Aucun essai" description="Tous les essais ont expiré ou ont été convertis" />
             ) : (
               <div className="space-y-2">
                 {trials.map((trial) => (
@@ -308,7 +308,7 @@ export default function SubscriptionsAdvancedPage() {
             {actionsLoading ? (
               <div className="text-gray-400 text-center py-4">Chargement...</div>
             ) : upgradeHistory.length === 0 ? (
-              <EmptyState title="Aucune action" desc="Aucun changement de plan enregistré" />
+              <EmptyState title="Aucune action" description="Aucun changement de plan enregistré" />
             ) : (
               <div className="space-y-2">
                 {upgradeHistory.map((action) => (
@@ -342,7 +342,7 @@ export default function SubscriptionsAdvancedPage() {
             {dunningLoading ? (
               <div className="text-gray-400 text-center py-4">Chargement...</div>
             ) : dunning.length === 0 ? (
-              <EmptyState title="Aucun paiement échoué" desc="Tous les paiements sont à jour" />
+              <EmptyState title="Aucun paiement échoué" description="Tous les paiements sont à jour" />
             ) : (
               <div className="space-y-2">
                 {dunning.map((payment) => (
@@ -382,7 +382,7 @@ export default function SubscriptionsAdvancedPage() {
             {forecastLoading ? (
               <div className="text-gray-400 text-center py-4">Chargement...</div>
             ) : forecast.length === 0 ? (
-              <EmptyState title="Aucune prévision" desc="Données insuffisantes pour la prévision" />
+              <EmptyState title="Aucune prévision" description="Données insuffisantes pour la prévision" />
             ) : (
               <div className="space-y-2">
                 {forecast.map((item, idx) => (

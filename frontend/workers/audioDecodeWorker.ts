@@ -4,14 +4,6 @@
  * Enables parallel decoding of multiple tracks
  */
 
-type MessageEvent = {
-  data: {
-    type: 'decode';
-    arrayBuffer: ArrayBuffer;
-    id: string;
-  };
-};
-
 let audioContext: AudioContext | null = null;
 
 function initAudioContext() {
@@ -22,7 +14,7 @@ function initAudioContext() {
   return audioContext;
 }
 
-self.onmessage = async (event: MessageEvent) => {
+self.onmessage = async (event: MessageEvent<any>) => {
   if (event.data.type === 'decode') {
     const { arrayBuffer, id } = event.data;
     try {
@@ -41,7 +33,7 @@ self.onmessage = async (event: MessageEvent) => {
           numberOfChannels: audioBuffer.numberOfChannels,
           data: audioBuffer.getChannelData(0).buffer, // Transfer ownership
         },
-        [audioBuffer.getChannelData(0).buffer], // Transferable
+        [audioBuffer.getChannelData(0).buffer] as Transferable[], // Transferable
       );
     } catch (err) {
       self.postMessage({

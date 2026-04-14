@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import adminApi from '../_components/api';
+import { adminApi } from '../_components/api';
 
 interface ABTest {
-  id: string;
+  id: number;
   name: string;
   status: 'draft' | 'running' | 'completed';
   test_type: 'split' | 'multivariate';

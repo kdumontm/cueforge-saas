@@ -144,7 +144,7 @@ export default function UserTimelinePage() {
     <PageWrapper>
       <SectionHeader
         title="Timeline utilisateur"
-        desc="Activité, sessions, notes et tags"
+        description="Activité, sessions, notes et tags"
       />
 
       {/* User ID Input */}
@@ -220,7 +220,7 @@ export default function UserTimelinePage() {
               <div className="p-6">
                 <h3 className="text-white font-semibold mb-4">Activité chronologique</h3>
                 {timeline.length === 0 ? (
-                  <EmptyState title="Aucun événement" desc="Aucune activité enregistrée" />
+                  <EmptyState title="Aucun événement" description="Aucune activité enregistrée" />
                 ) : (
                   <div className="space-y-4">
                     {timeline.map((event) => (
@@ -253,7 +253,7 @@ export default function UserTimelinePage() {
               <div className="p-6">
                 <h3 className="text-white font-semibold mb-4">Sessions</h3>
                 {sessions.length === 0 ? (
-                  <EmptyState title="Aucune session" desc="Aucune session enregistrée" />
+                  <EmptyState title="Aucune session" description="Aucune session enregistrée" />
                 ) : (
                   <div className="space-y-2">
                     {sessions.map((session) => (
@@ -370,7 +370,7 @@ export default function UserTimelinePage() {
                   </div>
 
                   {notes.length === 0 ? (
-                    <EmptyState title="Aucune note" desc="Aucune note admin ajoutée" />
+                    <EmptyState title="Aucune note" description="Aucune note admin ajoutée" />
                   ) : (
                     <div className="space-y-3">
                       {notes.map((note) => (

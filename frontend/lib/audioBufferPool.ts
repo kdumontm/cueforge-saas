@@ -92,7 +92,7 @@ export class AudioBufferPool {
     const maxAge = 5 * 60 * 1000; // 5 minutes
     const now = Date.now();
 
-    for (const buffers of this.pool.values()) {
+    for (const buffers of Array.from(this.pool.values())) {
       // Keep only unused buffers
       for (let i = buffers.length - 1; i >= 0; i--) {
         if (!buffers[i].inUse && now - buffers[i].createdAt > maxAge) {
@@ -109,9 +109,9 @@ export class AudioBufferPool {
     let totalBuffers = 0;
     let usedBuffers = 0;
 
-    for (const buffers of this.pool.values()) {
+    for (const buffers of Array.from(this.pool.values())) {
       totalBuffers += buffers.length;
-      usedBuffers += buffers.filter((b) => b.inUse).length;
+      usedBuffers += buffers.filter((b: PooledBuffer) => b.inUse).length;
     }
 
     return { totalBuffers, usedBuffers };

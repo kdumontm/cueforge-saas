@@ -19,14 +19,6 @@ export {
   StemsAdvanced,
   PlaylistBuilder,
   SettingsPanel,
-  type OnboardingWizardProps,
-  type DashboardLayoutProps,
-  type TrackListAdvancedProps,
-  type WaveformAdvancedProps,
-  type PlayerAdvancedProps,
-  type StemsAdvancedProps,
-  type PlaylistBuilderProps,
-  type SettingsPanelProps,
 } from '@/components/advancedComponents';
 
 // Shared UI Component

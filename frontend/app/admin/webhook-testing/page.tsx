@@ -171,7 +171,7 @@ export default function WebhookTestingPage() {
     <PageWrapper>
       <SectionHeader
         title="Tests de webhooks"
-        desc="Testez vos endpoints webhook"
+        description="Testez vos endpoints webhook"
       />
 
       {/* Tabs */}
@@ -253,7 +253,7 @@ export default function WebhookTestingPage() {
             {logsLoading ? (
               <div className="text-gray-400 text-center py-4">Chargement...</div>
             ) : logs.length === 0 ? (
-              <EmptyState title="Aucun historique" desc="Aucun test n'a été envoyé" />
+              <EmptyState title="Aucun historique" description="Aucun test n'a été envoyé" />
             ) : (
               <div className="space-y-2">
                 {logs.map((log) => (

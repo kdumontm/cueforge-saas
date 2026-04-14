@@ -187,7 +187,7 @@ export default function EnvironmentsPage() {
         <div>
           <SectionHeader
             title="Multi-environnements"
-            desc="Gestion dev, staging, production"
+            description="Gestion dev, staging, production"
           />
         </div>
         <Btn variant="primary" onClick={() => setCreateModal(true)}>
@@ -199,7 +199,7 @@ export default function EnvironmentsPage() {
       <Card>
         <div className="p-6">
           {environments.length === 0 ? (
-            <EmptyState title="Aucun environnement" desc="Créez un environnement pour commencer" />
+            <EmptyState title="Aucun environnement" description="Créez un environnement pour commencer" />
           ) : (
             <div className="space-y-4">
               {environments.map((env) => (
@@ -304,7 +304,7 @@ export default function EnvironmentsPage() {
                   <Input
                     type="text"
                     value={newEnvName}
-                    onChange={(e) => setNewEnvName(e.target.value)}
+                    onChange={(v) => setNewEnvName(v)}
                     placeholder="ex: production-2"
                   />
                 </div>
@@ -314,7 +314,7 @@ export default function EnvironmentsPage() {
                   </label>
                   <Select
                     value={newEnvType}
-                    onChange={(e) => setNewEnvType(e.target.value as any)}
+                    onChange={(v) => setNewEnvType(v as any)}
                   >
                     <option value="dev">Développement</option>
                     <option value="staging">Staging</option>
@@ -370,9 +370,9 @@ export default function EnvironmentsPage() {
                         <Input
                           type="text"
                           value={variable.key}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const newVars = [...envVars];
-                            newVars[idx].key = e.target.value;
+                            newVars[idx].key = v;
                             setEnvVars(newVars);
                           }}
                           placeholder="Clé"
@@ -380,9 +380,9 @@ export default function EnvironmentsPage() {
                         <Input
                           type={variable.is_secret ? "password" : "text"}
                           value={variable.value}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const newVars = [...envVars];
-                            newVars[idx].value = e.target.value;
+                            newVars[idx].value = v;
                             setEnvVars(newVars);
                           }}
                           placeholder="Valeur"
@@ -440,8 +440,8 @@ export default function EnvironmentsPage() {
                       Environnement 1
                     </label>
                     <Select
-                      value={selectedEnv1 || ""}
-                      onChange={(e) => setSelectedEnv1(parseInt(e.target.value) || null)}
+                      value={String(selectedEnv1 || "")}
+                      onChange={(v) => setSelectedEnv1(v ? parseInt(v) : null)}
                     >
                       <option value="">Sélectionner...</option>
                       {environments.map((env) => (
@@ -456,8 +456,8 @@ export default function EnvironmentsPage() {
                       Environnement 2
                     </label>
                     <Select
-                      value={selectedEnv2 || ""}
-                      onChange={(e) => setSelectedEnv2(parseInt(e.target.value) || null)}
+                      value={String(selectedEnv2 || "")}
+                      onChange={(v) => setSelectedEnv2(v ? parseInt(v) : null)}
                     >
                       <option value="">Sélectionner...</option>
                       {environments.map((env) => (

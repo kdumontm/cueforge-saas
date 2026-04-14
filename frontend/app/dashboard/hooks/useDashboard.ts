@@ -64,7 +64,7 @@ export function useDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // ── Sorting & Filtering ──
-  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title' | 'energy' | 'genre' | 'duration' | 'rating'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'bpm' | 'key' | 'title' | 'energy' | 'genre' | 'duration' | 'rating' | 'artist' | 'album'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [filterBpmMin, setFilterBpmMin] = useState<number>(0);
   const [filterBpmMax, setFilterBpmMax] = useState<number>(999);
@@ -784,7 +784,7 @@ export function useDashboard() {
     if (!selectedTrack || !token) return;
     setSavingMeta(true);
     try {
-      const body = {};
+      const body: Record<string, string | number> = {};
       if (editForm.title) body.title = editForm.title;
       if (editForm.artist) body.artist = editForm.artist;
       if (editForm.album) body.album = editForm.album;
@@ -807,7 +807,7 @@ export function useDashboard() {
   };
 
   // ── Export Functions ──
-  const exportRekordboxXML = async (trackId) => {
+  const exportRekordboxXML = async (trackId: string | number) => {
     if (!token) return;
     try {
       const res = await fetch(API + '/export/' + trackId + '/rekordbox', {
@@ -843,7 +843,7 @@ export function useDashboard() {
     } catch(e) { console.error(e); }
   };
 
-  const handleExportTracklist = function(format) {
+  const handleExportTracklist = function(format: 'csv' | 'txt') {
     if (!filteredTracks || filteredTracks.length === 0) return;
     var lines = [];
     if (format === 'csv') {
@@ -876,7 +876,7 @@ export function useDashboard() {
   };
 
   // ── Re-analyze Track ──
-  const reanalyzeTrack = async (trackId) => {
+  const reanalyzeTrack = async (trackId: string | number) => {
     try {
       const resp = await fetch(API + '/tracks/' + trackId + '/analyze', {
         method: 'POST',
@@ -1391,7 +1391,7 @@ export function useDashboard() {
   // ── Tap Tempo Keyboard ──
   useEffect(function() {
     if (!showTapTempo) return;
-    function handleKeyDown(e) {
+    function handleKeyDown(e: KeyboardEvent) {
       if (e.code === "Space" || e.key === "t" || e.key === "T") {
         e.preventDefault();
         var now = Date.now();
@@ -1556,8 +1556,8 @@ export function useDashboard() {
     if (filterEnergyMax < 100 && energy > filterEnergyMax) return false;
     if (filterColor && trackColors[t.id] !== filterColor) return false;
     if (filterRating > 0 && (trackRatings[t.id] || 0) < filterRating) return false;
-    if (bpmMin > 0 && t.bpm < bpmMin) return false;
-    if (bpmMax < 300 && t.bpm > bpmMax) return false;
+    if (bpmMin > 0 && (t.analysis?.bpm || 0) < bpmMin) return false;
+    if (bpmMax < 300 && (t.analysis?.bpm || 0) > bpmMax) return false;
     if (showCompatibleOnly && selectedTrack && selectedTrack.analysis?.key && t.id !== selectedTrack.id) {
       const selCamelot = toCamelot(selectedTrack.analysis.key);
       const trackCamelot = toCamelot(t.analysis?.key || '');
@@ -1634,12 +1634,12 @@ export function useDashboard() {
 
       if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault();
-        if (selectedTrack && selectedTrack.analysis?.key && selectedTrack.analysis?.bpm) {
+        if (selectedTrack && selectedTrack.analysis && selectedTrack.analysis.key && selectedTrack.analysis.bpm) {
           let bestTrack = null;
           let bestScore = -1;
           filteredTracks.forEach(t => {
             if (t.id === selectedTrack.id || !t.analysis?.key || !t.analysis?.bpm) return;
-            const score = mixScore(selectedTrack.analysis.key, selectedTrack.analysis.bpm, t.analysis.key, t.analysis.bpm);
+            const score = mixScore(selectedTrack.analysis!.key as string, selectedTrack.analysis!.bpm as number, t.analysis.key as string, t.analysis.bpm as number);
             if (score.total > bestScore) { bestScore = score.total; bestTrack = t; }
           });
           if (bestTrack) { setSelectedTrack(bestTrack); }
@@ -1803,7 +1803,7 @@ export function useDashboard() {
     batchAnalyzeAudio, batchAnalyzeMetadata, handleCtxAction, launchSpotifySearch,
     openEditMeta, saveMetadata, exportRekordboxXML, exportAllRekordboxXML, handleExportTracklist,
     togglePlay, skipBack, skipForward, toggleMute, toggleSelect, handleDragEnter, handleDragLeave, handleDragOver, handleDrop,
-    setRating, reanalyzeTrack, getDefaultCueColor, getCueColor, handleZoom, connectEQ, updateEQ,
+    setRating, reanalyzeTrack, getDefaultCueColor, getCueColor, handleZoom,
     getTrackCompat, handleHeaderSort,
 
     // Computed values
