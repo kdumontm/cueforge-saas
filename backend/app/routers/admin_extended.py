@@ -232,13 +232,18 @@ def _serialize_user(user: User) -> dict:
     }
 
 
-def _serialize_feedback(fb: Feedback) -> dict:
+def _serialize_feedback(fb: Feedback, user_email: str = None) -> dict:
     """Serialize a Feedback to dict."""
+    msg = fb.message or ""
+    # Derive subject from first line of message (max 80 chars)
+    subject = msg.split("\n")[0][:80] if msg else "(sans sujet)"
     return {
         "id": fb.id,
         "user_id": fb.user_id,
+        "user_email": user_email,
         "type": fb.type,
-        "message": fb.message,
+        "subject": subject,
+        "message": msg,
         "rating": fb.rating,
         "created_at": fb.created_at.isoformat() if fb.created_at else None,
         "status": getattr(fb, "status", "new"),
@@ -657,32 +662,67 @@ def export_users(
 # Feedback Management
 # ═══════════════════════════════════════════════
 
-@router.post("/feedbacks")
+@router.get("/feedbacks")
 def list_feedbacks(
-    filters: FeedbackFilterRequest,
+    type: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: Optional[int] = None,
+    skip: int = 0,
+    limit: int = 50,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """List feedback with filters: type, status, user_id, date range."""
-    query = db.query(Feedback)
+    """List feedback with filters: type, status, user_id."""
+    query = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id)
 
-    if filters.type:
-        query = query.filter(Feedback.type == filters.type)
-    if filters.user_id:
-        query = query.filter(Feedback.user_id == filters.user_id)
-    if filters.status:
-        query = query.filter(getattr(Feedback, "status", None) == filters.status)
-    if filters.date_from:
-        query = query.filter(Feedback.created_at >= filters.date_from)
-    if filters.date_to:
-        query = query.filter(Feedback.created_at <= filters.date_to)
+    if type:
+        query = query.filter(Feedback.type == type)
+    if user_id:
+        query = query.filter(Feedback.user_id == user_id)
+    if status:
+        query = query.filter(Feedback.status == status)
 
     total = query.count()
-    items = query.order_by(desc(Feedback.created_at)).offset(filters.skip).limit(filters.limit).all()
+    rows = query.order_by(desc(Feedback.created_at)).offset(skip).limit(limit).all()
 
     return {
         "total": total,
-        "items": [_serialize_feedback(fb) for fb in items],
+        "feedbacks": [
+            _serialize_feedback(fb, user.email if user else None)
+            for fb, user in rows
+        ],
+    }
+
+
+@router.get("/feedbacks/stats")
+def get_feedback_stats(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Get feedback statistics."""
+    total = db.query(Feedback).count()
+
+    type_counts = db.query(Feedback.type, func.count(Feedback.id)).group_by(Feedback.type).all()
+    type_stats = {t: c for t, c in type_counts}
+
+    status_counts = []
+    try:
+        status_counts = db.query(Feedback.status, func.count(Feedback.id)).group_by(
+            Feedback.status
+        ).all()
+    except Exception:
+        pass
+
+    status_stats = {s: c for s, c in status_counts} if status_counts else {}
+
+    return {
+        "total": total,
+        "bugs": type_stats.get("bug", 0),
+        "features": type_stats.get("feature", 0),
+        "other": type_stats.get("other", 0),
+        "unread": status_stats.get("new", 0),
+        "by_type": type_stats,
+        "by_status": status_stats,
     }
 
 
@@ -693,10 +733,11 @@ def get_feedback(
     db: Session = Depends(get_db),
 ):
     """Get feedback detail."""
-    fb = db.query(Feedback).filter(Feedback.id == feedback_id).first()
-    if not fb:
+    row = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id).filter(Feedback.id == feedback_id).first()
+    if not row:
         raise HTTPException(status_code=404, detail="Feedback not found")
-    return _serialize_feedback(fb)
+    fb, user = row
+    return _serialize_feedback(fb, user.email if user else None)
 
 
 @router.patch("/feedbacks/{feedback_id}")
@@ -741,35 +782,6 @@ def delete_feedback(
     db.delete(fb)
     db.commit()
     return {"message": "Feedback deleted"}
-
-
-@router.get("/feedbacks/stats")
-def get_feedback_stats(
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Get feedback statistics."""
-    total = db.query(Feedback).count()
-
-    type_counts = db.query(Feedback.type, func.count(Feedback.id)).group_by(Feedback.type).all()
-    type_stats = {t: c for t, c in type_counts}
-
-    # If status field exists
-    status_counts = []
-    try:
-        status_counts = db.query(getattr(Feedback, "status"), func.count(Feedback.id)).group_by(
-            getattr(Feedback, "status")
-        ).all()
-    except:
-        pass
-
-    status_stats = {s: c for s, c in status_counts} if status_counts else {}
-
-    return {
-        "total": total,
-        "by_type": type_stats,
-        "by_status": status_stats,
-    }
 
 
 # ═══════════════════════════════════════════════

@@ -1,13 +1,18 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  Save, RotateCcw, Keyboard, Bell, Sun, Moon,
+  Save, RotateCcw, Keyboard, Bell, Sun, Moon, LayoutGrid,
+  Search, Eye, EyeOff, Lock,
 } from "lucide-react";
 import {
-  Input, Select, Btn, Card, Badge, PageWrapper,
-  SectionHeader, LoadingScreen, EmptyState, useToast,
+  Input, Select, Btn, Card, Badge, Toggle, PageWrapper,
+  SectionHeader, useToast, PageGuide,
 } from "../_components/shared";
 import { adminApi } from "../_components/api";
+import { useAdminModules } from "../_components/AdminModulesContext";
+import { NAV_GROUPS, ALL_NAV_ITEMS, ESSENTIAL_MODULE_IDS } from "../_components/navItems";
+
+/* ── Types ─────────────────────────────── */
 
 interface AdminPreferences {
   language: "fr" | "en" | "es" | "de";
@@ -26,13 +31,8 @@ interface AdminShortcut {
 }
 
 const timezones = [
-  "UTC",
-  "Europe/Paris",
-  "Europe/London",
-  "Europe/Berlin",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Asia/Tokyo",
+  "UTC", "Europe/Paris", "Europe/London", "Europe/Berlin",
+  "America/New_York", "America/Los_Angeles", "Asia/Tokyo",
 ];
 
 const defaultShortcuts: AdminShortcut[] = [
@@ -43,11 +43,17 @@ const defaultShortcuts: AdminShortcut[] = [
   { id: "help", action: "Aide", keys: "Ctrl+H", description: "Ouvrir l'aide" },
 ];
 
+/* ── Page ──────────────────────────────── */
+
 export default function AdminPreferencesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"preferences" | "shortcuts">("preferences");
+  const [activeTab, setActiveTab] = useState<"modules" | "preferences" | "shortcuts">("modules");
+
+  // Modules context
+  const { disabledModules, toggleModule, isEnabled } = useAdminModules();
+  const [moduleSearch, setModuleSearch] = useState("");
 
   // Preferences
   const [prefs, setPrefs] = useState<AdminPreferences>({
@@ -64,25 +70,30 @@ export default function AdminPreferencesPage() {
   const [editingShortcut, setEditingShortcut] = useState<string | null>(null);
   const [editingKeys, setEditingKeys] = useState("");
 
+  // Stats
+  const totalModules = ALL_NAV_ITEMS.length;
+  const enabledCount = ALL_NAV_ITEMS.filter((i) => isEnabled(i.id)).length;
+  const disabledCount = totalModules - enabledCount;
+
   // Load preferences
   useEffect(() => {
     const loadPreferences = async () => {
       try {
         setLoading(true);
         const [prefsRes, shortcutsRes] = await Promise.all([
-          adminApi.getAdminPreferences(),
-          adminApi.getAdminShortcuts(),
+          adminApi.getAdminPreferences().catch(() => null),
+          adminApi.getAdminShortcuts().catch(() => null),
         ]);
-        setPrefs(prefsRes || prefs);
-        setShortcuts(shortcutsRes.shortcuts || defaultShortcuts);
-      } catch (err: any) {
-        toast(`Erreur: ${err.message}`, "error");
+        if (prefsRes) setPrefs(prefsRes);
+        if (shortcutsRes?.shortcuts) setShortcuts(shortcutsRes.shortcuts);
+      } catch {
+        // Silently handle errors
       } finally {
         setLoading(false);
       }
     };
     loadPreferences();
-  }, [toast]);
+  }, []);
 
   // Save preferences
   const handleSavePreferences = async () => {
@@ -110,248 +121,355 @@ export default function AdminPreferencesPage() {
     }
   };
 
-  // Update shortcut
-  const handleUpdateShortcut = (shortcutId: string, newKeys: string) => {
-    const updatedShortcuts = shortcuts.map((s) =>
-      s.id === shortcutId ? { ...s, keys: newKeys } : s
-    );
-    setShortcuts(updatedShortcuts);
+  // Filtered nav groups for module search
+  const filteredGroups = useMemo(() => {
+    if (!moduleSearch.trim()) return NAV_GROUPS;
+    const q = moduleSearch.toLowerCase();
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(q) ||
+          item.id.toLowerCase().includes(q) ||
+          group.label.toLowerCase().includes(q)
+      ),
+    })).filter((g) => g.items.length > 0);
+  }, [moduleSearch]);
+
+  // Bulk actions
+  const handleEnableAll = () => {
+    ALL_NAV_ITEMS.forEach((item) => {
+      if (!isEnabled(item.id)) toggleModule(item.id);
+    });
+    toast("Tous les modules activés", "success");
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Chargement...</div>;
+  const handleDisableNonEssential = () => {
+    ALL_NAV_ITEMS.forEach((item) => {
+      if (!ESSENTIAL_MODULE_IDS.has(item.id) && isEnabled(item.id)) {
+        toggleModule(item.id);
+      }
+    });
+    toast("Modules non-essentiels désactivés", "success");
+  };
+
+  // Bulk toggle for a group
+  const toggleGroup = (groupLabel: string, enable: boolean) => {
+    const group = NAV_GROUPS.find((g) => g.label === groupLabel);
+    if (!group) return;
+    group.items.forEach((item) => {
+      if (ESSENTIAL_MODULE_IDS.has(item.id)) return;
+      const currently = isEnabled(item.id);
+      if (currently !== enable) toggleModule(item.id);
+    });
+  };
+
+  const tabs = [
+    { id: "modules" as const, label: "Modules Admin", icon: LayoutGrid },
+    { id: "preferences" as const, label: "Paramètres", icon: Save },
+    { id: "shortcuts" as const, label: "Raccourcis", icon: Keyboard },
+  ];
 
   return (
     <PageWrapper>
+      <PageGuide
+        id="admin-preferences"
+        icon={LayoutGrid}
+        title="Préférences Admin & Modules"
+        description="Activez ou désactivez les modules de la sidebar admin. Les modules désactivés disparaissent de la navigation mais restent accessibles par URL directe."
+        steps={[
+          { text: "Utilisez les toggles pour activer/désactiver chaque module" },
+          { text: "Les modules essentiels (Dashboard, Utilisateurs, Santé, Réglages) ne peuvent pas être désactivés" },
+          { text: "Utilisez 'Tout activer' ou 'Tout désactiver' pour des actions en masse" },
+        ]}
+      />
       <SectionHeader
-        title="Préférences admin"
-        description="Langue, fuseau horaire, thème, notifications, raccourcis"
+        title="Préférences Admin"
+        description={`${enabledCount} modules actifs sur ${totalModules}`}
       />
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-700">
-        {["preferences", "shortcuts"].map((tab) => (
+      <div className="flex gap-1 mb-6 border-b border-border-subtle">
+        {tabs.map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`px-4 py-2 font-medium text-sm transition-colors ${
-              activeTab === tab
-                ? "text-purple-400 border-b-2 border-purple-600"
-                : "text-gray-400 hover:text-gray-300"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-colors border-b-2 -mb-px ${
+              activeTab === tab.id
+                ? "text-accent border-accent"
+                : "text-text-muted border-transparent hover:text-text-secondary"
             }`}
           >
-            {tab === "preferences" && "Paramètres"}
-            {tab === "shortcuts" && "Raccourcis"}
+            <tab.icon size={15} />
+            {tab.label}
+            {tab.id === "modules" && disabledCount > 0 && (
+              <Badge variant="warning">{disabledCount} off</Badge>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Preferences Tab */}
+      {/* ═══ MODULES TAB ═══ */}
+      {activeTab === "modules" && (
+        <div className="space-y-6">
+          {/* Stats + Actions */}
+          <Card className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-accent">{enabledCount}</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider">Actifs</div>
+                </div>
+                <div className="w-px h-10 bg-border-subtle" />
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-text-muted">{disabledCount}</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider">Masqués</div>
+                </div>
+                <div className="w-px h-10 bg-border-subtle" />
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-text-primary">{totalModules}</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider">Total</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Btn variant="primary" small onClick={handleEnableAll}>
+                  <Eye size={14} /> Tout activer
+                </Btn>
+                <Btn variant="warning" small onClick={handleDisableNonEssential}>
+                  <EyeOff size={14} /> Tout désactiver
+                </Btn>
+              </div>
+            </div>
+          </Card>
+
+          {/* Search */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              value={moduleSearch}
+              onChange={(e) => setModuleSearch(e.target.value)}
+              placeholder="Rechercher un module…"
+              className="w-full pl-10 pr-4 py-2.5 bg-bg-secondary border border-border-subtle rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none transition-colors"
+            />
+          </div>
+
+          {/* Groups */}
+          <div className="space-y-4">
+            {filteredGroups.map((group) => {
+              const groupEnabled = group.items.filter((i) => isEnabled(i.id)).length;
+              const groupTotal = group.items.length;
+              const allEnabled = groupEnabled === groupTotal;
+              const allDisabled = groupEnabled === 0 || (groupEnabled === group.items.filter((i) => ESSENTIAL_MODULE_IDS.has(i.id)).length);
+
+              return (
+                <Card key={group.label} className="overflow-hidden">
+                  {/* Group header */}
+                  <div className="flex items-center justify-between px-5 py-3 bg-bg-secondary border-b border-border-subtle">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-sm font-bold text-text-primary">{group.label}</h3>
+                      <Badge variant={groupEnabled === groupTotal ? "success" : groupEnabled === 0 ? "error" : "warning"}>
+                        {groupEnabled}/{groupTotal}
+                      </Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Btn
+                        small
+                        variant={allEnabled ? "default" : "primary"}
+                        disabled={allEnabled}
+                        onClick={() => toggleGroup(group.label, true)}
+                      >
+                        Tout activer
+                      </Btn>
+                      <Btn
+                        small
+                        variant={allDisabled ? "default" : "warning"}
+                        disabled={allDisabled}
+                        onClick={() => toggleGroup(group.label, false)}
+                      >
+                        Tout masquer
+                      </Btn>
+                    </div>
+                  </div>
+
+                  {/* Items */}
+                  <div className="divide-y divide-border-subtle">
+                    {group.items.map((item) => {
+                      const essential = ESSENTIAL_MODULE_IDS.has(item.id);
+                      const enabled = isEnabled(item.id);
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between px-5 py-3 transition-colors ${
+                            enabled ? "bg-bg-primary" : "bg-bg-primary/50 opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <item.icon size={16} className={enabled ? "text-accent" : "text-text-muted"} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-text-primary truncate">
+                                {item.label}
+                              </p>
+                              <p className="text-[10px] text-text-muted font-mono">{item.href}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 ml-3">
+                            {essential && (
+                              <Badge variant="info">
+                                <Lock size={10} className="mr-1" />
+                                Essentiel
+                              </Badge>
+                            )}
+                            <Toggle
+                              on={enabled}
+                              onToggle={() => !essential && toggleModule(item.id)}
+                              disabled={essential}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {filteredGroups.length === 0 && (
+            <div className="text-center py-12 text-text-muted">
+              <Search size={32} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm">Aucun module trouvé pour « {moduleSearch} »</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ PREFERENCES TAB ═══ */}
       {activeTab === "preferences" && (
         <div className="space-y-6">
-          {/* General Settings */}
-          <Card>
-            <div className="p-6">
-              <h3 className="text-white font-semibold mb-4">Paramètres généraux</h3>
-              <div className="space-y-4 max-w-md">
-                <div>
-                  <label className="block text-gray-400 text-sm font-medium mb-2">
-                    Langue
-                  </label>
-                  <Select
-                    value={prefs.language}
-                    onChange={(e) =>
-                      setPrefs({ ...prefs, language: e.target.value as any })
-                    }
-                  >
-                    <option value="fr">Français</option>
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                    <option value="de">Deutsch</option>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 text-sm font-medium mb-2">
-                    Fuseau horaire
-                  </label>
-                  <Select
-                    value={prefs.timezone}
-                    onChange={(e) =>
-                      setPrefs({ ...prefs, timezone: e.target.value })
-                    }
-                  >
-                    {timezones.map((tz) => (
-                      <option key={tz} value={tz}>
-                        {tz}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 text-sm font-medium mb-2">
-                    Thème
-                  </label>
-                  <div className="flex gap-2">
-                    {["dark", "light", "auto"].map((theme) => (
-                      <button
-                        key={theme}
-                        onClick={() => setPrefs({ ...prefs, theme: theme as any })}
-                        className={`flex items-center gap-2 px-4 py-2 rounded border transition-colors ${
-                          prefs.theme === theme
-                            ? "border-purple-600 bg-purple-600/20 text-purple-300"
-                            : "border-gray-700 text-gray-400 hover:border-gray-600"
-                        }`}
-                      >
-                        {theme === "dark" && <Moon className="w-4 h-4" />}
-                        {theme === "light" && <Sun className="w-4 h-4" />}
-                        {theme === "auto" && <RotateCcw className="w-4 h-4" />}
-                        {theme === "dark" && "Sombre"}
-                        {theme === "light" && "Clair"}
-                        {theme === "auto" && "Auto"}
-                      </button>
-                    ))}
-                  </div>
+          <Card className="p-6">
+            <h3 className="text-text-primary font-semibold mb-4">Paramètres généraux</h3>
+            <div className="space-y-4 max-w-md">
+              <Select
+                label="Langue"
+                value={prefs.language}
+                onChange={(v) => setPrefs({ ...prefs, language: v as any })}
+                options={[
+                  { value: "fr", label: "Français" },
+                  { value: "en", label: "English" },
+                  { value: "es", label: "Español" },
+                  { value: "de", label: "Deutsch" },
+                ]}
+              />
+              <Select
+                label="Fuseau horaire"
+                value={prefs.timezone}
+                onChange={(v) => setPrefs({ ...prefs, timezone: v })}
+                options={timezones.map((tz) => ({ value: tz, label: tz }))}
+              />
+              <div>
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Thème</p>
+                <div className="flex gap-2">
+                  {(["dark", "light", "auto"] as const).map((theme) => (
+                    <button
+                      key={theme}
+                      onClick={() => setPrefs({ ...prefs, theme })}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                        prefs.theme === theme
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-border-subtle text-text-muted hover:border-border-default"
+                      }`}
+                    >
+                      {theme === "dark" && <Moon size={14} />}
+                      {theme === "light" && <Sun size={14} />}
+                      {theme === "auto" && <RotateCcw size={14} />}
+                      <span className="text-sm">{theme === "dark" ? "Sombre" : theme === "light" ? "Clair" : "Auto"}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Notifications */}
-          <Card>
-            <div className="p-6">
-              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                <Bell className="w-5 h-5" /> Notifications
-              </h3>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prefs.notifications_email}
-                    onChange={(e) =>
-                      setPrefs({
-                        ...prefs,
-                        notifications_email: e.target.checked,
-                      })
-                    }
-                    className="w-4 h-4 rounded bg-[#0a0a1a] border-gray-700 text-purple-600 cursor-pointer"
-                  />
-                  <span className="text-gray-300">Notifications par email</span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prefs.notifications_push}
-                    onChange={(e) =>
-                      setPrefs({
-                        ...prefs,
-                        notifications_push: e.target.checked,
-                      })
-                    }
-                    className="w-4 h-4 rounded bg-[#0a0a1a] border-gray-700 text-purple-600 cursor-pointer"
-                  />
-                  <span className="text-gray-300">Notifications push</span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={prefs.notifications_in_app}
-                    onChange={(e) =>
-                      setPrefs({
-                        ...prefs,
-                        notifications_in_app: e.target.checked,
-                      })
-                    }
-                    className="w-4 h-4 rounded bg-[#0a0a1a] border-gray-700 text-purple-600 cursor-pointer"
-                  />
-                  <span className="text-gray-300">Notifications dans l'appli</span>
-                </label>
-              </div>
+          <Card className="p-6">
+            <h3 className="text-text-primary font-semibold mb-4 flex items-center gap-2">
+              <Bell size={16} /> Notifications
+            </h3>
+            <div className="space-y-3">
+              {[
+                { key: "notifications_email" as const, label: "Notifications par email" },
+                { key: "notifications_push" as const, label: "Notifications push" },
+                { key: "notifications_in_app" as const, label: "Notifications dans l'appli" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between p-3 bg-bg-secondary rounded-lg border border-border-subtle">
+                  <span className="text-sm text-text-secondary">{label}</span>
+                  <Toggle on={prefs[key]} onToggle={() => setPrefs({ ...prefs, [key]: !prefs[key] })} />
+                </div>
+              ))}
             </div>
           </Card>
 
-          {/* Save Button */}
           <div className="flex justify-end">
-            <Btn
-              variant="primary"
-              onClick={handleSavePreferences}
-              disabled={saving}
-              className="min-w-[200px]"
-            >
-              <Save className="w-4 h-4" /> Enregistrer les préférences
+            <Btn variant="primary" onClick={handleSavePreferences} loading={saving}>
+              <Save size={14} /> Enregistrer les préférences
             </Btn>
           </div>
         </div>
       )}
 
-      {/* Shortcuts Tab */}
+      {/* ═══ SHORTCUTS TAB ═══ */}
       {activeTab === "shortcuts" && (
-        <Card>
-          <div className="p-6">
-            <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <Keyboard className="w-5 h-5" /> Raccourcis clavier
-            </h3>
-            <div className="space-y-3 mb-6">
-              {shortcuts.map((shortcut) => (
-                <div
-                  key={shortcut.id}
-                  className="flex items-center justify-between bg-[#0a0a1a] p-4 rounded border border-gray-700"
-                >
-                  <div className="flex-1">
-                    <p className="text-white font-medium">{shortcut.action}</p>
-                    <p className="text-gray-400 text-sm">{shortcut.description}</p>
-                  </div>
-
-                  {editingShortcut === shortcut.id ? (
-                    <div className="flex gap-2">
-                      <Input
-                        type="text"
-                        value={editingKeys}
-                        onChange={(v) => setEditingKeys(v)}
-                        placeholder="ex: Ctrl+K"
-                        className="w-32"
-                      />
-                      <Btn
-                        variant="success"
-                        size="sm"
-                        onClick={() => {
-                          handleUpdateShortcut(shortcut.id, editingKeys);
-                          setEditingShortcut(null);
-                        }}
-                      >
-                        OK
-                      </Btn>
-                      <Btn
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setEditingShortcut(null)}
-                      >
-                        Annuler
-                      </Btn>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setEditingShortcut(shortcut.id);
-                        setEditingKeys(shortcut.keys);
-                      }}
-                      className="px-3 py-1 rounded border border-gray-700 text-gray-300 hover:text-white hover:border-gray-600 text-sm transition-colors"
-                    >
-                      {shortcut.keys}
-                    </button>
-                  )}
+        <Card className="p-6">
+          <h3 className="text-text-primary font-semibold mb-4 flex items-center gap-2">
+            <Keyboard size={16} /> Raccourcis clavier
+          </h3>
+          <div className="space-y-3 mb-6">
+            {shortcuts.map((shortcut) => (
+              <div
+                key={shortcut.id}
+                className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-border-subtle"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-text-primary">{shortcut.action}</p>
+                  <p className="text-xs text-text-muted">{shortcut.description}</p>
                 </div>
-              ))}
-            </div>
-
-            <Btn
-              variant="primary"
-              onClick={handleSaveShortcuts}
-              disabled={saving}
-            >
-              <Save className="w-4 h-4" /> Enregistrer les raccourcis
+                {editingShortcut === shortcut.id ? (
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      value={editingKeys}
+                      onChange={(v) => setEditingKeys(v)}
+                      placeholder="ex: Ctrl+K"
+                    />
+                    <Btn
+                      variant="primary"
+                      small
+                      onClick={() => {
+                        setShortcuts((s) => s.map((sc) => sc.id === shortcut.id ? { ...sc, keys: editingKeys } : sc));
+                        setEditingShortcut(null);
+                      }}
+                    >
+                      OK
+                    </Btn>
+                    <Btn variant="default" small onClick={() => setEditingShortcut(null)}>
+                      Annuler
+                    </Btn>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setEditingShortcut(shortcut.id); setEditingKeys(shortcut.keys); }}
+                    className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-default text-sm font-mono transition-colors"
+                  >
+                    {shortcut.keys}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Btn variant="primary" onClick={handleSaveShortcuts} loading={saving}>
+              <Save size={14} /> Enregistrer les raccourcis
             </Btn>
           </div>
         </Card>
