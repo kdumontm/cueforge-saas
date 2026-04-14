@@ -120,6 +120,7 @@ PENDING_MIGRATIONS = {
         "estimated_bitrate_kbps": "INTEGER",
         "is_upscaled": "BOOLEAN",
         "spectral_rolloff_hz": "INTEGER",
+        "spectral_contrast_mean": "FLOAT",
         "audio_quality_score": "FLOAT",
         "audio_quality_grade": "VARCHAR(2)",
         "audio_quality_breakdown": "JSON",
