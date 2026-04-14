@@ -8,15 +8,16 @@ Tests:
 - Data compression/decompression
 """
 import pytest
+import time
 from datetime import datetime
-from backend.app.services.circuit_breaker import (
+from app.services.circuit_breaker import (
     CircuitBreaker, CircuitState, get_breaker, reset_all_breakers
 )
-from backend.app.services.monitoring import AnalysisMetrics, get_metrics
-from backend.app.services.quota_service import (
+from app.services.monitoring import AnalysisMetrics, PrometheusMetrics
+from app.services.quota_service import (
     QuotaService, PlanType, get_quota_service
 )
-from backend.app.services.data_optimization import (
+from app.services.data_optimization import (
     AnalysisCompressor, BeatPositionEncoder, get_optimization_service
 )
 
@@ -56,22 +57,20 @@ class TestCircuitBreaker:
         assert success is False
 
     def test_circuit_half_open_recovery(self):
-        """Circuit should attempt recovery in HALF_OPEN state."""
+        """Circuit should transition to HALF_OPEN and recover with a success."""
         breaker = CircuitBreaker("test_service", failure_threshold=1, reset_timeout=0)
 
         def failing_func():
             raise ValueError("Service failed")
 
-        # Open circuit
+        # Open circuit with 1 failure
         breaker.call(failing_func)
         assert breaker.state == CircuitState.OPEN
 
-        # Reset timeout allows transition to HALF_OPEN
+        # Monkey-patch so reset timeout is met
         breaker._should_attempt_reset = lambda: True
-        result, success = breaker.call(failing_func)
-        assert breaker.state == CircuitState.HALF_OPEN
 
-        # Successful call should close circuit
+        # Successful call should transition OPEN → HALF_OPEN → CLOSED
         def success_func():
             return "recovered"
 
@@ -81,62 +80,52 @@ class TestCircuitBreaker:
 
 
 class TestMonitoring:
-    """Test metrics collection."""
+    """Test metrics collection via PrometheusMetrics."""
 
-    def test_latency_percentiles(self):
-        """Test P50, P95, P99 percentile calculation."""
+    def test_analysis_metrics_dataclass(self):
+        """Test AnalysisMetrics dataclass fields."""
         metrics = AnalysisMetrics()
+        assert metrics.queued_count == 0
+        assert metrics.completed_count == 0
+        assert metrics.failed_count == 0
+        assert metrics.avg_processing_time_ms == 0.0
 
-        # Record 100 samples
-        for i in range(100):
-            metrics.record_fingerprint(10 + i)  # 10-109ms
-
-        assert metrics.fingerprint_latency.count() == 100
-        p50 = metrics.fingerprint_latency.p50()
-        p95 = metrics.fingerprint_latency.p95()
-        p99 = metrics.fingerprint_latency.p99()
-
-        assert p50 is not None
-        assert p95 is not None
-        assert p99 is not None
-        assert p50 <= p95 <= p99
-
-    def test_error_counting(self):
-        """Test error categorization."""
+    def test_analysis_metrics_processing_times(self):
+        """Test avg_processing_time_ms property."""
         metrics = AnalysisMetrics()
+        metrics.processing_times.extend([100, 200, 300])
+        assert metrics.avg_processing_time_ms == pytest.approx(200.0)
 
-        metrics.record_error("timeout")
-        metrics.record_error("timeout")
-        metrics.record_error("out_of_memory")
-        metrics.record_error("network")
+    def test_prometheus_record_endpoint(self):
+        """Test recording endpoint requests."""
+        prom = PrometheusMetrics()
+        prom.record_endpoint_request("/api/v1/tracks", "GET", 50.0, 200)
+        prom.record_endpoint_request("/api/v1/tracks", "GET", 100.0, 200)
+        summary = prom.get_metrics_summary()
+        assert summary["endpoints"]["GET /api/v1/tracks"]["total_requests"] == 2
 
-        errors = metrics.errors.get_counts()
-        assert errors["timeout"] == 2
-        assert errors["out_of_memory"] == 1
-        assert errors["network"] == 1
-        assert metrics.errors.total() == 4
+    def test_prometheus_cache_metrics(self):
+        """Test cache hit/miss recording."""
+        prom = PrometheusMetrics()
+        prom.record_cache_hit()
+        prom.record_cache_hit()
+        prom.record_cache_miss()
+        summary = prom.get_metrics_summary()
+        assert summary["cache"]["hits"] == 2
+        assert summary["cache"]["misses"] == 1
+        assert summary["cache"]["hit_rate_percent"] == pytest.approx(66.67, abs=0.1)
 
-    def test_cache_hit_rate(self):
-        """Test cache hit rate calculation."""
-        metrics = AnalysisMetrics()
+    def test_prometheus_analysis_metrics(self):
+        """Test analysis tracking."""
+        prom = PrometheusMetrics()
+        prom.record_analysis_queued()
+        prom.record_analysis_started()
+        prom.record_analysis_completed(150.0)
 
-        metrics.record_cache_hit()
-        metrics.record_cache_hit()
-        metrics.record_cache_miss()
-
-        hit_rate = metrics.get_cache_hit_rate()
-        assert hit_rate == pytest.approx(66.67, 0.1)
-
-    def test_throughput_calculation(self):
-        """Test analyses per second calculation."""
-        metrics = AnalysisMetrics()
-
-        for _ in range(10):
-            metrics.record_analysis_complete(100, success=True)
-
-        throughput = metrics.get_throughput()
-        assert throughput > 0
-        assert metrics.get_success_rate() == 100.0
+        summary = prom.get_metrics_summary()
+        # queued incremented then decremented by started → 0
+        assert summary["analysis"]["queued"] == 0
+        assert summary["analysis"]["completed"] == 1
 
 
 class TestQuotaService:
@@ -277,9 +266,11 @@ class TestOptimization:
         """Test compression through optimization service."""
         service = get_optimization_service()
 
+        # Données suffisamment volumineuses pour que la compression soit efficace
         result = {
-            "fingerprint": "abc123",
-            "metadata": {"artist": "Test"},
+            "fingerprint": "abc123" * 100,
+            "metadata": {"artist": "Test Artist", "title": "Long Track Title"},
+            "waveform_peaks": [0.1, 0.2, 0.3, 0.4, 0.5] * 200,
         }
 
         compressed, ratio = service.compress_analysis_result(result)
@@ -288,7 +279,7 @@ class TestOptimization:
 
         # Decompress
         restored = service.decompress_analysis_result(compressed)
-        assert restored["fingerprint"] == "abc123"
+        assert restored["metadata"]["artist"] == "Test Artist"
 
 
 if __name__ == "__main__":

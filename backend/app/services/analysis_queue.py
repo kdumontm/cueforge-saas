@@ -125,11 +125,18 @@ def enqueue(job: AnalysisJob) -> bool:
         logger.info(f"Enqueued track {job.track_id} (priority: {job.priority})")
         return True
     else:
-        # In-memory fallback
+        # In-memory fallback — check dupes in queue AND processing
         for existing in _memory_queue:
             if existing.get('track_id') == job.track_id:
                 return False
-        _memory_queue.append(job.to_dict())
+        for v in _memory_processing.values():
+            if v.get('track_id') == job.track_id:
+                return False
+        # Priority: urgent at front, others at back
+        if job.priority == 'urgent':
+            _memory_queue.appendleft(job.to_dict())
+        else:
+            _memory_queue.append(job.to_dict())
         return True
 
 
@@ -178,6 +185,15 @@ def complete(job: AnalysisJob, success: bool = True, error: str = None):
                 logger.error(f"Track {job.track_id} moved to dead letter queue after {MAX_RETRIES} retries")
     else:
         _memory_processing.pop(job.job_id, None)
+        if not success and job.retry_count < MAX_RETRIES:
+            job.retry_count += 1
+            enqueue(job)
+
+
+def reset_queue():
+    """Reset in-memory queue state (for tests)."""
+    _memory_queue.clear()
+    _memory_processing.clear()
 
 
 def get_queue_position(track_id: int) -> Optional[int]:

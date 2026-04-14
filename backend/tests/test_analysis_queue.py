@@ -5,8 +5,16 @@ import pytest
 import json
 from app.services.analysis_queue import (
     AnalysisJob, enqueue, dequeue, complete, get_queue_position,
-    get_queue_stats, estimate_wait_time, MAX_RETRIES
+    get_queue_stats, estimate_wait_time, reset_queue, MAX_RETRIES
 )
+
+
+@pytest.fixture(autouse=True)
+def clean_queue():
+    """Reset in-memory queue before each test."""
+    reset_queue()
+    yield
+    reset_queue()
 
 
 class TestAnalysisJob:

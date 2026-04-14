@@ -344,7 +344,7 @@ class CueHistory(Base):
     __tablename__ = "cue_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
     action = Column(String(50), nullable=False)  # 'created', 'updated', 'deleted'
     old_values = Column(PGJSON, nullable=True)  # JSON snapshot
     new_values = Column(PGJSON, nullable=True)  # JSON snapshot
@@ -364,7 +364,7 @@ class CueConflict(Base):
     __tablename__ = "cue_conflicts"
 
     id = Column(Integer, primary_key=True, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id"), nullable=False)
     cue_id_1 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
     cue_id_2 = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
     conflict_type = Column(String(50), nullable=False)  # 'overlap', 'too_close', 'conflicting_types'
@@ -398,7 +398,7 @@ class CueVersion(Base):
     __tablename__ = "cue_versions"
 
     id = Column(Integer, primary_key=True, index=True)
-    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False, index=True)
+    cue_point_id = Column(Integer, ForeignKey("cue_points.id"), nullable=False)
     version_number = Column(Integer, nullable=False)
     position_ms = Column(Integer, nullable=False)
     name = Column(String(255), nullable=False)
