@@ -23,56 +23,9 @@ function getRequestKey(method: string, url: string): string {
   return `${method}:${url}`;
 }
 
-// Improvement #36: Optimistic updates store
-export const optimisticUpdates = new Map<string, any>();
-
-// Improvement #66: WebSocket connection for real-time updates
-let wsConnection: WebSocket | null = null;
-const wsSubscribers = new Map<string, Set<(data: any) => void>>();
-
-export function subscribeToWebSocket(channel: string, callback: (data: any) => void): () => void {
-  if (!wsSubscribers.has(channel)) {
-    wsSubscribers.set(channel, new Set());
-  }
-  wsSubscribers.get(channel)!.add(callback);
-
-  // Return unsubscribe function
-  return () => {
-    wsSubscribers.get(channel)?.delete(callback);
-  };
-}
-
-// Improvement #67: Offline queue for storing modifications
-export interface OfflineQueueItem {
-  id: string;
-  timestamp: number;
-  method: string;
-  url: string;
-  body?: any;
-  priority: 'high' | 'normal' | 'low';
-}
-
-const offlineQueue = new Map<string, OfflineQueueItem>();
-
-export function addToOfflineQueue(method: string, url: string, body?: any, priority: 'high' | 'normal' | 'low' = 'normal'): string {
-  const id = `${method}-${url}-${Date.now()}`;
-  offlineQueue.set(id, { id, timestamp: Date.now(), method, url, body, priority });
-  return id;
-}
-
-export function getOfflineQueue(): OfflineQueueItem[] {
-  return Array.from(offlineQueue.values()).sort((a, b) => {
-    const priorityOrder = { high: 0, normal: 1, low: 2 };
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
-  });
-}
-
-// Improvement #68: Conflict resolution helper
-export interface ConflictResolution {
-  strategy: 'client-wins' | 'server-wins' | 'merge';
-  clientVersion: any;
-  serverVersion: any;
-}
+// NOTE: Offline queue, WebSocket subscriptions, optimistic updates et conflict resolution
+// ont été retirés (code mort — jamais importés par aucun composant).
+// À réimplémenter proprement quand le besoin sera réel.
 
 // Improvement #69: API response caching with TTL
 interface CacheEntry {

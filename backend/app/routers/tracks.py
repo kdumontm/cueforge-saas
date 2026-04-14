@@ -35,6 +35,16 @@ from app.utils.security import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+def safe_commit(db: Session, context: str = ""):
+    """Commit avec rollback automatique en cas d'erreur."""
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"DB commit failed{f' ({context})' if context else ''}: {e}")
+        raise HTTPException(status_code=500, detail="Erreur base de données")
+
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".ogg", ".opus"}
 from app.config import get_settings as _get_settings
 MAX_FILE_SIZE_MB = _get_settings().MAX_FILE_SIZE_MB
@@ -95,7 +105,7 @@ async def upload_track(
         # Mise à jour legacy pour compatibilité (admin panel, export RGPD)
         current_user.tracks_today = tracks_today + 1
         current_user.last_track_date = dt.utcnow()
-        db.commit()
+        safe_commit(db)
         tracks_today += 1  # valeur locale post-insert
 
         # Notify user when approaching daily limit (80%+)
@@ -169,7 +179,7 @@ async def upload_track(
         status=TrackStatus.pending,
     )
     db.add(track)
-    db.commit()
+    safe_commit(db)
     db.refresh(track)
 
     return TrackUploadResponse(
@@ -407,7 +417,7 @@ def _run_analysis(track_id: int):
         if not file_path or not os.path.exists(file_path):
             track.status = TrackStatus.failed
             track.error_message = "Audio file not found on disk"
-            db.commit()
+            safe_commit(db)
             return
 
         # Cleanup + set status
@@ -417,7 +427,7 @@ def _run_analysis(track_id: int):
         db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
 
         track.status = TrackStatus.analyzing
-        db.commit()
+        safe_commit(db)
 
         # Check stem separation preference
         use_stems = False
@@ -686,7 +696,7 @@ def _run_analysis(track_id: int):
 
         # Mark complete and commit
         track.status = TrackStatus.completed
-        db.commit()
+        safe_commit(db)
         logger.info(f"Track {track_id} analysis complete")
 
         # Create notification
@@ -698,7 +708,7 @@ def _run_analysis(track_id: int):
             link=f"/dashboard?track={track.id}",
         )
         db.add(notif)
-        db.commit()
+        safe_commit(db)
 
         # Mode pro : lancer Demucs en thread daemon après analyse
         if use_stems:
@@ -1383,7 +1393,7 @@ async def analyze_track_local(
             logger.warning(f"[analyze-local] Auto-loops save failed: {e}")
 
     track.status = TrackStatus.completed
-    db.commit()
+    safe_commit(db)
 
     # ── Create notification ──────────────────────────────────────────
     notif = Notification(
@@ -1394,7 +1404,7 @@ async def analyze_track_local(
         link=f"/dashboard?track={track.id}",
     )
     db.add(notif)
-    db.commit()
+    safe_commit(db)
 
     # ── Stems : si l'analyse locale n'a PAS fait Demucs (pas installé sur le
     # PC de l'utilisateur), le serveur peut lancer Demucs en fallback cloud.
@@ -1571,7 +1581,7 @@ def delete_track(
     # Supprimer manuellement les dépendances FK (au cas où la DB n'a pas ondelete=CASCADE)
     _delete_track_dependencies(db, track_id)
     db.delete(track)
-    db.commit()
+    safe_commit(db)
     return {"status": "deleted", "track_id": track_id}
 
 
@@ -1640,7 +1650,7 @@ def batch_delete_tracks(
 
     # Bulk delete des tracks
     db.query(Track).filter(Track.id.in_(deleted_ids)).delete(synchronize_session=False)
-    db.commit()
+    safe_commit(db)
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
 
 
@@ -1690,7 +1700,7 @@ def update_track_metadata(
     for field, value in update_data.items():
         setattr(track, field, value)
 
-    db.commit()
+    safe_commit(db)
     db.refresh(track)
     return TrackResponse.model_validate(track)
 
@@ -1716,7 +1726,7 @@ def clean_title(
     track.title = result['title']
     if result.get('artist') and not track.artist:
         track.artist = result['artist']
-    db.commit()
+    safe_commit(db)
     db.refresh(track)
 
     return {"status": "ok", "title": track.title, "artist": track.artist}
@@ -1746,7 +1756,7 @@ def parse_remix(
         track.remix_type = result['remix_type']
     if result.get('feat_artist'):
         track.feat_artist = result['feat_artist']
-    db.commit()
+    safe_commit(db)
     db.refresh(track)
 
     return {"status": "ok", **result}
@@ -1778,7 +1788,7 @@ def detect_genre(
     # Auto-apply best guess
     if result.get('best_guess') and result['best_guess'] != 'Unknown':
         track.genre = result['best_guess']
-        db.commit()
+        safe_commit(db)
 
     return {"status": "ok", **result}
 
@@ -1862,7 +1872,7 @@ def spotify_apply(
         track.spotify_url = body.spotify_url
     track.spotify_id = body.spotify_id
 
-    db.commit()
+    safe_commit(db)
     db.refresh(track)
 
     return {"status": "ok", "track": TrackResponse.model_validate(track)}
@@ -2294,7 +2304,7 @@ def record_play(
         duration_played_ms=duration_played_ms,
     )
     db.add(entry)
-    db.commit()
+    safe_commit(db)
 
     return {"status": "ok", "played_count": track.played_count}
 
@@ -2356,7 +2366,7 @@ def clear_all_history(
         {"played_count": 0, "last_played_at": None},
         synchronize_session=False,
     )
-    db.commit()
+    safe_commit(db)
     return {"status": "ok", "deleted": deleted}
 
 
@@ -2417,7 +2427,7 @@ def update_beatgrid(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(analysis, field, value)
 
-    db.commit()
+    safe_commit(db)
     db.refresh(analysis)
 
     return {
@@ -2723,7 +2733,7 @@ def get_structural_summary(
 
     # Cache it for next time
     analysis.structural_summary = summary
-    db.commit()
+    safe_commit(db)
 
     return summary
 
@@ -2919,7 +2929,7 @@ def analyze_track_quick(
     if data.get("camelot_code"):
         track.camelot_code = data["camelot_code"]
 
-    db.commit()
+    safe_commit(db)
     return {**data, "track_id": track_id, "status": "quick_analyzed"}
 
 
@@ -2989,7 +2999,7 @@ def batch_analyze_tracks(
             )
             results.append({"track_id": track.id, "status": "queued"})
 
-    db.commit()
+    safe_commit(db)
     return {"analyzed": len(results), "results": results}
 
 
@@ -3006,14 +3016,14 @@ def _run_full_analysis_bg(track_id: int, file_path: str, use_stems: bool, db: Se
                 for k, v in data.items():
                     if hasattr(analysis, k) and v is not None:
                         setattr(analysis, k, v)
-            db.commit()
+            safe_commit(db)
     except Exception as e:
         logger.error(f"Batch full analysis failed for track {track_id}: {e}")
         track = db.query(Track).filter(Track.id == track_id).first()
         if track:
             track.status = TrackStatus.failed
             track.error_message = str(e)[:500]
-            db.commit()
+            safe_commit(db)
 
 
 # ── Track comparison (DJ compatibility) ───────────────────────────────────
@@ -3298,7 +3308,7 @@ def apply_suggested_cues(
         db.add(cue)
         created += 1
 
-    db.commit()
+    safe_commit(db)
     return {"track_id": track_id, "cues_created": created}
 
 

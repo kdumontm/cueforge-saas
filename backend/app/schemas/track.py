@@ -45,6 +45,8 @@ class CuePointBase(BaseModel):
     name: str = ""
     color: Optional[str] = "red"
     number: Optional[int] = None
+    cue_mode: Optional[str] = "memory"
+    color_rgb: Optional[str] = None
 
 
 class CuePointCreate(CuePointBase):
@@ -58,6 +60,8 @@ class CuePointUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     number: Optional[int] = None
+    cue_mode: Optional[str] = None
+    color_rgb: Optional[str] = None
 
 
 class CuePointResponse(CuePointBase):
@@ -67,6 +71,8 @@ class CuePointResponse(CuePointBase):
     # OPT #30: Enhanced response with contextual fields
     bar_number: Optional[int] = None
     energy_at_cue: Optional[float] = None
+    confidence: Optional[float] = None
+    source: Optional[str] = None
     is_manual: bool = False
     generation_version: Optional[str] = None
     created_at: Optional[datetime] = None

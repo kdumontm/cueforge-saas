@@ -120,17 +120,18 @@ def get_settings() -> Settings:
     # ── Sécurité : bloquer le démarrage si SECRET_KEY absent en prod ──
     is_prod = settings.DATABASE_URL and "sqlite" not in settings.DATABASE_URL
     if is_prod and settings.SECRET_KEY == "trackcue-default-key-set-in-railway-env":
-        import warnings
-        warnings.warn(
-            "⚠️  SECRET_KEY est la valeur par défaut ! "
+        import logging, socket, hashlib
+        logger = logging.getLogger("trackcue.security")
+        logger.critical(
+            "🚨 SECRET_KEY est la valeur par défaut ! "
             "Définissez SECRET_KEY dans les variables d'environnement Railway. "
-            "Les tokens JWT seraient forgeables avec la clé par défaut.",
-            stacklevel=2,
+            "Fallback sur clé dérivée du hostname — à corriger d'urgence."
         )
-        # En production Railway, on force une clé dérivée du hostname comme fallback
-        # mais on log un WARNING critique
-        import socket, hashlib
-        derived = hashlib.sha256(f"trackcue-{socket.gethostname()}".encode()).hexdigest()
+        # Fallback sécurisé : clé dérivée du hostname + timestamp de boot
+        # Mieux que la clé par défaut, mais les tokens seront invalidés à chaque redémarrage
+        import time
+        seed = f"trackcue-{socket.gethostname()}-{int(time.time() // 86400)}"
+        derived = hashlib.sha256(seed.encode()).hexdigest()
         object.__setattr__(settings, "SECRET_KEY", derived)
 
     return settings

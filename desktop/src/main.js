@@ -15,8 +15,8 @@ const { autoUpdater } = require('electron-updater');
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 
-// ── URL du site web ─────────────────────────────────────────────────────────
-const WEB_URL = 'https://exquisite-art-production-f4c6.up.railway.app';
+// ── URL du site web (centralisée via env var, fallback prod) ────────────────
+const WEB_URL = process.env.TRACKCUE_WEB_URL || 'https://exquisite-art-production-f4c6.up.railway.app';
 
 // ── Services locaux (exports DJ uniquement) ─────────────────────────────────
 let rekordboxExport, seratoExport;
