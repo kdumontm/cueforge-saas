@@ -38,10 +38,13 @@ export interface TrackAnalysis {
   key: string | null;
   energy: number | null;
   duration_ms: number | null;
+  duration?: number | null;
+  genre?: string | null;
   drop_positions: number[];
   phrase_positions: number[];
   beat_positions: number[];
   section_labels: Record<string, unknown>[];
+  sections?: Record<string, unknown>[] | null;
   waveform_peaks?: number[] | null;
   spectral_energy?: {
     low_energy: number;
@@ -69,6 +72,8 @@ export interface Track {
   original_filename: string;
   status: string;
   created_at: string;
+  file_size?: number | null;
+
   // Metadata (populated after analysis)
   artist?: string | null;
   title?: string | null;
@@ -79,6 +84,7 @@ export interface Track {
   spotify_id?: string | null;
   spotify_url?: string | null;
   musicbrainz_id?: string | null;
+
   // DJ Organization
   category?: string | null;
   tags?: string | null;
@@ -87,6 +93,7 @@ export interface Track {
   comment?: string | null;
   energy_level?: number | null;
   played_count?: number;
+
   // v4: Remix/version info
   remix_artist?: string | null;
   remix_type?: string | null;
@@ -94,6 +101,18 @@ export interface Track {
   label?: string | null;
   camelot_code?: string | null;
   last_played_at?: string | null;
+
+  // Direct analysis fields (for convenience, duplicated from analysis object)
+  bpm?: number | null;
+  key?: string | null;
+  energy?: number | null;
+  duration_ms?: number | null;
+  duration?: number | null;
+
+  // Analysis status
+  analyzed?: boolean;
+
+  // Analysis & markers
   analysis: TrackAnalysis | null;
   cue_points: CuePoint[];
   loop_markers?: LoopMarker[];
