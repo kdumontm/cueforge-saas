@@ -697,68 +697,14 @@ export function CuesTab({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
             className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
-            title="Tri principal"
+            title="Trier par"
           >
             <option value="position">Position</option>
             <option value="name">Nom</option>
             <option value="type">Type</option>
             <option value="confidence">Confiance</option>
           </select>
-          {/* Improvement #24: Secondary sort */}
-          <select
-            value={secondarySortBy || ''}
-            onChange={(e) => setSecondarySortBy((e.target.value as any) || null)}
-            className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
-            title="Tri secondaire"
-          >
-            <option value="">Aucun</option>
-            <option value="position">Position</option>
-            <option value="name">Nom</option>
-            <option value="type">Type</option>
-            <option value="confidence">Confiance</option>
-          </select>
         </div>
-
-        {/* Improvement #16: Confidence threshold slider */}
-        <div className="flex gap-2 items-center">
-          <label className="text-[10px] text-[var(--text-muted)] whitespace-nowrap">Confiance min:</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={confidenceThreshold}
-            onChange={(e) => setConfidenceThreshold(parseFloat(e.target.value))}
-            className="flex-1 h-1.5 bg-[var(--bg-hover)] rounded cursor-pointer"
-          />
-          <span className="text-[10px] text-[var(--text-muted)] min-w-[30px] text-right">
-            {Math.round(confidenceThreshold * 100)}%
-          </span>
-        </div>
-
-        {/* Improvement #8: Statistics panel */}
-        {cuePoints.length > 0 && (
-          <div className="px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)] text-xs space-y-1">
-            <div className="flex justify-between text-[var(--text-secondary)]">
-              <span>Total:</span>
-              <strong>{cueStats.total}</strong>
-            </div>
-            {Object.entries(cueStats.byType).length > 0 && (
-              <div className="flex justify-between text-[var(--text-secondary)]">
-                <span>Types:</span>
-                <span className="font-mono text-[9px]">
-                  {Object.entries(cueStats.byType).map(([type, count]) => `${type.slice(0, 2)}: ${count}`).join(', ')}
-                </span>
-              </div>
-            )}
-            {cueStats.avgConfidence > 0 && (
-              <div className="flex justify-between text-[var(--text-secondary)]">
-                <span>Confiance moy:</span>
-                <strong>{Math.round(cueStats.avgConfidence * 100)}%</strong>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Improvement #3: Bulk delete controls */}
         {bulkDeleteMode && (
@@ -779,64 +725,6 @@ export function CuesTab({
             >
               Annuler
             </button>
-          </div>
-        )}
-
-        {/* Improvement #5: Export selection button */}
-        {cuePoints.length > 0 && (
-          <button
-            onClick={() => setExportMode(!exportMode)}
-            className="w-full px-2 py-1.5 text-xs rounded-lg border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-            title="Exporter sélection de cues"
-          >
-            📤 Exporter {selectedCueIds.size > 0 ? `(${selectedCueIds.size})` : ''}
-          </button>
-        )}
-
-        {/* Improvement #15: Cue grouping controls */}
-        {cuePoints.length > 0 && (
-          <div className="flex gap-1.5">
-            <select
-              value={groupingMode}
-              onChange={(e) => setGroupingMode(e.target.value as keyof typeof CUE_GROUPING_OPTIONS)}
-              className="flex-1 px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] outline-none focus:border-blue-500 cursor-pointer"
-              title="Grouper les cues"
-            >
-              {Object.entries(CUE_GROUPING_OPTIONS).map(([key, val]) => (
-                <option key={key} value={key}>{val.icon} {val.label}</option>
-              ))}
-            </select>
-
-            {/* Improvement #16: Template save button */}
-            <button
-              onClick={() => setShowTemplateMenu(!showTemplateMenu)}
-              className="px-2 py-1 rounded bg-[var(--bg-primary)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-              title="Sauvegarder comme modèle"
-            >
-              💾
-            </button>
-          </div>
-        )}
-
-        {/* Improvement #16: Template menu */}
-        {showTemplateMenu && (
-          <div className="p-2 bg-[var(--bg-elevated)] rounded border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] font-bold text-[var(--text-muted)] px-1 pb-1">Modèles:</div>
-            {Object.entries(CUE_TEMPLATE_PRESETS).map(([key, template]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  // Save current cue setup as template
-                  localStorage.setItem(`trackcue_template_${key}`, JSON.stringify(cuePoints));
-                  setShowTemplateMenu(false);
-                }}
-                className="block w-full text-left px-2 py-1.5 rounded hover:bg-[var(--bg-hover)] text-[10px] text-[var(--text-primary)]"
-                title={template.description}
-              >
-                <div className="font-semibold">{template.name}</div>
-                <div className="text-[9px] text-[var(--text-muted)]">{template.description}</div>
-              </button>
-            ))}
           </div>
         )}
 
@@ -979,7 +867,6 @@ export function CuesTab({
               return (
                 <div key={cue.id}>
                   <div
-                    draggable
                     draggable
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}

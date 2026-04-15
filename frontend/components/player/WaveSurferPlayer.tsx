@@ -470,7 +470,8 @@ function WaveSurferPlayer({
     }
 
     // RAF optimization: skip rendering if playhead position hasn't moved significantly (< 1ms)
-    if (Math.abs(time - lastRenderedPositionRef.current) < 0.001) {
+    // BUT always render if lastRenderedPositionRef is -1 (canvas was cleared/resized)
+    if (lastRenderedPositionRef.current >= 0 && Math.abs(time - lastRenderedPositionRef.current) < 0.001) {
       rafRef.current = requestAnimationFrame(renderFrame);
       return;
     }
@@ -746,11 +747,25 @@ function WaveSurferPlayer({
             setupCanvasSize(overviewCanvasRef.current, overviewContainerRef.current, overviewSizeRef);
           if (detailCanvasRef.current && detailContainerRef.current)
             setupCanvasSize(detailCanvasRef.current, detailContainerRef.current, detailSizeRef);
+          // Force re-render after resize (canvas was cleared by dimension change)
+          lastRenderedPositionRef.current = -1;
         });
       }, 100);
     };
     window.addEventListener('resize', handleResize, { passive: true });
-    return () => { window.removeEventListener('resize', handleResize); cancelAnimationFrame(rafId); clearTimeout(timeoutId); };
+    // Force re-render when tab becomes visible again (canvas may be stale)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        lastRenderedPositionRef.current = -1;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+    };
   }, [setupCanvasSize]);
 
   // ── Audio element ref (replaces wavesurfer) ──
