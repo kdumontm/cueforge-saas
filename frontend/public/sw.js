@@ -1,98 +1,106 @@
 /**
- * Service Worker (points 671-690)
- * Cache strategies, offline support, SSE reconnection
+ * Service Worker — TrackCue
+ * Network-first pour les pages et bundles JS (Next.js change les hashes à chaque build)
+ * Cache-first uniquement pour les assets statiques stables (images, fonts, manifest)
  */
 
-const CACHE_NAME = 'trackcue-v1';
-const ASSETS_TO_CACHE = [
-  '/',
+const CACHE_NAME = 'trackcue-v2';
+const STATIC_ASSETS = [
   '/manifest.json',
-  // Add critical CSS/JS bundles here
 ];
 
-// Install event
+// Install: précache uniquement le strict minimum
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)),
   );
   self.skipWaiting();
 });
 
-// Activate event
+// Activate: supprimer TOUS les anciens caches (v1, etc.)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name)),
-      );
-    }),
+    caches.keys().then((names) =>
+      Promise.all(
+        names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)),
+      ),
+    ),
   );
   self.clients.claim();
 });
 
-// Fetch event — cache-first for assets, network-first for API
+// Fetch
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip POST/PUT/DELETE requests and non-GET
-  if (event.request.method !== 'GET') {
-    return;
-  }
+  // Ignorer les requêtes non-GET
+  if (event.request.method !== 'GET') return;
 
-  // API calls: network-first with fallback to cache
+  // Ignorer les requêtes cross-origin (CDN, analytics, etc.)
+  if (url.origin !== self.location.origin) return;
+
+  // API: network-first, fallback cache
   if (url.pathname.includes('/api/')) {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-          const clonedResponse = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clonedResponse);
-          });
-          return response;
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          return res;
         })
-        .catch(() => {
-          return caches.match(event.request).then((cached) => {
-            if (cached) return cached;
-            // Return offline placeholder for API calls
-            return new Response(JSON.stringify({ offline: true }), {
-              headers: { 'Content-Type': 'application/json' },
-            });
-          });
-        }),
+        .catch(() =>
+          caches.match(event.request).then(
+            (cached) =>
+              cached ||
+              new Response(JSON.stringify({ offline: true }), {
+                headers: { 'Content-Type': 'application/json' },
+              }),
+          ),
+        ),
     );
     return;
   }
 
-  // Assets: cache-first
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).then((response) => {
-          const clonedResponse = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, clonedResponse);
-          });
-          return response;
+  // Next.js pages et bundles JS/CSS (_next/*): NETWORK-FIRST
+  // Les hashes changent à chaque build, donc le cache-first servait du code obsolète
+  if (
+    url.pathname.startsWith('/_next/') ||
+    url.pathname === '/' ||
+    url.pathname.startsWith('/dashboard') ||
+    url.pathname.endsWith('.html')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          return res;
         })
-      );
-    }),
+        .catch(() => caches.match(event.request)),
+    );
+    return;
+  }
+
+  // Tout le reste (images, fonts, manifest): cache-first
+  event.respondWith(
+    caches.match(event.request).then(
+      (cached) =>
+        cached ||
+        fetch(event.request).then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          return res;
+        }),
+    ),
   );
 });
 
-// Message event — for SSE reconnection
+// Message: SSE reconnection
 self.addEventListener('message', (event) => {
   if (event.data.type === 'SSE_RECONNECT') {
-    // Notify all clients to reconnect to SSE
     self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {
-        client.postMessage({
-          type: 'SSE_RECONNECT',
-        });
+        client.postMessage({ type: 'SSE_RECONNECT' });
       });
     });
   }
