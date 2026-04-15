@@ -123,7 +123,7 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
           subtitle="Analyse et prépare tes sets"
         />
         <Breadcrumbs />
-        <main className="flex-1 w-full overflow-x-hidden">
+        <main className="flex-1 w-full overflow-x-hidden overflow-y-auto">
           {children}
         </main>
       </div>

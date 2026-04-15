@@ -25,14 +25,28 @@ export const useTheme = () => useContext(ThemeContext);
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
+// Cache pour éviter les appels redondants à /site/settings
+let _siteSettingsCache: { data: any; ts: number } | null = null;
+const CACHE_TTL = 60_000; // 1 minute
+
+async function fetchSiteSettingsCached() {
+  if (_siteSettingsCache && Date.now() - _siteSettingsCache.ts < CACHE_TTL) {
+    return _siteSettingsCache.data;
+  }
+  const res = await fetch(`${API_URL}/site/settings`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  _siteSettingsCache = { data, ts: Date.now() };
+  return data;
+}
+
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>('dark');
   const [themeConfig, setThemeConfig] = useState<ThemeConfig | null>(null);
 
-  // Fetch admin theme config from API
+  // Fetch admin theme config from API (cached)
   useEffect(() => {
-    fetch(`${API_URL}/site/settings`)
-      .then((res) => (res.ok ? res.json() : null))
+    fetchSiteSettingsCached()
       .then((data) => {
         if (data?.theme_config) {
           setThemeConfig(data.theme_config);

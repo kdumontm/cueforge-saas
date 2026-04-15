@@ -1493,7 +1493,7 @@ export interface PageConfig {
 }
 
 export async function getPublicPageSettings(): Promise<PageConfig[]> {
-  const response = await authFetch(`${API_URL}/admin/settings/pages`);
+  const response = await authFetch(`${API_URL}/site/pages`);
   if (!response.ok) throw new Error("Failed to fetch page settings");
   return response.json();
 }
@@ -2353,7 +2353,7 @@ export async function getCueQualityScore(trackId: number): Promise<{
   byType: Record<string, number>;
   suggestions: string[];
 }> {
-  const res = await authFetch(`${API_URL}/tracks/${trackId}/cue-quality`, {
+  const res = await authFetch(`${API_URL}/cues/${trackId}/quality-score`, {
     method: 'GET',
     headers: { ...authHeaders() },
   });
