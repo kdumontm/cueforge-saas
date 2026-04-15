@@ -38,6 +38,10 @@ RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs'); p
 
 COPY app/ ./app/
 
+# Skip deep analysis by default (saves ~200MB RAM on Railway)
+# Override with SKIP_DEEP_ANALYSIS=0 in Railway env vars to enable
+ENV SKIP_DEEP_ANALYSIS=1
+
 EXPOSE 8000
 
 # ⚡ 1 worker pour rester dans les limites RAM Railway
