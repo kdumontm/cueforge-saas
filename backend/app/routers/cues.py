@@ -16,15 +16,26 @@ router = APIRouter(tags=["cues"])
 # ─── Helper Functions ───────────────────────────────────────────────────────
 
 def _log_cue_history(db: Session, cue_id: int, action: str, old_vals: Optional[Dict], new_vals: Optional[Dict]):
-    """Log cue changes to audit trail (OPT #11)."""
-    history = CueHistory(
-        cue_point_id=cue_id,
-        action=action,
-        old_values=old_vals or {},
-        new_values=new_vals or {},
-    )
-    db.add(history)
-    db.flush()
+    """Log cue changes to audit trail (OPT #11).
+
+    Resilient: si la table cue_history n'existe pas encore,
+    on ne bloque pas l'opération principale (create/update/delete).
+    Utilise un savepoint (nested transaction) pour isoler l'erreur.
+    """
+    try:
+        nested = db.begin_nested()
+        history = CueHistory(
+            cue_point_id=cue_id,
+            action=action,
+            old_values=old_vals or {},
+            new_values=new_vals or {},
+        )
+        db.add(history)
+        nested.commit()
+    except Exception:
+        # Table cue_history peut ne pas exister en prod (migration manquante)
+        # Le savepoint est rollback automatiquement, la transaction principale reste valide
+        pass
 
 
 # ─── Pydantic Schemas ────────────────────────────────────────────────────────
