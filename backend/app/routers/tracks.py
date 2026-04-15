@@ -404,40 +404,46 @@ def _run_analysis(track_id: int):
     - Rouvrir session UNIQUEMENT pour commit final (quelques ms)
     """
     import traceback as _tb
+    import sys as _sys
     from app.database import SessionLocal
 
-    logger.info(f"[ANALYSIS] ════ START track {track_id} ════")
+    def _log(msg):
+        """Force-flush log to ensure it appears in Railway logs."""
+        logger.info(msg)
+        print(msg, flush=True, file=_sys.stderr)
+
+    _log(f"[ANALYSIS] ════ START track {track_id} ════")
 
     # ─ PHASE 1 : Fetch initial track state (session courte) ─
     db = SessionLocal()
     try:
         track = db.query(Track).filter(Track.id == track_id).first()
         if not track:
-            logger.error(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
+            _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
             return
 
         file_path = track.file_path
         user_id = track.user_id
-        logger.info(f"[ANALYSIS] Track {track_id}: file_path={file_path}")
+        _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}")
 
         if not file_path or not os.path.exists(file_path):
-            logger.error(f"[ANALYSIS] File missing: {file_path} (exists={os.path.exists(file_path) if file_path else 'N/A'})")
+            _log(f"[ANALYSIS] File missing: {file_path} (exists={os.path.exists(file_path) if file_path else 'N/A'})")
             track.status = TrackStatus.failed
             track.error_message = "Audio file not found on disk"
             safe_commit(db)
             return
 
-        logger.info(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
+        _log(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
 
         # Cleanup + set status — delete cue history first to avoid FK violation
-        from app.models.cue_point import CueHistory
+        from app.models.track import CueHistory
         try:
             existing_cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
             if existing_cues:
                 cue_ids = [c.id for c in existing_cues]
                 db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session='fetch')
                 db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
-                logger.info(f"[ANALYSIS] Cleaned {len(cue_ids)} old cue points + history")
+                _log(f"[ANALYSIS] Cleaned {len(cue_ids)} old cue points + history")
         except Exception as e:
             logger.warning(f"[ANALYSIS] Cue cleanup error (non-fatal): {e}")
             db.rollback()
@@ -445,11 +451,11 @@ def _run_analysis(track_id: int):
         old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
         if old_analysis:
             db.delete(old_analysis)
-            logger.info(f"[ANALYSIS] Deleted old analysis")
+            _log(f"[ANALYSIS] Deleted old analysis")
 
         track.status = TrackStatus.analyzing
         safe_commit(db)
-        logger.info(f"[ANALYSIS] Phase 1 done — status set to analyzing")
+        _log(f"[ANALYSIS] Phase 1 done — status set to analyzing")
 
         # Check stem separation preference
         use_stems = False
@@ -461,7 +467,7 @@ def _run_analysis(track_id: int):
         except Exception:
             pass
     except Exception as e:
-        logger.error(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
+        _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
         try:
             track = db.query(Track).filter(Track.id == track_id).first()
             if track:
@@ -475,15 +481,15 @@ def _run_analysis(track_id: int):
         db.close()
 
     # ─ PHASE 2 : Analyse SANS session DB (30-120s) ─
-    logger.info(f"[ANALYSIS] Phase 2 — calling analyze_audio for track {track_id}...")
+    _log(f"[ANALYSIS] Phase 2 — calling analyze_audio for track {track_id}...")
     analysis_data = None
     try:
         analysis_data = analysis_svc.analyze_audio(
             file_path, use_stem_separation=False, track_id=None
         )
-        logger.info(f"[ANALYSIS] Phase 2 done — got {len(analysis_data) if analysis_data else 0} keys, bpm={analysis_data.get('bpm') if analysis_data else 'N/A'}")
+        _log(f"[ANALYSIS] Phase 2 done — got {len(analysis_data) if analysis_data else 0} keys, bpm={analysis_data.get('bpm') if analysis_data else 'N/A'}")
     except Exception as e:
-        logger.error(f"[ANALYSIS] Phase 2 CRASHED: {e}\n{_tb.format_exc()}")
+        _log(f"[ANALYSIS] Phase 2 CRASHED: {e}\n{_tb.format_exc()}")
         # Rouvrir session et fail
         db = SessionLocal()
         try:
@@ -497,12 +503,12 @@ def _run_analysis(track_id: int):
         return
 
     # ─ PHASE 3 : Commit final (session courte) ─
-    logger.info(f"[ANALYSIS] Phase 3 — committing results for track {track_id}...")
+    _log(f"[ANALYSIS] Phase 3 — committing results for track {track_id}...")
     db = SessionLocal()
     try:
         track = db.query(Track).filter(Track.id == track_id).first()
         if not track:
-            logger.error(f"[ANALYSIS] Phase 3: track {track_id} disappeared from DB!")
+            _log(f"[ANALYSIS] Phase 3: track {track_id} disappeared from DB!")
             return
 
         # Save analysis (v6.3: includes LUFS, variable BPM, mood, danceability,
@@ -700,7 +706,7 @@ def _run_analysis(track_id: int):
         # ── Mark complete and commit ──
         track.status = TrackStatus.completed
         safe_commit(db)
-        logger.info(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (stems={'oui' if stem_data else 'non'})")
+        _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (stems={'oui' if stem_data else 'non'})")
 
         # Create notification
         notif = Notification(
@@ -725,92 +731,6 @@ def _run_analysis(track_id: int):
             pass
     finally:
         db.close()
-
-
-@router.post("/{track_id}/debug-analyze")
-async def debug_analyze_track(
-    track_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Debug: check file, run analysis SYNCHRONOUSLY, return detailed status."""
-    import traceback as _tb
-    validate_track_id(track_id)
-
-    track = db.query(Track).filter(
-        Track.id == track_id,
-        Track.user_id == current_user.id,
-    ).first()
-    if not track:
-        raise HTTPException(status_code=404, detail="Track not found")
-
-    result = {
-        "track_id": track_id,
-        "file_path": track.file_path,
-        "status_before": track.status.value if track.status else None,
-        "file_exists": False,
-        "file_size": 0,
-        "phases": {},
-    }
-
-    # Check file
-    if track.file_path:
-        result["file_exists"] = os.path.exists(track.file_path)
-        if result["file_exists"]:
-            result["file_size"] = os.path.getsize(track.file_path)
-
-    if not result["file_exists"]:
-        result["error"] = "File not found on disk"
-        return result
-
-    # Try running analysis synchronously to capture any crash
-    try:
-        result["phases"]["phase1"] = "starting"
-        # Just test the import and first call
-        import app.services.audio_analysis as analysis_svc_mod
-        result["phases"]["phase1"] = "import OK"
-
-        result["phases"]["phase2"] = "starting analyze_audio"
-        analysis_data = analysis_svc_mod.analyze_audio(
-            track.file_path, use_stem_separation=False, track_id=None
-        )
-        result["phases"]["phase2"] = f"OK — {len(analysis_data)} keys, bpm={analysis_data.get('bpm')}"
-        result["bpm"] = analysis_data.get("bpm")
-        result["key"] = analysis_data.get("key")
-        result["energy"] = analysis_data.get("energy")
-        result["duration_ms"] = analysis_data.get("duration_ms")
-
-        # Save results
-        from app.models.track import TrackAnalysis
-        old = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
-        if old:
-            db.delete(old)
-
-        analysis = TrackAnalysis(
-            track_id=track.id,
-            bpm=analysis_data.get("bpm"),
-            key=analysis_data.get("key"),
-            energy=analysis_data.get("energy"),
-            duration_ms=analysis_data.get("duration_ms"),
-        )
-        db.add(analysis)
-        track.status = TrackStatus.completed
-        db.commit()
-        result["phases"]["phase3"] = "committed"
-        result["status_after"] = "completed"
-
-    except Exception as e:
-        result["error"] = str(e)
-        result["traceback"] = _tb.format_exc()
-        # Mark as failed
-        try:
-            track.status = TrackStatus.failed
-            track.error_message = str(e)[:500]
-            db.commit()
-        except Exception:
-            pass
-
-    return result
 
 
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)
