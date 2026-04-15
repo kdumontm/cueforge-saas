@@ -424,7 +424,16 @@ def _run_analysis(track_id: int):
 
         file_path = track.file_path
         user_id = track.user_id
-        _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}")
+        _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
+
+        # Reconstruct file_path from filename if missing
+        if not file_path and track.filename:
+            from app.services.storage import UPLOAD_DIR
+            reconstructed = os.path.join(UPLOAD_DIR, track.filename)
+            if os.path.exists(reconstructed):
+                file_path = reconstructed
+                track.file_path = file_path
+                _log(f"[ANALYSIS] Reconstructed file_path from filename: {file_path}")
 
         if not file_path or not os.path.exists(file_path):
             _log(f"[ANALYSIS] File missing: {file_path} (exists={os.path.exists(file_path) if file_path else 'N/A'})")
