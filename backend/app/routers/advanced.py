@@ -267,7 +267,7 @@ def identify_track(
 
                 # Régénérer les cue points
                 try:
-                    from app.services import cue_points as cue_svc
+                    from app.services import cue_generator as cue_svc
                     db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
                     analysis_data = {
                         "bpm": corrected_bpm,

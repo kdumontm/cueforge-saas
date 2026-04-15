@@ -668,7 +668,7 @@ def _run_analysis(track_id: int):
                         try:
                             from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
                             from app.services.stem_analysis import analyze_stems_from_arrays
-                            from app.services import cue_points as cue_svc
+                            from app.services import cue_generator as cue_svc
                             from app.database import SessionLocal
 
                             # Construire l'URL audio pour Modal
