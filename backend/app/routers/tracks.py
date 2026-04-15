@@ -567,30 +567,7 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Auto loop detection failed for track {track.id}: {e}")
 
-        # OPT #5: Cue point generation + waveform extraction en parallèle
-        # TODO: Lancer waveform extraction + genre detection EN PARALLÈLE avec cue generation
-        # (dès que beats sont détectés, pas besoin d'attendre l'analyse complète)
-
-        # Cue point generation — v6.4: use v2 with stats
-        try:
-            cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
-            logger.info(f"Cue generation: {cue_stats.total_cues} cues in {cue_stats.generation_time_ms:.0f}ms (drop_conf={cue_stats.drop_avg_confidence})")
-            for cp in cue_points_data:
-                cue = CuePoint(
-                    track_id=track.id,
-                    position_ms=cp["position_ms"],
-                    end_position_ms=cp.get("end_position_ms"),
-                    cue_type=cp["cue_type"],
-                    name=cp["name"],
-                    color=cp.get("color", "red"),
-                    number=cp.get("number"),
-                    confidence=cp.get("confidence"),
-                )
-                db.add(cue)
-        except Exception as e:
-            logger.warning(f"Cue generation failed for track {track_id}: {e}")
-
-        # Waveform extraction
+        # ── Waveform extraction ──
         try:
             peaks, spectral = extract_waveform_peaks(file_path)
             if peaks is not None and spectral is not None:
@@ -600,7 +577,7 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Waveform extraction failed for track {track_id}: {e}")
 
-        # Auto genre detection
+        # ── Auto genre detection (ML — reste automatique) ──
         try:
             spectral_data = analysis.spectral_energy if hasattr(analysis, 'spectral_energy') else None
             genre_result = detect_genre_from_analysis(
@@ -616,11 +593,9 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Genre detection failed for track {track_id}: {e}")
 
-        # Metadata lookup — désormais ON-DEMAND via POST /advanced/identify/{track_id}
-        # Seul le genre ML (ci-dessus) reste automatique.
-        # L'ancien appel get_track_metadata() + correction BPM Spotify a été retiré.
+        # Metadata lookup — ON-DEMAND via POST /advanced/identify/{track_id}
 
-        # Auto remix/version detection
+        # ── Auto remix/version detection ──
         try:
             from app.services.remix_detection import detect_remix_info
             title_to_parse = track.title or track.original_filename or ""
@@ -634,10 +609,62 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
-        # Mark complete and commit
+        # ══════════════════════════════════════════════════════════════════
+        #   STEMS → CUE POINTS (séquentiel pour précision maximale)
+        #   Modal GPU ~3-5s → fallback CPU ~20-40s → puis cue points
+        # ══════════════════════════════════════════════════════════════════
+        stem_data = {}
+        if use_stems:
+            try:
+                from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
+                from app.services.stem_analysis import analyze_stems_from_arrays, analyze_stems
+
+                # Construire l'URL audio pour Modal GPU
+                _api_url = os.environ.get("API_PUBLIC_URL", "")
+                _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio" if _api_url else ""
+
+                mode = "Modal GPU" if is_modal_available() else "CPU local"
+                logger.info(f"[STEM] Séparation via {mode} pour track {track_id}...")
+
+                stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url)
+                logger.info(f"[STEM] Séparation terminée pour track {track_id} — stems: {list(stem_arrays.keys())}")
+
+                # Extraire les features stems (drum_enter, vocal_sections, drops…)
+                beats = analysis_data.get("beat_positions", [])
+                try:
+                    stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=track_id)
+                except (ImportError, AttributeError):
+                    stem_data = analyze_stems(file_path, beats, track_id=track_id)
+
+                logger.info(f"[STEM] Features stems extraites pour track {track_id}")
+            except Exception as e:
+                logger.warning(f"[STEM] Stems failed pour track {track_id}: {e} — cue points sans stems")
+
+        # ── Cue points (avec stems si disponibles → confidence ~0.9) ──
+        try:
+            cue_analysis = {**analysis_data, **stem_data}
+            cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(cue_analysis)
+            has_stems = bool(stem_data)
+            logger.info(f"Cue generation: {cue_stats.total_cues} cues in {cue_stats.generation_time_ms:.0f}ms (stems={has_stems}, drop_conf={cue_stats.drop_avg_confidence})")
+            for cp in cue_points_data:
+                cue = CuePoint(
+                    track_id=track.id,
+                    position_ms=cp["position_ms"],
+                    end_position_ms=cp.get("end_position_ms"),
+                    cue_type=cp["cue_type"],
+                    name=cp["name"],
+                    color=cp.get("color", "red"),
+                    number=cp.get("number"),
+                    confidence=cp.get("confidence"),
+                )
+                db.add(cue)
+        except Exception as e:
+            logger.warning(f"Cue generation failed for track {track_id}: {e}")
+
+        # ── Mark complete and commit ──
         track.status = TrackStatus.completed
         safe_commit(db)
-        logger.info(f"Track {track_id} analysis complete")
+        logger.info(f"Track {track_id} analysis complete (stems={'oui' if stem_data else 'non'})")
 
         # Create notification
         notif = Notification(
@@ -649,97 +676,6 @@ def _run_analysis(track_id: int):
         )
         db.add(notif)
         safe_commit(db)
-
-        # Mode pro : lancer stems en thread daemon après analyse
-        # Priorité : Modal GPU (~3-5s) → fallback Demucs CPU local (~20-40s)
-        if use_stems:
-            try:
-                from app.services.stems_service import stems_already_exist
-                from app.routers.advanced import _stems_jobs
-                import threading as _threading
-                if stems_already_exist(track_id):
-                    logger.info(f"[STEM] Stems déjà présents pour track {track_id}")
-                else:
-                    _stems_jobs[track_id] = {"status": "processing", "error": None}
-                    _fp = file_path
-                    _tid = track_id
-
-                    def _auto_stems():
-                        try:
-                            from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
-                            from app.services.stem_analysis import analyze_stems_from_arrays
-                            from app.services import cue_generator as cue_svc
-                            from app.database import SessionLocal
-
-                            # Construire l'URL audio pour Modal
-                            _api_url = os.environ.get("API_PUBLIC_URL", "")
-                            _audio_url = f"{_api_url}/api/v1/tracks/{_tid}/audio" if _api_url else ""
-
-                            mode = "Modal GPU" if is_modal_available() else "CPU local"
-                            logger.info(f"[STEM] Démarrage séparation via {mode} pour track {_tid}")
-
-                            # Séparer les stems (Modal GPU ou CPU fallback)
-                            stem_arrays = separate_stems_with_fallback(_tid, _fp, _audio_url)
-
-                            _stems_jobs[_tid] = {"status": "completed", "error": None}
-                            logger.info(f"[STEM] Séparation terminée pour track {_tid}")
-
-                            # ── Régénérer les cue points avec les données stems ──
-                            _db = SessionLocal()
-                            try:
-                                _track = _db.query(Track).filter(Track.id == _tid).first()
-                                _analysis = _db.query(TrackAnalysis).filter(TrackAnalysis.track_id == _tid).first()
-                                if _track and _analysis:
-                                    beats = _analysis.beat_positions or []
-
-                                    # Analyser les arrays stems pour features (drum_enter, vocal_sections…)
-                                    try:
-                                        stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=_tid)
-                                    except (ImportError, AttributeError):
-                                        # Fallback : analyze_stems depuis le fichier
-                                        from app.services.stem_analysis import analyze_stems
-                                        stem_data = analyze_stems(_fp, beats, track_id=_tid)
-
-                                    # Construire analysis_data enrichi
-                                    _ad = {
-                                        "bpm": _analysis.bpm,
-                                        "key": _analysis.key,
-                                        "energy": _analysis.energy,
-                                        "duration_ms": _analysis.duration_ms,
-                                        "beat_positions": beats,
-                                        "sections": _analysis.sections,
-                                    }
-                                    _ad.update(stem_data)
-
-                                    # Supprimer les anciens cue points et régénérer
-                                    _db.query(CuePoint).filter(CuePoint.track_id == _tid).delete(synchronize_session='fetch')
-                                    cue_points_data, _ = cue_svc.generate_cue_points_v2(_ad)
-                                    for cp in cue_points_data:
-                                        cue = CuePoint(
-                                            track_id=_tid,
-                                            position_ms=cp["position_ms"],
-                                            end_position_ms=cp.get("end_position_ms"),
-                                            cue_type=cp["cue_type"],
-                                            name=cp["name"],
-                                            color=cp.get("color", "red"),
-                                            number=cp.get("number"),
-                                            confidence=cp.get("confidence"),
-                                        )
-                                        _db.add(cue)
-                                    _db.commit()
-                                    logger.info(f"[STEM] Cue points régénérés avec stems pour track {_tid} ({len(cue_points_data)} cues)")
-                            finally:
-                                _db.close()
-
-                        except Exception as _e:
-                            _stems_jobs[_tid] = {"status": "failed", "error": str(_e)[:300]}
-                            logger.error(f"[STEM] Stems failed pour track {_tid}: {_e}")
-
-                    t = _threading.Thread(target=_auto_stems, daemon=True)
-                    t.start()
-                    logger.info(f"[STEM] Thread stems lancé en arrière-plan pour track {track_id}")
-            except Exception as _stem_err:
-                logger.warning(f"[STEM] Impossible de lancer stems: {_stem_err}")
 
     except Exception as e:
         logger.error(f"Unexpected error analyzing track {track_id}: {e}")
