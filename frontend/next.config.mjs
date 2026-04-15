@@ -75,6 +75,10 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
+          // Empêche le CDN (Fastly/Railway) de cacher le HTML indéfiniment
+          // s-maxage=60 → le CDN revalide toutes les 60s après un deploy
+          // Les assets /_next/static/* gardent leur cache immutable grâce à la règle spécifique ci-dessus
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
