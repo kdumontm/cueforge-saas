@@ -5376,7 +5376,8 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         logger.debug(f"Audio forensics skipped: {e}")
 
     # v6.1: Free shared STFT — all consumers (drops, genre, energy) are done
-    del shared_S, shared_rms, y
+    # NB: on garde y car il est utilisé par compute_structural_summary, HPSS, subband, etc.
+    del shared_S, shared_rms
     gc.collect()
 
     # ── v5.1: Stem separation analysis (Demucs) — optional & fault-tolerant ──
