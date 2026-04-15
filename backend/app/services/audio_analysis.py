@@ -5523,67 +5523,91 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "beat_strength_mean": rhythm_groove_data.get("beat_strength_mean"),
     }
 
-    # ── v6.5: Structural summary — connect orphaned analysis functions ──
-    structural_summary = compute_structural_summary(section_labels, y, sr_loaded)
-    result["structural_summary"] = structural_summary
+    # ── v6.5+: Deep analysis phase — with global timeout to prevent hangs ──
+    # Each function is wrapped in try/except AND we check elapsed time.
+    # If total deep analysis exceeds DEEP_ANALYSIS_TIMEOUT_S, skip remaining.
+    DEEP_ANALYSIS_TIMEOUT_S = 120
+    _deep_start = time.time()
 
-    # ── v6.5: HPSS metrics + subband energy (#11-12) ──
-    try:
-        hpss = compute_hpss_metrics(y, sr_loaded)
+    def _deep_budget_left():
+        """Seconds remaining in the deep analysis budget."""
+        return max(0, DEEP_ANALYSIS_TIMEOUT_S - (time.time() - _deep_start))
+
+    def _run_deep(name, fn, default=None):
+        """Run a deep analysis function with per-task timeout (30s) and budget check."""
+        if _deep_budget_left() <= 0:
+            logger.warning(f"[DEEP] Skipping {name} — global timeout reached ({DEEP_ANALYSIS_TIMEOUT_S}s)")
+            return default
+        try:
+            from concurrent.futures import ThreadPoolExecutor as _TPE, TimeoutError as _TE
+            with _TPE(max_workers=1) as ex:
+                future = ex.submit(fn)
+                per_task_timeout = min(30, _deep_budget_left())
+                return future.result(timeout=per_task_timeout)
+        except _TE:
+            logger.warning(f"[DEEP] {name} timed out after {min(30, DEEP_ANALYSIS_TIMEOUT_S)}s")
+            return default
+        except Exception as e:
+            logger.debug(f"[DEEP] {name} failed: {e}")
+            return default
+
+    logger.info(f"[DEEP] Starting deep analysis phase (budget={DEEP_ANALYSIS_TIMEOUT_S}s)...")
+
+    # v6.5: Structural summary
+    result["structural_summary"] = _run_deep(
+        "structural_summary",
+        lambda: compute_structural_summary(section_labels, y, sr_loaded),
+        default={"available": False},
+    )
+
+    # v6.5: HPSS metrics
+    hpss = _run_deep("hpss", lambda: compute_hpss_metrics(y, sr_loaded), default={})
+    if hpss:
         result["harmonic_ratio"] = hpss.get("harmonic_ratio")
         result["percussive_ratio"] = hpss.get("percussive_ratio")
-    except Exception:
-        pass
 
-    try:
-        subband = compute_subband_energy_ratios(y, sr_loaded)
+    # v6.5: Subband energy
+    subband = _run_deep("subband", lambda: compute_subband_energy_ratios(y, sr_loaded), default={})
+    if subband:
         result["sub_energy_ratio"] = subband.get("sub_energy_ratio")
         result["low_energy_ratio"] = subband.get("low_energy_ratio")
         result["mid_energy_ratio"] = subband.get("mid_energy_ratio")
         result["high_energy_ratio"] = subband.get("high_energy_ratio")
-    except Exception:
-        pass
 
-    # ── v6.5: Sub-bass quality + loudness war + production quality (#39-41) ──
-    try:
-        sub_bass = sub_bass_quality(y, sr_loaded)
-        result["sub_bass_quality"] = sub_bass.get("sub_bass_quality")
-        result["sub_bass_clarity"] = sub_bass.get("clarity_score")
-    except Exception:
-        pass
+    # v6.5: Sub-bass quality
+    sub_bass_result = _run_deep("sub_bass", lambda: sub_bass_quality(y, sr_loaded), default={})
+    if sub_bass_result:
+        result["sub_bass_quality"] = sub_bass_result.get("sub_bass_quality")
+        result["sub_bass_clarity"] = sub_bass_result.get("clarity_score")
 
-    try:
-        lw = loudness_war_detection(y, sr_loaded)
+    # v6.5: Loudness war detection
+    lw = _run_deep("loudness_war", lambda: loudness_war_detection(y, sr_loaded), default={})
+    if lw:
         result["loudness_war_detected"] = lw.get("loudness_war_detected", False)
         result["loudness_war_severity"] = lw.get("loudness_war_severity", "none")
         result["compression_score"] = lw.get("compression_score", 0.0)
-    except Exception:
-        pass
 
-    # ── v6.5: Encoding quality detection (#492-493) ──
-    try:
-        enc_quality = detect_encoding_quality(file_path, y, sr_loaded)
+    # v6.5: Encoding quality
+    enc_quality = _run_deep("encoding_quality", lambda: detect_encoding_quality(file_path, y, sr_loaded), default={})
+    if enc_quality:
         result["encoding_quality"] = enc_quality.get("encoding_quality")
         result["estimated_bitrate_kbps"] = enc_quality.get("estimated_bitrate_kbps")
         result["is_upscaled"] = enc_quality.get("is_upscaled", False)
         result["spectral_rolloff_hz"] = enc_quality.get("spectral_rolloff_hz")
-    except Exception:
-        pass
 
-    # ── v6.5: Spectral contrast integration (#12) ──
-    try:
-        spec_contrast = compute_spectral_contrast(y, sr_loaded)
+    # v6.5: Spectral contrast
+    spec_contrast = _run_deep("spectral_contrast", lambda: compute_spectral_contrast(y, sr_loaded), default={})
+    if spec_contrast:
         result["spectral_contrast_mean"] = spec_contrast.get("spectral_contrast_mean")
-    except Exception:
-        pass
 
-    # ── v6.5: Accent/impact points detection (#201) ──
-    try:
-        result["accent_points"] = detect_accent_points(y, sr_loaded, beat_positions)
-    except Exception:
-        result["accent_points"] = []
+    # v6.5: Accent points
+    result["accent_points"] = _run_deep(
+        "accent_points",
+        lambda: detect_accent_points(y, sr_loaded, beat_positions),
+        default=[],
+    )
 
-    # ── v6.5: Global audio quality score (#498) ──
+    # v6.5: Audio quality score (lightweight — no audio processing)
     try:
         quality_score = compute_audio_quality_score(
             has_clipping=audio_quality_data.get("has_clipping", False),
@@ -5601,80 +5625,83 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         pass
 
-    # ── v6.6: Rhythm summary (connects 15 orphaned rhythm functions) ──
-    try:
-        onset_env_for_rhythm = librosa.onset.onset_strength(y=y, sr=sr_loaded)
-        result["rhythm_summary"] = compute_rhythm_summary(
-            y, sr_loaded, beat_frames, bpm, onset_env_for_rhythm,
-        )
-    except Exception:
-        result["rhythm_summary"] = {"available": False}
+    # v6.6: Rhythm summary
+    result["rhythm_summary"] = _run_deep(
+        "rhythm_summary",
+        lambda: compute_rhythm_summary(
+            y, sr_loaded, beat_frames, bpm,
+            librosa.onset.onset_strength(y=y, sr=sr_loaded),
+        ),
+        default={"available": False},
+    )
 
-    # ── v6.6: Spectral summary (connects 9 orphaned spectral functions) ──
-    try:
-        result["spectral_summary"] = compute_spectral_summary(y, sr_loaded)
-    except Exception:
-        result["spectral_summary"] = {"available": False}
+    # v6.6: Spectral summary
+    result["spectral_summary"] = _run_deep(
+        "spectral_summary", lambda: compute_spectral_summary(y, sr_loaded),
+        default={"available": False},
+    )
 
-    # ── v6.6: DJ mix recommendations (connects 8 orphaned mix functions) ──
-    try:
-        result["dj_mix_recommendations"] = compute_dj_mix_recommendations(
-            y, sr_loaded, bpm, key or "C", energy or 50, section_labels,
-        )
-    except Exception:
-        result["dj_mix_recommendations"] = {"available": False}
+    # v6.6: DJ mix recommendations
+    result["dj_mix_recommendations"] = _run_deep(
+        "dj_mix_recommendations",
+        lambda: compute_dj_mix_recommendations(y, sr_loaded, bpm, key or "C", energy or 50, section_labels),
+        default={"available": False},
+    )
 
-    # ── v6.6: Extended quality (connects 9 orphaned quality functions) ──
-    try:
-        result["quality_extended"] = compute_quality_extended(y, sr_loaded, file_path)
-    except Exception:
-        result["quality_extended"] = {"available": False}
+    # v6.6: Extended quality
+    result["quality_extended"] = _run_deep(
+        "quality_extended", lambda: compute_quality_extended(y, sr_loaded, file_path),
+        default={"available": False},
+    )
 
-    # ── v6.6: Harmonic summary (8 orphaned harmony functions) ──
-    try:
-        result["harmonic_summary"] = compute_harmonic_summary(y, sr_loaded)
-    except Exception:
-        result["harmonic_summary"] = {"available": False}
+    # v6.6: Harmonic summary
+    result["harmonic_summary"] = _run_deep(
+        "harmonic_summary", lambda: compute_harmonic_summary(y, sr_loaded),
+        default={"available": False},
+    )
 
-    # ── v6.6: Vocal analysis (4 orphaned vocal functions) ──
-    try:
-        result["vocal_analysis"] = compute_vocal_analysis(y, sr_loaded)
-    except Exception:
-        result["vocal_analysis"] = {"available": False}
+    # v6.6: Vocal analysis
+    result["vocal_analysis"] = _run_deep(
+        "vocal_analysis", lambda: compute_vocal_analysis(y, sr_loaded),
+        default={"available": False},
+    )
 
-    # ── v6.6: Production analysis (14 orphaned production functions) ──
-    try:
-        result["production_analysis"] = compute_production_analysis(y, sr_loaded)
-    except Exception:
-        result["production_analysis"] = {"available": False}
+    # v6.6: Production analysis
+    result["production_analysis"] = _run_deep(
+        "production_analysis", lambda: compute_production_analysis(y, sr_loaded),
+        default={"available": False},
+    )
 
-    # ── v6.6: Mixing compatibility scoring (6 orphaned compat functions) ──
-    try:
-        result["mixing_compatibility"] = compute_mixing_compatibility(
-            bpm, key or "C", energy or 50, beat_frames, sr_loaded,
-        )
-    except Exception:
-        result["mixing_compatibility"] = {"available": False}
+    # v6.6: Mixing compatibility (lightweight — no audio)
+    result["mixing_compatibility"] = _run_deep(
+        "mixing_compatibility",
+        lambda: compute_mixing_compatibility(bpm, key or "C", energy or 50, beat_frames, sr_loaded),
+        default={"available": False},
+    )
 
-    # ── v6.9: Deep section analysis (10 orphaned section functions) ──
-    try:
-        result["section_deep_analysis"] = compute_section_deep_analysis(
-            y, sr_loaded, section_labels, beat_frames, bpm,
-        )
-    except Exception:
-        result["section_deep_analysis"] = {"available": False}
+    # v6.9: Deep section analysis
+    result["section_deep_analysis"] = _run_deep(
+        "section_deep_analysis",
+        lambda: compute_section_deep_analysis(y, sr_loaded, section_labels, beat_frames, bpm),
+        default={"available": False},
+    )
 
-    # ── v6.9: Deep loudness analysis (11 orphaned quality functions) ──
-    try:
-        result["loudness_deep_analysis"] = compute_loudness_deep_analysis(y, sr_loaded, file_path)
-    except Exception:
-        result["loudness_deep_analysis"] = {"available": False}
+    # v6.9: Deep loudness analysis
+    result["loudness_deep_analysis"] = _run_deep(
+        "loudness_deep_analysis",
+        lambda: compute_loudness_deep_analysis(y, sr_loaded, file_path),
+        default={"available": False},
+    )
 
-    # ── v6.9: Deep key analysis (8 orphaned key functions) ──
-    try:
-        result["key_deep_analysis"] = compute_key_deep_analysis(y, sr_loaded, section_labels)
-    except Exception:
-        result["key_deep_analysis"] = {"available": False}
+    # v6.9: Deep key analysis
+    result["key_deep_analysis"] = _run_deep(
+        "key_deep_analysis",
+        lambda: compute_key_deep_analysis(y, sr_loaded, section_labels),
+        default={"available": False},
+    )
+
+    _deep_elapsed = time.time() - _deep_start
+    logger.info(f"[DEEP] Deep analysis phase completed in {_deep_elapsed:.1f}s (budget={DEEP_ANALYSIS_TIMEOUT_S}s)")
 
     # Merge stem data into result if available
     if stem_data:
