@@ -379,6 +379,8 @@ async def delete_cue_point(
     }
     _log_cue_history(db, cue.id, "deleted", old_vals, None)
 
+    # Supprimer les entrées CueHistory AVANT le cue point (FK sans CASCADE en DB)
+    db.query(CueHistory).filter(CueHistory.cue_point_id == cue_id).delete()
     db.delete(cue)
     db.commit()
 
@@ -619,6 +621,8 @@ async def batch_delete_cue_points(
     for cue in cues_to_delete:
         old_vals = {"position_ms": cue.position_ms, "name": cue.name}
         _log_cue_history(db, cue.id, "deleted", old_vals, None)
+        # Supprimer les entrées CueHistory AVANT le cue point (FK sans CASCADE en DB)
+        db.query(CueHistory).filter(CueHistory.cue_point_id == cue.id).delete()
         db.delete(cue)
         deleted += 1
 
