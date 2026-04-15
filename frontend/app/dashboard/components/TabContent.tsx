@@ -1,23 +1,24 @@
 'use client';
 
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { tr, type Lang } from '@/lib/i18n';
 import { useLang } from '@/components/LangProvider';
 import { updateTrack } from '@/lib/api';
+import { lazyRetry } from '@/lib/lazyRetry';
 
-// Lazy-loaded tab components
-const InfoEditTab = lazy(() => import('@/components/tabs/InfoEditTab'));
-const CuesTab = lazy(() => import('@/components/tabs/CuesTab'));
-const BeatgridTab = lazy(() => import('@/components/tabs/BeatgridTab'));
-const StemsTab = lazy(() => import('@/components/tabs/StemsTab'));
-const EQTab = lazy(() => import('@/components/tabs/EQTab'));
-const FXTab = lazy(() => import('@/components/tabs/FXTab'));
-const MixTab = lazy(() => import('@/components/tabs/MixTab'));
-const PlaylistsTab = lazy(() => import('@/components/tabs/PlaylistsTab'));
-const StatsTab = lazy(() => import('@/components/tabs/StatsTab'));
-const CompareTab = lazy(() => import('@/components/tabs/CompareTab'));
-const PlaylistBuilder = lazy(() => import('@/components/playlist/PlaylistBuilder'));
-const SettingsPanel = lazy(() => import('@/components/settings/SettingsPanel'));
+// Lazy-loaded tab components (avec retry automatique)
+const InfoEditTab = lazyRetry(() => import('@/components/tabs/InfoEditTab'));
+const CuesTab = lazyRetry(() => import('@/components/tabs/CuesTab'));
+const BeatgridTab = lazyRetry(() => import('@/components/tabs/BeatgridTab'));
+const StemsTab = lazyRetry(() => import('@/components/tabs/StemsTab'));
+const EQTab = lazyRetry(() => import('@/components/tabs/EQTab'));
+const FXTab = lazyRetry(() => import('@/components/tabs/FXTab'));
+const MixTab = lazyRetry(() => import('@/components/tabs/MixTab'));
+const PlaylistsTab = lazyRetry(() => import('@/components/tabs/PlaylistsTab'));
+const StatsTab = lazyRetry(() => import('@/components/tabs/StatsTab'));
+const CompareTab = lazyRetry(() => import('@/components/tabs/CompareTab'));
+const PlaylistBuilder = lazyRetry(() => import('@/components/playlist/PlaylistBuilder'));
+const SettingsPanel = lazyRetry(() => import('@/components/settings/SettingsPanel'));
 
 const TabFallback = () => {
   const { lang } = useLang();

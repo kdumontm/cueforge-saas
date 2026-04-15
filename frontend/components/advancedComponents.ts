@@ -19,44 +19,44 @@
  * ```
  */
 
-import { lazy } from 'react';
+import { lazyRetry } from '@/lib/lazyRetry';
 
 // Onboarding & Initialization
-export const OnboardingWizard = lazy(
+export const OnboardingWizard = lazyRetry(
   () => import('@/components/onboarding/OnboardingWizard')
 );
 
 // Layout & Navigation
-export const DashboardLayout = lazy(
+export const DashboardLayout = lazyRetry(
   () => import('@/components/layout/DashboardLayout')
 );
 
 // Track Management
-export const TrackListAdvanced = lazy(
+export const TrackListAdvanced = lazyRetry(
   () => import('@/components/tracks/TrackListAdvanced')
 );
 
 // Player & Playback (Points 1451-1510)
-export const WaveformAdvanced = lazy(
+export const WaveformAdvanced = lazyRetry(
   () => import('@/components/player/WaveformAdvanced')
 );
 
-export const PlayerAdvanced = lazy(
+export const PlayerAdvanced = lazyRetry(
   () => import('@/components/player/PlayerAdvanced')
 );
 
 // Stems & Mix Analysis (Points 1511-1560)
-export const StemsAdvanced = lazy(
+export const StemsAdvanced = lazyRetry(
   () => import('@/components/tabs/StemsAdvanced')
 );
 
 // Playlist & Mix Builder (Points 1561-1610)
-export const PlaylistBuilder = lazy(
+export const PlaylistBuilder = lazyRetry(
   () => import('@/components/playlist/PlaylistBuilder')
 );
 
 // Settings & Personalization (Points 1611-1650)
-export const SettingsPanel = lazy(
+export const SettingsPanel = lazyRetry(
   () => import('@/components/settings/SettingsPanel')
 );
 

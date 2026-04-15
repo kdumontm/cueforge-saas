@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from 'react';
+import { lazyRetry } from '@/lib/lazyRetry';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
 import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, identifyTrack, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
@@ -9,35 +10,35 @@ import { useLang } from '@/components/LangProvider';
 import { tr } from '@/lib/i18n';
 import { useInitialLoad } from '@/hooks/useInitialLoad';
 
-// All components lazy-loaded for optimal code splitting
-const PlayerCard = lazy(() => import('@/components/player/PlayerCard'));
-const TrackList = lazy(() => import('@/components/tracks/TrackList'));
-const InfoEditTab = lazy(() => import('@/components/tabs/InfoEditTab'));
-const CuesTab = lazy(() => import('@/components/tabs/CuesTab'));
+// All components lazy-loaded with automatic retry on chunk failure
+const PlayerCard = lazyRetry(() => import('@/components/player/PlayerCard'));
+const TrackList = lazyRetry(() => import('@/components/tracks/TrackList'));
+const InfoEditTab = lazyRetry(() => import('@/components/tabs/InfoEditTab'));
+const CuesTab = lazyRetry(() => import('@/components/tabs/CuesTab'));
 // Tabs secondaires — lazy-loaded (code splitting)
-const BeatgridTab   = lazy(() => import('@/components/tabs/BeatgridTab'));
-const StemsTab      = lazy(() => import('@/components/tabs/StemsTab'));
-const EQTab         = lazy(() => import('@/components/tabs/EQTab'));
-const FXTab         = lazy(() => import('@/components/tabs/FXTab'));
-const MixTab        = lazy(() => import('@/components/tabs/MixTab'));
-const PlaylistsTab  = lazy(() => import('@/components/tabs/PlaylistsTab'));
-const StatsTab      = lazy(() => import('@/components/tabs/StatsTab'));
+const BeatgridTab   = lazyRetry(() => import('@/components/tabs/BeatgridTab'));
+const StemsTab      = lazyRetry(() => import('@/components/tabs/StemsTab'));
+const EQTab         = lazyRetry(() => import('@/components/tabs/EQTab'));
+const FXTab         = lazyRetry(() => import('@/components/tabs/FXTab'));
+const MixTab        = lazyRetry(() => import('@/components/tabs/MixTab'));
+const PlaylistsTab  = lazyRetry(() => import('@/components/tabs/PlaylistsTab'));
+const StatsTab      = lazyRetry(() => import('@/components/tabs/StatsTab'));
 // HistoryTab retiré
-const CompareTab    = lazy(() => import('@/components/tabs/CompareTab'));
-const BatchActionBar = lazy(() => import('@/components/tracks/BatchActionBar'));
-const KeyboardShortcutsModal = lazy(() => import('@/components/KeyboardShortcutsModal'));
+const CompareTab    = lazyRetry(() => import('@/components/tabs/CompareTab'));
+const BatchActionBar = lazyRetry(() => import('@/components/tracks/BatchActionBar'));
+const KeyboardShortcutsModal = lazyRetry(() => import('@/components/KeyboardShortcutsModal'));
 import { isDesktopApp } from '@/lib/electron';
-const DuplicateDetector = lazy(() => import('@/components/DuplicateDetector'));
-const MetadataEnrichModal = lazy(() => import('@/components/MetadataEnrichModal'));
-const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
-const AnalysisProgress = lazy(() => import('@/components/AnalysisProgress'));
+const DuplicateDetector = lazyRetry(() => import('@/components/DuplicateDetector'));
+const MetadataEnrichModal = lazyRetry(() => import('@/components/MetadataEnrichModal'));
+const OnboardingTour = lazyRetry(() => import('@/components/OnboardingTour'));
+const AnalysisProgress = lazyRetry(() => import('@/components/AnalysisProgress'));
 
 // Advanced components (Vague 2000)
-const PlayerAdvanced = lazy(() => import('@/components/player/PlayerAdvanced'));
-const WaveformAdvanced = lazy(() => import('@/components/player/WaveformAdvanced'));
-const StemsAdvanced = lazy(() => import('@/components/tabs/StemsTab'));
-const PlaylistBuilder = lazy(() => import('@/components/playlist/PlaylistBuilder'));
-const SettingsPanel = lazy(() => import('@/components/settings/SettingsPanel'));
+const PlayerAdvanced = lazyRetry(() => import('@/components/player/PlayerAdvanced'));
+const WaveformAdvanced = lazyRetry(() => import('@/components/player/WaveformAdvanced'));
+const StemsAdvanced = lazyRetry(() => import('@/components/tabs/StemsTab'));
+const PlaylistBuilder = lazyRetry(() => import('@/components/playlist/PlaylistBuilder'));
+const SettingsPanel = lazyRetry(() => import('@/components/settings/SettingsPanel'));
 
 // Extracted sub-components
 import TabSelector from './components/TabSelector';

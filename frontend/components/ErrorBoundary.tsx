@@ -27,10 +27,30 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
+  private isChunkError(error: Error | null): boolean {
+    if (!error) return false;
+    const msg = error.message || '';
+    return (
+      msg.includes('Loading chunk') ||
+      msg.includes('ChunkLoadError') ||
+      msg.includes('Loading CSS chunk') ||
+      msg.includes('Failed to fetch dynamically imported module')
+    );
+  }
+
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[TrackCue][ErrorBoundary] 🔴 ERREUR CAPTURÉE :', error?.message);
     console.error('[TrackCue][ErrorBoundary] Stack:', error?.stack);
     console.error('[TrackCue][ErrorBoundary] Component stack:', info.componentStack);
+
+    // Auto-reload une seule fois pour les erreurs de chunk
+    if (this.isChunkError(error)) {
+      const key = 'cueforge_chunk_reload';
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+      }
+    }
   }
 
   handleReload = () => {
