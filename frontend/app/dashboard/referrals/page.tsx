@@ -107,11 +107,15 @@ export default function ReferralsPage() {
     }
   }
 
+  const [copyToast, setCopyToast] = useState(false);
+
   function handleCopy() {
     if (link) {
       navigator.clipboard.writeText(link);
       setCopied(true);
+      setCopyToast(true);
       setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopyToast(false), 2000);
     }
   }
 
@@ -130,6 +134,14 @@ export default function ReferralsPage() {
         <h1 className="text-3xl font-bold text-[var(--text-primary)]">Inviter des amis</h1>
         <p className="text-[var(--text-muted)] mt-2">Gagnez des récompenses en invitant tes amis à TrackCue</p>
       </div>
+
+      {/* Copy toast */}
+      {copyToast && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium animate-in"
+          style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
+          Copié dans le presse-papier ✓
+        </div>
+      )}
 
       {/* Error / Success Messages */}
       {error && (

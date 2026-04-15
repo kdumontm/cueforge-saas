@@ -56,7 +56,11 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">{user.username}</h1>
           <p className="text-sm text-[var(--text-muted)] mt-0.5">{user.email}</p>
           <div className="flex items-center gap-2 mt-2">
-            {plan === 'pro' ? (
+            {plan === 'unlimited' ? (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 text-xs font-semibold">
+                <Crown size={11} /> Unlimited
+              </span>
+            ) : plan === 'pro' ? (
               <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-xs font-semibold">
                 <Crown size={11} /> Pro
               </span>
@@ -80,7 +84,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-semibold uppercase tracking-wider mb-2">
             <User size={12} /> Identifiant
           </div>
-          <div className="text-[var(--text-primary)] font-medium">{user.username}</div>
+          <div className="text-[var(--text-primary)] font-medium">{user.username || user.name || <span className="text-[var(--text-muted)] italic">Non défini</span>}</div>
         </div>
 
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)]">
@@ -94,7 +98,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 text-[var(--text-muted)] text-xs font-semibold uppercase tracking-wider mb-2">
             <Calendar size={12} /> Membre depuis
           </div>
-          <div className="text-[var(--text-primary)] font-medium">{memberSince}</div>
+          <div className="text-[var(--text-primary)] font-medium">{memberSince !== '—' ? memberSince : <span className="text-[var(--text-muted)] italic">Non disponible</span>}</div>
         </div>
 
         <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)]">

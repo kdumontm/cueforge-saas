@@ -1774,14 +1774,14 @@ export default function DashboardV2() {
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-red-500/30 text-red-400/70 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/50 transition-all cursor-pointer bg-transparent"
                   title="Supprimer tous les tracks du compte"
                 >
-                  <Trash2 size={12} /> Vider la bibliothèque
+                  <Trash2 size={12} /> {tr('dashboard.clear_library', lang)}
                 </button>
                 <button
                   onClick={handleReanalyzeAll}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-cyan-500/30 text-cyan-400/70 hover:bg-cyan-500/15 hover:text-cyan-400 hover:border-cyan-500/50 transition-all cursor-pointer bg-transparent"
-                  title="Ré-analyser tous les tracks avec le nouvel algo BPM v2"
+                  title={tr('dashboard.reanalyze_all', lang)}
                 >
-                  <RefreshCw size={12} /> Ré-analyser tout (BPM v2)
+                  <RefreshCw size={12} /> {tr('dashboard.reanalyze_all', lang)}
                 </button>
               </div>
             )}

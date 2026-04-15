@@ -185,6 +185,10 @@ export const t: Record<string, Record<Lang, string>> = {
   'login.email_not_verified': { fr: 'Email non vérifié. Entre ton email ci-dessous pour recevoir un nouveau lien.', en: 'Email not verified. Enter your email below to receive a new link.' },
   'login.connection_failed':  { fr: 'Connexion échouée',     en: 'Login failed' },
 
+  // ── Dashboard actions ──────────────────────────────────────
+  'dashboard.clear_library':  { fr: 'Vider la bibliothèque', en: 'Clear library' },
+  'dashboard.reanalyze_all':  { fr: 'Ré-analyser tout (BPM v2)', en: 'Re-analyze all (BPM v2)' },
+
   // ── Common / Actions ──────────────────────────────────────
   // ── Context menu (TrackRow) ──────────────────────────────
   'ctx.reanalyze':            { fr: 'Réanalyser',            en: 'Re-analyze' },

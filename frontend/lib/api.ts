@@ -469,6 +469,7 @@ export interface User {
   is_admin: boolean;
   tracks_today: number;
   last_track_date: string | null;
+  created_at?: string | null;
 }
 
 export interface AuthResponse {

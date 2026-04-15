@@ -99,9 +99,19 @@ class UserResponse(BaseModel):
     organization_id: Optional[int] = None
     org_role: str = "member"
     use_stem_separation: bool = False
+    created_at: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_created_at(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return str(v)
 
 
 class UserSettingsUpdate(BaseModel):
