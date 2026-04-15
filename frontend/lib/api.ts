@@ -1,4 +1,4 @@
-// 🔴 FIX (faille 10) : Plus de fallback localhost — l'URL doit être définie dans Railway
+// ð´ FIX (faille 10) : Plus de fallback localhost â l'URL doit Ãªtre dÃ©finie dans Railway
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 // URL directe du backend pour les uploads (bypass le proxy Next.js qui timeout/bufferise)
@@ -6,7 +6,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 // En dev, on utilise l'API_URL classique (proxy Next.js OK pour petits fichiers dev).
 const UPLOAD_API_URL = process.env.NEXT_PUBLIC_BACKEND_DIRECT_URL || API_URL;
 
-// ── Improvement #34: Retry logic with exponential backoff ────────────────────
+// ââ Improvement #34: Retry logic with exponential backoff ââââââââââââââââââââ
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 300; // ms
 
@@ -24,8 +24,8 @@ function getRequestKey(method: string, url: string): string {
 }
 
 // NOTE: Offline queue, WebSocket subscriptions, optimistic updates et conflict resolution
-// ont été retirés (code mort — jamais importés par aucun composant).
-// À réimplémenter proprement quand le besoin sera réel.
+// ont Ã©tÃ© retirÃ©s (code mort â jamais importÃ©s par aucun composant).
+// Ã rÃ©implÃ©menter proprement quand le besoin sera rÃ©el.
 
 // Improvement #69: API response caching with TTL
 interface CacheEntry {
@@ -132,12 +132,12 @@ export function cancelRequest(key: string): void {
   }
 }
 
-// ── Token management avec cache en variable module ────────────────────────────
+// ââ Token management avec cache en variable module ââââââââââââââââââââââââââââ
 
 const TOKEN_KEY = 'trackcue_token';
 const REFRESH_KEY = 'trackcue_refresh';
 
-// Cache tokens en variables module pour éviter les appels localStorage répétés
+// Cache tokens en variables module pour Ã©viter les appels localStorage rÃ©pÃ©tÃ©s
 let _cachedAccessToken: string | null = null;
 let _cachedRefreshToken: string | null = null;
 
@@ -154,7 +154,7 @@ export function setRefreshToken(token: string): void {
 export function getToken(): string | null {
   // Retourner le cache si disponible
   if (_cachedAccessToken) return _cachedAccessToken;
-  // Sinon charger depuis localStorage (SSR ou première visite)
+  // Sinon charger depuis localStorage (SSR ou premiÃ¨re visite)
   if (typeof window !== 'undefined') {
     _cachedAccessToken = localStorage.getItem(TOKEN_KEY);
   }
@@ -164,7 +164,7 @@ export function getToken(): string | null {
 export function getRefreshToken(): string | null {
   // Retourner le cache si disponible
   if (_cachedRefreshToken) return _cachedRefreshToken;
-  // Sinon charger depuis localStorage (SSR ou première visite)
+  // Sinon charger depuis localStorage (SSR ou premiÃ¨re visite)
   if (typeof window !== 'undefined') {
     _cachedRefreshToken = localStorage.getItem(REFRESH_KEY);
   }
@@ -181,7 +181,7 @@ export function clearToken(): void {
   }
 }
 
-// ── Auto-refresh on 401 ─────────────────────────────────────────────────────
+// ââ Auto-refresh on 401 âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
@@ -269,7 +269,7 @@ export async function fetchWithStaleWhileRevalidate<T>(
     return cached;
   }
 
-  // No cache — fetch normally
+  // No cache â fetch normally
   const response = await authFetch(url, options);
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   const data = await response.json();
@@ -326,7 +326,7 @@ export async function startBackgroundExport(trackId: number, cueIds: number[]): 
   return data.export_id;
 }
 
-// ── Authenticated fetch with auto-refresh on 401 + retry + deduplication ────
+// ââ Authenticated fetch with auto-refresh on 401 + retry + deduplication ââââ
 
 // Improvement #34: Retry with exponential backoff
 async function retryWithBackoff<T>(
@@ -366,8 +366,8 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
   const requestKey = getRequestKey(method, url);
 
   if (method === 'GET' && inFlightRequests.has(requestKey)) {
-    // Clone la réponse pour éviter "body stream already read"
-    // quand plusieurs callers consomment le même Response
+    // Clone la rÃ©ponse pour Ã©viter "body stream already read"
+    // quand plusieurs callers consomment le mÃªme Response
     return inFlightRequests.get(requestKey)!.then(r => r.clone());
   }
 
@@ -386,11 +386,11 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
     try {
       response = await fetch(url, mergedOptions);
     } catch (networkError) {
-      throw new Error('Network error — check your connection');
+      throw new Error('Network error â check your connection');
     }
 
     if (response.status === 401) {
-      // Tente un refresh silencieux avant de déconnecter
+      // Tente un refresh silencieux avant de dÃ©connecter
       // Use multi-tab lock to prevent concurrent refresh attempts
       if (!isRefreshing && acquireRefreshLock()) {
         isRefreshing = true;
@@ -402,7 +402,7 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
     releaseRefreshLock();
 
     if (refreshed) {
-      // Rejoue la requête avec le nouveau token
+      // Rejoue la requÃªte avec le nouveau token
       const retryOptions: RequestInit = {
         ...options,
         headers: {
@@ -413,7 +413,7 @@ async function authFetch(url: string, options?: RequestInit): Promise<Response> 
       return fetch(url, retryOptions);
     }
 
-    // Refresh échoué — session vraiment expirée
+    // Refresh Ã©chouÃ© â session vraiment expirÃ©e
     clearToken();
     throw new Error('Session expired');
     }
@@ -456,7 +456,7 @@ async function createDetailedError(response: Response, fallbackMsg: string): Pro
   return error;
 }
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 import type { Track } from '@/types';
 
@@ -488,7 +488,7 @@ export interface TrackUploadResponse {
 export interface AnalyzeResponse {
   status: string;
   message: string;
-  usedLocal?: boolean;  // true si analyse exécutée sur le CPU local (desktop)
+  usedLocal?: boolean;  // true si analyse exÃ©cutÃ©e sur le CPU local (desktop)
 }
 
 export interface TrackListResponse {
@@ -498,7 +498,7 @@ export interface TrackListResponse {
   pages: number;
 }
 
-// ── Auth API ────────────────────────────────────────────────────────────────
+// ââ Auth API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function login(identifier: string, password: string): Promise<AuthResponse> {
   const response = await fetch(`${API_URL}/auth/login`, {
@@ -509,11 +509,11 @@ export async function login(identifier: string, password: string): Promise<AuthR
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     if (response.status === 403) {
-      const error = new Error(err.detail || 'Email non vérifié');
+      const error = new Error(err.detail || 'Email non vÃ©rifiÃ©');
       (error as any).status = 403;
       throw error;
     }
-    // Traduire les erreurs backend anglaises en français
+    // Traduire les erreurs backend anglaises en franÃ§ais
     const detail = err.detail || 'Identifiants invalides';
     const translated = typeof detail === 'string' && (detail.includes('Invalid') || detail.includes('invalid'))
       ? 'Identifiant ou mot de passe incorrect'
@@ -560,8 +560,8 @@ export async function getCurrentUser(): Promise<User> {
   return response.json();
 }
 
-// refreshToken() est maintenant géré automatiquement par authFetch() via tryRefresh()
-// Pas besoin de l'appeler manuellement — le 401 déclenche un refresh silencieux
+// refreshToken() est maintenant gÃ©rÃ© automatiquement par authFetch() via tryRefresh()
+// Pas besoin de l'appeler manuellement â le 401 dÃ©clenche un refresh silencieux
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
   const response = await fetch(`${API_URL}/auth/forgot-password`, {
@@ -583,12 +583,12 @@ export async function resetPassword(token: string, new_password: string): Promis
   return response.json();
 }
 
-// ── Tracks API ──────────────────────────────────────────────────────────────
+// ââ Tracks API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function uploadTrack(file: File): Promise<TrackUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-  // ⚡ Bypass proxy Next.js pour les uploads (évite timeout + double-hop)
+  // â¡ Bypass proxy Next.js pour les uploads (Ã©vite timeout + double-hop)
   const response = await authFetch(`${UPLOAD_API_URL}/tracks/upload`, {
     method: 'POST',
     headers: { ...authHeaders() },
@@ -615,7 +615,7 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
   for (const file of files) {
     const singleForm = new FormData();
     singleForm.append('file', file);
-    // ⚡ Bypass proxy Next.js pour les uploads
+    // â¡ Bypass proxy Next.js pour les uploads
     const response = await authFetch(`${UPLOAD_API_URL}/tracks/upload`, {
       method: 'POST',
       headers: { ...authHeaders() },
@@ -638,7 +638,7 @@ export async function uploadTracks(formData: FormData): Promise<TrackUploadRespo
 /**
  * Upload avec barre de progression via XMLHttpRequest.
  * Upload les fichiers un par un vers /tracks/upload.
- * onProgress reçoit un pourcentage global 0-100.
+ * onProgress reÃ§oit un pourcentage global 0-100.
  */
 export function uploadTracksWithProgress(
   formData: FormData,
@@ -651,14 +651,14 @@ export function uploadTracksWithProgress(
   let uploadedSize = 0;
   const results: TrackUploadResponse[] = [];
 
-  // Upload séquentiel avec progression globale
+  // Upload sÃ©quentiel avec progression globale
   return files.reduce((chain, file) => {
     return chain.then(() => new Promise<void>((resolve, reject) => {
       const singleForm = new FormData();
       singleForm.append('file', file);
 
       const xhr = new XMLHttpRequest();
-      // ⚡ Bypass proxy Next.js pour les uploads
+      // â¡ Bypass proxy Next.js pour les uploads
       xhr.open('POST', `${UPLOAD_API_URL}/tracks/upload`);
       const token = getToken();
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -692,12 +692,12 @@ export function uploadTracksWithProgress(
 }
 
 /**
- * Analyse un track — hybride :
- *   • Desktop (Electron) → analyse locale via Web Audio API (CPU utilisateur)
- *   • Web → analyse cloud via le backend (POST /tracks/:id/analyze)
+ * Analyse un track â hybride :
+ *   â¢ Desktop (Electron) â analyse locale via Web Audio API (CPU utilisateur)
+ *   â¢ Web â analyse cloud via le backend (POST /tracks/:id/analyze)
  *
- * Sur desktop, après l'analyse locale, on envoie les résultats au backend
- * pour les persister en BDD, comme ça les données restent synchronisées.
+ * Sur desktop, aprÃ¨s l'analyse locale, on envoie les rÃ©sultats au backend
+ * pour les persister en BDD, comme Ã§a les donnÃ©es restent synchronisÃ©es.
  */
 export async function analyzeTrack(
   trackId: number,
@@ -706,7 +706,7 @@ export async function analyzeTrack(
   const { isDesktopApp } = await import('@/lib/electron');
   const isDesktop = isDesktopApp();
 
-  // ── Desktop : analyse locale CPU + stems Demucs ────────────────────────
+  // ââ Desktop : analyse locale CPU + stems Demucs ââââââââââââââââââââââââ
   if (isDesktop) {
     try {
       const { analyzeAudioLocal } = await import('@/lib/audioAnalyzer');
@@ -720,7 +720,7 @@ export async function analyzeTrack(
         buffer = await bridge.files.readBuffer(localFilePath);
       }
 
-      // Option 2 : télécharger l'audio depuis le backend (fichier déjà uploadé)
+      // Option 2 : tÃ©lÃ©charger l'audio depuis le backend (fichier dÃ©jÃ  uploadÃ©)
       if (!buffer) {
         onProgress(1);
         const token = getToken();
@@ -738,24 +738,24 @@ export async function analyzeTrack(
       }
 
       if (buffer && buffer.byteLength > 1000) {
-        // ── Phase 1 : Analyse audio de base (v3.0, ~5s) ──────────────
+        // ââ Phase 1 : Analyse audio de base (v3.0, ~5s) ââââââââââââââ
         onProgress(2);
         // L'analyse de base utilise 0-60% de la progression
         const result = await analyzeAudioLocal(buffer, (pct) => {
           onProgress(Math.round(pct * 0.55)); // 0-55%
         });
 
-        // ── Phase 2 : Stem separation + analyse (Demucs local, ~2-10 min)
-        // Lancé UNIQUEMENT si Demucs est installé sur la machine
+        // ââ Phase 2 : Stem separation + analyse (Demucs local, ~2-10 min)
+        // LancÃ© UNIQUEMENT si Demucs est installÃ© sur la machine
         let stemEnhanced = false;
         if (bridge?.stems?.checkAvailable) {
           try {
             const demucsCheck = await bridge.stems.checkAvailable();
             if (demucsCheck.available && localFilePath) {
               onProgress(58);
-              console.log('[TrackCue] Demucs détecté — lancement séparation de stems...');
+              console.log('[TrackCue] Demucs dÃ©tectÃ© â lancement sÃ©paration de stems...');
 
-              // Écouter la progression Demucs
+              // Ãcouter la progression Demucs
               bridge.stems.onProgress((pct: number) => {
                 // Stems = 58-85% de la progression totale
                 onProgress(58 + Math.round(pct * 0.27));
@@ -764,7 +764,7 @@ export async function analyzeTrack(
               const stemResult = await bridge.stems.separate(localFilePath);
               onProgress(86);
 
-              // Analyser les stems séparés
+              // Analyser les stems sÃ©parÃ©s
               if (stemResult?.stems) {
                 const stemBuffers: Record<string, ArrayBuffer> = {};
                 for (const [name, data] of Object.entries(stemResult.stems)) {
@@ -780,8 +780,8 @@ export async function analyzeTrack(
                     (pct) => onProgress(86 + Math.round(pct * 0.09)) // 86-95%
                   );
 
-                  // ── Merger les résultats stem-enhanced dans l'analyse ──
-                  // Les stems améliorent la précision des beats, drops et sections
+                  // ââ Merger les rÃ©sultats stem-enhanced dans l'analyse ââ
+                  // Les stems amÃ©liorent la prÃ©cision des beats, drops et sections
                   if (stemAnalysis.enhanced_beat_positions.length > 0) {
                     result.beat_positions = stemAnalysis.enhanced_beat_positions;
                   }
@@ -796,20 +796,20 @@ export async function analyzeTrack(
                   result.bass_energy_curve = stemAnalysis.bass_energy_curve;
                   result.vocal_energy_curve = stemAnalysis.vocal_energy_curve;
                   stemEnhanced = true;
-                  console.log('[TrackCue] Analyse stem-enhanced terminée !');
+                  console.log('[TrackCue] Analyse stem-enhanced terminÃ©e !');
                 }
               }
             } else if (demucsCheck.available && !localFilePath) {
-              console.log('[TrackCue] Demucs dispo mais pas de fichier local — skip stems');
+              console.log('[TrackCue] Demucs dispo mais pas de fichier local â skip stems');
             }
           } catch (stemErr) {
-            console.warn('[TrackCue] Stems Demucs échoué (analyse de base utilisée):', stemErr);
+            console.warn('[TrackCue] Stems Demucs Ã©chouÃ© (analyse de base utilisÃ©e):', stemErr);
           }
         }
 
         onProgress(96);
 
-        // Envoyer les résultats au backend pour persistance + cue points pro
+        // Envoyer les rÃ©sultats au backend pour persistance + cue points pro
         const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze-local`, {
           method: 'POST',
           headers: { ...authHeaders(), 'Content-Type': 'application/json' },
@@ -821,14 +821,14 @@ export async function analyzeTrack(
         }
       }
     } catch (e) {
-      console.warn('[TrackCue] Analyse locale échouée, fallback cloud:', e);
+      console.warn('[TrackCue] Analyse locale Ã©chouÃ©e, fallback cloud:', e);
     }
   }
 
-  // ── Web (ou fallback) : analyse cloud ───────────────────────────────────
+  // ââ Web (ou fallback) : analyse cloud âââââââââââââââââââââââââââââââââââ
   const onProgress = options?.onProgress ?? (() => {});
-  // Progression simulée : le POST retourne vite (background task),
-  // mais l'analyse réelle prend 30-120s côté serveur.
+  // Progression simulÃ©e : le POST retourne vite (background task),
+  // mais l'analyse rÃ©elle prend 30-120s cÃ´tÃ© serveur.
   onProgress(5);
 
   const response = await authFetch(`${API_URL}/tracks/${trackId}/analyze`, {
@@ -837,8 +837,8 @@ export async function analyzeTrack(
   });
   if (!response.ok) throw new Error('Failed to start analysis');
 
-  // Le POST a juste démarré la tâche — la vraie progression vient du polling.
-  // On simule une montée fluide de 10→55% pendant les premières ~20s
+  // Le POST a juste dÃ©marrÃ© la tÃ¢che â la vraie progression vient du polling.
+  // On simule une montÃ©e fluide de 10â55% pendant les premiÃ¨res ~20s
   onProgress(10);
   return response.json();
 }
@@ -849,7 +849,7 @@ export async function pollTrackUntilDone(
   intervalMs = 2000,
   maxAttempts = 120
 ): Promise<Track> {
-  // ── Essayer SSE d'abord (moins de requêtes, temps réel) ──
+  // ââ Essayer SSE d'abord (moins de requÃªtes, temps rÃ©el) ââ
   try {
     const result = await _pollViaSSE(trackId, onUpdate);
     if (result) return result;
@@ -857,7 +857,7 @@ export async function pollTrackUntilDone(
     console.warn('SSE fallback to polling:', e);
   }
 
-  // ── Fallback: polling classique avec exponential backoff ──
+  // ââ Fallback: polling classique avec exponential backoff ââ
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await authFetch(`${API_URL}/tracks/${trackId}`, {
       headers: { ...authHeaders() },
@@ -919,13 +919,13 @@ async function _pollViaSSE(
         if (data.status === 'timeout' || data.status === 'not_found') {
           return null; // fallback au polling
         }
-        // Status intermédiaire — notifier avec un track partiel
+        // Status intermÃ©diaire â notifier avec un track partiel
         if (onUpdate) {
           onUpdate({ id: trackId, status: data.status } as Track);
         }
       } catch (e) {
         if (e instanceof Error && e.message.includes('Analysis failed')) throw e;
-        // JSON parse error — skip
+        // JSON parse error â skip
       }
     }
   }
@@ -933,8 +933,8 @@ async function _pollViaSSE(
 }
 
 /**
- * Polling multiplexé pour plusieurs tracks via une seule connexion SSE.
- * Réduit le nombre de connexions réseau en traquant plusieurs tracks à la fois.
+ * Polling multiplexÃ© pour plusieurs tracks via une seule connexion SSE.
+ * RÃ©duit le nombre de connexions rÃ©seau en traquant plusieurs tracks Ã  la fois.
  */
 type TrackUpdateCallback = (trackId: number, track: Track) => void;
 
@@ -947,7 +947,7 @@ export async function pollMultipleTracksUntilDone(
   const results = new Map<number, Track>();
   const pendingIds = new Set(trackIds);
 
-  // Essayer SSE multiplexé d'abord
+  // Essayer SSE multiplexÃ© d'abord
   try {
     const token = getToken();
     if (token && trackIds.length > 0) {
@@ -985,7 +985,7 @@ export async function pollMultipleTracksUntilDone(
                 pendingIds.delete(trackId);
                 throw new Error(`Analysis failed for track ${trackId}`);
               } else if (data.status !== 'timeout' && data.status !== 'not_found') {
-                // Status intermédiaire
+                // Status intermÃ©diaire
                 if (onUpdate) {
                   onUpdate(trackId, { id: trackId, status: data.status } as Track);
                 }
@@ -1057,7 +1057,7 @@ export async function listTracks(
   sort_by?: string,
   sort_dir?: string,
 ): Promise<TrackListResponse> {
-  // ⚡ Construit l'URL avec tous les filtres supportés par le backend
+  // â¡ Construit l'URL avec tous les filtres supportÃ©s par le backend
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('limit', String(limit));
@@ -1097,7 +1097,7 @@ export async function deleteTrack(trackId: number): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete track');
 }
 
-/** Identification on-demand : AcoustID → MusicBrainz → Spotify/Deezer/iTunes etc. */
+/** Identification on-demand : AcoustID â MusicBrainz â Spotify/Deezer/iTunes etc. */
 export async function identifyTrack(trackId: number): Promise<{
   status: string;
   updated_fields?: string[];
@@ -1131,7 +1131,7 @@ export async function batchDeleteTracks(trackIds: number[]): Promise<{ deleted_c
   return response.json();
 }
 
-// ── Export API ───────────────────────────────────────────────────────────────
+// ââ Export API âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function exportRekordbox(trackId: number): Promise<Blob> {
   const response = await authFetch(`${API_URL}/export/${trackId}/rekordbox`, {
@@ -1173,7 +1173,7 @@ export async function exportAllFormats(trackId: number): Promise<Blob> {
   return response.blob();
 }
 
-// ── Utility ─────────────────────────────────────────────────────────────────
+// ââ Utility âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = window.URL.createObjectURL(blob);
@@ -1203,7 +1203,7 @@ export function createUploadFormData(files: File[]): FormData {
   return formData;
 }
 
-// ── Admin API ───────────────────────────────────────────────────────────────
+// ââ Admin API âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface AdminUser {
   id: number;
@@ -1282,7 +1282,7 @@ export async function adminDeleteUser(userId: number): Promise<void> {
 }
 
 
-// ── Types for existing components ───────────────────────────────────────────
+// ââ Types for existing components âââââââââââââââââââââââââââââââââââââââââââ
 
 export interface TrackAnalysis {
   bpm: number | null;
@@ -1351,7 +1351,7 @@ export async function updateTrackMetadata(
   }
   return response.json();
 }
-// ── Generic updateTrack — wraps PATCH /tracks/{id} (used throughout DashboardV2) ─────
+// ââ Generic updateTrack â wraps PATCH /tracks/{id} (used throughout DashboardV2) âââââ
 export async function updateTrack(
   trackId: number,
   data: Record<string, any>
@@ -1365,7 +1365,7 @@ export async function updateTrack(
   return response.json();
 }
 
-// ── DJ Tools API ────────────────────────────────────────────────────────────
+// ââ DJ Tools API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export function getAudioUrl(trackId: number): string {
   return `${API_URL}/tracks/${trackId}/audio`;
@@ -1417,19 +1417,6 @@ export interface IdentifyResult {
   musicbrainz_id?: string;
   acoustid_score?: number;
   source?: string;
-}
-
-export async function identifyTrack(trackId: number): Promise<{
-  status: 'found' | 'not_found' | 'no_fingerprint';
-  message?: string;
-  result: IdentifyResult | null;
-}> {
-  const response = await authFetch(`${API_URL}/tracks/${trackId}/identify`, {
-    method: 'POST',
-    headers: { ...authHeaders() },
-  });
-  if (!response.ok) throw new Error('Identification failed');
-  return response.json();
 }
 
 export async function identifyTrackBySearch(trackId: number, query: string): Promise<{
@@ -1495,7 +1482,7 @@ export async function fixTags(trackId: number): Promise<{
   return response.json();
 }
 
-// ── Page Settings API ───────────────────────────────────────────────────────
+// ââ Page Settings API âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface PageConfig {
   id: number;
@@ -1528,7 +1515,7 @@ export async function togglePage(pageName: string, isEnabled: boolean): Promise<
   return response.json();
 }
 
-// ── User Settings API ───────────────────────────────────────────────────────
+// ââ User Settings API âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface UserProfile {
   id: number;
@@ -1569,7 +1556,7 @@ export async function updateMyProfile(data: UpdateProfileData): Promise<UserProf
 
 
 
-// ── User Analysis Settings ──────────────────────────────────────────────────
+// ââ User Analysis Settings ââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function updateUserSettings(data: { use_stem_separation?: boolean }): Promise<UserProfile> {
   const response = await authFetch(`${API_URL}/auth/me/settings`, {
@@ -1585,7 +1572,7 @@ export async function updateUserSettings(data: { use_stem_separation?: boolean }
 }
 
 
-// ── Cue Points CRUD ───────────────────────────────────────────────────────
+// ââ Cue Points CRUD âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export async function createCuePoint(
   trackId: number,
   data: { position_ms: number; name: string; cue_type?: string; color?: string; number?: number | null }
@@ -1614,8 +1601,8 @@ export async function deleteCuePoint(cueId: number): Promise<void> {
 }
 
 /**
- * Régénère les cue points d'un track à partir de l'analyse existante
- * (sans ré-analyser l'audio — instantané).
+ * RÃ©gÃ©nÃ¨re les cue points d'un track Ã  partir de l'analyse existante
+ * (sans rÃ©-analyser l'audio â instantanÃ©).
  */
 export async function regenerateCuePoints(trackId: number): Promise<any[]> {
   const response = await authFetch(`${API_URL}/cues/${trackId}/regenerate`, {
@@ -1627,7 +1614,7 @@ export async function regenerateCuePoints(trackId: number): Promise<any[]> {
 }
 
 /**
- * Crée plusieurs cue points en une seule requête (batch).
+ * CrÃ©e plusieurs cue points en une seule requÃªte (batch).
  */
 export async function createCuePointsBatch(
   trackId: number,
@@ -1657,7 +1644,7 @@ export const updateAdminUser = adminUpdateUser;
 export const deleteAdminUser = adminDeleteUser;
 
 
-// ── Organization API (Categories, Tags, Cue Modes) ──────────────────────────
+// ââ Organization API (Categories, Tags, Cue Modes) ââââââââââââââââââââââââââ
 
 export async function updateTrackOrganization(
   trackId: number,
@@ -1774,7 +1761,7 @@ export async function generateWaveform(
   return response.json();
 }
 
-// ── v2: Playlists API ───────────────────────────────────────────────────────
+// ââ v2: Playlists API âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface Playlist {
   id: number;
@@ -1855,7 +1842,7 @@ export async function removeTrackFromPlaylist(playlistId: number, trackId: numbe
   if (!r.ok) throw new Error('Failed to remove track');
 }
 
-// ── v2: Smart Crates API ────────────────────────────────────────────────────
+// ââ v2: Smart Crates API ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface CrateRule {
   field: string;
@@ -1910,7 +1897,7 @@ export async function getCrateTracks(crateId: number): Promise<{ tracks: any[] }
   return { tracks: detail.tracks || [] };
 }
 
-// ── v2: Compatible tracks API ───────────────────────────────────────────────
+// ââ v2: Compatible tracks API âââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface CompatibleTrack {
   track_id: number;
@@ -1932,7 +1919,7 @@ export async function getCompatibleTracks(trackId: number, limit = 10): Promise<
   return r.json();
 }
 
-// ── v2: Play history API ────────────────────────────────────────────────────
+// ââ v2: Play history API ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function recordPlay(trackId: number, context = 'preview'): Promise<void> {
   await authFetch(`${API_URL}/tracks/${trackId}/play?context=${context}`, {
@@ -1948,7 +1935,7 @@ export async function clearAllHistory(): Promise<{ deleted: number }> {
 }
 
 
-// ── Demo mode setting (public, no auth) ──────────────────────────────────────
+// ââ Demo mode setting (public, no auth) ââââââââââââââââââââââââââââââââââââââ
 
 export async function getDemoMode(): Promise<boolean> {
   try {
@@ -1961,7 +1948,7 @@ export async function getDemoMode(): Promise<boolean> {
   }
 }
 
-// ── v2: Export All / Batch / Playlist M3U ────────────────────────────────────
+// ââ v2: Export All / Batch / Playlist M3U ââââââââââââââââââââââââââââââââââââ
 
 export async function exportAllRekordbox(): Promise<Blob> {
   const r = await authFetch(`${API_URL}/export/rekordbox/all`, { headers: authHeaders() });
@@ -1985,7 +1972,7 @@ export async function exportPlaylistM3U(playlistId: number): Promise<Blob> {
   return r.blob();
 }
 
-// ── Batch/All Serato ─────────────────────────────────────────────────────────
+// ââ Batch/All Serato âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export async function exportBatchSerato(trackIds: number[]): Promise<Blob> {
   const r = await authFetch(`${API_URL}/export/serato/batch`, {
     method: 'POST',
@@ -2002,7 +1989,7 @@ export async function exportAllSerato(): Promise<Blob> {
   return r.blob();
 }
 
-// ── Batch/All Traktor ────────────────────────────────────────────────────────
+// ââ Batch/All Traktor ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export async function exportBatchTraktor(trackIds: number[]): Promise<Blob> {
   const r = await authFetch(`${API_URL}/export/traktor/batch`, {
     method: 'POST',
@@ -2019,7 +2006,7 @@ export async function exportAllTraktor(): Promise<Blob> {
   return r.blob();
 }
 
-// ── v2: DJ Sets API ──────────────────────────────────────────────────────────
+// ââ v2: DJ Sets API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface DJSet {
   id: number;
@@ -2118,7 +2105,7 @@ export async function exportSetM3U(setId: number): Promise<Blob> {
   return r.blob();
 }
 
-// ── v2: DJ Software Import API ───────────────────────────────────────────────
+// ââ v2: DJ Software Import API âââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface ImportResult {
   imported: number;
@@ -2151,9 +2138,9 @@ export async function importTraktor(file: File): Promise<ImportResult> {
 }
 
 
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  v4: LOOP MARKERS API
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface LoopMarker {
   id: number;
@@ -2190,9 +2177,9 @@ export async function deleteLoop(loopId: number): Promise<void> {
   await authFetch(`${API_URL}/cues/loops/${loopId}`, { method: 'DELETE', headers: authHeaders() });
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  v4: COPY CUE POINTS
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function copyCuesFromTrack(targetTrackId: number, sourceTrackId: number, includeLoops = true): Promise<{ copied_cues: number; copied_loops: number }> {
   const r = await authFetch(`${API_URL}/cues/${targetTrackId}/copy-cues`, {
@@ -2204,9 +2191,9 @@ export async function copyCuesFromTrack(targetTrackId: number, sourceTrackId: nu
   return r.json();
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  v4: DJ ANALYTICS API
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface DJAnalytics {
   library: {
@@ -2236,9 +2223,9 @@ export async function getAnalytics(): Promise<DJAnalytics> {
   return r.json();
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  v4: MIX ANALYZER API
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface MixJobStatus {
   job_id: string;
@@ -2269,7 +2256,7 @@ export async function getMixStatus(jobId: string): Promise<MixJobStatus> {
   return r.json();
 }
 
-// ── Billing API ────────────────────────────────────────────────────────────
+// ââ Billing API ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface Plan {
   id: string;
@@ -2337,7 +2324,7 @@ export async function getBillingPortal(): Promise<{ url: string }> {
   return res.json();
 }
 
-// ── Compare Tracks ──────────────────────────────────────────────────────────
+// ââ Compare Tracks ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export async function getTracks(): Promise<{ tracks: Track[] }> {
   const res = await authFetch(`${API_URL}/tracks`, {
@@ -2357,7 +2344,7 @@ export async function compareTracksAPI(trackIdA: string, trackIdB: string): Prom
   return res.json();
 }
 
-// ── Improvement #41: Cue Quality & Optimization ──────────────────────────────
+// ââ Improvement #41: Cue Quality & Optimization ââââââââââââââââââââââââââââââ
 
 /** Improvement #41: Get quality score for cues of a track */
 export async function getCueQualityScore(trackId: number): Promise<{
@@ -2450,11 +2437,11 @@ export async function searchCues(query: string, filters?: {
 }
 
 
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //   v6.8-6.9: New API functions for advanced analysis, playlist, cues
-// ══════════════════════════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-// ── Quick Analysis ──────────────────────────────────────────────────────
+// ââ Quick Analysis ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export interface QuickAnalysisResult {
   track_id: number;
   bpm: number | null;
@@ -2479,7 +2466,7 @@ export async function analyzeTrackQuick(trackId: number): Promise<QuickAnalysisR
   return res.json();
 }
 
-// ── Batch Analysis ──────────────────────────────────────────────────────
+// ââ Batch Analysis ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export interface BatchAnalyzeResult {
   analyzed: number;
   results: Array<QuickAnalysisResult | { track_id: number; status: string } | { track_id: number; error: string }>;
@@ -2495,7 +2482,7 @@ export async function batchAnalyzeTracks(trackIds: number[], quick = true): Prom
   return res.json();
 }
 
-// ── Track Comparison ────────────────────────────────────────────────────
+// ââ Track Comparison ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export interface TrackComparison {
   overall: number;
   compatible: boolean;
@@ -2518,7 +2505,7 @@ export async function compareTracksDetailed(trackIdA: number, trackIdB: number):
   return res.json();
 }
 
-// ── Find Compatible Tracks ──────────────────────────────────────────────
+// ââ Find Compatible Tracks ââââââââââââââââââââââââââââââââââââââââââââââ
 export interface CompatibleTrackResult {
   track_id: number;
   title: string;
@@ -2545,7 +2532,7 @@ export async function findCompatibleTracks(trackId: number, limit = 10): Promise
   return res.json();
 }
 
-// ── Smart Playlist ──────────────────────────────────────────────────────
+// ââ Smart Playlist ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export type PlaylistMode = 'energy_flow' | 'harmonic_mix' | 'bpm_flow';
 
 export interface SmartPlaylistResult {
@@ -2581,7 +2568,7 @@ export async function generateSmartPlaylist(
   return res.json();
 }
 
-// ── Cue Suggestions ─────────────────────────────────────────────────────
+// ââ Cue Suggestions âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export interface CueSuggestion {
   position_ms: number;
   cue_type: string;
@@ -2619,7 +2606,7 @@ export async function applySuggestedCues(trackId: number, cueIndices?: number[])
   return res.json();
 }
 
-// ── Visualization Data ──────────────────────────────────────────────────
+// ââ Visualization Data ââââââââââââââââââââââââââââââââââââââââââââââââââ
 export async function getSpectrogram(trackId: number, nMels = 128, timeSteps = 256): Promise<{
   spectrogram: number[][];
   mel_frequencies_hz: number[];
@@ -2668,7 +2655,7 @@ export async function getStereoField(trackId: number, resolution = 128): Promise
   return res.json();
 }
 
-// ── Deep Analysis Endpoints ─────────────────────────────────────────────
+// ââ Deep Analysis Endpoints âââââââââââââââââââââââââââââââââââââââââââââ
 export async function getHarmonicSummary(trackId: number): Promise<Record<string, any>> {
   const res = await authFetch(`${API_URL}/tracks/${trackId}/harmonic-summary`, {
     method: 'GET', headers: { ...authHeaders() },
