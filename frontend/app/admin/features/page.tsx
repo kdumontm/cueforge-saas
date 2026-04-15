@@ -153,10 +153,15 @@ export default function FeaturesPage() {
   // Bulk display mode — tout masquer ou tout griser d'un plan
   async function bulkDisplayMode(planName: string, mode: 'hidden' | 'locked') {
     const planFeatures = features.filter((f) => f.plan_name === planName);
-    const snapshot = planFeatures.map((f) => ({ id: f.id, display_mode: f.display_mode }));
+    const snapshot = planFeatures.map((f) => ({ id: f.id, display_mode: f.display_mode, is_enabled: f.is_enabled }));
 
     setFeatures((prev) =>
-      prev.map((f) => (f.plan_name === planName ? { ...f, display_mode: mode } : f))
+      prev.map((f) => {
+        if (f.plan_name !== planName) return f;
+        // Masquer = désactiver aussi (sinon le display_mode est ignoré côté dashboard)
+        if (mode === 'hidden') return { ...f, display_mode: mode, is_enabled: false };
+        return { ...f, display_mode: mode };
+      })
     );
     setBusyPlans((prev) => new Set([...prev, planName]));
 
@@ -168,12 +173,12 @@ export default function FeaturesPage() {
       );
     } catch (err: any) {
       setFeatures((prev) => {
-        const oldMap = new Map(snapshot.map((s) => [s.id, s.display_mode]));
-        return prev.map((f) =>
-          f.plan_name === planName && oldMap.has(f.id)
-            ? { ...f, display_mode: (oldMap.get(f.id) as 'hidden' | 'locked') }
-            : f
-        );
+        const oldMap = new Map(snapshot.map((s) => [s.id, s]));
+        return prev.map((f) => {
+          if (f.plan_name !== planName || !oldMap.has(f.id)) return f;
+          const old = oldMap.get(f.id)!;
+          return { ...f, display_mode: old.display_mode as 'hidden' | 'locked', is_enabled: old.is_enabled };
+        });
       });
       toast(err.message || "Erreur", "error");
     } finally {

@@ -72,6 +72,10 @@ async def update_feature(
     for key, value in update_data.items():
         setattr(feature, key, value)
 
+    # Cohérence : si display_mode passe à "hidden", la feature doit être désactivée
+    if update_data.get("display_mode") == "hidden":
+        feature.is_enabled = False
+
     db.commit()
     db.refresh(feature)
     return serialize_feature(feature)
@@ -112,6 +116,10 @@ async def bulk_set_display_mode(
 
     for f in features:
         f.display_mode = data.display_mode
+        # Masquer = désactiver ; griser = désactiver aussi (le display_mode contrôle l'apparence)
+        # Si on remet en "locked" on ne réactive pas automatiquement — l'admin peut réactiver manuellement
+        if data.display_mode == "hidden":
+            f.is_enabled = False
     db.commit()
     return [serialize_feature(f) for f in features]
 
