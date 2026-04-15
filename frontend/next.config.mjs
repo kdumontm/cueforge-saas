@@ -9,6 +9,8 @@ const BACKEND_INTERNAL_URL = process.env.BACKEND_INTERNAL_URL || 'https://cuefor
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Force un build ID unique pour invalider tous les caches après chaque deploy
+  generateBuildId: () => `build-${Date.now()}`,
   output: 'standalone',
   reactStrictMode: true,
   swcMinify: true,
