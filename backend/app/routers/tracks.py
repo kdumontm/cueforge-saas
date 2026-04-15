@@ -727,6 +727,92 @@ def _run_analysis(track_id: int):
         db.close()
 
 
+@router.post("/{track_id}/debug-analyze")
+async def debug_analyze_track(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Debug: check file, run analysis SYNCHRONOUSLY, return detailed status."""
+    import traceback as _tb
+    validate_track_id(track_id)
+
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    result = {
+        "track_id": track_id,
+        "file_path": track.file_path,
+        "status_before": track.status.value if track.status else None,
+        "file_exists": False,
+        "file_size": 0,
+        "phases": {},
+    }
+
+    # Check file
+    if track.file_path:
+        result["file_exists"] = os.path.exists(track.file_path)
+        if result["file_exists"]:
+            result["file_size"] = os.path.getsize(track.file_path)
+
+    if not result["file_exists"]:
+        result["error"] = "File not found on disk"
+        return result
+
+    # Try running analysis synchronously to capture any crash
+    try:
+        result["phases"]["phase1"] = "starting"
+        # Just test the import and first call
+        import app.services.audio_analysis as analysis_svc_mod
+        result["phases"]["phase1"] = "import OK"
+
+        result["phases"]["phase2"] = "starting analyze_audio"
+        analysis_data = analysis_svc_mod.analyze_audio(
+            track.file_path, use_stem_separation=False, track_id=None
+        )
+        result["phases"]["phase2"] = f"OK — {len(analysis_data)} keys, bpm={analysis_data.get('bpm')}"
+        result["bpm"] = analysis_data.get("bpm")
+        result["key"] = analysis_data.get("key")
+        result["energy"] = analysis_data.get("energy")
+        result["duration_ms"] = analysis_data.get("duration_ms")
+
+        # Save results
+        from app.models.track import TrackAnalysis
+        old = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+        if old:
+            db.delete(old)
+
+        analysis = TrackAnalysis(
+            track_id=track.id,
+            bpm=analysis_data.get("bpm"),
+            key=analysis_data.get("key"),
+            energy=analysis_data.get("energy"),
+            duration_ms=analysis_data.get("duration_ms"),
+        )
+        db.add(analysis)
+        track.status = TrackStatus.completed
+        db.commit()
+        result["phases"]["phase3"] = "committed"
+        result["status_after"] = "completed"
+
+    except Exception as e:
+        result["error"] = str(e)
+        result["traceback"] = _tb.format_exc()
+        # Mark as failed
+        try:
+            track.status = TrackStatus.failed
+            track.error_message = str(e)[:500]
+            db.commit()
+        except Exception:
+            pass
+
+    return result
+
+
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)
 async def analyze_track(
     track_id: int,
