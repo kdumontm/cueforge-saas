@@ -386,7 +386,7 @@ function WaveSurferPlayer({
 
   // Animation
   const rafRef = useRef<number>(0);
-  const lastRenderedPositionRef = useRef(0);
+  const lastRenderedPositionRef = useRef(-1); // -1 pour forcer le premier rendu
 
   // Zoom: internal visible seconds state (driven by prop + scroll)
   const ZOOM_SEC_MAP: Record<string, number> = { '0.5': 60, '1': 30, '2': 15, '4': 8 };
@@ -977,6 +977,7 @@ function WaveSurferPlayer({
 
     setIsReady(false); setLoading(true); setError(null);
     setCurrentTime(0); currentTimeRef.current = 0; setIsPlaying(false);
+    lastRenderedPositionRef.current = -1; // forcer le rendu dès que le waveform est prêt
     spectralColorsRef.current = null; setSpectralReady(false);
     setLoopIn(null); setLoopOut(null); setLoopActive(false);
     loopInRef.current = null; loopOutRef.current = null; loopActiveRef.current = false;
@@ -1108,6 +1109,7 @@ function WaveSurferPlayer({
   // ── Drag-to-scrub state ──
   const isDraggingOverview = useRef(false);
   const isDraggingDetail = useRef(false);
+  const wasPlayingBeforeDrag = useRef(false);
 
   // ── Overview: mousedown starts drag, mousemove scrubs, mouseup ends ──
   const seekOverviewAt = useCallback((clientX: number, container: HTMLDivElement) => {
@@ -1124,6 +1126,10 @@ function WaveSurferPlayer({
     if (!isReady) return;
     e.preventDefault();
     isDraggingOverview.current = true;
+    const audio = audioRef.current;
+    // Pause pendant le scrub pour éviter les sauts
+    wasPlayingBeforeDrag.current = !!(audio && !audio.paused);
+    if (audio && !audio.paused) audio.pause();
     const container = e.currentTarget;
     seekOverviewAt(e.clientX, container);
 
@@ -1132,6 +1138,8 @@ function WaveSurferPlayer({
     };
     const onUp = () => {
       isDraggingOverview.current = false;
+      // Reprendre la lecture si elle était active avant le drag
+      if (wasPlayingBeforeDrag.current && audio) audio.play().catch(() => {});
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -1153,6 +1161,10 @@ function WaveSurferPlayer({
     const dur = durationRef.current;
     if (dur <= 0) return;
 
+    // Pause pendant le scrub pour éviter les sauts
+    wasPlayingBeforeDrag.current = !audio.paused;
+    if (!audio.paused) audio.pause();
+
     // Seek initial absolu au point de click
     const secPerPx = visibleSecondsRef.current / rect.width;
     const x0 = e.clientX - rect.left;
@@ -1161,6 +1173,7 @@ function WaveSurferPlayer({
     ));
     audio.currentTime = initTime;
     currentTimeRef.current = initTime;
+    lastRenderedPositionRef.current = -1; // forcer le re-rendu immédiat
     onSeek?.(initTime * 1000);
     onWaveformClick?.(initTime * 1000);
 
@@ -1176,10 +1189,13 @@ function WaveSurferPlayer({
       const seekTime = Math.max(0, Math.min(dur, dragStartTime - deltaX * dragSecPerPx));
       audio.currentTime = seekTime;
       currentTimeRef.current = seekTime;
+      lastRenderedPositionRef.current = -1; // forcer le re-rendu immédiat
       onSeek?.(seekTime * 1000);
     };
     const onUp = () => {
       isDraggingDetail.current = false;
+      // Reprendre la lecture si elle était active avant le drag
+      if (wasPlayingBeforeDrag.current && audio) audio.play().catch(() => {});
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };

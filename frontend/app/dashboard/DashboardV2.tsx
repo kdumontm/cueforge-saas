@@ -384,11 +384,12 @@ export default function DashboardV2() {
     _setSelectedTrack(displayTracks[0]);
   }, [selectedTrack, displayTracks, loading]);
 
-  // Load tracks + demo mode setting
+  // Load tracks (initial = 30 pour un affichage rapide, puis le reste en arrière-plan)
   useEffect(() => {
-    loadTracks();
-    // TODO: réactiver quand l'endpoint /admin/public/demo-mode sera implémenté
-    // getDemoMode().then(setDemoModeEnabled).catch(() => setDemoModeEnabled(false));
+    loadTracks(1, false, 30).then(() => {
+      // Charger les tracks restants en arrière-plan après le premier rendu
+      loadTracks(1, false, 100);
+    });
   }, []);
 
   // Keyboard shortcuts
@@ -431,14 +432,9 @@ export default function DashboardV2() {
         searchInputRef.current?.focus();
         return;
       }
-      // Delete = delete selected track
+      // Delete = delete selected track (même logique que handleDeleteTrack)
       if (e.code === 'Delete' && selectedTrack && selectedTrack.id > 0) {
-        if (window.confirm('Delete this track?')) {
-          deleteTrack(selectedTrack.id).then(() => {
-            loadTracks();
-            setSelectedTrack(null, 'keyboard:Delete');
-          }).catch(() => addToast(tr('toast.deleted', lang), 'error'));
-        }
+        handleDeleteTrack(selectedTrack.id);
         return;
       }
       // Up/Down = navigate tracks
@@ -475,11 +471,11 @@ export default function DashboardV2() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTrack, displayTracks]);
 
-  async function loadTracks(page = 1, append = false) {
+  async function loadTracks(page = 1, append = false, limit = 100) {
     try {
       if (!append) setLoading(true); else setLoadingMore(true);
       if (!isAuthenticated()) return;
-      const data = await listTracks(page, 100);
+      const data = await listTracks(page, limit);
       const trackList = Array.isArray(data) ? data : (data?.tracks || []);
       setTracks(prev => append ? [...prev, ...trackList] : trackList);
       setTracksTotal(data?.total ?? trackList.length);
@@ -1053,8 +1049,16 @@ export default function DashboardV2() {
     if (!window.confirm('Supprimer ce track ?')) return;
     // Suppression optimiste : retirer du state immédiatement
     const previousTracks = tracks;
-    setTracks(prev => prev.filter(t => t.id !== trackId));
-    setSelectedTrack(null, 'contextMenu:delete');
+    const deletedIndex = tracks.findIndex(t => t.id === trackId);
+    const remaining = tracks.filter(t => t.id !== trackId);
+    setTracks(remaining);
+    // Auto-sélection du track suivant (ou précédent si c'était le dernier)
+    if (selectedTrack?.id === trackId) {
+      const nextTrack = remaining.length > 0
+        ? remaining[Math.min(deletedIndex, remaining.length - 1)]
+        : null;
+      setSelectedTrack(nextTrack, 'contextMenu:delete');
+    }
     setContextMenu(null);
     try {
       await deleteTrack(trackId);
