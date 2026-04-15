@@ -650,10 +650,11 @@ def _run_analysis(track_id: int):
         db.add(notif)
         safe_commit(db)
 
-        # Mode pro : lancer Demucs en thread daemon après analyse
+        # Mode pro : lancer stems en thread daemon après analyse
+        # Priorité : Modal GPU (~3-5s) → fallback Demucs CPU local (~20-40s)
         if use_stems:
             try:
-                from app.services.stems_service import separate_stems as _demucs_sep, stems_already_exist
+                from app.services.stems_service import stems_already_exist
                 from app.routers.advanced import _stems_jobs
                 import threading as _threading
                 if stems_already_exist(track_id):
@@ -661,72 +662,84 @@ def _run_analysis(track_id: int):
                 else:
                     _stems_jobs[track_id] = {"status": "processing", "error": None}
                     _fp = file_path
+                    _tid = track_id
 
-                    def _auto_demucs():
+                    def _auto_stems():
                         try:
-                            _demucs_sep(track_id, _fp)
-                            _stems_jobs[track_id] = {"status": "completed", "error": None}
-                            logger.info(f"[STEM] Demucs auto-terminé pour track {track_id}")
+                            from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
+                            from app.services.stem_analysis import analyze_stems_from_arrays
+                            from app.services import cue_points as cue_svc
+                            from app.database import SessionLocal
+
+                            # Construire l'URL audio pour Modal
+                            _api_url = os.environ.get("API_PUBLIC_URL", "")
+                            _audio_url = f"{_api_url}/api/v1/tracks/{_tid}/audio" if _api_url else ""
+
+                            mode = "Modal GPU" if is_modal_available() else "CPU local"
+                            logger.info(f"[STEM] Démarrage séparation via {mode} pour track {_tid}")
+
+                            # Séparer les stems (Modal GPU ou CPU fallback)
+                            stem_arrays = separate_stems_with_fallback(_tid, _fp, _audio_url)
+
+                            _stems_jobs[_tid] = {"status": "completed", "error": None}
+                            logger.info(f"[STEM] Séparation terminée pour track {_tid}")
 
                             # ── Régénérer les cue points avec les données stems ──
+                            _db = SessionLocal()
                             try:
-                                from app.services.stem_analysis import analyze_stems
-                                from app.services import cue_points as cue_svc
-                                from app.database import SessionLocal
+                                _track = _db.query(Track).filter(Track.id == _tid).first()
+                                _analysis = _db.query(TrackAnalysis).filter(TrackAnalysis.track_id == _tid).first()
+                                if _track and _analysis:
+                                    beats = _analysis.beat_positions or []
 
-                                _db = SessionLocal()
-                                try:
-                                    _track = _db.query(Track).filter(Track.id == track_id).first()
-                                    _analysis = _db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
-                                    if _track and _analysis:
-                                        # Analyser les stems pour extraire drum_enter, vocal_sections, etc.
-                                        stem_data = analyze_stems(
-                                            _fp,
-                                            beats=_analysis.beat_positions or [],
-                                            track_id=track_id,
+                                    # Analyser les arrays stems pour features (drum_enter, vocal_sections…)
+                                    try:
+                                        stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=_tid)
+                                    except (ImportError, AttributeError):
+                                        # Fallback : analyze_stems depuis le fichier
+                                        from app.services.stem_analysis import analyze_stems
+                                        stem_data = analyze_stems(_fp, beats, track_id=_tid)
+
+                                    # Construire analysis_data enrichi
+                                    _ad = {
+                                        "bpm": _analysis.bpm,
+                                        "key": _analysis.key,
+                                        "energy": _analysis.energy,
+                                        "duration_ms": _analysis.duration_ms,
+                                        "beat_positions": beats,
+                                        "sections": _analysis.sections,
+                                    }
+                                    _ad.update(stem_data)
+
+                                    # Supprimer les anciens cue points et régénérer
+                                    _db.query(CuePoint).filter(CuePoint.track_id == _tid).delete(synchronize_session='fetch')
+                                    cue_points_data, _ = cue_svc.generate_cue_points_v2(_ad)
+                                    for cp in cue_points_data:
+                                        cue = CuePoint(
+                                            track_id=_tid,
+                                            position_ms=cp["position_ms"],
+                                            end_position_ms=cp.get("end_position_ms"),
+                                            cue_type=cp["cue_type"],
+                                            name=cp["name"],
+                                            color=cp.get("color", "red"),
+                                            number=cp.get("number"),
+                                            confidence=cp.get("confidence"),
                                         )
-                                        # Construire analysis_data enrichi avec stems
-                                        _ad = {
-                                            "bpm": _analysis.bpm,
-                                            "key": _analysis.key,
-                                            "energy": _analysis.energy,
-                                            "duration_ms": _analysis.duration_ms,
-                                            "beat_positions": _analysis.beat_positions,
-                                            "sections": _analysis.sections,
-                                        }
-                                        _ad.update(stem_data)
-
-                                        # Supprimer les anciens cue points et régénérer
-                                        _db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session='fetch')
-                                        cue_points_data, _ = cue_svc.generate_cue_points_v2(_ad)
-                                        for cp in cue_points_data:
-                                            cue = CuePoint(
-                                                track_id=track_id,
-                                                position_ms=cp["position_ms"],
-                                                end_position_ms=cp.get("end_position_ms"),
-                                                cue_type=cp["cue_type"],
-                                                name=cp["name"],
-                                                color=cp.get("color", "red"),
-                                                number=cp.get("number"),
-                                                confidence=cp.get("confidence"),
-                                            )
-                                            _db.add(cue)
-                                        _db.commit()
-                                        logger.info(f"[STEM] Cue points régénérés avec stems pour track {track_id} ({len(cue_points_data)} cues)")
-                                finally:
-                                    _db.close()
-                            except Exception as _cue_err:
-                                logger.warning(f"[STEM] Cue regeneration after stems failed (non-critical): {_cue_err}")
+                                        _db.add(cue)
+                                    _db.commit()
+                                    logger.info(f"[STEM] Cue points régénérés avec stems pour track {_tid} ({len(cue_points_data)} cues)")
+                            finally:
+                                _db.close()
 
                         except Exception as _e:
-                            _stems_jobs[track_id] = {"status": "failed", "error": str(_e)[:300]}
-                            logger.error(f"[STEM] Demucs auto-échoué pour track {track_id}: {_e}")
+                            _stems_jobs[_tid] = {"status": "failed", "error": str(_e)[:300]}
+                            logger.error(f"[STEM] Stems failed pour track {_tid}: {_e}")
 
-                    t = _threading.Thread(target=_auto_demucs, daemon=True)
+                    t = _threading.Thread(target=_auto_stems, daemon=True)
                     t.start()
-                    logger.info(f"[STEM] Thread Demucs lancé en arrière-plan pour track {track_id}")
+                    logger.info(f"[STEM] Thread stems lancé en arrière-plan pour track {track_id}")
             except Exception as _stem_err:
-                logger.warning(f"[STEM] Impossible de lancer Demucs auto: {_stem_err}")
+                logger.warning(f"[STEM] Impossible de lancer stems: {_stem_err}")
 
     except Exception as e:
         logger.error(f"Unexpected error analyzing track {track_id}: {e}")

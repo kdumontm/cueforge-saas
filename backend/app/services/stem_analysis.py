@@ -901,49 +901,63 @@ def _check_reconstruction_quality(
         }
 
 
+def analyze_stems_from_arrays(
+    stems: Dict[str, np.ndarray],
+    beats: List[float] = None,
+    track_id: Optional[int] = None,
+) -> Dict:
+    """
+    Analyse des stems pré-séparés (ex: reçus de Modal GPU).
+    Même pipeline que analyze_stems() mais skip la séparation Demucs.
+
+    Args:
+        stems: Dict {stem_name: numpy_array_mono_22050hz}
+        beats: Liste des positions de beats en ms
+        track_id: ID du track (pour sauvegarder les stems sur disque)
+
+    Returns:
+        Dict enrichi avec drum/bass/vocal/melody features + cross-validation
+    """
+    logger.info(f"[STEM] Analyzing pre-separated stems (from Modal GPU or cache)")
+    return _analyze_stem_arrays(stems, beats, track_id, file_path=None)
+
+
 def analyze_stems(file_path: str, beats: List[float] = None, track_id: Optional[int] = None) -> Dict:
     """
-    Full stem analysis pipeline:
-    1. Separate with Demucs (with model caching, FP16, normalization)
-    2. Analyze each stem independently
-    3. Cross-stem analysis (drums+bass alignment + vocal awareness = drop confidence)
-    4. Check reconstruction quality (point 341)
-    5. Optionally save stems to disk (if track_id provided) — avoids re-running Demucs
-    6. Return enriched data dict
-
-    This data is merged into the main analysis_data before cue generation.
-    If track_id is provided, stems are saved as MP3 in STEMS_DIR/{track_id}/
-    so the stems module can serve them directly without re-analysis.
-
-    Optimizations applied:
-    - Model caching singleton (point 256)
-    - FP16 inference (point 262)
-    - Stem normalization (point 274)
-    - Silence trimming (point 282)
-    - Micro-fades (point 281)
-    - Drum pattern recognition (point 294)
-    - Bass frequency analysis (point 299)
-    - Enhanced cross-validation (point 306)
-    - Reconstruction quality check (point 341)
+    Full stem analysis pipeline: séparation Demucs locale + analyse.
+    Pour les stems pré-séparés (ex: Modal GPU), utiliser analyze_stems_from_arrays().
     """
     logger.info(f"[STEM] Full stem analysis pipeline starting for {file_path}")
 
-    # Step 1: Separate
+    # Step 1: Separate locally
     stems = separate_stems(file_path)
+    return _analyze_stem_arrays(stems, beats, track_id, file_path)
+
+
+def _analyze_stem_arrays(
+    stems: Dict[str, np.ndarray],
+    beats: List[float] = None,
+    track_id: Optional[int] = None,
+    file_path: Optional[str] = None,
+) -> Dict:
+    """
+    Code commun d'analyse de stems (utilisé par analyze_stems et analyze_stems_from_arrays).
+    """
     original_audio = None
     reconstruction_quality = None
 
     # Save original for reconstruction check if possible
-    try:
-        import torchaudio
-        original_audio, orig_sr = torchaudio.load(file_path)
-        original_audio = original_audio.numpy()
-        if original_audio.ndim > 1:
-            original_audio = np.mean(original_audio, axis=0)
-        if orig_sr != SR:
-            original_audio = librosa.resample(original_audio, orig_sr=orig_sr, target_sr=SR)
-    except Exception as e:
-        logger.debug(f"[STEM] Could not load original for reconstruction check: {e}")
+    if file_path:
+        try:
+            import torchaudio
+            original_audio, orig_sr = torchaudio.load(file_path)
+            original_audio = original_audio.numpy()
+            if original_audio.ndim > 1:
+                original_audio = np.mean(original_audio, axis=0)
+            if orig_sr != SR:
+                original_audio = librosa.resample(original_audio, orig_sr=orig_sr, target_sr=SR)
+        except Exception as e:
+            logger.debug(f"[STEM] Could not load original for reconstruction check: {e}")
 
     # Step 2: Per-stem analysis
     drum_data = analyze_drum_stem(stems.get("drums", np.zeros(1000)), SR, beats)
