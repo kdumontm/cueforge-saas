@@ -268,3 +268,56 @@ async def check_stem_readiness(
         checks["ram_check_error"] = str(e)
 
     return checks
+
+
+@router.post("/test-stems/{track_id}")
+async def test_stems_separation(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: "User" = Depends(_get_current_user),
+):
+    """
+    Test endpoint: lance Demucs sur un track et retourne le résultat.
+    Synchrone — peut prendre 20-60s.
+    """
+    import time as _time
+    from app.models.track import Track
+
+    track = db.query(Track).filter(Track.id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    file_path = track.file_path
+    if not file_path:
+        from app.services.storage import UPLOAD_DIR
+        file_path = os.path.join(UPLOAD_DIR, track.filename) if track.filename else None
+
+    if not file_path or not os.path.exists(file_path):
+        return {"error": f"File not found: {file_path}"}
+
+    result = {"file_path": file_path, "file_size": os.path.getsize(file_path)}
+
+    # Test 1: Import demucs
+    try:
+        import demucs
+        result["demucs_import"] = "OK"
+    except ImportError as e:
+        result["demucs_import"] = f"FAIL: {e}"
+        return result
+
+    # Test 2: Run separation
+    t0 = _time.time()
+    try:
+        from app.services.stem_analysis import separate_stems
+        stem_arrays = separate_stems(file_path)
+        elapsed = _time.time() - t0
+        result["separation_time_s"] = round(elapsed, 1)
+        result["stems"] = {name: {"shape": list(arr.shape), "dtype": str(arr.dtype)} for name, arr in stem_arrays.items()}
+        result["status"] = "OK"
+    except Exception as e:
+        elapsed = _time.time() - t0
+        result["separation_time_s"] = round(elapsed, 1)
+        result["separation_error"] = str(e)
+        result["status"] = "FAIL"
+
+    return result
