@@ -27,6 +27,8 @@ demucs_image = (
         "demucs>=4.0",
         "numpy<2",
         "soundfile",
+        "librosa",
+        "fastapi[standard]",
     )
     # Pré-télécharger le modèle htdemucs au build (évite cold start)
     .run_commands(
@@ -47,7 +49,7 @@ model_cache = modal.Volume.from_name("demucs-model-cache", create_if_missing=Tru
 @app.function(
     gpu="T4",
     timeout=120,
-    container_idle_timeout=60,  # Garde le container chaud 60s après le dernier appel
+    scaledown_window=60,  # Garde le container chaud 60s après le dernier appel
     volumes={"/cache": model_cache},
     memory=4096,
 )
@@ -64,11 +66,10 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
     """
     import tempfile
     import torch
-    import torchaudio
     import numpy as np
     import soundfile as sf
-    from demucs.pretrained import get_model
-    from demucs.apply import apply_model
+    import librosa
+    from demucs.api import Separator
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[CueForge] Device: {device}, CUDA: {torch.cuda.is_available()}")
@@ -80,53 +81,20 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
         tmp_path = f.name
 
     try:
-        # Charger le modèle (cached en mémoire après le premier appel)
-        model = get_model("htdemucs")
-        model.eval()
-        model.to(device)
+        # Utiliser demucs.api.Separator (gère le chargement audio en interne)
+        separator = Separator(model="htdemucs", segment=15, device=device)
+        model_sr = separator.samplerate
 
-        # Charger l'audio
-        wav, sr_orig = torchaudio.load(tmp_path)
-
-        model_sr = model.samplerate
-        if sr_orig != model_sr:
-            resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
-            wav = resampler(wav)
-
-        # Mono → stéréo si nécessaire
-        if wav.shape[0] == 1:
-            wav = wav.repeat(2, 1)
-        elif wav.shape[0] > 2:
-            wav = wav[:2]
-
-        # Limiter à 5 min
-        max_samples = model_sr * 300
-        if wav.shape[1] > max_samples:
-            wav = wav[:, :max_samples]
-
-        wav = wav.unsqueeze(0).to(device)
-        print(f"[CueForge] Audio shape: {wav.shape}, sr: {model_sr}")
-
-        # Séparation GPU — segment court pour vitesse max
-        with torch.no_grad():
-            sources = apply_model(
-                model, wav, device=device,
-                progress=False,
-                split=True,
-                segment=15,
-                overlap=0.1,
-                shifts=0,
-            )
+        print(f"[CueForge] Separating with Demucs API on {device}...")
+        origin, separated = separator.separate_audio_file(tmp_path)
 
         # Convertir chaque stem en WAV bytes (mono, 22050Hz)
-        stem_names = model.sources  # ['drums', 'bass', 'other', 'vocals']
         result = {}
-        for i, name in enumerate(stem_names):
-            stem_stereo = sources[0, i].cpu().numpy()  # [2, time]
-            stem_mono = np.mean(stem_stereo, axis=0)
+        for name, stem_tensor in separated.items():
+            stem_np = stem_tensor.cpu().numpy()
+            stem_mono = np.mean(stem_np, axis=0) if stem_np.ndim > 1 else stem_np
 
             # Resample vers 22050Hz pour l'analyse
-            import librosa
             stem_22k = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=22050)
 
             # Encoder en WAV bytes
@@ -135,12 +103,12 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
             result[name] = buf.getvalue()
 
         print(f"[CueForge] Stems: {list(result.keys())}")
+        del separated, origin
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
         return result
 
     finally:
         os.unlink(tmp_path)
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
 
 # ── Endpoint HTTPS (web_endpoint) pour appel depuis Railway ─────────────
@@ -148,11 +116,12 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
 @app.function(
     gpu="T4",
     timeout=120,
-    container_idle_timeout=60,
+    scaledown_window=60,
     volumes={"/cache": model_cache},
     memory=4096,
+    secrets=[modal.Secret.from_name("cueforge-auth")],
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def separate_stems_api(request: dict) -> dict:
     """
     Endpoint HTTPS appelé par le backend CueForge.
