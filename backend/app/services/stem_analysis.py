@@ -219,111 +219,95 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     Inner function that runs the actual Demucs separation.
     Extracted so it can be called with a timeout wrapper.
 
-    Uses model caching singleton (point 256) and FP16 inference (point 262)
-    for memory optimization. GPU-accelerated when available (points 91-92).
+    Utilise l'API haut-niveau demucs.api.Separator qui gère le chargement
+    fichier en interne (évite les problèmes TorchCodec de torchaudio).
     """
     import torch
-    import torchaudio
-    from demucs.apply import apply_model
-    from app.services.hardware_config import detect_hardware
 
-    # Use singleton model instead of reloading (point 256)
-    model = _get_demucs_model()
+    logger.info(f"[STEM] Loading Demucs Separator (model={DEMUCS_MODEL_NAME})...")
 
-    # Detect optimal device (GPU or CPU)
-    hw = detect_hardware()
-    device = 'cuda' if hw['cuda_available'] else 'cpu'
-    model = model.to(device)
-    logger.info(f"[STEM] Running Demucs on device: {device}")
-
-    # Charger audio — torchaudio avec backend explicite pour éviter TorchCodec
     try:
-        wav, sr_orig = torchaudio.load(file_path, backend="soundfile")
-    except TypeError:
-        # Anciennes versions de torchaudio n'ont pas le param backend
-        try:
-            torchaudio.set_audio_backend("soundfile")
-        except Exception:
-            pass
-        wav, sr_orig = torchaudio.load(file_path)
+        # API haut-niveau : gère le chargement, resampling, segment splitting
+        from demucs.api import Separator
+        separator = Separator(model=DEMUCS_MODEL_NAME, segment=DEMUCS_SEGMENT_SEC)
 
-    model_sr = model.samplerate
-    if sr_orig != model_sr:
-        resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
-        wav = resampler(wav)
+        logger.info(f"[STEM] RAM before separation: {_check_available_memory_mb():.0f} MB")
+        logger.info(f"[STEM] Running separation on {file_path}...")
 
-    if wav.shape[0] == 1:
-        wav = wav.repeat(2, 1)
-    elif wav.shape[0] > 2:
-        wav = wav[:2]
+        origin, separated = separator.separate_audio_file(file_path)
+        model_sr = separator.samplerate
 
-    max_samples = model_sr * MAX_DURATION_SEC
-    if wav.shape[1] > max_samples:
-        logger.info(f"[STEM] Truncating audio to {MAX_DURATION_SEC}s")
-        wav = wav[:, :max_samples]
+        logger.info(f"[STEM] Separation done — stems: {list(separated.keys())}")
 
-    logger.info(f"[STEM] RAM before Demucs: {_check_available_memory_mb():.0f} MB, "
-                f"audio: {wav.shape}")
+        stems = {}
+        for name, stem_tensor in separated.items():
+            # stem_tensor: shape [channels, samples]
+            stem_np = stem_tensor.numpy()
+            stem_mono = np.mean(stem_np, axis=0) if stem_np.ndim > 1 else stem_np
+            stem_mono_resampled = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
 
-    wav = wav.unsqueeze(0)
+            # Apply post-processing optimizations
+            stem_mono_resampled = _trim_stem_silence(stem_mono_resampled)
+            stem_mono_resampled = _normalize_stem(stem_mono_resampled)
+            stem_mono_resampled = _apply_micro_fade(stem_mono_resampled)
 
-    # Optimized inference with tuned parameters
-    logger.info(f"[STEM] Params: model={DEMUCS_MODEL_NAME}, segment={DEMUCS_SEGMENT_SEC}s, "
-                f"overlap={DEMUCS_OVERLAP}, shifts={DEMUCS_SHIFTS}")
+            stems[name] = stem_mono_resampled
 
-    with torch.no_grad():
-        try:
-            # Try FP16 for reduced RAM usage (not compatible with INT8 quantized on CPU)
-            if device == 'cuda':
-                logger.info("[STEM] GPU: FP16 inference")
-                sources = apply_model(
-                    model, wav.half().to(device), device=device,
-                    progress=False,
-                    split=True,
-                    segment=DEMUCS_SEGMENT_SEC,
-                    overlap=DEMUCS_OVERLAP,
-                    shifts=DEMUCS_SHIFTS,
-                )
-                sources = sources.float()
-            else:
-                # CPU: FP32 (INT8 quantization gère déjà l'optimisation)
-                logger.info("[STEM] CPU: FP32 inference (INT8 quantized model)")
-                sources = apply_model(
-                    model, wav.to(device), device=device,
-                    progress=False,
-                    split=True,
-                    segment=DEMUCS_SEGMENT_SEC,
-                    overlap=DEMUCS_OVERLAP,
-                    shifts=DEMUCS_SHIFTS,
-                )
-            logger.info("[STEM] Inference completed")
-        except Exception as e:
-            logger.warning(f"[STEM] Optimized inference failed ({e}), fallback FP32 default params")
+        del separated, origin
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        gc.collect()
+
+    except ImportError:
+        # Fallback: API bas-niveau apply_model avec soundfile
+        logger.warning("[STEM] demucs.api not available, falling back to apply_model")
+        import torchaudio
+        import soundfile as sf
+        from demucs.apply import apply_model
+        from app.services.hardware_config import detect_hardware
+
+        model = _get_demucs_model()
+        hw = detect_hardware()
+        device = 'cuda' if hw['cuda_available'] else 'cpu'
+        model = model.to(device)
+
+        audio_np, sr_orig = sf.read(file_path, dtype='float32')
+        if audio_np.ndim == 1:
+            wav = torch.from_numpy(audio_np).unsqueeze(0)
+        else:
+            wav = torch.from_numpy(audio_np.T.copy())
+
+        model_sr = model.samplerate
+        if sr_orig != model_sr:
+            resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
+            wav = resampler(wav)
+
+        if wav.shape[0] == 1:
+            wav = wav.repeat(2, 1)
+        elif wav.shape[0] > 2:
+            wav = wav[:2]
+
+        wav = wav.unsqueeze(0)
+
+        with torch.no_grad():
             sources = apply_model(
                 model, wav.to(device), device=device,
                 progress=False,
-                split=True,
-                segment=30,
-                overlap=0.25,
             )
 
-    stem_names = model.sources
-    stems = {}
-    for i, name in enumerate(stem_names):
-        stem_stereo = sources[0, i].numpy()
-        stem_mono = np.mean(stem_stereo, axis=0)
-        stem_mono_resampled = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
+        stem_names = model.sources
+        stems = {}
+        for i, name in enumerate(stem_names):
+            stem_stereo = sources[0, i].numpy()
+            stem_mono = np.mean(stem_stereo, axis=0)
+            stem_mono_resampled = librosa.resample(stem_mono, orig_sr=model_sr, target_sr=SR)
+            stem_mono_resampled = _trim_stem_silence(stem_mono_resampled)
+            stem_mono_resampled = _normalize_stem(stem_mono_resampled)
+            stem_mono_resampled = _apply_micro_fade(stem_mono_resampled)
+            stems[name] = stem_mono_resampled
 
-        # Apply post-processing optimizations
-        stem_mono_resampled = _trim_stem_silence(stem_mono_resampled)  # point 282
-        stem_mono_resampled = _normalize_stem(stem_mono_resampled)     # point 274
-        stem_mono_resampled = _apply_micro_fade(stem_mono_resampled)   # point 281
-
-        stems[name] = stem_mono_resampled
-
-    del sources, wav
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
-    gc.collect()
+        del sources, wav
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        gc.collect()
 
     return stems
 
