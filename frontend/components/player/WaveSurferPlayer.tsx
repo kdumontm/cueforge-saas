@@ -783,6 +783,7 @@ function WaveSurferPlayer({
     const onLoadedMetadata = () => {
       if (destroyed) return;
       const dur = audio.duration || 0;
+      console.log('[TrackCue] loadedmetadata fired — duration:', dur.toFixed(1) + 's');
       setDuration(dur);
       durationRef.current = dur;
       setIsReady(true);
@@ -892,6 +893,9 @@ function WaveSurferPlayer({
     };
     const onError = () => {
       if (!destroyed) {
+        const code = audio.error?.code;
+        const msg = audio.error?.message;
+        console.error('[TrackCue] Audio element error:', { code, msg, src: audio.src?.substring(0, 80) });
         setError('Audio non disponible');
         setLoading(false);
       }
@@ -1003,19 +1007,27 @@ function WaveSurferPlayer({
         ? `${API_URL}/tracks/${id}/audio?format=ogg&token=${encodeURIComponent(token)}`
         : `${API_URL}/tracks/${id}/audio?format=ogg`;
 
+      console.log('[TrackCue] Loading audio:', { trackId: id, hasToken: !!token, url: audioUrl.replace(/token=[^&]+/, 'token=***') });
+
       const downloadTimeout = setTimeout(() => {
         if (!abort.signal.aborted) {
+          console.warn('[TrackCue] Audio download timeout (60s)');
           abort.abort(); setError('Chargement trop long — réessayez'); setLoading(false);
         }
       }, 60000);
 
+      const fetchStart = performance.now();
       const res = await fetch(audioUrl, {
         signal: abort.signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        console.error('[TrackCue] Audio fetch failed:', res.status, res.statusText);
+        throw new Error(`HTTP ${res.status}`);
+      }
       const blob = await res.blob();
       clearTimeout(downloadTimeout);
+      console.log('[TrackCue] Audio fetched in', Math.round(performance.now() - fetchStart) + 'ms:', blob.size, 'bytes', blob.type);
       if (abort.signal.aborted) return;
 
       const url = URL.createObjectURL(blob);
@@ -1026,13 +1038,17 @@ function WaveSurferPlayer({
 
       // Decode for spectral waveform (in parallel, doesn't block playback)
       try {
+        console.log('[TrackCue] Spectral decode starting…', { blobSize: blob.size, blobType: blob.type });
         const arrayBuffer = await blob.arrayBuffer();
         if (abort.signal.aborted) return;
+        console.log('[TrackCue] ArrayBuffer ready:', arrayBuffer.byteLength, 'bytes');
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         await audioCtx.resume();
+        console.log('[TrackCue] AudioContext state:', audioCtx.state, 'sampleRate:', audioCtx.sampleRate);
         const decoded = await audioCtx.decodeAudioData(arrayBuffer);
         audioCtx.close().catch(() => {});
         if (abort.signal.aborted) return;
+        console.log('[TrackCue] Decoded:', decoded.duration.toFixed(1) + 's', decoded.numberOfChannels + 'ch', decoded.sampleRate + 'Hz');
         // Fallback: set duration from decoded buffer if not yet available
         if (!durationRef.current || durationRef.current <= 0) {
           durationRef.current = decoded.duration;
@@ -1041,6 +1057,7 @@ function WaveSurferPlayer({
 
         const rgbColors = computeRGBWaveform(decoded);
         spectralColorsRef.current = rgbColors;
+        console.log('[TrackCue] RGB waveform computed:', rgbColors.length, 'bars');
 
         // Downsample raw audio for smooth waveform at high zoom (~4000 samples/sec)
         const rawData = decoded.getChannelData(0);
@@ -1062,9 +1079,57 @@ function WaveSurferPlayer({
         rawSamplesRef.current = downsampled;
         rawSampleRateRef.current = decoded.sampleRate / factor;
 
+        console.log('[TrackCue] Spectral ready ✓');
         setSpectralReady(true);
-      } catch (e) {
-        // Spectral computation failed — audio still plays
+      } catch (e: any) {
+        console.error('[TrackCue] Spectral decode FAILED:', e?.message || e, e);
+        // Fallback: generate simple amplitude waveform from the blob
+        // so the user still sees a basic waveform even if spectral analysis fails
+        try {
+          const fallbackCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          await fallbackCtx.resume();
+          const ab2 = await blob.arrayBuffer();
+          const decoded2 = await fallbackCtx.decodeAudioData(ab2);
+          fallbackCtx.close().catch(() => {});
+          if (abort.signal.aborted) return;
+          const rawData = decoded2.getChannelData(0);
+          const numBars = 8000;
+          const segLen = Math.max(1, Math.floor(rawData.length / numBars));
+          const fallbackColors: { r: number; g: number; b: number; amp: number }[] = [];
+          for (let i = 0; i < numBars; i++) {
+            const s = i * segLen;
+            const e2 = Math.min(s + segLen, rawData.length);
+            let peak = 0;
+            for (let j = s; j < e2; j++) {
+              if (Math.abs(rawData[j]) > peak) peak = Math.abs(rawData[j]);
+            }
+            fallbackColors.push({ r: 80, g: 160, b: 255, amp: peak });
+          }
+          spectralColorsRef.current = fallbackColors;
+          if (!durationRef.current || durationRef.current <= 0) {
+            durationRef.current = decoded2.duration;
+            setDuration(decoded2.duration);
+          }
+          const targetRate = 4000;
+          const factor = Math.max(1, Math.floor(decoded2.sampleRate / targetRate));
+          const dsLen = Math.ceil(rawData.length / factor);
+          const downsampled = new Float32Array(dsLen);
+          for (let i = 0; i < dsLen; i++) {
+            const start = i * factor;
+            const end = Math.min(start + factor, rawData.length);
+            let pk = 0;
+            for (let j = start; j < end; j++) {
+              if (Math.abs(rawData[j]) > Math.abs(pk)) pk = rawData[j];
+            }
+            downsampled[i] = pk;
+          }
+          rawSamplesRef.current = downsampled;
+          rawSampleRateRef.current = decoded2.sampleRate / factor;
+          console.log('[TrackCue] Fallback waveform generated ✓');
+          setSpectralReady(true);
+        } catch (e2) {
+          console.error('[TrackCue] Fallback waveform also failed:', e2);
+        }
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
