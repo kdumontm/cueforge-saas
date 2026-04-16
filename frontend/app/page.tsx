@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Music2, Zap, Download, ChevronRight, Check, Disc3, Headphones, BarChart3, Layers, Palette, Wand2, Shield, Globe, ArrowRight, Play, Star, Users, Clock, Target, Sparkles, Radio, Library } from 'lucide-react';
+import { Music2, Zap, Download, ChevronRight, Check, Disc3, Headphones, BarChart3, Layers, Palette, Wand2, Shield, Globe, ArrowRight, Play, Clock, Target, Sparkles, Radio, Library } from 'lucide-react';
 
 // Pre-computed waveform heights (deterministic, no Math.random)
 const WAVEFORM_HEIGHTS = Array.from({ length: 80 }, (_, i) => {
@@ -27,9 +27,6 @@ export default function LandingPage() {
           <span className="text-xl font-bold text-white">TrackCue</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/testimonials" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
-            Témoignages
-          </Link>
           <Link href="/pricing" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
             Tarifs
           </Link>
@@ -215,7 +212,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonial / Use case section */}
+      {/* Use case section */}
       <section className="relative z-10 px-6 max-w-6xl mx-auto pb-24">
         <h2 className="text-3xl font-bold text-white text-center mb-12">Conçu pour chaque DJ</h2>
         <div className="grid md:grid-cols-3 gap-6">
@@ -265,32 +262,6 @@ export default function LandingPage() {
           <Link href="/register" prefetch={true} className="inline-flex items-center gap-2 px-8 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50">
             Créer mon compte gratuit <ChevronRight size={18} />
           </Link>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 py-20">
-        <div className="text-center mb-12">
-          <span className="text-xs font-bold uppercase tracking-widest text-accent-purple">Témoignages</span>
-          <h2 className="text-3xl font-bold text-white mt-2">Les DJs adorent TrackCue</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { name: 'DJ Marko', role: 'Résident Club', quote: 'TrackCue a révolutionné ma préparation de sets. L\'analyse de tonalité est incroyablement précise et le Set Builder me fait gagner des heures.' },
-            { name: 'Sarah B.', role: 'DJ Mobile & Mariages', quote: 'Le système de tags et de catégories est parfait pour organiser mes milliers de tracks. Je retrouve le bon morceau en secondes.' },
-            { name: 'TechnoKid', role: 'DJ Producer', quote: 'L\'Energy Flow me permet de visualiser l\'énergie de mes sets avant de jouer. C\'est un game changer pour les festivals.' },
-          ].map((t, i) => (
-            <div key={i} className="bg-bg-secondary border border-slate-800/50 rounded-2xl p-6 hover:border-accent-purple/30 transition-all">
-              <div className="flex items-center gap-1 mb-3">
-                {[1,2,3,4,5].map(s => <Star key={s} size={14} className="fill-yellow-500 text-yellow-500" />)}
-              </div>
-              <p className="text-slate-300 text-sm leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
-              <div>
-                <div className="text-sm font-semibold text-white">{t.name}</div>
-                <div className="text-xs text-slate-500">{t.role}</div>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 
