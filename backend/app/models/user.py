@@ -27,7 +27,7 @@ class User(Base):
     password_hash = Column(String, nullable=True)  # nullable for OAuth-only users
 
     # Subscription (user-level, falls back to org plan)
-    subscription_plan = Column(String, default="free", nullable=False)  # free / pro / unlimited
+    subscription_plan = Column(String, default="free", nullable=False)  # free / pro / enterprise / unlimited
     is_admin = Column(Boolean, default=False, nullable=False)
 
     # Stripe

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, Plus, Trash2, Edit3, Check, X, AlertTriangle,
-  Loader, Mail, User, Calendar, LogIn, Shield,
+  Loader, Mail, User, Calendar, LogIn, Shield, Crown, Building2, ShieldCheck,
 } from "lucide-react";
 import {
   Input, Select, Btn, Card, Badge, Toggle, PageWrapper,
@@ -18,7 +18,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  subscription_plan: "free" | "pro" | "unlimited";
+  subscription_plan: "free" | "pro" | "enterprise" | "unlimited";
   is_admin: boolean;
   email_verified: boolean;
   created_at: string;
@@ -32,7 +32,7 @@ interface EditingUser {
   id: number;
   name: string;
   email: string;
-  subscription_plan: "free" | "pro" | "unlimited";
+  subscription_plan: "free" | "pro" | "enterprise" | "unlimited";
   is_admin: boolean;
 }
 
@@ -139,11 +139,29 @@ export default function UsersPage() {
     }
   };
 
+  // ─── Quick role/plan update ────────────────────────────────────────────────────
+  const quickUpdate = async (userId: number, data: { subscription_plan?: string; is_admin?: boolean }) => {
+    try {
+      await adminApi.updateUser(userId, data);
+      const label = data.subscription_plan
+        ? `Plan → ${data.subscription_plan.toUpperCase()}`
+        : data.is_admin
+        ? "Promu Admin"
+        : "Admin retiré";
+      toast(label, "success");
+      await loadUsers();
+    } catch (err: any) {
+      toast(`Erreur: ${err.message}`, "error");
+    }
+  };
+
   // ─── Helpers ──────────────────────────────────────────────────────────────────
-  const getPlanBadgeVariant = (plan: string): "default" | "purple" | "pink" => {
+  const getPlanBadgeVariant = (plan: string): "default" | "purple" | "info" | "pink" => {
     switch (plan) {
       case "pro":
         return "purple";
+      case "enterprise":
+        return "info";
       case "unlimited":
         return "pink";
       default:
@@ -213,6 +231,7 @@ export default function UsersPage() {
               { value: "all", label: "Tous les plans" },
               { value: "free", label: "Free" },
               { value: "pro", label: "Pro" },
+              { value: "enterprise", label: "Enterprise" },
               { value: "unlimited", label: "Unlimited" },
             ]}
           />
@@ -301,6 +320,7 @@ export default function UsersPage() {
                     options={[
                       { value: "free", label: "Free" },
                       { value: "pro", label: "Pro" },
+                      { value: "enterprise", label: "Enterprise" },
                       { value: "unlimited", label: "Unlimited" },
                     ]}
                   />
@@ -379,6 +399,41 @@ export default function UsersPage() {
                     </div>
                   </div>
 
+                  {/* Boutons rôle rapide */}
+                  <div className="flex gap-1.5 mb-3 flex-wrap">
+                    {user.subscription_plan !== "pro" && (
+                      <button
+                        onClick={() => quickUpdate(user.id, { subscription_plan: "pro" })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                      >
+                        <Crown size={11} /> Pro
+                      </button>
+                    )}
+                    {user.subscription_plan !== "enterprise" && (
+                      <button
+                        onClick={() => quickUpdate(user.id, { subscription_plan: "enterprise" })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                      >
+                        <Building2 size={11} /> Enterprise
+                      </button>
+                    )}
+                    {!user.is_admin ? (
+                      <button
+                        onClick={() => quickUpdate(user.id, { is_admin: true })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                      >
+                        <ShieldCheck size={11} /> Admin
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => quickUpdate(user.id, { is_admin: false })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                      >
+                        <Shield size={11} /> Retirer Admin
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex gap-2">
                     <Btn
                       variant="default"
@@ -427,6 +482,9 @@ export default function UsersPage() {
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase">
                   Inscription
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase">
+                  Rôle rapide
                 </th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase">
                   Actions
@@ -484,6 +542,7 @@ export default function UsersPage() {
                           }
                         />
                       </td>
+                      <td className="px-4 py-3" />
                       <td className="px-4 py-3" />
                       <td className="px-4 py-3" />
                       <td className="px-4 py-3">
@@ -555,6 +614,45 @@ export default function UsersPage() {
                         <p className="text-xs text-text-muted">
                           {formatDate(user.created_at)}
                         </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          {user.subscription_plan !== "pro" && (
+                            <button
+                              onClick={() => quickUpdate(user.id, { subscription_plan: "pro" })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                              title="Passer en Pro"
+                            >
+                              <Crown size={11} /> Pro
+                            </button>
+                          )}
+                          {user.subscription_plan !== "enterprise" && (
+                            <button
+                              onClick={() => quickUpdate(user.id, { subscription_plan: "enterprise" })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                              title="Passer en Enterprise"
+                            >
+                              <Building2 size={11} /> Enterprise
+                            </button>
+                          )}
+                          {!user.is_admin ? (
+                            <button
+                              onClick={() => quickUpdate(user.id, { is_admin: true })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                              title="Promouvoir Admin"
+                            >
+                              <ShieldCheck size={11} /> Admin
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => quickUpdate(user.id, { is_admin: false })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                              title="Retirer Admin"
+                            >
+                              <Shield size={11} /> Retirer
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
