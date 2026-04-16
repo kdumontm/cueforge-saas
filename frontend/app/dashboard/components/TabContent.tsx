@@ -46,7 +46,9 @@ export interface TabContentProps {
   onAutoCuePoints: () => void;
   onCreateCue: (data: any) => void;
   onDeleteCue: (cueId: number) => void;
-  onRegenerateCues: () => void;
+  onBulkDeleteCues?: (cueIds: number[]) => Promise<void>;
+  onDeleteAllCues?: () => Promise<void>;
+  onRegenerateCues: () => void | Promise<void>;
   onCueClick: (cue: any) => void;
   onPreviewCue: (cue: any) => void;
   onSaveTrack: (trackId: number, data: any) => void;
@@ -82,6 +84,8 @@ export default function TabContent({
   onAutoCuePoints,
   onCreateCue,
   onDeleteCue,
+  onBulkDeleteCues,
+  onDeleteAllCues,
   onRegenerateCues,
   onCueClick,
   onPreviewCue,
@@ -171,6 +175,8 @@ export default function TabContent({
                 cuePoints={effectiveCuePoints}
                 onCreateCue={onCreateCue}
                 onDeleteCue={onDeleteCue}
+                onBulkDeleteCues={onBulkDeleteCues}
+                onDeleteAllCues={onDeleteAllCues}
                 onRegenerateCues={onRegenerateCues}
                 initialPositionMs={cuePositionMs}
                 onCueClick={onCueClick}

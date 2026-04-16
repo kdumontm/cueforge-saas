@@ -5491,6 +5491,16 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         pass
 
+    # ── v6.5: Calculer downbeat_ms — position du premier downbeat ──
+    # Si beat_positions existe et que le beat grid est aligné, beats[0] est le downbeat.
+    # On le stocke explicitement pour que le cue_generator puisse aligner correctement.
+    _downbeat_ms = beat_positions[0] if beat_positions else None
+    # Si on a une détection avancée de downbeats, utiliser leur offset
+    if downbeats and downbeats.get("offset", 0) > 0 and beat_positions:
+        db_offset = downbeats["offset"]
+        if db_offset < len(beat_positions):
+            _downbeat_ms = beat_positions[db_offset]
+
     result = {
         "bpm": bpm,
         "bpm_confidence": bpm_confidence,
@@ -5502,6 +5512,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         "drop_positions": drop_positions,
         "phrase_positions": phrase_positions,
         "beat_positions": beat_positions,
+        "downbeat_ms": _downbeat_ms,
         "section_labels": section_labels,
         "waveform_peaks": waveform_data.get("waveform_peaks"),
         "spectral_energy": waveform_data.get("spectral_energy"),

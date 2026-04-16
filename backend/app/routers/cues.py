@@ -769,6 +769,7 @@ async def generate_cues(
             "beat_positions": analysis.beat_positions or [],
             "section_labels": analysis.section_labels or [],
             "genre": track.genre,  # v4: pass genre for genre-aware thresholds
+            "downbeat_ms": getattr(analysis, 'downbeat_ms', None),
         }
 
         # Generate smart cue points using v6.4 algorithm with stats
@@ -851,6 +852,7 @@ async def regenerate_cues(
         "drop_positions": analysis.drop_positions or [],
         "phrase_positions": analysis.phrase_positions or [],
         "beat_positions": analysis.beat_positions or [],
+        "downbeat_ms": getattr(analysis, 'downbeat_ms', None),
         "stem_analysis": bool(getattr(analysis, 'stem_analysis', False)),
         "stem_validated_drops": getattr(analysis, 'stem_validated_drops', None) or [],
         "vocal_active_regions": getattr(analysis, 'vocal_active_regions', None) or [],

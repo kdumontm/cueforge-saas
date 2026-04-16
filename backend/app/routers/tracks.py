@@ -597,6 +597,7 @@ def _run_analysis(track_id: int):
             audio_quality_grade=analysis_data.get("audio_quality_grade"),
             audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
             accent_points=analysis_data.get("accent_points"),
+            downbeat_ms=analysis_data.get("downbeat_ms"),
             # v6.6: JSON summary blobs
             rhythm_summary=analysis_data.get("rhythm_summary"),
             spectral_summary=analysis_data.get("spectral_summary"),
@@ -1197,6 +1198,7 @@ class LocalAnalysisPayload(BaseModel):
     audio_quality_grade: Optional[str] = None
     audio_quality_breakdown: Optional[dict] = None
     accent_points: Optional[list] = None
+    downbeat_ms: Optional[int] = None             # Position du premier downbeat (ms)
 
 
 @router.post("/{track_id}/analyze-local", response_model=AnalyzeResponse)
@@ -1307,6 +1309,8 @@ async def analyze_track_local(
         analysis.audio_quality_breakdown = payload.audio_quality_breakdown
     if payload.accent_points is not None:
         analysis.accent_points = payload.accent_points
+    if payload.downbeat_ms is not None:
+        analysis.downbeat_ms = payload.downbeat_ms
 
     # ── Supprimer TOUS les anciens cue points auto-générés UNE SEULE FOIS ──
     # (évite les doublons si le pro-generator échoue partiellement)

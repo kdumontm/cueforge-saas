@@ -1538,6 +1538,44 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
     bpm = analysis_data.get("bpm", 128)
     genre = analysis_data.get("genre")
 
+    # ── v6.5: Downbeat offset — CRITIQUE pour l'alignement des cue points ──
+    # Le downbeat_offset indique quel beat dans le grid est le vrai "temps 1" (downbeat).
+    # Par exemple, si offset=2, alors beats[2], beats[6], beats[10]... sont les downbeats.
+    # Sans cet offset, on suppose beats[0] = downbeat, ce qui décale tout si c'est faux.
+    downbeat_offset = analysis_data.get("downbeat_offset", 0)
+
+    # Si pas d'offset fourni, essayer de le déduire de downbeat_ms
+    downbeat_ms_hint = analysis_data.get("downbeat_ms")
+    if downbeat_ms_hint is not None and beats and downbeat_offset == 0:
+        # Trouver le beat le plus proche de downbeat_ms
+        closest_idx = min(range(len(beats)), key=lambda i: abs(beats[i] - downbeat_ms_hint))
+        downbeat_offset = closest_idx % 4
+
+    # Si toujours pas d'offset, essayer de le déduire des sections connues
+    # (les sections INTRO/DROP/BREAKDOWN commencent quasi-toujours sur un downbeat)
+    if downbeat_offset == 0 and beats and sections:
+        section_starts = [s.get("time_ms", 0) for s in sections
+                          if s.get("label") in ("INTRO", "DROP", "BREAKDOWN", "VERSE", "CHORUS")]
+        if section_starts:
+            # Voter : pour chaque section, trouver le beat le plus proche et sa phase
+            phase_votes = [0, 0, 0, 0]
+            for sec_ms in section_starts[:8]:  # Max 8 sections pour voter
+                closest_idx = min(range(len(beats)), key=lambda i: abs(beats[i] - sec_ms))
+                dist = abs(beats[closest_idx] - sec_ms)
+                beat_ms_val = 60000 / max(bpm, 60)
+                if dist < beat_ms_val * 0.5:  # Assez proche d'un beat
+                    phase = closest_idx % 4
+                    phase_votes[phase] += 1
+            best_phase = max(range(4), key=lambda p: phase_votes[p])
+            if phase_votes[best_phase] >= 2:  # Au moins 2 sections d'accord
+                downbeat_offset = best_phase
+
+    # ── CORRECTION CRITIQUE : aligner le beat grid sur le downbeat ──
+    # Tronquer les beats avant le premier downbeat pour que beats[0] soit le downbeat.
+    # Cela garantit que range(0, len(beats), 4) donne les vrais downbeats partout.
+    if downbeat_offset > 0 and downbeat_offset < len(beats):
+        beats = beats[downbeat_offset:]
+
     # ── GARANTIR un beat grid — CRITIQUE pour le snap sur les mesures ──
     # Si pas de beats détectés, synthétiser une grille parfaite depuis le BPM
     if not beats and bpm and duration_ms > 0:
