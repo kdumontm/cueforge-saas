@@ -1305,36 +1305,8 @@ async def list_analyses(
     }
 
 
-@router.get("/analyses/{analysis_id}")
-async def get_analysis(
-    analysis_id: int,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Get a specific track analysis."""
-    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.id == analysis_id).first()
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    return _serialize_trackanalysis(analysis)
-
-
-@router.delete("/analyses/{analysis_id}")
-async def delete_analysis(
-    analysis_id: int,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Delete a track analysis."""
-    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.id == analysis_id).first()
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    db.delete(analysis)
-    db.commit()
-    return {"message": "Analysis deleted"}
-
-
+# NOTE: /analyses/stats MUST be defined before /analyses/{analysis_id}
+# so FastAPI doesn't match "stats" as an analysis_id.
 @router.get("/analyses/stats")
 async def get_analysis_stats(
     admin: User = Depends(require_admin),
@@ -1384,6 +1356,36 @@ async def get_analysis_stats(
         "key_distribution": key_distribution,
         "mood_distribution": mood_distribution,
     }
+
+
+@router.get("/analyses/{analysis_id}")
+async def get_analysis(
+    analysis_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Get a specific track analysis."""
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    return _serialize_trackanalysis(analysis)
+
+
+@router.delete("/analyses/{analysis_id}")
+async def delete_analysis(
+    analysis_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Delete a track analysis."""
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    db.delete(analysis)
+    db.commit()
+    return {"message": "Analysis deleted"}
 
 
 # ═══════════════════════════════════════════════

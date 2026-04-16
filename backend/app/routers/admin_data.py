@@ -338,6 +338,74 @@ async def list_tracks(
     }
 
 
+# NOTE: /tracks/export MUST be defined before /tracks/{track_id}
+# so FastAPI doesn't match "export" as a track_id.
+@router.get("/tracks/export")
+async def export_tracks(
+    user_id: Optional[int] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Export tracks as CSV."""
+    query = db.query(Track)
+
+    if user_id:
+        query = query.filter(Track.user_id == user_id)
+    if status:
+        query = query.filter(Track.status == status)
+
+    tracks = query.order_by(Track.created_at.desc()).all()
+
+    # Create CSV
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=[
+            "id", "user_id", "title", "artist", "album", "genre", "year",
+            "bpm", "key", "camelot_code", "energy", "category", "rating",
+            "spotify_id", "status", "created_at", "updated_at"
+        ]
+    )
+    writer.writeheader()
+
+    for track in tracks:
+        bpm = None
+        key = None
+        energy = None
+        if track.analysis:
+            bpm = track.analysis.bpm
+            key = track.analysis.key
+            energy = track.analysis.energy
+
+        writer.writerow({
+            "id": track.id,
+            "user_id": track.user_id,
+            "title": track.title,
+            "artist": track.artist,
+            "album": track.album,
+            "genre": track.genre,
+            "year": track.year,
+            "bpm": bpm,
+            "key": key,
+            "camelot_code": track.camelot_code,
+            "energy": energy,
+            "category": track.category,
+            "rating": track.rating,
+            "spotify_id": track.spotify_id,
+            "status": track.status.value if track.status else None,
+            "created_at": track.created_at.isoformat() if track.created_at else None,
+            "updated_at": track.updated_at.isoformat() if track.updated_at else None,
+        })
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=tracks_export.csv"}
+    )
+
+
 @router.get("/tracks/{track_id}")
 async def get_track(
     track_id: int,
@@ -477,72 +545,6 @@ async def retry_all_failed_tracks(
     return {"message": f"Queued {count} failed tracks for re-analysis"}
 
 
-@router.get("/tracks/export")
-async def export_tracks(
-    user_id: Optional[int] = None,
-    status: Optional[str] = None,
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Export tracks as CSV."""
-    query = db.query(Track)
-
-    if user_id:
-        query = query.filter(Track.user_id == user_id)
-    if status:
-        query = query.filter(Track.status == status)
-
-    tracks = query.order_by(Track.created_at.desc()).all()
-
-    # Create CSV
-    output = io.StringIO()
-    writer = csv.DictWriter(
-        output,
-        fieldnames=[
-            "id", "user_id", "title", "artist", "album", "genre", "year",
-            "bpm", "key", "camelot_code", "energy", "category", "rating",
-            "spotify_id", "status", "created_at", "updated_at"
-        ]
-    )
-    writer.writeheader()
-
-    for track in tracks:
-        bpm = None
-        key = None
-        energy = None
-        if track.analysis:
-            bpm = track.analysis.bpm
-            key = track.analysis.key
-            energy = track.analysis.energy
-
-        writer.writerow({
-            "id": track.id,
-            "user_id": track.user_id,
-            "title": track.title,
-            "artist": track.artist,
-            "album": track.album,
-            "genre": track.genre,
-            "year": track.year,
-            "bpm": bpm,
-            "key": key,
-            "camelot_code": track.camelot_code,
-            "energy": energy,
-            "category": track.category,
-            "rating": track.rating,
-            "spotify_id": track.spotify_id,
-            "status": track.status.value if track.status else None,
-            "created_at": track.created_at.isoformat() if track.created_at else None,
-            "updated_at": track.updated_at.isoformat() if track.updated_at else None,
-        })
-
-    output.seek(0)
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=tracks_export.csv"}
-    )
-
-
 # ═══════════════════════════════════════════════
 # SUBSCRIPTIONS MANAGEMENT
 # ═══════════════════════════════════════════════
@@ -573,6 +575,40 @@ async def list_subscriptions(
     return {
         "total": total,
         "items": [_serialize_subscription(s) for s in subs],
+    }
+
+
+# NOTE: /subscriptions/stats MUST be defined before /subscriptions/{sub_id}
+# so FastAPI doesn't match "stats" as a sub_id.
+@router.get("/subscriptions/stats")
+async def subscription_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Get subscription statistics (MRR by plan, active count, etc.)."""
+    # Count subscriptions by plan and status
+    by_plan = db.query(
+        Subscription.plan,
+        func.count(Subscription.id).label("count")
+    ).group_by(Subscription.plan).all()
+
+    active = db.query(func.count(Subscription.id)).filter(
+        Subscription.status == "active"
+    ).scalar()
+
+    trial = db.query(func.count(Subscription.id)).filter(
+        Subscription.status == "trialing"
+    ).scalar()
+
+    canceled = db.query(func.count(Subscription.id)).filter(
+        Subscription.status == "canceled"
+    ).scalar()
+
+    return {
+        "by_plan": [{"plan": p, "count": c} for p, c in by_plan],
+        "active": active,
+        "trial": trial,
+        "canceled": canceled,
     }
 
 
@@ -610,38 +646,6 @@ async def update_subscription(
     db.refresh(sub)
 
     return _serialize_subscription(sub)
-
-
-@router.get("/subscriptions/stats")
-async def subscription_stats(
-    db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
-):
-    """Get subscription statistics (MRR by plan, active count, etc.)."""
-    # Count subscriptions by plan and status
-    by_plan = db.query(
-        Subscription.plan,
-        func.count(Subscription.id).label("count")
-    ).group_by(Subscription.plan).all()
-
-    active = db.query(func.count(Subscription.id)).filter(
-        Subscription.status == "active"
-    ).scalar()
-
-    trial = db.query(func.count(Subscription.id)).filter(
-        Subscription.status == "trialing"
-    ).scalar()
-
-    canceled = db.query(func.count(Subscription.id)).filter(
-        Subscription.status == "canceled"
-    ).scalar()
-
-    return {
-        "by_plan": [{"plan": p, "count": c} for p, c in by_plan],
-        "active": active,
-        "trial": trial,
-        "canceled": canceled,
-    }
 
 
 # ═══════════════════════════════════════════════

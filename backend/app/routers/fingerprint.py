@@ -51,43 +51,8 @@ class VersionDetectionResponse(BaseModel):
 
 
 # Endpoints
-
-
-@router.post("/fingerprint/{track_id}", response_model=FingerprintGenerateResponse)
-async def generate_fingerprint(
-    track_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Generate audio fingerprint for a track."""
-    try:
-        track = db.query(Track).filter(Track.id == track_id).first()
-
-        if not track:
-            raise HTTPException(status_code=404, detail="Track not found")
-
-        if track.user_id != current_user.id and not current_user.is_admin:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        # Mock fingerprint (in production, use AcoustID/Chromaprint)
-        fingerprint_hash = "mock_fingerprint_hash_" + track_id[:8]
-        fingerprint_data = "AQAA" + track_id[:16]  # Base64-like mock
-
-        # Store in track if not already present
-        if not track.fingerprint:
-            track.fingerprint = fingerprint_data
-            db.commit()
-
-        return FingerprintGenerateResponse(
-            track_id=track_id,
-            fingerprint=fingerprint_data,
-            hash=fingerprint_hash
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error(f"Error generating fingerprint: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to generate fingerprint")
+# NOTE: Fixed routes (/find-duplicates) MUST be defined before parameterised
+# routes (/{track_id}) so FastAPI doesn't match "find-duplicates" as a track_id.
 
 
 @router.post("/fingerprint/find-duplicates", response_model=DuplicateDetectionResponse)
@@ -222,3 +187,40 @@ async def detect_versions(
     except Exception as exc:
         logger.error(f"Error detecting versions: {exc}")
         raise HTTPException(status_code=500, detail="Failed to detect versions")
+
+
+@router.post("/fingerprint/{track_id}", response_model=FingerprintGenerateResponse)
+async def generate_fingerprint(
+    track_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate audio fingerprint for a track."""
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+
+        if not track:
+            raise HTTPException(status_code=404, detail="Track not found")
+
+        if track.user_id != current_user.id and not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Mock fingerprint (in production, use AcoustID/Chromaprint)
+        fingerprint_hash = "mock_fingerprint_hash_" + track_id[:8]
+        fingerprint_data = "AQAA" + track_id[:16]  # Base64-like mock
+
+        # Store in track if not already present
+        if not track.fingerprint:
+            track.fingerprint = fingerprint_data
+            db.commit()
+
+        return FingerprintGenerateResponse(
+            track_id=track_id,
+            fingerprint=fingerprint_data,
+            hash=fingerprint_hash
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error generating fingerprint: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to generate fingerprint")
