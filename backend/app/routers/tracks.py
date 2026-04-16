@@ -414,7 +414,18 @@ def _run_analysis(track_id: int):
 
     _log(f"[ANALYSIS] ════ START track {track_id} ════")
 
-    # ── Quota: record_analysis_complete à la fin (finally) ──
+    # ── Helper: décrémenter le quota concurrent ──
+    def _release_quota(uid):
+        if uid is None:
+            return
+        try:
+            from app.services.quota_service import get_quota_service
+            qs = get_quota_service()
+            qs.record_analysis_complete(uid)
+            _log(f"[ANALYSIS] Quota concurrent decremented for user {uid}")
+        except Exception as qe:
+            logger.warning(f"[ANALYSIS] Failed to decrement quota: {qe}")
+
     _quota_user_id = None  # sera set quand on connaît le user_id
 
     # ─ PHASE 1 : Fetch initial track state (session courte) ─
@@ -423,11 +434,12 @@ def _run_analysis(track_id: int):
         track = db.query(Track).filter(Track.id == track_id).first()
         if not track:
             _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
+            _release_quota(_quota_user_id)
             return
 
         file_path = track.file_path
         user_id = track.user_id
-        _quota_user_id = str(user_id)  # pour record_analysis_complete dans finally
+        _quota_user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
         _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
 
         # Reconstruct file_path from filename if missing
@@ -444,6 +456,7 @@ def _run_analysis(track_id: int):
             track.status = TrackStatus.failed
             track.error_message = "Audio file not found on disk"
             safe_commit(db)
+            _release_quota(_quota_user_id)
             return
 
         _log(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
@@ -489,6 +502,7 @@ def _run_analysis(track_id: int):
                 db.commit()
         except Exception:
             pass
+        _release_quota(_quota_user_id)
         return
     finally:
         db.close()
@@ -513,6 +527,7 @@ def _run_analysis(track_id: int):
                 db.commit()
         finally:
             db.close()
+        _release_quota(_quota_user_id)
         return
 
     # ─ PHASE 3 : Commit final (session courte) ─
@@ -744,15 +759,7 @@ def _run_analysis(track_id: int):
             pass
     finally:
         db.close()
-        # ── Toujours décrémenter le compteur concurrent du quota ──
-        if _quota_user_id:
-            try:
-                from app.services.quota_service import get_quota_service
-                qs = get_quota_service()
-                qs.record_analysis_complete(_quota_user_id)
-                _log(f"[ANALYSIS] Quota concurrent decremented for user {_quota_user_id}")
-            except Exception as qe:
-                logger.warning(f"[ANALYSIS] Failed to decrement quota: {qe}")
+        _release_quota(_quota_user_id)
 
 
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)
