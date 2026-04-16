@@ -299,23 +299,32 @@ def stream_audio(
             raw_token = auth_header[7:]
 
     user = None
+    is_service_call = False
     if raw_token:
-        try:
-            payload = decode_access_token(raw_token)
-            if payload:
-                user_id = payload.get("sub")
-                if user_id:
-                    user = db.query(User).filter(User.id == int(user_id)).first()
-        except (JWTError, Exception):
-            pass
+        # Service token pour Modal GPU (accès interne sans user)
+        _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
+        if _modal_token and raw_token == _modal_token:
+            is_service_call = True
+        else:
+            try:
+                payload = decode_access_token(raw_token)
+                if payload:
+                    user_id = payload.get("sub")
+                    if user_id:
+                        user = db.query(User).filter(User.id == int(user_id)).first()
+            except (JWTError, Exception):
+                pass
 
-    if not user:
+    if not user and not is_service_call:
         raise HTTPException(status_code=403, detail="Invalid or missing token")
 
-    track = db.query(Track).filter(
-        Track.id == track_id,
-        Track.user_id == user.id,
-    ).first()
+    if is_service_call:
+        track = db.query(Track).filter(Track.id == track_id).first()
+    else:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
@@ -689,9 +698,10 @@ def _run_analysis(track_id: int):
                 from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
                 from app.services.stem_analysis import analyze_stems_from_arrays, analyze_stems
 
-                # Construire l'URL audio pour Modal GPU
+                # Construire l'URL audio pour Modal GPU (avec service token)
                 _api_url = os.environ.get("API_PUBLIC_URL", "")
-                _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio" if _api_url else ""
+                _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
+                _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio?token={_modal_token}" if (_api_url and _modal_token) else ""
 
                 mode = "Modal GPU" if is_modal_available() else "CPU local"
                 logger.info(f"[STEM] Séparation via {mode} pour track {track_id}...")

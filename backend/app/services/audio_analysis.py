@@ -5384,14 +5384,32 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # CRITICAL: stem analysis must NEVER crash the main analysis pipeline.
     # If Demucs fails for ANY reason (OOM, timeout, import error, etc.),
     # we log the error and continue with standard analysis.
+    #
+    # Priority: Modal GPU (~3-5s) → Demucs CPU local (~20-40s)
     stem_data = {}
     if use_stem_separation:
         try:
-            from app.services.stem_analysis import analyze_stems
-            logger.info(f"[STEM] Running Demucs stem analysis for {file_path} (track_id={track_id})")
-            stem_data = analyze_stems(file_path, beats, track_id=track_id)
-            saved = stem_data.get("stems_saved_to_disk", False)
-            logger.info(f"[STEM] Stem analysis complete — {len(stem_data)} fields, stems_on_disk={saved}")
+            from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
+            from app.services.stem_analysis import analyze_stems_from_arrays, analyze_stems
+
+            # Construire l'URL audio pour Modal GPU (avec service token)
+            _api_url = os.environ.get("API_PUBLIC_URL", "")
+            _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
+            _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio?token={_modal_token}" if (_api_url and track_id and _modal_token) else ""
+
+            mode = "Modal GPU" if is_modal_available() else "CPU local"
+            logger.info(f"[STEM] Séparation via {mode} pour track {track_id}...")
+
+            stem_arrays = separate_stems_with_fallback(track_id or 0, file_path, _audio_url)
+            logger.info(f"[STEM] Séparation terminée — stems: {list(stem_arrays.keys())}")
+
+            # Extraire les features stems (drum_enter, vocal_sections, drops…)
+            try:
+                stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=track_id)
+            except (ImportError, AttributeError):
+                stem_data = analyze_stems(file_path, beats, track_id=track_id)
+
+            logger.info(f"[STEM] Stem features extraites — {len(stem_data)} fields")
         except MemoryError as e:
             logger.error(f"[STEM] Not enough RAM for Demucs: {e}")
             stem_data = {"stem_analysis": False, "stem_error": "memory"}
