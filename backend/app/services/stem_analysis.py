@@ -236,7 +236,14 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     model = model.to(device)
     logger.info(f"[STEM] Running Demucs on device: {device}")
 
-    wav, sr_orig = torchaudio.load(file_path)
+    # Charger audio via soundfile pour éviter l'erreur TorchCodec
+    import soundfile as sf
+    audio_np, sr_orig = sf.read(file_path, dtype='float32')
+    # Convertir en tensor torch [channels, samples]
+    if audio_np.ndim == 1:
+        wav = torch.tensor(audio_np).unsqueeze(0)  # mono → [1, samples]
+    else:
+        wav = torch.tensor(audio_np.T)  # [samples, channels] → [channels, samples]
 
     model_sr = model.samplerate
     if sr_orig != model_sr:
@@ -338,9 +345,8 @@ def separate_stems(file_path: str) -> Dict[str, np.ndarray]:
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
     # ── Pre-flight: check duration ──────────────────────────────────────
-    import torchaudio
-    wav, sr = torchaudio.load(file_path)
-    duration_sec = len(wav[0]) / sr if len(wav.shape) > 1 else len(wav) / sr
+    # Utilise librosa au lieu de torchaudio.load pour éviter l'erreur TorchCodec
+    duration_sec = librosa.get_duration(filename=file_path)
     if duration_sec > MAX_DURATION_SEC:
         raise ValueError(
             f"Audio duration {duration_sec:.1f}s exceeds max {MAX_DURATION_SEC}s"
@@ -949,11 +955,10 @@ def _analyze_stem_arrays(
     # Save original for reconstruction check if possible
     if file_path:
         try:
-            import torchaudio
-            original_audio, orig_sr = torchaudio.load(file_path)
-            original_audio = original_audio.numpy()
+            import soundfile as sf
+            original_audio, orig_sr = sf.read(file_path, dtype='float32')
             if original_audio.ndim > 1:
-                original_audio = np.mean(original_audio, axis=0)
+                original_audio = np.mean(original_audio, axis=1)
             if orig_sr != SR:
                 original_audio = librosa.resample(original_audio, orig_sr=orig_sr, target_sr=SR)
         except Exception as e:
