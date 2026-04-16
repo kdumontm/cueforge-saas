@@ -72,7 +72,7 @@ class NextTrackRecommender:
             metrics = {}
 
             # BPM compatibility: ±10 BPM
-            bpm_diff = abs(track.bpm - current_track.bpm)
+            bpm_diff = abs((track.analysis.bpm if track.analysis else 0) - current_(track.analysis.bpm if track.analysis else 0))
             if bpm_diff <= 10:
                 bpm_score = 1.0 - (bpm_diff / 10) * 0.3
                 score += bpm_score * 0.25
@@ -83,13 +83,13 @@ class NextTrackRecommender:
 
             # Key compatibility
             key_score = NextTrackRecommender._key_compatibility(
-                current_track.key, track.key
+                current_(track.analysis.key if track.analysis else ''), (track.analysis.key if track.analysis else '')
             )
             score += key_score * 0.25
             metrics["key"] = key_score
 
             # Energy flow
-            energy_diff = abs(track.energy - current_track.energy)
+            energy_diff = abs((track.analysis.energy if track.analysis else 0) - current_(track.analysis.energy if track.analysis else 0))
             if energy_diff <= 0.15:
                 energy_score = 1.0 - (energy_diff / 0.15) * 0.2
             else:
@@ -107,14 +107,14 @@ class NextTrackRecommender:
             metrics["genre"] = genre_score
 
             # Danceability
-            dance_score = 0.5 if track.danceability > 0.6 else track.danceability
+            dance_score = 0.5 if (track.analysis.danceability if track.analysis else 0) > 0.6 else (track.analysis.danceability if track.analysis else 0)
             score += dance_score * 0.1
             metrics["danceability"] = dance_score
 
             recommendations.append(Recommendation(
                 track,
                 score,
-                f"BPM {track.bpm:.0f}, Key {track.key}, Energy {track.energy:.2f}",
+                f"BPM {(track.analysis.bpm if track.analysis else 0):.0f}, Key {(track.analysis.key if track.analysis else '')}, Energy {(track.analysis.energy if track.analysis else 0):.2f}",
                 metrics
             ))
 
@@ -175,8 +175,8 @@ class SetBuilder:
         build_duration = target_duration_min * 0.33 * 60
         build_candidates = [t for t in available_tracks
                            if t.id not in used_ids
-                           and t.bpm >= current_track.bpm - 5
-                           and t.energy >= current_track.energy - 0.1
+                           and (t.analysis.bpm if t.analysis else 0) >= current_(track.analysis.bpm if track.analysis else 0) - 5
+                           and (t.analysis.energy if t.analysis else 0) >= current_(track.analysis.energy if track.analysis else 0) - 0.1
                            and t.duration_sec <= build_duration - total_duration]
 
         while build_candidates and total_duration < build_duration:
@@ -188,13 +188,13 @@ class SetBuilder:
 
             build_candidates = [t for t in available_tracks
                                if t.id not in used_ids
-                               and t.energy >= current_track.energy - 0.05]
+                               and (t.analysis.energy if t.analysis else 0) >= current_(track.analysis.energy if track.analysis else 0) - 0.05]
 
         # Phase 2: Peak (20-45 min): maintain high energy
         peak_duration = target_duration_min * 0.33 * 60
         peak_candidates = [t for t in available_tracks
                           if t.id not in used_ids
-                          and t.energy >= 0.7
+                          and (t.analysis.energy if t.analysis else 0) >= 0.7
                           and t.danceability >= 0.7]
 
         while peak_candidates and total_duration < build_duration + peak_duration:
@@ -218,7 +218,7 @@ class SetBuilder:
             remaining_candidates.pop(0)
 
         # Build energy and mood arcs
-        energy_arc = [t.energy for t in set_tracks]
+        energy_arc = [(t.analysis.energy if t.analysis else 0) for t in set_tracks]
         key_journey = [t.key for t in set_tracks]
         mood_journey = [t.mood for t in set_tracks]
 
@@ -413,15 +413,15 @@ class SimilarTrackFinder:
                 continue
 
             # Normalize BPM (scale to 0-1)
-            bpm_dist = abs(track.bpm - query_track.bpm) / 200
-            energy_dist = abs(track.energy - query_track.energy)
-            dance_dist = abs(track.danceability - query_track.danceability)
+            bpm_dist = abs((track.analysis.bpm if track.analysis else 0) - query_(track.analysis.bpm if track.analysis else 0)) / 200
+            energy_dist = abs((track.analysis.energy if track.analysis else 0) - query_(track.analysis.energy if track.analysis else 0))
+            dance_dist = abs((track.analysis.danceability if track.analysis else 0) - query_(track.analysis.danceability if track.analysis else 0))
 
             # Genre distance (0 if same, 1 if very different)
             genre_dist = 0 if track.genre == query_track.genre else 1
 
             # Key distance (using Camelot wheel)
-            key_dist = SimilarTrackFinder._key_distance(query_track.key, track.key)
+            key_dist = SimilarTrackFinder._key_distance(query_(track.analysis.key if track.analysis else ''), (track.analysis.key if track.analysis else ''))
 
             # Euclidean distance
             distance = math.sqrt(
@@ -437,7 +437,7 @@ class SimilarTrackFinder:
             recommendations.append(Recommendation(
                 track,
                 score,
-                f"Similar: BPM {track.bpm:.0f}, Energy {track.energy:.2f}, Key {track.key}",
+                f"Similar: BPM {(track.analysis.bpm if track.analysis else 0):.0f}, Energy {(track.analysis.energy if track.analysis else 0):.2f}, Key {(track.analysis.key if track.analysis else '')}",
                 {
                     "bpm_dist": bpm_dist,
                     "energy_dist": energy_dist,
@@ -525,20 +525,20 @@ class CrateBuilder:
         elif theme.startswith("energy:"):
             energy_level = theme.replace("energy:", "").lower()
             if energy_level == "high":
-                filtered = [t for t in available_tracks if t.energy >= 0.7]
+                filtered = [t for t in available_tracks if (t.analysis.energy if t.analysis else 0) >= 0.7]
             elif energy_level == "medium":
-                filtered = [t for t in available_tracks if 0.4 <= t.energy < 0.7]
+                filtered = [t for t in available_tracks if 0.4 <= (t.analysis.energy if t.analysis else 0) < 0.7]
             elif energy_level == "low":
-                filtered = [t for t in available_tracks if t.energy < 0.4]
+                filtered = [t for t in available_tracks if (t.analysis.energy if t.analysis else 0) < 0.4]
 
         elif theme.startswith("bpm:"):
             bpm_range = theme.replace("bpm:", "").lower()
             if bpm_range == "slow":
-                filtered = [t for t in available_tracks if t.bpm < 100]
+                filtered = [t for t in available_tracks if (t.analysis.bpm if t.analysis else 0) < 100]
             elif bpm_range == "medium":
-                filtered = [t for t in available_tracks if 100 <= t.bpm < 130]
+                filtered = [t for t in available_tracks if 100 <= (t.analysis.bpm if t.analysis else 0) < 130]
             elif bpm_range == "fast":
-                filtered = [t for t in available_tracks if t.bpm >= 130]
+                filtered = [t for t in available_tracks if (t.analysis.bpm if t.analysis else 0) >= 130]
 
         else:
             # Default: genre search

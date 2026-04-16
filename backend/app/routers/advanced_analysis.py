@@ -104,7 +104,7 @@ async def get_advanced_analysis(
 
         # Mock harmonic analysis
         harmonic = HarmonicAnalysis(
-            primary_key=track.key or "C",
+            primary_key=(track.analysis.key if track.analysis else "C"),
             harmonic_complexity=0.65,
             chord_progression=["C", "Am", "F", "G"],
             harmonic_diversity=0.72,

@@ -362,7 +362,11 @@ async def import_engine_dj(
                     break
 
             if track_table:
-                cursor.execute(f"SELECT * FROM {track_table} LIMIT 100")
+                # Sanitize: only allow alphanumeric + underscore table names
+                import re as _re
+                if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', track_table):
+                    raise HTTPException(status_code=400, detail="Invalid table name in Engine DJ database")
+                cursor.execute(f"SELECT * FROM \"{track_table}\" LIMIT 100")
                 rows = cursor.fetchall()
 
                 for row in rows:

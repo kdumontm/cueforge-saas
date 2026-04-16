@@ -21,7 +21,7 @@ from typing import Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import inspect, func, and_, or_
+from sqlalchemy import inspect, func, and_, or_, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db, Base
@@ -684,7 +684,7 @@ async def health_db(
     for table_name in ["tracks", "users", "subscriptions", "playlists", "dj_sets", "organizations"]:
         try:
             count = db.query(func.count()).select_from(
-                db.query(1).from_statement(f"SELECT 1 FROM {table_name}").alias()
+                db.query(1).from_statement(text(f"SELECT 1 FROM \"{table_name}\"")).alias()
             ).scalar()
             tables_info.append({"table": table_name, "rows": count})
         except:
@@ -712,7 +712,7 @@ async def list_tables(
     for table_name in inspector.get_table_names():
         try:
             count = db.query(func.count()).select_from(
-                db.query(1).from_statement(f"SELECT 1 FROM {table_name}").alias()
+                db.query(1).from_statement(text(f"SELECT 1 FROM \"{table_name}\"")).alias()
             ).scalar() or 0
             tables.append({"name": table_name, "rows": count})
         except:
@@ -735,12 +735,12 @@ async def browse_table(
         raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
 
     # Get rows (generic, convert to dicts)
+    # Security: table_name is already validated against inspector.get_table_names() above
+    # Use text() with bound params for limit/skip to prevent SQL injection
     try:
-        result = db.execute(f"SELECT * FROM {table_name} LIMIT {limit} OFFSET {skip}")
+        result = db.execute(text(f"SELECT * FROM \"{table_name}\" LIMIT :lim OFFSET :off"), {"lim": limit, "off": skip})
         rows = [dict(row) for row in result]
-        total = db.query(func.count()).select_from(
-            db.query(1).from_statement(f"SELECT 1 FROM {table_name}").alias()
-        ).scalar() or 0
+        total = db.execute(text(f"SELECT COUNT(*) FROM \"{table_name}\"")).scalar() or 0
         return {"total": total, "items": rows}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error querying table: {str(e)}")

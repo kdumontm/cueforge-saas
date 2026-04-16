@@ -128,6 +128,7 @@ export default function PlayerCard({
   playerRef,
 }: PlayerCardProps) {
   const [zoom, setZoom] = useState<ZoomLevel>(2);
+  const userZoomClickRef = useRef(false); // prevents onZoomChange feedback loop
   const [playerKey, setPlayerKey] = useState(0);
   const prevTrackId = useRef<number | null>(null);
   const wsPlayerRef = useRef<any>(null);
@@ -312,7 +313,12 @@ export default function PlayerCard({
               setLoopActive(loopActiveVal);
             }}
             onZoomChange={(pxPerSec) => {
-              // Find closest zoom level for button highlight
+              // Skip feedback-loop: if the user just clicked a zoom button, don't override
+              if (userZoomClickRef.current) {
+                userZoomClickRef.current = false;
+                return;
+              }
+              // Find closest zoom level for button highlight (scroll-wheel zoom only)
               const closest = ZOOM_LEVELS.reduce((best, z) => {
                 const px = { 0.5: 12, 1: 30, 2: 70, 4: 160 }[z] ?? 30;
                 return Math.abs(px - pxPerSec) < Math.abs(({ 0.5: 12, 1: 30, 2: 70, 4: 160 }[best] ?? 30) - pxPerSec) ? z : best;
@@ -446,7 +452,7 @@ export default function PlayerCard({
         {ZOOM_LEVELS.map(z => (
           <button
             key={z}
-            onClick={() => setZoom(z)}
+            onClick={() => { userZoomClickRef.current = true; setZoom(z); }}
             className={`hidden sm:inline-block px-[7px] py-[2px] rounded-[5px] border text-[10px] cursor-pointer transition-colors ${
               zoom === z
                 ? 'border-blue-500/60 bg-blue-600/25 text-blue-400 font-semibold'

@@ -2619,7 +2619,7 @@ def regenerate_cues_only(track_id: int, db: Session) -> List[Dict]:
 
     analysis_data = {
         "duration_ms": analysis.duration_ms,
-        "bpm": track.bpm or analysis.estimated_bpm or 128,
+        "bpm": getattr(analysis, "bpm", None) or getattr(analysis, "estimated_bpm", None) or 128,
         "genre": track.genre or analysis.estimated_genre,
         "section_labels": analysis.section_labels or [],
         "drop_positions": analysis.drop_positions or [],

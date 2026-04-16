@@ -142,8 +142,8 @@ async def find_similar(
         similar = db.query(Track).filter(
             Track.user_id == current_user.id,
             Track.id != track_id,
-            Track.bpm >= (track.bpm or 120) - 5,
-            Track.bpm <= (track.bpm or 120) + 5
+            TrackAnalysis.bpm >= (track.analysis.bpm if track.analysis else 120) - 5,
+            TrackAnalysis.bpm <= (track.analysis.bpm if track.analysis else 120) + 5
         ).limit(10).all()
 
         similar_data = [

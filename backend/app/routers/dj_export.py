@@ -53,6 +53,8 @@ async def export_rekordbox(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    a = track.analysis  # BPM/key/energy live on TrackAnalysis, not Track
+
     try:
         # Build Rekordbox XML snippet
         rekordbox_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -63,8 +65,8 @@ async def export_rekordbox(
   <GENRE>{track.genre or ''}</GENRE>
   <LABEL>{track.label or ''}</LABEL>
   <YEAR>{track.year or ''}</YEAR>
-  <BPM>{track.bpm or 0}</BPM>
-  <KEY>{track.key or ''}</KEY>
+  <BPM>{a.bpm if a else 0}</BPM>
+  <KEY>{a.key if a else ''}</KEY>
   <COMMENTS>{track.comment or ''}</COMMENTS>
   <RATING>{track.rating or 0}</RATING>
 </TRACK>"""
@@ -100,11 +102,13 @@ async def export_serato(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    a = track.analysis  # BPM/key live on TrackAnalysis
+
     try:
         # Build Serato markers structure
         markers = {
-            "bpm": track.bpm or 0,
-            "key": track.key or "",
+            "bpm": a.bpm if a else 0,
+            "key": a.key if a else "",
             "comments": track.comment or "",
             "cue_points": [],
         }
@@ -149,12 +153,14 @@ async def export_traktor(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    a = track.analysis  # BPM/key live on TrackAnalysis
+
     try:
         # Build Traktor NML entry
         traktor_nml = f"""<ENTRY MODIFIED_DATE="{track.updated_at.isoformat()}">
   <PRIMARYKEY TYPE="GRID" XMLPATH="GRID/@UUID">
     <GRID>
-      <TEMPO BPM="{track.bpm or 0}"/>
+      <TEMPO BPM="{a.bpm if a else 0}"/>
     </GRID>
   </PRIMARYKEY>
   <TITLE>{track.title or ''}</TITLE>
@@ -164,7 +170,7 @@ async def export_traktor(
   <LABEL>{track.label or ''}</LABEL>
   <YEAR>{track.year or ''}</YEAR>
   <COMMENTS>{track.comment or ''}</COMMENTS>
-  <INFO BITRATE="{track.bitrate or 320}" KEY="{track.key or ''}"/>
+  <INFO BITRATE="{getattr(a, "bitrate", 320)}" KEY="{a.key if a else ''}"/>
 </ENTRY>"""
 
         return {
@@ -203,8 +209,8 @@ async def export_virtualdj(
             "title": track.title or "",
             "artist": track.artist or "",
             "file_path": track.file_path or "",
-            "bpm": track.bpm or 0,
-            "key": track.key or "",
+            "bpm": a.bpm if a else 0,
+            "key": a.key if a else "",
             "comment": track.comment or "",
         }
 
@@ -255,12 +261,13 @@ async def export_batch(
         }
 
         for track in tracks:
+            _a = track.analysis
             batch_data["tracks"].append({
                 "id": track.id,
                 "title": track.title or "",
                 "artist": track.artist or "",
-                "bpm": track.bpm or 0,
-                "key": track.key or "",
+                "bpm": _a.bpm if _a else 0,
+                "key": _a.key if _a else "",
             })
 
         return batch_data
@@ -293,8 +300,8 @@ async def export_stems(
         track_data = {
             "title": track.title or "",
             "artist": track.artist or "",
-            "bpm": track.bpm or 0,
-            "key": track.key or "",
+            "bpm": a.bpm if a else 0,
+            "key": a.key if a else "",
             "duration_ms": track.duration_ms or 0,
         }
 
@@ -338,12 +345,13 @@ async def export_setlist_pdf(
     try:
         track_data = []
         for idx, track in enumerate(tracks, 1):
+            _a = track.analysis
             track_data.append({
                 "number": idx,
                 "title": track.title or "Unknown",
                 "artist": track.artist or "Unknown Artist",
-                "bpm": track.bpm or 0,
-                "key": track.key or "—",
+                "bpm": _a.bpm if _a else 0,
+                "key": _a.key if _a else "—",
                 "duration_ms": track.duration_ms or 0,
             })
 
@@ -385,10 +393,12 @@ async def write_tags(
     if not track.file_path:
         raise HTTPException(status_code=400, detail="Track file path not available")
 
+    a = track.analysis  # BPM/key live on TrackAnalysis
+
     try:
         tag_data = {
-            "bpm": int(track.bpm) if track.bpm else None,
-            "key": track.key or None,
+            "bpm": int(a.bpm) if a and a.bpm else None,
+            "key": a.key if a else None,
             "comment": track.comment or None,
         }
 

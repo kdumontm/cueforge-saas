@@ -104,8 +104,8 @@ async def get_next_track_recommendation(
         similar = db.query(Track).filter(
             Track.user_id == current_user.id,
             Track.id != request.current_track_id,
-            Track.bpm >= (current_track.bpm or 120) - 10,
-            Track.bpm <= (current_track.bpm or 120) + 10
+            TrackAnalysis.bpm >= (current_track.analysis.bpm if current_track.analysis else 120) - 10,
+            TrackAnalysis.bpm <= (current_track.analysis.bpm if current_track.analysis else 120) + 10
         ).limit(20).all()
 
         if not similar:
@@ -172,7 +172,7 @@ async def build_set(
                     artist=track.artist or "Artist",
                     position=i + 1,
                     energy_level=min(energy, 0.9),
-                    bpm=track.bpm or 120.0
+                    bpm=track.analysis.bpm if track.analysis and track.analysis.bpm else 120.0
                 )
             )
 

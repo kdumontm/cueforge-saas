@@ -164,12 +164,14 @@ async def submit_correction(
         # Apply correction based on field
         if request.field == "bpm":
             try:
-                track.bpm = float(request.corrected_value)
+                if track.analysis:
+                    track.analysis.bpm = float(request.corrected_value)
                 applied = True
             except ValueError:
                 pass
         elif request.field == "key":
-            track.key = request.corrected_value
+            if track.analysis:
+                track.analysis.key = request.corrected_value
             applied = True
         elif request.field == "genre":
             # In production, update genres in analysis

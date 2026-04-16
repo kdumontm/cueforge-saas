@@ -68,9 +68,9 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
 
         # Track info table
         track_data = [
-            ['BPM', str(track.bpm or 'N/A')],
-            ['Tonalité', str(track.key or 'N/A')],
-            ['Énergie', f"{track.energy or 0}%"],
+            ['BPM', str(getattr(a, 'bpm', 'N/A') if a else 'N/A')],
+            ['Tonalité', str(getattr(a, 'key', 'N/A') if a else 'N/A')],
+            ['Énergie', f"{getattr(a, 'energy', 0) if a else 0}%"],
             ['Genre', str(track.genre or 'N/A')],
             ['Durée', f"{int((track.duration or 0) / 60)}:{int((track.duration or 0) % 60):02d}"],
         ]
@@ -146,9 +146,9 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
         pdf.set_text_color(0, 0, 0)
         if track.album:
             pdf.cell(0, 4, f"Album: {track.album}", ln=True)
-        pdf.cell(0, 4, f"BPM: {track.bpm or 'N/A'}", ln=True)
-        pdf.cell(0, 4, f"Tonalité: {track.key or 'N/A'}", ln=True)
-        pdf.cell(0, 4, f"Énergie: {track.energy or 0}%", ln=True)
+        pdf.cell(0, 4, f"BPM: {getattr(a, 'bpm', 'N/A') if a else 'N/A'}", ln=True)
+        pdf.cell(0, 4, f"Tonalité: {getattr(a, 'key', 'N/A') if a else 'N/A'}", ln=True)
+        pdf.cell(0, 4, f"Énergie: {getattr(a, 'energy', 0) if a else 0}%", ln=True)
         pdf.cell(0, 4, f"Genre: {track.genre or 'N/A'}", ln=True)
         pdf.cell(0, 4, f"Durée: {int((track.duration or 0) / 60)}:{int((track.duration or 0) % 60):02d}", ln=True)
 
