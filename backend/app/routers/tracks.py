@@ -689,36 +689,12 @@ def _run_analysis(track_id: int):
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
         # ══════════════════════════════════════════════════════════════════
-        #   STEMS → CUE POINTS (séquentiel pour précision maximale)
-        #   Modal GPU ~3-5s → fallback CPU ~20-40s → puis cue points
+        #   STEMS → déjà fait dans analyze_audio() via Modal GPU / CPU
+        #   Les stem_data sont dans analysis_data (mergé par analyze_audio)
         # ══════════════════════════════════════════════════════════════════
-        stem_data = {}
-        if use_stems:
-            try:
-                from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
-                from app.services.stem_analysis import analyze_stems_from_arrays, analyze_stems
-
-                # Construire l'URL audio pour Modal GPU (avec service token)
-                _api_url = os.environ.get("API_PUBLIC_URL", "")
-                _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
-                _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio?token={_modal_token}" if (_api_url and _modal_token) else ""
-
-                mode = "Modal GPU" if is_modal_available() else "CPU local"
-                logger.info(f"[STEM] Séparation via {mode} pour track {track_id}...")
-
-                stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url)
-                logger.info(f"[STEM] Séparation terminée pour track {track_id} — stems: {list(stem_arrays.keys())}")
-
-                # Extraire les features stems (drum_enter, vocal_sections, drops…)
-                beats = analysis_data.get("beat_positions", [])
-                try:
-                    stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=track_id)
-                except (ImportError, AttributeError):
-                    stem_data = analyze_stems(file_path, beats, track_id=track_id)
-
-                logger.info(f"[STEM] Features stems extraites pour track {track_id}")
-            except Exception as e:
-                logger.warning(f"[STEM] Stems failed pour track {track_id}: {e} — cue points sans stems")
+        stem_data = {k: v for k, v in analysis_data.items() if 'stem' in k.lower() or 'vocal' in k.lower() or 'drum_enter' in k.lower()}
+        if stem_data:
+            logger.info(f"[STEM] Stem data from analyze_audio: {len(stem_data)} keys")
 
         # ── Cue points (avec stems si disponibles → confidence ~0.9) ──
         try:
