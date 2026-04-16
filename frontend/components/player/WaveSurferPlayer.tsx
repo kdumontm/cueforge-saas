@@ -1100,6 +1100,22 @@ function WaveSurferPlayer({
 
         console.log('[TrackCue] Spectral ready ✓');
         setSpectralReady(true);
+
+        // Fallback: si loadedmetadata n'a pas encore tiré après 2s,
+        // forcer isReady pour afficher la waveform (certains browsers/configs
+        // ne déclenchent jamais loadedmetadata avec HTMLAudioElement)
+        setTimeout(() => {
+          if (abort.signal.aborted) return;
+          if (!audio.duration || audio.readyState < 1) {
+            console.warn('[TrackCue] loadedmetadata timeout — forcing ready from decoded buffer');
+            if (!durationRef.current || durationRef.current <= 0) {
+              durationRef.current = decoded.duration;
+              setDuration(decoded.duration);
+            }
+            setIsReady(true);
+            setLoading(false);
+          }
+        }, 2000);
       } catch (e: any) {
         console.error('[TrackCue] Spectral decode FAILED:', e?.message || e, e);
         // Fallback: generate simple amplitude waveform from the blob
