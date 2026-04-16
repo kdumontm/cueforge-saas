@@ -399,7 +399,14 @@ function WaveSurferPlayer({
   }, [zoom]);
   useEffect(() => {
     visibleSecondsRef.current = visibleSeconds;
-  }, [visibleSeconds]);
+    // Notifier le parent du changement de zoom (en px/sec pour la mise en surbrillance des boutons)
+    if (onZoomChange) {
+      // Conversion inverse : visibleSeconds → pxPerSec approximatif
+      const containerWidth = detailContainerRef.current?.getBoundingClientRect().width || 800;
+      const pxPerSec = containerWidth / visibleSeconds;
+      onZoomChange(pxPerSec);
+    }
+  }, [visibleSeconds, onZoomChange]);
 
   // Theme ref
   const themeRef = useRef(waveformTheme);
@@ -1227,9 +1234,9 @@ function WaveSurferPlayer({
     window.addEventListener('mouseup', onUp);
   }, [isReady, seekOverviewAt]);
 
-  // ── Detail: mousedown starts drag, mousemove scrubs, mouseup ends ──
-  // Le delta est calculé depuis le point fixe du mousedown pour éviter
-  // l'effet boule de neige (currentTimeRef qui s'emballe à chaque mousemove).
+  // ── Detail: clic+drag = glisser le waveform (comme un vinyle) ──
+  // PAS de seek au point cliqué : le clic sert uniquement à commencer le drag.
+  // Glisser à gauche = avancer, glisser à droite = reculer.
   const handleDetailMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isReady) return;
     e.preventDefault();
@@ -1241,31 +1248,20 @@ function WaveSurferPlayer({
     const dur = durationRef.current;
     if (dur <= 0) return;
 
-    // Pause pendant le scrub pour éviter les sauts
+    // Pause pendant le drag pour éviter les sauts
     wasPlayingBeforeDrag.current = !audio.paused;
     if (!audio.paused) audio.pause();
 
-    // Seek initial absolu au point de click
-    const secPerPx = visibleSecondsRef.current / rect.width;
-    const x0 = e.clientX - rect.left;
-    const initTime = Math.max(0, Math.min(dur,
-      (currentTimeRef.current - visibleSecondsRef.current / 2) + x0 * secPerPx
-    ));
-    audio.currentTime = initTime;
-    currentTimeRef.current = initTime;
-    lastRenderedPositionRef.current = -1; // forcer le re-rendu immédiat
-    onSeek?.(initTime * 1000);
-    onWaveformClick?.(initTime * 1000);
-
-    // Ancrage fixe pour le drag : chaque mousemove = delta depuis ce point
+    // PAS de seek initial — on part de la position courante
     const dragStartX = e.clientX;
-    const dragStartTime = initTime;
-    const dragSecPerPx = secPerPx; // constant pendant tout le drag
+    const dragStartTime = currentTimeRef.current;
+    const dragSecPerPx = visibleSecondsRef.current / rect.width;
 
     const onMove = (ev: MouseEvent) => {
       if (!isDraggingDetail.current) return;
       const deltaX = ev.clientX - dragStartX;
-      // Négatif : glisser à droite = reculer dans le temps (scroll naturel)
+      // Glisser à gauche (deltaX négatif) = avancer dans le temps
+      // Glisser à droite (deltaX positif) = reculer dans le temps
       const seekTime = Math.max(0, Math.min(dur, dragStartTime - deltaX * dragSecPerPx));
       audio.currentTime = seekTime;
       currentTimeRef.current = seekTime;
@@ -1281,7 +1277,7 @@ function WaveSurferPlayer({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [isReady, onSeek, onWaveformClick]);
+  }, [isReady, onSeek]);
 
   // ── Zoom: Ctrl+Scroll OR Mac trackpad pinch-to-zoom ──
   // On Mac, pinch-to-zoom fires wheel events with ctrlKey=true (synthetic)
@@ -1290,17 +1286,17 @@ function WaveSurferPlayer({
     const el = detailContainerRef.current;
     if (!el) return;
 
-    // Wheel handler (works for Ctrl+Scroll AND Mac trackpad pinch in Chrome)
+    // Wheel handler — scroll simple OU Ctrl+Scroll OU Mac trackpad pinch
     const wheelHandler = (e: WheelEvent) => {
-      // Mac trackpad pinch sends ctrlKey=true with fractional deltaY
-      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       e.stopPropagation();
+      // Pinch trackpad (ctrlKey=true) → petit factor, scroll molette → plus grand
+      const isPinch = e.ctrlKey && Math.abs(e.deltaY) < 10;
+      const factor = isPinch ? 1.08 : (Math.abs(e.deltaY) < 30 ? 1.12 : 1.25);
       setVisibleSeconds((prev) => {
-        const factor = Math.abs(e.deltaY) < 10 ? 1.08 : 1.25; // smaller steps for trackpad
         const next = e.deltaY > 0
-          ? Math.min(prev * factor, 120)  // zoom out
-          : Math.max(prev / factor, 3);   // zoom in
+          ? Math.min(prev * factor, 120)  // zoom out (scroll down)
+          : Math.max(prev / factor, 3);   // zoom in (scroll up)
         return next;
       });
     };
@@ -1388,7 +1384,7 @@ function WaveSurferPlayer({
         ref={detailContainerRef}
         className="relative bg-black rounded-b-lg overflow-hidden cursor-crosshair"
         style={{ height, minHeight: height }}
-        title="Clic/drag = seek · Ctrl+Scroll = zoom"
+        title="Clic+drag = naviguer · Scroll = zoom"
         onMouseDown={handleDetailMouseDown}
       >
         <canvas ref={detailCanvasRef} className="absolute inset-0 w-full h-full" />
