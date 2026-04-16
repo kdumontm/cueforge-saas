@@ -512,7 +512,7 @@ def _run_analysis(track_id: int):
     analysis_data = None
     try:
         analysis_data = analysis_svc.analyze_audio(
-            file_path, use_stem_separation=False, track_id=None
+            file_path, use_stem_separation=use_stems, track_id=track_id
         )
         _log(f"[ANALYSIS] Phase 2 done — got {len(analysis_data) if analysis_data else 0} keys, bpm={analysis_data.get('bpm') if analysis_data else 'N/A'}")
     except Exception as e:
