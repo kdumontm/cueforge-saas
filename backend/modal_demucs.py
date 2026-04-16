@@ -24,6 +24,7 @@ demucs_image = (
     .pip_install(
         "torch>=2.1",
         "torchaudio>=2.1",
+        "torchcodec",
         "demucs>=4.0",
         "numpy<2",
         "soundfile",
@@ -68,7 +69,6 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
     """
     import tempfile
     import torch
-    import torchaudio
     import numpy as np
     import soundfile as sf
     import librosa
@@ -91,22 +91,36 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
         model_sr = model.samplerate  # 44100
         stem_names = model.sources   # ['drums', 'bass', 'other', 'vocals']
 
-        # Charger l'audio
+        # Charger l'audio via soundfile (évite le bug TorchCodec)
+        import torchaudio
         print(f"[CueForge] Loading audio from {tmp_path}...")
-        wav, sr = torchaudio.load(tmp_path)
+        audio_np, sr_orig = sf.read(tmp_path, dtype='float32')
+        if audio_np.ndim == 1:
+            wav = torch.from_numpy(audio_np).unsqueeze(0)  # (1, samples)
+        else:
+            wav = torch.from_numpy(audio_np.T.copy())  # (channels, samples)
 
-        # Resample vers le sample rate du modèle si nécessaire
-        if sr != model_sr:
-            print(f"[CueForge] Resampling {sr} → {model_sr}")
-            wav = torchaudio.functional.resample(wav, sr, model_sr)
+        # Resample si nécessaire
+        if sr_orig != model_sr:
+            print(f"[CueForge] Resampling {sr_orig} → {model_sr}")
+            resampler = torchaudio.transforms.Resample(sr_orig, model_sr)
+            wav = resampler(wav)
 
-        # Ajouter dimension batch: (channels, samples) → (1, channels, samples)
+        # Assurer stereo (2, samples)
+        if wav.shape[0] == 1:
+            wav = wav.repeat(2, 1)
+        elif wav.shape[0] > 2:
+            wav = wav[:2]
+
+        print(f"[CueForge] Audio shape: {wav.shape}, sr={model_sr}")
+
+        # Ajouter dimension batch: (2, samples) → (1, 2, samples)
         wav = wav.unsqueeze(0).to(device)
 
         # Séparer avec apply_model
         print(f"[CueForge] Separating with Demucs on {device}...")
         with torch.no_grad():
-            sources = apply_model(model, wav, device=device, segment=15)
+            sources = apply_model(model, wav, device=device, progress=False)
         # sources shape: (1, n_sources, channels, samples)
 
         # Convertir chaque stem en WAV bytes (mono, 22050Hz)
