@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.track import Track
+from app.models.track import Track, TrackAnalysis
 from app.models.user import User
 from app.middleware.auth import get_current_user
 
@@ -100,12 +100,13 @@ async def get_next_track_recommendation(
         if not current_track:
             raise HTTPException(status_code=404, detail="Current track not found")
 
-        # Find similar tracks
-        similar = db.query(Track).filter(
+        # Find similar tracks (join TrackAnalysis for BPM filter)
+        ref_bpm = current_track.analysis.bpm if current_track.analysis else 120
+        similar = db.query(Track).join(TrackAnalysis, Track.id == TrackAnalysis.track_id).filter(
             Track.user_id == current_user.id,
             Track.id != request.current_track_id,
-            TrackAnalysis.bpm >= (current_track.analysis.bpm if current_track.analysis else 120) - 10,
-            TrackAnalysis.bpm <= (current_track.analysis.bpm if current_track.analysis else 120) + 10
+            TrackAnalysis.bpm >= ref_bpm - 10,
+            TrackAnalysis.bpm <= ref_bpm + 10
         ).limit(20).all()
 
         if not similar:

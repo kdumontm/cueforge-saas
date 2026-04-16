@@ -10,7 +10,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.track import Track
+from app.models.track import Track, TrackAnalysis
 from app.models.user import User
 from app.middleware.auth import get_current_user
 
@@ -138,12 +138,13 @@ async def find_similar(
         if not track:
             raise HTTPException(status_code=404, detail="Track not found")
 
-        # Mock similarity matching (in production, compare fingerprints)
-        similar = db.query(Track).filter(
+        # Similarity matching by BPM range (join TrackAnalysis for BPM filter)
+        ref_bpm = track.analysis.bpm if track.analysis else 120
+        similar = db.query(Track).join(TrackAnalysis, Track.id == TrackAnalysis.track_id).filter(
             Track.user_id == current_user.id,
             Track.id != track_id,
-            TrackAnalysis.bpm >= (track.analysis.bpm if track.analysis else 120) - 5,
-            TrackAnalysis.bpm <= (track.analysis.bpm if track.analysis else 120) + 5
+            TrackAnalysis.bpm >= ref_bpm - 5,
+            TrackAnalysis.bpm <= ref_bpm + 5
         ).limit(10).all()
 
         similar_data = [
