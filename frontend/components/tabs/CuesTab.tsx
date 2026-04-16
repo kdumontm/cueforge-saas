@@ -568,17 +568,18 @@ export function CuesTab({
               })}
             </div>
 
-            {/* Cue markers on timeline */}
+            {/* Cue markers on timeline — CDJ Pro badge style */}
             {cues.map((cue, idx) => {
               const posMs = cue.position_ms ?? cue.time_ms ?? 0;
               const pct = Math.min(97, Math.max(1, (posMs / maxMs) * 100));
               const color = cue.color || cue.color_rgb || '#22c55e';
               const isHovered = hoveredCue === cue.id;
+              const hotKey = String.fromCharCode(65 + idx); // A, B, C...
               return (
                 <div
                   key={cue.id}
-                  className="absolute top-0 bottom-0 cursor-pointer transition-opacity"
-                  style={{ left: `${pct}%`, width: 2, background: color, opacity: isHovered ? 1 : 0.7 }}
+                  className="absolute top-0 bottom-0 cursor-pointer"
+                  style={{ left: `${pct}%` }}
                   onClick={() => onCueClick?.(cue)}
                   onMouseEnter={() => {
                     setHoveredCue(cue.id);
@@ -586,20 +587,21 @@ export function CuesTab({
                   }}
                   onMouseLeave={() => setHoveredCue(null)}
                 >
-                  {/* Triangle marker */}
+                  {/* Vertical line */}
+                  <div style={{ width: 2, height: '100%', background: color, opacity: isHovered ? 1 : 0.7, transition: 'opacity 0.15s' }} />
+                  {/* Letter badge */}
                   <div
+                    className="absolute left-1/2 -translate-x-1/2"
                     style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: -4,
-                      width: 0,
-                      height: 0,
-                      borderLeft: '4px solid transparent',
-                      borderRight: '4px solid transparent',
-                      borderTop: `6px solid ${color}`,
-                      filter: isHovered ? `drop-shadow(0 0 4px ${color})` : 'none',
+                      top: 2, width: 16, height: 14, borderRadius: 3,
+                      background: isHovered ? color : `${color}cc`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: isHovered ? `0 0 10px ${color}80` : `0 0 4px ${color}40`,
+                      transition: 'all 0.15s',
                     }}
-                  />
+                  >
+                    <span style={{ fontSize: 8, fontWeight: 800, color: '#000', lineHeight: 1 }}>{hotKey}</span>
+                  </div>
                   {/* Loop range */}
                   {(cue.cue_type === 'loop' || cue.cue_mode === 'loop') && cue.end_position_ms != null && (
                     <div
@@ -808,65 +810,50 @@ export function CuesTab({
         )}
       </div>
 
-      {/* ═══ Cue list — redesigned ═══ */}
+      {/* ═══ CDJ Pro Grid ═══ */}
       <div className="flex-1 overflow-y-auto" ref={cueListRef}>
-        {/* Improvement #12: Loading skeleton */}
+        {/* Loading skeleton */}
         {showLoadingSkeleton && (
-          <div className="p-2 flex flex-col gap-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={`skeleton-${i}`}
-                className="h-10 rounded-lg bg-[var(--bg-hover)] animate-pulse"
-                style={{ animationDelay: `${i * 100}ms` }}
-              />
+          <div className="p-2 grid grid-cols-3 gap-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={`skeleton-${i}`} className="h-16 rounded-lg bg-[var(--bg-hover)] animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
             ))}
           </div>
         )}
 
         {filteredIndices.length === 0 && !showLoadingSkeleton ? (
           <div className="flex flex-col items-center justify-center h-32 text-[var(--text-muted)] text-xs gap-2 p-4">
-            {/* Improvement #8: Empty state illustration */}
             <div className="text-4xl opacity-30">🎵</div>
             <span>{searchFilter ? 'Aucun cue trouvé' : tr('cues.no_cue', lang)}</span>
           </div>
         ) : (
           <>
-            {/* Improvement #9: Cue count badge */}
-            <div className="sticky top-0 px-3 py-1 bg-[var(--bg-primary)] border-b border-[var(--border-subtle)] flex justify-between items-center text-[10px] text-[var(--text-muted)]">
+            {/* Header: count + undo */}
+            <div className="sticky top-0 px-3 py-1 bg-[var(--bg-primary)] border-b border-[var(--border-subtle)] flex justify-between items-center text-[10px] text-[var(--text-muted)] z-10">
               <span>{filteredIndices.length} repère{filteredIndices.length > 1 ? 's' : ''}</span>
               {undoStack.length > 0 && (
-                <button
-                  onClick={handleUndo}
-                  className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                  title="Annuler (Ctrl+Z)"
-                >
+                <button onClick={handleUndo} className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1" title="Annuler (Ctrl+Z)">
                   <RotateCcw size={10} /> Annuler
                 </button>
               )}
             </div>
-            <div className="p-2 flex flex-col gap-1">
+
+            {/* CDJ Pro grid — 3 columns */}
+            <div className="p-2 grid grid-cols-3 gap-1.5">
               {filteredIndices.map((idx) => {
                 const cue = cuePoints[idx];
-              if (!cue) return null;
-              const typeInfo = CUE_TYPES.find(t => t.value === (cue.cue_type || 'hot_cue')) || CUE_TYPES[0];
-              const color = cue.color || cue.color_rgb || typeInfo.color;
-              const label = HOT_CUE_LABELS[cue.number ?? idx] || String(cue.number ?? idx);
-              const isHovered = hoveredCue === cue.id;
-              const showDetails = hoveredDetailsCue === cue.id;
-              const posMs = cue.position_ms ?? cue.time_ms ?? 0;
-              const barNumber = getBarNumber(posMs);
-              const isSelected = selectedCueIds.has(cue.id);
-              const isPinned = pinnedCueIds.has(cue.id);
-              const isExpanded = expandedCueIds.has(cue.id);
-              const cueNote = cueNotes.get(cue.id);
-              const twoBarThreshold = (60000 / Math.max((track?.analysis?.bpm ?? (track as any)?.bpm) ?? 128, 60)) * 8; // 2 bars in ms
-              const nextCue = filteredIndices[filteredIndices.indexOf(idx) + 1];
-              const nextCuePos = nextCue ? cuePoints[nextCue]?.position_ms : null;
-              const distToNext = nextCuePos ? (nextCuePos - posMs) / 1000 : null;
+                if (!cue) return null;
+                const typeInfo = CUE_TYPES.find(t => t.value === (cue.cue_type || 'hot_cue')) || CUE_TYPES[0];
+                const color = cue.color || cue.color_rgb || typeInfo.color;
+                const hotKey = String.fromCharCode(65 + (filteredIndices.indexOf(idx))); // A, B, C...
+                const isHovered = hoveredCue === cue.id;
+                const posMs = cue.position_ms ?? cue.time_ms ?? 0;
+                const isSelected = selectedCueIds.has(cue.id);
 
-              return (
-                <div key={cue.id}>
+                return (
                   <div
+                    key={cue.id}
+                    data-cue-id={cue.id}
                     draggable
                     onDragStart={() => handleDragStart(idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
@@ -886,273 +873,130 @@ export function CuesTab({
                         }
                       }
                     }}
-                    onMouseEnter={() => {
-                      setHoveredCue(cue.id);
-                      setHoveredDetailsCue(cue.id);
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredCue(null);
-                      setHoveredDetailsCue(null);
-                    }}
-                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing select-none ${
-                      dragOverIdx === idx && dragIdx !== idx
-                        ? 'scale-[1.01]'
-                        : dragIdx === idx
-                          ? 'opacity-30'
-                          : ''
+                    onMouseEnter={() => { setHoveredCue(cue.id); setHoveredDetailsCue(cue.id); }}
+                    onMouseLeave={() => { setHoveredCue(null); setHoveredDetailsCue(null); }}
+                    className={`group relative cursor-pointer select-none transition-all duration-200 ${
+                      dragIdx === idx ? 'opacity-30' : ''
                     } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                     style={{
+                      padding: '8px 10px',
+                      borderRadius: 8,
                       background: isHovered
-                        ? `linear-gradient(90deg, ${color}18, transparent 80%)`
-                        : `linear-gradient(90deg, ${color}0a, transparent 60%)`,
-                      border: dragOverIdx === idx && dragIdx !== idx
-                        ? `1px solid #3b82f6`
-                        : dragIdx === idx
-                          ? '1px dashed var(--border-default)'
-                          : `1px solid rgba(255,255,255,0.04)`,
-                      borderLeftWidth: '2.5px',
-                      borderLeftColor: color,
+                        ? `linear-gradient(135deg, ${color}18, ${color}08)`
+                        : 'var(--bg-surface, rgba(255,255,255,0.03))',
+                      border: `1px solid ${isHovered ? `${color}50` : 'var(--border-subtle, rgba(255,255,255,0.06))'}`,
+                      overflow: 'hidden',
                     }}
                   >
-                  {/* Improvement #3: Checkbox for bulk delete mode */}
-                  {bulkDeleteMode && (
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {
-                        const next = new Set(selectedCueIds);
-                        if (next.has(cue.id)) next.delete(cue.id);
-                        else next.add(cue.id);
-                        setSelectedCueIds(next);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-3.5 h-3.5 cursor-pointer"
+                    {/* Top accent bar */}
+                    <div
+                      className="absolute top-0 left-0 right-0 transition-opacity duration-200"
+                      style={{ height: 2, background: color, opacity: isHovered ? 1 : 0.4 }}
                     />
-                  )}
 
-                  {!bulkDeleteMode && <GripVertical size={10} className="text-[var(--text-muted)] flex-shrink-0 opacity-40" />}
-
-                  {/* Hot cue badge — neon glow style */}
-                  <div
-                    className="w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center font-black text-[10px] transition-all"
-                    style={{
-                      backgroundColor: `${color}20`,
-                      border: `1.5px solid ${color}60`,
-                      color: color,
-                      boxShadow: isHovered ? `0 0 10px ${color}40, inset 0 0 6px ${color}15` : `0 0 6px ${color}20`,
-                      textShadow: `0 0 8px ${color}`,
-                    }}
-                    title={`Slot ${label}`}
-                  >
-                    {label}
-                  </div>
-
-                  {/* Cue type badge — improved */}
-                  <CueTypeBadge type={cue.cue_type || 'hot_cue'} color={color} />
-
-                  {/* Name + metadata section */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      {/* Improvement #20: Pin button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const next = new Set(pinnedCueIds);
+                    {/* Bulk delete checkbox */}
+                    {bulkDeleteMode && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          const next = new Set(selectedCueIds);
                           if (next.has(cue.id)) next.delete(cue.id);
                           else next.add(cue.id);
-                          setPinnedCueIds(next);
+                          setSelectedCueIds(next);
                         }}
-                        className="flex-shrink-0 opacity-40 hover:opacity-100 transition-opacity"
-                        style={{ fontSize: '10px' }}
-                      >
-                        {isPinned ? '📌' : '📍'}
-                      </button>
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-1.5 right-1.5 w-3 h-3 cursor-pointer z-10"
+                      />
+                    )}
 
-                      {/* Improvement #13: Inline editing mode */}
-                      {editingCueId === cue.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editingCueName}
-                          onChange={(e) => setEditingCueName(e.target.value)}
-                          onBlur={() => handleSaveEdit(cue.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEdit(cue.id);
-                            if (e.key === 'Escape') setEditingCueId(null);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 px-2 py-1 rounded bg-blue-500/20 border border-blue-500/50 text-xs text-[var(--text-primary)] outline-none focus:border-blue-400"
-                        />
-                      ) : (
-                        <div
-                          onDoubleClick={() => handleStartEdit(cue)}
-                          className="text-xs font-semibold text-[var(--text-primary)] truncate leading-tight tracking-wide flex-1 cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.04em' }}
-                          title="Double-click to edit"
-                        >
-                          {cue.name || `${typeInfo.label} ${idx + 1}`}
-                        </div>
-                      )}
-                      <ConfidenceDot confidence={cue.confidence} />
-                    </div>
-                    <div className="text-[9px] flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: `${color}99` }}>
-                      <span className="font-mono">{formatTimeMs(posMs)}</span>
-                      <span className="opacity-60">·</span>
-                      <span className="opacity-70">Bar {barNumber}</span>
-                      {(cue.cue_type === 'loop' || cue.cue_mode === 'loop') && cue.end_position_ms != null && (
-                        <>
-                          <span className="opacity-60">·</span>
-                          <span className="text-blue-400">
-                            {formatTimeMs(cue.end_position_ms)} ({((cue.end_position_ms - posMs) / 1000).toFixed(1)}s)
+                    <div className="flex items-center gap-2">
+                      {/* Hot cue badge — CDJ style */}
+                      <div
+                        className="flex-shrink-0 flex items-center justify-center transition-shadow duration-200"
+                        style={{
+                          width: 26, height: 26, borderRadius: 6,
+                          background: `${color}20`,
+                          border: `1.5px solid ${color}60`,
+                          boxShadow: isHovered ? `0 0 12px ${color}40, inset 0 0 6px ${color}15` : `0 0 4px ${color}20`,
+                        }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 800, color, textShadow: `0 0 8px ${color}` }}>{hotKey}</span>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        {/* Inline edit or label */}
+                        {editingCueId === cue.id ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingCueName}
+                            onChange={(e) => setEditingCueName(e.target.value)}
+                            onBlur={() => handleSaveEdit(cue.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit(cue.id);
+                              if (e.key === 'Escape') setEditingCueId(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/50 text-[10px] text-[var(--text-primary)] outline-none focus:border-blue-400"
+                          />
+                        ) : (
+                          <div
+                            onDoubleClick={() => handleStartEdit(cue)}
+                            className="truncate cursor-pointer"
+                            style={{
+                              fontSize: 10, fontWeight: 700, color: 'var(--text-primary, #e2e8f0)',
+                              textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.2,
+                            }}
+                            title="Double-clic pour éditer"
+                          >
+                            {cue.name || `${typeInfo.label} ${idx + 1}`}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span style={{
+                            fontSize: 9, color: 'var(--text-muted, #475569)',
+                            fontVariantNumeric: 'tabular-nums',
+                            fontFamily: "'JetBrains Mono', 'SF Mono', ui-monospace, monospace",
+                          }}>
+                            {formatTimeMs(posMs)}
                           </span>
-                        </>
-                      )}
-                      {/* Improvement #23: Show estimated time between cues */}
-                      {distToNext !== null && distToNext > 0 && (
-                        <>
-                          <span className="opacity-60">·</span>
-                          <span className="opacity-70 text-[8px]">+{distToNext.toFixed(1)}s</span>
-                        </>
-                      )}
-                      {/* Improvement #22: Visual warning for cues too close */}
-                      {distToNext !== null && distToNext < twoBarThreshold / 1000 && distToNext > 0 && (
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-yellow-500/30 border border-yellow-500/50 text-yellow-300">
-                          ⚠️ Proche
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Color circle indicator */}
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0 transition-all"
-                    style={{
-                      background: color,
-                      boxShadow: isHovered ? `0 0 6px ${color}, 0 0 12px ${color}60` : `0 0 3px ${color}80`,
-                    }}
-                  />
-
-                  {/* Action buttons */}
-                  {!bulkDeleteMode && (
-                    <>
-                      {/* Improvement #25: Expand/collapse button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const next = new Set(expandedCueIds);
-                          if (next.has(cue.id)) next.delete(cue.id);
-                          else next.add(cue.id);
-                          setExpandedCueIds(next);
-                        }}
-                        className="p-1 rounded hover:bg-blue-500/15 text-[var(--text-muted)] hover:text-blue-400 transition-colors flex-shrink-0"
-                        style={{ opacity: isHovered ? 1 : 0.5 }}
-                        title="Détails complets"
-                      >
-                        <ChevronDown size={11} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-                      </button>
-
-                      {/* Improvement #11: Copy cue */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyCue(cue);
-                        }}
-                        className="p-1 rounded hover:bg-purple-500/15 text-[var(--text-muted)] hover:text-purple-400 transition-colors flex-shrink-0"
-                        style={{ opacity: isHovered ? 1 : 0 }}
-                        title="Copier ce cue"
-                      >
-                        <Copy size={11} />
-                      </button>
-
-                      {/* Improvement #12: Move to nearest beat */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMoveToNearestBeat(cue);
-                        }}
-                        className="p-1 rounded hover:bg-orange-500/15 text-[var(--text-muted)] hover:text-orange-400 transition-colors flex-shrink-0"
-                        style={{ opacity: isHovered ? 1 : 0 }}
-                        title="Déplacer au beat le plus proche"
-                      >
-                        <Move size={11} />
-                      </button>
-
-                      {/* Preview (play 2s) */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onPreviewCue?.(cue);
-                        }}
-                        className="p-1 rounded hover:bg-green-500/15 text-[var(--text-muted)] hover:text-green-400 transition-colors flex-shrink-0"
-                        style={{ opacity: isHovered ? 1 : 0.4 }}
-                        title={tr('cues.preview', lang)}
-                      >
-                        <Play size={11} fill="currentColor" />
-                      </button>
-
-                      {/* Delete */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteCue?.(cue.id);
-                        }}
-                        className="p-1 rounded hover:bg-red-500/15 text-[var(--text-muted)] hover:text-red-400 transition-colors flex-shrink-0"
-                        style={{ opacity: isHovered ? 1 : 0 }}
-                        title={tr('cues.delete', lang)}
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Improvement #13: Tooltip showing full cue details on hover */}
-                {showDetails && (
-                  <div className="text-[8px] px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)] space-y-0.5 mb-1">
-                    <div><strong>Nom:</strong> {cue.name}</div>
-                    <div><strong>Type:</strong> {cue.cue_type}</div>
-                    <div><strong>Position:</strong> {formatTimeMs(posMs)}</div>
-                    {cue.confidence && <div><strong>Confiance:</strong> {Math.round(cue.confidence * 100)}%</div>}
-                    {cue.end_position_ms && <div><strong>Fin:</strong> {formatTimeMs(cue.end_position_ms)}</div>}
-                  </div>
-                )}
-
-                {/* Improvement #25: Collapsible cue details */}
-                {isExpanded && (
-                  <div className="px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[8px] space-y-2 mb-1">
-                    <div className="space-y-0.5">
-                      <div><strong>Détails complets:</strong></div>
-                      <div className="text-[7px] font-mono space-y-0.5 text-[var(--text-secondary)]">
-                        <div>ID: {cue.id}</div>
-                        <div>Type: {cue.cue_type}</div>
-                        <div>Position: {formatTimeMs(posMs)}</div>
-                        <div>Confiance: {Math.round((cue.confidence || 0) * 100)}%</div>
-                        {cue.end_position_ms && <div>Fin: {formatTimeMs(cue.end_position_ms)}</div>}
+                          <ConfidenceDot confidence={cue.confidence} />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Improvement #21: Cue notes/comments */}
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-semibold text-[var(--text-primary)]">Notes:</label>
-                      <textarea
-                        value={cueNote || ''}
-                        onChange={(e) => {
-                          const next = new Map(cueNotes);
-                          if (e.target.value) next.set(cue.id, e.target.value);
-                          else next.delete(cue.id);
-                          setCueNotes(next);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        placeholder="Ajouter une note..."
-                        className="w-full p-1 rounded text-[7px] bg-[var(--bg-primary)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder-[var(--text-muted)] resize-none"
-                        rows={2}
-                      />
-                    </div>
+                    {/* Hover action buttons — CDJ Pro style */}
+                    {!bulkDeleteMode && (
+                      <div
+                        className="absolute bottom-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onPreviewCue?.(cue); }}
+                          className="p-0.5 rounded hover:bg-green-500/20 text-[var(--text-muted)] hover:text-green-400 transition-colors"
+                          title={tr('cues.preview', lang)}
+                        >
+                          <Play size={9} fill="currentColor" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCopyCue(cue); }}
+                          className="p-0.5 rounded hover:bg-purple-500/20 text-[var(--text-muted)] hover:text-purple-400 transition-colors"
+                          title="Copier"
+                        >
+                          <Copy size={9} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDeleteCue?.(cue.id); }}
+                          className="p-0.5 rounded hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-400 transition-colors"
+                          title={tr('cues.delete', lang)}
+                        >
+                          <Trash2 size={9} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              );
-            })}
+                );
+              })}
             </div>
           </>
         )}
