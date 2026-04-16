@@ -487,15 +487,11 @@ def _run_analysis(track_id: int):
         use_stems = False
         try:
             user = db.query(User).filter(User.id == user_id).first()
-            _log(f"[STEM] User {user_id} → plan={getattr(user, 'subscription_plan', '?')}, use_stem_separation={getattr(user, 'use_stem_separation', '?')}")
             if user and getattr(user, 'use_stem_separation', False):
                 use_stems = True
-                _log(f"[STEM] ✅ Mode pro activé pour user {user_id} — stems WILL run")
-            else:
-                _log(f"[STEM] ❌ Stems désactivés pour user {user_id}")
+                _log(f"[STEM] Mode pro activé pour user {user_id} — Demucs sera utilisé")
         except Exception as stem_err:
-            _log(f"[STEM] ⚠️ Check stem preference failed: {stem_err}")
-        _log(f"[STEM] use_stems={use_stems} for track {track_id}")
+            logger.warning(f"[STEM] Check stem preference failed: {stem_err}")
     except Exception as e:
         _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
         try:
@@ -688,7 +684,6 @@ def _run_analysis(track_id: int):
         #   Modal GPU ~3-5s → fallback CPU ~20-40s → puis cue points
         # ══════════════════════════════════════════════════════════════════
         stem_data = {}
-        _log(f"[STEM] Phase 3 check: use_stems={use_stems} for track {track_id}")
         if use_stems:
             try:
                 from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
@@ -699,10 +694,10 @@ def _run_analysis(track_id: int):
                 _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio" if _api_url else ""
 
                 mode = "Modal GPU" if is_modal_available() else "CPU local"
-                _log(f"[STEM] 🎛️ Séparation via {mode} pour track {track_id}... (file={file_path})")
+                logger.info(f"[STEM] Séparation via {mode} pour track {track_id}...")
 
                 stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url)
-                _log(f"[STEM] ✅ Séparation terminée pour track {track_id} — stems: {list(stem_arrays.keys())}")
+                logger.info(f"[STEM] Séparation terminée pour track {track_id} — stems: {list(stem_arrays.keys())}")
 
                 # Extraire les features stems (drum_enter, vocal_sections, drops…)
                 beats = analysis_data.get("beat_positions", [])
