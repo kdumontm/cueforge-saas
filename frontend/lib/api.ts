@@ -1602,6 +1602,30 @@ export async function deleteCuePoint(cueId: number): Promise<void> {
 }
 
 /**
+ * Supprime plusieurs cue points en une seule requête (batch).
+ */
+export async function batchDeleteCuePoints(trackId: number, cueIds: number[]): Promise<{ deleted: number }> {
+  const response = await authFetch(`${API_URL}/cues/${trackId}/points/batch`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ cue_ids: cueIds }),
+  });
+  if (!response.ok) throw new Error('Failed to batch delete cue points');
+  return response.json();
+}
+
+/**
+ * Supprime TOUS les cue points d'un track en une seule requête.
+ */
+export async function deleteAllCuePoints(trackId: number): Promise<{ deleted: number }> {
+  // Récupère d'abord les IDs de tous les cues, puis batch delete
+  const cues = await getTrackCuePoints(trackId);
+  if (cues.length === 0) return { deleted: 0 };
+  const cueIds = cues.map((c: any) => c.id);
+  return batchDeleteCuePoints(trackId, cueIds);
+}
+
+/**
  * RÃ©gÃ©nÃ¨re les cue points d'un track Ã  partir de l'analyse existante
  * (sans rÃ©-analyser l'audio â instantanÃ©).
  */

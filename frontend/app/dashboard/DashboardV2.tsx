@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, Suspense } from 'react';
 import { lazyRetry } from '@/lib/lazyRetry';
 import { Upload, Loader2, Zap, RefreshCw, MoreVertical, Trash2, Copy, Download, X } from 'lucide-react';
-import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, identifyTrack, type Playlist } from '@/lib/api';
+import { uploadTrack, analyzeTrack, pollTrackUntilDone, listTracks, deleteTrack, batchDeleteTracks, getTrack, getCurrentUser, isAuthenticated, getTrackCuePoints, createCuePoint, deleteCuePoint, batchDeleteCuePoints, deleteAllCuePoints, regenerateCuePoints, exportRekordbox, exportBatchRekordbox, exportAllRekordbox, updateTrack, recordPlay, listPlaylists, createPlaylist, deletePlaylist as apiDeletePlaylist, getPlaylistTracks, addTracksToPlaylist, listSets, getCrateTracks, getDemoMode, getCueQualityScore, optimizeCues, getCueSuggestions, getCueHistory, searchCues, identifyTrack, type Playlist } from '@/lib/api';
 import type { Track } from '@/types';
 import { useDashboardContext } from './DashboardContext';
 import { useLang } from '@/components/LangProvider';
@@ -886,6 +886,28 @@ export default function DashboardV2() {
     }
   }
 
+  async function handleBulkDeleteCues(cueIds: number[]) {
+    if (!selectedTrack || selectedTrack.id < 0 || cueIds.length === 0) return;
+    try {
+      await batchDeleteCuePoints(selectedTrack.id, cueIds);
+      setCuePoints(prev => prev.filter(c => !cueIds.includes(c.id)));
+      addToast(`${cueIds.length} cue points supprimés`, 'success');
+    } catch (e) {
+      addToast('Erreur lors de la suppression', 'error');
+    }
+  }
+
+  async function handleDeleteAllCues() {
+    if (!selectedTrack || selectedTrack.id < 0) return;
+    try {
+      const result = await deleteAllCuePoints(selectedTrack.id);
+      setCuePoints([]);
+      addToast(`${result.deleted} cue points supprimés`, 'success');
+    } catch (e) {
+      addToast('Erreur lors de la suppression', 'error');
+    }
+  }
+
   async function handleRegenerateCues() {
     if (!selectedTrack || selectedTrack.id < 0) return;
     try {
@@ -893,8 +915,10 @@ export default function DashboardV2() {
       const newCues = await regenerateCuePoints(selectedTrack.id);
       setCuePoints(newCues);
       addToast('Cue points régénérés avec succès !', 'success');
-    } catch (e) {
-      addToast('Erreur lors de la régénération', 'error');
+    } catch (e: any) {
+      const msg = e?.message || 'Erreur lors de la régénération';
+      addToast(msg, 'error');
+      console.error('[CueForge] Regenerate error:', e);
     }
   }
 
@@ -1905,6 +1929,8 @@ export default function DashboardV2() {
               onAutoCuePoints={handleAutoCuePoints}
               onCreateCue={handleCreateCue}
               onDeleteCue={handleDeleteCue}
+              onBulkDeleteCues={handleBulkDeleteCues}
+              onDeleteAllCues={handleDeleteAllCues}
               onRegenerateCues={handleRegenerateCues}
               onCueClick={(cue) => {
                 if (cue.cue_type === 'loop' && cue.end_position_ms != null) {

@@ -65,9 +65,11 @@ interface CuesTabProps {
   cuePoints?: CuePoint[];
   onCreateCue?: (cue: { name: string; position_ms: number; color: string; cue_type: string; number?: number; end_position_ms?: number }) => void;
   onDeleteCue?: (cueId: number) => void;
+  onBulkDeleteCues?: (cueIds: number[]) => Promise<void>;
+  onDeleteAllCues?: () => Promise<void>;
   onCueClick?: (cue: CuePoint) => void;
   onPreviewCue?: (cue: CuePoint) => void;
-  onRegenerateCues?: () => void;
+  onRegenerateCues?: () => void | Promise<void>;
   initialPositionMs?: number | null;
   playerRef?: React.MutableRefObject<{ seekTo?: (ms: number) => void; play?: () => void; pause?: () => void } | null>;
   onUpdateCue?: (cueId: number, updates: Partial<CuePoint>) => void; // Improvement #11, #12
@@ -78,6 +80,8 @@ export function CuesTab({
   cuePoints = [],
   onCreateCue,
   onDeleteCue,
+  onBulkDeleteCues,
+  onDeleteAllCues,
   onCueClick,
   onPreviewCue,
   onRegenerateCues,
@@ -520,12 +524,19 @@ export function CuesTab({
     onUpdateCue?.(cue.id, { position_ms: nearestBeat });
   }, [track?.analysis?.bpm, track?.bpm, onUpdateCue]);
 
-  // Improvement #3: Handle bulk delete
-  const handleBulkDelete = useCallback(() => {
-    selectedCueIds.forEach((cueId) => onDeleteCue?.(cueId));
+  // Improvement #3: Handle bulk delete — utilise le batch API (1 requête au lieu de N)
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedCueIds);
+    if (ids.length === 0) return;
+    if (onBulkDeleteCues) {
+      await onBulkDeleteCues(ids);
+    } else {
+      // Fallback: suppression un par un si pas de batch handler
+      for (const cueId of ids) onDeleteCue?.(cueId);
+    }
     setSelectedCueIds(new Set());
     setBulkDeleteMode(false);
-  }, [selectedCueIds, onDeleteCue]);
+  }, [selectedCueIds, onBulkDeleteCues, onDeleteCue]);
 
   if (!track) {
     return (
@@ -651,10 +662,9 @@ export function CuesTab({
           </button>
           {onRegenerateCues && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 setIsRegenerating(true);
-                onRegenerateCues();
-                setTimeout(() => setIsRegenerating(false), 2000);
+                try { await onRegenerateCues(); } finally { setIsRegenerating(false); }
               }}
               disabled={isRegenerating}
               className="px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
@@ -668,6 +678,23 @@ export function CuesTab({
             >
               <Zap size={11} className={isRegenerating ? 'animate-spin' : ''} />
               {isRegenerating ? 'En cours...' : 'Régénérer'}
+            </button>
+          )}
+          {onDeleteAllCues && cuePoints.length > 0 && (
+            <button
+              onClick={async () => {
+                if (!confirm(`Supprimer les ${cuePoints.length} cue points ?`)) return;
+                await onDeleteAllCues();
+              }}
+              className="px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer hover:bg-red-500/20"
+              style={{
+                borderColor: 'rgba(239,68,68,0.5)',
+                color: '#ef4444',
+              }}
+              title="Tout supprimer"
+            >
+              <Trash2 size={11} />
+              Tout supprimer
             </button>
           )}
           <button
