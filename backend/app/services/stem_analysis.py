@@ -236,14 +236,16 @@ def _run_demucs_inner(file_path: str) -> Dict[str, np.ndarray]:
     model = model.to(device)
     logger.info(f"[STEM] Running Demucs on device: {device}")
 
-    # Charger audio via soundfile pour éviter l'erreur TorchCodec
-    import soundfile as sf
-    audio_np, sr_orig = sf.read(file_path, dtype='float32')
-    # Convertir en tensor torch [channels, samples]
-    if audio_np.ndim == 1:
-        wav = torch.tensor(audio_np).unsqueeze(0)  # mono → [1, samples]
-    else:
-        wav = torch.tensor(audio_np.T)  # [samples, channels] → [channels, samples]
+    # Charger audio — torchaudio avec backend explicite pour éviter TorchCodec
+    try:
+        wav, sr_orig = torchaudio.load(file_path, backend="soundfile")
+    except TypeError:
+        # Anciennes versions de torchaudio n'ont pas le param backend
+        try:
+            torchaudio.set_audio_backend("soundfile")
+        except Exception:
+            pass
+        wav, sr_orig = torchaudio.load(file_path)
 
     model_sr = model.samplerate
     if sr_orig != model_sr:
