@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.middleware.auth import get_current_user as _get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -182,23 +183,24 @@ def run_diagnostics(
     })
 
 
-@router.put("/upgrade-user/{user_id}", dependencies=[Depends(_require_key)])
-async def upgrade_user_plan(
-    user_id: int,
+@router.put("/self-upgrade")
+async def self_upgrade(
     plan: str = "pro",
     stems: bool = False,
     db: Session = Depends(get_db),
+    current_user: "User" = Depends(_get_current_user),
 ):
-    """Endpoint diagnostic pour upgrader un user (protégé par DIAGNOSTICS_KEY)."""
-    from app.models import User
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.subscription_plan = plan
-    user.use_stem_separation = stems
+    """
+    Endpoint diagnostic : un user authentifié peut upgrader son propre plan.
+    Protégé par JWT — temporaire, pour les tests stems uniquement.
+    """
+    current_user.subscription_plan = plan
+    current_user.use_stem_separation = stems
     db.commit()
+    db.refresh(current_user)
     return {
-        "id": user.id, "name": user.name,
-        "plan": user.subscription_plan,
-        "use_stem_separation": user.use_stem_separation,
+        "id": current_user.id,
+        "name": current_user.name,
+        "plan": current_user.subscription_plan,
+        "use_stem_separation": current_user.use_stem_separation,
     }
