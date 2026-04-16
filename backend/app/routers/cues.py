@@ -835,6 +835,9 @@ async def regenerate_cues(
     db: Session = Depends(get_db),
 ):
     """Régénère les cue points à partir de l'analyse existante (sans ré-analyser l'audio)."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == user.id,
@@ -848,60 +851,72 @@ async def regenerate_cues(
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not available — analyze the track first")
 
-    # Build analysis dict for the generator
-    analysis_data = {
-        "duration_ms": analysis.duration_ms or 0,
-        "bpm": track.bpm or getattr(analysis, 'estimated_bpm', None) or 128,
-        "genre": track.genre or getattr(analysis, 'estimated_genre', None),
-        "section_labels": analysis.section_labels or [],
-        "drop_positions": analysis.drop_positions or [],
-        "phrase_positions": analysis.phrase_positions or [],
-        "beat_positions": analysis.beat_positions or [],
-        "downbeat_ms": getattr(analysis, 'downbeat_ms', None),
-        "stem_analysis": bool(getattr(analysis, 'stem_analysis', False)),
-        "stem_validated_drops": getattr(analysis, 'stem_validated_drops', None) or [],
-        "vocal_active_regions": getattr(analysis, 'vocal_active_regions', None) or [],
-        "vocal_sections_ms": getattr(analysis, 'vocal_sections_ms', None) or [],
-        "riser_candidates": getattr(analysis, 'riser_candidates', None) or [],
-        "drum_enter_ms": getattr(analysis, 'drum_enter_ms', None),
-        "drum_exit_ms": getattr(analysis, 'drum_exit_ms', None),
-        "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
-    }
+    try:
+        # Build analysis dict for the generator
+        analysis_data = {
+            "duration_ms": analysis.duration_ms or 0,
+            "bpm": track.bpm or getattr(analysis, 'bpm', None) or getattr(analysis, 'estimated_bpm', None) or 128,
+            "genre": track.genre or getattr(analysis, 'estimated_genre', None),
+            "section_labels": analysis.section_labels or [],
+            "drop_positions": analysis.drop_positions or [],
+            "phrase_positions": analysis.phrase_positions or [],
+            "beat_positions": analysis.beat_positions or [],
+            "downbeat_ms": getattr(analysis, 'downbeat_ms', None),
+            "stem_analysis": bool(getattr(analysis, 'stem_analysis', False)),
+            "stem_validated_drops": getattr(analysis, 'stem_validated_drops', None) or [],
+            "vocal_active_regions": getattr(analysis, 'vocal_active_regions', None) or [],
+            "vocal_sections_ms": getattr(analysis, 'vocal_sections_ms', None) or [],
+            "riser_candidates": getattr(analysis, 'riser_candidates', None) or [],
+            "drum_enter_ms": getattr(analysis, 'drum_enter_ms', None),
+            "drum_exit_ms": getattr(analysis, 'drum_exit_ms', None),
+            "bass_enter_ms": getattr(analysis, 'bass_enter_ms', None),
+        }
+        logger.info(f"[regenerate] track={track_id} analysis_data keys={list(analysis_data.keys())} bpm={analysis_data['bpm']} duration={analysis_data['duration_ms']}")
 
-    new_cues, _stats = generate_cue_points_v2(analysis_data)
+        new_cues, _stats = generate_cue_points_v2(analysis_data)
+        logger.info(f"[regenerate] track={track_id} generated {len(new_cues)} cues")
 
-    # Delete old cues — CueHistory FK doit être supprimé AVANT CuePoint
-    old_cue_ids = [c.id for c in db.query(CuePoint.id).filter(
-        CuePoint.track_id == track_id,
-    ).all()]
-    if old_cue_ids:
-        db.query(CueHistory).filter(CueHistory.cue_point_id.in_(old_cue_ids)).delete(synchronize_session=False)
-    db.query(CuePoint).filter(
-        CuePoint.track_id == track_id,
-    ).delete(synchronize_session=False)
-    db.flush()
+        # Delete old cues — CueHistory FK doit être supprimé AVANT CuePoint
+        old_cue_ids = [c.id for c in db.query(CuePoint.id).filter(
+            CuePoint.track_id == track_id,
+        ).all()]
+        if old_cue_ids:
+            db.query(CueHistory).filter(CueHistory.cue_point_id.in_(old_cue_ids)).delete(synchronize_session=False)
+        db.query(CuePoint).filter(
+            CuePoint.track_id == track_id,
+        ).delete(synchronize_session=False)
+        db.flush()
+        logger.info(f"[regenerate] track={track_id} deleted {len(old_cue_ids)} old cues")
 
-    # Save new cues
-    saved = []
-    for cue_data in new_cues:
-        cue = CuePoint(
-            track_id=track_id,
-            position_ms=cue_data["position_ms"],
-            end_position_ms=cue_data.get("end_position_ms"),
-            name=cue_data["name"],
-            number=cue_data.get("number", 0),
-            color=cue_data.get("color", "#2B7FFF"),
-            cue_type=cue_data.get("cue_type", "hot_cue"),
-            confidence=cue_data.get("confidence"),
-        )
-        db.add(cue)
-        saved.append(cue)
+        # Save new cues
+        saved = []
+        for cue_data in new_cues:
+            cue = CuePoint(
+                track_id=track_id,
+                position_ms=cue_data["position_ms"],
+                end_position_ms=cue_data.get("end_position_ms"),
+                name=cue_data["name"],
+                number=cue_data.get("number", 0),
+                color=cue_data.get("color", "#2B7FFF"),
+                cue_type=cue_data.get("cue_type", "hot_cue"),
+                confidence=cue_data.get("confidence"),
+            )
+            db.add(cue)
+            saved.append(cue)
 
-    db.commit()
-    for c in saved:
-        db.refresh(c)
+        db.commit()
+        for c in saved:
+            db.refresh(c)
 
-    return [CuePointResponse.model_validate(c) for c in saved]
+        logger.info(f"[regenerate] track={track_id} saved {len(saved)} new cues OK")
+        return [CuePointResponse.model_validate(c) for c in saved]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[regenerate] track={track_id} ERROR: {type(e).__name__}: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Regeneration failed: {type(e).__name__}: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
