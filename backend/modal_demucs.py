@@ -57,6 +57,8 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
     """
     Sépare un fichier audio en 4 stems via Demucs htdemucs sur GPU.
 
+    Utilise demucs.pretrained + demucs.apply (compatible PyPI 4.0.x).
+
     Args:
         audio_bytes: Contenu du fichier audio (MP3, WAV, FLAC, etc.)
         filename: Nom du fichier (pour l'extension)
@@ -66,10 +68,12 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
     """
     import tempfile
     import torch
+    import torchaudio
     import numpy as np
     import soundfile as sf
     import librosa
-    from demucs.api import Separator
+    from demucs.pretrained import get_model
+    from demucs.apply import apply_model
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[CueForge] Device: {device}, CUDA: {torch.cuda.is_available()}")
@@ -81,17 +85,35 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
         tmp_path = f.name
 
     try:
-        # Utiliser demucs.api.Separator (gère le chargement audio en interne)
-        separator = Separator(model="htdemucs", segment=15, device=device)
-        model_sr = separator.samplerate
+        # Charger le modèle htdemucs
+        model = get_model("htdemucs")
+        model.to(device)
+        model_sr = model.samplerate  # 44100
+        stem_names = model.sources   # ['drums', 'bass', 'other', 'vocals']
 
-        print(f"[CueForge] Separating with Demucs API on {device}...")
-        origin, separated = separator.separate_audio_file(tmp_path)
+        # Charger l'audio
+        print(f"[CueForge] Loading audio from {tmp_path}...")
+        wav, sr = torchaudio.load(tmp_path)
+
+        # Resample vers le sample rate du modèle si nécessaire
+        if sr != model_sr:
+            print(f"[CueForge] Resampling {sr} → {model_sr}")
+            wav = torchaudio.functional.resample(wav, sr, model_sr)
+
+        # Ajouter dimension batch: (channels, samples) → (1, channels, samples)
+        wav = wav.unsqueeze(0).to(device)
+
+        # Séparer avec apply_model
+        print(f"[CueForge] Separating with Demucs on {device}...")
+        with torch.no_grad():
+            sources = apply_model(model, wav, device=device, segment=15)
+        # sources shape: (1, n_sources, channels, samples)
 
         # Convertir chaque stem en WAV bytes (mono, 22050Hz)
         result = {}
-        for name, stem_tensor in separated.items():
-            stem_np = stem_tensor.cpu().numpy()
+        for i, name in enumerate(stem_names):
+            stem = sources[0, i]  # (channels, samples)
+            stem_np = stem.cpu().numpy()
             stem_mono = np.mean(stem_np, axis=0) if stem_np.ndim > 1 else stem_np
 
             # Resample vers 22050Hz pour l'analyse
@@ -103,7 +125,7 @@ def separate_stems(audio_bytes: bytes, filename: str = "track.mp3") -> dict:
             result[name] = buf.getvalue()
 
         print(f"[CueForge] Stems: {list(result.keys())}")
-        del separated, origin
+        del sources, wav
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
         return result
 
