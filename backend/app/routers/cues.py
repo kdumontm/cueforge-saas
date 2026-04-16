@@ -785,12 +785,17 @@ async def generate_cues(
             CuePoint.cue_type.in_(["section", "drop", "phrase", "hot_cue"])
         ).all()
         preserved_manual = 0
+        to_delete_ids = []
         for cue in existing_auto:
             # Extra safety: if user edited the name, treat it as manual
             if cue.cue_type == "manual":
                 preserved_manual += 1
                 continue
-            db.delete(cue)
+            to_delete_ids.append(cue.id)
+        # CueHistory FK doit être supprimé AVANT CuePoint
+        if to_delete_ids:
+            db.query(CueHistory).filter(CueHistory.cue_point_id.in_(to_delete_ids)).delete(synchronize_session=False)
+            db.query(CuePoint).filter(CuePoint.id.in_(to_delete_ids)).delete(synchronize_session=False)
         db.flush()
 
         # Save new cue points
@@ -865,10 +870,15 @@ async def regenerate_cues(
 
     new_cues, _stats = generate_cue_points_v2(analysis_data)
 
-    # Delete old auto-generated cues (keep manual ones)
+    # Delete old cues — CueHistory FK doit être supprimé AVANT CuePoint
+    old_cue_ids = [c.id for c in db.query(CuePoint.id).filter(
+        CuePoint.track_id == track_id,
+    ).all()]
+    if old_cue_ids:
+        db.query(CueHistory).filter(CueHistory.cue_point_id.in_(old_cue_ids)).delete(synchronize_session=False)
     db.query(CuePoint).filter(
         CuePoint.track_id == track_id,
-    ).delete()
+    ).delete(synchronize_session=False)
     db.flush()
 
     # Save new cues
@@ -1289,8 +1299,11 @@ async def apply_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    # Clear existing cues (optional)
-    db.query(CuePoint).filter(CuePoint.track_id == track.id).delete()
+    # Clear existing cues — CueHistory FK doit être supprimé AVANT CuePoint
+    old_ids = [c.id for c in db.query(CuePoint.id).filter(CuePoint.track_id == track.id).all()]
+    if old_ids:
+        db.query(CueHistory).filter(CueHistory.cue_point_id.in_(old_ids)).delete(synchronize_session=False)
+    db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session=False)
 
     analysis = track.analysis
     duration = analysis.duration_ms if analysis else 1000000
