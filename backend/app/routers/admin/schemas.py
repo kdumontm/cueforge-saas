@@ -146,3 +146,4 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     subscription_plan: Optional[str] = None
     is_admin: Optional[bool] = None
+    use_stem_separation: Optional[bool] = None

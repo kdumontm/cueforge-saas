@@ -798,15 +798,19 @@ async def analyze_track(
 # ── Batch analysis state (in-memory, per-process) ─────────────────────────────
 _batch_jobs: Dict[int, Dict] = {}  # user_id → {total, completed, failed, running, status}
 
-MAX_PARALLEL_ANALYSES = 3  # Nombre de tracks analysées simultanément
+MAX_PARALLEL_ANALYSES = 2  # Réduit de 3→2 pour éviter les OOM sur Railway
 
 
 def _run_batch_analysis(track_ids: List[int], user_id: int):
     """
     Analyse plusieurs tracks en parallèle (ThreadPoolExecutor).
     librosa/numpy relâchent le GIL → vrai parallélisme sur les FFT.
+
+    v2: Workers réduits à 2 pour stabilité mémoire, GC forcé entre tracks,
+    et gestion d'erreur améliorée pour éviter les analyses zombies.
     """
     import concurrent.futures
+    import gc
 
     total = len(track_ids)
     _batch_jobs[user_id] = {
@@ -822,20 +826,38 @@ def _run_batch_analysis(track_ids: List[int], user_id: int):
         except Exception as e:
             logger.error(f"[BATCH] Track {tid} failed: {e}")
             return ("fail", tid)
+        finally:
+            # Force GC après chaque analyse pour libérer la RAM librosa/numpy
+            gc.collect()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_ANALYSES) as pool:
-        futures = {pool.submit(_analyze_one, tid): tid for tid in track_ids}
-        for future in concurrent.futures.as_completed(futures):
-            result, tid = future.result()
-            if result == "ok":
-                _batch_jobs[user_id]["completed"] += 1
-            else:
-                _batch_jobs[user_id]["failed"] += 1
-            done = _batch_jobs[user_id]["completed"] + _batch_jobs[user_id]["failed"]
-            logger.info(f"[BATCH] Progress: {done}/{total}")
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_ANALYSES) as pool:
+            futures = {pool.submit(_analyze_one, tid): tid for tid in track_ids}
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result, tid = future.result(timeout=300)  # 5 min max par track
+                except concurrent.futures.TimeoutError:
+                    _batch_jobs[user_id]["failed"] += 1
+                    logger.error(f"[BATCH] Track timed out after 300s")
+                    continue
+                except Exception as e:
+                    _batch_jobs[user_id]["failed"] += 1
+                    logger.error(f"[BATCH] Track future error: {e}")
+                    continue
 
-    _batch_jobs[user_id]["running"] = False
-    _batch_jobs[user_id]["status"] = "completed"
+                if result == "ok":
+                    _batch_jobs[user_id]["completed"] += 1
+                else:
+                    _batch_jobs[user_id]["failed"] += 1
+                done = _batch_jobs[user_id]["completed"] + _batch_jobs[user_id]["failed"]
+                logger.info(f"[BATCH] Progress: {done}/{total}")
+    except Exception as e:
+        logger.error(f"[BATCH] Pool crashed: {e}")
+    finally:
+        _batch_jobs[user_id]["running"] = False
+        _batch_jobs[user_id]["status"] = "completed"
+        gc.collect()
+
     logger.info(
         f"[BATCH] Done: {_batch_jobs[user_id]['completed']} OK, "
         f"{_batch_jobs[user_id]['failed']} failed out of {total}"
@@ -898,7 +920,7 @@ async def reanalyze_all_tracks(
 ):
     """
     Ré-analyser TOUS les tracks du user (BPM, beat grid, cues).
-    Traitement parallèle : 3 tracks simultanément.
+    Traitement parallèle : MAX_PARALLEL_ANALYSES tracks simultanément.
     """
     tracks = db.query(Track).filter(
         Track.user_id == current_user.id,
