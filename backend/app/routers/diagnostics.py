@@ -180,3 +180,25 @@ def run_diagnostics(
         "failing":      failing,
         "checks":       {c["name"]: {"ok": c["ok"], "detail": c["detail"], "ms": c["ms"]} for c in checks},
     })
+
+
+@router.put("/upgrade-user/{user_id}", dependencies=[Depends(_require_key)])
+async def upgrade_user_plan(
+    user_id: int,
+    plan: str = "pro",
+    stems: bool = False,
+    db: Session = Depends(get_db),
+):
+    """Endpoint diagnostic pour upgrader un user (protégé par DIAGNOSTICS_KEY)."""
+    from app.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.subscription_plan = plan
+    user.use_stem_separation = stems
+    db.commit()
+    return {
+        "id": user.id, "name": user.name,
+        "plan": user.subscription_plan,
+        "use_stem_separation": user.use_stem_separation,
+    }
