@@ -1610,10 +1610,14 @@ def delete_track(
 
 def _delete_track_dependencies(db: Session, track_id: int):
     """Supprimer toutes les lignes liées à un track avant sa suppression."""
-    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule
+    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule, CueHistory
     from app.models.library import PlaylistTrack, DJSetTrack, PlayHistory
     from app.models.favorite import Favorite
     from app.models.tag import TrackTag
+    # CueHistory doit être supprimé AVANT CuePoint (FK cue_point_id)
+    cue_ids = [c.id for c in db.query(CuePoint.id).filter(CuePoint.track_id == track_id).all()]
+    if cue_ids:
+        db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session=False)
     db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session=False)
     db.query(LoopMarker).filter(LoopMarker.track_id == track_id).delete(synchronize_session=False)
     db.query(CueRule).filter(CueRule.track_id == track_id).delete(synchronize_session=False)
@@ -1627,10 +1631,14 @@ def _delete_track_dependencies(db: Session, track_id: int):
 
 def _bulk_delete_track_dependencies(db: Session, track_ids: list[int]):
     """Supprimer toutes les dépendances de plusieurs tracks en bulk (IN clauses)."""
-    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule
+    from app.models.track import TrackAnalysis, CuePoint, LoopMarker, CueRule, CueHistory
     from app.models.library import PlaylistTrack, DJSetTrack, PlayHistory
     from app.models.favorite import Favorite
     from app.models.tag import TrackTag
+    # CueHistory doit être supprimé AVANT CuePoint (FK cue_point_id)
+    cue_ids = [c.id for c in db.query(CuePoint.id).filter(CuePoint.track_id.in_(track_ids)).all()]
+    if cue_ids:
+        db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session=False)
     db.query(CuePoint).filter(CuePoint.track_id.in_(track_ids)).delete(synchronize_session=False)
     db.query(LoopMarker).filter(LoopMarker.track_id.in_(track_ids)).delete(synchronize_session=False)
     db.query(CueRule).filter(CueRule.track_id.in_(track_ids)).delete(synchronize_session=False)

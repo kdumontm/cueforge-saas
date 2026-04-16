@@ -387,6 +387,7 @@ function WaveSurferPlayer({
   // Animation
   const rafRef = useRef<number>(0);
   const lastRenderedPositionRef = useRef(-1); // -1 pour forcer le premier rendu
+  const lastRenderTimeRef = useRef(0); // timestamp du dernier rendu effectif
 
   // Zoom: internal visible seconds state (driven by prop + scroll)
   const ZOOM_SEC_MAP: Record<string, number> = { '0.5': 60, '1': 30, '2': 15, '4': 8 };
@@ -477,12 +478,19 @@ function WaveSurferPlayer({
     }
 
     // RAF optimization: skip rendering if playhead position hasn't moved significantly (< 1ms)
-    // BUT always render if lastRenderedPositionRef is -1 (canvas was cleared/resized)
-    if (lastRenderedPositionRef.current >= 0 && Math.abs(time - lastRenderedPositionRef.current) < 0.001) {
+    // BUT always render if:
+    //   - lastRenderedPositionRef is -1 (canvas was cleared/resized)
+    //   - periodically (every 500ms) to keep waveform visible during pause
+    //     (canvas can be cleared by browser resize/layout changes)
+    const now = performance.now();
+    const timeSinceLastRender = now - (lastRenderTimeRef.current || 0);
+    const forcePeriodicRender = timeSinceLastRender > 500;
+    if (lastRenderedPositionRef.current >= 0 && !forcePeriodicRender && Math.abs(time - lastRenderedPositionRef.current) < 0.001) {
       rafRef.current = requestAnimationFrame(renderFrame);
       return;
     }
     lastRenderedPositionRef.current = time;
+    lastRenderTimeRef.current = now;
     const progress = dur > 0 ? time / dur : 0;
     const numBars = strip.width;
 
