@@ -204,3 +204,67 @@ async def self_upgrade(
         "plan": current_user.subscription_plan,
         "use_stem_separation": current_user.use_stem_separation,
     }
+
+
+@router.get("/stem-check/{track_id}")
+async def check_stem_readiness(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: "User" = Depends(_get_current_user),
+):
+    """
+    Test endpoint: vérifie si les stems seraient activés pour une analyse
+    en simulant exactement le même flux que _run_analysis Phase 1.
+    """
+    from app.models.track import Track
+    from app.models.user import User as UserModel
+
+    checks = {}
+
+    # 1. Track exists?
+    track = db.query(Track).filter(Track.id == track_id).first()
+    checks["track_found"] = bool(track)
+    checks["track_user_id"] = track.user_id if track else None
+
+    # 2. User check (same code as _run_analysis)
+    user_id = track.user_id if track else None
+    checks["user_id"] = user_id
+
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    checks["user_found"] = bool(user)
+    checks["user_plan"] = getattr(user, 'subscription_plan', None) if user else None
+    checks["use_stem_separation_raw"] = getattr(user, 'use_stem_separation', 'MISSING_ATTR') if user else None
+    checks["use_stem_separation_bool"] = bool(getattr(user, 'use_stem_separation', False)) if user else False
+
+    # 3. Would use_stems be True?
+    use_stems = bool(user and getattr(user, 'use_stem_separation', False))
+    checks["would_use_stems"] = use_stems
+
+    # 4. Modal check
+    try:
+        from app.services.modal_stems import is_modal_available, MODAL_ENABLED, MODAL_STEMS_URL
+        checks["modal_enabled"] = MODAL_ENABLED
+        checks["modal_url_set"] = bool(MODAL_STEMS_URL)
+        checks["modal_available"] = is_modal_available()
+    except Exception as e:
+        checks["modal_error"] = str(e)
+
+    # 5. Demucs check
+    try:
+        import demucs
+        checks["demucs_installed"] = True
+        checks["demucs_version"] = getattr(demucs, '__version__', '?')
+    except ImportError:
+        checks["demucs_installed"] = False
+
+    # 6. RAM check
+    try:
+        from app.services.stem_analysis import _check_available_memory_mb, MIN_FREE_RAM_MB
+        free_mb = _check_available_memory_mb()
+        checks["ram_free_mb"] = round(free_mb)
+        checks["ram_min_required_mb"] = MIN_FREE_RAM_MB
+        checks["ram_sufficient"] = free_mb >= MIN_FREE_RAM_MB
+    except Exception as e:
+        checks["ram_check_error"] = str(e)
+
+    return checks
