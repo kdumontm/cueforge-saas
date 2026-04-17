@@ -5345,13 +5345,37 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # === Vague 2 : Advanced analysis services (non-blocking) ===
     advanced_results = {}
 
-    # BPM Advanced
+    # BPM Advanced — short-circuit si BPM primaire fiable
+    # Gate : on n'exécute le raffinement Bayésien que si le BPM primaire est incertain.
+    # Bonus : l'ancien code appelait bayesian_tempo_estimation(y, sr) qui n'existe pas
+    # (vraie signature = estimate_bayesian_tempo(observations: List[float])) → la branche
+    # plantait silencieusement depuis toujours. Fix + optim au même endroit.
     try:
-        from app.services.bpm_advanced import BPMAdvancedAnalyzer
-        bpm_adv = BPMAdvancedAnalyzer()
-        if y is not None and sr_loaded:
-            adv_tempo = bpm_adv.bayesian_tempo_estimation(y, sr_loaded)
-            advanced_results["bpm_advanced"] = {"bayesian_tempo": adv_tempo}
+        _primary_confident = (
+            bpm is not None
+            and 40.0 <= float(bpm) <= 220.0
+            and float(bpm_confidence or 0.0) >= 0.75
+        )
+        if _primary_confident:
+            logger.debug(
+                f"BPM advanced skipped (primary confident: {bpm:.2f} @ {bpm_confidence})"
+            )
+        else:
+            from app.services.bpm_advanced import BPMAdvancedAnalyzer
+            bpm_adv = BPMAdvancedAnalyzer()
+            # Observations = BPM primaire + pic d'histogramme si dispo.
+            # Pas de recomputation lourde sur y : on réutilise ce qu'on a déjà.
+            observations: list[float] = []
+            if bpm and bpm > 0:
+                observations.append(float(bpm))
+            if bpm_histogram and bpm_histogram.get("peak_bpm"):
+                observations.append(float(bpm_histogram["peak_bpm"]))
+            if observations:
+                adv_tempo = bpm_adv.estimate_bayesian_tempo(observations)
+                advanced_results["bpm_advanced"] = {
+                    "bayesian_map_tempo": adv_tempo.get("map_tempo"),
+                    "confidence_interval": adv_tempo.get("confidence_interval"),
+                }
     except Exception as e:
         logger.debug(f"BPM advanced skipped: {e}")
 
