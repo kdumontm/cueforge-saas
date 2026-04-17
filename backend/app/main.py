@@ -700,7 +700,8 @@ app = FastAPI(
 def health_check():
     """Health check — Railway l'utilise pour vérifier que le service est up.
     Retourne toujours 200 pour que Railway ne redémarre pas en boucle.
-    Le champ 'db' indique l'état réel de la connexion DB."""
+    Le champ 'db' indique l'état réel de la connexion DB.
+    Le champ 'cache' indique si Redis L2 est connecté ou si on est sur L1 mémoire."""
     from sqlalchemy import text
     db_status = "degraded"
     db_error = None
@@ -712,7 +713,26 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok", "version": settings.APP_VERSION, "db": db_status}
+    # Cache status (Redis L2 ou fallback mémoire L1)
+    cache_status = "unknown"
+    try:
+        from app.services.cache_service import get_cache_status
+        cs = get_cache_status()
+        if cs["redis_connected"]:
+            cache_status = "redis"
+        elif cs["redis_configured"]:
+            cache_status = "redis_error_fallback_memory"
+        else:
+            cache_status = "memory"
+    except Exception as e:
+        logger.debug(f"Cache status check failed: {e}")
+
+    response = {
+        "status": "ok",
+        "version": settings.APP_VERSION,
+        "db": db_status,
+        "cache": cache_status,
+    }
     if db_error:
         response["db_error"] = db_error
     return response

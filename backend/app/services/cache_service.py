@@ -7,16 +7,18 @@ Le cache en mémoire est partagé entre requêtes d'un même worker.
 import hashlib
 import json
 import logging
-import os
 import time
 from collections import OrderedDict
 from typing import Any, Optional
+
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-REDIS_URL = os.getenv("REDIS_URL", "")
+_settings = get_settings()
+REDIS_URL = _settings.REDIS_URL or ""
 DEFAULT_TTL = 86400 * 7  # 7 jours par défaut
 MAX_MEMORY_ENTRIES = 2000  # max entries en mémoire (fallback)
 
@@ -24,14 +26,16 @@ MAX_MEMORY_ENTRIES = 2000  # max entries en mémoire (fallback)
 # ── Redis backend ─────────────────────────────────────────────────────────────
 
 _redis_client = None
+_redis_tried = False
 _redis_available = False
 
 
 def _get_redis():
-    """Lazy init Redis connection."""
-    global _redis_client, _redis_available
-    if _redis_client is not None:
+    """Lazy init Redis connection. Une seule tentative, fallback mémoire sinon."""
+    global _redis_client, _redis_tried, _redis_available
+    if _redis_tried:
         return _redis_client if _redis_available else None
+    _redis_tried = True
     if not REDIS_URL:
         _redis_available = False
         return None
@@ -47,13 +51,28 @@ def _get_redis():
         )
         _redis_client.ping()
         _redis_available = True
-        logger.info("✅ Redis cache connecté")
+        logger.info("✅ Redis cache connecté (L2)")
         return _redis_client
     except Exception as e:
-        logger.warning(f"Redis non disponible ({e}), fallback mémoire")
+        logger.warning(f"Redis non disponible ({e}), fallback mémoire L1")
         _redis_available = False
-        _redis_client = True  # mark as "tried"
+        _redis_client = None
         return None
+
+
+def get_cache_status() -> dict:
+    """
+    Retourne l'état du cache pour exposition dans /health.
+    Appelé sans effet de bord si la co n'a pas déjà été tentée.
+    """
+    # Force une tentative de connexion si pas encore faite
+    _get_redis()
+    return {
+        "backend": "redis" if _redis_available else "memory",
+        "redis_configured": bool(REDIS_URL),
+        "redis_connected": _redis_available,
+        "memory_entries": len(_memory_cache._store),
+    }
 
 
 # ── In-memory LRU backend (fallback) ─────────────────────────────────────────
