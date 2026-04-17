@@ -606,6 +606,52 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Distributed analyzer init failed (non-blocking): {e}")
 
+    # 17. Periodic storage cleanup (purge uploads orphelins / aged / stems / feature cache)
+    try:
+        import asyncio
+        cleanup_interval_sec = int(os.getenv("STORAGE_CLEANUP_INTERVAL_SEC", str(6 * 3600)))
+        cleanup_startup_delay_sec = int(os.getenv("STORAGE_CLEANUP_STARTUP_DELAY_SEC", "300"))
+
+        async def _periodic_storage_cleanup():
+            # Petit délai au démarrage pour laisser l'app se stabiliser
+            try:
+                await asyncio.sleep(cleanup_startup_delay_sec)
+            except asyncio.CancelledError:
+                return
+            while True:
+                try:
+                    from app.database import SessionLocal
+                    from app.services.storage_cleanup import run_cleanup
+                    db = SessionLocal()
+                    try:
+                        report = await asyncio.to_thread(run_cleanup, db)
+                        logger.info(
+                            f"[CLEANUP] periodic run OK — "
+                            f"{report.total_files_removed} files, "
+                            f"{report.total_bytes_freed / (1024*1024):.1f} MB freed, "
+                            f"{len(report.errors)} errors"
+                        )
+                    finally:
+                        db.close()
+                except asyncio.CancelledError:
+                    logger.info("[CLEANUP] periodic task cancelled")
+                    return
+                except Exception as e:
+                    logger.exception(f"[CLEANUP] periodic run failed: {e}")
+                try:
+                    await asyncio.sleep(cleanup_interval_sec)
+                except asyncio.CancelledError:
+                    return
+
+        task = asyncio.create_task(_periodic_storage_cleanup())
+        app.state.storage_cleanup_task = task
+        logger.info(
+            f"✅ Periodic storage cleanup scheduled "
+            f"(startup delay={cleanup_startup_delay_sec}s, interval={cleanup_interval_sec}s)"
+        )
+    except Exception as e:
+        logger.warning(f"Periodic storage cleanup init failed (non-blocking): {e}")
+
     logger.info("✅ TrackCue backend démarré.")
     yield
 
@@ -625,6 +671,13 @@ async def lifespan(app: FastAPI):
     try:
         if hasattr(app.state, 'job_manager'):
             app.state.job_manager.shutdown()
+    except Exception:
+        pass
+
+    # Stop periodic storage cleanup task
+    try:
+        if hasattr(app.state, 'storage_cleanup_task'):
+            app.state.storage_cleanup_task.cancel()
     except Exception:
         pass
 
@@ -1267,6 +1320,7 @@ _safe_mount("app.routers.admin_notif_reports", "/api/v1", ["admin-notif-reports"
 _safe_mount("app.routers.admin_analytics_advanced", "/api/v1", ["admin-analytics-advanced"])
 _safe_mount("app.routers.admin_bulk_monitoring", "/api/v1", ["admin-bulk-monitoring"])
 _safe_mount("app.routers.admin_subscriptions_env", "/api/v1", ["admin-subscriptions-env"])
+_safe_mount("app.routers.admin_storage", tags=["admin-storage"])
 
 # v9 routers
 _safe_mount("app.routers.tags", "/api/v1", ["tags"])
