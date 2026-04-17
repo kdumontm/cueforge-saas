@@ -361,6 +361,15 @@ function WaveSurferPlayer({
     mutedStemsRef.current = mutedStems ?? new Set();
   }, [mutedStems]);
 
+  // Cue points / beat positions — stockés en refs pour que renderFrame ne soit
+  // PAS recréé à chaque changement de prop. Sinon le useEffect qui tient le RAF
+  // (deps : [spectralReady, renderFrame, ...]) cancel+restart le RAF en boucle
+  // → waveform qui flicker / saute en pause. Fix "le waveforme saute".
+  const cuePointsRef = useRef<CuePoint[]>(cuePoints);
+  const beatPositionsRef = useRef<number[]>(beatPositions);
+  useEffect(() => { cuePointsRef.current = cuePoints; }, [cuePoints]);
+  useEffect(() => { beatPositionsRef.current = beatPositions; }, [beatPositions]);
+
   // Raw audio samples (downsampled for smooth waveform at high zoom)
   const rawSamplesRef = useRef<Float32Array | null>(null);
   const rawSampleRateRef = useRef(0); // samples per second in downsampled data
@@ -396,6 +405,10 @@ function WaveSurferPlayer({
   const visibleSecondsRef = useRef(visibleSeconds);
   useEffect(() => {
     const sec = ZOOM_SEC_MAP[String(zoom)] ?? 30;
+    // Ne pas re-snap au palier si on est déjà très proche — le parent peut
+    // réinjecter zoom juste pour highlight le bouton après un scroll-zoom, et
+    // dans ce cas on ne veut pas écraser visibleSeconds (sinon ça saute).
+    if (Math.abs(visibleSecondsRef.current - sec) < 0.75) return;
     setVisibleSeconds(sec);
     visibleSecondsRef.current = sec;
   }, [zoom]);
@@ -516,13 +529,14 @@ function WaveSurferPlayer({
       // Beat grid — rouge style Rekordbox (downbeats only in overview for perf)
       // v6.1: Overview only draws downbeats (every 4th beat) — individual beats
       // are invisible at this scale anyway. Reduces draw calls from ~800 to ~200.
-      if (beatPositions.length > 0 && dur > 0) {
+      const beatPositionsLocal = beatPositionsRef.current;
+      if (beatPositionsLocal.length > 0 && dur > 0) {
         // Batch downbeats into a single path for minimal draw calls
         ctx.strokeStyle = 'rgba(255,60,60,0.75)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        for (let idx = 0; idx < beatPositions.length; idx += 4) {
-          const xPos = (beatPositions[idx] / 1000 / dur) * w;
+        for (let idx = 0; idx < beatPositionsLocal.length; idx += 4) {
+          const xPos = (beatPositionsLocal[idx] / 1000 / dur) * w;
           ctx.moveTo(xPos, 0);
           ctx.lineTo(xPos, h);
         }
@@ -530,7 +544,8 @@ function WaveSurferPlayer({
       }
 
       // Cue points
-      cuePoints.forEach((c) => {
+      const cuePointsLocal = cuePointsRef.current;
+      cuePointsLocal.forEach((c) => {
         const xPos = dur > 0 ? (c.position_ms / 1000 / dur) * w : 0;
         const color = c.color || c.color_rgb || '#f59e0b';
         ctx.fillStyle = color;
@@ -653,19 +668,20 @@ function WaveSurferPlayer({
 
       // Beat grid — rouge style Rekordbox, dessiné APRÈS le waveform
       // v6.1: Batch draw calls — 2 paths (downbeats + offbeats) instead of N paths
-      if (beatPositions.length > 0) {
+      const bpDetail = beatPositionsRef.current;
+      if (bpDetail.length > 0) {
         // Use binary search to find first visible beat instead of scanning all
         const startMs = startTime * 1000;
         const endMs = (startTime + visSec) * 1000;
-        let lo = 0, hi = beatPositions.length - 1;
-        while (lo < hi) { const mid = (lo + hi) >> 1; if (beatPositions[mid] < startMs - 2000) lo = mid + 1; else hi = mid; }
+        let lo = 0, hi = bpDetail.length - 1;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (bpDetail[mid] < startMs - 2000) lo = mid + 1; else hi = mid; }
 
         // Batch downbeats path
         ctx.strokeStyle = 'rgba(255,50,50,0.90)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        for (let idx = lo; idx < beatPositions.length; idx++) {
-          const bT = beatPositions[idx] / 1000;
+        for (let idx = lo; idx < bpDetail.length; idx++) {
+          const bT = bpDetail[idx] / 1000;
           const x = (bT - startTime) / secPerPx;
           if (x >= w + 2) break;
           if (x < -2) continue;
@@ -681,8 +697,8 @@ function WaveSurferPlayer({
         ctx.strokeStyle = 'rgba(255,80,80,0.50)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        for (let idx = lo; idx < beatPositions.length; idx++) {
-          const bT = beatPositions[idx] / 1000;
+        for (let idx = lo; idx < bpDetail.length; idx++) {
+          const bT = bpDetail[idx] / 1000;
           const x = (bT - startTime) / secPerPx;
           if (x >= w + 2) break;
           if (x < -2) continue;
@@ -716,7 +732,8 @@ function WaveSurferPlayer({
       }
 
       // Cue points
-      cuePoints.forEach((c) => {
+      const cpDetail = cuePointsRef.current;
+      cpDetail.forEach((c) => {
         const cueT = c.position_ms / 1000;
         const x = (cueT - startTime) / secPerPx;
         if (x < -5 || x >= w + 5) return;
@@ -734,7 +751,8 @@ function WaveSurferPlayer({
     }
 
     rafRef.current = requestAnimationFrame(renderFrame);
-  }, [cuePoints, beatPositions]);
+  }, []); // Deps vides : tout est lu via refs → RAF jamais cancelled/restarted
+          // même quand cuePoints, beatPositions, ou d'autres props changent.
 
   // ── Start/stop animation ──
   useEffect(() => {
@@ -1314,17 +1332,22 @@ function WaveSurferPlayer({
     const el = detailContainerRef.current;
     if (!el) return;
 
-    // Wheel handler — scroll simple OU Ctrl+Scroll OU Mac trackpad pinch
+    // Wheel handler — zoom fluide proportionnel au deltaY.
+    // Auparavant : facteur fixe 1.12-1.25 PAR événement → 1 cran de molette = 3-5
+    // events = ×2-×3 en zoom → la waveform "saute". Maintenant : zoom
+    // exponentiel doux (exp(k·deltaY)) qui se cumule naturellement sur un cran.
     const wheelHandler = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      // Pinch trackpad (ctrlKey=true) → petit factor, scroll molette → plus grand
+      // k contrôle la sensibilité. Pinch trackpad (ctrlKey) → plus doux.
       const isPinch = e.ctrlKey && Math.abs(e.deltaY) < 10;
-      const factor = isPinch ? 1.08 : (Math.abs(e.deltaY) < 30 ? 1.12 : 1.25);
+      const k = isPinch ? 0.004 : 0.0025;
+      // deltaY > 0 = scroll down = zoom out ; on normalise le deltaY pour éviter
+      // les surprises avec des event deltas énormes (Firefox peut envoyer 100+).
+      const clampedDeltaY = Math.max(-80, Math.min(80, e.deltaY));
+      const factor = Math.exp(clampedDeltaY * k);
       setVisibleSeconds((prev) => {
-        const next = e.deltaY > 0
-          ? Math.min(prev * factor, 120)  // zoom out (scroll down)
-          : Math.max(prev / factor, 3);   // zoom in (scroll up)
+        const next = Math.max(3, Math.min(120, prev * factor));
         return next;
       });
     };
