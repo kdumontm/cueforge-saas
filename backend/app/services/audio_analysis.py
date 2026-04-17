@@ -46,6 +46,15 @@ from app.services.feature_cache import (
 )
 from app.services.dsp_optimized import compute_grid_error_jit
 
+# Progress streaming helper (Étape 5 speedup) — publie les partiels Redis
+# pour que le SSE stream_track_status puisse les forwarder au client.
+# Import protégé : une erreur ici ne doit pas casser le pipeline d'analyse.
+try:
+    from app.services.cache_service import publish_analysis_progress as _publish_progress
+except Exception:  # pragma: no cover
+    def _publish_progress(*_args, **_kwargs):
+        return None
+
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -4927,6 +4936,9 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         duration_ms = int(len(y) / sr_loaded * 1000)
 
+    # ⚡ Progress checkpoint: loading done
+    _publish_progress(track_id, "loading", {"duration_ms": duration_ms}, percent=5)
+
     # ── Pre-compute onset strength ONCE (Point 16) ──
     # Used by BPM, drops, danceability, genre detection
     # Avoid recomputing this expensive operation 4+ times
@@ -4959,6 +4971,17 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         # Proportion of beats within 5% of expected interval
         good_ratio = float(np.mean(ibi_errors < 0.05))
         bpm_confidence = round(min(1.0, good_ratio * 0.8 + 0.2), 2)
+
+    # ⚡ Progress checkpoint: BPM disponible — on envoie au client pour
+    # qu'il puisse afficher le tempo dès 10-15s (avant la fin des 45s).
+    _publish_progress(
+        track_id,
+        "bpm",
+        {"bpm": float(bpm) if bpm is not None else None,
+         "bpm_confidence": float(bpm_confidence),
+         "num_beats": len(beats)},
+        percent=25,
+    )
 
     # ── Point 408, 511-519: Cache BPM/beats and save checkpoint ──
     save_feature(file_path, 'beats', np.array(beats))
@@ -5138,6 +5161,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         energy = None
 
+    # ⚡ Progress checkpoint: energy disponible (avant drops — plus rapide)
+    _publish_progress(
+        track_id, "energy",
+        {"energy": float(energy) if energy is not None else None},
+        percent=45,
+    )
+
     # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS (Point 56)
     try:
         t0_drops = time.perf_counter()
@@ -5149,6 +5179,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     except Exception:
         drops = []
         drop_positions = []
+
+    # ⚡ Progress checkpoint: drops détectés
+    _publish_progress(
+        track_id, "drops",
+        {"num_drops": len(drops)},
+        percent=65,
+    )
 
     # Beat-synchronous RMS for section labeling — v6.1: reuse shared_rms
     try:
@@ -5194,6 +5231,13 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         ]
     except Exception:
         section_labels = []
+
+    # ⚡ Progress checkpoint: structure/sections prête
+    _publish_progress(
+        track_id, "structure",
+        {"num_sections": len(section_labels)},
+        percent=75,
+    )
 
     # Phrases (8-bar grid)
     try:
@@ -5274,6 +5318,15 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
             key_secondary = key_result.get("key_secondary")
         except Exception:
             key, key_confidence, key_secondary = None, None, None
+
+        # ⚡ Progress checkpoint: key détectée
+        _publish_progress(
+            track_id, "key",
+            {"key": key,
+             "key_confidence": float(key_confidence) if key_confidence is not None else None,
+             "key_secondary": key_secondary},
+            percent=85,
+        )
 
         try:
             loudness_data = analyze_loudness(y, sr_loaded)
@@ -5813,6 +5866,28 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Point 511-519: Clear checkpoint after successful analysis completion
     clear_checkpoint(file_path)
     logger.info("[CACHE] Analysis complete, checkpoint cleared")
+
+    # ⚡ Progress checkpoint final: on envoie un snapshot compact du résultat
+    # pour que le SSE ait tous les partiels en cache même si l'UI reconnecte
+    # tard. clear_analysis_progress sera appelé depuis _run_analysis une fois
+    # le commit DB fait.
+    try:
+        _publish_progress(
+            track_id, "finalize",
+            {
+                "bpm": result.get("bpm"),
+                "bpm_confidence": result.get("bpm_confidence"),
+                "key": result.get("key"),
+                "key_confidence": result.get("key_confidence"),
+                "energy": result.get("energy"),
+                "num_sections": len(result.get("section_labels") or []),
+                "num_drops": len(result.get("drop_positions") or []),
+                "duration_ms": result.get("duration_ms"),
+            },
+            percent=100,
+        )
+    except Exception as _e:
+        logger.debug(f"final progress publish failed: {_e}")
 
     return result
 

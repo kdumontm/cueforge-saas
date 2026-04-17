@@ -747,6 +747,13 @@ def _run_analysis(track_id: int):
     finally:
         db.close()
         _release_quota(_quota_user_id)
+        # Nettoie le progress partial streaming (Étape 5 speedup)
+        # Évite que des vieilles clés traînent 15min dans Redis après succès/échec
+        try:
+            from app.services.cache_service import clear_analysis_progress
+            clear_analysis_progress(track_id)
+        except Exception:
+            pass
 
 
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)
@@ -984,7 +991,10 @@ async def stream_track_status(
 
     async def event_generator():
         from app.database import SessionLocal
+        # ⚡ Étape 5 speedup: forward progress partials (Redis) en plus du status DB
+        from app.services.cache_service import get_analysis_progress
         last_status = None
+        last_progress_ts = None
         check_interval = 1.0  # 1s au lieu de 2s — mais côté serveur, pas HTTP
         max_duration = 300    # 5 minutes max
 
@@ -1017,6 +1027,17 @@ async def stream_track_status(
                         }
                     yield f"data: {_json.dumps(payload, ensure_ascii=False)}\n\n"
                     last_status = current_status
+
+                # ⚡ Forward progress partials quand analyse en cours
+                # (le champ ts évite de re-envoyer le même partial)
+                if current_status == "analyzing":
+                    try:
+                        prog = get_analysis_progress(track_id)
+                        if prog and prog.get("ts") != last_progress_ts:
+                            yield f"data: {_json.dumps({'type': 'progress', **prog}, ensure_ascii=False, default=str)}\n\n"
+                            last_progress_ts = prog.get("ts")
+                    except Exception:
+                        pass  # progress is best-effort
 
                 # Fin du stream si terminal
                 if current_status in ("completed", "failed"):

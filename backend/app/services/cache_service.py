@@ -206,3 +206,95 @@ def set_cached_text_search(query: str, result: dict):
     """Cache a text search result (24h TTL — less stable than fingerprint)."""
     key = hashlib.sha256(query.lower().strip().encode()).hexdigest()[:32]
     cache_set("text_search", key, result, ttl=86400)
+
+
+# ── Progress streaming (Étape 5 speedup) ─────────────────────────────────────
+# Publie l'état d'avancement d'une analyse audio en cours. Le SSE
+# stream_track_status lit ce hash pour envoyer des partiels à l'UI au
+# fur et à mesure qu'ils sont calculés, au lieu d'attendre la fin.
+#
+# TTL court (15 min) : une analyse prend au max 2-3 min ; on ne veut pas
+# laisser traîner des vieux progress state après crash/restart.
+
+ANALYSIS_PROGRESS_TTL = 15 * 60  # 15 min
+
+
+def _progress_key(track_id: int) -> str:
+    return _make_key("analysis_progress", str(track_id))
+
+
+def publish_analysis_progress(
+    track_id: Optional[int],
+    step: str,
+    data: Optional[dict] = None,
+    percent: Optional[int] = None,
+) -> None:
+    """
+    Publie une étape d'avancement pour une analyse en cours.
+    Silencieux si track_id est None ou si Redis est indispo (fallback mémoire
+    pour cas dev local).
+
+    Args:
+        track_id: ID du track en cours d'analyse
+        step: nom de l'étape (loading/bpm/key/energy/structure/drops/stems/finalize)
+        data: payload partiel déjà calculé (bpm, key, etc.) sérialisable JSON
+        percent: pourcentage global 0-100 (si None, dérivé de ANALYSIS_STEPS)
+    """
+    if track_id is None:
+        return
+    payload = {
+        "step": step,
+        "percent": percent if percent is not None else 50,
+        "ts": time.time(),
+    }
+    if data:
+        # On filtre les valeurs non-sérialisables pour ne pas casser json.dumps
+        safe_data = {}
+        for k, v in data.items():
+            try:
+                json.dumps(v, default=str)
+                safe_data[k] = v
+            except Exception:
+                safe_data[k] = str(v)
+        payload["data"] = safe_data
+
+    key = _progress_key(track_id)
+    r = _get_redis()
+    if r:
+        try:
+            r.setex(key, ANALYSIS_PROGRESS_TTL, json.dumps(payload, default=str))
+            return
+        except Exception as e:
+            logger.debug(f"progress publish (redis) failed: {e}")
+    # Fallback mémoire
+    _memory_cache.set(key, payload, ttl=ANALYSIS_PROGRESS_TTL)
+
+
+def get_analysis_progress(track_id: int) -> Optional[dict]:
+    """Retourne le dernier progress publié pour ce track, ou None."""
+    if track_id is None:
+        return None
+    key = _progress_key(track_id)
+    r = _get_redis()
+    if r:
+        try:
+            raw = r.get(key)
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            pass
+    return _memory_cache.get(key)
+
+
+def clear_analysis_progress(track_id: int) -> None:
+    """Nettoie le progress une fois l'analyse terminée (appelée depuis _run_analysis)."""
+    if track_id is None:
+        return
+    key = _progress_key(track_id)
+    r = _get_redis()
+    if r:
+        try:
+            r.delete(key)
+        except Exception:
+            pass
+    _memory_cache.delete(key)
