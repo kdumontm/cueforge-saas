@@ -13,6 +13,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # Version applicative (source unique, utilisée par FastAPI, health, system-info et header X-API-Version)
+    APP_VERSION: str = "6.0.0"
+
     # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
     SECRET_KEY: str = "trackcue-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"

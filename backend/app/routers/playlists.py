@@ -16,6 +16,7 @@ Endpoints:
 
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -96,8 +97,10 @@ def _get_user_playlist(playlist_id: int, user: User, db: Session) -> Playlist:
     return pl
 
 
-def _playlist_to_response(pl: Playlist, db: Session) -> PlaylistResponse:
-    count = db.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == pl.id).count()
+def _playlist_to_response(pl: Playlist, db: Session, count: Optional[int] = None) -> PlaylistResponse:
+    # Si le count est déjà calculé (batch dans list_playlists), on évite la query.
+    if count is None:
+        count = db.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == pl.id).count()
     return PlaylistResponse(
         id=pl.id,
         name=pl.name,
@@ -117,13 +120,24 @@ def list_playlists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = db.query(Playlist).filter(Playlist.user_id == current_user.id)
+    # ⚡ OPTIM : N+1 éliminé — une seule requête avec LEFT JOIN + GROUP BY
+    # au lieu d'1 SELECT playlists + N COUNT(PlaylistTrack).
+    q = (
+        db.query(Playlist, func.count(PlaylistTrack.id).label("track_count"))
+        .outerjoin(PlaylistTrack, PlaylistTrack.playlist_id == Playlist.id)
+        .filter(Playlist.user_id == current_user.id)
+    )
     if parent_id is not None:
         q = q.filter(Playlist.parent_id == parent_id)
     else:
         q = q.filter(Playlist.parent_id.is_(None))
-    playlists = q.order_by(Playlist.sort_order.asc(), Playlist.name.asc()).all()
-    return [_playlist_to_response(pl, db) for pl in playlists]
+
+    rows = (
+        q.group_by(Playlist.id)
+        .order_by(Playlist.sort_order.asc(), Playlist.name.asc())
+        .all()
+    )
+    return [_playlist_to_response(pl, db, count=count) for pl, count in rows]
 
 
 @router.post("", response_model=PlaylistResponse, status_code=201)

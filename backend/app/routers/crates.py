@@ -16,7 +16,7 @@ Endpoints:
 from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -136,18 +136,29 @@ def _apply_rule(q, rule: dict, user_id: int):
     return q
 
 
-def _evaluate_crate(crate: SmartCrate, user_id: int, db: Session) -> list:
-    """Evaluate crate rules and return matching tracks."""
+def _build_crate_query(crate: SmartCrate, user_id: int, db: Session, select_count: bool = False):
+    """
+    Construit la requête de base pour un smart crate.
+    Si select_count=True, renvoie une query COUNT(*) (pas de ORDER BY / LIMIT).
+    Sinon renvoie une query qui SELECT les Track avec tri + limit appliqués.
+    """
     rules = crate.rules or []
 
-    base_q = (
-        db.query(Track)
-        .outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
-        .filter(Track.user_id == user_id)
-    )
+    if select_count:
+        # ⚡ COUNT uniquement — pas besoin de charger les lignes, pas de ORDER BY
+        base_q = (
+            db.query(func.count(func.distinct(Track.id)))
+            .outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+            .filter(Track.user_id == user_id)
+        )
+    else:
+        base_q = (
+            db.query(Track)
+            .outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+            .filter(Track.user_id == user_id)
+        )
 
     if crate.match_mode == "any" and rules:
-        # OR mode: build individual filters
         conditions = []
         for rule in rules:
             sub_q = db.query(Track.id).outerjoin(
@@ -160,7 +171,10 @@ def _evaluate_crate(crate: SmartCrate, user_id: int, db: Session) -> list:
         for rule in rules:
             base_q = _apply_rule(base_q, rule, user_id)
 
-    # Sorting
+    if select_count:
+        return base_q
+
+    # Sorting (uniquement pour la version qui remonte les tracks)
     sort_col = getattr(Track, crate.sort_by, None) or getattr(TrackAnalysis, crate.sort_by, None)
     if sort_col is not None:
         if crate.sort_dir == "asc":
@@ -171,7 +185,22 @@ def _evaluate_crate(crate: SmartCrate, user_id: int, db: Session) -> list:
     if crate.limit:
         base_q = base_q.limit(crate.limit)
 
-    return base_q.all()
+    return base_q
+
+
+def _count_crate_tracks(crate: SmartCrate, user_id: int, db: Session) -> int:
+    """⚡ Compte rapide des tracks matchant un crate (sans les charger)."""
+    q = _build_crate_query(crate, user_id, db, select_count=True)
+    total = q.scalar() or 0
+    # Respecter le `limit` du crate comme l'ancienne implémentation (len(tracks) après limit)
+    if crate.limit and total > crate.limit:
+        return crate.limit
+    return int(total)
+
+
+def _evaluate_crate(crate: SmartCrate, user_id: int, db: Session) -> list:
+    """Evaluate crate rules and return matching tracks."""
+    return _build_crate_query(crate, user_id, db, select_count=False).all()
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
@@ -187,12 +216,13 @@ def list_crates(
 
     result = []
     for c in crates:
-        tracks = _evaluate_crate(c, current_user.id, db)
+        # ⚡ OPTIM : SELECT COUNT(*) au lieu de charger toutes les tracks du crate
+        count = _count_crate_tracks(c, current_user.id, db)
         resp = SmartCrateResponse(
             id=c.id, name=c.name, description=c.description,
             rules=c.rules or [], match_mode=c.match_mode,
             limit=c.limit, sort_by=c.sort_by, sort_dir=c.sort_dir,
-            track_count=len(tracks),
+            track_count=count,
         )
         result.append(resp)
     return result

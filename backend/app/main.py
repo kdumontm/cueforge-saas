@@ -637,7 +637,7 @@ settings = get_settings()
 app = FastAPI(
     title="TrackCue SaaS API",
     description="Audio analysis and cue point generation for DJs",
-    version="4.5.0",
+    version=settings.APP_VERSION,
     lifespan=lifespan,
     redirect_slashes=False,
 )
@@ -659,7 +659,7 @@ def health_check():
         db_error = str(e)
         logger.error(f"Health check DB error: {e}")
 
-    response = {"status": "ok", "version": "6.0.0-beat_this", "db": db_status}
+    response = {"status": "ok", "version": settings.APP_VERSION, "db": db_status}
     if db_error:
         response["db_error"] = db_error
     return response
@@ -727,7 +727,7 @@ async def monitoring_middleware(request: Request, call_next):
             _metrics.requests_errors += 1
 
         # Add version and deprecation headers (Point 50)
-        response.headers["X-API-Version"] = "4.5"
+        response.headers["X-API-Version"] = settings.APP_VERSION
         response.headers["X-Deprecation"] = ""
 
         return response
@@ -760,7 +760,7 @@ async def health_detailed(db: Session = Depends(get_db)):
 
     return HealthResponse(
         status="ok",
-        version="4.5.0",
+        version=settings.APP_VERSION,
         db=db_status,
         uptime_seconds=_metrics.uptime_seconds(),
         cache_hit_rate=_metrics.cache_hit_rate(),
@@ -850,7 +850,7 @@ async def get_system_info():
         python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         platform=f"{platform.system()} {platform.release()}",
         uptime_seconds=_metrics.uptime_seconds(),
-        version="4.5.0",
+        version=settings.APP_VERSION,
         feature_flags=_config.feature_flags,
     )
 
