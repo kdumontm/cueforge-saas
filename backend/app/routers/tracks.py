@@ -517,11 +517,19 @@ def _run_analysis(track_id: int):
         db.close()
 
     # ─ PHASE 2 : Analyse SANS session DB (30-120s) ─
-    _log(f"[ANALYSIS] Phase 2 — calling analyze_audio for track {track_id}...")
+    # Piste 2 speedup : defer_deep=True par défaut → la phase deep (~120s)
+    # tourne en background après status=completed, l'utilisateur voit les
+    # résultats primaires ~2x plus vite. Les champs deep remplissent la DB
+    # progressivement via compute_deep_only().
+    _defer_deep = os.environ.get("DEFER_DEEP_ANALYSIS", "1") == "1"
+    _log(f"[ANALYSIS] Phase 2 — calling analyze_audio for track {track_id} (defer_deep={_defer_deep})...")
     analysis_data = None
     try:
         analysis_data = analysis_svc.analyze_audio(
-            file_path, use_stem_separation=use_stems, track_id=track_id
+            file_path,
+            use_stem_separation=use_stems,
+            track_id=track_id,
+            defer_deep=_defer_deep,
         )
         _log(f"[ANALYSIS] Phase 2 done — got {len(analysis_data) if analysis_data else 0} keys, bpm={analysis_data.get('bpm') if analysis_data else 'N/A'}")
     except Exception as e:
@@ -721,7 +729,7 @@ def _run_analysis(track_id: int):
         # ── Mark complete and commit ──
         track.status = TrackStatus.completed
         safe_commit(db)
-        _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (stems={'oui' if stem_data else 'non'})")
+        _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (stems={'oui' if stem_data else 'non'}, defer_deep={_defer_deep})")
 
         # Create notification
         notif = Notification(
@@ -754,6 +762,92 @@ def _run_analysis(track_id: int):
             clear_analysis_progress(track_id)
         except Exception:
             pass
+
+    # ─ PHASE 4 (piste 2) : deep analysis en différé ─
+    # Maintenant que status=completed est commité, l'UI voit les résultats
+    # primaires. On relance la phase deep (~120s) et on met à jour la DB
+    # au fur et à mesure. Si ça échoue, pas grave : les champs deep
+    # restent à leur valeur placeholder "available: false".
+    if _defer_deep and analysis_data:
+        try:
+            _run_deep_analysis_deferred(track_id, file_path, analysis_data)
+        except Exception as e:
+            logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
+
+
+def _run_deep_analysis_deferred(track_id: int, file_path: str, main_result: Dict):
+    """
+    Piste 2 speedup : exécute la phase deep en différé après le commit
+    de l'analyse primaire. Reload l'audio, appelle compute_deep_only(),
+    puis met à jour TrackAnalysis avec les 19 champs deep.
+
+    Protégé par try/except global — ne doit jamais faire échouer la tâche
+    d'analyse (qui a déjà commit status=completed).
+    """
+    from app.database import SessionLocal
+    import traceback as _tb
+
+    logger.info(f"[DEEP-LAZY] ── Starting deferred deep phase for track {track_id} ──")
+    db = SessionLocal()
+    try:
+        # Build minimal dict from main_result (avoid passing full dict
+        # which could contain huge numpy arrays).
+        minimal = {
+            "bpm": main_result.get("bpm"),
+            "key": main_result.get("key"),
+            "energy": main_result.get("energy"),
+            "section_labels": main_result.get("section_labels", []),
+            "beat_positions": main_result.get("beat_positions", []),
+            "has_clipping": main_result.get("has_clipping", False),
+            "clipping_ratio": main_result.get("clipping_ratio", 0.0),
+            "true_peak_db": main_result.get("true_peak_db", -1.0),
+            "loudness_lufs": main_result.get("loudness_lufs"),
+            "loudness_range_lu": main_result.get("loudness_range_lu"),
+            "dc_offset_mean": main_result.get("dc_offset_mean", 0.0),
+            "mono_compatibility": main_result.get("mono_compatibility"),
+        }
+
+        deep_fields = analysis_svc.compute_deep_only(
+            file_path, minimal, track_id=track_id
+        )
+
+        if not deep_fields:
+            logger.warning(f"[DEEP-LAZY] compute_deep_only returned empty for track {track_id}")
+            return
+
+        analysis = db.query(TrackAnalysis).filter(
+            TrackAnalysis.track_id == track_id
+        ).first()
+        if not analysis:
+            logger.warning(f"[DEEP-LAZY] TrackAnalysis missing for track {track_id}")
+            return
+
+        # Apply deep fields onto the analysis row — only fields that exist
+        # on the model to avoid typos causing silent data loss.
+        applied = 0
+        for key, value in deep_fields.items():
+            if hasattr(analysis, key):
+                setattr(analysis, key, value)
+                applied += 1
+            else:
+                logger.debug(f"[DEEP-LAZY] Field {key} not on TrackAnalysis model, skipping")
+
+        safe_commit(db)
+        logger.info(
+            f"[DEEP-LAZY] ── Deferred deep phase done for track {track_id} "
+            f"— {applied}/{len(deep_fields)} fields applied ──"
+        )
+    except Exception as e:
+        logger.error(
+            f"[DEEP-LAZY] Deferred deep phase CRASHED for track {track_id}: "
+            f"{e}\n{_tb.format_exc()}"
+        )
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)

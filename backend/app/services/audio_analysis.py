@@ -4985,7 +4985,12 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
     return results
 
 
-def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: Optional[int] = None) -> Dict:
+def analyze_audio(
+    file_path: str,
+    use_stem_separation: bool = False,
+    track_id: Optional[int] = None,
+    defer_deep: bool = False,
+) -> Dict:
     """
     Full audio analysis pipeline v5.1
     Loads audio ONCE, runs all analysis with beat-synchronous features.
@@ -4996,6 +5001,12 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     If track_id is provided AND use_stem_separation=True, the 4 stems are
     saved as MP3 files in STEMS_DIR/{track_id}/ so the stems module can
     serve them directly without re-running Demucs.
+
+    If defer_deep=True (piste 2 speedup), the deep analysis phase (~120s)
+    is skipped here — primary fields (BPM, key, energy, sections, beats,
+    cues, waveform) are returned ASAP. The caller is expected to run
+    compute_deep_only() in a background task and merge the deep fields
+    into TrackAnalysis afterwards.
 
     v6.2 optimizations (Section A):
     - Float32 audio loading (Point 13-14)
@@ -5742,10 +5753,14 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # If total deep analysis exceeds DEEP_ANALYSIS_TIMEOUT_S, skip remaining.
     #
     # SKIP_DEEP_ANALYSIS=1 → skip entirely (Railway low-memory environments)
-    _skip_deep = os.environ.get("SKIP_DEEP_ANALYSIS", "0") == "1"
+    # defer_deep=True (piste 2) → skip here, caller runs compute_deep_only() async
+    _skip_deep = os.environ.get("SKIP_DEEP_ANALYSIS", "0") == "1" or defer_deep
 
     if _skip_deep:
-        logger.info("[DEEP] Skipping deep analysis phase (SKIP_DEEP_ANALYSIS=1)")
+        if defer_deep:
+            logger.info("[DEEP] Deferring deep analysis phase — will run in background (piste 2)")
+        else:
+            logger.info("[DEEP] Skipping deep analysis phase (SKIP_DEEP_ANALYSIS=1)")
         # Free audio signal to reclaim ~70MB before cue generation
         del y
         gc.collect()
@@ -6008,6 +6023,269 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         logger.debug(f"perf summary failed: {_e}")
 
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#   Piste 2 speedup — Lazy secondary analyses
+#   compute_deep_only() : reload audio + run deep phase standalone.
+#   Appelé en background par _run_analysis après analyze_audio(defer_deep=True)
+#   et status=completed. Les champs deep remplissent progressivement la DB.
+# ══════════════════════════════════════════════════════════════════════════
+
+def compute_deep_only(
+    file_path: str,
+    main_result: Dict,
+    track_id: Optional[int] = None,
+) -> Dict:
+    """
+    Reload audio and run ONLY the deep analysis phase (~120s budget).
+
+    Intended to be called in a BackgroundTask AFTER analyze_audio(file_path,
+    defer_deep=True) has already committed the primary analysis and
+    status=completed. The returned dict contains the 19 deep fields,
+    ready to merge into TrackAnalysis.
+
+    Args:
+        file_path: Path to audio file (must still exist on disk)
+        main_result: Output of analyze_audio(..., defer_deep=True) — used to
+                     extract section_labels, beat_positions, bpm, key, energy
+                     and audio-quality inputs for the final quality_score.
+        track_id: Optional — used for logging only.
+
+    Returns:
+        Dict with deep fields. Missing fields stay absent (caller should
+        .update() onto the TrackAnalysis row).
+    """
+    import librosa
+    from concurrent.futures import ThreadPoolExecutor as _TPE, TimeoutError as _TE
+
+    t_global = time.time()
+    logger.info(f"[DEEP-LAZY] Starting deferred deep analysis for track {track_id}")
+
+    # ── Reload audio (same params as analyze_audio) ──
+    try:
+        y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION, mono=True)
+        y = y.astype(np.float32)
+        non_silent = librosa.effects.split(y, top_db=50)
+        if len(non_silent) > 0:
+            start_sample = non_silent[0][0]
+            end_sample = non_silent[-1][1]
+            y = y[start_sample:end_sample]
+    except Exception as e:
+        logger.error(f"[DEEP-LAZY] Failed to reload audio for track {track_id}: {e}")
+        return {}
+
+    # ── Extract needed values from main_result ──
+    section_labels = main_result.get("section_labels", []) or []
+    beat_positions = main_result.get("beat_positions", []) or []
+    bpm = main_result.get("bpm") or 120.0
+    key = main_result.get("key") or "C"
+    energy = main_result.get("energy") or 50.0
+
+    # Recompute beat_frames from beat_positions (ms)
+    if beat_positions:
+        beat_times_s = np.array([p / 1000.0 for p in beat_positions], dtype=np.float64)
+        try:
+            beat_frames = librosa.time_to_frames(beat_times_s, sr=sr_loaded, hop_length=HOP_LENGTH)
+        except Exception:
+            beat_frames = np.array([], dtype=np.int64)
+    else:
+        beat_frames = np.array([], dtype=np.int64)
+
+    # ── Per-task + global timeout budget (same as in analyze_audio) ──
+    DEEP_ANALYSIS_TIMEOUT_S = 120
+    _deep_start = time.time()
+
+    def _budget_left():
+        return max(0, DEEP_ANALYSIS_TIMEOUT_S - (time.time() - _deep_start))
+
+    def _run_deep(name, fn, default=None):
+        if _budget_left() <= 0:
+            logger.warning(f"[DEEP-LAZY] Skipping {name} — global timeout reached")
+            return default
+        try:
+            with _TPE(max_workers=1) as ex:
+                future = ex.submit(fn)
+                per_task_timeout = min(30, _budget_left())
+                return future.result(timeout=per_task_timeout)
+        except _TE:
+            logger.warning(f"[DEEP-LAZY] {name} timed out")
+            return default
+        except Exception as e:
+            logger.debug(f"[DEEP-LAZY] {name} failed: {e}")
+            return default
+
+    deep: Dict = {}
+
+    # Structural summary
+    deep["structural_summary"] = _run_deep(
+        "structural_summary",
+        lambda: compute_structural_summary(section_labels, y, sr_loaded),
+        default={"available": False},
+    )
+
+    # HPSS
+    hpss = _run_deep("hpss", lambda: compute_hpss_metrics(y, sr_loaded), default={})
+    if hpss:
+        deep["harmonic_ratio"] = hpss.get("harmonic_ratio")
+        deep["percussive_ratio"] = hpss.get("percussive_ratio")
+
+    # Subband energy
+    subband = _run_deep("subband", lambda: compute_subband_energy_ratios(y, sr_loaded), default={})
+    if subband:
+        deep["sub_energy_ratio"] = subband.get("sub_energy_ratio")
+        deep["low_energy_ratio"] = subband.get("low_energy_ratio")
+        deep["mid_energy_ratio"] = subband.get("mid_energy_ratio")
+        deep["high_energy_ratio"] = subband.get("high_energy_ratio")
+
+    # Sub-bass quality
+    sub_bass_result = _run_deep("sub_bass", lambda: sub_bass_quality(y, sr_loaded), default={})
+    if sub_bass_result:
+        deep["sub_bass_quality"] = sub_bass_result.get("sub_bass_quality")
+        deep["sub_bass_clarity"] = sub_bass_result.get("clarity_score")
+
+    # Loudness war
+    lw = _run_deep("loudness_war", lambda: loudness_war_detection(y, sr_loaded), default={})
+    if lw:
+        deep["loudness_war_detected"] = lw.get("loudness_war_detected", False)
+        deep["loudness_war_severity"] = lw.get("loudness_war_severity", "none")
+        deep["compression_score"] = lw.get("compression_score", 0.0)
+
+    # Encoding quality
+    enc_quality = _run_deep(
+        "encoding_quality",
+        lambda: detect_encoding_quality(file_path, y, sr_loaded),
+        default={},
+    )
+    if enc_quality:
+        deep["encoding_quality"] = enc_quality.get("encoding_quality")
+        deep["estimated_bitrate_kbps"] = enc_quality.get("estimated_bitrate_kbps")
+        deep["is_upscaled"] = enc_quality.get("is_upscaled", False)
+        deep["spectral_rolloff_hz"] = enc_quality.get("spectral_rolloff_hz")
+
+    # Spectral contrast
+    spec_contrast = _run_deep("spectral_contrast", lambda: compute_spectral_contrast(y, sr_loaded), default={})
+    if spec_contrast:
+        deep["spectral_contrast_mean"] = spec_contrast.get("spectral_contrast_mean")
+
+    # Accent points
+    deep["accent_points"] = _run_deep(
+        "accent_points",
+        lambda: detect_accent_points(y, sr_loaded, beat_positions),
+        default=[],
+    )
+
+    # Audio quality score — recompute now that encoding_quality is known
+    try:
+        quality_score = compute_audio_quality_score(
+            has_clipping=main_result.get("has_clipping", False),
+            clipping_ratio=main_result.get("clipping_ratio", 0.0) or 0.0,
+            true_peak_db=main_result.get("true_peak_db", -1.0) or -1.0,
+            loudness_lufs=main_result.get("loudness_lufs"),
+            loudness_range_lu=main_result.get("loudness_range_lu"),
+            dc_offset_mean=main_result.get("dc_offset_mean", 0.0) or 0.0,
+            encoding_quality=deep.get("encoding_quality", "unknown") or "unknown",
+            mono_compatibility=main_result.get("mono_compatibility"),
+        )
+        deep["audio_quality_score"] = quality_score.get("audio_quality_score")
+        deep["audio_quality_grade"] = quality_score.get("audio_quality_grade")
+        deep["audio_quality_breakdown"] = quality_score.get("audio_quality_breakdown")
+    except Exception as e:
+        logger.debug(f"[DEEP-LAZY] quality_score recompute failed: {e}")
+
+    # Rhythm summary
+    deep["rhythm_summary"] = _run_deep(
+        "rhythm_summary",
+        lambda: compute_rhythm_summary(
+            y, sr_loaded, beat_frames, bpm,
+            librosa.onset.onset_strength(y=y, sr=sr_loaded),
+        ),
+        default={"available": False},
+    )
+
+    # Spectral summary
+    deep["spectral_summary"] = _run_deep(
+        "spectral_summary",
+        lambda: compute_spectral_summary(y, sr_loaded),
+        default={"available": False},
+    )
+
+    # DJ mix recommendations
+    deep["dj_mix_recommendations"] = _run_deep(
+        "dj_mix_recommendations",
+        lambda: compute_dj_mix_recommendations(y, sr_loaded, bpm, key, energy, section_labels),
+        default={"available": False},
+    )
+
+    # Quality extended
+    deep["quality_extended"] = _run_deep(
+        "quality_extended",
+        lambda: compute_quality_extended(y, sr_loaded, file_path),
+        default={"available": False},
+    )
+
+    # Harmonic summary
+    deep["harmonic_summary"] = _run_deep(
+        "harmonic_summary",
+        lambda: compute_harmonic_summary(y, sr_loaded),
+        default={"available": False},
+    )
+
+    # Vocal analysis
+    deep["vocal_analysis"] = _run_deep(
+        "vocal_analysis",
+        lambda: compute_vocal_analysis(y, sr_loaded),
+        default={"available": False},
+    )
+
+    # Production analysis
+    deep["production_analysis"] = _run_deep(
+        "production_analysis",
+        lambda: compute_production_analysis(y, sr_loaded),
+        default={"available": False},
+    )
+
+    # Mixing compatibility
+    deep["mixing_compatibility"] = _run_deep(
+        "mixing_compatibility",
+        lambda: compute_mixing_compatibility(bpm, key, energy, beat_frames, sr_loaded),
+        default={"available": False},
+    )
+
+    # Deep section analysis
+    deep["section_deep_analysis"] = _run_deep(
+        "section_deep_analysis",
+        lambda: compute_section_deep_analysis(y, sr_loaded, section_labels, beat_frames, bpm),
+        default={"available": False},
+    )
+
+    # Deep loudness analysis
+    deep["loudness_deep_analysis"] = _run_deep(
+        "loudness_deep_analysis",
+        lambda: compute_loudness_deep_analysis(y, sr_loaded, file_path),
+        default={"available": False},
+    )
+
+    # Deep key analysis
+    deep["key_deep_analysis"] = _run_deep(
+        "key_deep_analysis",
+        lambda: compute_key_deep_analysis(y, sr_loaded, section_labels),
+        default={"available": False},
+    )
+
+    # Free audio signal
+    try:
+        del y
+        gc.collect()
+    except Exception:
+        pass
+
+    elapsed = time.time() - t_global
+    logger.info(
+        f"[DEEP-LAZY] Deep analysis (standalone) complete in {elapsed:.1f}s "
+        f"for track {track_id} — {len(deep)} fields filled"
+    )
+    return deep
 
 
 # ══════════════════════════════════════════════════════════════════════════
