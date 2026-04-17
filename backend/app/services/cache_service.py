@@ -42,13 +42,16 @@ def _get_redis():
     try:
         import redis
         # Compatible Redis classique (Railway) et Upstash (rediss:// TLS)
-        ssl_enabled = REDIS_URL.startswith("rediss://")
-        _redis_client = redis.from_url(
-            REDIS_URL,
-            decode_responses=True,
-            socket_timeout=2,
-            ssl_cert_reqs=None if ssl_enabled else None,  # Upstash n'exige pas de cert client
-        )
+        # Important : ssl_cert_reqs n'est accepté QUE pour rediss://, sinon
+        # redis.from_url lève TypeError (AbstractConnection ne connaît pas ce kwarg).
+        kwargs = {
+            "decode_responses": True,
+            "socket_timeout": 5,
+            "socket_connect_timeout": 5,
+        }
+        if REDIS_URL.startswith("rediss://"):
+            kwargs["ssl_cert_reqs"] = None  # Upstash / TLS sans cert client
+        _redis_client = redis.from_url(REDIS_URL, **kwargs)
         _redis_client.ping()
         _redis_available = True
         logger.info("✅ Redis cache connecté (L2)")
