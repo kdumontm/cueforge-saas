@@ -8,6 +8,7 @@ Endpoints:
 - POST /notifications/read-all → mark all notifications as read
 - DELETE /notifications/{id} → delete one notification
 """
+import random
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -68,13 +69,17 @@ async def list_notifications(
     Returns:
         Paginated list of notifications
     """
-    # Delete notifications older than 90 days
-    cutoff_date = datetime.utcnow() - timedelta(days=90)
-    db.query(Notification).filter(
-        Notification.user_id == user.id,
-        Notification.created_at < cutoff_date
-    ).delete()
-    db.commit()
+    # ⚡ OPTIM : cleanup 90j probabiliste (1 appel sur 100) pour ne pas payer
+    # un DELETE + COMMIT sur chaque GET /notifications.
+    # En pratique : 100 visites ≈ 1 cleanup → impact utilisateur ~0,
+    # et la rétention reste effective à l'échelle.
+    if random.randint(1, 100) == 1:
+        cutoff_date = datetime.utcnow() - timedelta(days=90)
+        db.query(Notification).filter(
+            Notification.user_id == user.id,
+            Notification.created_at < cutoff_date
+        ).delete(synchronize_session=False)
+        db.commit()
 
     # Get total count
     total = db.query(Notification).filter(

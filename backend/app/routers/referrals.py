@@ -17,6 +17,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -126,20 +127,38 @@ async def get_referral_stats(
     db: Session = Depends(get_db),
 ):
     """GET /api/v1/referrals/stats — Stats de parrainage."""
-    referrals = db.query(Referral).filter(
-        Referral.referrer_id == user.id
-    ).all()
-
-    total_invites = len(referrals)
-    total_signups = sum(1 for r in referrals if r.status in [ReferralStatus.signed_up, ReferralStatus.converted])
-    total_converted = sum(1 for r in referrals if r.status == ReferralStatus.converted)
-    rewards_earned = sum(1 for r in referrals if r.status == ReferralStatus.converted and r.reward_claimed)
+    # ⚡ OPTIM : SQL aggregation au lieu de load-all + count en Python.
+    # Une seule requête renvoie toutes les stats en SUM(CASE WHEN ...).
+    row = db.query(
+        func.count(Referral.id).label("total_invites"),
+        func.sum(
+            case(
+                (Referral.status.in_([ReferralStatus.signed_up, ReferralStatus.converted]), 1),
+                else_=0,
+            )
+        ).label("total_signups"),
+        func.sum(
+            case(
+                (Referral.status == ReferralStatus.converted, 1),
+                else_=0,
+            )
+        ).label("total_converted"),
+        func.sum(
+            case(
+                (
+                    (Referral.status == ReferralStatus.converted) & (Referral.reward_claimed.is_(True)),
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("rewards_earned"),
+    ).filter(Referral.referrer_id == user.id).one()
 
     return {
-        "total_invites": total_invites,
-        "total_signups": total_signups,
-        "total_converted": total_converted,
-        "rewards_earned": rewards_earned,
+        "total_invites": int(row.total_invites or 0),
+        "total_signups": int(row.total_signups or 0),
+        "total_converted": int(row.total_converted or 0),
+        "rewards_earned": int(row.rewards_earned or 0),
     }
 
 

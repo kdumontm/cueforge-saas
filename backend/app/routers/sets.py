@@ -16,6 +16,7 @@ Endpoints:
 
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -150,12 +151,17 @@ def list_sets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sets = db.query(DJSet).filter(
-        DJSet.user_id == current_user.id
-    ).order_by(DJSet.updated_at.desc()).all()
+    # ⚡ OPTIM : N+1 éliminé — LEFT JOIN + GROUP BY au lieu d'1 SELECT + N COUNT.
+    rows = (
+        db.query(DJSet, func.count(DJSetTrack.id).label("track_count"))
+        .outerjoin(DJSetTrack, DJSetTrack.set_id == DJSet.id)
+        .filter(DJSet.user_id == current_user.id)
+        .group_by(DJSet.id)
+        .order_by(DJSet.updated_at.desc())
+        .all()
+    )
     result = []
-    for s in sets:
-        count = db.query(DJSetTrack).filter(DJSetTrack.set_id == s.id).count()
+    for s, count in rows:
         result.append(DJSetResponse(
             id=s.id, name=s.name, description=s.description,
             venue=s.venue,
@@ -164,7 +170,7 @@ def list_sets(
             target_bpm_start=s.target_bpm_start,
             target_bpm_end=s.target_bpm_end,
             genre_tags=s.genre_tags or [],
-            status=s.status, track_count=count,
+            status=s.status, track_count=int(count or 0),
         ))
     return result
 
@@ -220,7 +226,40 @@ def get_set(
         .order_by(DJSetTrack.position.asc())
         .all()
     )
-    tracks = [_build_set_track_response(e, db) for e in entries]
+
+    # ⚡ OPTIM : 1 requête bulk au lieu de N*2 — on charge Track + Analysis en batch.
+    track_ids = [e.track_id for e in entries]
+    tracks_map = {}
+    analyses_map = {}
+    if track_ids:
+        tracks_map = {
+            t.id: t for t in
+            db.query(Track).filter(Track.id.in_(track_ids)).all()
+        }
+        analyses_map = {
+            a.track_id: a for a in
+            db.query(TrackAnalysis).filter(TrackAnalysis.track_id.in_(track_ids)).all()
+        }
+
+    tracks = []
+    for e in entries:
+        track = tracks_map.get(e.track_id)
+        analysis = analyses_map.get(e.track_id)
+        tracks.append(SetTrackResponse(
+            id=e.id,
+            track_id=e.track_id,
+            position=e.position,
+            transition_type=e.transition_type,
+            transition_point_ms=e.transition_point_ms,
+            notes=e.notes,
+            title=track.title if track else None,
+            artist=track.artist if track else None,
+            bpm=analysis.bpm if analysis else None,
+            key=analysis.key if analysis else None,
+            camelot=key_to_camelot(analysis.key) if analysis and analysis.key else None,
+            duration_ms=analysis.duration_ms if analysis else None,
+        ))
+
     return DJSetDetailResponse(
         id=s.id, name=s.name, description=s.description,
         venue=s.venue,
@@ -452,6 +491,13 @@ def get_set_stats(
     if not entries:
         return {"track_count": 0, "total_duration_ms": 0}
 
+    # ⚡ OPTIM : 1 seule requête pour tous les TrackAnalysis au lieu de N requêtes.
+    track_ids = [e.track_id for e in entries]
+    analyses_map = {
+        a.track_id: a for a in
+        db.query(TrackAnalysis).filter(TrackAnalysis.track_id.in_(track_ids)).all()
+    }
+
     total_duration = 0
     bpms = []
     keys = []
@@ -461,9 +507,7 @@ def get_set_stats(
     prev_key = None
 
     for entry in entries:
-        analysis = db.query(TrackAnalysis).filter(
-            TrackAnalysis.track_id == entry.track_id
-        ).first()
+        analysis = analyses_map.get(entry.track_id)
         if analysis:
             if analysis.duration_ms:
                 total_duration += analysis.duration_ms
