@@ -133,7 +133,7 @@ def main():
     print(f"  → L'app desktop proposera la mise à jour automatiquement")
     print(f"  → Le site web affichera v{new_version} dans ~5 min")
     print()
-    print(f"Suivre le build : https://github.com/kdumontm/trackcue-saas/actions")
+    print(f"Suivre le build : https://github.com/kdumontm/cueforge-saas/actions")
 
 
 if __name__ == "__main__":

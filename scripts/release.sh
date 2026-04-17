@@ -72,4 +72,4 @@ fi
 
 echo ""
 echo "🎉 Release v$NEW_VERSION terminée !"
-echo "   → GitHub : https://github.com/kdumontm/trackcue-saas/releases/tag/v$NEW_VERSION"
+echo "   → GitHub : https://github.com/kdumontm/cueforge-saas/releases/tag/v$NEW_VERSION"
