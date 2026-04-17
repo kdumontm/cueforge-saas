@@ -13,9 +13,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Version applicative (source unique, utilisée par FastAPI, health, system-info et header X-API-Version)
-    APP_VERSION: str = "6.0.0"
-
     # Security — définir SECRET_KEY dans les variables d'env Railway (obligatoire en prod)
     SECRET_KEY: str = "trackcue-default-key-set-in-railway-env"
     ALGORITHM: str = "HS256"
@@ -105,7 +102,8 @@ class Settings(BaseSettings):
     MIX_UPLOAD_DIR: str = "/tmp/trackcue_mixes"
     FEATURE_CACHE_DIR: str = "/tmp/trackcue_feature_cache"
     ONNX_CACHE_DIR: str = "/tmp/trackcue_onnx_cache"
-    APP_VERSION: str = "unknown"
+    # Version applicative (source unique — utilisée par FastAPI, /health, /system-info et X-API-Version)
+    APP_VERSION: str = "6.0.0"
 
     # CORS — liste de domaines séparés par des virgules (ne jamais laisser "*" en prod)
     CORS_ORIGINS: str = "https://exquisite-art-production-f4c6.up.railway.app,https://trackcue-saas-production.up.railway.app,https://www.trackcue.com,https://trackcue.com,https://www.trackcue.fr,https://trackcue.fr,https://trackcue.app,https://www.trackcue.app,http://localhost:3000,http://127.0.0.1:3000"
