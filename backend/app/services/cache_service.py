@@ -63,6 +63,17 @@ def _get_redis():
         return None
 
 
+def get_redis_client():
+    """
+    Shared Redis client accessor for modules other than cache_service
+    (e.g. analysis_queue). Single source of truth for Redis connection:
+    - Applique le fix ssl_cert_reqs (seulement pour rediss://).
+    - Lazy init + fallback None si indispo.
+    Returns a connected redis.Redis or None.
+    """
+    return _get_redis()
+
+
 def get_cache_status() -> dict:
     """
     Retourne l'état du cache pour exposition dans /health.

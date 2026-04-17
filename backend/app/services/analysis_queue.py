@@ -20,10 +20,6 @@ from collections import deque
 
 logger = logging.getLogger(__name__)
 
-# Redis connection
-_redis_client = None
-_redis_available = None
-
 QUEUE_KEY = "trackcue:analysis:queue"
 PROCESSING_KEY = "trackcue:analysis:processing"
 DEAD_LETTER_KEY = "trackcue:analysis:dead_letter"
@@ -33,24 +29,16 @@ AVG_ANALYSIS_TIME = 45  # seconds, updated dynamically
 
 
 def _get_redis():
-    """Get Redis client, lazy-initialized."""
-    global _redis_client, _redis_available
-    if _redis_available is False:
-        return None
-    if _redis_client is not None:
-        return _redis_client
-
+    """
+    Get Redis client via cache_service (single source of truth).
+    Applique le fix ssl_cert_reqs pour rediss:// + utilise le client
+    déjà connecté (évite une 2e connexion + un 2e endroit de drift).
+    """
     try:
-        import redis
-        redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-        _redis_client = redis.from_url(redis_url, decode_responses=True, socket_timeout=5)
-        _redis_client.ping()
-        _redis_available = True
-        logger.info(f"Redis queue connected: {redis_url}")
-        return _redis_client
+        from app.services.cache_service import get_redis_client
+        return get_redis_client()
     except Exception as e:
-        _redis_available = False
-        logger.warning(f"Redis not available, using in-memory queue: {e}")
+        logger.warning(f"Redis (via cache_service) not available: {e}")
         return None
 
 
