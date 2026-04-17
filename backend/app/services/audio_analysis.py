@@ -128,16 +128,27 @@ class _PerfTracker:
             log.info(f"[PERF] total={total_ms}ms track={track_id} breakdown={breakdown}")
         except Exception:
             pass
-        # pousser dans Redis (best-effort, TTL 7j) — expose pour endpoint admin futur
+        # pousser dans Redis (best-effort, TTL 7j) — expose pour endpoint admin
         if track_id is not None:
             try:
-                from app.services.cache_service import cache_set
-                cache_set(
-                    "analysis_perf",
-                    str(track_id),
-                    {"total_ms": total_ms, "breakdown": breakdown},
-                    ttl=86400 * 7,
-                )
+                from app.services.cache_service import cache_set, get_redis_client
+                payload = {
+                    "track_id": track_id,
+                    "total_ms": total_ms,
+                    "breakdown": breakdown,
+                    "ts": self._t.time(),
+                }
+                cache_set("analysis_perf", str(track_id), payload, ttl=86400 * 7)
+                # Liste capped à 100 pour /diagnostics/perf/recent
+                r = get_redis_client()
+                if r:
+                    try:
+                        import json as _j
+                        r.lpush("trackcue:analysis_perf_recent", _j.dumps(payload))
+                        r.ltrim("trackcue:analysis_perf_recent", 0, 99)
+                        r.expire("trackcue:analysis_perf_recent", 86400 * 30)
+                    except Exception:
+                        pass
             except Exception:
                 pass
         return {"total_ms": total_ms, "breakdown": breakdown}

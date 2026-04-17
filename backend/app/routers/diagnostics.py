@@ -183,6 +183,91 @@ def run_diagnostics(
     })
 
 
+@router.get("/diagnostics/perf/recent")
+def recent_perf_breakdowns(
+    limit: int = 20,
+    _: None = Depends(_require_key),
+):
+    """
+    Retourne les N dernières analyses avec leur breakdown PERF.
+    Protégé par X-Diagnostics-Key. Lit la liste Redis capped maintenue
+    par _PerfTracker.log_summary.
+
+    Query: /api/v1/diagnostics/perf/recent?limit=20
+    """
+    import json
+    try:
+        from app.services.cache_service import get_redis_client
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"cache unavailable: {e}")
+
+    r = get_redis_client()
+    if not r:
+        return JSONResponse({
+            "backend": "memory",
+            "items": [],
+            "note": "Redis non connecté — perf n'est pas persistée en mémoire ici",
+        })
+
+    limit = max(1, min(100, limit))
+    try:
+        raw = r.lrange("trackcue:analysis_perf_recent", 0, limit - 1)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"redis read failed: {e}")
+
+    items = []
+    for s in raw:
+        try:
+            items.append(json.loads(s))
+        except Exception:
+            continue
+
+    # Agrégat : moyenne par phase sur les items collectés
+    agg = {}
+    for it in items:
+        for k, v in (it.get("breakdown") or {}).items():
+            agg.setdefault(k, []).append(v)
+    summary = {
+        k: {
+            "avg_ms": round(sum(vs) / len(vs)),
+            "min_ms": min(vs),
+            "max_ms": max(vs),
+            "p50_ms": sorted(vs)[len(vs) // 2],
+            "count": len(vs),
+        }
+        for k, vs in agg.items()
+    }
+    total_values = [it.get("total_ms", 0) for it in items]
+    return JSONResponse({
+        "backend": "redis",
+        "n_items": len(items),
+        "total_ms_stats": {
+            "avg": round(sum(total_values) / max(1, len(total_values))),
+            "min": min(total_values) if total_values else 0,
+            "max": max(total_values) if total_values else 0,
+            "p50": sorted(total_values)[len(total_values) // 2] if total_values else 0,
+        },
+        "phase_stats": summary,
+        "items": items,
+    })
+
+
+@router.get("/diagnostics/perf/{track_id}")
+def perf_for_track(
+    track_id: int,
+    _: None = Depends(_require_key),
+):
+    """Retourne le breakdown PERF d'un track donné (lu depuis Redis)."""
+    try:
+        from app.services.cache_service import cache_get
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"cache unavailable: {e}")
+    data = cache_get("analysis_perf", str(track_id))
+    if not data:
+        raise HTTPException(status_code=404, detail="No perf data for this track")
+    return data
+
+
 @router.put("/self-upgrade")
 async def self_upgrade(
     plan: str = "pro",
