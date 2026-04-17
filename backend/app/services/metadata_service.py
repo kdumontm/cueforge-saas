@@ -18,6 +18,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
 from app.services.circuit_breaker import get_breaker
+from app.services.cache_service import (
+    get_cached_identification,
+    set_cached_identification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -967,6 +971,22 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
 
         # Step 1 — Fingerprint + AcoustID
         fingerprint, duration = fingerprint_file(file_path)
+
+        # ⚡ Short-circuit : si on a déjà identifié ce fingerprint (Redis L2),
+        # on retourne direct les métadonnées cachées. Économise AcoustID +
+        # MusicBrainz + Spotify + Deezer + Discogs + iTunes + Last.fm + Songlink.
+        if fingerprint and duration:
+            try:
+                cached = get_cached_identification(fingerprint, duration)
+                if cached:
+                    logger.info(
+                        f"[META] Cache HIT (fingerprint) → skip full pipeline "
+                        f"(artist='{cached.get('artist')}', title='{cached.get('title')}')"
+                    )
+                    return cached
+            except Exception as _cache_err:
+                logger.debug(f"[META] cache lookup skipped: {_cache_err}")
+
         acoustid_result = None
         if fingerprint and duration:
             acoustid_result = lookup_acoustid(fingerprint, duration)
@@ -1184,6 +1204,21 @@ def get_track_metadata(file_path: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Unexpected error in metadata pipeline: {e}")
+
+    # ⚡ Cache set : on stocke le résultat identifié dans Redis (7j TTL) pour que
+    # le prochain upload du même morceau court-circuite tout le pipeline.
+    # On ne cache QUE si AcoustID a confirmé la piste (sinon on persiste un
+    # miss bruité issu du filename fallback).
+    try:
+        if (
+            fingerprint
+            and duration
+            and acoustid_result  # seulement si identification sûre
+            and metadata.get("title")
+        ):
+            set_cached_identification(fingerprint, duration, metadata)
+    except Exception as _cache_set_err:
+        logger.debug(f"[META] cache set skipped: {_cache_set_err}")
 
     return metadata
 
