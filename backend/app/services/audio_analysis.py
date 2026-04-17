@@ -57,6 +57,91 @@ except Exception:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Perf tracking (piste 1 speedup) — permet de voir en un log quel phase mange
+# combien de temps. Sans budget on ne peut pas profiler en prod avec cProfile,
+# mais un récap agrégé dans les logs Railway donne déjà 80% de l'info utile.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _PerfTracker:
+    """Agrégateur léger de timings. Usage :
+        p = _PerfTracker()
+        with p.phase("bpm"): ...
+        ...
+        p.log_summary(logger, track_id)
+    """
+
+    def __init__(self):
+        import time as _t
+        self._t = _t
+        self._start = _t.perf_counter()
+        self._marks: list[tuple[str, float]] = [("start", self._start)]
+
+    def mark(self, name: str) -> None:
+        self._marks.append((name, self._t.perf_counter()))
+
+    class _Phase:
+        def __init__(self, tracker, name):
+            self.tracker = tracker
+            self.name = name
+
+        def __enter__(self):
+            self.t0 = self.tracker._t.perf_counter()
+            return self
+
+        def __exit__(self, *_args):
+            dt = (self.tracker._t.perf_counter() - self.t0) * 1000
+            self.tracker._marks.append((self.name, self.tracker._t.perf_counter()))
+            # stocker le delta ms directement pour éviter re-calcul
+            self.tracker._direct = getattr(self.tracker, "_direct", {})
+            self.tracker._direct[self.name] = int(dt)
+            return False
+
+    def phase(self, name: str):
+        return self._Phase(self, name)
+
+    def log_summary(self, log, track_id=None) -> dict:
+        """Log '[PERF] total=Xms breakdown={...}' + retourne le dict pour
+        éventuellement le pousser dans Redis."""
+        # breakdown = differences entre marks successifs
+        breakdown = {}
+        prev_t = self._start
+        seen = set()
+        for name, t in self._marks[1:]:
+            key = name
+            # éviter collisions si même nom 2 fois
+            if key in seen:
+                i = 2
+                while f"{key}_{i}" in seen:
+                    i += 1
+                key = f"{key}_{i}"
+            seen.add(key)
+            breakdown[key] = int((t - prev_t) * 1000)
+            prev_t = t
+        # si on a des deltas directs via phase(), on les préfère
+        direct = getattr(self, "_direct", {})
+        for k, v in direct.items():
+            breakdown[k] = v
+        total_ms = int((self._t.perf_counter() - self._start) * 1000)
+        try:
+            log.info(f"[PERF] total={total_ms}ms track={track_id} breakdown={breakdown}")
+        except Exception:
+            pass
+        # pousser dans Redis (best-effort, TTL 7j) — expose pour endpoint admin futur
+        if track_id is not None:
+            try:
+                from app.services.cache_service import cache_set
+                cache_set(
+                    "analysis_perf",
+                    str(track_id),
+                    {"total_ms": total_ms, "breakdown": breakdown},
+                    ttl=86400 * 7,
+                )
+            except Exception:
+                pass
+        return {"total_ms": total_ms, "breakdown": breakdown}
+
 # ══════════════════════════════════════════════════════════════════════════
 #   MODEL CACHING SINGLETONS (Section A: Points 5-6)
 # ══════════════════════════════════════════════════════════════════════════
@@ -4912,6 +4997,9 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     - Cache expensive features (STFT, beats, etc.) to disk
     - Save checkpoints after each major analysis step
     """
+    # Perf tracker (piste 1 speedup) — agrège tous les timings dans un seul log
+    _perf = _PerfTracker()
+
     # Try to resume from checkpoint (Points 511-519)
     checkpoint = load_analysis_checkpoint(file_path)
     completed_steps = checkpoint.get('_completed_steps', []) if checkpoint else []
@@ -4938,6 +5026,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
 
     # ⚡ Progress checkpoint: loading done
     _publish_progress(track_id, "loading", {"duration_ms": duration_ms}, percent=5)
+    _perf.mark("load")
 
     # ── Pre-compute onset strength ONCE (Point 16) ──
     # Used by BPM, drops, danceability, genre detection
@@ -4952,6 +5041,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         precomputed_onset_env = librosa.onset.onset_strength(y=y, sr=sr_loaded, hop_length=HOP_LENGTH)
         save_feature(file_path, 'onset_strength', precomputed_onset_env)
     logger.info(f"[ONSET] Pre-computed in {(time.perf_counter()-t0_onset)*1000:.0f}ms")
+    _perf.mark("onset")
 
     # BPM and beats — v5.4 madmom + librosa fallback
     bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded, file_path=file_path)
@@ -4993,6 +5083,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         'beat_positions': beat_positions,
         '_completed_steps': completed_steps + ['bpm'],
     })
+    _perf.mark("bpm")
 
     # ── ADVANCED BPM ANALYSIS: 11 nouvelles fonctions intégrées ─────────
     # Ces fonctions affinent et valident le BPM détecté par les méthodes standard
@@ -5108,6 +5199,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # ── Memory cleanup after advanced BPM analysis (Point 87) ──
     del y_mmap
     gc.collect()
+    _perf.mark("bpm_advanced")
 
     # Point 402: Run key detection in parallel with later tasks (prep only here)
     # Key detection will be done later in parallel batch
@@ -5167,6 +5259,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         {"energy": float(energy) if energy is not None else None},
         percent=45,
     )
+    _perf.mark("energy")
 
     # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS (Point 56)
     try:
@@ -5186,6 +5279,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         {"num_drops": len(drops)},
         percent=65,
     )
+    _perf.mark("drops")
 
     # Beat-synchronous RMS for section labeling — v6.1: reuse shared_rms
     try:
@@ -5238,6 +5332,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         {"num_sections": len(section_labels)},
         percent=75,
     )
+    _perf.mark("sections")
 
     # Phrases (8-bar grid)
     try:
@@ -5327,6 +5422,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
              "key_secondary": key_secondary},
             percent=85,
         )
+        _perf.mark("key")
 
         try:
             loudness_data = analyze_loudness(y, sr_loaded)
@@ -5496,6 +5592,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         except Exception as e:
             logger.error(f"[STEM] Stem analysis failed (continuing with standard analysis): {e}")
             stem_data = {"stem_analysis": False, "stem_error": str(e)[:200]}
+    _perf.mark("stems")
 
     # ── v6.3: Apply section confidence scoring to improve label quality ──
     # score_section_label_confidence() was computed but discarded before v6.3
@@ -5866,6 +5963,7 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
     # Point 511-519: Clear checkpoint after successful analysis completion
     clear_checkpoint(file_path)
     logger.info("[CACHE] Analysis complete, checkpoint cleared")
+    _perf.mark("deep")
 
     # ⚡ Progress checkpoint final: on envoie un snapshot compact du résultat
     # pour que le SSE ait tous les partiels en cache même si l'UI reconnecte
@@ -5888,6 +5986,15 @@ def analyze_audio(file_path: str, use_stem_separation: bool = False, track_id: O
         )
     except Exception as _e:
         logger.debug(f"final progress publish failed: {_e}")
+
+    # ⚡ Piste 1 speedup : récap PERF agrégé dans les logs Railway
+    # Format : [PERF] total=Xms track=N breakdown={'load':..., 'bpm':..., ...}
+    # Sert de base aux pistes 2/3/4 (lazy/skip/vectorisation).
+    # Publié aussi dans Redis (7j) pour lecture offline via endpoint admin.
+    try:
+        _perf.log_summary(logger, track_id)
+    except Exception as _e:
+        logger.debug(f"perf summary failed: {_e}")
 
     return result
 
