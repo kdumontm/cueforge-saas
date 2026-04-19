@@ -85,6 +85,12 @@ class Track(Base):
     camelot_code = Column(String(5), nullable=True)     # e.g. "8A", "11B"
     last_played_at = Column(DateTime, nullable=True)
 
+    # Piste 3 speedup — fingerprint du signal audio décodé (SHA1 hex, 40 chars)
+    # Permet de détecter un doublon même si le fichier a été renommé/recompressé
+    # (mp3 vs flac du même master, wav vs mp3 320, etc.). Calculé sur les 30
+    # premières secondes décodées à 11kHz mono → même hash pour un même audio.
+    audio_fingerprint = Column(String(64), nullable=True, index=True)
+
     # Relationships
     user = relationship("User", back_populates="tracks")
     organization = relationship("Organization", back_populates="tracks", foreign_keys=[org_id])
@@ -109,6 +115,8 @@ class Track(Base):
         # ⚡ NEW: Index trigram pour recherche textuelle fuzzy
         Index("ix_tracks_title_trgm", "title", postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"}),
         Index("ix_tracks_artist_trgm", "artist", postgresql_using="gin", postgresql_ops={"artist": "gin_trgm_ops"}),
+        # ⚡ Piste 3 : lookup rapide des jumeaux par fingerprint audio
+        Index("ix_tracks_user_fingerprint", "user_id", "audio_fingerprint"),
     )
     analysis = relationship(
         "TrackAnalysis", back_populates="track",

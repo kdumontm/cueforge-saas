@@ -404,6 +404,129 @@ def stream_audio(
 
 # ── Analyze ──────────────────────────────────────────────────────────────────
 
+# Colonnes de TrackAnalysis à cloner quand on détecte un jumeau via fingerprint.
+# Exclut id, track_id, analyzed_at (nouvelles valeurs pour la ligne clonée).
+_TWIN_ANALYSIS_FIELDS = [
+    "bpm", "bpm_confidence", "key", "energy", "duration_ms",
+    "drop_positions", "phrase_positions", "beat_positions", "section_labels",
+    "waveform_peaks", "waveform_url", "spectral_energy",
+    "beatgrid", "downbeat_ms", "time_signature",
+    "key_confidence", "loudness_db", "loudness_lufs", "loudness_range_lu",
+    "replay_gain_db", "bpm_map", "bpm_stable", "key_secondary",
+    "vocal_percentage", "mood", "danceability",
+    "stereo_width", "mono_compatibility", "stereo_balance", "stereo_width_label",
+    "spectral_centroid_mean", "brightness_label", "bpm_advanced",
+    "has_clipping", "clipping_ratio", "has_dc_offset", "dc_offset_mean",
+    "true_peak_db", "true_peak_value",
+    "structural_summary",
+    "encoding_quality", "estimated_bitrate_kbps", "is_upscaled",
+    "spectral_rolloff_hz", "spectral_contrast_mean",
+    "audio_quality_score", "audio_quality_grade", "audio_quality_breakdown",
+    "accent_points",
+    "rhythm_summary", "spectral_summary", "dj_mix_recommendations",
+    "quality_extended",
+    "sub_bass_quality", "sub_bass_clarity",
+    "loudness_war_detected", "loudness_war_severity", "compression_score",
+    "groove_swing", "syncopation_index", "rhythmic_complexity",
+    "offbeat_energy_ratio", "beat_strength_mean",
+    "harmonic_summary", "vocal_analysis", "production_analysis",
+    "mixing_compatibility",
+    "section_deep_analysis", "loudness_deep_analysis", "key_deep_analysis",
+]
+
+
+def _clone_analysis_from_twin(
+    db: Session,
+    track: Track,
+    twin: Track,
+    twin_analysis: TrackAnalysis,
+):
+    """
+    Piste 3 speedup — clone les résultats d'analyse d'un track jumeau
+    (même fingerprint audio) au lieu de re-tourner le pipeline complet.
+
+    Clone :
+    - TrackAnalysis (tous les champs techniques)
+    - CuePoint (positions, types, couleurs…)
+    - LoopMarker (boucles auto-détectées)
+
+    Ne clone PAS :
+    - Les métadonnées musicales (title/artist/album) car elles viennent
+      du fichier uploadé (ID3 tags) et peuvent différer entre jumeaux
+    - Le genre auto : on le recopie via track.genre uniquement si vide
+
+    Met aussi status=completed + crée une notification.
+    """
+    from app.models.track import LoopMarker
+
+    # Clone TrackAnalysis
+    new_analysis = TrackAnalysis(track_id=track.id)
+    for field in _TWIN_ANALYSIS_FIELDS:
+        try:
+            setattr(new_analysis, field, getattr(twin_analysis, field, None))
+        except Exception:
+            pass
+    db.add(new_analysis)
+    db.flush()
+
+    # Clone cue points
+    twin_cues = db.query(CuePoint).filter(CuePoint.track_id == twin.id).all()
+    for tc in twin_cues:
+        cue = CuePoint(
+            track_id=track.id,
+            position_ms=tc.position_ms,
+            end_position_ms=tc.end_position_ms,
+            cue_type=tc.cue_type,
+            name=tc.name,
+            color=tc.color,
+            number=tc.number,
+            confidence=tc.confidence,
+        )
+        db.add(cue)
+
+    # Clone loop markers
+    twin_loops = db.query(LoopMarker).filter(LoopMarker.track_id == twin.id).all()
+    for tl in twin_loops:
+        loop = LoopMarker(
+            track_id=track.id,
+            start_ms=tl.start_ms,
+            end_ms=tl.end_ms,
+            name=tl.name,
+            color=tl.color,
+            number=tl.number,
+            length_beats=tl.length_beats,
+            auto_generated=tl.auto_generated,
+        )
+        db.add(loop)
+
+    # Hériter du genre si pas déjà défini sur le nouveau track
+    if twin.genre and not track.genre:
+        track.genre = twin.genre
+
+    # Marquer complété
+    track.status = TrackStatus.completed
+    safe_commit(db)
+
+    # Notification
+    try:
+        notif = Notification(
+            user_id=track.user_id,
+            type="analysis_complete",
+            title="Analyse terminée",
+            message=f"L'analyse de « {track.title or track.original_filename} » est terminée.",
+            link=f"/dashboard?track={track.id}",
+        )
+        db.add(notif)
+        safe_commit(db)
+    except Exception as e:
+        logger.warning(f"[FP-CLONE] Notification failed: {e}")
+
+    logger.info(
+        f"[FP-CLONE] Cloned analysis from twin {twin.id} → track {track.id} "
+        f"({len(twin_cues)} cues, {len(twin_loops)} loops)"
+    )
+
+
 def _run_analysis(track_id: int):
     """Background task: run audio analysis + metadata lookup.
 
@@ -492,6 +615,46 @@ def _run_analysis(track_id: int):
         safe_commit(db)
         _log(f"[ANALYSIS] Phase 1 done — status set to analyzing")
 
+        # ─ PHASE 1.5 (piste 3) : fingerprint audio + lookup jumeau ─
+        # Calcule un SHA1 des 30 premières secondes décodées. Si un track
+        # jumeau existe chez le même user (status=completed + analysis), on
+        # clone les résultats au lieu de re-tourner 30-120s d'analyse.
+        _fp_skip_enabled = os.environ.get("FINGERPRINT_SKIP", "1") == "1"
+        _twin_found = False
+        if _fp_skip_enabled:
+            try:
+                fp = analysis_svc.compute_audio_fingerprint(file_path)
+                if fp:
+                    _log(f"[FP] Track {track_id} fingerprint={fp[:16]}…")
+                    track.audio_fingerprint = fp
+                    safe_commit(db)
+
+                    # Cherche un jumeau : même user, même fingerprint, status=completed, !self
+                    twin = (
+                        db.query(Track)
+                        .filter(
+                            Track.user_id == user_id,
+                            Track.audio_fingerprint == fp,
+                            Track.id != track.id,
+                            Track.status == TrackStatus.completed,
+                        )
+                        .first()
+                    )
+                    if twin:
+                        twin_analysis = db.query(TrackAnalysis).filter(
+                            TrackAnalysis.track_id == twin.id
+                        ).first()
+                        if twin_analysis:
+                            _log(f"[FP] ✓ Twin trouvé (track {twin.id}) — clone des résultats, skip analyse")
+                            _clone_analysis_from_twin(db, track, twin, twin_analysis)
+                            _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (fingerprint skip, twin={twin.id})")
+                            _twin_found = True
+            except Exception as fp_err:
+                logger.warning(f"[FP] Fingerprint lookup failed (non-fatal): {fp_err}")
+                db.rollback()
+                # Re-fetch track (rollback vient de l'invalider)
+                track = db.query(Track).filter(Track.id == track_id).first()
+
         # Check stem separation preference
         use_stems = False
         try:
@@ -515,6 +678,17 @@ def _run_analysis(track_id: int):
         return
     finally:
         db.close()
+
+    # Si un jumeau a été trouvé (piste 3), on skip tout le pipeline d'analyse.
+    # status=completed est déjà commité dans _clone_analysis_from_twin.
+    if _twin_found:
+        _release_quota(_quota_user_id)
+        try:
+            from app.services.cache_service import clear_analysis_progress
+            clear_analysis_progress(track_id)
+        except Exception:
+            pass
+        return
 
     # ─ PHASE 2 : Analyse SANS session DB (30-120s) ─
     # Piste 2 speedup : defer_deep=True par défaut → la phase deep (~120s)

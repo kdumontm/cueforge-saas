@@ -92,6 +92,8 @@ PENDING_MIGRATIONS = {
         "last_played_at": "TIMESTAMP",
         # Multi-tenant
         "org_id": "INTEGER",
+        # Piste 3 — fingerprint audio pour skip intelligent des doublons
+        "audio_fingerprint": "VARCHAR(64)",
     },
     "track_analyses": {
         # Waveform and spectral data columns
