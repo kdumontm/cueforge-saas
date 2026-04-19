@@ -158,6 +158,7 @@ class _PerfTracker:
 # ══════════════════════════════════════════════════════════════════════════
 
 _beat_this_model = None
+_beat_this_audio_model = None  # Piste 4: Audio2Beats pour signal déjà décodé
 _madmom_processor = None
 
 
@@ -171,6 +172,23 @@ def _get_beat_this_model():
         except Exception:
             pass
     return _beat_this_model
+
+
+def _get_beat_this_audio_model():
+    """
+    Piste 4 speedup: lazy-load Audio2Beats once (accepte un numpy array).
+    Évite le re-decode du fichier audio quand y est déjà loaded.
+    Fallback silencieux si Audio2Beats n'est pas dispo (ancien beat_this).
+    """
+    global _beat_this_audio_model
+    if _beat_this_audio_model is None:
+        try:
+            from beat_this.inference import Audio2Beats
+            _beat_this_audio_model = Audio2Beats(device="cpu", dbn=False)
+        except Exception as e:
+            logger.debug(f"[BEAT_THIS] Audio2Beats not available: {e}")
+            _beat_this_audio_model = None
+    return _beat_this_audio_model
 
 
 def _get_madmom_processor():
@@ -2812,6 +2830,49 @@ def _detect_bpm_beat_this(file_path: str) -> Optional[Dict]:
         return None
 
 
+def _detect_bpm_beat_this_from_y(y: np.ndarray, sr: int) -> Optional[Dict]:
+    """
+    Piste 4 speedup: beat_this sur signal numpy déjà décodé.
+    Utilise Audio2Beats au lieu de File2Beats → économise ~1-2s de re-decode.
+    Fallback à None si Audio2Beats n'est pas dispo.
+    """
+    try:
+        audio2beats = _get_beat_this_audio_model()
+        if audio2beats is None:
+            return None
+
+        t0 = time.perf_counter()
+        beats, downbeats = audio2beats(y, sr)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(f"beat_this (from_y) took {elapsed_ms:.0f}ms")
+
+        beats = [float(b) for b in beats]
+        if len(beats) < 8:
+            return None
+
+        ibis = np.diff(beats)
+        median_ibi = float(np.median(ibis))
+        if median_ibi <= 0:
+            return None
+        bpm_raw = 60.0 / median_ibi
+        bpm = _fold_bpm_dj_range(bpm_raw)
+        bpm = _round_bpm_smart(bpm)
+
+        logger.info(
+            f"[BEAT_THIS] (from_y) Detected {bpm} BPM, {len(beats)} beats "
+            f"(median IBI={median_ibi*1000:.1f}ms)"
+        )
+        return {
+            "bpm": bpm,
+            "beats": beats,
+            "downbeats": [float(d) for d in downbeats],
+            "source": "beat_this",
+        }
+    except Exception as e:
+        logger.warning(f"[BEAT_THIS] from_y failed: {e}")
+        return None
+
+
 def _detect_bpm_madmom(file_path: str) -> Optional[Dict]:
     """
     Detect BPM and beat positions using madmom (deep learning).
@@ -2855,19 +2916,29 @@ def _detect_bpm_madmom(file_path: str) -> Optional[Dict]:
         return None
 
 
-def _refine_first_beat(y: np.ndarray, sr: int, raw_first_beat: float, bpm: float) -> float:
+def _refine_first_beat(
+    y: np.ndarray,
+    sr: int,
+    raw_first_beat: float,
+    bpm: float,
+    onset_env: Optional[np.ndarray] = None,
+) -> float:
     """
     Refine the first beat position using onset detection.
 
     librosa's beat tracker can be off by 20-50ms on the first beat.
     We find the strongest onset near the raw first beat and use that
     as the anchor for the perfect grid.
+
+    Piste 4 speedup: si onset_env est fourni (déjà calculé en amont), on
+    évite de le recalculer (économise ~100-300ms).
     """
     try:
         expected_ibi = 60.0 / bpm
         search_window = expected_ibi * 0.4  # look ±40% of one beat
 
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
+        if onset_env is None:
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
         onset_times = librosa.times_like(onset_env, sr=sr, hop_length=HOP_LENGTH)
 
         # Find onsets near the raw first beat
@@ -2906,11 +2977,19 @@ def _validate_grid_vs_raw(grid_beats: List[float], raw_beats: List[float]) -> fl
     return float(np.median(errors))
 
 
-def _detect_bpm_parallel(file_path: str) -> Optional[Dict]:
+def _detect_bpm_parallel(
+    file_path: str,
+    y: Optional[np.ndarray] = None,
+    sr: Optional[int] = None,
+) -> Optional[Dict]:
     """
     Point 55: Run BPM detection methods in parallel (beat_this + madmom).
     Takes the first method that succeeds with good confidence.
     Parallel execution significantly reduces total analysis time.
+
+    Piste 4 speedup: si y et sr sont fournis, beat_this tourne sur le signal
+    déjà décodé (évite un 2e full-decode du fichier). Fallback vers la version
+    file-based si Audio2Beats n'est pas dispo.
 
     Strategy:
     - Launch both beat_this and madmom in parallel via ThreadPoolExecutor
@@ -2921,13 +3000,20 @@ def _detect_bpm_parallel(file_path: str) -> Optional[Dict]:
     results = {}
     t0_parallel = time.perf_counter()
 
+    # Piste 4: si y dispo, vérifier que Audio2Beats est chargé
+    use_from_y = (y is not None and sr is not None and
+                  _get_beat_this_audio_model() is not None)
+
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = {}
 
             # Launch both methods in parallel
             try:
-                futures[executor.submit(_detect_bpm_beat_this, file_path)] = 'beat_this'
+                if use_from_y:
+                    futures[executor.submit(_detect_bpm_beat_this_from_y, y, sr)] = 'beat_this'
+                else:
+                    futures[executor.submit(_detect_bpm_beat_this, file_path)] = 'beat_this'
             except Exception:
                 pass
 
@@ -2981,9 +3067,18 @@ def _detect_bpm_parallel(file_path: str) -> Optional[Dict]:
         return result
 
 
-def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -> Dict:
+def detect_bpm_and_beats_from_y(
+    y: np.ndarray,
+    sr: int,
+    file_path: str = None,
+    precomputed_onset_env: Optional[np.ndarray] = None,
+) -> Dict:
     """
     Detect BPM and beat positions — v5.5 precision DJ grid.
+
+    Piste 4 speedup: precomputed_onset_env évite de recalculer l'onset strength
+    dans _refine_first_beat (~100-300ms). Audio2Beats (si dispo) évite aussi un
+    re-decode du fichier audio dans beat_this (~1-2s).
 
     v5.5 — Stratégie hybride grille/beats réels:
     1. Détecter les vrais beats (beat_this > madmom > librosa)
@@ -3019,8 +3114,10 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
         bpm_analysis_samples = min(len(y), int(60 * sr))
         y_bpm = y[:bpm_analysis_samples]
         # ── Try beat_this and madmom in parallel (Point 55) ──
+        # Piste 4: passe y_bpm+sr pour que beat_this utilise Audio2Beats
+        # (évite un 2e decode du fichier audio depuis le disque).
         if file_path:
-            dl_result = _detect_bpm_parallel(file_path)
+            dl_result = _detect_bpm_parallel(file_path, y=y_bpm, sr=sr)
             if dl_result:
                 raw_beats = dl_result["beats"]
                 source = dl_result["source"]
@@ -3066,7 +3163,10 @@ def detect_bpm_and_beats_from_y(y: np.ndarray, sr: int, file_path: str = None) -
                 raw_arr = np.array(raw_beats[:min(200, len(raw_beats))], dtype=np.float64)
 
                 # Raffiner le premier beat via onset detection
-                refined_first = _refine_first_beat(y, sr, raw_beats[0], bpm)
+                # Piste 4: si onset_env déjà calculé en amont, on l'utilise
+                refined_first = _refine_first_beat(
+                    y, sr, raw_beats[0], bpm, onset_env=precomputed_onset_env
+                )
 
                 # ── Phase 1: Micro-search BPM optimal (JIT-compiled, Points 67-70) ──
                 best_bpm = bpm
@@ -5074,19 +5174,35 @@ def analyze_audio(
     # ── Float32 conversion + silence trimming (Points 13-14, 100) ──
     y = y.astype(np.float32)
 
-    # Trim leading/trailing silence (threshold -50dB)
-    non_silent = librosa.effects.split(y, top_db=50)
-    if len(non_silent) > 0:
-        start_sample = non_silent[0][0]
-        end_sample = non_silent[-1][1]
-        y = y[start_sample:end_sample]
-        logger.info(f"[TRIM] Removed silence: {start_sample} to {len(y) - end_sample} samples")
-    # Get REAL file duration (not limited by MAX_DURATION)
+    # Piste 4: effects.trim au lieu de effects.split — résultat fonctionnellement
+    # identique (trim début + fin) mais ~2x plus rapide (pas de STFT complet
+    # pour détecter les silences internes).
     try:
-        real_duration = librosa.get_duration(path=file_path)
-        duration_ms = int(real_duration * 1000)
-    except Exception:
-        duration_ms = int(len(y) / sr_loaded * 1000)
+        y_trimmed, (start_sample, end_sample) = librosa.effects.trim(y, top_db=50)
+        trimmed_head = int(start_sample)
+        trimmed_tail = int(len(y) - end_sample)
+        y = y_trimmed
+        logger.info(f"[TRIM] Removed silence: {trimmed_head} to {trimmed_tail} samples")
+    except Exception as e:
+        logger.debug(f"[TRIM] Failed, keeping full signal: {e}")
+
+    # Piste 4: mutagen pour la durée (header-only, microsecondes) au lieu de
+    # librosa.get_duration qui peut re-décoder le fichier MP3 entier.
+    duration_ms = None
+    try:
+        import mutagen
+        mf = mutagen.File(file_path)
+        if mf is not None and mf.info is not None and mf.info.length:
+            duration_ms = int(float(mf.info.length) * 1000)
+    except Exception as e:
+        logger.debug(f"[DURATION] mutagen failed: {e}")
+
+    if duration_ms is None:
+        try:
+            real_duration = librosa.get_duration(path=file_path)
+            duration_ms = int(real_duration * 1000)
+        except Exception:
+            duration_ms = int(len(y) / sr_loaded * 1000)
 
     # ⚡ Progress checkpoint: loading done
     _publish_progress(track_id, "loading", {"duration_ms": duration_ms}, percent=5)
@@ -5108,7 +5224,13 @@ def analyze_audio(
     _perf.mark("onset")
 
     # BPM and beats — v5.4 madmom + librosa fallback
-    bpm_data = detect_bpm_and_beats_from_y(y, sr_loaded, file_path=file_path)
+    # Piste 4: on passe l'onset_env déjà calculé pour éviter de le recalculer
+    # dans _refine_first_beat (~100-300ms économisés).
+    bpm_data = detect_bpm_and_beats_from_y(
+        y, sr_loaded,
+        file_path=file_path,
+        precomputed_onset_env=precomputed_onset_env,
+    )
     bpm = bpm_data["bpm"]
     beats = bpm_data["beats"]
     beat_frames = bpm_data.get("beat_frames", [])
@@ -5173,15 +5295,8 @@ def analyze_audio(
     except Exception as e:
         logger.debug(f"[BPM] Metadata reading failed: {e}")
 
-    # 3. Utiliser mmap pour les fichiers très volumineux (>100MB)
-    y_mmap = None
-    try:
-        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-        if file_size_mb > 100:
-            y_mmap, _, _ = _load_audio_mmap(file_path, target_sr=sr_loaded)
-            logger.info(f"[BPM] Using mmap for large file ({file_size_mb:.1f}MB)")
-    except Exception as e:
-        logger.debug(f"[BPM] mmap loading failed: {e}")
+    # 3. Piste 4: _load_audio_mmap était chargé puis jamais utilisé en aval
+    # (dead code qui coûtait ~50ms+ sur les fichiers >100MB). Supprimé.
 
     # 4. Détecter la bande d'emphasis pour les genres EDM
     emphasis_band = None
@@ -5192,14 +5307,17 @@ def analyze_audio(
     except Exception as e:
         logger.debug(f"[BPM] Onset emphasis detection failed: {e}")
 
-    # 5. Détecter beats multi-résolution (complémentaire au beat tracking)
+    # 5. Piste 4: _detect_multiresolution_beats faisait un 3e full-decode du
+    # fichier audio (~1-2s) pour un résultat uniquement loggé et jamais utilisé
+    # en aval. Skip par défaut. Ré-activable via env var CUEFORGE_BPM_MULTIRES=1.
     multiresolution_beats = None
-    try:
-        multiresolution_beats = _detect_multiresolution_beats(file_path)
-        if multiresolution_beats:
-            logger.info(f"[BPM] Multi-resolution beats detected: {len(multiresolution_beats.get('beats', []))} beats")
-    except Exception as e:
-        logger.debug(f"[BPM] Multi-resolution beat detection failed: {e}")
+    if os.environ.get("CUEFORGE_BPM_MULTIRES") == "1":
+        try:
+            multiresolution_beats = _detect_multiresolution_beats(file_path)
+            if multiresolution_beats:
+                logger.info(f"[BPM] Multi-resolution beats detected: {len(multiresolution_beats.get('beats', []))} beats")
+        except Exception as e:
+            logger.debug(f"[BPM] Multi-resolution beat detection failed: {e}")
 
     # 6. Calculer le median IBI pondéré (au lieu du simple median)
     weighted_median_ibi = None
@@ -5261,7 +5379,7 @@ def analyze_audio(
         logger.debug(f"[BPM] Windowed BPM detection failed: {e}")
 
     # ── Memory cleanup after advanced BPM analysis (Point 87) ──
-    del y_mmap
+    # Piste 4: plus de y_mmap à supprimer (dead code retiré).
     gc.collect()
     _perf.mark("bpm_advanced")
 
