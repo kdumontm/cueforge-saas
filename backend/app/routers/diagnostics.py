@@ -309,28 +309,36 @@ async def seed_mashup_tracks(
 
     Protégé par X-Diagnostics-Key + JWT.
     """
-    from app.models.track import Track, TrackStatus, TrackAnalysis
+    import traceback
+    try:
+        from app.models.track import Track, TrackStatus, TrackAnalysis
+    except Exception as e:
+        return {"error": "import failed", "detail": str(e), "traceback": traceback.format_exc()}
 
-    existing = (
-        db.query(Track)
-        .filter(Track.user_id == current_user.id)
-        .filter(Track.title.like("QA-Mashup-%"))
-        .all()
-    )
-    if existing:
-        return {
-            "created": False,
-            "tracks": [
-                {
-                    "id": t.id,
-                    "title": t.title,
-                    "bpm": t.analysis.bpm if t.analysis else None,
-                    "camelot_code": t.camelot_code,
-                    "energy_level": t.energy_level,
-                }
-                for t in existing
-            ],
-        }
+    try:
+        existing = (
+            db.query(Track)
+            .filter(Track.user_id == current_user.id)
+            .filter(Track.title.like("QA-Mashup-%"))
+            .all()
+        )
+        if existing:
+            return {
+                "created": False,
+                "tracks": [
+                    {
+                        "id": t.id,
+                        "title": t.title,
+                        "bpm": t.analysis.bpm if t.analysis else None,
+                        "camelot_code": t.camelot_code,
+                        "energy_level": t.energy_level,
+                    }
+                    for t in existing
+                ],
+            }
+    except Exception as e:
+        db.rollback()
+        return {"error": "query existing failed", "detail": str(e), "traceback": traceback.format_exc()}
 
     # bpm + key vivent sur TrackAnalysis ; camelot_code + energy_level sont
     # dénormalisés sur Track (matche le pattern existant du code mashup).
@@ -340,34 +348,38 @@ async def seed_mashup_tracks(
         {"title": "QA-Mashup-C", "artist": "QA Bot",  "bpm": 124.5, "key": "C",  "camelot_code": "8B", "energy_level": 7},
     ]
 
-    created = []
-    for f in fixtures:
-        t = Track(
-            user_id=current_user.id,
-            filename=f"qa_seed_{f['title'].lower()}.mp3",
-            original_filename=f["title"] + ".mp3",
-            file_path=None,
-            file_size=0,
-            status=TrackStatus.completed,
-            title=f["title"],
-            artist=f["artist"],
-            camelot_code=f["camelot_code"],
-            energy_level=f["energy_level"],
-        )
-        db.add(t)
-        db.flush()  # obtenir t.id pour la FK de TrackAnalysis
-        analysis = TrackAnalysis(
-            track_id=t.id,
-            bpm=f["bpm"],
-            key=f["key"],
-        )
-        db.add(analysis)
-        created.append((t, analysis))
+    try:
+        created = []
+        for f in fixtures:
+            t = Track(
+                user_id=current_user.id,
+                filename=f"qa_seed_{f['title'].lower()}.mp3",
+                original_filename=f["title"] + ".mp3",
+                file_path=None,
+                file_size=0,
+                status=TrackStatus.completed,
+                title=f["title"],
+                artist=f["artist"],
+                camelot_code=f["camelot_code"],
+                energy_level=f["energy_level"],
+            )
+            db.add(t)
+            db.flush()  # obtenir t.id pour la FK de TrackAnalysis
+            analysis = TrackAnalysis(
+                track_id=t.id,
+                bpm=f["bpm"],
+                key=f["key"],
+            )
+            db.add(analysis)
+            created.append((t, analysis))
 
-    db.commit()
-    for t, a in created:
-        db.refresh(t)
-        db.refresh(a)
+        db.commit()
+        for t, a in created:
+            db.refresh(t)
+            db.refresh(a)
+    except Exception as e:
+        db.rollback()
+        return {"error": "insert failed", "detail": str(e), "traceback": traceback.format_exc()}
 
     return {
         "created": True,
