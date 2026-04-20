@@ -413,14 +413,22 @@ async def cleanup_mashup_tracks(
     _: None = Depends(_require_key),
 ):
     """Supprime les tracks de seed QA-Mashup-* du user authentifié."""
-    from app.models.track import Track
-
-    q = (
-        db.query(Track)
-        .filter(Track.user_id == current_user.id)
-        .filter(Track.title.like("QA-Mashup-%"))
-    )
-    count = q.count()
-    q.delete(synchronize_session=False)
-    db.commit()
-    return {"deleted": count}
+    import traceback
+    try:
+        from app.models.track import Track
+        # Load puis delete via session pour honorer les cascade ORM
+        # (TrackAnalysis, CuePoint, etc.).
+        tracks = (
+            db.query(Track)
+            .filter(Track.user_id == current_user.id)
+            .filter(Track.title.like("QA-Mashup-%"))
+            .all()
+        )
+        count = len(tracks)
+        for t in tracks:
+            db.delete(t)
+        db.commit()
+        return {"deleted": count}
+    except Exception as e:
+        db.rollback()
+        return {"error": "cleanup failed", "detail": str(e), "traceback": traceback.format_exc()}
