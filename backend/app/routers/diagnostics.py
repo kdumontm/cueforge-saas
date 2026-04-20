@@ -309,7 +309,7 @@ async def seed_mashup_tracks(
 
     Protégé par X-Diagnostics-Key + JWT.
     """
-    from app.models.track import Track, TrackStatus
+    from app.models.track import Track, TrackStatus, TrackAnalysis
 
     existing = (
         db.query(Track)
@@ -321,11 +321,19 @@ async def seed_mashup_tracks(
         return {
             "created": False,
             "tracks": [
-                {"id": t.id, "title": t.title, "bpm": t.bpm, "camelot_code": t.camelot_code, "energy_level": t.energy_level}
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "bpm": t.analysis.bpm if t.analysis else None,
+                    "camelot_code": t.camelot_code,
+                    "energy_level": t.energy_level,
+                }
                 for t in existing
             ],
         }
 
+    # bpm + key vivent sur TrackAnalysis ; camelot_code + energy_level sont
+    # dénormalisés sur Track (matche le pattern existant du code mashup).
     fixtures = [
         {"title": "QA-Mashup-A", "artist": "QA Bot",  "bpm": 124.0, "key": "Am", "camelot_code": "8A", "energy_level": 7},
         {"title": "QA-Mashup-B", "artist": "QA Bot",  "bpm": 126.0, "key": "Em", "camelot_code": "9A", "energy_level": 8},
@@ -343,23 +351,36 @@ async def seed_mashup_tracks(
             status=TrackStatus.completed,
             title=f["title"],
             artist=f["artist"],
-            bpm=f["bpm"],
-            key=f["key"],
             camelot_code=f["camelot_code"],
             energy_level=f["energy_level"],
         )
         db.add(t)
-        created.append(t)
+        db.flush()  # obtenir t.id pour la FK de TrackAnalysis
+        analysis = TrackAnalysis(
+            track_id=t.id,
+            bpm=f["bpm"],
+            key=f["key"],
+        )
+        db.add(analysis)
+        created.append((t, analysis))
 
     db.commit()
-    for t in created:
+    for t, a in created:
         db.refresh(t)
+        db.refresh(a)
 
     return {
         "created": True,
         "tracks": [
-            {"id": t.id, "title": t.title, "bpm": t.bpm, "camelot_code": t.camelot_code, "energy_level": t.energy_level}
-            for t in created
+            {
+                "id": t.id,
+                "title": t.title,
+                "bpm": a.bpm,
+                "key": a.key,
+                "camelot_code": t.camelot_code,
+                "energy_level": t.energy_level,
+            }
+            for t, a in created
         ],
     }
 

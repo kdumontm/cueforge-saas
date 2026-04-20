@@ -19,6 +19,24 @@ from app.services import camelot
 logger = logging.getLogger(__name__)
 
 
+def _track_bpm(track: Track) -> float:
+    """bpm vit sur TrackAnalysis, pas Track — fallback ici."""
+    val = getattr(track, "bpm", None)
+    if val is None:
+        analysis = getattr(track, "analysis", None)
+        val = getattr(analysis, "bpm", None) if analysis is not None else None
+    return float(val) if val else 0.0
+
+
+def _track_key(track: Track) -> Optional[str]:
+    """key vit sur TrackAnalysis, pas Track — fallback ici."""
+    val = getattr(track, "key", None)
+    if not val:
+        analysis = getattr(track, "analysis", None)
+        val = getattr(analysis, "key", None) if analysis is not None else None
+    return val or None
+
+
 def compute_compatibility(track_a: Track, track_b: Track) -> CompatibilityScore:
     """
     Calcule le score de compatibilité entre deux tracks.
@@ -41,8 +59,8 @@ def compute_compatibility(track_a: Track, track_b: Track) -> CompatibilityScore:
 
     # ── Analyse harmonique ───────────────────────────────────────────────
     harmonic_score = 0.5
-    key_a = track_a.camelot_code or track_a.key
-    key_b = track_b.camelot_code or track_b.key
+    key_a = track_a.camelot_code or _track_key(track_a)
+    key_b = track_b.camelot_code or _track_key(track_b)
 
     if key_a and key_b:
         camelot_a = camelot.key_to_camelot(key_a) if not key_a else key_a
@@ -65,8 +83,8 @@ def compute_compatibility(track_a: Track, track_b: Track) -> CompatibilityScore:
 
     # ── Analyse BPM ─────────────────────────────────────────────────────
     bpm_delta_norm = 0.5
-    bpm_a = track_a.bpm or 0
-    bpm_b = track_b.bpm or 0
+    bpm_a = _track_bpm(track_a)
+    bpm_b = _track_bpm(track_b)
 
     if bpm_a > 0 and bpm_b > 0:
         bpm_ratio = bpm_b / bpm_a if bpm_a != 0 else 1.0
