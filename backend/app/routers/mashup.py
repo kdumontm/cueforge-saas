@@ -88,6 +88,7 @@ async def suggest_mashup_partners(
     # Sérialise en réponse
     result = []
     for track, compat_score in suggestions:
+        analysis = getattr(track, "analysis", None)
         result.append(
             MashupSuggestionOut(
                 track_id=track.id,
@@ -96,6 +97,8 @@ async def suggest_mashup_partners(
                 track_bpm=track.bpm,
                 track_energy=track.energy_level,
                 track_key=track.camelot_code or track.key,
+                track_beatgrid=(analysis.beatgrid if analysis else None),
+                track_downbeat_ms=(analysis.downbeat_ms if analysis else None),
                 compatibility=compat_score,
             )
         )

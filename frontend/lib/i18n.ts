@@ -26,6 +26,7 @@ export const t: Record<string, Record<Lang, string>> = {
   'sidebar.playlists':        { fr: 'Playlists',             en: 'Playlists' },
   'sidebar.smart_crates':     { fr: 'Smart Crates',          en: 'Smart Crates' },
   'sidebar.gig_prep':         { fr: 'Prép. gig',             en: 'Gig Prep' },
+  'sidebar.mashup':           { fr: 'Mashup Studio',         en: 'Mashup Studio' },
   'sidebar.activity':         { fr: 'Activité',              en: 'Activity' },
   'sidebar.dj_tools':         { fr: 'Outils DJ',             en: 'DJ Tools' },
   'sidebar.upload':           { fr: 'Importer',              en: 'Upload' },

@@ -28,6 +28,7 @@ const getNavItems = (lang: string) => [
   { href: '/dashboard/set-builder', icon: LayoutGrid, labelKey: 'sidebar.set_builder', featureKey: 'set_builder' },
   { href: '/dashboard/duplicates', icon: GitMerge, labelKey: 'sidebar.duplicates', featureKey: 'duplicates' },
   { href: '/dashboard/compatible', icon: GitBranch, labelKey: 'sidebar.mix_compatible', featureKey: 'mix_compatible' },
+  { href: '/dashboard/mashup', icon: Disc3, labelKey: 'sidebar.mashup' },
   { href: '/dashboard/playlists', icon: ListMusic, labelKey: 'sidebar.playlists', featureKey: 'playlists' },
   { href: '/dashboard/crates', icon: Layers, labelKey: 'sidebar.smart_crates', featureKey: 'smart_crates' },
   { href: '/dashboard/gig-prep', icon: Zap, labelKey: 'sidebar.gig_prep', featureKey: 'gig_prep' },
