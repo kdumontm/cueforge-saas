@@ -294,7 +294,7 @@ async def self_upgrade(
     # Note: endpoints stem-check et test-stems supprimés après validation des stems (16 avril 2026)
 
 
-@router.post("/seed-mashup-tracks")
+@router.post("/diagnostics/seed-mashup-tracks")
 async def seed_mashup_tracks(
     db: Session = Depends(get_db),
     current_user: "User" = Depends(_get_current_user),
@@ -364,7 +364,7 @@ async def seed_mashup_tracks(
     }
 
 
-@router.delete("/seed-mashup-tracks")
+@router.delete("/diagnostics/seed-mashup-tracks")
 async def cleanup_mashup_tracks(
     db: Session = Depends(get_db),
     current_user: "User" = Depends(_get_current_user),
