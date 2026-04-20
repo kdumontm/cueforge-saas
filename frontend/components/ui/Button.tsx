@@ -1,53 +1,101 @@
-'use client';
+/**
+ * Button — Composant bouton principal
+ *
+ * Variants : primary (action principale), secondary (action secondaire),
+ * ghost (minimal), danger (destructif).
+ *
+ * Sizes : sm (12px), md (16px), lg (18px)
+ *
+ * Props:
+ * - variant?: "primary" | "secondary" | "ghost" | "danger" (defaut: "primary")
+ * - size?: "sm" | "md" | "lg" (defaut: "md")
+ * - loading?: boolean (affiche spinner, désactive)
+ * - icon?: React.ReactNode (icône lucide à gauche)
+ * - disabled?: boolean
+ * - className?: string (override Tailwind)
+ *
+ * Étend HTMLButtonElement, accessible (focus ring, aria).
+ *
+ * @example
+ * <Button variant="primary" size="md" onClick={() => alert('click!')}>
+ *   Click me
+ * </Button>
+ *
+ * <Button variant="ghost" icon={<Trash2 size={16} />} />
+ */
 
-import { type LucideIcon } from 'lucide-react';
+import React from "react";
+import { Loader2 } from "lucide-react";
 
-type Variant = 'primary' | 'danger' | 'success' | 'default' | 'ghost' | 'secondary' | 'error';
-
-interface ButtonProps {
-  children?: React.ReactNode;
-  variant?: Variant;
-  icon?: LucideIcon;
-  onClick?: () => void;
-  disabled?: boolean;
-  small?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "sm" | "md" | "lg";
+  loading?: boolean;
+  icon?: React.ReactNode;
 }
 
-const variantClasses: Record<Variant, string> = {
-  primary: 'bg-blue-600 hover:bg-blue-700 text-white border-transparent',
-  danger: 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/20',
-  success: 'bg-green-500/15 hover:bg-green-500/25 text-green-400 border-green-500/20',
-  default: 'bg-[var(--bg-elevated)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border-[var(--border-subtle)]',
-  ghost: 'bg-transparent hover:bg-[var(--bg-hover)] text-[var(--text-muted)] border-transparent',
-  secondary: 'bg-zinc-500/15 hover:bg-zinc-500/25 text-zinc-400 border-zinc-500/20',
-  error: 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/20',
+const variantStyles = {
+  primary:
+    "bg-purple-600 text-white hover:bg-purple-700 active:bg-purple-800 disabled:bg-neutral-200 disabled:text-neutral-400",
+  secondary:
+    "bg-neutral-100 text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300 disabled:bg-neutral-100 disabled:text-neutral-400",
+  ghost:
+    "bg-transparent text-neutral-700 hover:bg-neutral-100 active:bg-neutral-200 disabled:text-neutral-400",
+  danger:
+    "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 disabled:bg-neutral-200 disabled:text-neutral-400",
 };
 
-export default function Button({
-  children,
-  variant = 'default',
-  icon: Icon,
-  onClick,
-  disabled,
-  small,
-  size = 'md',
-  className = '',
-}: ButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-1.5 rounded-md font-medium cursor-pointer border transition-colors
-        ${small ? 'px-2 py-[3px] text-[11px]' : 'px-3 py-1.5 text-xs'}
-        ${variantClasses[variant]}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        ${className}
-      `}
-    >
-      {Icon && <Icon size={small ? 11 : 13} />}
-      {children}
-    </button>
-  );
-}
+const sizeStyles = {
+  sm: "px-3 py-1.5 text-xs font-medium h-8 gap-1.5",
+  md: "px-4 py-2 text-sm font-medium h-10 gap-2",
+  lg: "px-6 py-3 text-base font-medium h-12 gap-2",
+};
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      variant = "primary",
+      size = "md",
+      loading = false,
+      icon,
+      disabled = false,
+      className = "",
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    const isDisabled = disabled || loading;
+
+    return (
+      <button
+        ref={ref}
+        disabled={isDisabled}
+        className={`
+          inline-flex items-center justify-center
+          rounded-lg font-medium
+          transition-colors duration-200
+          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+          disabled:cursor-not-allowed
+          ${variantStyles[variant]}
+          ${sizeStyles[size]}
+          ${className}
+        `}
+        aria-busy={loading}
+        {...props}
+      >
+        {loading ? (
+          <Loader2 size={size === "sm" ? 14 : size === "md" ? 16 : 18} className="animate-spin" />
+        ) : icon ? (
+          icon
+        ) : null}
+        {children}
+      </button>
+    );
+  }
+);
+
+Button.displayName = "Button";
+
+export { Button };
+export default Button;

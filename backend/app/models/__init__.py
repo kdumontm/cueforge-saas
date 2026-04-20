@@ -16,6 +16,7 @@ CueTemplateModel = CueTemplate  # alias rétro-compatible (anciennement dans tra
 from app.models.blog_post import BlogPost
 from app.models.referral import Referral
 from app.models.favorite import Favorite
+from app.models.mashup import Mashup, FavoriteMashup
 
 __all__ = [
     "User", "Track", "TrackAnalysis", "CuePoint", "CueRule", "LoopMarker", "CueHistory", "CUE_COLOR_RGB",
@@ -25,4 +26,5 @@ __all__ = [
     "Organization", "OrgInvite", "UsageLog", "Subscription",
     "SiteSettings", "Page", "Section", "Component", "MediaAsset",
     "ApiKey", "Webhook", "PushSubscription", "CueTemplate", "BlogPost", "Referral", "Favorite",
+    "Mashup", "FavoriteMashup",
 ]

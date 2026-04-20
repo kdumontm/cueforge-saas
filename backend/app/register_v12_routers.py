@@ -49,3 +49,10 @@ def register_v12_routers(app: FastAPI):
         app.include_router(devops.router)
     except ImportError:
         pass
+
+    # Mashup Studio (MIK parity)
+    try:
+        from app.routers import mashup
+        app.include_router(mashup.router)
+    except ImportError:
+        pass
