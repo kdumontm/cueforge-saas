@@ -80,8 +80,8 @@ export function createPitchShifter(audioCtx: AudioContext): PitchShifterNode {
         return;
       }
 
-      // @ts-ignore: soundtouch-js installed at build time by Railway
-      const { SoundTouch } = await import('soundtouch-js');
+      // @ts-ignore: soundtouchjs types not bundled
+      const { SoundTouch } = await import('soundtouchjs');
 
       // Créer une instance SoundTouch
       soundTouchEngine = new SoundTouch(audioCtx.sampleRate);

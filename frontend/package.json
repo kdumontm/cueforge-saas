@@ -22,7 +22,7 @@
     "next": "^14.2.35",
     "react": "^18",
     "react-dom": "^18",
-    "soundtouch-js": "^0.1.30",
+    "soundtouchjs": "^0.3.0",
     "swr": "^2.4.1",
     "wavesurfer.js": "^7.9.0",
     "zustand": "^4.4.0"
