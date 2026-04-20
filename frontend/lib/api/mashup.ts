@@ -41,6 +41,9 @@ export interface TrackSummary {
   duration?: number; // en ms
   energy?: number; // 0-10
   artwork_url?: string;
+  // Analyse beatgrid (optionnel)
+  beatgrid?: Array<{ position_ms: number; beat_number: number }>; // Grid des beats
+  downbeat_ms?: number; // Position du premier downbeat
 }
 
 /**
@@ -56,6 +59,9 @@ export interface MashupSuggestion {
   track_duration?: number; // optionnel, ajouté si backend l'envoie
   track_artwork_url?: string; // optionnel
   compatibility: CompatibilityScore;
+  // Analyse beatgrid (optionnel, pour Sync Beatgrid)
+  track_beatgrid?: Array<{ position_ms: number; beat_number: number }>;
+  track_downbeat_ms?: number;
 }
 
 /**

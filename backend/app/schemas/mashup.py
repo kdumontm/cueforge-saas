@@ -5,7 +5,7 @@ Définit les structures pour créer, modifier et interroger les mashups
 avec compatibilité harmonique, déltas BPM/énergie et suggestion de partners.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -123,4 +123,12 @@ class MashupSuggestionOut(BaseModel):
     track_bpm: Optional[float] = None
     track_energy: Optional[int] = None
     track_key: Optional[str] = None
+    track_beatgrid: Optional[List[Any]] = Field(
+        default=None,
+        description="Beatgrid [{position_ms, beat_number}] pour Sync Beatgrid DualDeck"
+    )
+    track_downbeat_ms: Optional[int] = Field(
+        default=None,
+        description="Premier downbeat en ms"
+    )
     compatibility: CompatibilityScore

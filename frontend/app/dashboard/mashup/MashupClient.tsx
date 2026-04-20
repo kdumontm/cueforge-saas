@@ -40,6 +40,9 @@ interface Track {
   energy?: number;
   duration?: number;
   artwork_url?: string;
+  // Analyse beatgrid (optionnel)
+  beatgrid?: Array<{ position_ms: number; beat_number: number }>;
+  downbeat_ms?: number;
 }
 
 export default function MashupClient() {
@@ -95,6 +98,8 @@ export default function MashupClient() {
               energy: track.energy,
               duration: track.duration,
               artwork_url: track.artwork_url,
+              beatgrid: track.beatgrid,
+              downbeat_ms: track.downbeat_ms,
             });
             setShowTrackModal(false);
           }
@@ -138,6 +143,8 @@ export default function MashupClient() {
       energy: track.energy,
       duration: track.duration,
       artwork_url: track.artwork_url,
+      beatgrid: track.beatgrid,
+      downbeat_ms: track.downbeat_ms,
     });
     setShowTrackModal(false);
     setTrackB(null); // Reset B
@@ -156,6 +163,8 @@ export default function MashupClient() {
       energy: suggestion.track_energy,
       duration: suggestion.track_duration,
       artwork_url: suggestion.track_artwork_url,
+      beatgrid: suggestion.track_beatgrid,
+      downbeat_ms: suggestion.track_downbeat_ms,
     });
   };
 

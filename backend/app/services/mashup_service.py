@@ -192,8 +192,8 @@ def suggest_mashup_partners(
         # Si tu as une relation Library→Track, ajoute le filtre ici
         pass
 
-    # Eager-load TrackAnalysis si présent
-    query = query.options(selectinload(Track))
+    # Eager-load TrackAnalysis pour exposer beatgrid/downbeat_ms dans la réponse
+    query = query.options(selectinload(Track.analysis))
 
     # Récupère les candidates
     candidates = query.all()

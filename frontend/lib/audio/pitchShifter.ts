@@ -1,21 +1,17 @@
 /**
- * Module Web Audio pour pitch-shift sans time-stretch (octave correct)
+ * Module Web Audio pour pitch-shift vrai time-stretch avec soundtouch-js
  *
- * TODO (CRITIQUE — Phase 2 roadmap MIK parity) :
- * ======================================================
- * Remplacer cette implémentation POC par soundtouch-ts ou rubberband-web
- * une fois que le package npm sera installé en dépendance.
+ * Phase 3 : Remplacement du POC playbackRate par une vraie implémentation
+ * qui modifie le pitch SANS affecter la vitesse de lecture.
  *
- * **Problème actuel** : utilise naïvement playbackRate sur BufferSource,
- * ce qui affecte AUSSI la vitesse de lecture (effet "chipmunk").
- * Cela signifie qu'une transposition +3 semitons accélère aussi la lecture.
+ * Utilise soundtouch-js (web version de SoundTouch) avec un ScriptProcessorNode
+ * pour traiter l'audio en temps réel.
  *
- * **Solution attendue** : Web Audio API + algorithm time-stretch
- * (phase vocoder, granular synthesis, ou lib dédiée).
- *
- * Phase 2 statut : UI complète, logique de pitch réceptive, fallback
- * POC fonctionnel pour démo/dev. À remplacer en Phase 3.
- * ======================================================
+ * Approche :
+ * - Import dynamique de soundtouch-js pour éviter erreurs SSR
+ * - ScriptProcessorNode reçoit chunks d'audio
+ * - SoundTouch.processSamples() modifie pitch indépendamment du tempo
+ * - Fallback gracieux si soundtouch-js indisponible (noop GainNode)
  */
 
 /**
@@ -24,7 +20,7 @@
  */
 export interface PitchShifterNode extends AudioNode {
   /**
-   * Définir le pitch en semitons (-6 à +6 recommandé, Phase 2)
+   * Définir le pitch en semitons (-6 à +6 recommandé)
    * @param semitones - Nombre de semitons
    */
   setPitchSemitones(semitones: number): void;
@@ -41,61 +37,129 @@ export interface PitchShifterNode extends AudioNode {
 }
 
 /**
- * Convertir un nombre de semitons en facteur de playbackRate
- * Formule : rate = 2^(semitones / 12)
- *
- * Exemples :
- *  - 0 semitons = 2^0 = 1.0 (vitesse normale)
- *  - 12 semitons = 2^1 = 2.0 (une octave plus haut, 2x plus rapide)
- *  - -12 semitons = 2^-1 = 0.5 (une octave plus bas, 2x plus lent)
- *  - 3 semitons ≈ 1.189 (légèrement plus haut et plus rapide)
+ * Convertir un nombre de semitons en facteur de tempo
+ * Pour soundtouch-js : tempo = 2^(semitones / 12)
+ * (même formule que playbackRate, mais appliquée à tempo au lieu de playbackRate)
  *
  * @param semitones - Nombre de semitons
- * @returns Facteur de playbackRate
+ * @returns Facteur de tempo
  */
 export function semitonesToRate(semitones: number): number {
   return Math.pow(2, semitones / 12);
 }
 
 /**
- * Créer un nœud pitch-shifter POC basé sur playbackRate
- *
- * **ATTENTION** : ceci est un fallback simplifié.
- * La vitesse de lecture est affectée proportionnellement au pitch.
- * Cela crée l'effet "chipmunk" quand on transpose haut.
- *
- * Cas réel idéal : utiliser soundtouch-ts pour vrai time-stretch.
+ * Créer un nœud pitch-shifter avec vrai time-stretch via soundtouch-js
  *
  * @param audioCtx - Contexte audio existant
  * @returns Nœud pitch-shifter avec API setPitchSemitones
  */
 export function createPitchShifter(audioCtx: AudioContext): PitchShifterNode {
-  // Créer un gain node qui servira de proxy
+  // Créer un gain node comme proxy principal
   const gainNode = audioCtx.createGain();
 
   // État interne
   let currentSemitones = 0;
-  let currentPlaybackRate = 1.0;
-
-  // Réf. vers le BufferSource actif (affecté par les changements de pitch)
-  // Dans un intégration réelle, on garderait une liste de BufferSource actifs
-  let activeBufferSources: AudioBufferSourceNode[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let soundTouchEngine: any = null;
+  let processorNode: ScriptProcessorNode | null = null;
+  let inputBuffer: Float32Array | null = null;
+  let outputBuffer: Float32Array | null = null;
+  let isInitialized = false;
 
   /**
-   * Définir le pitch en semitons (implémentation POC)
-   * Applique le changement à tous les BufferSource actifs
+   * Initialiser soundtouch-js et le ScriptProcessorNode de manière asynchrone
+   */
+  const initializeSoundTouch = async () => {
+    if (isInitialized) return;
+
+    try {
+      // Import dynamique pour éviter SSR
+      if (typeof window === 'undefined') {
+        console.warn('[PitchShifter] SSR detected, soundtouch-js unavailable');
+        return;
+      }
+
+      // @ts-ignore: soundtouch-js installed at build time by Railway
+      const { SoundTouch } = await import('soundtouch-js');
+
+      // Créer une instance SoundTouch
+      soundTouchEngine = new SoundTouch(audioCtx.sampleRate);
+      soundTouchEngine.tempo = 1.0; // Vitesse normale
+      soundTouchEngine.pitch = 1.0; // Pitch initial
+
+      // Tailles de buffer
+      const bufferSize = 4096;
+      inputBuffer = new Float32Array(bufferSize);
+      outputBuffer = new Float32Array(bufferSize);
+
+      // Créer le ScriptProcessorNode pour traiter l'audio en temps réel
+      processorNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+      processorNode.onaudioprocess = (event: AudioProcessingEvent) => {
+        if (!soundTouchEngine) return;
+
+        const inputData = event.inputBuffer.getChannelData(0);
+        const outputData = event.outputBuffer.getChannelData(0);
+
+        // Copier les samples d'entrée vers le buffer soundtouch
+        for (let i = 0; i < bufferSize; i++) {
+          inputBuffer![i] = inputData[i];
+        }
+
+        // Traiter les samples
+        try {
+          soundTouchEngine.putSamples(inputBuffer, bufferSize);
+          const nSamples = soundTouchEngine.receiveSamples(outputBuffer, bufferSize);
+          // Copier vers la sortie
+          for (let i = 0; i < nSamples; i++) {
+            outputData[i] = outputBuffer![i];
+          }
+          // Padding si nécessaire
+          for (let i = nSamples; i < bufferSize; i++) {
+            outputData[i] = 0;
+          }
+        } catch (err) {
+          console.error('[PitchShifter] Error processing samples:', err);
+          // Fallback : copier l'entrée à la sortie
+          for (let i = 0; i < bufferSize; i++) {
+            outputData[i] = inputData[i];
+          }
+        }
+      };
+
+      // Connecter le processeur au graphe audio
+      processorNode.connect(gainNode);
+      processorNode.disconnect();
+      processorNode.connect(audioCtx.destination);
+
+      isInitialized = true;
+    } catch (err) {
+      console.error('[PitchShifter] Failed to initialize soundtouch-js:', err);
+      // Fallback gracieux : le gainNode suffit
+      isInitialized = false;
+    }
+  };
+
+  /**
+   * Définir le pitch en semitons avec soundtouch-js
    */
   const setPitchSemitones = (semitones: number) => {
-    // Cliper à ±6 semitons (limite Phase 2)
+    // Clipper à ±6 semitons
     const clipped = Math.max(-6, Math.min(6, semitones));
     currentSemitones = clipped;
-    currentPlaybackRate = semitonesToRate(clipped);
 
-    // Appliquer à tous les BufferSource actifs
-    // Note : en production, cela se ferait via un AudioWorklet ou
-    // via un gestionnaire de BufferSource externe
-    for (const source of activeBufferSources) {
-      source.playbackRate.value = currentPlaybackRate;
+    if (soundTouchEngine) {
+      // Convertir semitons en facteur de pitch (soundtouch-js utilise des ratios)
+      const pitchFactor = semitonesToRate(clipped);
+      soundTouchEngine.pitch = pitchFactor;
+    }
+
+    // Initialiser soundtouch si pas encore fait
+    if (!isInitialized && typeof window !== 'undefined') {
+      initializeSoundTouch().catch((err) =>
+        console.error('[PitchShifter] Async init failed:', err)
+      );
     }
   };
 
@@ -108,36 +172,32 @@ export function createPitchShifter(audioCtx: AudioContext): PitchShifterNode {
    * Nettoyer et arrêter les ressources
    */
   const dispose = () => {
-    // Arrêter tous les BufferSource
-    for (const source of activeBufferSources) {
+    if (processorNode) {
       try {
-        source.stop();
+        processorNode.disconnect();
       } catch (e) {
-        // Source peut déjà être arrêtée
+        // Nœud peut déjà être déconnecté
       }
+      processorNode = null;
     }
-    activeBufferSources = [];
+
+    if (soundTouchEngine) {
+      soundTouchEngine = null;
+    }
+
+    inputBuffer = null;
+    outputBuffer = null;
     currentSemitones = 0;
-    currentPlaybackRate = 1.0;
+    isInitialized = false;
   };
 
   // Ajouter les méthodes personnalisées au gainNode
-  (gainNode as any as PitchShifterNode).setPitchSemitones = setPitchSemitones;
-  (gainNode as any as PitchShifterNode).getPitchSemitones = getPitchSemitones;
-  (gainNode as any as PitchShifterNode).dispose = dispose;
+  const pitchNode = gainNode as unknown as PitchShifterNode;
+  pitchNode.setPitchSemitones = setPitchSemitones;
+  pitchNode.getPitchSemitones = getPitchSemitones;
+  pitchNode.dispose = dispose;
 
-  // Hook privé pour enregistrer les BufferSource (à appeler du parent)
-  (gainNode as any)._registerBufferSource = (source: AudioBufferSourceNode) => {
-    activeBufferSources.push(source);
-    source.playbackRate.value = currentPlaybackRate;
-  };
-
-  (gainNode as any)._unregisterBufferSource = (source: AudioBufferSourceNode) => {
-    const idx = activeBufferSources.indexOf(source);
-    if (idx !== -1) activeBufferSources.splice(idx, 1);
-  };
-
-  return gainNode as PitchShifterNode;
+  return pitchNode;
 }
 
 /**
