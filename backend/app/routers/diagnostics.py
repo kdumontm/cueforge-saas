@@ -292,3 +292,93 @@ async def self_upgrade(
 
 
     # Note: endpoints stem-check et test-stems supprimés après validation des stems (16 avril 2026)
+
+
+@router.post("/seed-mashup-tracks")
+async def seed_mashup_tracks(
+    db: Session = Depends(get_db),
+    current_user: "User" = Depends(_get_current_user),
+    _: None = Depends(_require_key),
+):
+    """
+    Seed 3 fake tracks (sans fichier audio) pour le user authentifié,
+    avec BPM/Camelot compatibles pour exercer le flow Mashup Studio.
+
+    Idempotent : si des tracks portant le préfixe "QA-Mashup-" existent
+    déjà pour ce user, retourne ceux-là sans en recréer.
+
+    Protégé par X-Diagnostics-Key + JWT.
+    """
+    from app.models.track import Track, TrackStatus
+
+    existing = (
+        db.query(Track)
+        .filter(Track.user_id == current_user.id)
+        .filter(Track.title.like("QA-Mashup-%"))
+        .all()
+    )
+    if existing:
+        return {
+            "created": False,
+            "tracks": [
+                {"id": t.id, "title": t.title, "bpm": t.bpm, "camelot_code": t.camelot_code, "energy_level": t.energy_level}
+                for t in existing
+            ],
+        }
+
+    fixtures = [
+        {"title": "QA-Mashup-A", "artist": "QA Bot",  "bpm": 124.0, "key": "Am", "camelot_code": "8A", "energy_level": 7},
+        {"title": "QA-Mashup-B", "artist": "QA Bot",  "bpm": 126.0, "key": "Em", "camelot_code": "9A", "energy_level": 8},
+        {"title": "QA-Mashup-C", "artist": "QA Bot",  "bpm": 124.5, "key": "C",  "camelot_code": "8B", "energy_level": 7},
+    ]
+
+    created = []
+    for f in fixtures:
+        t = Track(
+            user_id=current_user.id,
+            filename=f"qa_seed_{f['title'].lower()}.mp3",
+            original_filename=f["title"] + ".mp3",
+            file_path=None,
+            file_size=0,
+            status=TrackStatus.completed,
+            title=f["title"],
+            artist=f["artist"],
+            bpm=f["bpm"],
+            key=f["key"],
+            camelot_code=f["camelot_code"],
+            energy_level=f["energy_level"],
+        )
+        db.add(t)
+        created.append(t)
+
+    db.commit()
+    for t in created:
+        db.refresh(t)
+
+    return {
+        "created": True,
+        "tracks": [
+            {"id": t.id, "title": t.title, "bpm": t.bpm, "camelot_code": t.camelot_code, "energy_level": t.energy_level}
+            for t in created
+        ],
+    }
+
+
+@router.delete("/seed-mashup-tracks")
+async def cleanup_mashup_tracks(
+    db: Session = Depends(get_db),
+    current_user: "User" = Depends(_get_current_user),
+    _: None = Depends(_require_key),
+):
+    """Supprime les tracks de seed QA-Mashup-* du user authentifié."""
+    from app.models.track import Track
+
+    q = (
+        db.query(Track)
+        .filter(Track.user_id == current_user.id)
+        .filter(Track.title.like("QA-Mashup-%"))
+    )
+    count = q.count()
+    q.delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": count}
