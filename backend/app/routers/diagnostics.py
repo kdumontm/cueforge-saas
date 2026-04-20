@@ -294,6 +294,12 @@ async def self_upgrade(
     # Note: endpoints stem-check et test-stems supprimés après validation des stems (16 avril 2026)
 
 
+@router.get("/diagnostics/deploy-marker")
+async def deploy_marker(_: None = Depends(_require_key)):
+    """Petit marker pour vérifier que le dernier deploy est en prod."""
+    return {"marker": "v3-seed-traceback", "ok": True}
+
+
 @router.post("/diagnostics/seed-mashup-tracks")
 async def seed_mashup_tracks(
     db: Session = Depends(get_db),
@@ -310,10 +316,13 @@ async def seed_mashup_tracks(
     Protégé par X-Diagnostics-Key + JWT.
     """
     import traceback
+    # MARKER v3 — pour vérifier que le nouveau code est bien déployé
     try:
         from app.models.track import Track, TrackStatus, TrackAnalysis
     except Exception as e:
         return {"error": "import failed", "detail": str(e), "traceback": traceback.format_exc()}
+    # Tout le body de cette fonction est désormais emballé dans un try global
+    # pour capturer n'importe quelle erreur en response JSON plutôt qu'en 500.
 
     try:
         existing = (
