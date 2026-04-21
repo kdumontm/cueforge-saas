@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Set Builder</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Set meta */
+  .set-meta{
+    display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:16px;
+  }
+  .set-info{padding:20px}
+  .set-title{
+    font-family:var(--font-display);font-weight:700;font-size:28px;letter-spacing:-0.02em;line-height:1.05;
+    background:transparent;border:none;color:var(--c-primary);width:100%;padding:0;outline:none;
+    transition:all var(--t-fast);
+  }
+  .set-title:focus{color:var(--amber)}
+  .set-sub{color:var(--c-secondary);font-size:13px;margin-top:6px}
+  .set-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+  .set-stat{padding:12px;background:var(--s-1);border:1px solid var(--b-subtle);border-radius:10px}
+  .set-stat .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:4px}
+  .set-stat .val{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em}
+  .set-stat .val span{font-size:12px;color:var(--c-secondary);font-weight:500}
+
+  /* Timeline */
+  .timeline-card{padding:20px;overflow:hidden}
+  .tl-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
+  .tl-title{font-family:var(--font-display);font-weight:600;font-size:16px;margin:0}
+  .tl-tools{display:flex;gap:6px}
+
+  .tl-track-bar{
+    height:60px;position:relative;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:10px;
+    overflow:hidden;
+  }
+  .tl-ruler{
+    height:22px;background:var(--s-2);border-bottom:1px solid var(--b-default);
+    display:flex;font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);
+    align-items:center;padding:0 8px;
+  }
+  .tl-ruler .tick{flex:1;border-right:1px dashed var(--b-subtle);padding-left:6px}
+  .tl-ruler .tick:last-child{border-right:none}
+
+  /* Energy curve */
+  .energy-curve{height:96px;position:relative;padding:8px 0;margin:10px 0;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:10px;
+  }
+  .energy-curve svg{width:100%;height:100%}
+  .energy-area{fill:url(#energyGrad);opacity:.3}
+  .energy-line{fill:none;stroke:url(#energyStroke);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .energy-point{fill:var(--amber);stroke:var(--s-0);stroke-width:2}
+  .energy-label{font-family:var(--font-mono);font-size:10px;fill:var(--c-primary)}
+
+  /* Track chips on timeline */
+  .tl-tracks{
+    display:flex;gap:2px;padding:6px;min-height:56px;align-items:stretch;
+    background:var(--s-2);border-radius:8px;margin-top:8px;overflow-x:auto;
+  }
+  .tl-chip{
+    flex:1;min-width:120px;height:52px;
+    background:linear-gradient(180deg,var(--chip-bg,var(--s-3)),var(--s-2));
+    border:1px solid var(--b-default);border-radius:6px;
+    padding:6px 10px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    position:relative;cursor:move;transition:all var(--t-fast);
+    overflow:hidden;
+  }
+  .tl-chip:hover{border-color:var(--amber);transform:translateY(-1px)}
+  .tl-chip::before{
+    content:"";position:absolute;inset:0;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='20'><path d='M0 10 Q10 4 20 10 T40 10 T60 10 T80 10 T100 10' fill='none' stroke='rgba(255,255,255,0.08)' stroke-width='1'/></svg>");
+    pointer-events:none;
+  }
+  .tl-chip .n{font-family:var(--font-display);font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+  .tl-chip .m{font-family:var(--font-mono);font-size:10px;color:var(--c-secondary);display:flex;justify-content:space-between;position:relative;z-index:1}
+  .tl-chip .m .ok{color:var(--green)}
+  .tl-chip .m .warn{color:var(--amber)}
+  .tl-chip .tr{
+    position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;
+    background:var(--s-3);border:1px solid var(--b-default);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--c-secondary);
+  }
+
+  /* Transition dots */
+  .tl-trans{
+    position:relative;width:24px;flex:0 0 24px;height:52px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .tl-trans .dot{
+    width:14px;height:14px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:8px;font-weight:600;
+    color:#050406;
+    box-shadow:0 0 0 3px var(--s-2),0 0 12px currentColor;
+  }
+  .tl-trans .dot.good{background:var(--green);color:var(--green)}
+  .tl-trans .dot.fair{background:var(--amber)}
+  .tl-trans .dot.risky{background:var(--pink)}
+  .tl-trans::before,.tl-trans::after{
+    content:"";position:absolute;top:50%;width:6px;height:1px;background:var(--b-default);
+  }
+  .tl-trans::before{right:50%;margin-right:7px}
+  .tl-trans::after{left:50%;margin-left:7px}
+  .tl-trans .dot[data-tt]{cursor:help}
+
+  /* Set list table */
+  .sb-grid{display:grid;grid-template-columns:1fr 340px;gap:20px}
+  .track-table{background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;overflow:hidden}
+  .tt-head{
+    display:grid;grid-template-columns:28px 28px 1fr 90px 80px 70px 90px 90px 36px;
+    gap:12px;align-items:center;
+    padding:10px 16px;border-bottom:1px solid var(--b-subtle);
+    font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary);
+  }
+  .tt-row{
+    display:grid;grid-template-columns:28px 28px 1fr 90px 80px 70px 90px 90px 36px;
+    gap:12px;align-items:center;padding:10px 16px;
+    border-bottom:1px solid var(--b-subtle);transition:background var(--t-fast);
+  }
+  .tt-row:hover{background:var(--s-2)}
+  .tt-row:last-child{border-bottom:none}
+  .tt-drag{cursor:grab;color:var(--c-tertiary)}
+  .tt-drag:active{cursor:grabbing}
+  .tt-pos{font-family:var(--font-mono);font-size:12px;color:var(--c-secondary);text-align:center}
+  .tt-title{font-family:var(--font-display);font-weight:500;font-size:13px}
+  .tt-artist{color:var(--c-secondary);font-size:12px}
+  .tt-num{font-family:var(--font-mono);font-size:12px}
+  .tt-tip{
+    width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:10px;font-weight:600;color:#050406
+  }
+  .tt-trans{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px}
+  .tt-trans .dot-sm{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+  .tt-more{width:28px;height:28px;background:transparent;border:none;color:var(--c-tertiary);cursor:pointer;border-radius:5px;transition:all var(--t-fast)}
+  .tt-more:hover{background:var(--s-3);color:var(--c-primary)}
+
+  /* Side panel */
+  .side{display:flex;flex-direction:column;gap:14px}
+  .side-card{padding:16px}
+  .side-h{font-family:var(--font-display);font-weight:600;font-size:14px;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+  .sug-list{display:flex;flex-direction:column;gap:6px}
+  .sug{
+    display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;
+    padding:8px;border-radius:8px;cursor:pointer;transition:all var(--t-fast);
+  }
+  .sug:hover{background:var(--s-2)}
+  .sug .cov{width:32px;height:32px;border-radius:6px;position:relative;overflow:hidden}
+  .sug .cov::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 5px,rgba(0,0,0,.15) 5px 7px)}
+  .sug .n{font-family:var(--font-display);font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sug .a{color:var(--c-secondary);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sug .add{
+    width:24px;height:24px;border-radius:5px;background:var(--amber-soft);border:1px solid rgba(255,122,24,.35);
+    color:var(--amber);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--t-fast);
+  }
+  .sug .add:hover{background:var(--amber);color:#050406}
+
+  /* Export */
+  .exp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .exp-btn{
+    display:flex;gap:10px;align-items:center;
+    padding:10px 12px;border-radius:10px;
+    background:var(--s-2);border:1px solid var(--b-default);
+    cursor:pointer;transition:all var(--t-fast);text-align:left;
+  }
+  .exp-btn:hover{background:var(--s-3);border-color:var(--amber)}
+  .exp-btn .ico{
+    width:32px;height:32px;border-radius:7px;flex-shrink:0;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:11px;color:#050406;
+  }
+  .exp-btn .nm{font-family:var(--font-display);font-size:12.5px;font-weight:500}
+  .exp-btn .ext{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-brand"><span class="mark"></span><span>CueForge</span></div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
+    <button class="btn btn-primary btn-sm">Upload</button>
+    <button class="avatar">KD</button>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Set Builder <span class="editorial">— architecte ta soirée</span></h1>
+      <p class="page-sub">Drag-drop, courbe d'énergie, phrase-match automatique. Export direct Rekordbox, Serato, M3U.</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Historique
+      </button>
+      <button class="btn btn-ghost">Sauver</button>
+      <button class="btn btn-primary">Export →</button>
+    </div>
+  </div>
+
+  <!-- Set meta + timeline -->
+  <div class="set-meta reveal">
+    <div class="card set-info">
+      <input class="set-title" value="Rex Club · Vendredi Opening">
+      <div class="set-sub">25 avril · 22h30 → 00h30 · warm-up set · 14 morceaux</div>
+      <div class="set-stats">
+        <div class="set-stat"><div class="lbl">Durée</div><div class="val num">1:48 <span>/ 2:00</span></div></div>
+        <div class="set-stat"><div class="lbl">BPM moyen</div><div class="val num">122.4</div></div>
+        <div class="set-stat"><div class="lbl">Énergie</div><div class="val num">6.9 <span>↑ 7.6</span></div></div>
+        <div class="set-stat"><div class="lbl">Key drift</div><div class="val num">±3</div></div>
+      </div>
+    </div>
+
+    <div class="card set-info">
+      <h3 class="side-h">Compat score <span class="chip chip-green"><span class="chip-dot"></span>8.6 / 10</span></h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Phrase alignment</span><span class="num" style="color:var(--green)">94%</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:94%;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Key distance</span><span class="num" style="color:var(--lime)">87%</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:87%;background:linear-gradient(90deg,var(--amber),var(--lime));border-radius:2px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Energy flow</span><span class="num" style="color:var(--amber)">78%</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:78%;background:linear-gradient(90deg,var(--pink),var(--amber));border-radius:2px"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>BPM delta</span><span class="num" style="color:var(--green)">93%</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:93%;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline with energy curve -->
+  <div class="card timeline-card reveal reveal-2">
+    <div class="tl-head">
+      <div>
+        <h3 class="tl-title">Timeline · Courbe d'énergie</h3>
+        <div class="hint" style="margin-top:4px">Glisse pour réordonner · clique sur un transition dot pour les détails</div>
+      </div>
+      <div class="tl-tools">
+        <div class="segment"><button class="active">Énergie</button><button>BPM</button><button>Key</button></div>
+        <button class="btn btn-sm btn-ghost">AI suggest<span class="chip chip-violet" style="margin-left:4px">NEW</span></button>
+      </div>
+    </div>
+
+    <div class="energy-curve">
+      <svg viewBox="0 0 1000 96" preserveAspectRatio="none" id="energySvg">
+        <defs>
+          <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ff2e6b" stop-opacity="0.4"/>
+            <stop offset="0.6" stop-color="#ff7a18" stop-opacity="0.2"/>
+            <stop offset="1" stop-color="#050406" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="energyStroke" x1="0" x2="1">
+            <stop offset="0" stop-color="#1fd4d4"/>
+            <stop offset="0.4" stop-color="#ff7a18"/>
+            <stop offset="1" stop-color="#ff2e6b"/>
+          </linearGradient>
+        </defs>
+        <!-- Path will be injected -->
+      </svg>
+    </div>
+
+    <!-- Track chips with transition dots -->
+    <div class="tl-tracks" id="tl-tracks"></div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="sb-grid" style="margin-top:20px">
+
+    <!-- Track table -->
+    <div class="track-table reveal reveal-3">
+      <div class="tt-head">
+        <span></span>
+        <span>#</span>
+        <span>Titre</span>
+        <span>BPM</span>
+        <span>Clé</span>
+        <span>Énergie</span>
+        <span>Cue</span>
+        <span>Transition</span>
+        <span></span>
+      </div>
+      <div id="set-list"></div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side">
+
+      <!-- Suggestions -->
+      <div class="card side-card reveal reveal-3">
+        <div class="side-h">
+          Suggérées <span class="chip chip-violet">AI · 6 matchs</span>
+        </div>
+        <div class="sug-list" id="sug-list"></div>
+        <button class="btn btn-sm btn-ghost" style="margin-top:10px;width:100%;justify-content:center">Voir tous les matchs →</button>
+      </div>
+
+      <!-- Export -->
+      <div class="card side-card reveal reveal-4">
+        <div class="side-h">Export</div>
+        <div class="exp">
+          <button class="exp-btn pressable">
+            <span class="ico" style="background:#e91e63">RB</span>
+            <div><div class="nm">Rekordbox</div><div class="ext">.xml</div></div>
+          </button>
+          <button class="exp-btn pressable">
+            <span class="ico" style="background:#ff6600">SR</span>
+            <div><div class="nm">Serato</div><div class="ext">.crate</div></div>
+          </button>
+          <button class="exp-btn pressable">
+            <span class="ico" style="background:#1fd4d4">TR</span>
+            <div><div class="nm">Traktor</div><div class="ext">.nml</div></div>
+          </button>
+          <button class="exp-btn pressable">
+            <span class="ico" style="background:#8b5cf6">M3</span>
+            <div><div class="nm">Playlist</div><div class="ext">.m3u8</div></div>
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%;justify-content:center">Copier sur USB</button>
+      </div>
+
+      <!-- Gig context -->
+      <div class="card side-card reveal reveal-5">
+        <div class="side-h">Contexte gig</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Club</span><span>Rex Club · Paris</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Slot</span><span>Opening · 2h</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Avant toi</span><span>Chloé Caillet</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Après toi</span><span>Amelie Lens</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Target BPM</span><span class="num">120 → 128</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="muted">Vibe</span><span>Melodic → Peak</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script>
+// Energy curve data — 14 tracks
+const SET = [
+  {t:"Hymn (Intro Edit)",a:"Hayden James",bpm:"118",k:"7A",e:5.2,cue:"L",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",trans:"good"},
+  {t:"Solstice",a:"Yotto",bpm:"119",k:"7A",e:5.8,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",trans:"good"},
+  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120",k:"8A",e:6.4,cue:"P",cov:"linear-gradient(135deg,#ff2e6b,#8b5cf6)",trans:"good"},
+  {t:"Home",a:"Solomun",bpm:"120",k:"8A",e:6.6,cue:"1",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",trans:"good"},
+  {t:"Nothing But You",a:"Camelphat",bpm:"122",k:"8A",e:7.4,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",trans:"good"},
+  {t:"Waited 4 U",a:"Sofi Tukker",bpm:"122",k:"8A",e:7.2,cue:"2",cov:"linear-gradient(135deg,#1fd4d4,#d4ff2a)",trans:"good"},
+  {t:"Breathing Heart",a:"Camelphat",bpm:"123",k:"8B",e:7.3,cue:"1",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",trans:"fair"},
+  {t:"Miami 82",a:"Syn Cole",bpm:"125",k:"11A",e:7.8,cue:"2",cov:"linear-gradient(135deg,#d4ff2a,#ff7a18)",trans:"fair"},
+  {t:"Opus",a:"Eric Prydz",bpm:"126",k:"6A",e:7.9,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#4ade80)",trans:"fair"},
+  {t:"Losing It",a:"Fisher",bpm:"125",k:"2A",e:8.4,cue:"2",cov:"linear-gradient(135deg,#d4ff2a,#1fd4d4)",trans:"risky"},
+  {t:"Body Work",a:"Nicole Moudaber",bpm:"128",k:"3A",e:8.6,cue:"1",cov:"linear-gradient(135deg,#6366f1,#ff2e6b)",trans:"good"},
+  {t:"Staifia",a:"Acid Arab",bpm:"124",k:"5A",e:8.1,cue:"2",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",trans:"fair"},
+  {t:"Silhouettes",a:"Avicii",bpm:"128",k:"1A",e:7.6,cue:"F",cov:"linear-gradient(135deg,#4ade80,#ff2e6b)",trans:"good"},
+  {t:"Daybreak (Outro)",a:"Yotto",bpm:"124",k:"1A",e:6.2,cue:"F",cov:"linear-gradient(135deg,#4ade80,#1fd4d4)",trans:"good"},
+];
+
+// Build energy curve SVG path
+const svg = document.getElementById('energySvg');
+const w = 1000, h = 96, pad = 10;
+const max = 10;
+const points = SET.map((t,i)=>{
+  const x = pad + (i/(SET.length-1))*(w-pad*2);
+  const y = h - pad - (t.e/max)*(h-pad*2);
+  return [x,y];
+});
+// Smoothed curve
+let d = `M ${points[0][0]} ${points[0][1]}`;
+for(let i=1;i<points.length;i++){
+  const [px,py] = points[i-1]; const [cx,cy] = points[i];
+  const midx = (px+cx)/2;
+  d += ` C ${midx} ${py}, ${midx} ${cy}, ${cx} ${cy}`;
+}
+// Area fill
+const area = `${d} L ${points[points.length-1][0]} ${h} L ${points[0][0]} ${h} Z`;
+svg.innerHTML = `
+  <defs>
+    <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff2e6b" stop-opacity="0.4"/>
+      <stop offset="0.6" stop-color="#ff7a18" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#050406" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="energyStroke" x1="0" x2="1">
+      <stop offset="0" stop-color="#1fd4d4"/>
+      <stop offset="0.4" stop-color="#ff7a18"/>
+      <stop offset="1" stop-color="#ff2e6b"/>
+    </linearGradient>
+  </defs>
+  <path class="energy-area" d="${area}"/>
+  <path class="energy-line" d="${d}"/>
+  ${points.map(([x,y],i)=>`<circle class="energy-point" cx="${x}" cy="${y}" r="3"/>`).join('')}
+  ${points.map(([x,y],i)=>`<text class="energy-label" x="${x}" y="${y-8}" text-anchor="middle">${SET[i].e}</text>`).join('')}
+`;
+
+// Timeline chips
+const tl = document.getElementById('tl-tracks');
+SET.forEach((t,i)=>{
+  if(i>0){
+    const trans = document.createElement('div');
+    trans.className = 'tl-trans';
+    const d = SET[i-1].trans || 'good';
+    trans.innerHTML = `<span class="dot ${d}" data-tt="${d==='good'?'Phrase OK · +0 BPM':d==='fair'?'Phrase OK · +1 BPM':'Risqué · clé éloignée'}">${d==='good'?'✓':d==='fair'?'~':'!'}</span>`;
+    tl.appendChild(trans);
+  }
+  const chip = document.createElement('div');
+  chip.className = 'tl-chip';
+  chip.style.setProperty('--chip-bg', t.cov);
+  chip.innerHTML = `
+    <span class="tr">${i+1}</span>
+    <div class="n">${t.t}</div>
+    <div class="m"><span>${t.bpm}</span><span>${t.k}</span></div>
+  `;
+  tl.appendChild(chip);
+});
+
+// Track table
+const listEl = document.getElementById('set-list');
+const cueColors = {L:'var(--cue-load)','1':'var(--cue-hot)','2':'var(--cue-hot)','P':'var(--cue-phrase)',F:'var(--cue-fade)'};
+SET.forEach((t,i)=>{
+  const row = document.createElement('div');
+  row.className = 'tt-row pressable';
+  const transText = t.trans==='good'?'Phrase · +0 BPM':t.trans==='fair'?'Phrase · +1 BPM':'Clé éloignée';
+  const transColor = t.trans==='good'?'var(--green)':t.trans==='fair'?'var(--amber)':'var(--pink)';
+  row.innerHTML = `
+    <span class="tt-drag" data-tt="Glisser">⋮⋮</span>
+    <span class="tt-pos">${String(i+1).padStart(2,'0')}</span>
+    <div style="min-width:0"><div class="tt-title">${t.t}</div><div class="tt-artist">${t.a}</div></div>
+    <span class="tt-num">${t.bpm}.0</span>
+    <span class="tt-num" style="color:var(--cyan)">${t.k}</span>
+    <span class="tt-num">${t.e}</span>
+    <span class="tt-tip" style="background:${cueColors[t.cue]||'var(--amber)'}">${t.cue}</span>
+    <span class="tt-trans" style="color:${transColor}"><span class="dot-sm"></span>${transText}</span>
+    <button class="tt-more" data-tt="Plus"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+  `;
+  listEl.appendChild(row);
+});
+
+// Suggestions
+const SUG = [
+  {t:"Jaded",a:"Disclosure",bpm:"121",k:"10A",cov:"linear-gradient(135deg,#ff7a18,#8b5cf6)"},
+  {t:"Call on Me",a:"Starley",bpm:"122",k:"4A",cov:"linear-gradient(135deg,#ff2e6b,#ff7a18)"},
+  {t:"Cola",a:"CamelPhat",bpm:"124",k:"8A",cov:"linear-gradient(135deg,#4ade80,#1fd4d4)"},
+  {t:"Hideaway",a:"Kiesza",bpm:"123",k:"8A",cov:"linear-gradient(135deg,#8b5cf6,#ff2e6b)"},
+  {t:"Pulsar",a:"Anyma",bpm:"126",k:"8B",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)"},
+  {t:"Lithium",a:"Dennis Cruz",bpm:"125",k:"3A",cov:"linear-gradient(135deg,#ff2e6b,#d4ff2a)"},
+];
+const sugEl = document.getElementById('sug-list');
+SUG.forEach(s=>{
+  const d = document.createElement('div');
+  d.className = 'sug pressable';
+  d.innerHTML = `
+    <div class="cov" style="background:${s.cov}"></div>
+    <div style="min-width:0"><div class="n">${s.t}</div><div class="a">${s.a} · ${s.bpm} · ${s.k}</div></div>
+    <button class="add" data-tt="Ajouter"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>
+  `;
+  d.querySelector('.add').addEventListener('click',(e)=>{e.stopPropagation();toast('Ajouté · '+s.t,'success')});
+  d.addEventListener('click',()=>toast('Preview · '+s.t,'info'));
+  sugEl.appendChild(d);
+});
+
+// Export clicks
+document.querySelectorAll('.exp-btn').forEach(b=>{
+  b.addEventListener('click',()=>toast('Export en cours...','info'));
+});
+</script>
+</body>
+</html>

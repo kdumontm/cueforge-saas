@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Compatible</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .cmp-grid{
+    display:grid;grid-template-columns:1.1fr 1fr;gap:20px;
+  }
+
+  .src-card{
+    display:grid;grid-template-columns:80px 1fr auto;gap:16px;align-items:center;
+    padding:16px 20px;margin-bottom:16px;
+    background:linear-gradient(90deg,var(--amber-soft),transparent);
+    border:1px solid rgba(255,122,24,.35);border-radius:14px;
+  }
+  .src-cover{width:80px;height:80px;border-radius:12px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--pink),var(--amber))}
+  .src-cover::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 10px,rgba(0,0,0,.15) 10px 12px)}
+  .src-title{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em}
+  .src-artist{color:var(--c-secondary);font-size:13px;margin-top:2px}
+  .src-stats{display:flex;gap:6px;margin-top:8px}
+  .src-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .src-right .eyebrow{color:var(--amber)}
+
+  /* Camelot wheel */
+  .wheel-card{padding:24px;display:flex;flex-direction:column;align-items:center}
+  .wheel{width:340px;height:340px;position:relative;margin:10px 0 16px}
+  .wheel svg{width:100%;height:100%;filter:drop-shadow(0 10px 30px rgba(0,0,0,.4))}
+  .wheel-seg{cursor:pointer;transition:all var(--t-fast) var(--ease)}
+  .wheel-seg:hover{filter:brightness(1.3)}
+  .wheel-seg.source{filter:drop-shadow(0 0 12px currentColor)}
+  .wheel-seg.perfect{animation:glow 1.8s ease-in-out infinite}
+  @keyframes glow{0%,100%{filter:drop-shadow(0 0 6px currentColor)}50%{filter:drop-shadow(0 0 16px currentColor)}}
+  .wheel-lbl{font-family:var(--font-mono);font-size:11px;font-weight:600;fill:var(--c-primary);pointer-events:none;text-anchor:middle;dominant-baseline:middle}
+  .wheel-note{font-family:var(--font-mono);font-size:9px;fill:var(--c-tertiary);pointer-events:none;text-anchor:middle;dominant-baseline:middle}
+  .wheel-center{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:120px;height:120px;border-radius:50%;
+    background:linear-gradient(180deg,var(--s-2),var(--s-1));
+    border:1px solid var(--b-default);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    box-shadow:var(--e-3);
+  }
+  .wheel-center .big{font-family:var(--font-display);font-weight:700;font-size:34px;color:var(--amber);letter-spacing:-0.02em}
+  .wheel-center .sm{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);letter-spacing:.1em;text-transform:uppercase}
+
+  .wheel-legend{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .leg{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--c-secondary);font-family:var(--font-mono)}
+  .leg .sw{width:10px;height:10px;border-radius:3px}
+
+  /* Match list */
+  .match-card{padding:20px}
+  .match-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .match-head h3{margin:0;font-family:var(--font-display);font-weight:600;font-size:16px}
+  .match-filters{display:flex;gap:6px}
+  .match-filter{
+    padding:5px 10px;border-radius:var(--r-pill);
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    font-family:var(--font-mono);font-size:10.5px;color:var(--c-secondary);cursor:pointer;
+    transition:all var(--t-fast)
+  }
+  .match-filter:hover{color:var(--c-primary)}
+  .match-filter.active{background:var(--amber-soft);border-color:rgba(255,122,24,.35);color:#ffba7a}
+
+  .mm-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .mm{
+    display:grid;grid-template-columns:44px 1fr auto auto auto;gap:12px;align-items:center;
+    padding:10px 12px;border-radius:10px;cursor:pointer;transition:all var(--t-fast);
+    position:relative;overflow:hidden;
+  }
+  .mm:hover{background:var(--s-2)}
+  .mm::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--match-color);
+    opacity:.8;
+  }
+  .mm-cov{width:44px;height:44px;border-radius:8px;position:relative;overflow:hidden}
+  .mm-cov::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(0,0,0,.15) 6px 8px)}
+  .mm-info{min-width:0}
+  .mm-n{font-family:var(--font-display);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mm-a{color:var(--c-secondary);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mm-specs{display:flex;gap:4px;margin-top:2px}
+  .mm-spec{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
+  .mm-score{
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:0 8px;
+  }
+  .mm-score .pct{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.02em;color:var(--match-color)}
+  .mm-score .lbl{font-family:var(--font-mono);font-size:9.5px;color:var(--c-tertiary);letter-spacing:.08em;text-transform:uppercase}
+  .mm-dist{font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .mm-dist .row{display:flex;gap:6px;align-items:center}
+  .mm-dist .row span:first-child{color:var(--c-tertiary)}
+  .mm-acts{display:flex;gap:4px;opacity:0;transition:opacity var(--t-fast)}
+  .mm:hover .mm-acts{opacity:1}
+  .mm-acts button{
+    width:28px;height:28px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-subtle);
+    color:var(--c-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all var(--t-fast);
+  }
+  .mm-acts button:hover{background:var(--s-3);color:var(--c-primary)}
+
+  .mm.perfect{--match-color:var(--green)}
+  .mm.great{--match-color:var(--lime)}
+  .mm.good{--match-color:var(--amber)}
+  .mm.ok{--match-color:var(--cyan)}
+  .mm.risky{--match-color:var(--violet)}
+
+  /* Rules panel */
+  .rules-card{padding:20px;margin-top:20px}
+  .rules-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+  .rule{
+    padding:12px 14px;border-radius:10px;
+    background:var(--s-1);border:1px solid var(--b-subtle);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .rule .nm{font-family:var(--font-display);font-weight:500;font-size:13px;display:flex;align-items:center;gap:8px}
+  .rule .val{font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)}
+  .rule .sw{display:inline-block}
+
+  /* Distance viz */
+  .dist-card{padding:20px;margin-top:20px}
+  .dist-viz{height:140px;position:relative;padding:16px 0 24px;overflow:hidden}
+  .dist-axis{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--b-default)}
+  .dist-axis-ticks{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;justify-content:space-between;padding:0 10px;font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
+  .dist-axis-ticks span{align-self:flex-end}
+  .dist-point{
+    position:absolute;top:50%;transform:translate(-50%,-50%);
+    width:22px;height:22px;border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 0 3px var(--s-1),0 0 0 4px currentColor,0 0 20px currentColor;
+    cursor:pointer;transition:transform var(--t-fast) var(--ease-spring);
+  }
+  .dist-point:hover{transform:translate(-50%,-50%) scale(1.3)}
+  .dist-point.source{background:var(--amber);color:var(--amber);z-index:5}
+  .dist-point[data-c=perfect]{background:var(--green);color:var(--green)}
+  .dist-point[data-c=great]{background:var(--lime);color:var(--lime)}
+  .dist-point[data-c=good]{background:var(--amber);color:var(--amber)}
+  .dist-point[data-c=ok]{background:var(--cyan);color:var(--cyan)}
+  .dist-point[data-c=risky]{background:var(--violet);color:var(--violet)}
+  .dist-point .tt{
+    position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+    background:var(--s-4);padding:4px 8px;border-radius:4px;
+    font-family:var(--font-mono);font-size:10px;white-space:nowrap;
+    opacity:0;pointer-events:none;transition:opacity var(--t-fast);color:var(--c-primary);
+    border:1px solid var(--b-default);
+  }
+  .dist-point:hover .tt{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-brand"><span class="mark"></span><span>CueForge</span></div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
+    <button class="btn btn-primary btn-sm">Upload</button>
+    <button class="avatar">KD</button>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Compatible <span class="editorial">— quoi enchaîner après ?</span></h1>
+      <p class="page-sub">Matchs harmoniques et rythmiques depuis la clé source. Plus c'est proche du centre de la roue, plus ça sonne.</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-ghost">Changer source</button>
+      <button class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+        Tous ajouter au set
+      </button>
+    </div>
+  </div>
+
+  <!-- Source track -->
+  <div class="src-card reveal">
+    <div class="src-cover"></div>
+    <div>
+      <div class="eyebrow" style="color:var(--amber);margin-bottom:4px">Track source</div>
+      <div class="src-title">Nothing But You <span class="editorial muted" style="font-weight:400">— Extended Mix</span></div>
+      <div class="src-artist">Camelphat, Max Milner · Melodic House</div>
+      <div class="src-stats">
+        <span class="chip chip-amber"><span class="chip-dot"></span>122.0 BPM</span>
+        <span class="chip chip-cyan"><span class="chip-dot"></span>8A · A minor</span>
+        <span class="chip chip-pink"><span class="chip-dot"></span>Energy 7.4</span>
+        <span class="chip">6:42</span>
+      </div>
+    </div>
+    <div class="src-right">
+      <div class="eyebrow">142 matchs trouvés</div>
+      <button class="btn btn-sm btn-ghost">Ajuster la source</button>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="cmp-grid">
+
+    <!-- LEFT: Camelot wheel -->
+    <div class="card wheel-card reveal reveal-2">
+      <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div class="eyebrow">Camelot Wheel</div>
+          <h3 style="margin:2px 0 0;font-family:var(--font-display);font-size:16px">Compatibilité harmonique</h3>
+        </div>
+        <div class="segment"><button class="active">Camelot</button><button>Standard</button></div>
+      </div>
+
+      <div class="wheel">
+        <svg viewBox="-170 -170 340 340" id="wheelSvg"></svg>
+        <div class="wheel-center">
+          <div class="big">8A</div>
+          <div class="sm">A minor · 122</div>
+        </div>
+      </div>
+
+      <div class="wheel-legend">
+        <div class="leg"><span class="sw" style="background:var(--green)"></span>Parfait (même)</div>
+        <div class="leg"><span class="sw" style="background:var(--lime)"></span>Relative (A↔B)</div>
+        <div class="leg"><span class="sw" style="background:var(--amber)"></span>±1 (adjacent)</div>
+        <div class="leg"><span class="sw" style="background:var(--cyan)"></span>±2 (énergy)</div>
+        <div class="leg"><span class="sw" style="background:var(--violet)"></span>Risqué</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Match list -->
+    <div class="card match-card reveal reveal-3">
+      <div class="match-head">
+        <h3>Top matchs <span class="muted" style="font-weight:400">· triés par score</span></h3>
+        <div class="match-filters">
+          <button class="match-filter active">Tous</button>
+          <button class="match-filter">Key only</button>
+          <button class="match-filter">Energy</button>
+          <button class="match-filter">Phrase</button>
+        </div>
+      </div>
+
+      <div class="mm-list" id="mm-list"></div>
+
+      <div style="display:flex;justify-content:center;margin-top:14px">
+        <button class="btn btn-sm btn-ghost">Voir 142 matchs →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div class="card rules-card reveal reveal-4">
+    <div class="match-head">
+      <h3>Règles de matching <span class="muted" style="font-weight:400">· tes préférences</span></h3>
+      <button class="btn btn-sm btn-ghost">Reset</button>
+    </div>
+    <div class="rules-grid">
+      <div class="rule">
+        <span class="nm"><span style="color:var(--cyan)">◯</span>BPM tolerance</span>
+        <span class="val">±3%</span>
+      </div>
+      <div class="rule">
+        <span class="nm"><span style="color:var(--amber)">◯</span>Key distance max</span>
+        <span class="val">±2 Camelot</span>
+      </div>
+      <div class="rule">
+        <span class="nm"><span style="color:var(--pink)">◯</span>Energy delta</span>
+        <span class="val">±1.5</span>
+      </div>
+      <div class="rule">
+        <span class="nm"><span style="color:var(--lime)">◯</span>Allow relative (A↔B)</span>
+        <span class="sw switch on"></span>
+      </div>
+      <div class="rule">
+        <span class="nm"><span style="color:var(--violet)">◯</span>Prefer phrase align</span>
+        <span class="sw switch on"></span>
+      </div>
+      <div class="rule">
+        <span class="nm"><span style="color:var(--green)">◯</span>Exclude déjà joués</span>
+        <span class="sw switch"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distance viz -->
+  <div class="card dist-card reveal reveal-5">
+    <div class="match-head">
+      <h3>Distance harmonique <span class="muted" style="font-weight:400">· dispersion des 20 top matchs</span></h3>
+      <span class="hint">Gauche = identique · Droite = éloigné</span>
+    </div>
+    <div class="dist-viz">
+      <div class="dist-axis"></div>
+      <div class="dist-axis-ticks">
+        <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+      </div>
+      <div id="dist-points"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script>
+// Camelot wheel
+const keys = [
+  {n:'1A',key:'Abm',c:'#ff7a18'},{n:'2A',key:'Ebm',c:'#ffae18'},{n:'3A',key:'Bbm',c:'#d4ff2a'},
+  {n:'4A',key:'Fm',c:'#84d944'},{n:'5A',key:'Cm',c:'#4ade80'},{n:'6A',key:'Gm',c:'#1fd4d4'},
+  {n:'7A',key:'Dm',c:'#3b82f6'},{n:'8A',key:'Am',c:'#8b5cf6'},{n:'9A',key:'Em',c:'#b249f8'},
+  {n:'10A',key:'Bm',c:'#d946ef'},{n:'11A',key:'F#m',c:'#ff2e6b'},{n:'12A',key:'C#m',c:'#ff5a3e'},
+];
+const svg = document.getElementById('wheelSvg');
+const innerR = 75;
+const midR = 110;
+const outerR = 158;
+const sourceKey = '8A';
+const matches = {'8A':'perfect','8B':'perfect','7A':'good','9A':'good','5A':'great','11B':'great','7B':'ok','9B':'ok','6A':'ok','10A':'ok'};
+function polar(r,a){return [r*Math.cos(a-Math.PI/2), r*Math.sin(a-Math.PI/2)]}
+function arcPath(r1,r2,a1,a2){
+  const [x1,y1]=polar(r2,a1),[x2,y2]=polar(r2,a2),[x3,y3]=polar(r1,a2),[x4,y4]=polar(r1,a1);
+  const large = (a2-a1>Math.PI)?1:0;
+  return `M${x1} ${y1} A${r2} ${r2} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${r1} ${r1} 0 ${large} 0 ${x4} ${y4} Z`;
+}
+// 12 segments — inner (minor A) and outer (major B)
+for(let i=0;i<12;i++){
+  const a1 = (i/12)*Math.PI*2;
+  const a2 = ((i+1)/12)*Math.PI*2;
+  const k = keys[i];
+  const labelA = k.n, labelB = k.n.replace('A','B');
+  const majorKey = ['B','F#','C#','Ab','Eb','Bb','F','C','G','D','A','E'][i];
+  // Inner (minor A)
+  const segA = document.createElementNS('http://www.w3.org/2000/svg','path');
+  segA.setAttribute('d', arcPath(innerR,midR,a1,a2));
+  const mA = matches[labelA];
+  let fillA = 'var(--s-3)';
+  let className = 'wheel-seg';
+  if(mA){
+    const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
+    fillA = cmap[mA];
+    className += ' '+mA;
+    if(labelA===sourceKey) className += ' source';
+  }
+  segA.setAttribute('fill',fillA);
+  segA.setAttribute('fill-opacity', labelA===sourceKey?'1':(mA?'0.8':'0.3'));
+  segA.setAttribute('stroke','var(--s-0)');
+  segA.setAttribute('stroke-width','2');
+  segA.setAttribute('class', className);
+  segA.setAttribute('data-key', labelA);
+  svg.appendChild(segA);
+  // Outer (major B)
+  const segB = document.createElementNS('http://www.w3.org/2000/svg','path');
+  segB.setAttribute('d', arcPath(midR,outerR,a1,a2));
+  const mB = matches[labelB];
+  let fillB = 'var(--s-2)';
+  let classB = 'wheel-seg';
+  if(mB){
+    const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
+    fillB = cmap[mB];
+    classB += ' '+mB;
+  }
+  segB.setAttribute('fill',fillB);
+  segB.setAttribute('fill-opacity', mB?'0.65':'0.2');
+  segB.setAttribute('stroke','var(--s-0)');
+  segB.setAttribute('stroke-width','2');
+  segB.setAttribute('class', classB);
+  segB.setAttribute('data-key', labelB);
+  svg.appendChild(segB);
+  // Labels
+  const amid = (a1+a2)/2;
+  const [lxA,lyA] = polar((innerR+midR)/2, amid);
+  const lblA = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lblA.setAttribute('x',lxA);lblA.setAttribute('y',lyA);lblA.setAttribute('class','wheel-lbl');
+  lblA.textContent = labelA;
+  if(mA) lblA.setAttribute('fill','#050406');
+  svg.appendChild(lblA);
+  const [lxB,lyB] = polar((midR+outerR)/2, amid);
+  const lblB = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lblB.setAttribute('x',lxB);lblB.setAttribute('y',lyB);lblB.setAttribute('class','wheel-lbl');
+  lblB.textContent = labelB;
+  if(mB) lblB.setAttribute('fill','#050406');
+  svg.appendChild(lblB);
+  // Key letters outside
+  const [lxC,lyC] = polar(outerR+8, amid);
+  const lblC = document.createElementNS('http://www.w3.org/2000/svg','text');
+  lblC.setAttribute('x',lxC);lblC.setAttribute('y',lyC);lblC.setAttribute('class','wheel-note');
+  lblC.textContent = majorKey+'m/'+majorKey;
+  svg.appendChild(lblC);
+}
+svg.querySelectorAll('.wheel-seg').forEach(s=>{
+  s.addEventListener('click',()=>toast('Filtre · '+s.getAttribute('data-key'),'info'));
+});
+
+// Match list
+const MM = [
+  {t:"Waited 4 U (Club Mix)",a:"Sofi Tukker",bpm:"122.0",k:"8A",pct:94,bpmD:"±0",kD:"same",eD:"-0.2",cls:"perfect"},
+  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120.0",k:"9A",pct:89,bpmD:"-1.6%",kD:"+1",eD:"-0.6",cls:"great"},
+  {t:"Home",a:"Solomun",bpm:"120.0",k:"7A",pct:87,bpmD:"-1.6%",kD:"-1",eD:"-0.5",cls:"great"},
+  {t:"Breathing Heart",a:"CamelPhat",bpm:"123.0",k:"8B",pct:85,bpmD:"+0.8%",kD:"rel",eD:"+0.3",cls:"good"},
+  {t:"Body Work",a:"Nicole Moudaber",bpm:"128.0",k:"3A",pct:78,bpmD:"+4.9%",kD:"-5",eD:"+1.5",cls:"ok"},
+  {t:"Losing It",a:"Fisher",bpm:"125.0",k:"2A",pct:71,bpmD:"+2.5%",kD:"+6",eD:"+1.2",cls:"risky"},
+];
+const mmEl = document.getElementById('mm-list');
+const covs = ['linear-gradient(135deg,#1fd4d4,#d4ff2a)','linear-gradient(135deg,#ff2e6b,#8b5cf6)','linear-gradient(135deg,#1fd4d4,#8b5cf6)','linear-gradient(135deg,#ff7a18,#ff2e6b)','linear-gradient(135deg,#6366f1,#ff2e6b)','linear-gradient(135deg,#d4ff2a,#1fd4d4)'];
+MM.forEach((m,i)=>{
+  const d = document.createElement('div');
+  d.className = 'mm '+m.cls+' pressable';
+  d.innerHTML = `
+    <div class="mm-cov" style="background:${covs[i]}"></div>
+    <div class="mm-info">
+      <div class="mm-n">${m.t}</div>
+      <div class="mm-a">${m.a}</div>
+      <div class="mm-specs">
+        <span class="mm-spec">${m.bpm} BPM</span>
+        <span class="mm-spec">·</span>
+        <span class="mm-spec">${m.k}</span>
+      </div>
+    </div>
+    <div class="mm-score"><span class="pct">${m.pct}</span><span class="lbl">Match</span></div>
+    <div class="mm-dist">
+      <div class="row"><span>BPM</span><span>${m.bpmD}</span></div>
+      <div class="row"><span>Key</span><span>${m.kD}</span></div>
+      <div class="row"><span>Δ E</span><span>${m.eD}</span></div>
+    </div>
+    <div class="mm-acts">
+      <button data-tt="Prévisualiser"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></button>
+      <button data-tt="Ajouter au set"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+  `;
+  d.addEventListener('click',(e)=>{
+    if(e.target.closest('.mm-acts')) return;
+    toast(`Match · ${m.t}`,'info');
+    setTimeout(()=>location.href='analyze.html',400);
+  });
+  d.querySelectorAll('.mm-acts button').forEach(b=>{
+    b.addEventListener('click',(e)=>{e.stopPropagation();toast(b.dataset.tt+' · '+m.t,'info')});
+  });
+  mmEl.appendChild(d);
+});
+
+// Distance viz
+const dp = document.getElementById('dist-points');
+const pts = [
+  {x:2,c:'source',l:'Nothing But You',s:''},
+  {x:5,c:'perfect',l:'Waited 4 U',s:'94'},
+  {x:10,c:'great',l:'Delta',s:'89'},
+  {x:14,c:'great',l:'Home',s:'87'},
+  {x:20,c:'good',l:'Breathing Heart',s:'85'},
+  {x:32,c:'ok',l:'Solstice',s:'82'},
+  {x:38,c:'ok',l:'Cola',s:'80'},
+  {x:42,c:'good',l:'Pulsar',s:'79'},
+  {x:48,c:'ok',l:'Body Work',s:'78'},
+  {x:55,c:'risky',l:'Lithium',s:'72'},
+  {x:62,c:'ok',l:'Silhouettes',s:'70'},
+  {x:70,c:'risky',l:'Losing It',s:'71'},
+  {x:76,c:'risky',l:'Opus',s:'68'},
+  {x:84,c:'risky',l:'Miami 82',s:'64'},
+  {x:90,c:'risky',l:'Jaded',s:'61'},
+];
+pts.forEach(p=>{
+  const el = document.createElement('div');
+  el.className = 'dist-point';
+  el.setAttribute('data-c',p.c);
+  el.style.left = p.x+'%';
+  el.innerHTML = `<span class="tt">${p.l}${p.s?' · '+p.s:''}</span>`;
+  if(p.c==='source') el.classList.add('source');
+  dp.appendChild(el);
+});
+</script>
+</body>
+</html>

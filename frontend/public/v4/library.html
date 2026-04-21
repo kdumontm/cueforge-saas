@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Library</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .filter-bar{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:14px 16px;border-radius:14px;
+    background:var(--s-1);border:1px solid var(--b-default);
+    margin-bottom:16px;
+  }
+  .filter-bar .search{flex:1;min-width:260px}
+  .filter-bar .search input{padding-left:38px;padding-right:80px}
+  .filter-bar .count{font-family:var(--font-mono);font-size:12px;color:var(--c-tertiary);white-space:nowrap}
+
+  .views{display:flex;gap:8px;padding:4px 0;margin-bottom:14px;overflow-x:auto}
+  .view-chip{
+    padding:6px 12px;border-radius:var(--r-pill);
+    background:var(--s-2);border:1px solid var(--b-default);
+    font-family:var(--font-display);font-size:12.5px;font-weight:500;color:var(--c-secondary);
+    cursor:pointer;transition:all var(--t-fast);white-space:nowrap;display:inline-flex;align-items:center;gap:6px
+  }
+  .view-chip:hover{color:var(--c-primary);border-color:var(--b-strong)}
+  .view-chip.active{background:var(--amber-soft);border-color:rgba(255,122,24,.35);color:#ffba7a}
+  .view-chip .bd{font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:var(--r-pill);background:var(--s-3);color:var(--c-tertiary)}
+  .view-chip.active .bd{background:rgba(255,122,24,.25);color:#ffba7a}
+
+  .bulk-bar{
+    display:none;align-items:center;justify-content:space-between;gap:16px;
+    padding:10px 16px;border-radius:12px;margin-bottom:12px;
+    background:linear-gradient(90deg,var(--amber-soft),transparent);
+    border:1px solid rgba(255,122,24,.35);
+    animation:slideDown .3s var(--ease-spring);
+  }
+  .bulk-bar.show{display:flex}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+  .bulk-actions{display:flex;gap:6px}
+
+  /* Library table */
+  .lib{
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;
+    overflow:hidden;
+  }
+  .lib-head{
+    display:grid;grid-template-columns:36px 36px 1fr 120px 90px 100px 70px 120px 110px 40px;
+    gap:14px;align-items:center;
+    padding:10px 16px;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);
+    border-bottom:1px solid var(--b-subtle);
+    position:sticky;top:56px;background:var(--s-1);z-index:5;
+  }
+  .lib-head .sortable{cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px}
+  .lib-head .sortable:hover{color:var(--c-primary)}
+  .lib-head .sortable.active{color:var(--amber)}
+  .lib-row{
+    display:grid;grid-template-columns:36px 36px 1fr 120px 90px 100px 70px 120px 110px 40px;
+    gap:14px;align-items:center;
+    padding:10px 16px;
+    border-bottom:1px solid var(--b-subtle);
+    transition:background var(--t-fast);cursor:pointer;
+  }
+  .lib-row:hover{background:var(--s-2)}
+  .lib-row.selected{background:linear-gradient(90deg,var(--amber-soft),transparent)}
+  .lib-row:last-child{border-bottom:none}
+
+  .chk{
+    width:16px;height:16px;border-radius:4px;
+    border:1.5px solid var(--b-strong);background:var(--s-2);cursor:pointer;
+    transition:all var(--t-fast);display:inline-flex;align-items:center;justify-content:center;
+  }
+  .chk:hover{border-color:var(--amber)}
+  .chk.on{background:var(--amber);border-color:var(--amber)}
+  .chk.on::after{content:"";width:8px;height:5px;border-left:1.5px solid #050406;border-bottom:1.5px solid #050406;transform:translateY(-1px) rotate(-45deg)}
+
+  .lib-cover{width:36px;height:36px;border-radius:6px;position:relative;overflow:hidden}
+  .lib-cover::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(0,0,0,.15) 6px 8px)}
+  .lib-cover .play{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--t-fast);
+  }
+  .lib-row:hover .lib-cover .play{opacity:1}
+
+  .lib-t{min-width:0}
+  .lib-t .n{font-family:var(--font-display);font-weight:500;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lib-t .a{color:var(--c-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .lib-mini-wave{height:22px;display:flex;align-items:center;gap:1px}
+  .lib-mini-wave .wbar{flex:1;min-width:1px;background:var(--c-quaternary);border-radius:1px;transition:background .2s}
+  .lib-row:hover .lib-mini-wave .wbar{background:var(--amber)}
+
+  .lib-bpm{font-family:var(--font-mono);font-size:13px;color:var(--c-primary)}
+  .lib-key{font-family:var(--font-mono);font-size:12px;color:var(--cyan);display:inline-flex;align-items:center;gap:4px}
+  .lib-key::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+  .lib-energy{
+    height:6px;background:var(--s-3);border-radius:3px;position:relative;overflow:hidden;
+  }
+  .lib-energy::after{
+    content:"";position:absolute;left:0;top:0;bottom:0;
+    background:linear-gradient(90deg,var(--cyan),var(--amber),var(--pink));
+    border-radius:3px;
+  }
+  .lib-cues{display:flex;gap:3px}
+  .lib-cues span{width:7px;height:18px;border-radius:2px}
+  .lib-date{font-family:var(--font-mono);font-size:11.5px;color:var(--c-tertiary)}
+  .lib-actions{opacity:0;transition:opacity var(--t-fast);display:flex;justify-content:flex-end}
+  .lib-row:hover .lib-actions{opacity:1}
+  .lib-row .lib-actions button{
+    width:28px;height:28px;border-radius:6px;background:transparent;border:1px solid transparent;
+    color:var(--c-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+    transition:all var(--t-fast);
+  }
+  .lib-row .lib-actions button:hover{background:var(--s-3);color:var(--c-primary);border-color:var(--b-default)}
+  .lib-row .lib-actions button svg{width:14px;height:14px}
+
+  .badge-ac{
+    display:inline-flex;align-items:center;gap:3px;
+    font-family:var(--font-mono);font-size:9.5px;padding:1px 5px;border-radius:3px;
+    background:var(--green-soft);color:#8ef0aa;border:1px solid rgba(74,222,128,.3);letter-spacing:.04em;
+  }
+
+  /* Pagination */
+  .lib-foot{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border-top:1px solid var(--b-subtle);
+    font-family:var(--font-mono);font-size:12px;color:var(--c-secondary);
+  }
+  .pag{display:flex;gap:4px}
+  .pag button{
+    width:30px;height:30px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);
+    color:var(--c-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:all var(--t-fast)
+  }
+  .pag button:hover{background:var(--s-3);color:var(--c-primary)}
+  .pag button.active{background:var(--amber);color:#050406;border-color:var(--amber)}
+
+  /* Filter drop */
+  .drop{position:relative}
+  .drop-trigger{
+    display:inline-flex;align-items:center;gap:8px;padding:7px 12px;
+    background:var(--s-2);border:1px solid var(--b-default);border-radius:8px;
+    font-family:var(--font-display);font-size:12.5px;color:var(--c-secondary);cursor:pointer;transition:all var(--t-fast)
+  }
+  .drop-trigger:hover{color:var(--c-primary);border-color:var(--b-strong)}
+  .drop-trigger.has-filter{color:var(--amber);border-color:rgba(255,122,24,.35);background:var(--amber-soft)}
+  .drop-trigger .caret{width:10px;height:10px;opacity:.6}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-brand"><span class="mark"></span><span>CueForge</span></div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
+    <button class="btn btn-primary btn-sm">Upload</button>
+    <button class="avatar">KD</button>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Library <span class="editorial">— ta collection</span></h1>
+      <p class="page-sub">1 284 morceaux analysés. Cherche par titre, artiste, BPM, clé, genre, ou utilise les vues sauvegardées.</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV</button>
+      <button class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+        Nouvel upload
+      </button>
+    </div>
+  </div>
+
+  <!-- Saved views -->
+  <div class="views">
+    <button class="view-chip active">Tous<span class="bd">1284</span></button>
+    <button class="view-chip">✓ Ready to play<span class="bd">982</span></button>
+    <button class="view-chip">● Analyse en cours<span class="bd">12</span></button>
+    <button class="view-chip">★ Favoris<span class="bd">68</span></button>
+    <button class="view-chip">🎛 Pour le set Rex<span class="bd">24</span></button>
+    <button class="view-chip">Melodic House · 8A-9A<span class="bd">142</span></button>
+    <button class="view-chip">High energy · 7+<span class="bd">318</span></button>
+    <button class="view-chip" style="color:var(--c-tertiary)">+ Nouvelle vue</button>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="search" style="flex:1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="input" placeholder="Rechercher un titre, artiste, label, genre…">
+      <span class="kbd">/</span>
+    </div>
+
+    <div class="drop"><div class="drop-trigger">BPM · 115-130<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    <div class="drop"><div class="drop-trigger has-filter">Key · 8A<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    <div class="drop"><div class="drop-trigger">Genre · all<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    <div class="drop"><div class="drop-trigger">Energy<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    <div class="drop"><div class="drop-trigger">Date<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+
+    <span class="count">142 résultats · tri Récence</span>
+  </div>
+
+  <!-- Bulk bar -->
+  <div class="bulk-bar" id="bulkBar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="chk on" onclick="selectAll(false)"></span>
+      <strong id="bulkCount" style="font-family:var(--font-display);font-size:13px">3 sélectionnés</strong>
+      <span class="hint">· clear avec Échap</span>
+    </div>
+    <div class="bulk-actions">
+      <button class="btn btn-sm btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 4v12m-6-6h12"/></svg>Ajouter au set</button>
+      <button class="btn btn-sm btn-ghost">★ Favoris</button>
+      <button class="btn btn-sm btn-ghost">Re-analyser</button>
+      <button class="btn btn-sm btn-ghost">Export</button>
+      <button class="btn btn-sm btn-danger">Supprimer</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="lib">
+    <div class="lib-head">
+      <span class="chk" onclick="selectAll(true)"></span>
+      <span></span>
+      <span class="sortable active">Titre ▼</span>
+      <span class="sortable">Aperçu</span>
+      <span class="sortable">BPM</span>
+      <span class="sortable">Clé</span>
+      <span>Énergie</span>
+      <span>Cues</span>
+      <span class="sortable">Ajouté</span>
+      <span></span>
+    </div>
+    <div id="lib-body"></div>
+
+    <div class="lib-foot">
+      <span>Affiche 1–24 sur 1 284</span>
+      <div class="pag">
+        <button>◀</button>
+        <button class="active">1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>…</button>
+        <button>54</button>
+        <button>▶</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script>
+const LIB = [
+  {t:"Nothing But You (Extended Mix)",a:"Camelphat, Max Milner",bpm:"122.0",k:"8A",kn:"Am",e:7.4,g:"Melodic House",dt:"il y a 12min",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",cues:8,id:true,ready:true,sd:7.1},
+  {t:"Staifia",a:"Acid Arab",bpm:"124.0",k:"5A",kn:"Dm",e:8.1,g:"Ethnic House",dt:"il y a 18min",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",cues:9,id:true,ready:true,sd:12.3},
+  {t:"Waited 4 U (Club Mix)",a:"Sofi Tukker",bpm:"122.0",k:"8A",kn:"Am",e:7.2,g:"Melodic House",dt:"il y a 1h",cov:"linear-gradient(135deg,#1fd4d4,#d4ff2a)",cues:7,id:true,ready:true,sd:23.7},
+  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120.0",k:"9A",kn:"Em",e:6.8,g:"Melodic House",dt:"hier",cov:"linear-gradient(135deg,#ff2e6b,#8b5cf6)",cues:6,id:true,ready:true,sd:4.9},
+  {t:"Miami 82",a:"Syn Cole",bpm:"125.0",k:"11A",kn:"F#m",e:8.4,g:"Progressive",dt:"hier",cov:"linear-gradient(135deg,#d4ff2a,#ff7a18)",cues:10,id:true,ready:true,sd:18.1},
+  {t:"Body Work",a:"Nicole Moudaber",bpm:"128.0",k:"3A",kn:"Cm",e:8.9,g:"Techno",dt:"2j",cov:"linear-gradient(135deg,#6366f1,#ff2e6b)",cues:8,id:true,ready:true,sd:3.3},
+  {t:"Opus (Original)",a:"Eric Prydz",bpm:"126.0",k:"6A",kn:"F#m",e:7.9,g:"Progressive",dt:"3j",cov:"linear-gradient(135deg,#8b5cf6,#4ade80)",cues:9,id:true,ready:true,sd:14.4},
+  {t:"Call on Me",a:"Starley (Ryan Riback Remix)",bpm:"122.0",k:"4A",kn:"Fm",e:7.1,g:"Deep House",dt:"3j",cov:"linear-gradient(135deg,#ff2e6b,#ff7a18)",cues:7,id:true,ready:true,sd:9.2},
+  {t:"Home (Solomun Mix)",a:"Solomun",bpm:"120.0",k:"7A",kn:"Dm",e:6.9,g:"Melodic House",dt:"4j",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",cues:8,id:true,ready:true,sd:6.8},
+  {t:"Losing It",a:"Fisher",bpm:"125.0",k:"2A",kn:"Gm",e:8.6,g:"Tech House",dt:"5j",cov:"linear-gradient(135deg,#d4ff2a,#1fd4d4)",cues:10,id:true,ready:true,sd:17.3},
+  {t:"Jaded (Club Rework)",a:"Disclosure",bpm:"121.0",k:"10A",kn:"Bm",e:7.3,g:"UK Garage",dt:"6j",cov:"linear-gradient(135deg,#ff7a18,#8b5cf6)",cues:7,id:true,ready:true,sd:2.1},
+  {t:"Silhouettes",a:"Avicii",bpm:"128.0",k:"1A",kn:"Abm",e:8.2,g:"Progressive",dt:"1sem",cov:"linear-gradient(135deg,#4ade80,#ff2e6b)",cues:9,id:true,ready:true,sd:22.8},
+];
+
+const body = document.getElementById('lib-body');
+LIB.forEach((r,i)=>{
+  const row = document.createElement('div');
+  row.className = 'lib-row pressable';
+  row.tabIndex = 0;
+  const cuesBar = Array.from({length:8},(_,ci)=>{
+    const colors = ['#4ade80','#8b5cf6','#ff2e6b','#1fd4d4','#8b5cf6','#d4ff2a','#ff2e6b','#ff7a18'];
+    return ci < r.cues ? `<span style="background:${colors[ci]}"></span>` : `<span style="background:var(--s-3)"></span>`;
+  }).join('');
+  row.innerHTML = `
+    <span class="chk"></span>
+    <div class="lib-cover" style="background:${r.cov}">
+      <div class="play">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg>
+      </div>
+    </div>
+    <div class="lib-t">
+      <div class="n">${r.t} ${r.id?'<span class="badge-ac">ID</span>':''}</div>
+      <div class="a">${r.a} · ${r.g}</div>
+    </div>
+    <div class="lib-mini-wave" data-seed="${r.sd}"></div>
+    <div class="lib-bpm num">${r.bpm}</div>
+    <div class="lib-key">${r.k} · ${r.kn}</div>
+    <div class="lib-energy" style="--e:${r.e}"><style></style></div>
+    <div class="lib-cues">${cuesBar}</div>
+    <div class="lib-date">${r.dt}</div>
+    <div class="lib-actions">
+      <button data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></button>
+      <button data-tt="Ajouter au set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button data-tt="Plus"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+    </div>
+  `;
+  // energy bar width via pseudo element - use ::after width
+  row.querySelector('.lib-energy').style.setProperty('--w', (r.e*10)+'%');
+  row.querySelector('.lib-energy').innerHTML = `<div style="position:absolute;left:0;top:0;bottom:0;width:${r.e*10}%;background:linear-gradient(90deg,var(--cyan),var(--amber),var(--pink));border-radius:3px"></div>`;
+  body.appendChild(row);
+  buildWave(row.querySelector('.lib-mini-wave'),52,r.sd,{envelope:(p)=>0.3+0.7*Math.abs(Math.sin(p*Math.PI*3+r.sd))});
+
+  // Click handlers
+  const chk = row.querySelector('.chk');
+  chk.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    chk.classList.toggle('on');
+    row.classList.toggle('selected');
+    updateBulk();
+  });
+  row.addEventListener('click',(e)=>{
+    if(e.target.closest('.lib-actions')||e.target.closest('.chk')) return;
+    toast(`Ouverture · ${r.t}`,'info');
+    setTimeout(()=>location.href='analyze.html',400);
+  });
+  // Action buttons
+  row.querySelectorAll('.lib-actions button').forEach(b=>{
+    b.addEventListener('click',(e)=>{e.stopPropagation();toast(b.dataset.tt+' · '+r.t,'info')});
+  });
+});
+
+function updateBulk(){
+  const n = document.querySelectorAll('.lib-row.selected').length;
+  const bar = document.getElementById('bulkBar');
+  document.getElementById('bulkCount').textContent = n+' sélectionné'+(n>1?'s':'');
+  bar.classList.toggle('show', n>0);
+}
+window.selectAll = (on)=>{
+  document.querySelectorAll('.lib-row').forEach(r=>{
+    r.classList.toggle('selected',on);
+    r.querySelector('.chk').classList.toggle('on',on);
+  });
+  updateBulk();
+};
+
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape') selectAll(false);
+});
+
+// View chips toggle
+document.querySelectorAll('.view-chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    toast('Vue · '+c.textContent.trim(),'info');
+  });
+});
+</script>
+</body>
+</html>

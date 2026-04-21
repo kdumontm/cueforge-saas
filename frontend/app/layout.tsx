@@ -5,6 +5,7 @@ import ClientProviders from '@/components/ClientProviders';
 import FeedbackWidget from '@/components/FeedbackWidget';
 import CookieConsent from '@/components/CookieConsent';
 import SentryInitializer from '@/components/SentryInitializer';
+import StagingBanner from '@/components/StagingBanner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -100,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] min-h-screen antialiased transition-colors duration-300">
         <ClientProviders>
+          <StagingBanner />
           <SentryInitializer />
           {children}
           <FeedbackWidget />

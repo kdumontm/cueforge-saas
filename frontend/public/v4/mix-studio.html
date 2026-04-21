@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Mix Studio</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body{background-image:
+    radial-gradient(800px 400px at 10% 0%,rgba(255,46,107,0.14),transparent 55%),
+    radial-gradient(800px 400px at 90% 100%,rgba(31,212,212,0.14),transparent 55%)
+  }
+
+  .decks{display:grid;grid-template-columns:1fr 320px 1fr;gap:16px;align-items:stretch}
+  .deck{
+    padding:20px;border-radius:18px;position:relative;overflow:hidden;
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    border:1px solid var(--b-default);
+    box-shadow:var(--e-3);
+  }
+  .deck.a{border-top:3px solid var(--pink)}
+  .deck.b{border-top:3px solid var(--cyan)}
+  .deck::before{
+    content:"";position:absolute;top:-20%;width:200px;height:200px;
+    border-radius:50%;filter:blur(60px);opacity:.25;pointer-events:none;
+  }
+  .deck.a::before{background:var(--pink);right:-60px}
+  .deck.b::before{background:var(--cyan);left:-60px}
+
+  .deck-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;position:relative;z-index:1}
+  .deck-tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--font-display);font-weight:700;font-size:18px;
+  }
+  .deck-tag .letter{
+    width:32px;height:32px;border-radius:8px;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:17px;
+    color:#050406;
+  }
+  .deck.a .deck-tag .letter{background:var(--pink);box-shadow:0 0 14px rgba(255,46,107,.5)}
+  .deck.b .deck-tag .letter{background:var(--cyan);box-shadow:0 0 14px rgba(31,212,212,.5)}
+  .deck-status{display:flex;gap:6px}
+
+  /* Track info */
+  .dk-track{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center;margin-bottom:14px;position:relative;z-index:1}
+  .dk-cover{width:64px;height:64px;border-radius:10px;position:relative;overflow:hidden}
+  .dk-cover::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 8px,rgba(0,0,0,.15) 8px 10px)}
+  .dk-title{font-family:var(--font-display);font-weight:600;font-size:15px;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dk-artist{color:var(--c-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dk-stats{display:flex;gap:6px;margin-top:6px}
+
+  /* Jog / circular visual */
+  .jog-wrap{display:flex;justify-content:center;padding:14px 0;position:relative;z-index:1}
+  .jog{
+    width:200px;height:200px;border-radius:50%;position:relative;
+    background:
+      radial-gradient(circle at 50% 50%, var(--s-2) 0%, var(--s-1) 70%),
+      conic-gradient(from 0deg, var(--jog-color,var(--pink)) 0deg, transparent 30deg, transparent 330deg, var(--jog-color,var(--pink)) 360deg);
+    border:1px solid var(--b-default);
+    box-shadow:inset 0 0 0 8px var(--s-1), var(--e-3);
+    animation:rot var(--rot-dur,4s) linear infinite;
+  }
+  .deck.a .jog{--jog-color:var(--pink)}
+  .deck.b .jog{--jog-color:var(--cyan)}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .jog::before{
+    content:"";position:absolute;inset:18px;border-radius:50%;
+    background:
+      repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0.04) 0deg 3deg, transparent 3deg 6deg),
+      radial-gradient(circle at 50% 50%, var(--s-3), var(--s-2));
+    border:1px solid var(--b-subtle);
+  }
+  .jog::after{
+    content:"";position:absolute;top:50%;left:50%;
+    width:18px;height:18px;border-radius:50%;
+    background:var(--jog-color,var(--pink));
+    transform:translate(-50%,-50%);
+    box-shadow:0 0 14px currentColor;
+  }
+  .jog-center{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    z-index:2;text-align:center;animation:derot var(--rot-dur,4s) linear infinite;
+    font-family:var(--font-mono);
+  }
+  @keyframes derot{to{transform:translate(-50%,-50%) rotate(-360deg)}}
+  .jog-center .bpm{font-family:var(--font-display);font-weight:700;font-size:22px;letter-spacing:-0.02em;color:var(--c-primary)}
+  .jog-center .time{font-size:11px;color:var(--c-secondary);margin-top:2px}
+
+  /* Waveform strip */
+  .dk-wave{
+    height:64px;position:relative;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:8px;
+    overflow:hidden;margin-top:12px;
+    display:flex;align-items:center;gap:1px;padding:6px;
+  }
+  .dk-wave .wbar{flex:1;min-width:1px;border-radius:1px;transition:background var(--t-fast)}
+  .deck.a .dk-wave .wbar{background:var(--c-quaternary)}
+  .deck.a .dk-wave .wbar.played{background:linear-gradient(180deg,var(--pink),#ff8aab)}
+  .deck.b .dk-wave .wbar{background:var(--c-quaternary)}
+  .deck.b .dk-wave .wbar.played{background:linear-gradient(180deg,var(--cyan),#7ceaea)}
+  .dk-wave .playhead{position:absolute;top:0;bottom:0;width:2px;background:var(--amber);z-index:3;box-shadow:0 0 8px var(--amber)}
+
+  /* EQ + faders */
+  .dk-eq{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  .fader{
+    padding:10px 6px;background:var(--s-1);border:1px solid var(--b-default);border-radius:8px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .fader .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--c-tertiary)}
+  .fader .track{width:4px;height:70px;background:var(--s-3);border-radius:2px;position:relative;margin:4px 0}
+  .fader .thumb{
+    position:absolute;left:50%;transform:translateX(-50%);
+    width:22px;height:12px;border-radius:3px;
+    background:linear-gradient(180deg,#fff,#d4d4d4);
+    border:1px solid #888;box-shadow:0 2px 4px rgba(0,0,0,.4),0 -1px 0 rgba(255,255,255,.5) inset;
+  }
+  .fader .val{font-family:var(--font-mono);font-size:11px;color:var(--c-primary)}
+
+  /* Hot cues */
+  .dk-pads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+  .dk-pad{
+    height:38px;border-radius:7px;
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--c-secondary);
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+    transition:all var(--t-fast);
+    flex-direction:column;gap:2px;
+  }
+  .dk-pad .lbl{font-size:9px;color:var(--c-tertiary);font-weight:500}
+  .dk-pad:hover{background:var(--s-3)}
+  .dk-pad.active.hot-a{background:var(--pink);color:#050406;border-color:var(--pink);box-shadow:0 0 10px rgba(255,46,107,.5)}
+  .dk-pad.active.hot-b{background:var(--cyan);color:#050406;border-color:var(--cyan);box-shadow:0 0 10px rgba(31,212,212,.5)}
+
+  /* Transport bar inside deck */
+  .dk-transport{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .dk-tb{
+    width:42px;height:42px;border-radius:50%;border:1px solid var(--b-default);background:var(--s-2);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--t-fast);color:var(--c-primary);
+  }
+  .dk-tb:hover{background:var(--s-3);transform:translateY(-1px)}
+  .dk-tb svg{width:16px;height:16px}
+  .dk-tb.play{
+    width:56px;height:56px;
+    background:linear-gradient(180deg,var(--play-hi,#ff5a80),var(--play-lo,var(--pink)));
+    border:none;color:#050406;
+    box-shadow:0 6px 20px rgba(255,46,107,.4),0 1px 0 rgba(255,255,255,.2) inset;
+  }
+  .deck.b .dk-tb.play{--play-hi:#4bf0f0;--play-lo:var(--cyan);box-shadow:0 6px 20px rgba(31,212,212,.4),0 1px 0 rgba(255,255,255,.2) inset}
+  .dk-tb.play svg{width:20px;height:20px}
+
+  /* Mix center column */
+  .mix-center{
+    padding:20px;
+    background:linear-gradient(180deg,var(--s-2),var(--s-1));
+    border:1px solid var(--b-default);border-radius:18px;
+    display:flex;flex-direction:column;gap:16px;
+    position:relative;overflow:hidden;
+  }
+  .mix-center::before{
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:3px;background:linear-gradient(90deg,var(--pink),var(--cyan));border-radius:2px;
+  }
+
+  .sync-lock{
+    padding:12px;border-radius:12px;
+    background:linear-gradient(135deg,var(--amber-soft),rgba(0,0,0,0));
+    border:1px solid rgba(255,122,24,.35);
+    text-align:center;
+    position:relative;
+  }
+  .sync-lock .big{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--amber);letter-spacing:-0.01em}
+  .sync-lock .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#ffba7a;margin-top:2px}
+  .sync-lock .delta{font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);margin-top:6px}
+
+  .mix-scores{display:flex;flex-direction:column;gap:10px}
+  .score-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 12px;border-radius:8px;background:var(--s-1);border:1px solid var(--b-subtle);
+  }
+  .score-row .nm{font-family:var(--font-display);font-size:12px;font-weight:500}
+  .score-row .vl{font-family:var(--font-mono);font-size:13px;font-weight:600}
+  .score-row .vl.good{color:var(--green)}
+  .score-row .vl.warn{color:var(--amber)}
+
+  /* Crossfader */
+  .xfader{padding:14px 0;border-top:1px solid var(--b-subtle);border-bottom:1px solid var(--b-subtle)}
+  .xfader-lbl{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase}
+  .xfader-lbl .a{color:var(--pink)}
+  .xfader-lbl .b{color:var(--cyan)}
+  .xfader-track{
+    height:10px;border-radius:5px;
+    background:linear-gradient(90deg,var(--pink) 0%,var(--s-3) 50%,var(--cyan) 100%);
+    position:relative;box-shadow:inset 0 1px 2px rgba(0,0,0,.5);
+  }
+  .xfader-thumb{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:30px;height:22px;border-radius:4px;
+    background:linear-gradient(180deg,#f4f1ec,#a8a3b8);
+    border:1px solid #6b6780;box-shadow:0 3px 8px rgba(0,0,0,.5),0 -1px 0 rgba(255,255,255,.6) inset;
+    cursor:grab;
+  }
+  .xfader-thumb::after{content:"";position:absolute;top:4px;bottom:4px;left:50%;width:1px;background:rgba(0,0,0,.4)}
+  .xfader-ticks{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9.5px;color:var(--c-tertiary);margin-top:6px}
+
+  /* Mix assist */
+  .assist{
+    padding:14px;border-radius:12px;
+    background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(31,212,212,0.08));
+    border:1px solid rgba(139,92,246,.3);
+  }
+  .assist h4{
+    display:flex;align-items:center;gap:8px;margin:0 0 10px;font-family:var(--font-display);font-size:13px;font-weight:600;
+  }
+  .assist h4 .pill{
+    font-family:var(--font-mono);font-size:10px;padding:2px 7px;border-radius:var(--r-pill);
+    background:var(--violet-soft);color:#b9a3ff;border:1px solid rgba(139,92,246,.3);letter-spacing:.08em
+  }
+  .assist-step{display:flex;gap:10px;font-size:12px;padding:8px 0;border-bottom:1px dashed var(--b-subtle)}
+  .assist-step:last-child{border-bottom:none}
+  .assist-step .tm{font-family:var(--font-mono);color:var(--amber);min-width:52px;font-size:11px}
+  .assist-step .desc{color:var(--c-secondary);line-height:1.5}
+  .assist-step .desc strong{color:var(--c-primary);font-weight:500}
+
+  /* Deck summary at bottom */
+  .bottom-bar{
+    margin-top:16px;padding:12px 16px;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:12px;
+  }
+  .bb-left{display:flex;gap:16px;align-items:center}
+  .rec-indicator{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);
+  }
+  .rec-indicator .dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.6s ease-in-out infinite;box-shadow:0 0 8px var(--red)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-brand"><span class="mark"></span><span>CueForge</span></div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
+    <button class="btn btn-primary btn-sm">Upload</button>
+    <button class="avatar">KD</button>
+  </div>
+</header>
+
+<main class="page" style="max-width:1440px">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Mix Studio <span class="editorial">— deux decks, un feel</span></h1>
+      <p class="page-sub">Prévisualise tes transitions. L'AI assist t'indique le bar parfait pour lancer le mix.</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="rec-indicator"><span class="dot"></span>REC · 00:42</span>
+      <button class="btn btn-ghost">Charger autre paire</button>
+      <button class="btn btn-primary">Sauver le mix</button>
+    </div>
+  </div>
+
+  <!-- DECKS -->
+  <div class="decks reveal">
+
+    <!-- DECK A -->
+    <div class="deck a">
+      <div class="deck-head">
+        <div class="deck-tag"><span class="letter">A</span>Now Playing</div>
+        <div class="deck-status">
+          <span class="chip chip-pink"><span class="chip-dot"></span>playing</span>
+        </div>
+      </div>
+
+      <div class="dk-track">
+        <div class="dk-cover" style="background:linear-gradient(135deg,#8b5cf6,#1fd4d4)"></div>
+        <div style="min-width:0">
+          <div class="dk-title">Nothing But You — Ext. Mix</div>
+          <div class="dk-artist">Camelphat, Max Milner</div>
+          <div class="dk-stats">
+            <span class="chip chip-amber">122.0 BPM</span>
+            <span class="chip chip-cyan">8A · Am</span>
+            <span class="chip">Bar 63</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="jog-wrap">
+        <div class="jog" style="--rot-dur:2s">
+          <div class="jog-center"><div class="bpm">122.0</div><div class="time">02:34</div></div>
+        </div>
+      </div>
+
+      <div class="dk-wave" id="wave-a"><div class="playhead" style="left:38%"></div></div>
+
+      <div class="dk-eq">
+        <div class="fader"><span class="lbl">HI</span><div class="track"><div class="thumb" style="top:30%"></div></div><span class="val">+3</span></div>
+        <div class="fader"><span class="lbl">MID</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
+        <div class="fader"><span class="lbl">LOW</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
+        <div class="fader"><span class="lbl">GAIN</span><div class="track"><div class="thumb" style="top:40%"></div></div><span class="val">+2</span></div>
+      </div>
+
+      <div class="dk-pads">
+        <button class="dk-pad active hot-a"><span>1</span><span class="lbl">Drop</span></button>
+        <button class="dk-pad"><span>2</span><span class="lbl">Break</span></button>
+        <button class="dk-pad"><span>3</span><span class="lbl">Loop</span></button>
+        <button class="dk-pad"><span>4</span><span class="lbl">Fade</span></button>
+      </div>
+
+      <div class="dk-transport">
+        <button class="dk-tb" data-tt="Cue"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg></button>
+        <button class="dk-tb play" data-tt="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+        <button class="dk-tb" data-tt="Sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4M3 10V6a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 14v4a4 4 0 0 1-4 4H3"/></svg></button>
+      </div>
+    </div>
+
+    <!-- MIX CENTER -->
+    <div class="mix-center">
+
+      <div class="sync-lock">
+        <div class="big">SYNC ✓</div>
+        <div class="lbl">Phrase + Beat lock</div>
+        <div class="delta">Δ BPM · 0.0 · Δ bar · +16</div>
+      </div>
+
+      <div class="mix-scores">
+        <div class="score-row">
+          <span class="nm"><span class="chip-dot" style="color:var(--green);background:var(--green);margin-right:6px"></span>Match score</span>
+          <span class="vl good">9.4 / 10</span>
+        </div>
+        <div class="score-row">
+          <span class="nm">Key compatibilité</span>
+          <span class="vl good">8A → 8A</span>
+        </div>
+        <div class="score-row">
+          <span class="nm">BPM delta</span>
+          <span class="vl good">+0.0</span>
+        </div>
+        <div class="score-row">
+          <span class="nm">Phrase sync</span>
+          <span class="vl good">OK · bar 64</span>
+        </div>
+        <div class="score-row">
+          <span class="nm">Énergie shift</span>
+          <span class="vl warn">−0.2 (safe)</span>
+        </div>
+      </div>
+
+      <div class="xfader">
+        <div class="xfader-lbl"><span class="a">A · Nothing But You</span><span class="b">B · Waited 4 U</span></div>
+        <div class="xfader-track">
+          <div class="xfader-thumb"></div>
+        </div>
+        <div class="xfader-ticks"><span>-100</span><span>-50</span><span>0</span><span>+50</span><span>+100</span></div>
+      </div>
+
+      <div class="assist">
+        <h4><span class="pill">AI</span>Mix assist · transition idéale</h4>
+        <div class="assist-step"><span class="tm">02:34</span><span class="desc"><strong>Maintenant</strong> · baisse LOW-A progressivement sur 16 bars</span></div>
+        <div class="assist-step"><span class="tm">02:50</span><span class="desc"><strong>Bar 64</strong> · cue B au hot-cue 1 (drop), fade-in HI-B</span></div>
+        <div class="assist-step"><span class="tm">03:06</span><span class="desc"><strong>Bar 72</strong> · crossfader à 0, kill LOW-A</span></div>
+        <div class="assist-step"><span class="tm">03:22</span><span class="desc"><strong>Bar 80</strong> · transition complète, A → stop</span></div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-ghost" style="flex:1;justify-content:center">Annuler</button>
+        <button class="btn btn-sm btn-primary" style="flex:1;justify-content:center">Appliquer l'assist</button>
+      </div>
+    </div>
+
+    <!-- DECK B -->
+    <div class="deck b">
+      <div class="deck-head">
+        <div class="deck-tag"><span class="letter">B</span>Prêt</div>
+        <div class="deck-status">
+          <span class="chip chip-cyan"><span class="chip-dot"></span>cued</span>
+        </div>
+      </div>
+
+      <div class="dk-track">
+        <div class="dk-cover" style="background:linear-gradient(135deg,#1fd4d4,#d4ff2a)"></div>
+        <div style="min-width:0">
+          <div class="dk-title">Waited 4 U (Club Mix)</div>
+          <div class="dk-artist">Sofi Tukker</div>
+          <div class="dk-stats">
+            <span class="chip chip-amber">122.0 BPM</span>
+            <span class="chip chip-cyan">8A · Am</span>
+            <span class="chip">Bar 1 (cued)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="jog-wrap">
+        <div class="jog" style="animation:none">
+          <div class="jog-center" style="animation:none"><div class="bpm">122.0</div><div class="time">00:00</div></div>
+        </div>
+      </div>
+
+      <div class="dk-wave" id="wave-b"><div class="playhead" style="left:2%"></div></div>
+
+      <div class="dk-eq">
+        <div class="fader"><span class="lbl">HI</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
+        <div class="fader"><span class="lbl">MID</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
+        <div class="fader"><span class="lbl">LOW</span><div class="track"><div class="thumb" style="top:95%"></div></div><span class="val">−∞</span></div>
+        <div class="fader"><span class="lbl">GAIN</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
+      </div>
+
+      <div class="dk-pads">
+        <button class="dk-pad active hot-b"><span>1</span><span class="lbl">Drop</span></button>
+        <button class="dk-pad"><span>2</span><span class="lbl">Hook</span></button>
+        <button class="dk-pad"><span>3</span><span class="lbl">Break</span></button>
+        <button class="dk-pad"><span>4</span><span class="lbl">Loop</span></button>
+      </div>
+
+      <div class="dk-transport">
+        <button class="dk-tb" data-tt="Cue"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg></button>
+        <button class="dk-tb play" data-tt="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></button>
+        <button class="dk-tb" data-tt="Sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4M3 10V6a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 14v4a4 4 0 0 1-4 4 H3"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar reveal reveal-2">
+    <div class="bb-left">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="eyebrow">Master</span>
+        <span class="mono" style="font-size:14px;color:var(--amber);font-weight:600">-3.4 dB</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="eyebrow">Session</span>
+        <span class="mono" style="font-size:14px">00:42:18</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <span class="eyebrow">Tracks</span>
+        <span class="mono" style="font-size:14px">12 joués</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-ghost">Charger A</button>
+      <button class="btn btn-sm btn-ghost">Swap A↔B</button>
+      <button class="btn btn-sm btn-ghost">Charger B</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script>
+// Build waveforms
+const buildStrip = (id, seed, progress, color)=>{
+  const el = document.getElementById(id);
+  if(!el) return;
+  for(let i=0;i<160;i++){
+    const r = seededRand(seed+i*.18);
+    const h = 0.25 + r*.55 + .2*Math.abs(Math.sin(i*.08));
+    const b = document.createElement('div');
+    b.className = 'wbar';
+    b.style.height = (h*100)+'%';
+    if(i/160 < progress) b.classList.add('played');
+    el.appendChild(b);
+  }
+};
+buildStrip('wave-a', 7.1, 0.38);
+buildStrip('wave-b', 23.7, 0);
+
+// Play toggle
+document.querySelectorAll('.dk-tb.play').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const svg = b.querySelector('svg');
+    if(b.dataset.playing==='1'){svg.innerHTML='<path d="M6 4v16l14-8z"/>';b.dataset.playing='0';}
+    else {svg.innerHTML='<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';b.dataset.playing='1';}
+    toast('▶ Deck transport','info');
+  });
+});
+
+// Pad
+document.querySelectorAll('.dk-pad').forEach(p=>{
+  p.addEventListener('click',()=>{
+    const deck = p.closest('.deck').classList.contains('a')?'A':'B';
+    const hcls = deck==='A'?'hot-a':'hot-b';
+    document.querySelectorAll('.deck.'+(deck==='A'?'a':'b')+' .dk-pad').forEach(x=>x.classList.remove('active',hcls));
+    p.classList.add('active',hcls);
+    toast(`Deck ${deck} · ${p.querySelector('.lbl').textContent}`,'info');
+  });
+});
+
+// Crossfader drag
+(function(){
+  const thumb = document.querySelector('.xfader-thumb');
+  const track = document.querySelector('.xfader-track');
+  let dragging = false;
+  thumb.addEventListener('mousedown',e=>{dragging=true;e.preventDefault()});
+  window.addEventListener('mouseup',()=>dragging=false);
+  window.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    const rect = track.getBoundingClientRect();
+    let pct = ((e.clientX - rect.left)/rect.width)*100;
+    pct = Math.max(0,Math.min(100,pct));
+    thumb.style.left = pct+'%';
+  });
+})();
+
+// Sync button
+document.querySelectorAll('.dk-tb[data-tt=Sync]').forEach(b=>{
+  b.addEventListener('click',()=>toast('🎯 Sync verrouillé · Δ0.0','success'));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Upload</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Page-specific — Upload */
+  .upload-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:24px}
+
+  /* Drop zone */
+  .drop{
+    position:relative;
+    border:2px dashed var(--b-strong);
+    border-radius:var(--r-5);
+    padding:56px 40px;
+    background:
+      radial-gradient(600px 300px at 50% 0%, rgba(255,122,24,.14), transparent 60%),
+      linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    text-align:center;
+    transition:all var(--t-med) var(--ease);
+    cursor:pointer;
+    overflow:hidden;
+  }
+  .drop::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity:.55;mix-blend-mode:overlay;
+  }
+  .drop.active,.drop:hover{
+    border-color:var(--amber);
+    background:
+      radial-gradient(800px 400px at 50% 50%, rgba(255,122,24,.24), transparent 60%),
+      linear-gradient(180deg,var(--s-3) 0%,var(--s-2) 100%);
+    box-shadow:0 0 0 1px var(--amber-soft),0 20px 60px rgba(255,122,24,.2);
+  }
+  .drop.active{animation:dropPulse 1.4s ease-in-out infinite}
+  @keyframes dropPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.01)}}
+  .drop-icon{
+    width:80px;height:80px;margin:0 auto 20px;
+    border-radius:20px;
+    background:linear-gradient(135deg,var(--amber) 0%,var(--pink) 100%);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 12px 40px rgba(255,122,24,.4),0 0 0 1px rgba(255,255,255,.12) inset;
+    position:relative;
+    animation:iconFloat 3s ease-in-out infinite;
+  }
+  @keyframes iconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .drop-icon svg{width:36px;height:36px;color:#1a0b00;stroke-width:2.5}
+  .drop h2{font-family:var(--font-display);font-size:24px;font-weight:700;margin:0 0 8px;letter-spacing:-0.015em}
+  .drop h2 .editorial{color:var(--c-secondary);font-weight:400;font-size:22px}
+  .drop p{color:var(--c-secondary);font-size:13.5px;margin:0 0 22px;max-width:400px;margin-left:auto;margin-right:auto}
+  .drop-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  .drop-formats{margin-top:28px;padding-top:22px;border-top:1px solid var(--b-subtle);display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+
+  /* Source pickers */
+  .sources{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .source-btn{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    padding:16px 10px;border-radius:var(--r-4);
+    background:var(--s-2);border:1px solid var(--b-default);
+    cursor:pointer;
+    transition:all var(--t-fast) var(--ease);
+    position:relative;
+  }
+  .source-btn:hover{background:var(--s-3);border-color:var(--b-strong);transform:translateY(-2px)}
+  .source-btn:active{transform:translateY(0)}
+  .source-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:var(--font-display)}
+  .source-name{font-size:12px;font-weight:500}
+  .source-btn .status{position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%}
+  .source-btn .status.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .source-btn .status.off{background:var(--c-quaternary)}
+
+  /* Settings inline */
+  .opts{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+  .opt{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:12px 14px;border-radius:var(--r-3);
+    background:var(--s-2);border:1px solid var(--b-subtle);
+  }
+  .opt-info{flex:1;min-width:0}
+  .opt-label{font-size:13px;font-weight:500}
+  .opt-hint{font-size:11.5px;color:var(--c-tertiary);margin-top:2px}
+
+  /* Queue */
+  .queue-panel{padding:20px 22px;border:1px solid var(--b-default);border-radius:var(--r-5);background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);box-shadow:var(--e-2)}
+  .queue-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+  .queue-title{font-family:var(--font-display);font-weight:600;font-size:15px;margin:0}
+  .queue-sub{color:var(--c-tertiary);font-size:12px;margin-top:2px}
+
+  .q-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--b-subtle)}
+  .q-stat{text-align:center;padding:8px 4px;background:var(--s-2);border-radius:var(--r-3);border:1px solid var(--b-subtle)}
+  .q-stat .num{font-family:var(--font-mono);font-size:18px;font-weight:600;line-height:1}
+  .q-stat .lbl{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);margin-top:3px;text-transform:uppercase;letter-spacing:.08em}
+  .q-stat.active .num{color:var(--amber)}
+  .q-stat.done .num{color:var(--green)}
+  .q-stat.err .num{color:var(--red)}
+  .q-stat.pend .num{color:var(--c-secondary)}
+
+  /* Queue rows */
+  .q-list{display:flex;flex-direction:column;gap:6px;max-height:560px;overflow-y:auto;padding-right:4px}
+  .q-row{
+    display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;
+    padding:10px 12px;border-radius:var(--r-3);
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease);
+    position:relative;
+    overflow:hidden;
+  }
+  .q-row:hover{background:var(--s-3)}
+  .q-row.analyzing{border-color:rgba(255,122,24,.35);background:linear-gradient(90deg,rgba(255,122,24,.08) 0%,var(--s-2) 40%)}
+  .q-row.analyzing::before{
+    content:"";position:absolute;bottom:0;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--amber),transparent);
+    animation:rowScan 1.8s linear infinite;
+  }
+  @keyframes rowScan{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .q-row.done{border-color:rgba(74,222,128,.18);background:rgba(74,222,128,.03)}
+  .q-row.err{border-color:rgba(239,68,68,.3)}
+  .q-cover{
+    width:40px;height:40px;border-radius:var(--r-2);
+    background:linear-gradient(135deg,var(--violet),var(--pink));
+    flex-shrink:0;position:relative;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .q-cover.s1{background:linear-gradient(135deg,#ff7a18,#ff2e6b)}
+  .q-cover.s2{background:linear-gradient(135deg,#1fd4d4,#8b5cf6)}
+  .q-cover.s3{background:linear-gradient(135deg,#4ade80,#1fd4d4)}
+  .q-cover.s4{background:linear-gradient(135deg,#8b5cf6,#ff2e6b)}
+  .q-cover svg{width:20px;height:20px;color:rgba(255,255,255,.8)}
+  .q-body{min-width:0}
+  .q-title{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .q-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+  .q-status{display:flex;align-items:center;gap:8px}
+  .q-step-chip{
+    font-family:var(--font-mono);font-size:10.5px;
+    padding:3px 8px;border-radius:var(--r-pill);
+    background:var(--s-3);border:1px solid var(--b-subtle);color:var(--c-secondary);
+    display:inline-flex;align-items:center;gap:5px;
+    white-space:nowrap;
+  }
+  .q-step-chip.active{background:var(--amber-soft);border-color:rgba(255,122,24,.3);color:#ffba7a}
+  .q-step-chip.done{background:var(--green-soft);border-color:rgba(74,222,128,.3);color:#8ef0aa}
+  .q-step-chip.err{background:var(--red-soft);border-color:rgba(239,68,68,.3);color:#fecaca}
+  .q-progress{width:100px;height:4px;background:var(--s-3);border-radius:2px;overflow:hidden}
+  .q-progress-fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px;transition:width var(--t-slow) var(--ease)}
+
+  .q-steps{display:flex;gap:4px;margin-top:8px}
+  .q-step-dot{
+    flex:1;height:3px;border-radius:2px;background:var(--s-3);
+    position:relative;overflow:hidden;
+  }
+  .q-step-dot.active{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .q-step-dot.active::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+    animation:stepShimmer 1.2s linear infinite;
+  }
+  @keyframes stepShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .q-step-dot.done{background:var(--green)}
+
+  .q-row-expanded{grid-column:1 / -1;padding-top:10px;margin-top:8px;border-top:1px solid var(--b-subtle)}
+
+  /* Filter chips */
+  .q-filter{display:flex;gap:6px;margin-bottom:12px}
+  .q-filter .chip{cursor:pointer;transition:all var(--t-fast) var(--ease)}
+  .q-filter .chip:hover{border-color:var(--b-strong);color:var(--c-primary)}
+  .q-filter .chip.active{background:var(--amber);color:var(--c-invert);border-color:var(--amber)}
+
+  @media (max-width:1080px){.upload-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- SHARED TOP NAV -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <span class="mark"></span>
+    <span>CueForge</span>
+    <span class="chip chip-cyan" style="margin-left:6px"><span class="chip-dot"></span>Pro</span>
+  </div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm" data-tt="Search · ⌘K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find</button>
+    <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Upload</button>
+    <span class="topnav-sep"></span>
+    <button class="btn-icon btn btn-ghost btn-sm" data-tt="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
+    <button class="avatar" data-tt="Kevin · kenin@">KD</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow reveal">Upload · sources · file</div>
+      <h1 class="page-title reveal reveal-1">Upload <span class="editorial">/ préparer la boîte</span></h1>
+      <p class="page-sub reveal reveal-2">Déposez, connectez, ou importez depuis un dossier. L'IA s'occupe de l'identification et de l'analyse.</p>
+    </div>
+    <div class="row reveal reveal-3">
+      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Aide</button>
+      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Rejouer échoués</button>
+      <button class="btn btn-ghost btn-icon" data-tt="Pause la queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+    </div>
+  </div>
+
+  <div class="upload-grid">
+    <!-- LEFT: drop + sources + options -->
+    <div>
+      <!-- Drop zone -->
+      <div class="drop reveal reveal-2" id="dropZone">
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M6 9l6-6 6 6"/><path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/></svg>
+        </div>
+        <h2>Glissez vos fichiers <span class="editorial">ou choisissez</span></h2>
+        <p>L'analyse complète tourne en moins de 60 secondes par track. Aucune limite de taille, aucune compression.</p>
+        <div class="drop-actions">
+          <button class="btn btn-primary btn-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M6 9l6-6 6 6"/><path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/></svg>Choisir fichiers</button>
+          <button class="btn btn-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Choisir dossier</button>
+        </div>
+        <div class="drop-formats">
+          <span class="chip"><span class="chip-dot" style="color:var(--green)"></span>WAV</span>
+          <span class="chip"><span class="chip-dot" style="color:var(--green)"></span>AIFF</span>
+          <span class="chip"><span class="chip-dot" style="color:var(--green)"></span>FLAC</span>
+          <span class="chip"><span class="chip-dot" style="color:var(--green)"></span>MP3 320</span>
+          <span class="chip"><span class="chip-dot" style="color:var(--green)"></span>M4A / ALAC</span>
+          <span class="chip"><span class="chip-dot" style="color:var(--lime)"></span>OGG</span>
+        </div>
+      </div>
+
+      <!-- Sources -->
+      <div class="queue-panel reveal reveal-3" style="margin-top:20px">
+        <div class="queue-head">
+          <div>
+            <h3 class="queue-title">Sources connectées</h3>
+            <div class="queue-sub">Importez directement depuis vos apps et dossiers DJ</div>
+          </div>
+          <a href="settings.html" style="font-family:var(--font-display);font-size:12px;color:var(--amber)">Gérer →</a>
+        </div>
+        <div class="sources">
+          <button class="source-btn pressable">
+            <span class="status on"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#000,#444);color:#fff">RB</div>
+            <div class="source-name">Rekordbox</div>
+            <div class="mono hint">1 284 tracks</div>
+          </button>
+          <button class="source-btn pressable">
+            <span class="status on"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#0061ff,#2d84ff);color:#fff">S</div>
+            <div class="source-name">Serato</div>
+            <div class="mono hint">412 tracks</div>
+          </button>
+          <button class="source-btn pressable">
+            <span class="status off"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#ff6b00,#ff9500);color:#fff">T</div>
+            <div class="source-name">Traktor</div>
+            <div class="mono hint">Non connecté</div>
+          </button>
+          <button class="source-btn pressable">
+            <span class="status on"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#1db954,#1ed760);color:#fff">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 14.4c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.4-1-.3.1-.7-.1-.8-.5-.1-.3.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.2-2.8c-.2.4-.7.5-1.1.3-2.8-1.7-7.1-2.2-10.4-1.2-.4.1-.9-.1-1-.6-.1-.4.1-.9.6-1 3.8-1.1 8.6-.6 11.8 1.4.4.3.5.8.3 1.2zm.1-2.9c-3.4-2-9-2.2-12.2-1.2-.5.2-1.1-.1-1.3-.7-.2-.5.1-1.1.7-1.3 3.7-1.1 9.9-.9 13.8 1.4.5.3.7 1 .4 1.5-.3.5-1 .7-1.5.3z"/></svg>
+            </div>
+            <div class="source-name">Spotify</div>
+            <div class="mono hint">Import playlists</div>
+          </button>
+          <button class="source-btn pressable">
+            <span class="status on"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#ff3b30,#ff9500);color:#fff">☁</div>
+            <div class="source-name">Drive / Dropbox</div>
+            <div class="mono hint">3 dossiers watch</div>
+          </button>
+          <button class="source-btn pressable">
+            <span class="status off"></span>
+            <div class="source-ic" style="background:linear-gradient(135deg,#8b5cf6,#ff2e6b);color:#fff">+</div>
+            <div class="source-name">Beatport</div>
+            <div class="mono hint">À connecter</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Upload options -->
+      <div class="queue-panel reveal reveal-4" style="margin-top:20px">
+        <div class="queue-head">
+          <div>
+            <h3 class="queue-title">Options d'analyse</h3>
+            <div class="queue-sub">Appliqué à tous les nouveaux imports</div>
+          </div>
+        </div>
+        <div class="opts">
+          <div class="opt">
+            <div class="opt-info">
+              <div class="opt-label">Identification automatique (AcoustID → MusicBrainz → iTunes → Spotify)</div>
+              <div class="opt-hint">Reconnaissance par empreinte acoustique — ~1.2s / track</div>
+            </div>
+            <div class="switch on" data-switch></div>
+          </div>
+          <div class="opt">
+            <div class="opt-info">
+              <div class="opt-label">Séparation stems (Demucs v4)</div>
+              <div class="opt-hint">Drums · Bass · Vocals · Other — obligatoire sur votre plan Pro</div>
+            </div>
+            <div class="switch on" data-switch></div>
+          </div>
+          <div class="opt">
+            <div class="opt-info">
+              <div class="opt-label">Cues par défaut</div>
+              <div class="opt-hint">Load (start) · Drop · Break · Outro + pads selon genre</div>
+            </div>
+            <div class="segment" style="padding:2px">
+              <button>Aucun</button>
+              <button class="active">Auto</button>
+              <button>Manuel</button>
+            </div>
+          </div>
+          <div class="opt">
+            <div class="opt-info">
+              <div class="opt-label">Normalisation loudness (LUFS)</div>
+              <div class="opt-hint">Cible -14 LUFS · preview uniquement · fichier original préservé</div>
+            </div>
+            <div class="switch" data-switch></div>
+          </div>
+          <div class="opt">
+            <div class="opt-info">
+              <div class="opt-label">Écrire les tags dans le fichier</div>
+              <div class="opt-hint">BPM · Key · Energy en ID3v2.4 — compat. Rekordbox/Serato</div>
+            </div>
+            <div class="switch on" data-switch></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: queue -->
+    <div class="queue-panel reveal reveal-3">
+      <div class="queue-head">
+        <div>
+          <h3 class="queue-title">File d'analyse</h3>
+          <div class="queue-sub">18 tracks · 3 en cours · ~4 min restant</div>
+        </div>
+        <div class="mono" style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c-secondary)">
+          <span class="spinner"></span>
+          <span>2.4 tracks / min</span>
+        </div>
+      </div>
+
+      <div class="q-stats">
+        <div class="q-stat active"><div class="num">3</div><div class="lbl">En cours</div></div>
+        <div class="q-stat pend"><div class="num">11</div><div class="lbl">En attente</div></div>
+        <div class="q-stat done"><div class="num">128</div><div class="lbl">Réussis 24h</div></div>
+        <div class="q-stat err"><div class="num">2</div><div class="lbl">Échoués</div></div>
+      </div>
+
+      <div class="q-filter">
+        <span class="chip active">Tous · 18</span>
+        <span class="chip">En cours · 3</span>
+        <span class="chip">Attente · 11</span>
+        <span class="chip">Réussis · 4</span>
+        <span class="chip">Échoués · 2</span>
+      </div>
+
+      <div class="q-list">
+
+        <!-- Analyzing 1 -->
+        <div class="q-row analyzing">
+          <div class="q-cover s1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Camelphat, Anyma — Nothing But You <span style="color:var(--c-tertiary);font-weight:400">(Original Mix)</span></div>
+            <div class="q-meta">
+              <span>WAV · 48 MB</span>
+              <span>·</span>
+              <span>6m 42s</span>
+              <span>·</span>
+              <span style="color:var(--amber)">Stems · 64% · ETA 12s</span>
+            </div>
+            <div class="q-steps">
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot active"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip active"><span class="spinner" style="width:9px;height:9px;border-width:1.5px"></span>Stems</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Pause"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Analyzing 2 -->
+        <div class="q-row analyzing">
+          <div class="q-cover s2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Mind Against — Walking Away</div>
+            <div class="q-meta">
+              <span>FLAC · 62 MB</span><span>·</span><span>7m 14s</span><span>·</span>
+              <span style="color:var(--cyan)">Key · 22% · ETA 42s</span>
+            </div>
+            <div class="q-steps">
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot active"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip active"><span class="spinner" style="width:9px;height:9px;border-width:1.5px;border-top-color:var(--cyan)"></span>Key</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Pause"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Analyzing 3 -->
+        <div class="q-row analyzing">
+          <div class="q-cover s3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Artbat — Closer</div>
+            <div class="q-meta">
+              <span>WAV · 54 MB</span><span>·</span><span>6m 58s</span><span>·</span>
+              <span style="color:var(--green)">BPM · 88% · ETA 4s</span>
+            </div>
+            <div class="q-steps">
+              <div class="q-step-dot done"></div>
+              <div class="q-step-dot active"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+              <div class="q-step-dot"></div>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip active"><span class="spinner" style="width:9px;height:9px;border-width:1.5px;border-top-color:var(--green)"></span>BPM</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Pause"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Pending -->
+        <div class="q-row">
+          <div class="q-cover s4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Tale Of Us — Oltremare</div>
+            <div class="q-meta"><span>WAV · 71 MB</span><span>·</span><span>8m 32s</span><span>·</span><span>Position 1/11</span></div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip">En attente</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Prioriser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 17l10-10M17 7h-7M17 7v7"/></svg></button>
+          </div>
+        </div>
+        <div class="q-row">
+          <div class="q-cover" style="background:linear-gradient(135deg,#4ade80,#1fd4d4)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Adriatique — Midnight Operator</div>
+            <div class="q-meta"><span>AIFF · 88 MB</span><span>·</span><span>9m 04s</span><span>·</span><span>Position 2/11</span></div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip">En attente</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Prioriser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 17l10-10M17 7h-7M17 7v7"/></svg></button>
+          </div>
+        </div>
+        <div class="q-row">
+          <div class="q-cover" style="background:linear-gradient(135deg,#ff2e6b,#8b5cf6)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Colyn — Reflections</div>
+            <div class="q-meta"><span>MP3 320 · 16 MB</span><span>·</span><span>7m 02s</span><span>·</span><span>Position 3/11</span></div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip">En attente</span>
+            <button class="btn btn-sm btn-ghost btn-icon" data-tt="Prioriser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 17l10-10M17 7h-7M17 7v7"/></svg></button>
+          </div>
+        </div>
+
+        <!-- Done -->
+        <div class="q-row done">
+          <div class="q-cover" style="background:linear-gradient(135deg,#ff7a18,#d4ff2a)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Âme — Blackbird</div>
+            <div class="q-meta">
+              <span class="mono">122 BPM</span><span>·</span>
+              <span class="mono">8A</span><span>·</span>
+              <span class="mono">Energy 7.2</span><span>·</span>
+              <span class="mono">8 cues</span>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg>Ready</span>
+            <button class="btn btn-sm btn-ghost">Ouvrir</button>
+          </div>
+        </div>
+
+        <div class="q-row done">
+          <div class="q-cover" style="background:linear-gradient(135deg,#1fd4d4,#ff7a18)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Stephan Bodzin — Singularity</div>
+            <div class="q-meta">
+              <span class="mono">124 BPM</span><span>·</span>
+              <span class="mono">5A</span><span>·</span>
+              <span class="mono">Energy 8.1</span><span>·</span>
+              <span class="mono">10 cues</span>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg>Ready</span>
+            <button class="btn btn-sm btn-ghost">Ouvrir</button>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div class="q-row err">
+          <div class="q-cover" style="background:linear-gradient(135deg,#ef4444,#8b5cf6)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+          <div class="q-body">
+            <div class="q-title">Unknown Artist — Track 04 <span style="color:var(--c-tertiary);font-weight:400">(import raw)</span></div>
+            <div class="q-meta">
+              <span style="color:#fecaca">MP3 96 · qualité insuffisante</span>
+              <span>·</span>
+              <span>Fingerprint introuvable</span>
+            </div>
+          </div>
+          <div class="q-status">
+            <span class="q-step-chip err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Échec</span>
+            <button class="btn btn-sm btn-ghost">Ré-essayer</button>
+          </div>
+        </div>
+
+        <!-- More pending -->
+        <div class="q-row">
+          <div class="q-cover" style="background:linear-gradient(135deg,#8b5cf6,#1fd4d4)"></div>
+          <div class="q-body">
+            <div class="q-title">Massano — The Feeling</div>
+            <div class="q-meta"><span>WAV · 58 MB</span><span>·</span><span>7m 18s</span><span>·</span><span>Position 4/11</span></div>
+          </div>
+          <div class="q-status"><span class="q-step-chip">En attente</span></div>
+        </div>
+        <div class="q-row">
+          <div class="q-cover" style="background:linear-gradient(135deg,#ff7a18,#1fd4d4)"></div>
+          <div class="q-body">
+            <div class="q-title">Patrice Bäumel — Roar</div>
+            <div class="q-meta"><span>WAV · 67 MB</span><span>·</span><span>8m 22s</span><span>·</span><span>Position 5/11</span></div>
+          </div>
+          <div class="q-status"><span class="q-step-chip">En attente</span></div>
+        </div>
+        <div class="q-row">
+          <div class="q-cover" style="background:linear-gradient(135deg,#d4ff2a,#ff2e6b)"></div>
+          <div class="q-body">
+            <div class="q-title">Rodriguez Jr. — Kids from the West</div>
+            <div class="q-meta"><span>FLAC · 74 MB</span><span>·</span><span>7m 55s</span><span>·</span><span>Position 6/11</span></div>
+          </div>
+          <div class="q-status"><span class="q-step-chip">En attente</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+  // Drop zone — fake drag + file dialog
+  const drop = document.getElementById('dropZone');
+  ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('active')}));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('active')}));
+  drop.addEventListener('drop', ev=>{
+    const n = ev.dataTransfer?.files?.length || 0;
+    toast(n>0 ? `${n} fichier${n>1?'s':''} ajouté${n>1?'s':''} à la queue` : 'Drop détecté','success');
+  });
+  drop.addEventListener('click', ()=>toast('Ouvre le sélecteur de fichier','info'));
+
+  // Switch toggle
+  document.querySelectorAll('[data-switch]').forEach(s=>{
+    s.addEventListener('click',()=>{
+      s.classList.toggle('on');
+      toast(s.classList.contains('on') ? 'Option activée' : 'Option désactivée','info');
+    });
+  });
+
+  // Segment toggle (options)
+  document.querySelectorAll('.segment').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+      });
+    });
+  });
+
+  // Queue filter chips
+  document.querySelectorAll('.q-filter .chip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      document.querySelectorAll('.q-filter .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      toast(`Filtre : ${c.textContent.split(' ·')[0]}`,'info');
+    });
+  });
+
+  // Source buttons
+  document.querySelectorAll('.source-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const name = b.querySelector('.source-name').textContent;
+      const off = b.querySelector('.status.off');
+      if(off){
+        toast(`Connexion à ${name}…`,'info');
+      } else {
+        toast(`Importer depuis ${name}`,'success');
+      }
+    });
+  });
+
+  // Progress simulation — bump the active ETAs
+  setInterval(()=>{
+    document.querySelectorAll('.q-row.analyzing .q-steps .q-step-dot.active').forEach(d=>{
+      // tiny visual tick — nothing durable, just flicker the shimmer
+      d.style.animation='none';
+      requestAnimationFrame(()=>{d.style.animation=''});
+    });
+  }, 2500);
+</script>
+</body>
+</html>
