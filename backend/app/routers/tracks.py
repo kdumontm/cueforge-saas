@@ -419,18 +419,27 @@ def stream_audio(
         content_type = MIME_TYPES.get(ext, "application/octet-stream")
         file_size = os.path.getsize(safe)
 
-    # Handle Range requests (for seek/progressive loading)
+    # Range support pour Chrome <audio> / seek / progressive loading.
+    # Stratégie : parser Range à la main et renvoyer uniquement le chunk demandé
+    # (NE PAS renvoyer tout le fichier avec status 206 quand bytes=0- est demandé,
+    # car Chrome media pipeline se bloque parfois à attendre TCP FIN sur long stream).
     range_header = request.headers.get("Range")
     if range_header:
         try:
-            range_val = range_header.strip().replace("bytes=", "")
-            start_str, end_str = range_val.split("-")
+            range_val = range_header.strip().lower().replace("bytes=", "")
+            start_str, end_str = range_val.split("-", 1)
             start = int(start_str) if start_str else 0
-            end = int(end_str) if end_str else file_size - 1
-            end = min(end, file_size - 1)
+            # Si bytes=0- (Chrome probe), on limite le chunk initial à 1 MB max pour
+            # permettre au media pipeline de recevoir rapidement les premiers bytes.
+            if not end_str:
+                end = min(start + (1024 * 1024) - 1, file_size - 1)
+            else:
+                end = min(int(end_str), file_size - 1)
+            if start > end or start >= file_size:
+                raise ValueError("invalid range")
             chunk_size = end - start + 1
 
-            def iter_file(path: str, s: int, length: int):
+            def iter_chunk(path: str, s: int, length: int):
                 with open(path, "rb") as f:
                     f.seek(s)
                     remaining = length
@@ -442,7 +451,7 @@ def stream_audio(
                         yield data
 
             return StreamingResponse(
-                iter_file(serve_path, start, chunk_size),
+                iter_chunk(serve_path, start, chunk_size),
                 status_code=206,
                 media_type=content_type,
                 headers={
@@ -452,16 +461,17 @@ def stream_audio(
                     "Cache-Control": "public, max-age=3600",
                 },
             )
-        except Exception:
-            pass  # Fall through to full file response
+        except Exception as e:
+            logger.warning("Range parse failed for track %d: %s — serving full file", track_id, e)
+            # Fall through to full file response
 
+    # Requête complète : FileResponse (Starlette gère automatiquement les headers ETag/Last-Modified)
     return FileResponse(
         path=serve_path,
         media_type=content_type,
         filename=getattr(track, "original_filename", None),
         headers={
             "Accept-Ranges": "bytes",
-            "Content-Length": str(file_size),
             "Cache-Control": "public, max-age=3600",
         },
     )
