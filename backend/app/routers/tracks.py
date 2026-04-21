@@ -1906,6 +1906,30 @@ def list_tracks(
     )
 
 
+# ── Routes spécifiques AVANT /{track_id} pour éviter interception du path param ───
+# DELETE /history doit passer avant DELETE /{track_id} (sinon "history" → track_id=422)
+@router.delete("/history")
+def clear_all_history_early(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete all play history entries for the current user and reset play counts."""
+    from app.models.library import PlayHistory
+
+    deleted = (
+        db.query(PlayHistory)
+        .filter(PlayHistory.user_id == current_user.id)
+        .delete(synchronize_session=False)
+    )
+    # Reset played_count on all user tracks
+    db.query(Track).filter(Track.user_id == current_user.id).update(
+        {"played_count": 0, "last_played_at": None},
+        synchronize_session=False,
+    )
+    safe_commit(db)
+    return {"status": "ok", "deleted": deleted}
+
+
 @router.get("/{track_id}", response_model=TrackResponse)
 def get_track(
     track_id: int,
@@ -2836,29 +2860,10 @@ def get_play_history(
     }
 
 
-@router.delete("/history")
-def clear_all_history(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Delete all play history entries for the current user and reset play counts."""
-    from app.models.library import PlayHistory
-
-    deleted = (
-        db.query(PlayHistory)
-        .filter(PlayHistory.user_id == current_user.id)
-        .delete(synchronize_session=False)
-    )
-    # Reset played_count on all user tracks
-    db.query(Track).filter(Track.user_id == current_user.id).update(
-        {"played_count": 0, "last_played_at": None},
-        synchronize_session=False,
-    )
-    safe_commit(db)
-    return {"status": "ok", "deleted": deleted}
-
-
 # ── v2: Beatgrid ───────────────────────────────────────────────────────────
+# DELETE /history a été déplacé plus haut, avant DELETE /{track_id}, pour éviter
+# que le path param intercepte "history" → 422.
+
 
 @router.get("/{track_id}/beatgrid")
 def get_beatgrid(
