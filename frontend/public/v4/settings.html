@@ -887,18 +887,23 @@
         const t = document.querySelector(href);
         if(t){
           e.preventDefault();
-          // Le scrolling s'opère sur <body> (overflow:auto), pas sur window.
-          // Calculer la position absolue du target et scroller le bon conteneur.
-          const scroller = document.scrollingElement || document.body;
+          // window.scrollTo avec (x,y) fonctionne toujours ; scrollTo({behavior:'smooth'})
+          // est parfois bloqué par CSS scroll-behavior ou prefers-reduced-motion.
+          // On fait un fade-scroll manuel pour garder la sensation smooth sans bug.
           const rect = t.getBoundingClientRect();
-          const currentTop = scroller.scrollTop || window.scrollY || 0;
-          const offset = 80; // marge sous la topnav
-          const targetTop = rect.top + currentTop - offset;
-          // Scroll immédiat (plus fiable que smooth qui est parfois bloqué par CSS/CDP)
-          if(scroller.scrollTo){ scroller.scrollTo({top: targetTop, behavior: 'smooth'}); }
-          else { scroller.scrollTop = targetTop; }
-          // Fallback window au cas où
-          window.scrollTo({top: targetTop, behavior: 'smooth'});
+          const startY = window.scrollY;
+          const targetTop = rect.top + startY - 80;
+          const distance = targetTop - startY;
+          const duration = 350;
+          const startTime = performance.now();
+          function easeInOut(t){ return t<.5 ? 2*t*t : -1+(4-2*t)*t; }
+          function step(now){
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed/duration, 1);
+            window.scrollTo(0, startY + distance * easeInOut(progress));
+            if(progress < 1) requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
         }
