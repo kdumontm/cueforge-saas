@@ -663,10 +663,11 @@ async function loadRail(){
       items = (fav && (fav.items || fav.tracks || (Array.isArray(fav) ? fav : []))) || [];
     } else if(railTab === 'recent'){
       const list = await api.tracks({ limit: 30, sort: '-last_played_at' });
-      items = Array.isArray(list) ? list : (list.items || []);
+      // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks,total,page,pages}
+      items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     } else {
       const list = await api.tracks({ limit: 30, sort: '-created_at' });
-      items = Array.isArray(list) ? list : (list.items || []);
+      items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     }
     railCountEl.textContent = `${items.length} · tracks`;
     railEl.innerHTML = '';
@@ -781,7 +782,8 @@ async function loadTrack(){
     // Pas de track — on prend la première du user
     try {
       const list = await api.tracks({ limit: 1 });
-      const items = Array.isArray(list) ? list : (list.items || []);
+      // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks,total,page,pages}
+      const items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
       if(items[0]){
         trackId = items[0].id;
         history.replaceState(null, '', `/analyze?id=${trackId}`);

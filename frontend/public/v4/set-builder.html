@@ -425,7 +425,10 @@ async function boot(){
   try {
     // 1. Load library
     const libRes = await api.tracks({limit:200, sort:'-created_at'});
-    library = (libRes.items || libRes || []).filter(t => t && (t.analysis || t.camelot_code));
+    // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks, total, page, pages}
+    const libList = Array.isArray(libRes) ? libRes
+                    : (libRes?.items || libRes?.tracks || libRes?.results || []);
+    library = libList.filter(t => t && (t.analysis || t.camelot_code));
 
     // 2. Load sets
     allSets = await api.sets().catch(()=>[]);

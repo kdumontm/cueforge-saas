@@ -872,8 +872,10 @@
 
   // ---------- Boot ----------
   try {
-    library = await api.tracks({limit:200, sort:'-created_at'});
-    if(!Array.isArray(library)) library = [];
+    const libRes = await api.tracks({limit:200, sort:'-created_at'});
+    // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks, total, page, pages}
+    library = Array.isArray(libRes) ? libRes
+              : (libRes?.items || libRes?.tracks || libRes?.results || []);
     $('lib-count').textContent = `${library.length} tracks`;
 
     if(!library.length){

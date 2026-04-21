@@ -394,7 +394,12 @@ let currentWheelFilter = null; // '8A' | null
 async function boot(){
   try {
     const res = await api.tracks({limit:200, sort:'-created_at'});
-    allTracks = (res.items || res || []).filter(t => t && (t.analysis || t.camelot_code));
+    // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks, total, page, pages},
+    // pas {items}. Sans ce fallback, allTracks restait undefined → catch →
+    // "Aucune piste" alors que les tracks analysés existent bien.
+    const list = Array.isArray(res) ? res
+                 : (res?.items || res?.tracks || res?.results || []);
+    allTracks = list.filter(t => t && (t.analysis || t.camelot_code));
     if(!allTracks.length){
       renderEmpty();
       return;
