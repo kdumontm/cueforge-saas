@@ -19,3 +19,4 @@ cmds = ["npm run build"]
 cmd = "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && node .next/standalone/server.js"
 # Force rebuild: 1776777120
 # Force rebuild: 1776778101
+# Force rebuild: 1776778789
