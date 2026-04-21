@@ -313,11 +313,11 @@
         <div class="fader"><span class="lbl">GAIN</span><div class="track"><div class="thumb" style="top:40%"></div></div><span class="val">+2</span></div>
       </div>
 
-      <div class="dk-pads">
+      <div class="dk-pads" data-deck="A">
         <button class="dk-pad active hot-a"><span>1</span><span class="lbl">Drop</span></button>
-        <button class="dk-pad"><span>2</span><span class="lbl">Break</span></button>
-        <button class="dk-pad"><span>3</span><span class="lbl">Loop</span></button>
-        <button class="dk-pad"><span>4</span><span class="lbl">Fade</span></button>
+        <button class="dk-pad hot-a"><span>2</span><span class="lbl">Break</span></button>
+        <button class="dk-pad hot-a"><span>3</span><span class="lbl">Loop</span></button>
+        <button class="dk-pad hot-a"><span>4</span><span class="lbl">Fade</span></button>
       </div>
 
       <div class="dk-transport">
@@ -415,11 +415,11 @@
         <div class="fader"><span class="lbl">GAIN</span><div class="track"><div class="thumb" style="top:50%"></div></div><span class="val">0</span></div>
       </div>
 
-      <div class="dk-pads">
+      <div class="dk-pads" data-deck="B">
         <button class="dk-pad active hot-b"><span>1</span><span class="lbl">Drop</span></button>
-        <button class="dk-pad"><span>2</span><span class="lbl">Hook</span></button>
-        <button class="dk-pad"><span>3</span><span class="lbl">Break</span></button>
-        <button class="dk-pad"><span>4</span><span class="lbl">Loop</span></button>
+        <button class="dk-pad hot-b"><span>2</span><span class="lbl">Hook</span></button>
+        <button class="dk-pad hot-b"><span>3</span><span class="lbl">Break</span></button>
+        <button class="dk-pad hot-b"><span>4</span><span class="lbl">Loop</span></button>
       </div>
 
       <div class="dk-transport">
@@ -877,6 +877,22 @@
   // Picker search + Esc
   $('picker-search').addEventListener('input', (e)=>renderPickerList(e.target.value));
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePicker(); });
+
+  // Hot pads (visuels pour l'instant — toggle active + toast)
+  document.querySelectorAll('.dk-pad').forEach(pad => {
+    pad.addEventListener('click', () => {
+      const label = pad.querySelector('.lbl')?.textContent || 'Pad';
+      const deck = pad.classList.contains('hot-a') ? 'A' : pad.classList.contains('hot-b') ? 'B' : null;
+      // Toggle this pad's active within its deck
+      if(deck){
+        document.querySelectorAll(`.dk-pad.hot-${deck.toLowerCase()}`).forEach(p => p.classList.remove('active'));
+        pad.classList.add('active');
+      } else {
+        pad.classList.toggle('active');
+      }
+      toast(`${label}${deck ? ' · Deck '+deck : ''}`, 'info');
+    });
+  });
 
   // ---------- Boot ----------
   try {
