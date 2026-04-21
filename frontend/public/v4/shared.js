@@ -32,8 +32,18 @@
 })();
 
 // -------- Inline Search overlay (replace blocking prompt) --------
-(function(){
+(function createSearchOverlay(){
   if(document.getElementById('tc-search-overlay')) return;
+  // Attendre que document.body soit prêt (important pour SPA avec chargement async)
+  if(!document.body){
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', createSearchOverlay);
+    } else {
+      setTimeout(createSearchOverlay, 10);
+    }
+    return;
+  }
+
   const el = document.createElement('div');
   el.id = 'tc-search-overlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(10,8,14,.72);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding-top:18vh';
