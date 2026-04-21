@@ -56,6 +56,21 @@
     finally { _refreshInFlight = null; }
   }
 
+  // Liste des chemins qui ne doivent PAS déclencher de redirect /login en cas de 401
+  // (ex: /auth/me est utilisé comme probe "suis-je loggé ?" par shared.js — on veut
+  // qu'il fail silencieusement, pas qu'il boucle sur la page de login).
+  const _NO_REDIRECT = ['/auth/me', '/auth/login', '/auth/register', '/auth/refresh'];
+
+  function _handleAuthFailure(path){
+    // clearAuth + redirect vers /login avec ?next=<here>, sauf si on est déjà
+    // sur une page publique ou sur /login.
+    clearAuth();
+    const here = location.pathname + location.search;
+    if(here.startsWith('/login') || here === '/' || here === '/index.html') return;
+    if(_NO_REDIRECT.some(p => path.startsWith(p))) return;
+    location.href = '/login?next=' + encodeURIComponent(here);
+  }
+
   async function request(path, opts={}, retry=true){
     const url = path.startsWith('http') ? path : `${BASE}${path}`;
     const headers = Object.assign({}, opts.headers || {});
@@ -70,10 +85,17 @@
     if(r.status === 401 && retry){
       const ok = await refreshToken();
       if(ok) return request(path, opts, false);
+      // 🔴 Fix QA 2026-04-21 : quand le refresh échoue (pas de RT, RT expiré,
+      // RT invalidé côté serveur), on redirige vers /login au lieu de laisser
+      // "Erreur : Invalid token" s'afficher partout dans l'UI.
+      _handleAuthFailure(path);
     }
     if(!r.ok){
       let msg = `HTTP ${r.status}`;
       try { const j = await r.json(); msg = j.detail || j.message || msg; } catch {}
+      // Traduction française des messages génériques backend pour l'UI
+      if(msg === 'Invalid token' || msg === 'Not authenticated') msg = 'Session expirée, reconnecte-toi';
+      if(msg === 'User not found') msg = 'Utilisateur introuvable';
       const err = new Error(msg); err.status = r.status; throw err;
     }
     const ct = r.headers.get('content-type') || '';
