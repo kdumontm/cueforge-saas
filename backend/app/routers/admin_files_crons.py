@@ -393,6 +393,31 @@ def purge_dead_jobs(db: Session = Depends(get_db), _=Depends(require_admin)):
     db.commit()
     return {"purged": count}
 
+@router.post("/admin/queues/pause")
+def pause_queue(db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Pause all pending jobs across queues (sets status='paused')."""
+    count = db.query(QueueJob).filter(QueueJob.status == "pending").update({"status": "paused"}, synchronize_session=False)
+    db.commit()
+    return {"paused": count, "status": "ok"}
+
+@router.post("/admin/queues/resume")
+def resume_queue(db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Resume all paused jobs (sets status back to 'pending')."""
+    count = db.query(QueueJob).filter(QueueJob.status == "paused").update({"status": "pending"}, synchronize_session=False)
+    db.commit()
+    return {"resumed": count, "status": "ok"}
+
+@router.post("/admin/queues/retry-failed")
+def retry_failed_jobs(db: Session = Depends(get_db), _=Depends(require_admin)):
+    """Requeue all failed jobs (resets attempts + status to pending)."""
+    failed = db.query(QueueJob).filter(QueueJob.status == "failed").all()
+    for j in failed:
+        j.status = "pending"
+        j.attempts = 0
+        j.error_message = ""
+    db.commit()
+    return {"retried": len(failed), "status": "ok"}
+
 @router.get("/admin/queues/stats")
 def queue_stats(db: Session = Depends(get_db), _=Depends(require_admin)):
     total = db.query(QueueJob).count()

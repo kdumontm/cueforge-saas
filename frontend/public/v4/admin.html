@@ -763,8 +763,8 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260421c"></script>
-<script src="/v4/shared.js?v=20260421c"></script>
+<script src="/v4/api.js?v=20260421e"></script>
+<script src="/v4/shared.js?v=20260421e"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1010,8 +1010,8 @@
     catch(err){ toast(`Refresh : ${err.message}`, 'warn'); }
   });
 
-  // Users pane header (+ Créer user / Inviter)
-  wireByText(document, '+ Créer user', ()=>toast('Création manuelle user — en cours de dev', 'info'));
+  // Users pane header (+ Créer user / Inviter) - les 2 ouvrent le même modal
+  wireByText(document, '+ Créer user', ()=>openInviteModal());
   wireByText(document, 'Inviter', ()=>{
     openInviteModal();
   });
@@ -1066,14 +1066,21 @@
   wireByText(document, 'Voir tout', ()=>toast('Activité complète — page dédiée à venir', 'info'));
   // Tout l'historique
   wireByText(document, 'Tout l', ()=>toast('Historique complet — page dédiée à venir', 'info'));
-  // Pause / Retry queue
-  wireByText(document, 'Pause queue', async ()=>{
-    if(!confirm('Mettre en pause toute la file d\'analyse ?')) return;
-    try { await api.post('/admin/queue/pause', {}); toast('Queue pausée', 'success'); }
-    catch(err){ toast(`Pause : ${err.message}`, 'warn'); }
+  // Pause / Retry queue (toggle pause ↔ resume sur le même bouton)
+  wireByText(document, 'Pause queue', async (e)=>{
+    const btn = e?.currentTarget || e?.target;
+    const currentLabel = btn?.textContent?.trim() || 'Pause queue';
+    const isPaused = currentLabel.startsWith('Reprendre');
+    if(!isPaused && !confirm('Mettre en pause toute la file d\'analyse ?')) return;
+    try {
+      const endpoint = isPaused ? '/admin/queues/resume' : '/admin/queues/pause';
+      const r = await api.post(endpoint, {});
+      toast(isPaused ? `${r.resumed||0} jobs repris` : `${r.paused||0} jobs en pause`, 'success');
+      if(btn) btn.textContent = isPaused ? 'Pause queue' : 'Reprendre queue';
+    } catch(err){ toast(`Queue : ${err.message}`, 'warn'); }
   });
   wireByText(document, 'Retry errors', async ()=>{
-    try { const r = await api.post('/admin/queue/retry-failed', {}); toast(`${r.retried || 'Jobs'} relancés`, 'success'); }
+    try { const r = await api.post('/admin/queues/retry-failed', {}); toast(`${r.retried || 0} jobs relancés`, 'success'); }
     catch(err){ toast(`Retry : ${err.message}`, 'warn'); }
   });
   // Gérer (intégrations)
