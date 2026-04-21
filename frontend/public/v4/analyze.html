@@ -992,7 +992,7 @@ function renderAudioPanel(a){
   const rows = [
     ['BPM', a.bpm != null ? Number(a.bpm).toFixed(2) : null],
     ['Key', a.key],
-    ['Energy', a.energy != null ? Number(a.energy).toFixed(2) : null],
+    ['Energy', a.energy != null ? (Number(a.energy) > 1.0 ? (Number(a.energy)/10).toFixed(1) : (Number(a.energy)*10).toFixed(1)) + ' / 10' : null],
     ['Duration', a.duration_ms ? formatDur(a.duration_ms) : null],
     ['Time sig', a.time_signature],
     ['Loudness (LUFS)', a.loudness_lufs != null ? Number(a.loudness_lufs).toFixed(1) : null],
