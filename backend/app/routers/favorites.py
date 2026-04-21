@@ -55,32 +55,33 @@ async def get_favorites(
 ):
     """
     Get all favorite tracks for the current user with full track details.
+
+    ⚡ Requête unique via JOIN — évite N+1 et bug de visibilité d'index
+    où `db.query(Favorite).filter(...).all()` retournait vide alors que
+    le POST/check voyaient bien la row.
     """
     from sqlalchemy.orm import selectinload
 
-    favorites = db.query(Favorite).filter(
-        Favorite.user_id == current_user.id
-    ).all()
+    # JOIN direct entre Favorite et Track pour garantir cohérence
+    rows = (
+        db.query(Track, Favorite.created_at)
+        .join(Favorite, Favorite.track_id == Track.id)
+        .filter(
+            Favorite.user_id == current_user.id,
+            Track.user_id == current_user.id,
+        )
+        .options(
+            selectinload(Track.analysis),
+            selectinload(Track.cue_points),
+            selectinload(Track.track_tags),
+        )
+        .order_by(Favorite.created_at.desc())
+        .all()
+    )
 
-    # Get associated tracks
-    track_ids = [fav.track_id for fav in favorites]
-    if not track_ids:
-        return {"tracks": [], "count": 0}
-
-    # ⚡ OPTIM: Utilise selectinload pour eviter N+1 sur analysis/cue_points/track_tags
-    tracks = db.query(Track).filter(
-        Track.id.in_(track_ids),
-        Track.user_id == current_user.id,
-    ).options(
-        selectinload(Track.analysis),
-        selectinload(Track.cue_points),
-        selectinload(Track.track_tags),
-    ).all()
-
-    # Convert to dict representation
     tracks_data = []
-    for track in tracks:
-        track_dict = {
+    for track, favorited_at in rows:
+        tracks_data.append({
             'id': track.id,
             'title': track.title,
             'artist': track.artist,
@@ -91,12 +92,12 @@ async def get_favorites(
             'genre': track.genre,
             'artwork_url': track.artwork_url,
             'year': track.year,
-        }
-        tracks_data.append(track_dict)
+            'favorited_at': favorited_at.isoformat() if favorited_at else None,
+        })
 
     return {
         "tracks": tracks_data,
-        "count": len(tracks_data)
+        "count": len(tracks_data),
     }
 
 
