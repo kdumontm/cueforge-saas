@@ -360,7 +360,7 @@
     <button class="btn btn-ghost btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find<span class="kbd">⌘K</span></button>
     <button class="btn btn-primary btn-sm">Upload</button>
     <span class="topnav-sep"></span>
-    <button class="avatar">KD</button>
+    <button class="avatar">··</button>
   </div>
 </header>
 
@@ -376,10 +376,10 @@
       <span style="color:var(--c-quaternary);font-family:var(--font-mono);font-size:12px">/</span>
       <span id="breadcrumb-title" style="font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)">—</span>
     </div>
-    <div class="segment">
-      <button class="active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze<span class="kbd">1</span></button>
-      <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></svg> Mix<span class="kbd">2</span></button>
-      <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare<span class="kbd">3</span></button>
+    <div class="segment" id="mode-segment">
+      <button class="active" data-mode="analyze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze<span class="kbd">1</span></button>
+      <button data-mode="mix"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></svg> Mix<span class="kbd">2</span></button>
+      <button data-mode="compare"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare<span class="kbd">3</span></button>
     </div>
   </div>
 
@@ -391,10 +391,10 @@
         <span class="rail-title">Library</span>
         <span class="rail-count" id="rail-count">— · tracks</span>
       </div>
-      <div class="rail-tabs">
-        <button class="active">Queue</button>
-        <button>Fav</button>
-        <button>Recent</button>
+      <div class="rail-tabs" id="rail-tabs">
+        <button class="active" data-tab="queue">Queue</button>
+        <button data-tab="fav">Fav</button>
+        <button data-tab="recent">Recent</button>
       </div>
       <div class="rail-list" id="rail-list"></div>
     </aside>
@@ -422,11 +422,11 @@
           </div>
         </div>
         <div class="thero-right">
-          <div class="quality-badge"><span class="dot"></span><span class="txt">Qualité 92 · high-fidelity</span></div>
+          <div class="quality-badge" id="quality-badge" style="display:none"><span class="dot"></span><span class="txt" id="quality-txt">—</span></div>
           <div class="thero-actions">
-            <button class="btn btn-sm btn-ghost" data-tt="Dupliquer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></button>
-            <button class="btn btn-sm btn-ghost" data-tt="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></button>
-            <button class="btn btn-sm btn-primary">Export →</button>
+            <button class="btn btn-sm btn-ghost" id="btn-duplicate" data-tt="Dupliquer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></button>
+            <button class="btn btn-sm btn-ghost" id="btn-share" data-tt="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></button>
+            <button class="btn btn-sm btn-primary" id="btn-export">Export →</button>
           </div>
         </div>
       </div>
@@ -445,7 +445,7 @@
           <button class="tool-btn" data-tt="Beat markers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
         </div>
         <div class="tool-group">
-          <button class="btn btn-sm btn-ghost">AI suggérer <span class="chip chip-violet" style="margin-left:4px">NEW</span></button>
+          <button class="btn btn-sm btn-ghost" id="btn-ai-suggest">AI suggérer <span class="chip chip-violet" style="margin-left:4px">NEW</span></button>
           <span class="tool-sep"></span>
           <div class="zoom">
             <button class="tool-btn" data-tt="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14"/></svg></button>
@@ -457,16 +457,7 @@
 
       <!-- WAVEFORM -->
       <div class="wave-block">
-        <div class="ruler">
-          <div class="phrase intro">Intro · 16</div>
-          <div class="phrase verse">Build · 16</div>
-          <div class="phrase drop">Drop 1 · 32</div>
-          <div class="phrase break">Break · 16</div>
-          <div class="phrase verse">Build · 16</div>
-          <div class="phrase drop">Drop 2 · 32</div>
-          <div class="phrase break">Breakdown · 16</div>
-          <div class="phrase outro">Outro · 16</div>
-        </div>
+        <div class="ruler" id="phrase-ruler"></div>
         <div class="wave" id="wave">
           <!-- bars + cue markers via JS -->
           <div class="playhead" style="left:38%"></div>
@@ -506,21 +497,21 @@
         </div>
         <div class="time-disp">
           <div>
-            <span class="time-current">02:34.120</span>
-            <span class="time-total"> / 06:42</span>
+            <span class="time-current" id="time-current">0:00.0</span>
+            <span class="time-total" id="time-total"> / —</span>
           </div>
-          <div class="bar-bar"><span class="lbl">Bar · Beat</span><span class="val">Bar 63 · 3.2</span></div>
-          <div class="bar-bar"><span class="lbl">Loop</span><span class="val">4 bars</span></div>
+          <div class="bar-bar"><span class="lbl">Bar · Beat</span><span class="val" id="bar-beat">—</span></div>
+          <div class="bar-bar"><span class="lbl">Cues</span><span class="val" id="cues-count-transport">—</span></div>
         </div>
-        <div class="pads">
-          <button class="pad">1</button>
-          <button class="pad active">2</button>
-          <button class="pad">3</button>
-          <button class="pad">4</button>
-          <button class="pad">5</button>
-          <button class="pad">6</button>
-          <button class="pad">7</button>
-          <button class="pad">8</button>
+        <div class="pads" id="pads">
+          <button class="pad" data-idx="0">1</button>
+          <button class="pad" data-idx="1">2</button>
+          <button class="pad" data-idx="2">3</button>
+          <button class="pad" data-idx="3">4</button>
+          <button class="pad" data-idx="4">5</button>
+          <button class="pad" data-idx="5">6</button>
+          <button class="pad" data-idx="6">7</button>
+          <button class="pad" data-idx="7">8</button>
         </div>
       </div>
 
@@ -528,13 +519,13 @@
 
     <!-- RIGHT INSPECTOR -->
     <aside class="inspector">
-      <div class="insp-tabs">
+      <div class="insp-tabs" id="insp-tabs">
         <button class="active" data-tab="cues">Cues · —</button>
         <button data-tab="meta">Meta</button>
         <button data-tab="audio">Audio</button>
       </div>
 
-      <div class="insp-panel">
+      <div class="insp-panel" data-panel="cues">
         <div class="insp-head">
           <span class="insp-title">Cue points</span>
           <span class="insp-count">— actifs</span>
@@ -542,15 +533,29 @@
 
         <div class="cue-list"></div>
 
-        <!-- AI suggestion -->
-        <div class="ai-sug">
-          <div class="h"><span class="pill">AI</span><strong>2 cues supplémentaires détectés</strong></div>
-          <p>L'analyse phrase a trouvé un break secondaire à <span class="mono">Bar 113</span> et une descente harmonique à <span class="mono">Bar 129</span>. Cohérence vs. genre Melodic House : <strong>94%</strong>.</p>
+        <!-- AI suggestion — masqué par défaut, peuplé par /suggest-cues -->
+        <div class="ai-sug" id="ai-sug" style="display:none">
+          <div class="h"><span class="pill">AI</span><strong id="ai-sug-title">—</strong></div>
+          <p id="ai-sug-body">—</p>
           <div class="ai-sug-actions">
-            <button class="btn btn-sm btn-primary">Ajouter les 2</button>
-            <button class="btn btn-sm btn-ghost">Voir détails</button>
+            <button class="btn btn-sm btn-primary" id="ai-sug-apply">Ajouter</button>
+            <button class="btn btn-sm btn-ghost" id="ai-sug-dismiss">Fermer</button>
           </div>
         </div>
+      </div>
+
+      <div class="insp-panel" data-panel="meta" style="display:none">
+        <div class="insp-head">
+          <span class="insp-title">Metadata</span>
+        </div>
+        <div class="meta-list" id="meta-list" style="padding:0 8px;font-family:var(--font-mono);font-size:12px"></div>
+      </div>
+
+      <div class="insp-panel" data-panel="audio" style="display:none">
+        <div class="insp-head">
+          <span class="insp-title">Audio analysis</span>
+        </div>
+        <div class="meta-list" id="audio-list" style="padding:0 8px;font-family:var(--font-mono);font-size:12px"></div>
       </div>
     </aside>
 
@@ -566,9 +571,17 @@ if(!api.requireAuth()) throw new Error('redirect');
 const params = new URLSearchParams(location.search);
 let trackId = params.get('id');
 
-// Main wave (visuel décoratif, pas de waveform back-end réel)
+// State
+let currentTrack = null;
+let currentCues = [];
+let currentDurMs = 0;
+let audioEl = null;
+let audioBlobUrl = null;
+let playheadTimer = null;
+
+// Main wave (visuel décoratif, la waveform réelle serait peuplée via analysis.waveform_peaks)
 const wave = document.getElementById('wave');
-buildWave(wave, 380, 7.1, {progress:0.38, envelope:(p,ph)=>{
+buildWave(wave, 380, 7.1, {progress:0, envelope:(p,ph)=>{
   const contours = [0.55,0.68,1.0,0.5,0.72,1.0,0.42,0.58];
   const base = contours[ph]||0.6;
   return base * (0.6+0.4*Math.sin(p*Math.PI*6));
@@ -617,10 +630,22 @@ const covers = [
 const railEl = document.getElementById('rail-list');
 const railCountEl = document.getElementById('rail-count');
 
+let railTab = 'queue'; // queue | fav | recent
+
 async function loadRail(){
+  railEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Chargement…</div>';
   try {
-    const list = await api.tracks({ limit: 30 });
-    const items = Array.isArray(list) ? list : (list.items || []);
+    let items = [];
+    if(railTab === 'fav'){
+      const fav = await api.get('/favorites');
+      items = (fav && (fav.items || fav.tracks || (Array.isArray(fav) ? fav : []))) || [];
+    } else if(railTab === 'recent'){
+      const list = await api.tracks({ limit: 30, sort: '-last_played_at' });
+      items = Array.isArray(list) ? list : (list.items || []);
+    } else {
+      const list = await api.tracks({ limit: 30, sort: '-created_at' });
+      items = Array.isArray(list) ? list : (list.items || []);
+    }
     railCountEl.textContent = `${items.length} · tracks`;
     railEl.innerHTML = '';
     items.forEach((t,i)=>{
@@ -644,13 +669,24 @@ async function loadRail(){
       railEl.appendChild(d);
     });
     if(items.length === 0){
-      railEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucune piste. <a href="/upload" style="color:var(--amber)">Uploader</a></div>';
+      const msg = railTab === 'fav' ? 'Aucun favori.' : railTab === 'recent' ? 'Aucune piste jouée récemment.' : 'Aucune piste.';
+      railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">${msg} <a href="/upload" style="color:var(--amber)">Uploader</a></div>`;
     }
   } catch(err){
     railCountEl.textContent = 'err';
     railEl.innerHTML = `<div style="padding:12px;color:var(--pink);font-size:12px">Erreur : ${err.message}</div>`;
   }
 }
+
+// Rail tabs
+document.querySelectorAll('#rail-tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#rail-tabs button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    railTab = b.dataset.tab || 'queue';
+    loadRail();
+  });
+});
 
 /* ========== Hero + cues : vraie piste ========== */
 function formatDur(ms){
@@ -740,6 +776,7 @@ async function loadTrack(){
 
   try {
     const t = await api.track(trackId);
+    currentTrack = t;
     const title = t.title || t.original_filename || t.filename || 'Sans titre';
     const artist = t.artist || '—';
     const album = t.album || '';
@@ -749,7 +786,9 @@ async function loadTrack(){
     const key = t.camelot_code ? `${t.camelot_code}${a.key ? ' · '+a.key : ''}` : (a.key || '—');
     const energy = a.energy != null ? Number(a.energy).toFixed(1) : '—';
     const durMs = a.duration_ms || t.duration_ms;
+    currentDurMs = durMs || 0;
     const cues = t.cue_points || [];
+    currentCues = cues;
 
     document.getElementById('breadcrumb-title').textContent = title;
     document.title = `TrackCue — ${title}`;
@@ -764,7 +803,8 @@ async function loadTrack(){
     const eyebrow = document.getElementById('thero-eyebrow');
     const src = t.acoustid_id ? 'AcoustID' : (t.musicbrainz_id ? 'MusicBrainz' : (t.spotify_id ? 'Spotify' : null));
     eyebrow.innerHTML = '';
-    const parts = [genre];
+    const parts = [];
+    if(genre && genre !== '—') parts.push(genre);
     if(artist && artist !== '—') parts.push(artist);
     if(album) parts.push(album);
     parts.forEach((p, i)=>{
@@ -789,13 +829,35 @@ async function loadTrack(){
       eyebrow.appendChild(badge);
     }
 
+    // Quality badge — réel, venant de analysis.audio_quality_score / _grade
+    const qBadge = document.getElementById('quality-badge');
+    const qTxt = document.getElementById('quality-txt');
+    if(a.audio_quality_score != null){
+      const score = Math.round(Number(a.audio_quality_score));
+      const grade = a.audio_quality_grade || (score >= 85 ? 'high-fidelity' : score >= 70 ? 'good' : score >= 50 ? 'standard' : 'low');
+      qTxt.textContent = `Qualité ${score} · ${grade}`;
+      qBadge.style.display = '';
+    } else if(a.encoding_quality){
+      qTxt.textContent = `Qualité · ${a.encoding_quality}`;
+      qBadge.style.display = '';
+    } else {
+      qBadge.style.display = 'none';
+    }
+
+    // Phrase ruler — réel, à partir de section_labels + structural_summary
+    renderPhraseRuler(a.section_labels, durMs);
+
     // Transport time
-    const timeTotal = document.querySelector('.time-total');
-    if(timeTotal) timeTotal.textContent = ` / ${formatDur(durMs)}`;
+    document.getElementById('time-total').textContent = ` / ${formatDur(durMs)}`;
+    document.getElementById('time-current').textContent = '0:00.0';
+    document.getElementById('bar-beat').textContent = durMs ? '1 · 1' : '—';
+    document.getElementById('cues-count-transport').textContent = cues.length;
 
     // Cues
     renderCueMarkers(cues, durMs);
     renderCueList(cues);
+    renderMetaPanel(t);
+    renderAudioPanel(a);
 
     // Réattacher les handlers de cue après re-render
     attachCueHandlers();
@@ -803,6 +865,92 @@ async function loadTrack(){
     document.getElementById('thero-title').textContent = 'Erreur : '+err.message;
     toast(`Chargement impossible : ${err.message}`, 'error');
   }
+}
+
+// Render phrase ruler from analysis.section_labels
+// section_labels peut être : ["intro","verse","drop","break",...] OU [{label:'intro', bars:16}, ...]
+function renderPhraseRuler(labels, durMs){
+  const ruler = document.getElementById('phrase-ruler');
+  if(!ruler) return;
+  ruler.innerHTML = '';
+  if(!Array.isArray(labels) || labels.length === 0){
+    // Pas d'analyse structurelle — on cache le ruler
+    ruler.style.display = 'none';
+    return;
+  }
+  ruler.style.display = '';
+  labels.forEach(l => {
+    const d = document.createElement('div');
+    let lab, bars;
+    if(typeof l === 'string'){ lab = l; bars = null; }
+    else { lab = l.label || l.name || 'section'; bars = l.bars || l.length_bars; }
+    const key = String(lab).toLowerCase();
+    let cls = 'verse';
+    if(key.includes('intro')) cls = 'intro';
+    else if(key.includes('drop') || key.includes('chorus')) cls = 'drop';
+    else if(key.includes('break') || key.includes('breakdown')) cls = 'break';
+    else if(key.includes('outro')) cls = 'outro';
+    d.className = 'phrase '+cls;
+    d.textContent = bars ? `${lab} · ${bars}` : lab;
+    ruler.appendChild(d);
+  });
+}
+
+function renderMetaPanel(t){
+  const el = document.getElementById('meta-list');
+  if(!el) return;
+  const rows = [
+    ['Artist', t.artist],
+    ['Title', t.title],
+    ['Album', t.album],
+    ['Genre', t.genre],
+    ['Year', t.year],
+    ['Label', t.label],
+    ['Remix artist', t.remix_artist],
+    ['Remix type', t.remix_type],
+    ['Feat.', t.feat_artist],
+    ['Category', t.category],
+    ['Tags', Array.isArray(t.tags) ? t.tags.join(', ') : t.tags],
+    ['Rating', t.rating],
+    ['Played', t.played_count],
+    ['File', t.original_filename],
+    ['Size', t.file_size ? fmt.num ? fmt.num(t.file_size) : t.file_size : null],
+    ['Status', t.status],
+  ];
+  el.innerHTML = rows
+    .filter(([k, v]) => v != null && v !== '')
+    .map(([k, v]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--c-border-subtle)"><span style="color:var(--c-tertiary)">${k}</span><span>${String(v).replace(/</g,'&lt;')}</span></div>`)
+    .join('');
+}
+
+function renderAudioPanel(a){
+  const el = document.getElementById('audio-list');
+  if(!el) return;
+  const rows = [
+    ['BPM', a.bpm != null ? Number(a.bpm).toFixed(2) : null],
+    ['Key', a.key],
+    ['Energy', a.energy != null ? Number(a.energy).toFixed(2) : null],
+    ['Duration', a.duration_ms ? formatDur(a.duration_ms) : null],
+    ['Time sig', a.time_signature],
+    ['Loudness (LUFS)', a.loudness_lufs != null ? Number(a.loudness_lufs).toFixed(1) : null],
+    ['Loudness range', a.loudness_range_lu != null ? Number(a.loudness_range_lu).toFixed(1) + ' LU' : null],
+    ['ReplayGain', a.replay_gain_db != null ? Number(a.replay_gain_db).toFixed(1) + ' dB' : null],
+    ['True peak', a.true_peak_db != null ? Number(a.true_peak_db).toFixed(1) + ' dB' : null],
+    ['Clipping', a.has_clipping != null ? (a.has_clipping ? 'yes' : 'no') : null],
+    ['DC offset', a.has_dc_offset != null ? (a.has_dc_offset ? 'yes' : 'no') : null],
+    ['Brightness', a.brightness_label],
+    ['Stereo width', a.stereo_width_label],
+    ['Mood', a.mood],
+    ['Danceability', a.danceability != null ? Number(a.danceability).toFixed(2) : null],
+    ['Vocals', a.vocal_percentage != null ? Number(a.vocal_percentage).toFixed(0) + '%' : null],
+    ['Quality', a.audio_quality_score != null ? `${Math.round(a.audio_quality_score)} (${a.audio_quality_grade || '—'})` : null],
+    ['Encoding', a.encoding_quality],
+    ['Bitrate', a.estimated_bitrate_kbps ? a.estimated_bitrate_kbps + ' kbps' : null],
+  ];
+  el.innerHTML = rows
+    .filter(([k, v]) => v != null && v !== '')
+    .map(([k, v]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--c-border-subtle)"><span style="color:var(--c-tertiary)">${k}</span><span>${String(v).replace(/</g,'&lt;')}</span></div>`)
+    .join('');
 }
 
 function attachCueHandlers(){
@@ -852,34 +1000,265 @@ document.querySelectorAll('.stem-ctls button').forEach(b=>{
   });
 });
 
-// Play toggle
-const playBtn = document.querySelector('.tr-btn.play');
-playBtn.addEventListener('click',()=>{
+// ========== Audio engine (HTML5 <audio>) ==========
+async function ensureAudio(){
+  if(audioEl) return audioEl;
+  if(!trackId) return null;
+  try {
+    // Fetch audio as blob avec token JWT, puis créer un Object URL
+    const tok = typeof api.token === 'function' ? api.token() : '';
+    const resp = await fetch(`/api/v1/tracks/${trackId}/audio`, {
+      headers: tok ? { 'Authorization': 'Bearer ' + tok } : {}
+    });
+    if(!resp.ok){
+      // Si 401, on tente un ping api.me() pour forcer un refresh puis on recommence une fois
+      if(resp.status === 401 && !audioEl){
+        try { await api.me(); } catch {}
+        const tok2 = typeof api.token === 'function' ? api.token() : '';
+        const resp2 = await fetch(`/api/v1/tracks/${trackId}/audio`, {
+          headers: tok2 ? { 'Authorization': 'Bearer ' + tok2 } : {}
+        });
+        if(!resp2.ok) throw new Error('HTTP '+resp2.status);
+        const blob2 = await resp2.blob();
+        audioBlobUrl = URL.createObjectURL(blob2);
+        audioEl = new Audio(audioBlobUrl);
+        audioEl.preload = 'auto';
+        audioEl.addEventListener('ended', () => setPlayingUI(false));
+        audioEl.addEventListener('timeupdate', updatePlayheadUI);
+        return audioEl;
+      }
+      throw new Error('HTTP '+resp.status);
+    }
+    const blob = await resp.blob();
+    audioBlobUrl = URL.createObjectURL(blob);
+    audioEl = new Audio(audioBlobUrl);
+    audioEl.preload = 'auto';
+    audioEl.addEventListener('ended', () => setPlayingUI(false));
+    audioEl.addEventListener('timeupdate', updatePlayheadUI);
+    return audioEl;
+  } catch(err){
+    toast('Lecture impossible : '+err.message, 'warn');
+    return null;
+  }
+}
+
+function setPlayingUI(playing){
   const svg = playBtn.querySelector('svg');
-  if(playBtn.dataset.playing==='1'){
-    svg.innerHTML='<path d="M6 4v16l14-8z"/>';
-    playBtn.dataset.playing='0';
-    toast('Pause · 02:34','info');
-  } else {
+  if(playing){
     svg.innerHTML='<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
     playBtn.dataset.playing='1';
-    toast('▶ Lecture · 122 BPM','info');
+  } else {
+    svg.innerHTML='<path d="M6 4v16l14-8z"/>';
+    playBtn.dataset.playing='0';
+  }
+}
+
+function fmtTimeCurrent(sec){
+  const m = Math.floor(sec/60);
+  const s = (sec%60).toFixed(1).padStart(4,'0');
+  return `${m}:${s}`;
+}
+
+function updatePlayheadUI(){
+  if(!audioEl || !currentDurMs) return;
+  const t = audioEl.currentTime;
+  document.getElementById('time-current').textContent = fmtTimeCurrent(t);
+  // Playhead
+  const ph = wave.querySelector('.playhead');
+  if(ph){
+    const pct = Math.min(100, (t * 1000 / currentDurMs) * 100);
+    ph.style.left = pct + '%';
+  }
+  // Bar · Beat
+  const a = currentTrack && currentTrack.analysis || {};
+  const bpm = a.bpm;
+  if(bpm){
+    const beatSec = 60 / bpm;
+    const beatIdx = Math.floor(t / beatSec);
+    const bar = Math.floor(beatIdx / 4) + 1;
+    const beat = (beatIdx % 4) + 1;
+    document.getElementById('bar-beat').textContent = `${bar} · ${beat}`;
+  }
+}
+
+// Play toggle
+const playBtn = document.querySelector('.tr-btn.play');
+playBtn.addEventListener('click', async () => {
+  const a = await ensureAudio();
+  if(!a) return;
+  if(a.paused){ a.play(); setPlayingUI(true); }
+  else { a.pause(); setPlayingUI(false); }
+});
+
+// Prev / Next cue
+document.querySelectorAll('.tr-btn').forEach(btn => {
+  const tt = btn.getAttribute('data-tt') || '';
+  if(tt.startsWith('Prev cue')){
+    btn.addEventListener('click', async () => {
+      const a = await ensureAudio();
+      if(!a || currentCues.length === 0) return;
+      const now = a.currentTime * 1000;
+      const prev = [...currentCues].reverse().find(c => (c.position_ms || c.time_ms || 0) < now - 500);
+      if(prev) a.currentTime = (prev.position_ms || prev.time_ms || 0) / 1000;
+      else a.currentTime = 0;
+    });
+  } else if(tt.startsWith('Next cue')){
+    btn.addEventListener('click', async () => {
+      const a = await ensureAudio();
+      if(!a || currentCues.length === 0) return;
+      const now = a.currentTime * 1000;
+      const nxt = currentCues.find(c => (c.position_ms || c.time_ms || 0) > now + 200);
+      if(nxt) a.currentTime = (nxt.position_ms || nxt.time_ms || 0) / 1000;
+    });
+  } else if(tt.startsWith('Record')){
+    btn.addEventListener('click', () => toast('Record — bientôt disponible', 'info'));
   }
 });
 
-// Pad click
-document.querySelectorAll('.pad').forEach((p,i)=>{
-  p.addEventListener('click',()=>{
-    document.querySelectorAll('.pad').forEach(x=>x.classList.remove('active'));
+// Pads — vrais hot cues
+document.querySelectorAll('.pad').forEach(p => {
+  p.addEventListener('click', async () => {
+    const idx = parseInt(p.dataset.idx || '0', 10);
+    const cue = currentCues[idx];
+    if(!cue){ toast(`Pad ${idx+1} — aucun cue`, 'info'); return; }
+    document.querySelectorAll('.pad').forEach(x => x.classList.remove('active'));
     p.classList.add('active');
-    toast(`Hot cue ${i+1} · trigger`,'info');
+    const a = await ensureAudio();
+    if(a){
+      const pos = (cue.position_ms || cue.time_ms || 0) / 1000;
+      a.currentTime = pos;
+      if(a.paused){ a.play(); setPlayingUI(true); }
+    }
+    toast(`Cue ${idx+1}: ${cue.name || cue.label || cue.cue_type || '—'}`, 'info');
   });
 });
 
-// Keyboard
+// ========== Mode switcher (Analyze / Mix / Compare) ==========
+document.querySelectorAll('#mode-segment button').forEach(b => {
+  b.addEventListener('click', () => {
+    const mode = b.dataset.mode;
+    if(mode === 'mix'){ location.href = `/mix-studio?deckA=${trackId || ''}`; }
+    else if(mode === 'compare'){ location.href = `/compatible?id=${trackId || ''}`; }
+    // analyze = current page
+  });
+});
+
+// ========== Thero actions ==========
+document.getElementById('btn-duplicate')?.addEventListener('click', async () => {
+  if(!trackId){ toast('Aucune piste', 'warn'); return; }
+  try {
+    const dup = await api.post(`/tracks/${trackId}/duplicate`, {});
+    toast('Piste dupliquée', 'success');
+    setTimeout(() => location.href = `/analyze?id=${dup.id}`, 400);
+  } catch(err){
+    toast('Duplication impossible : '+err.message, 'warn');
+  }
+});
+
+document.getElementById('btn-share')?.addEventListener('click', async () => {
+  const url = location.origin + `/analyze?id=${trackId || ''}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Lien copié', 'success');
+  } catch {
+    toast('Copie impossible : '+url, 'warn');
+  }
+});
+
+document.getElementById('btn-export')?.addEventListener('click', () => {
+  if(!trackId) return;
+  location.href = `/set-builder?track=${trackId}`;
+});
+
+// ========== AI suggérer ==========
+document.getElementById('btn-ai-suggest')?.addEventListener('click', async () => {
+  if(!trackId) return;
+  const btn = document.getElementById('btn-ai-suggest');
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = 'Analyse…';
+  btn.disabled = true;
+  try {
+    const res = await api.get(`/tracks/${trackId}/suggest-cues`);
+    const items = (res && (res.suggestions || res.cues || (Array.isArray(res) ? res : []))) || [];
+    const ai = document.getElementById('ai-sug');
+    const title = document.getElementById('ai-sug-title');
+    const body = document.getElementById('ai-sug-body');
+    if(items.length === 0){
+      toast('Aucune suggestion AI', 'info');
+      ai.style.display = 'none';
+      return;
+    }
+    title.textContent = `${items.length} cue${items.length>1?'s':''} suggéré${items.length>1?'s':''}`;
+    const summary = items.slice(0, 3).map(c => {
+      const t = c.position_ms || c.time_ms || 0;
+      const sec = (t/1000).toFixed(1);
+      return `${c.name || c.label || c.cue_type || 'cue'} @ ${sec}s`;
+    }).join(' · ');
+    body.textContent = summary + (items.length > 3 ? ` et ${items.length - 3} autres` : '');
+    ai.style.display = '';
+    ai.dataset.suggestions = JSON.stringify(items);
+  } catch(err){
+    toast('AI suggest : '+err.message, 'warn');
+  } finally {
+    btn.innerHTML = origHtml;
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('ai-sug-apply')?.addEventListener('click', async () => {
+  if(!trackId) return;
+  try {
+    const res = await api.post(`/tracks/${trackId}/apply-suggested-cues`, {});
+    toast(`${res.added || res.count || 'Suggestions'} appliquées`, 'success');
+    document.getElementById('ai-sug').style.display = 'none';
+    await loadTrack();
+  } catch(err){
+    toast('Application impossible : '+err.message, 'warn');
+  }
+});
+
+document.getElementById('ai-sug-dismiss')?.addEventListener('click', () => {
+  document.getElementById('ai-sug').style.display = 'none';
+});
+
+// ========== Inspector tabs ==========
+document.querySelectorAll('#insp-tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    const tab = b.dataset.tab;
+    document.querySelectorAll('#insp-tabs button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('.insp-panel').forEach(p => {
+      p.style.display = (p.dataset.panel === tab) ? '' : 'none';
+    });
+  });
+});
+
+// ========== Seek bar — click sur waveform ==========
+wave.addEventListener('click', async (e) => {
+  const rect = wave.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const a = await ensureAudio();
+  if(a && currentDurMs){
+    a.currentTime = (pct * currentDurMs) / 1000;
+    updatePlayheadUI();
+  }
+});
+
+// Keyboard shortcuts
 document.addEventListener('keydown',(e)=>{
   if(/input|textarea/i.test(document.activeElement?.tagName||'')) return;
   if(e.code==='Space'){e.preventDefault();playBtn.click();}
+  else if(e.code === 'ArrowLeft'){ document.querySelector('.tr-btn[data-tt^="Prev"]')?.click(); }
+  else if(e.code === 'ArrowRight'){ document.querySelector('.tr-btn[data-tt^="Next"]')?.click(); }
+  else if(e.key === '1' || e.key === '2' || e.key === '3'){
+    const seg = document.querySelectorAll('#mode-segment button');
+    seg[parseInt(e.key) - 1]?.click();
+  }
+});
+
+// Cleanup audio on unload
+window.addEventListener('beforeunload', () => {
+  if(audioBlobUrl){ URL.revokeObjectURL(audioBlobUrl); }
 });
 </script>
 </body>

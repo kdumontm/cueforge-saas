@@ -2072,6 +2072,96 @@ def update_track_metadata(
     return TrackResponse.model_validate(track)
 
 
+# ── Duplicate ────────────────────────────────────────────────────────────────
+
+@router.post("/{track_id}/duplicate", response_model=TrackResponse, status_code=201)
+def duplicate_track(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Duplicate a track with all its metadata, analysis, and cue points.
+
+    Le fichier audio (file_path / r2_key) est partagé — on ne recopie pas le binaire
+    mais on clone les métadonnées, l'analyse et tous les cue points + loops.
+    Le nouveau titre est suffixé " (copie)".
+    """
+    tid = validate_track_id(track_id)
+    src = db.query(Track).filter(
+        Track.id == tid,
+        Track.user_id == current_user.id,
+    ).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
+    ).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Clone du Track — on exclut id, user_id, created_at, updated_at, file_path (partagé)
+    excluded = {"id", "created_at", "updated_at", "played_count", "last_played_at"}
+    track_data = {}
+    for col in Track.__table__.columns:
+        if col.name in excluded:
+            continue
+        track_data[col.name] = getattr(src, col.name)
+    # Titre suffixé
+    base_title = (src.title or src.original_filename or src.filename or "Track").strip()
+    track_data["title"] = f"{base_title} (copie)"
+    track_data["user_id"] = current_user.id
+    # Reset compteurs
+    track_data["played_count"] = 0
+    track_data["last_played_at"] = None
+
+    dup = Track(**track_data)
+    db.add(dup)
+    db.flush()  # pour récupérer dup.id
+
+    # Clone de l'analyse si elle existe
+    if src.analysis:
+        ana_excluded = {"id", "track_id", "analyzed_at"}
+        ana_data = {}
+        for col in TrackAnalysis.__table__.columns:
+            if col.name in ana_excluded:
+                continue
+            ana_data[col.name] = getattr(src.analysis, col.name)
+        ana_data["track_id"] = dup.id
+        new_ana = TrackAnalysis(**ana_data)
+        db.add(new_ana)
+
+    # Clone des cue points
+    cue_excluded = {"id", "track_id", "created_at", "updated_at"}
+    for cue in src.cue_points:
+        cue_data = {}
+        for col in CuePoint.__table__.columns:
+            if col.name in cue_excluded:
+                continue
+            cue_data[col.name] = getattr(cue, col.name)
+        cue_data["track_id"] = dup.id
+        db.add(CuePoint(**cue_data))
+
+    # Clone des loops
+    loop_excluded = {"id", "track_id", "last_triggered"}
+    for lp in src.loop_markers:
+        lp_data = {}
+        for col in LoopMarker.__table__.columns:
+            if col.name in loop_excluded:
+                continue
+            lp_data[col.name] = getattr(lp, col.name)
+        lp_data["track_id"] = dup.id
+        db.add(LoopMarker(**lp_data))
+
+    safe_commit(db, context="duplicate_track")
+    db.refresh(dup)
+    # Recharge avec relations pour TrackResponse
+    dup = db.query(Track).filter(Track.id == dup.id).options(
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.loop_markers),
+    ).first()
+    return TrackResponse.model_validate(dup)
+
+
 # ── DJ Tools ─────────────────────────────────────────────────────────────────
 
 @router.post("/{track_id}/clean-title")
