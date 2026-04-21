@@ -286,6 +286,10 @@ class TrackResponse(BaseModel):
     camelot_code: Optional[str] = None
 
     created_at: Optional[datetime] = None
+    # ⚡ Fix QA 2026-04-21 : expose error_message pour que le frontend puisse
+    # afficher la raison exacte quand status=failed (sinon l'UI dit juste
+    # "Erreur : Invalid token" sans aucun détail).
+    error_message: Optional[str] = None
     analysis: Optional[TrackAnalysisResponse] = None
     cue_points: Optional[List[CuePointResponse]] = []
     loop_markers: Optional[List[LoopMarkerResponse]] = []
