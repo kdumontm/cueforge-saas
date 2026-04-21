@@ -61,6 +61,37 @@ document.addEventListener('click', (e)=>{
   setTimeout(()=>ripple.remove(),500);
 });
 
+// -------- Top-nav avatar (real user) + logout on click --------
+(async function(){
+  try {
+    if(typeof api === 'undefined' || !api.isAuthed || !api.isAuthed()) return;
+    const avBtns = document.querySelectorAll('.avatar');
+    if(avBtns.length === 0) return;
+    const me = await api.me();
+    const name = me.name || '';
+    const email = me.email || '';
+    let initials = '??';
+    if(name.trim()){
+      const parts = name.trim().split(/\s+/).slice(0,2);
+      initials = parts.map(p => p[0]).join('').toUpperCase();
+    } else if(email){
+      initials = email.slice(0,2).toUpperCase();
+    }
+    avBtns.forEach(btn=>{
+      btn.textContent = initials;
+      btn.title = email || name;
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        const current = btn.getAttribute('data-menu-open');
+        if(current === '1'){ btn.setAttribute('data-menu-open','0'); return; }
+        // Simple : 1er clic = va vers settings, 2e = logout (via long-press alternative)
+        // Plus simple : redirige vers /settings
+        location.href = '/settings';
+      });
+    });
+  } catch {}
+})();
+
 // -------- Seeded random for deterministic waveforms --------
 window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floor(x)};
 

@@ -275,14 +275,12 @@
           </div>
         </div>
         <div class="acc-head">
-          <div class="acc-avatar">KD</div>
+          <div class="acc-avatar" id="acc-avatar">—</div>
           <div class="acc-info" style="flex:1">
-            <h4>Kevin Dumont</h4>
-            <p>kenin.dumont@gmail.com · Rejoint mars 2026</p>
-            <div class="acc-badges">
-              <span class="chip chip-amber"><span class="chip-dot"></span>Pro</span>
-              <span class="chip chip-cyan"><span class="chip-dot"></span>Desktop beta</span>
-              <span class="chip"><span class="chip-dot" style="color:var(--violet)"></span>Early adopter #47</span>
+            <h4 id="acc-name">—</h4>
+            <p id="acc-meta">—</p>
+            <div class="acc-badges" id="acc-badges">
+              <span class="chip" id="acc-plan"><span class="chip-dot"></span>—</span>
             </div>
           </div>
           <div>
@@ -291,10 +289,10 @@
         </div>
         <div style="height:20px"></div>
         <div class="row-split">
-          <div class="field"><label class="field-label">Nom affiché</label><input class="input" value="Kevin Dumont"></div>
-          <div class="field"><label class="field-label">Nom de DJ</label><input class="input" value="KEVN" placeholder="ex. KEVN"><div class="field-hint">Utilisé sur les exports de sets (Rekordbox, Serato)</div></div>
-          <div class="field"><label class="field-label">Email</label><input class="input" value="kenin.dumont@gmail.com"></div>
-          <div class="field"><label class="field-label">Ville / club base</label><input class="input" value="Paris · Rex Club"></div>
+          <div class="field"><label class="field-label">Nom affiché</label><input class="input" id="f-name" value=""></div>
+          <div class="field"><label class="field-label">Style DJ</label><input class="input" id="f-dj-style" placeholder="ex. Melodic House"><div class="field-hint">Utilisé pour les recommandations</div></div>
+          <div class="field"><label class="field-label">Email</label><input class="input" id="f-email" type="email" value=""></div>
+          <div class="field"><label class="field-label">Logiciel DJ</label><input class="input" id="f-dj-software" placeholder="ex. Rekordbox, Serato, VirtualDJ"></div>
           <div class="field"><label class="field-label">Langue</label>
             <div class="segment">
               <button class="active">Français</button>
@@ -302,7 +300,11 @@
               <button>Español</button>
             </div>
           </div>
-          <div class="field"><label class="field-label">Fuseau horaire</label><input class="input" value="Europe/Paris — UTC+01:00"></div>
+          <div class="field"><label class="field-label">Fuseau horaire</label><input class="input" value="Europe/Paris — UTC+01:00" disabled></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-ghost btn-sm" id="btn-reset">Annuler</button>
+          <button class="btn btn-primary btn-sm" id="btn-save">Enregistrer</button>
         </div>
       </section>
 
@@ -755,6 +757,127 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
+  if(!api.requireAuth()) throw new Error('redirect');
+
+  // ===== Charger profil réel =====
+  let _currentUser = null;
+  let _currentPrefs = null;
+
+  function initials(name, email){
+    if(name && name.trim()){
+      const parts = name.trim().split(/\s+/).slice(0,2);
+      return parts.map(p => p[0]).join('').toUpperCase();
+    }
+    if(email) return email.slice(0,2).toUpperCase();
+    return '??';
+  }
+
+  function formatJoined(iso){
+    if(!iso) return '—';
+    try {
+      return new Date(iso).toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+    } catch { return iso; }
+  }
+
+  async function loadProfile(){
+    try {
+      const [me, prefs] = await Promise.all([
+        api.me(),
+        api.get('/profile/preferences').catch(()=>null),
+      ]);
+      _currentUser = me;
+      _currentPrefs = prefs || {};
+
+      document.getElementById('acc-avatar').textContent = initials(me.name, me.email);
+      document.getElementById('acc-name').textContent = me.name || '—';
+      document.getElementById('acc-meta').textContent = `${me.email} · Rejoint ${formatJoined(me.created_at)}`;
+      const planBadge = document.getElementById('acc-plan');
+      const plan = (me.subscription_plan || 'free').toLowerCase();
+      const planMap = { pro:['chip-amber','Pro'], unlimited:['chip-green','Unlimited'], free:['','Free'], trial:['chip-cyan','Trial'] };
+      const [cls, label] = planMap[plan] || ['', plan];
+      planBadge.className = `chip ${cls}`;
+      planBadge.innerHTML = '<span class="chip-dot"></span>' + label;
+
+      // Inputs
+      document.getElementById('f-name').value = me.name || '';
+      document.getElementById('f-email').value = me.email || '';
+      if(prefs){
+        document.getElementById('f-dj-style').value = prefs.dj_style || '';
+        document.getElementById('f-dj-software').value = prefs.dj_software || '';
+      }
+
+      // Email verified badge
+      if(me.email_verified === false){
+        const badges = document.getElementById('acc-badges');
+        const warn = document.createElement('span');
+        warn.className = 'chip';
+        warn.style.color = 'var(--pink)';
+        warn.innerHTML = '<span class="chip-dot"></span>Email non vérifié';
+        badges.appendChild(warn);
+      }
+    } catch(err){
+      if(typeof toast === 'function') toast(`Profil indisponible : ${err.message}`,'error');
+    }
+  }
+
+  async function saveProfile(){
+    const name = document.getElementById('f-name').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const djStyle = document.getElementById('f-dj-style').value.trim();
+    const djSoftware = document.getElementById('f-dj-software').value.trim();
+
+    const btn = document.getElementById('btn-save');
+    const origTxt = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      // Update /auth/me
+      const meBody = {};
+      if(_currentUser && name && name !== _currentUser.name) meBody.name = name;
+      if(_currentUser && email && email !== _currentUser.email) meBody.email = email;
+      if(Object.keys(meBody).length > 0){
+        await api.request ? null : null;
+        // Use fetch via api helper with PUT
+        await fetch(`${api.BASE}/auth/me`, {
+          method:'PUT',
+          credentials:'include',
+          headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${api.token()}` },
+          body: JSON.stringify(meBody),
+        }).then(r=>{
+          if(!r.ok) return r.json().then(j=>{ throw new Error(j.detail || 'Erreur'); });
+          return r.json();
+        });
+      }
+      // Update preferences
+      const prefBody = {};
+      if(_currentPrefs && djStyle !== (_currentPrefs.dj_style||'')) prefBody.dj_style = djStyle || null;
+      if(_currentPrefs && djSoftware !== (_currentPrefs.dj_software||'')) prefBody.dj_software = djSoftware || null;
+      if(Object.keys(prefBody).length > 0){
+        await api.post('/profile/preferences', prefBody);
+      }
+      if(typeof toast === 'function') toast('Profil mis à jour ✓','success');
+      await loadProfile();
+    } catch(err){
+      if(typeof toast === 'function') toast(`Erreur : ${err.message}`,'error');
+    } finally {
+      btn.disabled = false; btn.textContent = origTxt;
+    }
+  }
+
+  function resetProfile(){
+    if(!_currentUser) return;
+    document.getElementById('f-name').value = _currentUser.name || '';
+    document.getElementById('f-email').value = _currentUser.email || '';
+    if(_currentPrefs){
+      document.getElementById('f-dj-style').value = _currentPrefs.dj_style || '';
+      document.getElementById('f-dj-software').value = _currentPrefs.dj_software || '';
+    }
+    if(typeof toast === 'function') toast('Changements annulés','info');
+  }
+
+  document.getElementById('btn-save').addEventListener('click', saveProfile);
+  document.getElementById('btn-reset').addEventListener('click', resetProfile);
+  loadProfile();
+
   // Side-nav active on scroll + click
   const links = document.querySelectorAll('.side-nav a');
   links.forEach(a=>{

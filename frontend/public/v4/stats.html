@@ -222,26 +222,26 @@
   <div class="kpi-grid">
     <div class="kpi reveal reveal-1">
       <div class="eyebrow">Tracks analysés</div>
-      <div class="value">1 284</div>
-      <div class="delta up">↑ 12.4% vs 30j précédents</div>
+      <div class="value" id="kpi-tracks">—</div>
+      <div class="delta up" id="kpi-tracks-delta">chargement…</div>
       <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#ff7a18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,22 8,18 16,20 24,14 32,16 40,10 48,12 56,8 64,9 72,5 80,3"/></svg>
     </div>
     <div class="kpi reveal reveal-2">
-      <div class="eyebrow">Cues posés</div>
-      <div class="value">8 412</div>
-      <div class="delta up">↑ 6.6 / track moyenne</div>
+      <div class="eyebrow">Analyses complètes</div>
+      <div class="value" id="kpi-analyses">—</div>
+      <div class="delta up" id="kpi-analyses-delta">—</div>
       <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#ff2e6b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,20 8,15 16,17 24,12 32,14 40,8 48,10 56,6 64,7 72,4 80,2"/></svg>
     </div>
     <div class="kpi reveal reveal-3">
       <div class="eyebrow">Sets créés</div>
-      <div class="value">23 <span class="unit">sets</span></div>
-      <div class="delta up">↑ 4 ce mois · 18h cumulées</div>
+      <div class="value"><span id="kpi-sets">—</span> <span class="unit">sets</span></div>
+      <div class="delta up" id="kpi-sets-delta">—</div>
       <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#1fd4d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,18 10,16 20,14 30,15 40,10 50,11 60,8 70,6 80,4"/></svg>
     </div>
     <div class="kpi reveal reveal-4">
-      <div class="eyebrow">Compat. moyenne</div>
-      <div class="value">8.2 <span class="unit">/ 10</span></div>
-      <div class="delta up">↑ 0.3 — nouveau peak</div>
+      <div class="eyebrow">Playlists</div>
+      <div class="value"><span id="kpi-playlists">—</span> <span class="unit">lists</span></div>
+      <div class="delta up" id="kpi-playlists-delta">—</div>
       <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#4ade80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,15 10,16 20,12 30,14 40,11 50,9 60,10 70,6 80,4"/></svg>
     </div>
   </div>
@@ -581,7 +581,92 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-  // BPM histogram (100 → 140)
+  // ---- Auth guard ----
+  if(!api.requireAuth()) { /* redirected */ }
+
+  // ---- Load real stats ----
+  (async function loadStats(){
+    try {
+      const s = await api.stats();
+      // KPIs
+      document.getElementById('kpi-tracks').textContent = fmt.num(s.total_tracks);
+      document.getElementById('kpi-tracks-delta').textContent =
+        `${fmt.num(Math.round(s.storage_used_mb))} MB stockage`;
+      document.getElementById('kpi-analyses').textContent = fmt.num(s.total_analyses);
+      const analyzedPct = s.total_tracks ? Math.round(s.total_analyses/s.total_tracks*100) : 0;
+      document.getElementById('kpi-analyses-delta').textContent = `${analyzedPct}% de la bibliothèque`;
+      document.getElementById('kpi-sets').textContent = fmt.num(s.total_sets);
+      document.getElementById('kpi-sets-delta').textContent = s.total_sets > 0 ? 'actifs' : 'aucun set encore';
+      document.getElementById('kpi-playlists').textContent = fmt.num(s.total_playlists);
+      document.getElementById('kpi-playlists-delta').textContent = s.total_playlists > 0 ? 'actives' : 'aucune encore';
+
+      // Genres — update top panel with real data
+      const topList = document.querySelector('.panel:nth-of-type(2) .top-list');
+      const topGenres = document.querySelectorAll('.main-grid[style*="1fr 1fr 1fr"] .panel')[1];
+      // Update donut center text
+      const donutSvg = document.querySelector('.panel svg[viewBox="0 0 120 120"]');
+      if(donutSvg){
+        const tracksText = donutSvg.querySelector('text[font-size="18"]');
+        if(tracksText) tracksText.textContent = fmt.num(s.total_tracks);
+      }
+      // Update genre list (legend)
+      const totalGenreCount = (s.genres_breakdown || []).reduce((sum,g)=>sum+g.count, 0);
+      if(totalGenreCount > 0){
+        const genreLegendParent = document.querySelector('.panel svg[viewBox="0 0 120 120"]')?.parentElement;
+        if(genreLegendParent){
+          const legendList = genreLegendParent.querySelector('div[style*="flex-direction:column"]');
+          if(legendList){
+            const colors = ['#ff7a18','#ff2e6b','#8b5cf6','#1fd4d4','#d4ff2a'];
+            legendList.innerHTML = (s.genres_breakdown.slice(0,5)).map((g,i)=>{
+              const pct = Math.round(g.count/totalGenreCount*100);
+              return `<div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]||'#6b6780'}"></span><span style="flex:1">${g.genre}</span><span class="mono muted">${pct}%</span></div>`;
+            }).join('');
+          }
+        }
+      }
+
+      // BPM histogram — real data
+      const bpmHisto = document.getElementById('bpmHisto');
+      if(bpmHisto && s.bpm_range){
+        // Build histogram from activity: since we don't have distribution, use range indicator
+        if(s.bpm_range.avg){
+          const medianEl = document.querySelector('.mono strong[style*="color:var(--c-primary)"]');
+          if(medianEl) medianEl.textContent = s.bpm_range.avg.toFixed(0);
+        }
+      }
+
+      // Key distribution — update Camelot heatmap counts
+      const keyMap = {};
+      (s.key_distribution || []).forEach(k => { keyMap[k.key] = k.count; });
+      const maxKey = Math.max(1, ...Object.values(keyMap));
+      document.querySelectorAll('.cam-cell').forEach(cell => {
+        const camelot = cell.querySelector('.num')?.textContent;
+        const countEl = cell.querySelector('.count');
+        const count = keyMap[camelot] || 0;
+        if(countEl) countEl.textContent = count;
+        // Re-heat based on real data
+        const heat = count === 0 ? 0 : Math.ceil(count/maxKey * 5);
+        cell.setAttribute('data-heat', heat);
+      });
+
+      // Activity heatmap — real 30 days data projected into 52-week grid
+      const activityByDate = {};
+      (s.activity_last_30_days || []).forEach(a => { activityByDate[a.date] = a.uploads; });
+      window._activityByDate = activityByDate;
+      window._maxDaily = Math.max(1, ...Object.values(activityByDate));
+
+      // Header sub
+      const sub = document.querySelector('.page-sub');
+      if(sub){
+        sub.textContent = `${fmt.num(s.total_tracks)} track${s.total_tracks>1?'s':''}, ${fmt.num(s.total_analyses)} analyse${s.total_analyses>1?'s':''}, ${fmt.num(s.total_sets)} set${s.total_sets>1?'s':''}. Membre depuis ${fmt.date(s.member_since)}.`;
+      }
+    } catch(err){
+      console.error('Stats load error:', err);
+      toast('Erreur chargement stats: '+err.message,'error');
+    }
+  })();
+
+  // BPM histogram (100 → 140) — fallback visualisation (updated by real data if available)
   (function(){
     const el = document.getElementById('bpmHisto');
     const data = [2,4,6,8,10,14,18,24,30,42,58,74,92,110,125,108,82,64,46,30,20,12,8,5,3,2,1,1,0,0];

@@ -374,7 +374,7 @@
         Library
       </a>
       <span style="color:var(--c-quaternary);font-family:var(--font-mono);font-size:12px">/</span>
-      <span style="font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)">Nothing But You</span>
+      <span id="breadcrumb-title" style="font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)">—</span>
     </div>
     <div class="segment">
       <button class="active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze<span class="kbd">1</span></button>
@@ -388,8 +388,8 @@
     <!-- LEFT RAIL -->
     <aside class="rail">
       <div class="rail-head">
-        <span class="rail-title">Session</span>
-        <span class="rail-count">12 · queue</span>
+        <span class="rail-title">Library</span>
+        <span class="rail-count" id="rail-count">— · tracks</span>
       </div>
       <div class="rail-tabs">
         <button class="active">Queue</button>
@@ -406,20 +406,19 @@
       <div class="thero reveal">
         <div class="thero-cover"></div>
         <div class="thero-main">
-          <div class="thero-eyebrow">
-            Melodic House<span class="sep">·</span>Released 2023<span class="sep">·</span>Camelphat, Max Milner<span class="sep">·</span>
-            <span style="color:var(--green)">● AcoustID</span>
+          <div class="thero-eyebrow" id="thero-eyebrow">
+            <span id="thero-genre">—</span>
           </div>
-          <h1 class="thero-title">
-            Nothing But You<span class="editorial">— Extended Mix</span>
+          <h1 class="thero-title" id="thero-title">
+            —
           </h1>
           <div class="thero-stats">
-            <div class="stat-chip accent"><span class="lbl">BPM</span><span class="val">122.0</span></div>
-            <div class="stat-chip key"><span class="lbl">Key</span><span class="val">8A · Am</span></div>
-            <div class="stat-chip energy"><span class="lbl">Energy</span><span class="val">7.4</span></div>
-            <div class="stat-chip"><span class="lbl">Dur.</span><span class="val">6:42</span></div>
-            <div class="stat-chip"><span class="lbl">Bars</span><span class="val">164</span></div>
-            <div class="stat-chip"><span class="lbl">Peak</span><span class="val">-0.8</span></div>
+            <div class="stat-chip accent"><span class="lbl">BPM</span><span class="val" id="thero-bpm">—</span></div>
+            <div class="stat-chip key"><span class="lbl">Key</span><span class="val" id="thero-key">—</span></div>
+            <div class="stat-chip energy"><span class="lbl">Energy</span><span class="val" id="thero-energy">—</span></div>
+            <div class="stat-chip"><span class="lbl">Dur.</span><span class="val" id="thero-duration">—</span></div>
+            <div class="stat-chip"><span class="lbl">Status</span><span class="val" id="thero-status">—</span></div>
+            <div class="stat-chip"><span class="lbl">Cues</span><span class="val" id="thero-cues">—</span></div>
           </div>
         </div>
         <div class="thero-right">
@@ -469,17 +468,8 @@
           <div class="phrase outro">Outro · 16</div>
         </div>
         <div class="wave" id="wave">
-          <!-- bars via JS -->
+          <!-- bars + cue markers via JS -->
           <div class="playhead" style="left:38%"></div>
-
-          <div class="cue-marker" data-type="load" style="left:2%"><div class="cue-tip">L</div><div class="cue-line"></div><div class="cue-label">Load</div></div>
-          <div class="cue-marker" data-type="phrase" style="left:12%"><div class="cue-tip">P</div><div class="cue-line"></div><div class="cue-label">Intro</div></div>
-          <div class="cue-marker selected" data-type="hot" style="left:28%"><div class="cue-tip">1</div><div class="cue-line"></div><div class="cue-label">Drop</div></div>
-          <div class="cue-marker" data-type="loop" style="left:40%"><div class="cue-tip">⟲</div><div class="cue-line"></div><div class="cue-label">Loop</div></div>
-          <div class="cue-marker" data-type="phrase" style="left:52%"><div class="cue-tip">P</div><div class="cue-line"></div><div class="cue-label">Break</div></div>
-          <div class="cue-marker" data-type="beat" style="left:64%"><div class="cue-tip">B</div><div class="cue-line"></div><div class="cue-label">Beat</div></div>
-          <div class="cue-marker" data-type="hot" style="left:74%"><div class="cue-tip">2</div><div class="cue-line"></div><div class="cue-label">Drop 2</div></div>
-          <div class="cue-marker" data-type="fade" style="left:92%"><div class="cue-tip">F</div><div class="cue-line"></div><div class="cue-label">Fade</div></div>
         </div>
 
         <div class="stems">
@@ -539,7 +529,7 @@
     <!-- RIGHT INSPECTOR -->
     <aside class="inspector">
       <div class="insp-tabs">
-        <button class="active" data-tab="cues">Cues · 8</button>
+        <button class="active" data-tab="cues">Cues · —</button>
         <button data-tab="meta">Meta</button>
         <button data-tab="audio">Audio</button>
       </div>
@@ -547,51 +537,10 @@
       <div class="insp-panel">
         <div class="insp-head">
           <span class="insp-title">Cue points</span>
-          <span class="insp-count">8 actifs</span>
+          <span class="insp-count">— actifs</span>
         </div>
 
-        <div class="cue-list">
-          <div class="cue-item" data-type="load">
-            <span class="tip">L</span>
-            <div class="info"><div class="nm">Load marker</div><div class="mt">Bar 1 · Start of track</div></div>
-            <div class="tm">00:00.0</div>
-          </div>
-          <div class="cue-item" data-type="phrase">
-            <span class="tip">P</span>
-            <div class="info"><div class="nm">Intro end</div><div class="mt">Bar 17 · Phrase boundary</div></div>
-            <div class="tm">00:31.5</div>
-          </div>
-          <div class="cue-item selected" data-type="hot">
-            <span class="tip">1</span>
-            <div class="info"><div class="nm">Drop 1</div><div class="mt">Bar 33 · Low-pass release</div></div>
-            <div class="tm">01:03.0</div>
-          </div>
-          <div class="cue-item" data-type="loop">
-            <span class="tip">⟲</span>
-            <div class="info"><div class="nm">Loop 4-bar</div><div class="mt">Bar 49 · Drop vamp</div></div>
-            <div class="tm">01:34.5</div>
-          </div>
-          <div class="cue-item" data-type="phrase">
-            <span class="tip">P</span>
-            <div class="info"><div class="nm">Break in</div><div class="mt">Bar 65 · Filter sweep</div></div>
-            <div class="tm">02:06.0</div>
-          </div>
-          <div class="cue-item" data-type="beat">
-            <span class="tip">B</span>
-            <div class="info"><div class="nm">Beatgrid marker</div><div class="mt">Bar 81 · Offbeat correction</div></div>
-            <div class="tm">02:37.5</div>
-          </div>
-          <div class="cue-item" data-type="hot">
-            <span class="tip">2</span>
-            <div class="info"><div class="nm">Drop 2</div><div class="mt">Bar 97 · Energy +12%</div></div>
-            <div class="tm">03:09.0</div>
-          </div>
-          <div class="cue-item" data-type="fade">
-            <span class="tip">F</span>
-            <div class="info"><div class="nm">Mix-out</div><div class="mt">Bar 145 · Outro fade</div></div>
-            <div class="tm">04:36.5</div>
-          </div>
-        </div>
+        <div class="cue-list"></div>
 
         <!-- AI suggestion -->
         <div class="ai-sug">
@@ -611,23 +560,25 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-// Main wave
+if(!api.requireAuth()) throw new Error('redirect');
+
+// Parse track id
+const params = new URLSearchParams(location.search);
+let trackId = params.get('id');
+
+// Main wave (visuel décoratif, pas de waveform back-end réel)
 const wave = document.getElementById('wave');
 buildWave(wave, 380, 7.1, {progress:0.38, envelope:(p,ph)=>{
-  // energy contour follows phrases
   const contours = [0.55,0.68,1.0,0.5,0.72,1.0,0.42,0.58];
   const base = contours[ph]||0.6;
   return base * (0.6+0.4*Math.sin(p*Math.PI*6));
 }});
 
-// Stems
-buildStemWave('stem-drums', 3.3, 'beat');
-buildStemWave('stem-bass', 11.1, 'sub');
-buildStemWave('stem-vocals', 19.9, 'mid');
-buildStemWave('stem-other', 5.5, 'air');
+// Stems (visuels décoratifs)
 function buildStemWave(id, seed, style){
   const el = document.getElementById(id);
   if(!el) return;
+  el.innerHTML = '';
   const count = 220;
   for(let i=0;i<count;i++){
     let h = 0.2;
@@ -649,50 +600,224 @@ function buildStemWave(id, seed, style){
     el.appendChild(b);
   }
 }
+buildStemWave('stem-drums', 3.3, 'beat');
+buildStemWave('stem-bass', 11.1, 'sub');
+buildStemWave('stem-vocals', 19.9, 'mid');
+buildStemWave('stem-other', 5.5, 'air');
 
-// Rail list
-const rail = [
-  {t:"Nothing But You",a:"Camelphat",bpm:"122",k:"8A",cur:true},
-  {t:"Staifia",a:"Acid Arab",bpm:"124",k:"5A"},
-  {t:"Waited 4 U",a:"Sofi Tukker",bpm:"122",k:"8A"},
-  {t:"Delta (Spada Rmx)",a:"Nils Hoffmann",bpm:"120",k:"9A"},
-  {t:"Miami 82",a:"Syn Cole",bpm:"125",k:"11A"},
-  {t:"Body Work",a:"Nicole Moudaber",bpm:"128",k:"3A"},
-  {t:"Opus",a:"Eric Prydz",bpm:"126",k:"6A"},
-  {t:"Call on Me",a:"Starley",bpm:"122",k:"4A"},
-  {t:"Home",a:"Solomun",bpm:"120",k:"7A"},
-  {t:"Losing It",a:"Fisher",bpm:"125",k:"2A"},
-  {t:"Jaded",a:"Disclosure",bpm:"121",k:"10A"},
-  {t:"Silhouettes",a:"Avicii",bpm:"128",k:"1A"},
+/* ========== Rail : vraies pistes de l'utilisateur ========== */
+const covers = [
+  'linear-gradient(135deg,#8b5cf6,#1fd4d4)',
+  'linear-gradient(135deg,#ff7a18,#ff2e6b)',
+  'linear-gradient(135deg,#1fd4d4,#d4ff2a)',
+  'linear-gradient(135deg,#ff2e6b,#8b5cf6)',
+  'linear-gradient(135deg,#d4ff2a,#ff7a18)',
+  'linear-gradient(135deg,#6366f1,#ff2e6b)'
 ];
-const covers = ['linear-gradient(135deg,#8b5cf6,#1fd4d4)','linear-gradient(135deg,#ff7a18,#ff2e6b)','linear-gradient(135deg,#1fd4d4,#d4ff2a)','linear-gradient(135deg,#ff2e6b,#8b5cf6)','linear-gradient(135deg,#d4ff2a,#ff7a18)','linear-gradient(135deg,#6366f1,#ff2e6b)'];
 const railEl = document.getElementById('rail-list');
-rail.forEach((r,i)=>{
-  const d = document.createElement('div');
-  d.className = 'rail-item pressable'+(r.cur?' current':'');
-  d.innerHTML = `
-    <div class="cv" style="background:${covers[i%covers.length]}"></div>
-    <div class="tx"><div class="n">${r.t}</div><div class="a">${r.a}</div></div>
-    <div class="badge">${r.bpm}<br>${r.k}</div>
-  `;
-  d.addEventListener('click',()=>{
-    document.querySelectorAll('.rail-item').forEach(x=>x.classList.remove('current'));
-    d.classList.add('current');
-    toast(`Chargé · ${r.t}`,'info');
-  });
-  railEl.appendChild(d);
-});
+const railCountEl = document.getElementById('rail-count');
 
-// Cue click
-document.querySelectorAll('.cue-marker, .cue-item').forEach(el=>{
-  el.addEventListener('click',(e)=>{
-    e.stopPropagation();
-    document.querySelectorAll('.cue-marker, .cue-item').forEach(x=>x.classList.remove('selected'));
-    // Match pairs by data-type + index
-    el.classList.add('selected');
-    toast('Cue sélectionné','info');
+async function loadRail(){
+  try {
+    const list = await api.tracks({ limit: 30 });
+    const items = Array.isArray(list) ? list : (list.items || []);
+    railCountEl.textContent = `${items.length} · tracks`;
+    railEl.innerHTML = '';
+    items.forEach((t,i)=>{
+      const d = document.createElement('div');
+      const isCurrent = String(t.id) === String(trackId);
+      d.className = 'rail-item pressable'+(isCurrent?' current':'');
+      const title = t.title || t.original_filename || t.filename || 'Sans titre';
+      const artist = t.artist || '—';
+      const bpm = t.analysis && t.analysis.bpm ? Number(t.analysis.bpm).toFixed(0) : '—';
+      const key = t.camelot_code || (t.analysis && t.analysis.key) || '—';
+      d.innerHTML = `
+        <div class="cv" style="background:${covers[i%covers.length]}"></div>
+        <div class="tx"><div class="n"></div><div class="a"></div></div>
+        <div class="badge">${bpm}<br>${key}</div>
+      `;
+      d.querySelector('.n').textContent = title;
+      d.querySelector('.a').textContent = artist;
+      d.addEventListener('click',()=>{
+        location.href = `/analyze?id=${t.id}`;
+      });
+      railEl.appendChild(d);
+    });
+    if(items.length === 0){
+      railEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucune piste. <a href="/upload" style="color:var(--amber)">Uploader</a></div>';
+    }
+  } catch(err){
+    railCountEl.textContent = 'err';
+    railEl.innerHTML = `<div style="padding:12px;color:var(--pink);font-size:12px">Erreur : ${err.message}</div>`;
+  }
+}
+
+/* ========== Hero + cues : vraie piste ========== */
+function formatDur(ms){
+  if(!ms || isNaN(ms)) return '—';
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  const rem = s%60;
+  return `${m}:${String(rem).padStart(2,'0')}`;
+}
+
+function renderCueMarkers(cues, durationMs){
+  const waveEl = document.getElementById('wave');
+  // Supprimer les cue-markers existants
+  waveEl.querySelectorAll('.cue-marker').forEach(n=>n.remove());
+  if(!cues || cues.length === 0 || !durationMs) return;
+
+  cues.forEach((c, i)=>{
+    const pct = Math.max(0, Math.min(100, (c.time_ms / durationMs) * 100));
+    const type = (c.type || 'hot').toLowerCase();
+    const el = document.createElement('div');
+    el.className = 'cue-marker'+(i===0?' selected':'');
+    el.dataset.type = type;
+    el.style.left = pct+'%';
+    const tipLabel = c.label ? c.label.substring(0,1) : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
+    const caption = c.label || type;
+    el.innerHTML = `<div class="cue-tip"></div><div class="cue-line"></div><div class="cue-label"></div>`;
+    el.querySelector('.cue-tip').textContent = tipLabel;
+    el.querySelector('.cue-label').textContent = caption;
+    waveEl.appendChild(el);
   });
-});
+}
+
+function renderCueList(cues){
+  const listEl = document.querySelector('.cue-list');
+  const cuesTab = document.querySelector('.insp-tabs button[data-tab="cues"]');
+  const inspCount = document.querySelector('.insp-count');
+  if(!listEl) return;
+  listEl.innerHTML = '';
+  if(cuesTab) cuesTab.textContent = `Cues · ${cues?.length || 0}`;
+  if(inspCount) inspCount.textContent = `${cues?.length || 0} actifs`;
+
+  if(!cues || cues.length === 0){
+    listEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucun cue point détecté</div>';
+    return;
+  }
+  cues.forEach((c, i)=>{
+    const type = (c.type || 'hot').toLowerCase();
+    const tipLabel = c.label ? c.label.substring(0,1) : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
+    const item = document.createElement('div');
+    item.className = 'cue-item'+(i===0?' selected':'');
+    item.dataset.type = type;
+    item.innerHTML = `
+      <span class="tip"></span>
+      <div class="info"><div class="nm"></div><div class="mt"></div></div>
+      <div class="tm"></div>
+    `;
+    item.querySelector('.tip').textContent = tipLabel;
+    item.querySelector('.nm').textContent = c.label || `Cue ${i+1}`;
+    item.querySelector('.mt').textContent = c.description || type;
+    const sec = (c.time_ms || 0)/1000;
+    const m = Math.floor(sec/60);
+    const s = (sec%60).toFixed(1);
+    item.querySelector('.tm').textContent = `${m}:${String(s).padStart(4,'0')}`;
+    listEl.appendChild(item);
+  });
+}
+
+async function loadTrack(){
+  if(!trackId){
+    // Pas de track — on prend la première du user
+    try {
+      const list = await api.tracks({ limit: 1 });
+      const items = Array.isArray(list) ? list : (list.items || []);
+      if(items[0]){
+        trackId = items[0].id;
+        history.replaceState(null, '', `/analyze?id=${trackId}`);
+      } else {
+        document.getElementById('thero-title').textContent = 'Aucune piste disponible';
+        document.getElementById('thero-genre').textContent = 'Uploadez votre première piste';
+        return;
+      }
+    } catch(err){
+      document.getElementById('thero-title').textContent = 'Erreur de chargement';
+      return;
+    }
+  }
+
+  try {
+    const t = await api.track(trackId);
+    const title = t.title || t.original_filename || t.filename || 'Sans titre';
+    const artist = t.artist || '—';
+    const album = t.album || '';
+    const genre = t.genre || '—';
+    const a = t.analysis || {};
+    const bpm = a.bpm != null ? Number(a.bpm).toFixed(1) : '—';
+    const key = t.camelot_code ? `${t.camelot_code}${a.key ? ' · '+a.key : ''}` : (a.key || '—');
+    const energy = a.energy != null ? Number(a.energy).toFixed(1) : '—';
+    const durMs = a.duration_ms || t.duration_ms;
+    const cues = t.cue_points || [];
+
+    document.getElementById('breadcrumb-title').textContent = title;
+    document.title = `TrackCue — ${title}`;
+    document.getElementById('thero-title').textContent = title;
+    document.getElementById('thero-bpm').textContent = bpm;
+    document.getElementById('thero-key').textContent = key;
+    document.getElementById('thero-energy').textContent = energy;
+    document.getElementById('thero-duration').textContent = formatDur(durMs);
+    document.getElementById('thero-status').textContent = t.status || '—';
+    document.getElementById('thero-cues').textContent = cues.length;
+
+    const eyebrow = document.getElementById('thero-eyebrow');
+    const src = t.acoustid_id ? 'AcoustID' : (t.musicbrainz_id ? 'MusicBrainz' : (t.spotify_id ? 'Spotify' : null));
+    eyebrow.innerHTML = '';
+    const parts = [genre];
+    if(artist && artist !== '—') parts.push(artist);
+    if(album) parts.push(album);
+    parts.forEach((p, i)=>{
+      if(i>0){
+        const sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.textContent = '·';
+        eyebrow.appendChild(sep);
+      }
+      const span = document.createElement('span');
+      span.textContent = p;
+      eyebrow.appendChild(span);
+    });
+    if(src){
+      const sep = document.createElement('span');
+      sep.className = 'sep';
+      sep.textContent = '·';
+      eyebrow.appendChild(sep);
+      const badge = document.createElement('span');
+      badge.style.color = 'var(--green)';
+      badge.textContent = `● ${src}`;
+      eyebrow.appendChild(badge);
+    }
+
+    // Transport time
+    const timeTotal = document.querySelector('.time-total');
+    if(timeTotal) timeTotal.textContent = ` / ${formatDur(durMs)}`;
+
+    // Cues
+    renderCueMarkers(cues, durMs);
+    renderCueList(cues);
+
+    // Réattacher les handlers de cue après re-render
+    attachCueHandlers();
+  } catch(err){
+    document.getElementById('thero-title').textContent = 'Erreur : '+err.message;
+    toast(`Chargement impossible : ${err.message}`, 'error');
+  }
+}
+
+function attachCueHandlers(){
+  document.querySelectorAll('.cue-marker, .cue-item').forEach(el=>{
+    el.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      document.querySelectorAll('.cue-marker, .cue-item').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+    });
+  });
+}
+
+// Kick off
+loadRail();
+loadTrack();
 
 // Tool buttons toggle
 document.querySelectorAll('.tool-btn').forEach(b=>{

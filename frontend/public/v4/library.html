@@ -267,60 +267,101 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-const LIB = [
-  {t:"Nothing But You (Extended Mix)",a:"Camelphat, Max Milner",bpm:"122.0",k:"8A",kn:"Am",e:7.4,g:"Melodic House",dt:"il y a 12min",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",cues:8,id:true,ready:true,sd:7.1},
-  {t:"Staifia",a:"Acid Arab",bpm:"124.0",k:"5A",kn:"Dm",e:8.1,g:"Ethnic House",dt:"il y a 18min",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",cues:9,id:true,ready:true,sd:12.3},
-  {t:"Waited 4 U (Club Mix)",a:"Sofi Tukker",bpm:"122.0",k:"8A",kn:"Am",e:7.2,g:"Melodic House",dt:"il y a 1h",cov:"linear-gradient(135deg,#1fd4d4,#d4ff2a)",cues:7,id:true,ready:true,sd:23.7},
-  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120.0",k:"9A",kn:"Em",e:6.8,g:"Melodic House",dt:"hier",cov:"linear-gradient(135deg,#ff2e6b,#8b5cf6)",cues:6,id:true,ready:true,sd:4.9},
-  {t:"Miami 82",a:"Syn Cole",bpm:"125.0",k:"11A",kn:"F#m",e:8.4,g:"Progressive",dt:"hier",cov:"linear-gradient(135deg,#d4ff2a,#ff7a18)",cues:10,id:true,ready:true,sd:18.1},
-  {t:"Body Work",a:"Nicole Moudaber",bpm:"128.0",k:"3A",kn:"Cm",e:8.9,g:"Techno",dt:"2j",cov:"linear-gradient(135deg,#6366f1,#ff2e6b)",cues:8,id:true,ready:true,sd:3.3},
-  {t:"Opus (Original)",a:"Eric Prydz",bpm:"126.0",k:"6A",kn:"F#m",e:7.9,g:"Progressive",dt:"3j",cov:"linear-gradient(135deg,#8b5cf6,#4ade80)",cues:9,id:true,ready:true,sd:14.4},
-  {t:"Call on Me",a:"Starley (Ryan Riback Remix)",bpm:"122.0",k:"4A",kn:"Fm",e:7.1,g:"Deep House",dt:"3j",cov:"linear-gradient(135deg,#ff2e6b,#ff7a18)",cues:7,id:true,ready:true,sd:9.2},
-  {t:"Home (Solomun Mix)",a:"Solomun",bpm:"120.0",k:"7A",kn:"Dm",e:6.9,g:"Melodic House",dt:"4j",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",cues:8,id:true,ready:true,sd:6.8},
-  {t:"Losing It",a:"Fisher",bpm:"125.0",k:"2A",kn:"Gm",e:8.6,g:"Tech House",dt:"5j",cov:"linear-gradient(135deg,#d4ff2a,#1fd4d4)",cues:10,id:true,ready:true,sd:17.3},
-  {t:"Jaded (Club Rework)",a:"Disclosure",bpm:"121.0",k:"10A",kn:"Bm",e:7.3,g:"UK Garage",dt:"6j",cov:"linear-gradient(135deg,#ff7a18,#8b5cf6)",cues:7,id:true,ready:true,sd:2.1},
-  {t:"Silhouettes",a:"Avicii",bpm:"128.0",k:"1A",kn:"Abm",e:8.2,g:"Progressive",dt:"1sem",cov:"linear-gradient(135deg,#4ade80,#ff2e6b)",cues:9,id:true,ready:true,sd:22.8},
-];
+// ---- Auth guard ----
+if(!api.requireAuth()) { /* redirected */ }
 
 const body = document.getElementById('lib-body');
-LIB.forEach((r,i)=>{
+const GRADIENTS = [
+  'linear-gradient(135deg,#8b5cf6,#1fd4d4)',
+  'linear-gradient(135deg,#ff7a18,#ff2e6b)',
+  'linear-gradient(135deg,#1fd4d4,#d4ff2a)',
+  'linear-gradient(135deg,#ff2e6b,#8b5cf6)',
+  'linear-gradient(135deg,#d4ff2a,#ff7a18)',
+  'linear-gradient(135deg,#6366f1,#ff2e6b)',
+  'linear-gradient(135deg,#8b5cf6,#4ade80)',
+  'linear-gradient(135deg,#1fd4d4,#8b5cf6)',
+  'linear-gradient(135deg,#4ade80,#ff2e6b)',
+];
+const CUE_COLORS = ['#4ade80','#8b5cf6','#ff2e6b','#1fd4d4','#8b5cf6','#d4ff2a','#ff2e6b','#ff7a18'];
+
+function showSkeleton(){
+  body.innerHTML = '';
+  for(let i=0;i<8;i++){
+    const row = document.createElement('div');
+    row.className = 'lib-row';
+    row.style.opacity = '0.4';
+    row.innerHTML = `
+      <span class="chk"></span>
+      <div class="lib-cover" style="background:var(--s-3)"></div>
+      <div class="lib-t"><div class="n" style="background:var(--s-3);height:14px;border-radius:4px;width:60%"></div><div class="a" style="background:var(--s-3);height:10px;border-radius:4px;width:40%;margin-top:6px"></div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div><div></div>`;
+    body.appendChild(row);
+  }
+}
+
+function showEmpty(msg){
+  body.innerHTML = `<div style="padding:60px 16px;text-align:center;color:var(--c-tertiary);font-family:var(--font-display)">
+    <div style="font-size:14px;margin-bottom:8px">${msg||'Aucun track pour l\'instant'}</div>
+    <div style="font-size:12px;color:var(--c-quaternary);margin-bottom:16px">Upload ton premier morceau pour démarrer l'analyse.</div>
+    <button class="btn btn-primary" onclick="location.href='/upload'">Uploader un track</button>
+  </div>`;
+}
+
+function renderTrack(t, i){
+  const title = t.title || t.original_filename || t.filename || 'Untitled';
+  const artist = t.artist || '—';
+  const genre = t.genre || '';
+  const bpm = t.analysis?.bpm ? Number(t.analysis.bpm).toFixed(1) : '—';
+  const camelot = t.camelot_code || '—';
+  const keyName = t.analysis?.key || '';
+  const energy = t.analysis?.energy != null ? Number(t.analysis.energy) : (t.energy_level ? t.energy_level : 0);
+  const energyNorm = Math.max(0, Math.min(10, energy > 1 ? energy : energy * 10));
+  const cueCount = (t.cue_points || []).length;
+  const identified = !!(t.spotify_id || t.musicbrainz_id);
+  const ready = t.status === 'ready' || t.status === 'analyzed';
+  const analyzing = t.status === 'analyzing' || t.status === 'pending' || t.status === 'processing';
+  const seed = (t.id || i) * 3.14 + (t.id || 0);
+  const gradient = GRADIENTS[(t.id || i) % GRADIENTS.length];
+  const dt = fmt.relDate(t.created_at);
+
   const row = document.createElement('div');
   row.className = 'lib-row pressable';
   row.tabIndex = 0;
+  row.dataset.id = t.id;
   const cuesBar = Array.from({length:8},(_,ci)=>{
-    const colors = ['#4ade80','#8b5cf6','#ff2e6b','#1fd4d4','#8b5cf6','#d4ff2a','#ff2e6b','#ff7a18'];
-    return ci < r.cues ? `<span style="background:${colors[ci]}"></span>` : `<span style="background:var(--s-3)"></span>`;
+    return ci < cueCount
+      ? `<span style="background:${CUE_COLORS[ci]}"></span>`
+      : `<span style="background:var(--s-3)"></span>`;
   }).join('');
+  const statusBadge = analyzing
+    ? '<span class="badge-ac" style="background:var(--amber-soft);color:#ffba7a;border-color:rgba(255,122,24,.3)">…</span>'
+    : (ready && identified ? '<span class="badge-ac">ID</span>' : '');
+  const bpmDisplay = analyzing ? '<span style="color:var(--amber)">…</span>' : bpm;
+  const keyDisplay = analyzing ? '…' : (camelot + (keyName ? ' · ' + keyName : ''));
   row.innerHTML = `
     <span class="chk"></span>
-    <div class="lib-cover" style="background:${r.cov}">
-      <div class="play">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg>
-      </div>
+    <div class="lib-cover" style="background:${gradient}">
+      <div class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></div>
     </div>
     <div class="lib-t">
-      <div class="n">${r.t} ${r.id?'<span class="badge-ac">ID</span>':''}</div>
-      <div class="a">${r.a} · ${r.g}</div>
+      <div class="n">${title} ${statusBadge}</div>
+      <div class="a">${artist}${genre ? ' · ' + genre : ''}</div>
     </div>
-    <div class="lib-mini-wave" data-seed="${r.sd}"></div>
-    <div class="lib-bpm num">${r.bpm}</div>
-    <div class="lib-key">${r.k} · ${r.kn}</div>
-    <div class="lib-energy" style="--e:${r.e}"><style></style></div>
+    <div class="lib-mini-wave" data-seed="${seed}"></div>
+    <div class="lib-bpm num">${bpmDisplay}</div>
+    <div class="lib-key">${keyDisplay}</div>
+    <div class="lib-energy"><div style="position:absolute;left:0;top:0;bottom:0;width:${energyNorm*10}%;background:linear-gradient(90deg,var(--cyan),var(--amber),var(--pink));border-radius:3px"></div></div>
     <div class="lib-cues">${cuesBar}</div>
-    <div class="lib-date">${r.dt}</div>
+    <div class="lib-date">${dt}</div>
     <div class="lib-actions">
       <button data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></button>
       <button data-tt="Ajouter au set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
       <button data-tt="Plus"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
     </div>
   `;
-  // energy bar width via pseudo element - use ::after width
-  row.querySelector('.lib-energy').style.setProperty('--w', (r.e*10)+'%');
-  row.querySelector('.lib-energy').innerHTML = `<div style="position:absolute;left:0;top:0;bottom:0;width:${r.e*10}%;background:linear-gradient(90deg,var(--cyan),var(--amber),var(--pink));border-radius:3px"></div>`;
   body.appendChild(row);
-  buildWave(row.querySelector('.lib-mini-wave'),52,r.sd,{envelope:(p)=>0.3+0.7*Math.abs(Math.sin(p*Math.PI*3+r.sd))});
+  buildWave(row.querySelector('.lib-mini-wave'),52,seed,{envelope:(p)=>0.3+0.7*Math.abs(Math.sin(p*Math.PI*3+seed))});
 
-  // Click handlers
   const chk = row.querySelector('.chk');
   chk.addEventListener('click',(e)=>{
     e.stopPropagation();
@@ -330,15 +371,84 @@ LIB.forEach((r,i)=>{
   });
   row.addEventListener('click',(e)=>{
     if(e.target.closest('.lib-actions')||e.target.closest('.chk')) return;
-    toast(`Ouverture · ${r.t}`,'info');
-    setTimeout(()=>location.href='/analyze',400);
+    location.href = `/analyze?id=${t.id}`;
   });
-  // Action buttons
   row.querySelectorAll('.lib-actions button').forEach(b=>{
-    b.addEventListener('click',(e)=>{e.stopPropagation();toast(b.dataset.tt+' · '+r.t,'info')});
+    b.addEventListener('click',async(e)=>{
+      e.stopPropagation();
+      const action = b.dataset.tt;
+      if(action === 'Analyser'){
+        try { await api.post(`/tracks/${t.id}/analyze`); toast('Analyse lancée · '+title,'info'); }
+        catch(err){ toast('Erreur: '+err.message,'error'); }
+      } else {
+        toast(action+' · '+title,'info');
+      }
+    });
   });
+}
+
+// ---- State ----
+let state = { page:1, limit:24, query:'', bpmMin:null, bpmMax:null, key:null, genre:null, energyMin:null, total:0 };
+
+async function load(){
+  showSkeleton();
+  try{
+    const params = { page: state.page, limit: state.limit };
+    if(state.query) params.search = state.query;
+    if(state.key) params.camelot_code = state.key;
+    if(state.genre) params.genre = state.genre;
+    if(state.bpmMin) params.bpm_min = state.bpmMin;
+    if(state.bpmMax) params.bpm_max = state.bpmMax;
+    const data = await api.tracks(params);
+    const tracks = data.tracks || [];
+    state.total = data.total || tracks.length;
+    body.innerHTML = '';
+    if(tracks.length === 0){ showEmpty(); return; }
+    tracks.forEach((t,i)=>renderTrack(t,i));
+    // Update count
+    const countEl = document.querySelector('.filter-bar .count');
+    if(countEl) countEl.textContent = `${state.total} résultat${state.total>1?'s':''} · tri Récence`;
+    const foot = document.querySelector('.lib-foot > span');
+    if(foot){
+      const start = (state.page-1)*state.limit + 1;
+      const end = Math.min(state.page*state.limit, state.total);
+      foot.textContent = `Affiche ${start}–${end} sur ${fmt.num(state.total)}`;
+    }
+    // Update header title
+    const sub = document.querySelector('.page-sub');
+    if(sub) sub.textContent = `${fmt.num(state.total)} morceau${state.total>1?'x':''} dans ta collection. Recherche par titre, artiste, BPM, clé, genre.`;
+    // Update "Tous" view chip count
+    const firstChip = document.querySelector('.view-chip .bd');
+    if(firstChip) firstChip.textContent = state.total;
+  } catch(err){
+    body.innerHTML = `<div style="padding:60px 16px;text-align:center;color:var(--pink)">
+      <div style="font-size:14px">Erreur : ${err.message}</div>
+    </div>`;
+  }
+}
+
+// ---- Search ----
+const searchInput = document.querySelector('.filter-bar .search input');
+let searchTimeout;
+if(searchInput){
+  searchInput.addEventListener('input', (e)=>{
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(()=>{
+      state.query = e.target.value.trim();
+      state.page = 1;
+      load();
+    }, 300);
+  });
+}
+
+// ---- Upload button ----
+document.querySelectorAll('.btn.btn-primary').forEach(b=>{
+  if(/upload|nouvel/i.test(b.textContent)){
+    b.addEventListener('click', ()=> location.href='/upload');
+  }
 });
 
+// ---- Bulk selection ----
 function updateBulk(){
   const n = document.querySelectorAll('.lib-row.selected').length;
   const bar = document.getElementById('bulkBar');
@@ -352,19 +462,29 @@ window.selectAll = (on)=>{
   });
   updateBulk();
 };
-
 document.addEventListener('keydown',(e)=>{
   if(e.key==='Escape') selectAll(false);
 });
 
-// View chips toggle
+// ---- View chips ----
 document.querySelectorAll('.view-chip').forEach(c=>{
   c.addEventListener('click',()=>{
     document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
     c.classList.add('active');
-    toast('Vue · '+c.textContent.trim(),'info');
   });
 });
+
+// ---- Pagination ----
+document.querySelectorAll('.pag button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const t = b.textContent.trim();
+    if(t === '◀' && state.page > 1) { state.page--; load(); }
+    else if(t === '▶') { state.page++; load(); }
+    else if(/^\d+$/.test(t)) { state.page = parseInt(t); load(); }
+  });
+});
+
+load();
 </script>
 </body>
 </html>

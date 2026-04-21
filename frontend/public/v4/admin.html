@@ -311,24 +311,24 @@
   <!-- KPI row -->
   <div class="kpi-row">
     <div class="kpi reveal">
-      <span class="lbl">Users actifs · 30j</span>
-      <span class="val">2 847</span>
-      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+12,4 % vs mois -1</span>
+      <span class="lbl">Users · total</span>
+      <span class="val" id="kpi-users">—</span>
+      <span class="trend" id="kpi-users-trend">—</span>
     </div>
     <div class="kpi cyan reveal reveal-2">
-      <span class="lbl">Tracks analysés · 30j</span>
-      <span class="val">184 629</span>
-      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+28,1 %</span>
+      <span class="lbl">Tracks · total</span>
+      <span class="val" id="kpi-tracks">—</span>
+      <span class="trend" id="kpi-tracks-trend">—</span>
     </div>
     <div class="kpi pink reveal reveal-3">
-      <span class="lbl">MRR · avril</span>
-      <span class="val">42 860 €</span>
-      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+7,8 %</span>
+      <span class="lbl">MRR · estimation</span>
+      <span class="val" id="kpi-mrr">—</span>
+      <span class="trend" id="kpi-mrr-trend">—</span>
     </div>
     <div class="kpi green reveal reveal-4">
-      <span class="lbl">Uptime · 30j</span>
-      <span class="val">99,94 %</span>
-      <span class="trend down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 10 6 6 6-6"/></svg>2 incidents mineurs</span>
+      <span class="lbl">Storage · estimé</span>
+      <span class="val" id="kpi-storage">—</span>
+      <span class="trend" id="kpi-storage-trend">—</span>
     </div>
   </div>
 
@@ -340,7 +340,7 @@
       <div class="grp">Opérations</div>
       <a href="#users" class="active" data-sec="users">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Users <span class="count">2 847</span>
+        Users <span class="count" id="nav-users-count">—</span>
       </a>
       <a href="#orgs" data-sec="orgs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -414,7 +414,7 @@
         <div class="card-head">
           <div>
             <div class="card-title">Users · tous comptes</div>
-            <div class="card-sub">2 847 · 412 Pro · 12 flagged pour abuse</div>
+            <div class="card-sub" id="users-card-sub">Chargement…</div>
           </div>
           <div class="card-action">
             <button class="btn btn-ghost btn-sm">+ Créer user</button>
@@ -766,93 +766,156 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-  // ---- Users table data + filter ----
-  const USERS = [
-    { id:1, n:'Sebastien Martin', e:'sebastien@clubmix.fr', av:'SM', col:'violet', plan:'pro', storage:68, tracks:1284, last:'il y a 12 min', signed:'2025-11-08' },
-    { id:2, n:'Lucas Dupont',   e:'lucas@djlucas.fr',    av:'LD', col:'',       plan:'pro', storage:42, tracks:612, last:'il y a 1 h',    signed:'2026-02-14' },
-    { id:3, n:'Marie Pelletier',e:'marie@nightowl.fm',   av:'MP', col:'green',  plan:'studio', storage:88, tracks:3240, last:'il y a 3 h',  signed:'2025-06-22' },
-    { id:4, n:'Pierre Lemaire', e:'pierre@techno.io',    av:'PL', col:'',       plan:'trial',storage:18, tracks:42,  last:'il y a 4 h',    signed:'2026-04-12' },
-    { id:5, n:'Inès Moreau',    e:'ines@deephousefrance.com',av:'IM', col:'violet', plan:'pro', storage:92, tracks:2104, last:'hier',     signed:'2025-09-03', warn:true },
-    { id:6, n:'Tom Charpentier',e:'tom.c@gmail.com',     av:'TC', col:'green',  plan:'free', storage:14, tracks:28,  last:'hier',          signed:'2026-04-02' },
-    { id:7, n:'Juliette Faure', e:'jules@audiocraft.fr', av:'JF', col:'',       plan:'pro', storage:52, tracks:940, last:'il y a 2 j',    signed:'2025-12-18' },
-    { id:8, n:'Spam account',   e:'bot89423@example.com',av:'SB', col:'red',    plan:'free', storage:1,  tracks:3,   last:'il y a 3 j',    signed:'2026-04-18', flag:true },
-    { id:9, n:'Émile Royer',    e:'emile@discotheque.co',av:'ER', col:'green',  plan:'pro', storage:61, tracks:720, last:'il y a 4 j',    signed:'2025-10-30' },
-    { id:10,n:'Alice Bonnefoy', e:'alice.b@mgmtmusic.fr',av:'AB', col:'violet', plan:'studio',storage:74, tracks:1842,last:'il y a 5 j',    signed:'2025-07-11' },
-    { id:11,n:'Baptiste Nguyen',e:'bap@vinylnight.fr',   av:'BN', col:'',       plan:'free', storage:6,  tracks:12,  last:'il y a 7 j',    signed:'2026-04-10' },
-    { id:12,n:'Rémi Pons',      e:'rpons@test.fr',       av:'RP', col:'red',    plan:'trial',storage:2,  tracks:1,   last:'il y a 14 j',   signed:'2026-04-06', flag:true }
-  ];
+  if(!api.requireAuth()) throw new Error('redirect');
 
-  function planPill(p){
-    const m = { pro:'Pro', free:'Free', studio:'Studio', trial:'Trial' };
-    return `<span class="plan-pill ${p}">${m[p]}</span>`;
+  // ===== KPIs =====
+  async function loadKpis(){
+    try {
+      const d = await api.adminOverview();
+      document.getElementById('kpi-users').textContent = fmt.num(d.total_users);
+      document.getElementById('kpi-users-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+${fmt.num(d.new_users_7d)} cette semaine`;
+      document.getElementById('kpi-tracks').textContent = fmt.num(d.total_tracks);
+      document.getElementById('kpi-tracks-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>${fmt.num(d.tracks_analyzed)} analysés · +${fmt.num(d.tracks_uploaded_7d)} · 7j`;
+      document.getElementById('kpi-mrr').textContent = fmt.money((d.revenue_metrics?.mrr_estimate || 0) * 100, 'EUR');
+      const mrrTrend = `${d.revenue_metrics?.total_pro_users || 0} Pro · ${d.revenue_metrics?.total_unlimited_users || 0} Unlimited`;
+      document.getElementById('kpi-mrr-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>${mrrTrend}`;
+      document.getElementById('kpi-storage').textContent = `${d.storage_estimate_gb} Go`;
+      document.getElementById('kpi-storage-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18"/></svg>${d.active_users_7d} actifs · 7j`;
+
+      document.getElementById('nav-users-count').textContent = fmt.num(d.total_users);
+      const pro = d.revenue_metrics?.total_pro_users || 0;
+      const unlim = d.revenue_metrics?.total_unlimited_users || 0;
+      document.getElementById('users-card-sub').textContent = `${fmt.num(d.total_users)} total · ${pro} Pro · ${unlim} Unlimited`;
+    } catch(err){
+      if(typeof toast === 'function') toast(`Overview impossible : ${err.message}`, 'error');
+    }
   }
 
-  function renderUsers(filter='all'){
+  // ===== Users table =====
+  const PLAN_LABELS = { pro:'Pro', free:'Free', unlimited:'Unlimited', trial:'Trial', enterprise:'Enterprise' };
+  function planPill(p){
+    const key = (p || 'free').toLowerCase();
+    const label = PLAN_LABELS[key] || p || 'Free';
+    return `<span class="plan-pill ${key}">${label}</span>`;
+  }
+
+  function initials(name, email){
+    if(name && name.trim()){
+      const parts = name.trim().split(/\s+/).slice(0,2);
+      return parts.map(p => p[0]).join('').toUpperCase();
+    }
+    if(email) return email.slice(0,2).toUpperCase();
+    return '??';
+  }
+
+  let currentFilter = 'all';
+  let currentSearch = '';
+
+  function relTime(iso){
+    if(!iso) return '—';
+    const d = new Date(iso);
+    const diff = (Date.now() - d.getTime())/1000;
+    if(diff < 60) return 'à l\'instant';
+    if(diff < 3600) return `il y a ${Math.floor(diff/60)} min`;
+    if(diff < 86400) return `il y a ${Math.floor(diff/3600)} h`;
+    if(diff < 2592000) return `il y a ${Math.floor(diff/86400)} j`;
+    return d.toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'2-digit'});
+  }
+
+  function fmtSignup(iso){
+    if(!iso) return '—';
+    try { return new Date(iso).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'2-digit'}); } catch { return iso; }
+  }
+
+  async function loadUsers(){
     const body = document.getElementById('users-body');
     if(!body) return;
-    const list = USERS.filter(u => {
-      if(filter==='all') return true;
-      if(filter==='flagged') return u.flag || u.warn;
-      return u.plan === filter;
-    });
-    body.innerHTML = list.map(u => `
-      <tr class="${u.flag?'flagged':''}" data-id="${u.id}">
-        <td>
-          <div class="usr">
-            <div class="usr-av ${u.col}">${u.av}</div>
-            <div><div class="usr-nm">${u.n}${u.flag?' <span style="color:var(--red);font-size:10px">⚠ flagged</span>':''}</div><div class="usr-em">${u.e}</div></div>
-          </div>
-        </td>
-        <td>${planPill(u.plan)}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="usage-bar"><div class="fill ${u.storage>85?'warn':''}" style="width:${u.storage}%"></div></div>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary)">${u.storage} %</span>
-          </div>
-        </td>
-        <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary)">${u.tracks.toLocaleString('fr')}</td>
-        <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.last}</td>
-        <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.signed}</td>
-        <td>
-          <div class="act">
-            <button data-tt="Voir profil"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            <button data-tt="Impersonate"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M21 11v6M18 14h6"/></svg></button>
-            <button class="danger" data-tt="Suspendre"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg></button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Chargement…</td></tr>`;
+    try {
+      const payload = { skip: 0, limit: 50, sort_by: 'created_at', sort_dir: 'desc' };
+      if(currentSearch) payload.search = currentSearch;
+      if(currentFilter !== 'all' && currentFilter !== 'flagged'){
+        payload.plan = currentFilter === 'studio' ? 'unlimited' : currentFilter;
+      }
+      const res = await api.post('/admin/users/advanced', payload);
+      const items = res.items || [];
+      if(items.length === 0){
+        body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun utilisateur</td></tr>`;
+        return;
+      }
+      body.innerHTML = items.map(u => {
+        const name = u.name || u.email?.split('@')[0] || 'Sans nom';
+        const isAdmin = u.is_admin;
+        const plan = u.subscription_plan || 'free';
+        const cls = isAdmin ? 'violet' : (plan === 'pro' ? '' : (plan === 'unlimited' ? 'green' : ''));
+        return `
+          <tr data-id="${u.id}">
+            <td>
+              <div class="usr">
+                <div class="usr-av ${cls}"></div>
+                <div><div class="usr-nm">${isAdmin ? ' <span style="color:var(--violet);font-size:10px">★ admin</span>' : ''}</div><div class="usr-em"></div></div>
+              </div>
+            </td>
+            <td>${planPill(plan)}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.email_verified ? '✓ vérifié' : '⚠ non vérifié'}</span>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary)">${u.oauth_provider || '—'}</td>
+            <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
+            <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
+            <td>
+              <div class="act">
+                <button data-tt="Voir profil" data-act="view"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      // Inject sanitized text
+      body.querySelectorAll('tr').forEach((row, i)=>{
+        const u = items[i];
+        if(!u) return;
+        const name = u.name || u.email?.split('@')[0] || 'Sans nom';
+        const av = row.querySelector('.usr-av');
+        if(av) av.textContent = initials(u.name, u.email);
+        const nm = row.querySelector('.usr-nm');
+        if(nm){ nm.prepend(document.createTextNode(name)); }
+        const em = row.querySelector('.usr-em');
+        if(em) em.textContent = u.email || '';
+        const tds = row.querySelectorAll('td');
+        if(tds[4]) tds[4].textContent = relTime(u.last_login_at);
+        if(tds[5]) tds[5].textContent = fmtSignup(u.created_at);
+      });
+    } catch(err){
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
+    }
   }
 
-  renderUsers();
+  loadKpis();
+  loadUsers();
 
   // Filter chips
   document.querySelectorAll('.tb-chip').forEach(c => {
     c.addEventListener('click', () => {
       document.querySelectorAll('.tb-chip').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
-      renderUsers(c.dataset.filter);
-      if(typeof toast === 'function') toast(`Filtre · ${c.textContent.trim()}`, 'info');
+      currentFilter = c.dataset.filter;
+      loadUsers();
     });
   });
 
-  // Click row → open profile (fake toast)
+  // Click row → open profile
   document.addEventListener('click', e => {
-    const row = e.target.closest('#users-body tr');
+    const row = e.target.closest('#users-body tr[data-id]');
     if(row && !e.target.closest('.act')){
       const id = row.dataset.id;
-      const u = USERS.find(x => x.id == id);
-      if(u && typeof toast === 'function') toast(`Ouverture · ${u.n}`, 'info');
-    }
-    const act = e.target.closest('.act button');
-    if(act && typeof toast === 'function'){
-      const lbl = act.dataset.tt || 'Action';
-      toast(`${lbl} · à confirmer`, 'info');
-      e.stopPropagation();
+      if(typeof toast === 'function') toast(`Profil #${id} (à venir)`, 'info');
     }
   });
 
-  // Admin nav active (static links + soft scroll)
+  // Admin nav active
   document.querySelectorAll('.admin-nav a').forEach(a => {
     a.addEventListener('click', e => {
       document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
@@ -860,29 +923,20 @@
     });
   });
 
-  // Search
+  // Search (debounced)
   const searchInput = document.querySelector('.tb-search input');
   if(searchInput){
+    let t;
     searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase().trim();
-      if(!q){ renderUsers(); return; }
-      const body = document.getElementById('users-body');
-      const list = USERS.filter(u => u.n.toLowerCase().includes(q) || u.e.toLowerCase().includes(q));
-      body.innerHTML = list.length ? list.map(u => `
-        <tr class="${u.flag?'flagged':''}" data-id="${u.id}">
-          <td><div class="usr"><div class="usr-av ${u.col}">${u.av}</div><div><div class="usr-nm">${u.n}</div><div class="usr-em">${u.e}</div></div></div></td>
-          <td>${planPill(u.plan)}</td>
-          <td><div style="display:flex;align-items:center;gap:8px"><div class="usage-bar"><div class="fill ${u.storage>85?'warn':''}" style="width:${u.storage}%"></div></div><span style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary)">${u.storage} %</span></div></td>
-          <td style="font-family:var(--font-mono);font-size:12px">${u.tracks.toLocaleString('fr')}</td>
-          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.last}</td>
-          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.signed}</td>
-          <td><div class="act"><button>👁</button></div></td>
-        </tr>
-      `).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun résultat pour « ${q} »</td></tr>`;
+      clearTimeout(t);
+      t = setTimeout(()=>{
+        currentSearch = searchInput.value.trim();
+        loadUsers();
+      }, 300);
     });
   }
 
-  // Revenue bar tooltip
+  // Revenue bar tooltip (visuel, pas branché)
   document.querySelectorAll('.rev-bars .b').forEach(b => {
     const pct = b.style.height;
     b.setAttribute('data-tt', `MRR · ${Math.round(parseFloat(pct)*450)} €`);
