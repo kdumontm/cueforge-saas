@@ -1263,8 +1263,10 @@ def _safe_mount(module_path: str, prefix: str = "", tags: list | None = None,
         logger.warning("⚠️  Router %s non chargé : %s", module_path, exc)
 
 # Core routers
-# ⚠️ duplicates doit être monté AVANT tracks pour éviter que /{track_id} intercepte /duplicates → 422
+# ⚠️ duplicates + compare doivent être montés AVANT tracks pour éviter que /{track_id}
+# intercepte /duplicates et /compare → 422
 _safe_mount("app.routers.duplicates", tags=["duplicates"])
+_safe_mount("app.routers.compare", "/api/v1", ["compare"])
 _safe_mount("app.routers.tracks", "/api/v1/tracks", ["tracks"])
 _safe_mount("app.routers.cues", "/api/v1/cues", ["cues"])
 _safe_mount("app.routers.export", "/api/v1/export", ["export"])
@@ -1285,7 +1287,7 @@ _safe_mount("app.routers.org_management", "/api/v1/org", ["organization-manageme
 _safe_mount("app.routers.api_keys", tags=["api-keys"])
 _safe_mount("app.routers.webhooks", tags=["webhooks"])
 _safe_mount("app.routers.favorites", tags=["favorites"])
-_safe_mount("app.routers.compare", "/api/v1", ["compare"])
+# compare déplacé avant tracks plus haut (sinon /{track_id} intercepte)
 _safe_mount("app.routers.export_pdf", "/api/v1", ["export-pdf"])
 
 # v2 routers

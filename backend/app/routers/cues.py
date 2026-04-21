@@ -145,6 +145,22 @@ class RuleUpdate(BaseModel):
     parameters: Optional[Dict] = None
 
 
+# 🔴 Fix QA 2026-04-21 : /batch/history DOIT être déclaré AVANT les routes /{track_id}/...
+# sinon FastAPI match /batch/history comme /{track_id}/history avec track_id="batch"
+# et renvoie 422 (int_parsing). _batch_jobs est défini plus bas (late binding Python).
+@router.get("/batch/history")
+async def get_batch_history(
+    user: User = Depends(get_current_user),
+    limit: int = 50,
+):
+    """Point 32: Get history of batch operations."""
+    user_jobs = [j for j in _batch_jobs.values() if j["user_id"] == user.id]
+    return {
+        "jobs": user_jobs[-limit:],
+        "total": len(user_jobs),
+    }
+
+
 # ─── Analysis ────────────────────────────────────────────────────────────────
 
 @router.get("/{track_id}/analysis", response_model=TrackAnalysisResponse)
@@ -2004,21 +2020,6 @@ async def batch_quality(
         "operation": "quality",
         "track_count": len(track_ids),
         "status": "queued",
-    }
-
-
-# 🔴 Fix QA 2026-04-21 : /batch/history DOIT être déclaré AVANT /batch/{batch_id}
-# sinon FastAPI match /batch/history comme batch_id="history" et renvoie 422.
-@router.get("/batch/history")
-async def get_batch_history(
-    user: User = Depends(get_current_user),
-    limit: int = 50,
-):
-    """Point 32: Get history of batch operations."""
-    user_jobs = [j for j in _batch_jobs.values() if j["user_id"] == user.id]
-    return {
-        "jobs": user_jobs[-limit:],
-        "total": len(user_jobs),
     }
 
 
