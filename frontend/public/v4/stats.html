@@ -252,7 +252,7 @@
       <div class="panel-head">
         <div>
           <h3 class="panel-title">Courbe d'énergie moyenne</h3>
-          <div class="panel-sub">Énergie par position dans vos 23 sets — 0:00 → 2:00:00</div>
+          <div class="panel-sub" id="energy-curve-sub">Énergie par position dans vos sets</div>
         </div>
         <div class="segment">
           <button class="active">Moyenne</button>
@@ -309,10 +309,10 @@
             <text x="530" y="34">Wind-down</text>
           </g>
           <!-- Peak tooltip -->
-          <g transform="translate(410,58)">
+          <g id="peak-tooltip-group" transform="translate(410,58)" style="display:none">
             <rect x="-55" y="-44" width="110" height="34" rx="6" fill="#1a1926" stroke="rgba(255,255,255,.12)"/>
-            <text x="-48" y="-29" fill="#f4f1ec" font-family="JetBrains Mono" font-size="9.5">1h04 · Energy 9.1</text>
-            <text x="-48" y="-17" fill="#6b6780" font-family="JetBrains Mono" font-size="9">Peak Time — 23 sets</text>
+            <text id="peak-tooltip-main" x="-48" y="-29" fill="#f4f1ec" font-family="JetBrains Mono" font-size="9.5">—</text>
+            <text id="peak-tooltip-sub" x="-48" y="-17" fill="#6b6780" font-family="JetBrains Mono" font-size="9">Peak Time</text>
             <path d="M0,-10 L-5,-5 L5,-5 Z" fill="#1a1926"/>
           </g>
         </svg>
@@ -323,15 +323,15 @@
       <div class="panel-head">
         <div>
           <h3 class="panel-title">Qualité des transitions</h3>
-          <div class="panel-sub">Score compat. sur vos 412 transitions enregistrées</div>
+          <div class="panel-sub" id="quality-sub">Aucune transition enregistrée pour l'instant</div>
         </div>
-        <span class="chip chip-green"><span class="chip-dot"></span>82% en ≥ 8</span>
+        <span class="chip chip-green" id="quality-chip" style="display:none"><span class="chip-dot"></span>—</span>
       </div>
-      <div class="quality-bars">
-        <div class="qb"><div class="qb-label">Perfect (9-10)</div><div class="qb-track"><div class="qb-fill perf" style="width:48%"></div></div><div class="qb-value">198</div></div>
-        <div class="qb"><div class="qb-label">Good (7-9)</div><div class="qb-track"><div class="qb-fill good" style="width:34%"></div></div><div class="qb-value">140</div></div>
-        <div class="qb"><div class="qb-label">Fair (5-7)</div><div class="qb-track"><div class="qb-fill fair" style="width:14%"></div></div><div class="qb-value">58</div></div>
-        <div class="qb"><div class="qb-label">Risky (&lt; 5)</div><div class="qb-track"><div class="qb-fill risky" style="width:4%"></div></div><div class="qb-value">16</div></div>
+      <div class="quality-bars" id="quality-bars">
+        <div class="qb"><div class="qb-label">Perfect (9-10)</div><div class="qb-track"><div class="qb-fill perf" id="qb-perf-fill" style="width:0%"></div></div><div class="qb-value" id="qb-perf-val">—</div></div>
+        <div class="qb"><div class="qb-label">Good (7-9)</div><div class="qb-track"><div class="qb-fill good" id="qb-good-fill" style="width:0%"></div></div><div class="qb-value" id="qb-good-val">—</div></div>
+        <div class="qb"><div class="qb-label">Fair (5-7)</div><div class="qb-track"><div class="qb-fill fair" id="qb-fair-fill" style="width:0%"></div></div><div class="qb-value" id="qb-fair-val">—</div></div>
+        <div class="qb"><div class="qb-label">Risky (&lt; 5)</div><div class="qb-track"><div class="qb-fill risky" id="qb-risky-fill" style="width:0%"></div></div><div class="qb-value" id="qb-risky-val">—</div></div>
       </div>
       <div class="gauge-row">
         <div class="gauge">
@@ -339,7 +339,7 @@
             <circle class="gauge-bg" cx="40" cy="40" r="32"/>
             <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#4ade80" stroke-dasharray="160 201" />
           </svg>
-          <div class="num">79%</div>
+          <div class="num" id="gauge-phrase">—</div>
           <div class="lbl">Phrase aligné</div>
         </div>
         <div class="gauge">
@@ -347,7 +347,7 @@
             <circle class="gauge-bg" cx="40" cy="40" r="32"/>
             <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#1fd4d4" stroke-dasharray="188 201" />
           </svg>
-          <div class="num">94%</div>
+          <div class="num" id="gauge-key">—</div>
           <div class="lbl">Key compat.</div>
         </div>
         <div class="gauge">
@@ -355,7 +355,7 @@
             <circle class="gauge-bg" cx="40" cy="40" r="32"/>
             <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#ff7a18" stroke-dasharray="172 201" />
           </svg>
-          <div class="num">86%</div>
+          <div class="num" id="gauge-bpm">—</div>
           <div class="lbl">BPM ≤ 3%</div>
         </div>
       </div>
@@ -371,15 +371,8 @@
           <div class="panel-sub">Tracks joués · 30j</div>
         </div>
       </div>
-      <div class="top-list">
-        <div class="top-row"><div class="top-rank">01</div><div><div class="top-name">Camelphat</div><div class="top-bar"><div class="top-bar-fill" style="width:100%"></div></div></div><div class="top-num">42</div></div>
-        <div class="top-row"><div class="top-rank">02</div><div><div class="top-name">Tale Of Us</div><div class="top-bar"><div class="top-bar-fill" style="width:88%"></div></div></div><div class="top-num">37</div></div>
-        <div class="top-row"><div class="top-rank">03</div><div><div class="top-name">Mind Against</div><div class="top-bar"><div class="top-bar-fill" style="width:74%"></div></div></div><div class="top-num">31</div></div>
-        <div class="top-row"><div class="top-rank">04</div><div><div class="top-name">Adriatique</div><div class="top-bar"><div class="top-bar-fill" style="width:66%"></div></div></div><div class="top-num">28</div></div>
-        <div class="top-row"><div class="top-rank">05</div><div><div class="top-name">Âme</div><div class="top-bar"><div class="top-bar-fill" style="width:59%"></div></div></div><div class="top-num">25</div></div>
-        <div class="top-row"><div class="top-rank">06</div><div><div class="top-name">Stephan Bodzin</div><div class="top-bar"><div class="top-bar-fill" style="width:50%"></div></div></div><div class="top-num">21</div></div>
-        <div class="top-row"><div class="top-rank">07</div><div><div class="top-name">Artbat</div><div class="top-bar"><div class="top-bar-fill" style="width:43%"></div></div></div><div class="top-num">18</div></div>
-        <div class="top-row"><div class="top-rank">08</div><div><div class="top-name">Colyn</div><div class="top-bar"><div class="top-bar-fill" style="width:36%"></div></div></div><div class="top-num">15</div></div>
+      <div class="top-list" id="top-artists-list">
+        <div style="padding:40px 16px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucun artiste suivi pour l'instant — ajoute des tracks à un set pour voir ton top.</div>
       </div>
     </div>
 
@@ -387,7 +380,7 @@
       <div class="panel-head">
         <div>
           <h3 class="panel-title">Top genres</h3>
-          <div class="panel-sub">Distribution des 1 284 tracks</div>
+          <div class="panel-sub" id="genres-sub">Distribution de ta librairie</div>
         </div>
       </div>
       <!-- Donut -->
@@ -403,7 +396,7 @@
           <circle cx="60" cy="60" r="48" fill="none" stroke="#1fd4d4" stroke-width="20" stroke-dasharray="30.16 301.59" stroke-dashoffset="-253.33" transform="rotate(-90 60 60)"/>
           <!-- Other 6% -->
           <circle cx="60" cy="60" r="48" fill="none" stroke="#d4ff2a" stroke-width="20" stroke-dasharray="18.1 301.59" stroke-dashoffset="-283.49" transform="rotate(-90 60 60)"/>
-          <text x="60" y="58" text-anchor="middle" fill="#f4f1ec" font-family="Space Grotesk" font-size="18" font-weight="700">1 284</text>
+          <text id="donut-total" x="60" y="58" text-anchor="middle" fill="#f4f1ec" font-family="Space Grotesk" font-size="18" font-weight="700">0</text>
           <text x="60" y="72" text-anchor="middle" fill="#6b6780" font-family="JetBrains Mono" font-size="9">tracks</text>
         </svg>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
@@ -418,7 +411,7 @@
       <div style="margin-top:22px;padding-top:14px;border-top:1px solid var(--b-subtle)">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
           <div class="eyebrow">Distribution BPM</div>
-          <div class="mono" style="font-size:11px;color:var(--c-secondary)">médiane <strong style="color:var(--c-primary)">122</strong></div>
+          <div class="mono" style="font-size:11px;color:var(--c-secondary)">médiane <strong id="bpm-median" style="color:var(--c-primary)">—</strong></div>
         </div>
         <div class="histo-wrap" id="bpmHisto"></div>
       </div>
@@ -433,33 +426,33 @@
       </div>
       <div class="cam-row-label">Minor (A) — Deep / Melodic</div>
       <div class="camelot-grid">
-        <div class="cam-cell" data-heat="2"><div class="num">1A</div><div class="count">42</div></div>
-        <div class="cam-cell" data-heat="3"><div class="num">2A</div><div class="count">58</div></div>
-        <div class="cam-cell" data-heat="1"><div class="num">3A</div><div class="count">24</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">4A</div><div class="count">38</div></div>
-        <div class="cam-cell" data-heat="3"><div class="num">5A</div><div class="count">64</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">6A</div><div class="count">48</div></div>
-        <div class="cam-cell" data-heat="4"><div class="num">7A</div><div class="count">92</div></div>
-        <div class="cam-cell" data-heat="5" style="animation:pulseCell 2s ease-in-out infinite"><div class="num">8A</div><div class="count">128</div></div>
-        <div class="cam-cell" data-heat="5"><div class="num">9A</div><div class="count">114</div></div>
-        <div class="cam-cell" data-heat="3"><div class="num">10A</div><div class="count">72</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">11A</div><div class="count">46</div></div>
-        <div class="cam-cell" data-heat="1"><div class="num">12A</div><div class="count">28</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">1A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">2A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">3A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">4A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">5A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">6A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">7A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="5" style="animation:pulseCell 2s ease-in-out infinite"><div class="num">8A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">9A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">10A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">11A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">12A</div><div class="count">—</div></div>
       </div>
       <div class="cam-row-label">Major (B) — Uplifting / Peak</div>
       <div class="camelot-grid">
-        <div class="cam-cell" data-heat="1"><div class="num">1B</div><div class="count">18</div></div>
-        <div class="cam-cell" data-heat="1"><div class="num">2B</div><div class="count">22</div></div>
-        <div class="cam-cell" data-heat="0"><div class="num">3B</div><div class="count">8</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">4B</div><div class="count">34</div></div>
-        <div class="cam-cell" data-heat="1"><div class="num">5B</div><div class="count">20</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">6B</div><div class="count">42</div></div>
-        <div class="cam-cell" data-heat="3"><div class="num">7B</div><div class="count">58</div></div>
-        <div class="cam-cell" data-heat="3"><div class="num">8B</div><div class="count">66</div></div>
-        <div class="cam-cell" data-heat="2"><div class="num">9B</div><div class="count">38</div></div>
-        <div class="cam-cell" data-heat="1"><div class="num">10B</div><div class="count">26</div></div>
-        <div class="cam-cell" data-heat="0"><div class="num">11B</div><div class="count">12</div></div>
-        <div class="cam-cell" data-heat="0"><div class="num">12B</div><div class="count">6</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">1B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">2B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">3B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">4B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">5B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">6B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">7B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">8B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">9B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">10B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">11B</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">12B</div><div class="count">—</div></div>
       </div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--b-subtle);display:flex;justify-content:space-between;align-items:center">
         <div>
@@ -479,7 +472,7 @@
           <h3 class="panel-title">Activité — 52 semaines</h3>
           <div class="panel-sub">Tracks analysés par jour · 365j</div>
         </div>
-        <div class="mono" style="font-size:12px;color:var(--c-secondary)">Streak actuel <strong style="color:var(--amber)">12 jours</strong></div>
+        <div class="mono" style="font-size:12px;color:var(--c-secondary)">Streak actuel <strong id="streak-days" style="color:var(--amber)">—</strong></div>
       </div>
       <div class="heat" id="heatmap"></div>
       <div class="heat-legend">
@@ -492,7 +485,7 @@
           <span data-l="4" style="background:rgba(255,122,24,.85)"></span>
         </div>
         <span>Plus</span>
-        <span style="margin-left:auto">Meilleur jour : <strong style="color:var(--c-primary)">sam. 14 févr. — 38 tracks</strong></span>
+        <span style="margin-left:auto">Meilleur jour : <strong id="best-day" style="color:var(--c-primary)">—</strong></span>
       </div>
     </div>
 
@@ -500,59 +493,12 @@
       <div class="panel-head">
         <div>
           <h3 class="panel-title">Sessions récentes</h3>
-          <div class="panel-sub">Vos 6 derniers sets · score global</div>
+          <div id="sessions-sub" class="panel-sub">Vos derniers sets · score global</div>
         </div>
         <a href="/set-builder" style="font-family:var(--font-display);font-size:12px;color:var(--amber)">Voir tous →</a>
       </div>
-      <div class="feed">
-        <div class="feed-row">
-          <div class="feed-date">20<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Rex Club — set #23</div>
-            <div class="feed-meta"><span>01:48</span><span>·</span><span>14 tracks</span><span>·</span><span>122.4 BPM</span></div>
-          </div>
-          <div class="feed-score hi">8.6</div>
-        </div>
-        <div class="feed-row">
-          <div class="feed-date">15<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Concrete — afterhours</div>
-            <div class="feed-meta"><span>02:15</span><span>·</span><span>18 tracks</span><span>·</span><span>124.0 BPM</span></div>
-          </div>
-          <div class="feed-score hi">9.1</div>
-        </div>
-        <div class="feed-row">
-          <div class="feed-date">12<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Badaboum — opening</div>
-            <div class="feed-meta"><span>01:20</span><span>·</span><span>11 tracks</span><span>·</span><span>118.8 BPM</span></div>
-          </div>
-          <div class="feed-score mid">7.4</div>
-        </div>
-        <div class="feed-row">
-          <div class="feed-date">08<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Maison Sage — warm-up</div>
-            <div class="feed-meta"><span>01:30</span><span>·</span><span>12 tracks</span><span>·</span><span>120.0 BPM</span></div>
-          </div>
-          <div class="feed-score hi">8.3</div>
-        </div>
-        <div class="feed-row">
-          <div class="feed-date">03<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Studio — record test</div>
-            <div class="feed-meta"><span>00:55</span><span>·</span><span>8 tracks</span><span>·</span><span>122.0 BPM</span></div>
-          </div>
-          <div class="feed-score lo">6.8</div>
-        </div>
-        <div class="feed-row">
-          <div class="feed-date">28<br><span style="color:var(--c-quaternary);font-size:9px">MAR</span></div>
-          <div class="feed-body">
-            <div class="feed-title">Djoon — peak slot</div>
-            <div class="feed-meta"><span>01:45</span><span>·</span><span>15 tracks</span><span>·</span><span>123.2 BPM</span></div>
-          </div>
-          <div class="feed-score hi">8.9</div>
-        </div>
+      <div id="sessions-feed" class="feed">
+        <div style="padding:24px 12px;text-align:center;color:var(--c-tertiary);font-size:13px">Aucun set enregistré pour l'instant — <a href="/set-builder" style="color:var(--amber);text-decoration:none">crée ton premier set</a></div>
       </div>
     </div>
   </div>
@@ -600,14 +546,89 @@
       document.getElementById('kpi-playlists').textContent = fmt.num(s.total_playlists);
       document.getElementById('kpi-playlists-delta').textContent = s.total_playlists > 0 ? 'actives' : 'aucune encore';
 
-      // Genres — update top panel with real data
-      const topList = document.querySelector('.panel:nth-of-type(2) .top-list');
-      const topGenres = document.querySelectorAll('.main-grid[style*="1fr 1fr 1fr"] .panel')[1];
-      // Update donut center text
-      const donutSvg = document.querySelector('.panel svg[viewBox="0 0 120 120"]');
-      if(donutSvg){
-        const tracksText = donutSvg.querySelector('text[font-size="18"]');
-        if(tracksText) tracksText.textContent = fmt.num(s.total_tracks);
+      // Energy curve sub + peak tooltip (disparaissent si pas de sets)
+      const setsCount = Number(s.total_sets || 0);
+      const energySub = document.getElementById('energy-curve-sub');
+      if(energySub){
+        energySub.textContent = setsCount > 0
+          ? `Énergie par position dans vos ${setsCount} set${setsCount>1?'s':''} — 0:00 → 2:00:00`
+          : 'Créez un set pour visualiser votre courbe d\'énergie';
+      }
+      const peakGroup = document.getElementById('peak-tooltip-group');
+      if(peakGroup){
+        if(setsCount > 0 && s.peak_time){
+          peakGroup.style.display = '';
+          const main = document.getElementById('peak-tooltip-main');
+          const sub2 = document.getElementById('peak-tooltip-sub');
+          if(main) main.textContent = `${s.peak_time.time || '—'} · Energy ${(s.peak_time.energy||0).toFixed(1)}`;
+          if(sub2) sub2.textContent = `Peak Time — ${setsCount} sets`;
+        } else {
+          peakGroup.style.display = 'none';
+        }
+      }
+
+      // Transition quality — empty state si pas de transitions
+      const qSub = document.getElementById('quality-sub');
+      const qChip = document.getElementById('quality-chip');
+      const tq = s.transition_quality || null;
+      const totalTx = tq ? (Number(tq.perfect||0)+Number(tq.good||0)+Number(tq.fair||0)+Number(tq.risky||0)) : 0;
+      if(totalTx > 0){
+        if(qSub) qSub.textContent = `Score compat. sur vos ${totalTx} transition${totalTx>1?'s':''} enregistrée${totalTx>1?'s':''}`;
+        const goodOrBetterPct = Math.round(((Number(tq.perfect||0)+Number(tq.good||0))/totalTx)*100);
+        if(qChip){
+          qChip.style.display = '';
+          qChip.innerHTML = `<span class="chip-dot"></span>${goodOrBetterPct}% en ≥ 8`;
+        }
+        const setQb = (prefix, val) => {
+          const n = Number(val || 0);
+          const pct = totalTx > 0 ? Math.round(n/totalTx*100) : 0;
+          const fill = document.getElementById(`qb-${prefix}-fill`);
+          const num = document.getElementById(`qb-${prefix}-val`);
+          if(fill) fill.style.width = pct + '%';
+          if(num) num.textContent = n;
+        };
+        setQb('perf', tq.perfect);
+        setQb('good', tq.good);
+        setQb('fair', tq.fair);
+        setQb('risky', tq.risky);
+      } else {
+        if(qSub) qSub.textContent = 'Aucune transition enregistrée pour l\'instant';
+        if(qChip) qChip.style.display = 'none';
+        ['perf','good','fair','risky'].forEach(p => {
+          const fill = document.getElementById(`qb-${p}-fill`);
+          const num = document.getElementById(`qb-${p}-val`);
+          if(fill) fill.style.width = '0%';
+          if(num) num.textContent = '—';
+        });
+      }
+
+      // Gauges — pleines si on a les données, sinon —
+      const gs = s.transition_gauges || null;
+      const setGauge = (id, val) => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        if(val == null){ el.textContent = '—'; return; }
+        const pct = Math.round(Number(val));
+        el.textContent = pct + '%';
+        // Update the dash on the preceding circle (180deg = 2*PI*r*0.5 = ~100.5 avec r=32 → circumference ~201)
+        const svg = el.parentElement?.querySelector('svg .gauge-fg');
+        if(svg){
+          const circ = 201;
+          svg.setAttribute('stroke-dasharray', `${(pct/100)*circ} ${circ}`);
+        }
+      };
+      setGauge('gauge-phrase', gs ? gs.phrase_aligned_pct : null);
+      setGauge('gauge-key', gs ? gs.key_compat_pct : null);
+      setGauge('gauge-bpm', gs ? gs.bpm_tight_pct : null);
+
+      // Genres — update donut + legend avec vraies données
+      const donutTotal = document.getElementById('donut-total');
+      if(donutTotal) donutTotal.textContent = fmt.num(s.total_tracks || 0);
+      const genresSub = document.getElementById('genres-sub');
+      if(genresSub){
+        genresSub.textContent = (s.total_tracks > 0)
+          ? `Distribution de tes ${fmt.num(s.total_tracks)} track${s.total_tracks>1?'s':''}`
+          : 'Importe des tracks pour voir ta répartition';
       }
       // Update genre list (legend)
       const totalGenreCount = (s.genres_breakdown || []).reduce((sum,g)=>sum+g.count, 0);
@@ -625,14 +646,68 @@
         }
       }
 
-      // BPM histogram — real data
-      const bpmHisto = document.getElementById('bpmHisto');
-      if(bpmHisto && s.bpm_range){
-        // Build histogram from activity: since we don't have distribution, use range indicator
-        if(s.bpm_range.avg){
-          const medianEl = document.querySelector('.mono strong[style*="color:var(--c-primary)"]');
-          if(medianEl) medianEl.textContent = s.bpm_range.avg.toFixed(0);
+      // BPM médiane
+      const bpmMedian = document.getElementById('bpm-median');
+      if(bpmMedian){
+        if(s.bpm_range && s.bpm_range.avg){
+          bpmMedian.textContent = Number(s.bpm_range.avg).toFixed(0);
+        } else {
+          bpmMedian.textContent = '—';
         }
+      }
+
+      // Streak + meilleur jour
+      const streakEl = document.getElementById('streak-days');
+      if(streakEl){
+        if(s.streak_days != null){
+          streakEl.textContent = `${s.streak_days} jour${s.streak_days>1?'s':''}`;
+        } else {
+          streakEl.textContent = '—';
+        }
+      }
+      const bestDayEl = document.getElementById('best-day');
+      if(bestDayEl){
+        if(s.best_day && s.best_day.date){
+          const bd = s.best_day;
+          bestDayEl.textContent = `${fmt.date(bd.date)} — ${bd.count||0} track${bd.count>1?'s':''}`;
+        } else {
+          bestDayEl.textContent = '—';
+        }
+      }
+
+      // Sessions récentes feed
+      const feed = document.getElementById('sessions-feed');
+      if(feed){
+        const recent = s.recent_sets || [];
+        if(recent.length > 0){
+          const MONTHS = ['JAN','FÉV','MAR','AVR','MAI','JUN','JUL','AOÛ','SEP','OCT','NOV','DÉC'];
+          feed.innerHTML = recent.slice(0,6).map(set => {
+            const d = set.date ? new Date(set.date) : null;
+            const day = d ? String(d.getDate()).padStart(2,'0') : '—';
+            const mon = d ? MONTHS[d.getMonth()] : '';
+            const dur = set.duration || '—';
+            const tracks = set.track_count || 0;
+            const bpm = set.bpm ? Number(set.bpm).toFixed(1) : '—';
+            const score = set.score != null ? Number(set.score).toFixed(1) : '—';
+            const cls = set.score >= 8 ? 'hi' : (set.score >= 6.5 ? 'mid' : 'lo');
+            const name = (set.name || 'Set').replace(/</g,'&lt;');
+            return `<div class="feed-row">
+              <div class="feed-date">${day}<br><span style="color:var(--c-quaternary);font-size:9px">${mon}</span></div>
+              <div class="feed-body">
+                <div class="feed-title">${name}</div>
+                <div class="feed-meta"><span>${dur}</span><span>·</span><span>${tracks} track${tracks>1?'s':''}</span><span>·</span><span>${bpm} BPM</span></div>
+              </div>
+              <div class="feed-score ${cls}">${score}</div>
+            </div>`;
+          }).join('');
+        }
+        // Sinon on garde l'empty state déjà présent en HTML
+      }
+      const sessionsSub = document.getElementById('sessions-sub');
+      if(sessionsSub){
+        sessionsSub.textContent = setsCount > 0
+          ? `Tes ${Math.min(setsCount,6)} derniers sets · score global`
+          : 'Aucun set · crée ton premier pour voir l\'historique';
       }
 
       // Key distribution — update Camelot heatmap counts
