@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: Optional[str] = None
     S3_SECRET_KEY: Optional[str] = None
 
+    # Cloudflare R2 (optional) — si tous les 4 sont set, R2 est activé
+    # comme source de vérité pour les uploads audio. /app/uploads devient
+    # un cache ephémère.
+    R2_ACCOUNT_ID: Optional[str] = None
+    R2_ACCESS_KEY_ID: Optional[str] = None
+    R2_SECRET_ACCESS_KEY: Optional[str] = None
+    R2_BUCKET: Optional[str] = None
+    R2_SIGNED_URL_TTL_SECONDS: int = 3600  # 1h par défaut
+
     # Stripe
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None

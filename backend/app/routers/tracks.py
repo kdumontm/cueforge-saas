@@ -67,6 +67,7 @@ MIME_TYPES = {
 @router.post("/upload", response_model=TrackUploadResponse)
 async def upload_track(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -182,6 +183,31 @@ async def upload_track(
     db.add(track)
     safe_commit(db)
     db.refresh(track)
+
+    # Push async vers Cloudflare R2 si activé — non bloquant pour la réponse user.
+    # Si R2 non configuré ou upload échoue, on garde juste le fichier local (comportement legacy).
+    try:
+        from app.services import r2_service
+        if r2_service.enabled() and file_path:
+            def _push_to_r2(tid: int, lpath: str, key: str):
+                from app.database import SessionLocal
+                try:
+                    r2_service.upload_file(lpath, key)
+                    db2 = SessionLocal()
+                    try:
+                        t = db2.query(Track).filter(Track.id == tid).first()
+                        if t:
+                            t.r2_key = key
+                            db2.commit()
+                    finally:
+                        db2.close()
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"[R2] upload background failed for track {tid}: {e}")
+            background_tasks.add_task(_push_to_r2, track.id, file_path, filename)
+    except Exception:
+        # Module import ou toute erreur imprévue : on ignore (fallback local)
+        pass
 
     return TrackUploadResponse(
         id=track.id,
@@ -1890,6 +1916,16 @@ def delete_track(
         except OSError:
             pass
 
+    # Delete from R2 si le track y est copié
+    if track.r2_key:
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                r2_service.delete_object(track.r2_key)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"[R2] delete failed for {track.r2_key}: {e}")
+
     # Supprimer manuellement les dépendances FK (au cas où la DB n'a pas ondelete=CASCADE)
     _delete_track_dependencies(db, track_id)
     db.delete(track)
@@ -1958,11 +1994,22 @@ def batch_delete_tracks(
     deleted_ids = [track.id for track in tracks]
 
     # Suppression des fichiers (non-bloquant pour la DB)
+    try:
+        from app.services import r2_service
+        r2_on = r2_service.enabled()
+    except Exception:
+        r2_service = None  # type: ignore
+        r2_on = False
     for track in tracks:
         if track.file_path and os.path.exists(track.file_path):
             try:
                 os.remove(track.file_path)
             except OSError:
+                pass
+        if r2_on and track.r2_key:
+            try:
+                r2_service.delete_object(track.r2_key)
+            except Exception:
                 pass
 
     # Bulk delete des dépendances en 9 requêtes au lieu de 9 × N

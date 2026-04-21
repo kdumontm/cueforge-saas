@@ -544,6 +544,205 @@ async def storage_audit(
         return {"error": "storage_audit failed", "detail": str(e), "traceback": traceback.format_exc()}
 
 
+# ── Cloudflare R2 : healthcheck, migration, purge locale ────────────────────
+
+@router.get("/diagnostics/r2-status")
+async def r2_status(_: None = Depends(_require_key)):
+    """Vérifie l'état de la connexion R2 + stats du bucket."""
+    import traceback
+    try:
+        from app.services import r2_service
+        info = r2_service.healthcheck()
+        if not info.get("enabled"):
+            return info
+
+        # Compte les objets et leur taille totale
+        count = 0
+        total_bytes = 0
+        for obj in r2_service.list_objects():
+            count += 1
+            total_bytes += obj.get("Size", 0)
+        info["object_count"] = count
+        info["total_mb"] = round(total_bytes / 1e6, 2)
+        return info
+    except Exception as e:
+        return {"error": "r2_status failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/diagnostics/r2-migrate")
+async def r2_migrate(
+    dry_run: bool = True,
+    purge_local: bool = False,
+    limit: int = 500,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Upload tous les tracks locaux manquants sur R2.
+
+    Itère sur les Track qui ont un file_path valide sur disque mais pas
+    de r2_key. Upload vers R2, set r2_key, et si purge_local=true supprime
+    le fichier local après upload réussi.
+
+    dry_run=True par défaut → retourne ce qui serait fait sans toucher.
+    """
+    import traceback
+    try:
+        from app.services import r2_service
+        from app.models.track import Track
+
+        if not r2_service.enabled():
+            return {"error": "R2 non configuré — env vars R2_* manquantes"}
+
+        # Tracks candidats : file_path set, r2_key null
+        candidates = (
+            db.query(Track)
+            .filter(Track.file_path.isnot(None))
+            .filter(Track.r2_key.is_(None))
+            .limit(limit)
+            .all()
+        )
+
+        plan = []
+        uploaded = 0
+        purged = 0
+        freed_bytes = 0
+        errors = []
+
+        for t in candidates:
+            local = t.file_path
+            if not local or not os.path.exists(local):
+                plan.append({"id": t.id, "skip": "fichier local manquant", "file_path": local})
+                continue
+
+            key = os.path.basename(local)
+            size = os.path.getsize(local)
+
+            if dry_run:
+                plan.append({"id": t.id, "would_upload_key": key, "size_bytes": size})
+                continue
+
+            # Upload réel
+            try:
+                r2_service.upload_file(local, key)
+                t.r2_key = key
+                db.commit()
+                uploaded += 1
+
+                if purge_local:
+                    try:
+                        os.remove(local)
+                        purged += 1
+                        freed_bytes += size
+                    except OSError as e:
+                        errors.append({"id": t.id, "step": "purge", "error": str(e)})
+            except Exception as e:
+                db.rollback()
+                errors.append({"id": t.id, "step": "upload", "error": str(e)})
+
+        result = {
+            "dry_run": dry_run,
+            "purge_local": purge_local,
+            "candidates": len(candidates),
+            "uploaded": uploaded,
+            "purged": purged,
+            "freed_mb": round(freed_bytes / 1e6, 2),
+            "errors": errors[:20],
+        }
+        if dry_run:
+            result["plan_preview"] = plan[:20]
+        return result
+    except Exception as e:
+        return {"error": "r2_migrate failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.delete("/diagnostics/r2-purge-local")
+async def r2_purge_local(
+    confirm: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Supprime les fichiers locaux des tracks qui ont un r2_key set
+    (donc le fichier est déjà safely sur R2). Libère /app/uploads.
+
+    Dry-run par défaut. Passer ?confirm=true pour exécuter.
+    """
+    import traceback
+    try:
+        from app.services import r2_service
+        from app.models.track import Track
+
+        if not r2_service.enabled():
+            return {"error": "R2 non configuré"}
+
+        # Tracks avec r2_key + file_path local qui existe sur disque
+        tracks = (
+            db.query(Track)
+            .filter(Track.r2_key.isnot(None))
+            .filter(Track.file_path.isnot(None))
+            .all()
+        )
+
+        to_purge = []
+        for t in tracks:
+            if t.file_path and os.path.exists(t.file_path):
+                try:
+                    size = os.path.getsize(t.file_path)
+                except OSError:
+                    size = 0
+                to_purge.append({"id": t.id, "path": t.file_path, "size_bytes": size})
+
+        total_bytes = sum(x["size_bytes"] for x in to_purge)
+
+        if not confirm:
+            return {
+                "dry_run": True,
+                "would_purge": len(to_purge),
+                "would_free_mb": round(total_bytes / 1e6, 2),
+                "items": to_purge[:20],
+                "next_step": "Ajouter ?confirm=true pour exécuter",
+            }
+
+        purged = 0
+        freed = 0
+        errors = []
+        for item in to_purge:
+            try:
+                os.remove(item["path"])
+                purged += 1
+                freed += item["size_bytes"]
+            except OSError as e:
+                errors.append({"id": item["id"], "error": str(e)})
+
+        return {
+            "dry_run": False,
+            "purged": purged,
+            "freed_mb": round(freed / 1e6, 2),
+            "errors": errors,
+        }
+    except Exception as e:
+        return {"error": "r2_purge_local failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/diagnostics/r2-add-column")
+async def r2_add_column(_: None = Depends(_require_key), db: Session = Depends(get_db)):
+    """
+    One-shot : ajoute la colonne tracks.r2_key si elle n'existe pas encore.
+    Utile parce qu'on n'a pas Alembic — Base.metadata.create_all ne modifie
+    pas les tables existantes.
+    """
+    from sqlalchemy import text
+    try:
+        db.execute(text("ALTER TABLE tracks ADD COLUMN IF NOT EXISTS r2_key VARCHAR(512)"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_tracks_r2_key ON tracks (r2_key)"))
+        db.commit()
+        return {"ok": True, "applied": "ALTER TABLE + CREATE INDEX"}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+
+
 @router.delete("/diagnostics/storage-orphans")
 async def cleanup_storage_orphans(
     confirm: bool = False,

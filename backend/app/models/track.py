@@ -47,6 +47,10 @@ class Track(Base):
     file_path = Column(String(512), nullable=True)
     file_size = Column(Integer, nullable=True)
 
+    # Cloudflare R2 — clé objet (= basename UUID.ext) si le fichier est uploadé sur R2.
+    # Si set, le fichier est garanti sur R2. Le file_path local est un cache ephémère.
+    r2_key = Column(String(512), nullable=True, index=True)
+
     status = Column(SAEnum(TrackStatus), default=TrackStatus.pending, nullable=False)
     error_message = Column(Text, nullable=True)
 
