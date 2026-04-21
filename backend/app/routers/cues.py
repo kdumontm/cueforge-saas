@@ -1413,22 +1413,27 @@ async def get_global_analytics(
     db: Session = Depends(get_db),
 ):
     """Get global cue analytics."""
-    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+    # 🔴 Fix QA 2026-04-21 : ancien code = N+1 (une query par track pour lister les cues).
+    # Remplacé par un JOIN + agrégats en une seule passe.
+    from sqlalchemy import func
 
-    total_cues = 0
-    total_tracks = 0
-    cues_by_type = {}
-    confidence_scores = []
+    total_tracks = db.query(func.count(Track.id)).filter(Track.user_id == user.id).scalar() or 0
 
-    for track in tracks:
-        cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
-        total_cues += len(cues)
-        total_tracks += 1
+    # Tous les cues de tous les tracks de l'user en 1 query
+    cues_rows = (
+        db.query(CuePoint.cue_type, CuePoint.confidence)
+        .join(Track, Track.id == CuePoint.track_id)
+        .filter(Track.user_id == user.id)
+        .all()
+    )
 
-        for cue in cues:
-            cues_by_type[cue.cue_type] = cues_by_type.get(cue.cue_type, 0) + 1
-            if cue.confidence:
-                confidence_scores.append(cue.confidence)
+    total_cues = len(cues_rows)
+    cues_by_type: dict = {}
+    confidence_scores: list = []
+    for cue_type, confidence in cues_rows:
+        cues_by_type[cue_type] = cues_by_type.get(cue_type, 0) + 1
+        if confidence:
+            confidence_scores.append(confidence)
 
     avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
 
@@ -2002,6 +2007,21 @@ async def batch_quality(
     }
 
 
+# 🔴 Fix QA 2026-04-21 : /batch/history DOIT être déclaré AVANT /batch/{batch_id}
+# sinon FastAPI match /batch/history comme batch_id="history" et renvoie 422.
+@router.get("/batch/history")
+async def get_batch_history(
+    user: User = Depends(get_current_user),
+    limit: int = 50,
+):
+    """Point 32: Get history of batch operations."""
+    user_jobs = [j for j in _batch_jobs.values() if j["user_id"] == user.id]
+    return {
+        "jobs": user_jobs[-limit:],
+        "total": len(user_jobs),
+    }
+
+
 @router.get("/batch/{batch_id}")
 async def get_batch_status(
     batch_id: str,
@@ -2036,19 +2056,6 @@ async def cancel_batch(
 
     job["status"] = "cancelled"
     return {"batch_id": batch_id, "status": "cancelled"}
-
-
-@router.get("/batch/history")
-async def get_batch_history(
-    user: User = Depends(get_current_user),
-    limit: int = 50,
-):
-    """Point 32: Get history of batch operations."""
-    user_jobs = [j for j in _batch_jobs.values() if j["user_id"] == user.id]
-    return {
-        "jobs": user_jobs[-limit:],
-        "total": len(user_jobs),
-    }
 
 
 @router.post("/batch/estimate-resources")
