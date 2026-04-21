@@ -1263,10 +1263,13 @@ def _safe_mount(module_path: str, prefix: str = "", tags: list | None = None,
         logger.warning("⚠️  Router %s non chargé : %s", module_path, exc)
 
 # Core routers
-# ⚠️ duplicates + compare doivent être montés AVANT tracks pour éviter que /{track_id}
-# intercepte /duplicates et /compare → 422
+# ⚠️ duplicates + compare + organization doivent être montés AVANT tracks pour éviter
+# que /{track_id} intercepte /duplicates, /compare, /tracks/categories, /tracks/tags → 422
 _safe_mount("app.routers.duplicates", tags=["duplicates"])
 _safe_mount("app.routers.compare", "/api/v1", ["compare"])
+# organization définit /tracks/categories et /tracks/tags avec son propre prefix /api/v1 —
+# doit passer avant tracks sinon /{track_id} capture "categories"/"tags" → 422
+_safe_mount("app.routers.organization")
 _safe_mount("app.routers.tracks", "/api/v1/tracks", ["tracks"])
 _safe_mount("app.routers.cues", "/api/v1/cues", ["cues"])
 _safe_mount("app.routers.export", "/api/v1/export", ["export"])
@@ -1282,7 +1285,7 @@ _safe_mount("app.routers.admin.users", "/api/v1", ["admin-users"])
 _safe_mount("app.routers.admin.dashboard", "/api/v1", ["admin-dashboard"])
 _safe_mount("app.routers.admin.public", "/api/v1", ["site"], attr="public_router")
 _safe_mount("app.routers.waveforms")
-_safe_mount("app.routers.organization")
+# organization déjà monté plus haut (avant tracks) pour éviter collision /{track_id}
 _safe_mount("app.routers.org_management", "/api/v1/org", ["organization-management"])
 _safe_mount("app.routers.api_keys", tags=["api-keys"])
 _safe_mount("app.routers.webhooks", tags=["webhooks"])
