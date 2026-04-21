@@ -9,7 +9,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
@@ -369,6 +369,24 @@ def stream_audio(
 
     # 🔴 FIX (faille 5) : Validation path traversal — le chemin doit rester dans UPLOAD_DIR
     safe = storage_svc.safe_path(track.file_path) if track.file_path else None
+
+    # ── R2 fallback ──────────────────────────────────────────────────────────
+    # Post-migration R2 (2026-04-21) : les fichiers existants sont sur R2 mais
+    # plus sur le disque Railway (storage local éphémère). Si le fichier local
+    # est absent mais qu'on a une r2_key, on redirige vers une URL signée R2.
+    # Le browser handle les Range requests directement auprès de R2 — plus
+    # rapide et élimine le backend comme proxy de bande passante.
+    if (not safe or not os.path.exists(safe)) and getattr(track, "r2_key", None):
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                signed_url = r2_service.get_signed_url(track.r2_key, ttl_seconds=3600)
+                logger.info("Audio request redirect to R2: track=%d, key=%s", track_id, track.r2_key)
+                return RedirectResponse(url=signed_url, status_code=302)
+        except Exception as e:
+            logger.error("R2 redirect failed for track %d: %s", track_id, e)
+            # Fall through to 404 below
+
     if not safe or not os.path.exists(safe):
         raise HTTPException(status_code=404, detail="Audio file not found on disk")
 
