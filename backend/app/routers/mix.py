@@ -221,7 +221,7 @@ async def suggest_next_track(
     pour que le UI Mix Studio affiche directement le suggestion sans re-fetch.
     """
     from sqlalchemy.orm import selectinload
-    from app.models.analysis import Analysis
+    from app.models.track import TrackAnalysis
     from app.services.camelot import transition_score, key_to_camelot
 
     try:
@@ -239,7 +239,7 @@ async def suggest_next_track(
         candidates = (
             db.query(Track)
             .options(selectinload(Track.analysis))
-            .join(Analysis, Analysis.track_id == Track.id)
+            .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
             .filter(
                 Track.user_id == current_user.id,
                 Track.id != request.current_track_id,
