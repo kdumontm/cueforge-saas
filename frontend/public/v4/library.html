@@ -97,11 +97,6 @@
   .lib-energy{
     height:6px;background:var(--s-3);border-radius:3px;position:relative;overflow:hidden;
   }
-  .lib-energy::after{
-    content:"";position:absolute;left:0;top:0;bottom:0;
-    background:linear-gradient(90deg,var(--cyan),var(--amber),var(--pink));
-    border-radius:3px;
-  }
   .lib-cues{display:flex;gap:3px}
   .lib-cues span{width:7px;height:18px;border-radius:2px}
   .lib-date{font-family:var(--font-mono);font-size:11.5px;color:var(--c-tertiary)}
@@ -132,7 +127,8 @@
     width:30px;height:30px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);
     color:var(--c-secondary);font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:all var(--t-fast)
   }
-  .pag button:hover{background:var(--s-3);color:var(--c-primary)}
+  .pag button:hover:not(:disabled){background:var(--s-3);color:var(--c-primary)}
+  .pag button:disabled{opacity:.4;cursor:not-allowed}
   .pag button.active{background:var(--amber);color:#050406;border-color:var(--amber)}
 
   /* Filter drop */
@@ -145,6 +141,30 @@
   .drop-trigger:hover{color:var(--c-primary);border-color:var(--b-strong)}
   .drop-trigger.has-filter{color:var(--amber);border-color:rgba(255,122,24,.35);background:var(--amber-soft)}
   .drop-trigger .caret{width:10px;height:10px;opacity:.6}
+
+  .drop-menu{
+    display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:20;
+    min-width:220px;padding:12px;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .drop.open .drop-menu{display:block}
+  .drop-menu label{display:block;font-size:11px;color:var(--c-tertiary);margin-bottom:4px;font-family:var(--font-mono)}
+  .drop-menu .row-in{display:flex;gap:6px;margin-bottom:10px}
+  .drop-menu .row-in input{
+    flex:1;padding:6px 8px;font-family:var(--font-mono);font-size:12px;
+    background:var(--s-2);border:1px solid var(--b-default);border-radius:6px;color:var(--c-primary);
+  }
+  .drop-menu .opts{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:10px}
+  .drop-menu .opt{
+    padding:5px 6px;font-family:var(--font-mono);font-size:11px;text-align:center;
+    background:var(--s-2);border:1px solid var(--b-default);border-radius:5px;
+    cursor:pointer;color:var(--c-secondary);transition:all var(--t-fast);
+  }
+  .drop-menu .opt:hover{border-color:var(--b-strong);color:var(--c-primary)}
+  .drop-menu .opt.on{background:var(--amber);color:#050406;border-color:var(--amber)}
+  .drop-menu .acts{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
+  .drop-menu .btn{font-size:12px;padding:5px 10px}
 </style>
 </head>
 <body>
@@ -165,9 +185,9 @@
     <a href="/admin">Admin</a>
   </nav>
   <div class="topnav-actions">
-    <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
+    <button class="btn btn-ghost btn-sm" data-tt="Search">Find<span class="kbd">⌘K</span></button>
     <button class="btn btn-primary btn-sm">Upload</button>
-    <button class="avatar">KD</button>
+    <button class="avatar">··</button>
   </div>
 </header>
 
@@ -176,11 +196,11 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">Library <span class="editorial">— ta collection</span></h1>
-      <p class="page-sub">1 284 morceaux analysés. Cherche par titre, artiste, BPM, clé, genre, ou utilise les vues sauvegardées.</p>
+      <p class="page-sub" id="page-sub">Chargement de ta collection…</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
-      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV</button>
-      <button class="btn btn-primary">
+      <button class="btn btn-ghost" id="btn-export-csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV</button>
+      <button class="btn btn-primary" id="btn-new-upload">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
         Nouvel upload
       </button>
@@ -188,47 +208,108 @@
   </div>
 
   <!-- Saved views -->
-  <div class="views">
-    <button class="view-chip active">Tous<span class="bd">1284</span></button>
-    <button class="view-chip">✓ Ready to play<span class="bd">982</span></button>
-    <button class="view-chip">● Analyse en cours<span class="bd">12</span></button>
-    <button class="view-chip">★ Favoris<span class="bd">68</span></button>
-    <button class="view-chip">🎛 Pour le set Rex<span class="bd">24</span></button>
-    <button class="view-chip">Melodic House · 8A-9A<span class="bd">142</span></button>
-    <button class="view-chip">High energy · 7+<span class="bd">318</span></button>
-    <button class="view-chip" style="color:var(--c-tertiary)">+ Nouvelle vue</button>
+  <div class="views" id="views">
+    <button class="view-chip active" data-view="all">Tous<span class="bd" id="c-all">—</span></button>
+    <button class="view-chip" data-view="ready">Ready to play<span class="bd" id="c-ready">—</span></button>
+    <button class="view-chip" data-view="analyzing">Analyse en cours<span class="bd" id="c-analyzing">—</span></button>
+    <button class="view-chip" data-view="favorites">Favoris<span class="bd" id="c-favorites">—</span></button>
   </div>
 
   <!-- Filter bar -->
   <div class="filter-bar">
     <div class="search" style="flex:1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input class="input" placeholder="Rechercher un titre, artiste, label, genre…">
+      <input class="input" id="search-input" placeholder="Rechercher un titre, artiste, label, genre…">
       <span class="kbd">/</span>
     </div>
 
-    <div class="drop"><div class="drop-trigger">BPM · 115-130<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
-    <div class="drop"><div class="drop-trigger has-filter">Key · 8A<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
-    <div class="drop"><div class="drop-trigger">Genre · all<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
-    <div class="drop"><div class="drop-trigger">Energy<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
-    <div class="drop"><div class="drop-trigger">Date<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    <div class="drop" id="drop-bpm">
+      <div class="drop-trigger" data-label="BPM">BPM<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="drop-menu">
+        <label>BPM min → max</label>
+        <div class="row-in">
+          <input type="number" id="f-bpm-min" placeholder="min" min="0" max="250">
+          <input type="number" id="f-bpm-max" placeholder="max" min="0" max="250">
+        </div>
+        <div class="acts">
+          <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
+          <button class="btn btn-primary btn-sm" data-drop-apply>Appliquer</button>
+        </div>
+      </div>
+    </div>
 
-    <span class="count">142 résultats · tri Récence</span>
+    <div class="drop" id="drop-key">
+      <div class="drop-trigger" data-label="Key">Key<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="drop-menu">
+        <label>Camelot</label>
+        <div class="opts" id="key-opts"></div>
+        <div class="acts">
+          <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drop" id="drop-genre">
+      <div class="drop-trigger" data-label="Genre">Genre<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="drop-menu">
+        <label>Genre (recherche partielle)</label>
+        <div class="row-in">
+          <input type="text" id="f-genre" placeholder="house, techno…">
+        </div>
+        <div class="acts">
+          <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
+          <button class="btn btn-primary btn-sm" data-drop-apply>Appliquer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drop" id="drop-energy">
+      <div class="drop-trigger" data-label="Energy">Energy<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="drop-menu">
+        <label>Énergie min → max (0-10)</label>
+        <div class="row-in">
+          <input type="number" id="f-energy-min" placeholder="min" min="0" max="10" step="0.1">
+          <input type="number" id="f-energy-max" placeholder="max" min="0" max="10" step="0.1">
+        </div>
+        <div class="acts">
+          <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
+          <button class="btn btn-primary btn-sm" data-drop-apply>Appliquer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drop" id="drop-sort">
+      <div class="drop-trigger" data-label="Tri">Tri · Récence<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="drop-menu">
+        <label>Trier par</label>
+        <div class="opts" id="sort-opts" style="grid-template-columns:1fr 1fr">
+          <div class="opt on" data-sort="created_at-desc">Récence ↓</div>
+          <div class="opt" data-sort="created_at-asc">Récence ↑</div>
+          <div class="opt" data-sort="title-asc">Titre A-Z</div>
+          <div class="opt" data-sort="title-desc">Titre Z-A</div>
+          <div class="opt" data-sort="bpm-asc">BPM ↑</div>
+          <div class="opt" data-sort="bpm-desc">BPM ↓</div>
+          <div class="opt" data-sort="artist-asc">Artiste A-Z</div>
+          <div class="opt" data-sort="energy-desc">Énergie ↓</div>
+        </div>
+      </div>
+    </div>
+
+    <span class="count" id="count-results">—</span>
   </div>
 
   <!-- Bulk bar -->
   <div class="bulk-bar" id="bulkBar">
     <div style="display:flex;align-items:center;gap:12px">
       <span class="chk on" onclick="selectAll(false)"></span>
-      <strong id="bulkCount" style="font-family:var(--font-display);font-size:13px">3 sélectionnés</strong>
+      <strong id="bulkCount" style="font-family:var(--font-display);font-size:13px">0 sélectionné</strong>
       <span class="hint">· clear avec Échap</span>
     </div>
     <div class="bulk-actions">
-      <button class="btn btn-sm btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 4v12m-6-6h12"/></svg>Ajouter au set</button>
-      <button class="btn btn-sm btn-ghost">★ Favoris</button>
-      <button class="btn btn-sm btn-ghost">Re-analyser</button>
-      <button class="btn btn-sm btn-ghost">Export</button>
-      <button class="btn btn-sm btn-danger">Supprimer</button>
+      <button class="btn btn-sm btn-ghost" id="bulk-favorite">★ Favoris</button>
+      <button class="btn btn-sm btn-ghost" id="bulk-analyze">Re-analyser</button>
+      <button class="btn btn-sm btn-ghost" id="bulk-export">Export</button>
+      <button class="btn btn-sm btn-danger" id="bulk-delete">Supprimer</button>
     </div>
   </div>
 
@@ -237,28 +318,20 @@
     <div class="lib-head">
       <span class="chk" onclick="selectAll(true)"></span>
       <span></span>
-      <span class="sortable active">Titre ▼</span>
-      <span class="sortable">Aperçu</span>
-      <span class="sortable">BPM</span>
-      <span class="sortable">Clé</span>
-      <span>Énergie</span>
+      <span class="sortable" data-sort-col="title">Titre</span>
+      <span>Aperçu</span>
+      <span class="sortable" data-sort-col="bpm">BPM</span>
+      <span class="sortable" data-sort-col="key">Clé</span>
+      <span class="sortable" data-sort-col="energy">Énergie</span>
       <span>Cues</span>
-      <span class="sortable">Ajouté</span>
+      <span class="sortable active" data-sort-col="created_at">Ajouté ▼</span>
       <span></span>
     </div>
     <div id="lib-body"></div>
 
     <div class="lib-foot">
-      <span>Affiche 1–24 sur 1 284</span>
-      <div class="pag">
-        <button>◀</button>
-        <button class="active">1</button>
-        <button>2</button>
-        <button>3</button>
-        <button>…</button>
-        <button>54</button>
-        <button>▶</button>
-      </div>
+      <span id="foot-range">—</span>
+      <div class="pag" id="pag"></div>
     </div>
   </div>
 
@@ -283,6 +356,21 @@ const GRADIENTS = [
   'linear-gradient(135deg,#4ade80,#ff2e6b)',
 ];
 const CUE_COLORS = ['#4ade80','#8b5cf6','#ff2e6b','#1fd4d4','#8b5cf6','#d4ff2a','#ff2e6b','#ff7a18'];
+const CAMELOT_CODES = (()=>{
+  const out=[]; for(let i=1;i<=12;i++){ out.push(i+'A'); out.push(i+'B'); } return out;
+})();
+
+// URL query prefill (from home "find" prompt)
+(function(){
+  const q = new URLSearchParams(location.search).get('q');
+  if(q){ state.query = q; document.getElementById('search-input').value = q; }
+})();
+
+// ---- State ----
+let state;
+(function(){
+  state = { page:1, limit:24, query:'', bpmMin:null, bpmMax:null, key:null, genre:null, energyMin:null, energyMax:null, sortBy:'created_at', sortDir:'desc', view:'all', total:0, tracks:[], favoriteIds:new Set() };
+})();
 
 function showSkeleton(){
   body.innerHTML = '';
@@ -318,11 +406,12 @@ function renderTrack(t, i){
   const energyNorm = Math.max(0, Math.min(10, energy > 1 ? energy : energy * 10));
   const cueCount = (t.cue_points || []).length;
   const identified = !!(t.spotify_id || t.musicbrainz_id);
-  const ready = t.status === 'ready' || t.status === 'analyzed';
+  const ready = t.status === 'ready' || t.status === 'analyzed' || t.status === 'completed';
   const analyzing = t.status === 'analyzing' || t.status === 'pending' || t.status === 'processing';
   const seed = (t.id || i) * 3.14 + (t.id || 0);
   const gradient = GRADIENTS[(t.id || i) % GRADIENTS.length];
   const dt = fmt.relDate(t.created_at);
+  const isFav = state.favoriteIds.has(t.id);
 
   const row = document.createElement('div');
   row.className = 'lib-row pressable';
@@ -336,6 +425,7 @@ function renderTrack(t, i){
   const statusBadge = analyzing
     ? '<span class="badge-ac" style="background:var(--amber-soft);color:#ffba7a;border-color:rgba(255,122,24,.3)">…</span>'
     : (ready && identified ? '<span class="badge-ac">ID</span>' : '');
+  const favBadge = isFav ? '<span style="color:var(--amber);margin-left:4px" title="Favori">★</span>' : '';
   const bpmDisplay = analyzing ? '<span style="color:var(--amber)">…</span>' : bpm;
   const keyDisplay = analyzing ? '…' : (camelot + (keyName ? ' · ' + keyName : ''));
   row.innerHTML = `
@@ -344,7 +434,7 @@ function renderTrack(t, i){
       <div class="play"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></div>
     </div>
     <div class="lib-t">
-      <div class="n">${title} ${statusBadge}</div>
+      <div class="n">${title} ${statusBadge}${favBadge}</div>
       <div class="a">${artist}${genre ? ' · ' + genre : ''}</div>
     </div>
     <div class="lib-mini-wave" data-seed="${seed}"></div>
@@ -354,9 +444,9 @@ function renderTrack(t, i){
     <div class="lib-cues">${cuesBar}</div>
     <div class="lib-date">${dt}</div>
     <div class="lib-actions">
-      <button data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></button>
-      <button data-tt="Ajouter au set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
-      <button data-tt="Plus"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
+      <button data-a="analyze" data-tt="Re-analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></button>
+      <button data-a="favorite" data-tt="Favori"><svg viewBox="0 0 24 24" fill="${isFav?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+      <button data-a="delete" data-tt="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     </div>
   `;
   body.appendChild(row);
@@ -376,50 +466,84 @@ function renderTrack(t, i){
   row.querySelectorAll('.lib-actions button').forEach(b=>{
     b.addEventListener('click',async(e)=>{
       e.stopPropagation();
-      const action = b.dataset.tt;
-      if(action === 'Analyser'){
-        try { await api.post(`/tracks/${t.id}/analyze`); toast('Analyse lancée · '+title,'info'); }
-        catch(err){ toast('Erreur: '+err.message,'error'); }
-      } else {
-        toast(action+' · '+title,'info');
+      const a = b.dataset.a;
+      if(a === 'analyze'){
+        try { await api.post(`/tracks/${t.id}/analyze`); toast('Analyse lancée · '+title,'info'); load(); }
+        catch(err){ toast('Erreur: '+err.message,'warn'); }
+      } else if(a === 'favorite'){
+        try {
+          const r = await api.post(`/favorites/${t.id}`);
+          if(r && r.is_favorite){ state.favoriteIds.add(t.id); toast('Favori ajouté','info'); }
+          else { state.favoriteIds.delete(t.id); toast('Favori supprimé','info'); }
+          load();
+        } catch(err){ toast('Erreur: '+err.message,'warn'); }
+      } else if(a === 'delete'){
+        if(!confirm(`Supprimer "${title}" ?`)) return;
+        try { await api.delete(`/tracks/${t.id}`); toast('Supprimé','info'); load(); loadCounts(); }
+        catch(err){ toast('Erreur: '+err.message,'warn'); }
       }
     });
   });
 }
 
-// ---- State ----
-let state = { page:1, limit:24, query:'', bpmMin:null, bpmMax:null, key:null, genre:null, energyMin:null, total:0 };
-
+// ---- Load ----
 async function load(){
   showSkeleton();
   try{
-    const params = { page: state.page, limit: state.limit };
-    if(state.query) params.search = state.query;
-    if(state.key) params.camelot_code = state.key;
-    if(state.genre) params.genre = state.genre;
-    if(state.bpmMin) params.bpm_min = state.bpmMin;
-    if(state.bpmMax) params.bpm_max = state.bpmMax;
-    const data = await api.tracks(params);
-    const tracks = data.tracks || [];
-    state.total = data.total || tracks.length;
-    body.innerHTML = '';
-    if(tracks.length === 0){ showEmpty(); return; }
-    tracks.forEach((t,i)=>renderTrack(t,i));
-    // Update count
-    const countEl = document.querySelector('.filter-bar .count');
-    if(countEl) countEl.textContent = `${state.total} résultat${state.total>1?'s':''} · tri Récence`;
-    const foot = document.querySelector('.lib-foot > span');
-    if(foot){
-      const start = (state.page-1)*state.limit + 1;
-      const end = Math.min(state.page*state.limit, state.total);
-      foot.textContent = `Affiche ${start}–${end} sur ${fmt.num(state.total)}`;
+    let tracks, total;
+    if(state.view === 'favorites'){
+      const r = await api.get('/favorites');
+      const items = (r && (r.favorites || r.tracks || r.items)) || (Array.isArray(r)?r:[]);
+      // Server returns favorites; items may be Favorite objects wrapping track, or tracks directly
+      tracks = items.map(x => x.track || x);
+      // client-side search filter
+      if(state.query){
+        const q = state.query.toLowerCase();
+        tracks = tracks.filter(t => (t.title||'').toLowerCase().includes(q) || (t.artist||'').toLowerCase().includes(q));
+      }
+      total = tracks.length;
+      // paginate client-side
+      const start = (state.page-1)*state.limit;
+      tracks = tracks.slice(start, start+state.limit);
+    } else {
+      const params = { page: state.page, limit: state.limit, sort_by: state.sortBy, sort_dir: state.sortDir };
+      if(state.query) params.search = state.query;
+      if(state.key) params.key = state.key;
+      if(state.genre) params.genre = state.genre;
+      if(state.bpmMin!=null) params.bpm_min = state.bpmMin;
+      if(state.bpmMax!=null) params.bpm_max = state.bpmMax;
+      if(state.energyMin!=null) params.energy_min = state.energyMin;
+      if(state.energyMax!=null) params.energy_max = state.energyMax;
+      const data = await api.tracks(params);
+      tracks = data.tracks || [];
+      total = data.total || 0;
+      // client-side view filter (status)
+      if(state.view === 'ready'){
+        tracks = tracks.filter(t => t.status === 'ready' || t.status === 'completed' || t.status === 'analyzed');
+      } else if(state.view === 'analyzing'){
+        tracks = tracks.filter(t => t.status === 'analyzing' || t.status === 'pending' || t.status === 'processing');
+      }
     }
-    // Update header title
-    const sub = document.querySelector('.page-sub');
-    if(sub) sub.textContent = `${fmt.num(state.total)} morceau${state.total>1?'x':''} dans ta collection. Recherche par titre, artiste, BPM, clé, genre.`;
-    // Update "Tous" view chip count
-    const firstChip = document.querySelector('.view-chip .bd');
-    if(firstChip) firstChip.textContent = state.total;
+    state.tracks = tracks;
+    state.total = total;
+
+    body.innerHTML = '';
+    if(tracks.length === 0){ showEmpty(state.query ? `Aucun résultat pour "${state.query}"` : null); }
+    else { tracks.forEach((t,i)=>renderTrack(t,i)); }
+
+    // Count + foot
+    document.getElementById('count-results').textContent = `${fmt.num(total)} résultat${total>1?'s':''}`;
+    const sub = document.getElementById('page-sub');
+    if(sub){
+      sub.textContent = total > 0
+        ? `${fmt.num(total)} morceau${total>1?'x':''} dans ta collection. Recherche par titre, artiste, BPM, clé, genre.`
+        : `Aucun morceau pour l'instant. Upload un fichier pour démarrer.`;
+    }
+    const start = total === 0 ? 0 : (state.page-1)*state.limit + 1;
+    const end = Math.min(state.page*state.limit, total);
+    document.getElementById('foot-range').textContent = total === 0 ? '—' : `Affiche ${start}–${end} sur ${fmt.num(total)}`;
+
+    renderPagination();
   } catch(err){
     body.innerHTML = `<div style="padding:60px 16px;text-align:center;color:var(--pink)">
       <div style="font-size:14px">Erreur : ${err.message}</div>
@@ -427,8 +551,57 @@ async function load(){
   }
 }
 
+// ---- Pagination ----
+function renderPagination(){
+  const pag = document.getElementById('pag');
+  const pages = Math.max(1, Math.ceil(state.total / state.limit));
+  const cur = state.page;
+  pag.innerHTML = '';
+  const mk = (label, pageNum, opts={})=>{
+    const b = document.createElement('button');
+    b.textContent = label;
+    if(opts.active) b.classList.add('active');
+    if(opts.disabled) b.disabled = true;
+    if(pageNum != null && !opts.disabled){
+      b.addEventListener('click', ()=>{ state.page = pageNum; load(); });
+    }
+    return b;
+  };
+  pag.appendChild(mk('◀', cur-1, {disabled: cur<=1}));
+  const showPages = new Set([1, pages, cur, cur-1, cur+1]);
+  const sorted = [...showPages].filter(p=>p>=1 && p<=pages).sort((a,b)=>a-b);
+  let prev = 0;
+  for(const p of sorted){
+    if(p - prev > 1){ pag.appendChild(mk('…', null, {disabled:true})); }
+    pag.appendChild(mk(String(p), p, {active: p===cur}));
+    prev = p;
+  }
+  pag.appendChild(mk('▶', cur+1, {disabled: cur>=pages}));
+}
+
+// ---- Counts for view chips ----
+async function loadCounts(){
+  try {
+    const stats = await api.stats().catch(()=>null);
+    if(stats){
+      const total = stats.tracks?.total || stats.total_tracks || stats.total || 0;
+      const ready = stats.tracks?.analyzed || stats.analyzed_tracks || 0;
+      const pending = stats.tracks?.pending || stats.pending_tracks || (total - ready) || 0;
+      document.getElementById('c-all').textContent = fmt.num(total);
+      document.getElementById('c-ready').textContent = fmt.num(ready);
+      document.getElementById('c-analyzing').textContent = fmt.num(pending);
+    }
+    const favs = await api.get('/favorites').catch(()=>null);
+    if(favs){
+      const items = (favs && (favs.favorites || favs.tracks || favs.items)) || (Array.isArray(favs)?favs:[]);
+      document.getElementById('c-favorites').textContent = fmt.num(items.length);
+      state.favoriteIds = new Set(items.map(x => (x.track||x).id).filter(Boolean));
+    }
+  } catch {}
+}
+
 // ---- Search ----
-const searchInput = document.querySelector('.filter-bar .search input');
+const searchInput = document.getElementById('search-input');
 let searchTimeout;
 if(searchInput){
   searchInput.addEventListener('input', (e)=>{
@@ -441,16 +614,16 @@ if(searchInput){
   });
 }
 
-// ---- Upload button ----
-document.querySelectorAll('.btn.btn-primary').forEach(b=>{
-  if(/upload|nouvel/i.test(b.textContent)){
-    b.addEventListener('click', ()=> location.href='/upload');
-  }
-});
+// ---- Top-right buttons (override shared.js for this page) ----
+document.getElementById('btn-new-upload').addEventListener('click', ()=> location.href='/upload');
+document.getElementById('btn-export-csv').addEventListener('click', ()=> exportCsv());
 
 // ---- Bulk selection ----
+function selected(){
+  return Array.from(document.querySelectorAll('.lib-row.selected')).map(r => parseInt(r.dataset.id)).filter(Boolean);
+}
 function updateBulk(){
-  const n = document.querySelectorAll('.lib-row.selected').length;
+  const n = selected().length;
   const bar = document.getElementById('bulkBar');
   document.getElementById('bulkCount').textContent = n+' sélectionné'+(n>1?'s':'');
   bar.classList.toggle('show', n>0);
@@ -458,7 +631,7 @@ function updateBulk(){
 window.selectAll = (on)=>{
   document.querySelectorAll('.lib-row').forEach(r=>{
     r.classList.toggle('selected',on);
-    r.querySelector('.chk').classList.toggle('on',on);
+    const c = r.querySelector('.chk'); if(c) c.classList.toggle('on',on);
   });
   updateBulk();
 };
@@ -466,24 +639,220 @@ document.addEventListener('keydown',(e)=>{
   if(e.key==='Escape') selectAll(false);
 });
 
+// Bulk actions
+document.getElementById('bulk-favorite').addEventListener('click', async ()=>{
+  const ids = selected();
+  if(!ids.length) return;
+  let ok=0, ko=0;
+  for(const id of ids){
+    try { await api.post(`/favorites/${id}`); ok++; } catch { ko++; }
+  }
+  toast(`${ok} favori${ok>1?'s':''} togglé${ok>1?'s':''}` + (ko?` · ${ko} erreur${ko>1?'s':''}`:''), ko?'warn':'info');
+  loadCounts(); load();
+});
+document.getElementById('bulk-analyze').addEventListener('click', async ()=>{
+  const ids = selected();
+  if(!ids.length) return;
+  try {
+    await api.post('/tracks/analyze-batch', { track_ids: ids });
+    toast(`Re-analyse lancée sur ${ids.length} track${ids.length>1?'s':''}`, 'info');
+    load();
+  } catch(err){ toast('Erreur: '+err.message,'warn'); }
+});
+document.getElementById('bulk-export').addEventListener('click', ()=> exportCsv(selected()));
+document.getElementById('bulk-delete').addEventListener('click', async ()=>{
+  const ids = selected();
+  if(!ids.length) return;
+  if(!confirm(`Supprimer ${ids.length} morceau${ids.length>1?'x':''} ?`)) return;
+  try {
+    await api.post('/tracks/batch-delete', { track_ids: ids });
+    toast(`${ids.length} supprimé${ids.length>1?'s':''}`, 'info');
+    selectAll(false); loadCounts(); load();
+  } catch(err){ toast('Erreur: '+err.message,'warn'); }
+});
+
+// ---- CSV export (client-side from loaded tracks) ----
+function exportCsv(selectedIds){
+  let rows = state.tracks;
+  if(selectedIds && selectedIds.length){
+    const set = new Set(selectedIds);
+    rows = rows.filter(t => set.has(t.id));
+  }
+  if(!rows.length){ toast('Rien à exporter','warn'); return; }
+  const headers = ['id','title','artist','album','genre','bpm','key','camelot','energy','duration','cues','status','created_at'];
+  const esc = (v)=>{
+    if(v==null) return '';
+    const s = String(v).replace(/"/g,'""');
+    return /[",\n]/.test(s) ? `"${s}"` : s;
+  };
+  const lines = [headers.join(',')];
+  for(const t of rows){
+    lines.push([
+      t.id,
+      esc(t.title),
+      esc(t.artist),
+      esc(t.album||''),
+      esc(t.genre||''),
+      t.analysis?.bpm ?? '',
+      esc(t.analysis?.key||''),
+      esc(t.camelot_code||''),
+      t.analysis?.energy ?? '',
+      t.duration ?? '',
+      (t.cue_points||[]).length,
+      esc(t.status||''),
+      esc(t.created_at||''),
+    ].join(','));
+  }
+  const csv = lines.join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `library-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast(`${rows.length} track${rows.length>1?'s':''} exporté${rows.length>1?'s':''}`,'info');
+}
+
 // ---- View chips ----
 document.querySelectorAll('.view-chip').forEach(c=>{
   c.addEventListener('click',()=>{
     document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
     c.classList.add('active');
+    state.view = c.dataset.view || 'all';
+    state.page = 1;
+    load();
   });
 });
 
-// ---- Pagination ----
-document.querySelectorAll('.pag button').forEach(b=>{
-  b.addEventListener('click',()=>{
-    const t = b.textContent.trim();
-    if(t === '◀' && state.page > 1) { state.page--; load(); }
-    else if(t === '▶') { state.page++; load(); }
-    else if(/^\d+$/.test(t)) { state.page = parseInt(t); load(); }
+// ---- Sortable headers ----
+document.querySelectorAll('.lib-head .sortable').forEach(h=>{
+  h.addEventListener('click', ()=>{
+    const col = h.dataset.sortCol;
+    if(!col) return;
+    if(state.sortBy === col){
+      state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.sortBy = col; state.sortDir = 'desc';
+    }
+    document.querySelectorAll('.lib-head .sortable').forEach(x=>{
+      x.classList.remove('active');
+      x.textContent = x.textContent.replace(/ [▼▲]$/,'');
+    });
+    h.classList.add('active');
+    h.textContent = h.textContent.replace(/ [▼▲]$/,'') + ' ' + (state.sortDir==='asc'?'▲':'▼');
+    load();
   });
 });
 
+// ---- Dropdowns ----
+function closeAllDrops(except){
+  document.querySelectorAll('.drop').forEach(d => { if(d !== except) d.classList.remove('open'); });
+}
+document.querySelectorAll('.drop-trigger').forEach(t=>{
+  t.addEventListener('click', (e)=>{
+    const drop = t.closest('.drop');
+    const open = drop.classList.contains('open');
+    closeAllDrops();
+    if(!open) drop.classList.add('open');
+  });
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.drop')) closeAllDrops();
+});
+
+function syncTriggerLabel(dropId, label, hasFilter){
+  const t = document.querySelector(`#${dropId} .drop-trigger`);
+  t.innerHTML = `${label}<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"/></svg>`;
+  t.classList.toggle('has-filter', hasFilter);
+}
+
+// BPM drop
+document.querySelector('#drop-bpm [data-drop-apply]').addEventListener('click', ()=>{
+  const mn = parseFloat(document.getElementById('f-bpm-min').value);
+  const mx = parseFloat(document.getElementById('f-bpm-max').value);
+  state.bpmMin = isNaN(mn) ? null : mn;
+  state.bpmMax = isNaN(mx) ? null : mx;
+  const has = state.bpmMin!=null || state.bpmMax!=null;
+  syncTriggerLabel('drop-bpm', has ? `BPM · ${state.bpmMin??'∗'}-${state.bpmMax??'∗'}` : 'BPM', has);
+  closeAllDrops(); state.page=1; load();
+});
+document.querySelector('#drop-bpm [data-drop-clear]').addEventListener('click', ()=>{
+  document.getElementById('f-bpm-min').value = '';
+  document.getElementById('f-bpm-max').value = '';
+  state.bpmMin = state.bpmMax = null;
+  syncTriggerLabel('drop-bpm', 'BPM', false);
+  closeAllDrops(); state.page=1; load();
+});
+
+// Key drop
+const keyOpts = document.getElementById('key-opts');
+CAMELOT_CODES.forEach(c=>{
+  const d = document.createElement('div'); d.className='opt'; d.dataset.key=c; d.textContent=c;
+  d.addEventListener('click', ()=>{
+    if(state.key === c){ state.key = null; d.classList.remove('on'); syncTriggerLabel('drop-key','Key',false); }
+    else {
+      keyOpts.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));
+      d.classList.add('on'); state.key = c; syncTriggerLabel('drop-key',`Key · ${c}`, true);
+    }
+    closeAllDrops(); state.page=1; load();
+  });
+  keyOpts.appendChild(d);
+});
+document.querySelector('#drop-key [data-drop-clear]').addEventListener('click', ()=>{
+  state.key = null;
+  keyOpts.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));
+  syncTriggerLabel('drop-key', 'Key', false);
+  closeAllDrops(); state.page=1; load();
+});
+
+// Genre drop
+document.querySelector('#drop-genre [data-drop-apply]').addEventListener('click', ()=>{
+  const v = document.getElementById('f-genre').value.trim();
+  state.genre = v || null;
+  syncTriggerLabel('drop-genre', v ? `Genre · ${v}` : 'Genre', !!v);
+  closeAllDrops(); state.page=1; load();
+});
+document.querySelector('#drop-genre [data-drop-clear]').addEventListener('click', ()=>{
+  document.getElementById('f-genre').value = '';
+  state.genre = null;
+  syncTriggerLabel('drop-genre', 'Genre', false);
+  closeAllDrops(); state.page=1; load();
+});
+
+// Energy drop
+document.querySelector('#drop-energy [data-drop-apply]').addEventListener('click', ()=>{
+  const mn = parseFloat(document.getElementById('f-energy-min').value);
+  const mx = parseFloat(document.getElementById('f-energy-max').value);
+  state.energyMin = isNaN(mn) ? null : mn;
+  state.energyMax = isNaN(mx) ? null : mx;
+  const has = state.energyMin!=null || state.energyMax!=null;
+  syncTriggerLabel('drop-energy', has ? `Energy · ${state.energyMin??'∗'}-${state.energyMax??'∗'}` : 'Energy', has);
+  closeAllDrops(); state.page=1; load();
+});
+document.querySelector('#drop-energy [data-drop-clear]').addEventListener('click', ()=>{
+  document.getElementById('f-energy-min').value = '';
+  document.getElementById('f-energy-max').value = '';
+  state.energyMin = state.energyMax = null;
+  syncTriggerLabel('drop-energy', 'Energy', false);
+  closeAllDrops(); state.page=1; load();
+});
+
+// Sort drop
+document.querySelectorAll('#sort-opts .opt').forEach(o=>{
+  o.addEventListener('click', ()=>{
+    document.querySelectorAll('#sort-opts .opt').forEach(x=>x.classList.remove('on'));
+    o.classList.add('on');
+    const [by,dir] = (o.dataset.sort||'created_at-desc').split('-');
+    state.sortBy = by; state.sortDir = dir;
+    const label = o.textContent;
+    syncTriggerLabel('drop-sort', `Tri · ${label}`, by !== 'created_at' || dir !== 'desc');
+    closeAllDrops(); state.page=1; load();
+  });
+});
+
+// ---- Init ----
+loadCounts();
 load();
 </script>
 </body>

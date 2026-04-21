@@ -61,13 +61,57 @@ document.addEventListener('click', (e)=>{
   setTimeout(()=>ripple.remove(),500);
 });
 
-// -------- Top-nav avatar (real user) + logout on click --------
+// -------- Top-nav avatar + find + upload + notifications + admin gating --------
 (async function(){
   try {
-    if(typeof api === 'undefined' || !api.isAuthed || !api.isAuthed()) return;
+    if(typeof api === 'undefined') return;
+    const authed = api.isAuthed && api.isAuthed();
+
+    // Admin link visibility : masquer pour les non-admins
+    const adminLinks = document.querySelectorAll('.topnav-links a[href="/admin"], .topnav-links a[href="/v4/admin.html"]');
+
+    // Find (⌘K) — ouvre palette ou redirige vers /library?q=
+    document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const q = prompt('Rechercher dans ta library :');
+        if(q && q.trim()) location.href = '/library?q=' + encodeURIComponent(q.trim());
+      });
+    });
+
+    // Upload button (top-right) — le bouton "+ Upload"
+    document.querySelectorAll('.topnav-actions .btn-primary').forEach(btn => {
+      if(/upload/i.test(btn.textContent || '')){
+        btn.addEventListener('click', (e) => { e.preventDefault(); location.href = '/upload'; });
+      }
+    });
+
+    // Notifications icon
+    document.querySelectorAll('.topnav-actions [data-tt^="Notifications"], .topnav-actions [data-tt*="notif"]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const n = await api.get('/notifications', {limit: 10});
+          const items = (n && (n.items || n.notifications || (Array.isArray(n) ? n : []))) || [];
+          if(items.length === 0){ toast('Aucune notification', 'info'); return; }
+          toast(`${items.length} notification${items.length>1?'s':''} — voir dans Settings`, 'info');
+          setTimeout(()=>location.href = '/settings', 1200);
+        } catch(err){
+          toast('Notifications indisponibles', 'warn');
+        }
+      });
+    });
+
+    if(!authed){
+      // pas loggé : cache le lien admin et les boutons qui dépendent de l'user
+      adminLinks.forEach(a => a.style.display = 'none');
+      return;
+    }
+
     const avBtns = document.querySelectorAll('.avatar');
-    if(avBtns.length === 0) return;
-    const me = await api.me();
+    const me = await api.me().catch(() => null);
+    if(!me){ return; }
+
     const name = me.name || '';
     const email = me.email || '';
     let initials = '??';
@@ -77,15 +121,17 @@ document.addEventListener('click', (e)=>{
     } else if(email){
       initials = email.slice(0,2).toUpperCase();
     }
+
+    // Cache le lien Admin si user non-admin
+    if(!me.is_admin){
+      adminLinks.forEach(a => a.style.display = 'none');
+    }
+
     avBtns.forEach(btn=>{
       btn.textContent = initials;
       btn.title = email || name;
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
-        const current = btn.getAttribute('data-menu-open');
-        if(current === '1'){ btn.setAttribute('data-menu-open','0'); return; }
-        // Simple : 1er clic = va vers settings, 2e = logout (via long-press alternative)
-        // Plus simple : redirige vers /settings
         location.href = '/settings';
       });
     });

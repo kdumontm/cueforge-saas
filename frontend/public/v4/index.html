@@ -192,7 +192,7 @@
     <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Upload</button>
     <span class="topnav-sep"></span>
     <button class="btn-icon btn btn-ghost btn-sm" data-tt="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
-    <button class="avatar" data-tt="Kevin · kenin@">KD</button>
+    <button class="avatar" data-tt="Profil">··</button>
   </div>
 </header>
 
@@ -202,55 +202,47 @@
   <section class="hero reveal">
     <div class="hero-grid">
       <div>
-        <div class="eyebrow" style="margin-bottom:14px;color:var(--amber)">Studio · Lundi 21 avril</div>
-        <h1>
-          Prêt pour vendredi,<br>
-          <span class="editorial">on analyse ta B-side ?</span>
+        <div class="eyebrow" id="hero-date" style="margin-bottom:14px;color:var(--amber)">Studio</div>
+        <h1 id="hero-title">
+          Bonjour,<br>
+          <span class="editorial">prêt·e à analyser ?</span>
         </h1>
-        <p>128 morceaux prêts à jouer · 12 en cours d'analyse · dernier set préparé pour <strong>Rex Club</strong> il y a 3 jours. Ton énergie moyenne tourne à 7.1.</p>
+        <p id="hero-subtitle" style="color:var(--c-secondary)">Chargement de ta library…</p>
         <div class="hero-actions">
-          <button class="btn btn-primary btn-lg">
+          <button id="hero-resume" class="btn btn-primary btn-lg">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 3v18l15-9z" fill="currentColor"/></svg>
-            Reprendre l'analyse
+            Ouvrir la library
           </button>
-          <button class="btn btn-lg">
+          <button id="hero-upload" class="btn btn-lg">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
             Nouvel upload
           </button>
-          <button class="btn btn-ghost btn-lg">
+          <button id="hero-setbuilder" class="btn btn-ghost btn-lg">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Gig prep
+            Préparer un set
           </button>
         </div>
       </div>
 
-      <!-- Live now -->
-      <div class="live-now">
+      <!-- Live now (caché tant qu'aucune track en cours de traitement) -->
+      <div class="live-now" id="live-now" style="display:none">
         <div class="live-now-head">
-          <span class="eyebrow"><span class="live-dot"></span>En direct</span>
-          <span class="mono hint">00:12 restantes</span>
+          <span class="eyebrow"><span class="live-dot"></span>En analyse</span>
+          <span class="mono hint" id="live-eta"></span>
         </div>
         <div class="live-track">
-          <div class="live-cover"></div>
+          <div class="live-cover" id="live-cover"></div>
           <div class="live-info">
-            <div class="live-title">Nothing But You (Extended Mix)</div>
-            <div class="live-artist">Camelphat, Max Milner · Melodic House</div>
+            <div class="live-title" id="live-title">—</div>
+            <div class="live-artist" id="live-artist">—</div>
           </div>
         </div>
-        <div class="live-progress"><div class="live-progress-fill"></div></div>
-        <div class="live-steps">
-          <span class="done">Decode</span>
-          <span class="done">BPM</span>
-          <span class="done">Key</span>
-          <span class="doing">Cue</span>
-          <span>Stems</span>
-          <span>Phrase</span>
-        </div>
+        <div class="live-progress"><div class="live-progress-fill" id="live-progress-fill" style="width:0%"></div></div>
       </div>
     </div>
   </section>
 
-  <!-- KPIs -->
+  <!-- KPIs (données réelles depuis /stats/overview) -->
   <section class="kpis">
     <div class="kpi reveal reveal-1">
       <svg class="kpi-spark" viewBox="0 0 72 36" preserveAspectRatio="none">
@@ -258,32 +250,32 @@
         <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#ff2e6b"/><stop offset="1" stop-color="#ff7a18"/></linearGradient></defs>
       </svg>
       <div class="kpi-label">Morceaux analysés</div>
-      <div class="kpi-value num">1 284</div>
-      <div class="kpi-delta up">▲ 42 · cette semaine</div>
+      <div class="kpi-value num" id="kpi-tracks">—</div>
+      <div class="kpi-delta" id="kpi-tracks-sub" style="color:var(--c-tertiary)">—</div>
     </div>
     <div class="kpi reveal reveal-2">
       <svg class="kpi-spark" viewBox="0 0 72 36" preserveAspectRatio="none">
         <path d="M0 18 L10 14 L20 22 L30 16 L40 12 L50 18 L60 10 L72 14" fill="none" stroke="#1fd4d4" stroke-width="1.8"/>
       </svg>
       <div class="kpi-label">Cue points</div>
-      <div class="kpi-value num">8 412</div>
-      <div class="kpi-delta up">▲ 312 · ce mois</div>
+      <div class="kpi-value num" id="kpi-cues">—</div>
+      <div class="kpi-delta" id="kpi-cues-sub" style="color:var(--c-tertiary)">—</div>
     </div>
     <div class="kpi reveal reveal-3">
       <svg class="kpi-spark" viewBox="0 0 72 36" preserveAspectRatio="none">
         <path d="M0 22 L10 18 L20 12 L30 8 L40 10 L50 6 L60 14 L72 8" fill="none" stroke="#d4ff2a" stroke-width="1.8"/>
       </svg>
       <div class="kpi-label">Sets construits</div>
-      <div class="kpi-value num">23</div>
-      <div class="kpi-delta up">▲ 3 · ce mois</div>
+      <div class="kpi-value num" id="kpi-sets">—</div>
+      <div class="kpi-delta" id="kpi-sets-sub" style="color:var(--c-tertiary)">—</div>
     </div>
     <div class="kpi reveal reveal-4">
       <svg class="kpi-spark" viewBox="0 0 72 36" preserveAspectRatio="none">
         <path d="M0 16 L10 18 L20 12 L30 20 L40 14 L50 22 L60 16 L72 20" fill="none" stroke="#8b5cf6" stroke-width="1.8"/>
       </svg>
-      <div class="kpi-label">Précision clé</div>
-      <div class="kpi-value num">94.2<span style="font-size:20px;color:var(--c-secondary)">%</span></div>
-      <div class="kpi-delta up">▲ 1.4 pts</div>
+      <div class="kpi-label">Playlists</div>
+      <div class="kpi-value num" id="kpi-playlists">—</div>
+      <div class="kpi-delta" id="kpi-playlists-sub" style="color:var(--c-tertiary)">—</div>
     </div>
   </section>
 
@@ -318,44 +310,10 @@
       <div class="card reveal reveal-2" style="margin-bottom:20px">
         <div class="section-head" style="padding:20px 20px 0">
           <h2>Activité</h2>
-          <a href="#">Tout voir →</a>
+          <a href="/library">Toute la library →</a>
         </div>
-        <div class="activity">
-          <div class="act-item">
-            <span class="act-dot analyze">●</span>
-            <div class="act-body">
-              <div class="act-title"><strong>Acid Arab — Staifia</strong> est prêt à jouer</div>
-              <div class="act-meta">8 cue points · 124 BPM · 5A · il y a 12 min</div>
-            </div>
-          </div>
-          <div class="act-item">
-            <span class="act-dot export">↗</span>
-            <div class="act-body">
-              <div class="act-title">Set <strong>"Rex Friday"</strong> exporté vers Rekordbox</div>
-              <div class="act-meta">14 morceaux · 1h48 · il y a 3h</div>
-            </div>
-          </div>
-          <div class="act-item">
-            <span class="act-dot mix">∿</span>
-            <div class="act-body">
-              <div class="act-title">Mix match <strong>9.4/10</strong> détecté</div>
-              <div class="act-meta">Nothing But You → Waited 4 U · il y a 5h</div>
-            </div>
-          </div>
-          <div class="act-item">
-            <span class="act-dot sync">⟲</span>
-            <div class="act-body">
-              <div class="act-title">Stems générés pour <strong>12 morceaux</strong></div>
-              <div class="act-meta">Demucs v4 · il y a 8h</div>
-            </div>
-          </div>
-          <div class="act-item">
-            <span class="act-dot analyze">●</span>
-            <div class="act-body">
-              <div class="act-title">Camelphat ID via <strong>AcoustID</strong></div>
-              <div class="act-meta">Match confidence 98% · hier</div>
-            </div>
-          </div>
+        <div class="activity" id="activity-feed">
+          <div class="act-item"><div class="act-body"><div class="act-meta" style="color:var(--c-tertiary)">Chargement…</div></div></div>
         </div>
       </div>
 
@@ -391,63 +349,186 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-// Recent tracks data
-const recents = [
-  {t:"Staifia", a:"Acid Arab", bpm:"124.0", k:"5A·Am", seed:12.3, cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)"},
-  {t:"Nothing But You", a:"Camelphat, Max Milner", bpm:"122.0", k:"8A·Am", seed:7.1, cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)"},
-  {t:"Waited 4 U", a:"Sofi Tukker", bpm:"122.0", k:"8A·Am", seed:23.7, cov:"linear-gradient(135deg,#1fd4d4,#d4ff2a)"},
-  {t:"Delta (Spada Remix)", a:"Nils Hoffmann", bpm:"120.0", k:"9A·Em", seed:4.9, cov:"linear-gradient(135deg,#ff2e6b,#8b5cf6)"},
-  {t:"Miami 82", a:"Syn Cole", bpm:"125.0", k:"11A·F#m", seed:18.1, cov:"linear-gradient(135deg,#d4ff2a,#ff7a18)"},
-  {t:"Body Work", a:"Nicole Moudaber", bpm:"128.0", k:"3A·Cm", seed:3.3, cov:"linear-gradient(135deg,#6366f1,#ff2e6b)"},
-];
-const recEl = document.getElementById('recent-tracks');
-recents.forEach(r=>{
-  const row = document.createElement('div');
-  row.className = 'track-row pressable focus-ring';
-  row.tabIndex = 0;
-  row.innerHTML = `
-    <div class="track-cover" style="background:${r.cov}"></div>
-    <div style="min-width:0">
-      <div class="track-name">${r.t}</div>
-      <div class="track-artist">${r.a}</div>
-    </div>
-    <div class="track-mini-wave" data-seed="${r.seed}"></div>
-    <div class="track-bpm">${r.bpm}</div>
-    <div class="track-key">${r.k}</div>
-    <button class="btn-icon btn btn-ghost btn-sm track-action" data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
-  `;
-  row.addEventListener('click',()=>{ toast(`Ouverture · ${r.t}`,'info'); setTimeout(()=>location.href='/analyze',400); });
-  recEl.appendChild(row);
-  buildWave(row.querySelector('.track-mini-wave'), 56, r.seed, {envelope:(p)=>0.3+0.7*Math.sin(p*Math.PI*2+1)*0.5+0.5});
-});
+// Guard : exige auth
+if(!api.requireAuth()) { /* redirect en cours */ }
 
-// Queue
-const qData = [
-  {t:"Opus (Eric Prydz)", a:"Eric Prydz", pct:62, step:"Stems · Demucs", eta:"1m 12s"},
-  {t:"Call on Me", a:"Starley", pct:24, step:"BPM detection", eta:"2m 04s"},
-  {t:"Solomun — Home (edit)", a:"Solomun", pct:8, step:"Decode", eta:"3m 40s"},
+// ---- Hero : date + boutons ----
+(function(){
+  const d = new Date();
+  const fr = d.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' });
+  const el = document.getElementById('hero-date');
+  if(el) el.textContent = 'Studio · ' + fr.charAt(0).toUpperCase() + fr.slice(1);
+  document.getElementById('hero-resume').addEventListener('click', () => location.href='/library');
+  document.getElementById('hero-upload').addEventListener('click', () => location.href='/upload');
+  document.getElementById('hero-setbuilder').addEventListener('click', () => location.href='/set-builder');
+})();
+
+// ---- Gradient deterministe par track ----
+const PALETTES = [
+  ['#ff7a18','#ff2e6b'], ['#8b5cf6','#1fd4d4'], ['#1fd4d4','#d4ff2a'],
+  ['#ff2e6b','#8b5cf6'], ['#d4ff2a','#ff7a18'], ['#6366f1','#ff2e6b']
 ];
-const qEl = document.getElementById('queue-list');
-qData.forEach(q=>{
-  const d = document.createElement('div');
-  d.style.cssText = 'display:grid;grid-template-columns:1fr 140px 120px 60px;gap:14px;align-items:center;padding:10px 14px;border-radius:10px;transition:background .12s';
-  d.onmouseenter = ()=>d.style.background='var(--s-2)';
-  d.onmouseleave = ()=>d.style.background='';
-  d.innerHTML = `
-    <div style="min-width:0">
-      <div style="font-family:var(--font-display);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.t}</div>
-      <div style="color:var(--c-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.a}</div>
-    </div>
-    <div>
-      <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden">
-        <div style="height:100%;width:${q.pct}%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px"></div>
-      </div>
-      <div style="margin-top:4px;font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary)">${q.step}</div>
-    </div>
-    <div class="mono" style="font-size:12px;color:var(--c-secondary)">ETA · ${q.eta}</div>
-    <div class="mono" style="font-size:12px;text-align:right">${q.pct}%</div>
-  `;
-  qEl.appendChild(d);
+function coverFor(id){
+  const n = (String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % PALETTES.length;
+  const [c1,c2] = PALETTES[n];
+  return `linear-gradient(135deg,${c1},${c2})`;
+}
+
+// ---- fmt helpers ----
+function bpmStr(b){ return (b==null||isNaN(b)) ? '—' : Number(b).toFixed(1); }
+function keyStr(k){ return k || '—'; }
+function relTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso); const now = new Date();
+  const diff = (now - d)/1000;
+  if(diff<60) return 'à l\'instant';
+  if(diff<3600) return 'il y a '+Math.floor(diff/60)+'min';
+  if(diff<86400) return 'il y a '+Math.floor(diff/3600)+'h';
+  if(diff<2592000) return 'il y a '+Math.floor(diff/86400)+'j';
+  return d.toLocaleDateString('fr-FR', {day:'2-digit',month:'short'});
+}
+
+// ---- Chargement initial ----
+(async function loadDashboard(){
+  let stats = null, tracks = null, sets = null;
+  try { stats = await api.stats(); } catch {}
+  try { tracks = await api.tracks({ limit: 8, sort: '-created_at' }); } catch { tracks = { tracks: [] }; }
+  try { sets = await api.sets({ limit: 1 }); } catch {}
+
+  // --- KPIs ---
+  const total = (stats && stats.total_tracks) != null ? stats.total_tracks : (tracks && tracks.total) || 0;
+  const totalAnalyses = (stats && stats.total_analyses) || 0;
+  const totalSets = (stats && stats.total_sets) || 0;
+  const totalPlaylists = (stats && stats.total_playlists) || 0;
+  // Nombre de cues : on somme si dispo, sinon on cache
+  let totalCues = 0;
+  if(tracks && Array.isArray(tracks.tracks)){
+    tracks.tracks.forEach(t => {
+      if(Array.isArray(t.cue_points)) totalCues += t.cue_points.length;
+    });
+  }
+  document.getElementById('kpi-tracks').textContent = total.toLocaleString('fr-FR');
+  document.getElementById('kpi-tracks-sub').textContent = totalAnalyses ? `${totalAnalyses} analyses` : (total===0 ? 'Démarre en uploadant un track' : '');
+  document.getElementById('kpi-cues').textContent = totalCues ? totalCues.toLocaleString('fr-FR') : '—';
+  document.getElementById('kpi-cues-sub').textContent = totalCues ? 'sur les 8 derniers tracks' : 'Aucun cue pour l\'instant';
+  document.getElementById('kpi-sets').textContent = totalSets.toLocaleString('fr-FR');
+  document.getElementById('kpi-sets-sub').textContent = totalSets === 0 ? 'Crée ton premier set' : '';
+  document.getElementById('kpi-playlists').textContent = totalPlaylists.toLocaleString('fr-FR');
+  document.getElementById('kpi-playlists-sub').textContent = totalPlaylists === 0 ? 'Aucune playlist' : '';
+
+  // --- Hero subtitle (vraies données) ---
+  const sub = document.getElementById('hero-subtitle');
+  if(total === 0){
+    sub.textContent = 'Aucun morceau dans ta library. Commence par uploader ton premier track pour découvrir CueForge.';
+  } else {
+    const parts = [`${total} morceau${total>1?'x':''} dans ta library`];
+    if(totalSets > 0) parts.push(`${totalSets} set${totalSets>1?'s':''} construit${totalSets>1?'s':''}`);
+    if(stats && stats.bpm_range && stats.bpm_range.avg) parts.push(`BPM moyen ${Math.round(stats.bpm_range.avg)}`);
+    sub.textContent = parts.join(' · ') + '.';
+  }
+
+  // --- Live now : un track avec status processing/analyzing ---
+  // (on check si un des tracks fetchés a un status "processing")
+  const processing = (tracks && tracks.tracks || []).find(t => /process|analy|pending/i.test(t.status || ''));
+  if(processing){
+    document.getElementById('live-now').style.display = '';
+    document.getElementById('live-title').textContent = processing.title || 'Sans titre';
+    document.getElementById('live-artist').textContent = processing.artist || '';
+    document.getElementById('live-cover').style.background = coverFor(processing.id);
+    const pct = Number(processing.progress || 0) * 100;
+    document.getElementById('live-progress-fill').style.width = `${Math.min(100,pct)}%`;
+    document.getElementById('live-eta').textContent = processing.status || '';
+  }
+
+  // --- Récemment analysés ---
+  const recEl = document.getElementById('recent-tracks');
+  recEl.innerHTML = '';
+  const trackList = (tracks && tracks.tracks) || [];
+  if(trackList.length === 0){
+    recEl.innerHTML = `
+      <div style="padding:24px;text-align:center;color:var(--c-secondary)">
+        Aucun morceau analysé pour l'instant.
+        <div style="margin-top:12px">
+          <a href="/upload" class="btn btn-primary btn-sm">Uploader un track</a>
+        </div>
+      </div>`;
+  } else {
+    trackList.slice(0,6).forEach((t,i) => {
+      const row = document.createElement('div');
+      row.className = 'track-row pressable focus-ring';
+      row.tabIndex = 0;
+      const seed = (Number(t.id) || i) + 0.31;
+      row.innerHTML = `
+        <div class="track-cover" style="background:${coverFor(t.id)}"></div>
+        <div style="min-width:0">
+          <div class="track-name">${t.title || 'Sans titre'}</div>
+          <div class="track-artist">${t.artist || '—'}</div>
+        </div>
+        <div class="track-mini-wave" data-seed="${seed}"></div>
+        <div class="track-bpm">${bpmStr(t.bpm)}</div>
+        <div class="track-key">${keyStr(t.key)}</div>
+        <button class="btn-icon btn btn-ghost btn-sm track-action" data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+      `;
+      row.addEventListener('click', () => location.href = '/analyze?id=' + encodeURIComponent(t.id));
+      recEl.appendChild(row);
+      buildWave(row.querySelector('.track-mini-wave'), 56, seed, { envelope:(p) => 0.3 + 0.7 * Math.sin(p * Math.PI * 2 + 1) * 0.5 + 0.5 });
+    });
+  }
+
+  // --- Queue d'analyse ---
+  const qEl = document.getElementById('queue-list');
+  qEl.innerHTML = '';
+  const queue = trackList.filter(t => /process|analy|pending|queued/i.test(t.status || ''));
+  if(queue.length === 0){
+    qEl.innerHTML = `<div style="padding:16px 14px;color:var(--c-tertiary);font-family:var(--font-mono);font-size:11px">Aucun morceau en cours d'analyse.</div>`;
+  } else {
+    queue.forEach(q => {
+      const d = document.createElement('div');
+      d.style.cssText = 'display:grid;grid-template-columns:1fr 140px 120px 60px;gap:14px;align-items:center;padding:10px 14px;border-radius:10px';
+      const pct = Math.round(Number(q.progress || 0) * 100);
+      d.innerHTML = `
+        <div style="min-width:0">
+          <div style="font-family:var(--font-display);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.title || 'Sans titre'}</div>
+          <div style="color:var(--c-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.artist || '—'}</div>
+        </div>
+        <div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px"></div>
+          </div>
+          <div style="margin-top:4px;font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary)">${q.status || ''}</div>
+        </div>
+        <div class="mono" style="font-size:12px;color:var(--c-secondary)">&nbsp;</div>
+        <div class="mono" style="font-size:12px;text-align:right">${pct}%</div>
+      `;
+      qEl.appendChild(d);
+    });
+  }
+
+  // --- Activity feed (dérivé des tracks les plus récents) ---
+  const actEl = document.getElementById('activity-feed');
+  actEl.innerHTML = '';
+  if(trackList.length === 0){
+    actEl.innerHTML = `<div class="act-item"><div class="act-body"><div class="act-meta" style="color:var(--c-tertiary)">Aucune activité récente.</div></div></div>`;
+  } else {
+    trackList.slice(0, 6).forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'act-item';
+      const bpmKey = [bpmStr(t.bpm)+' BPM', keyStr(t.key)].filter(x => x !== '—').join(' · ');
+      const ts = t.updated_at || t.created_at;
+      item.innerHTML = `
+        <span class="act-dot analyze">●</span>
+        <div class="act-body">
+          <div class="act-title"><strong>${t.artist || 'Artiste inconnu'} — ${t.title || 'Sans titre'}</strong></div>
+          <div class="act-meta">${bpmKey || '—'}${ts ? ' · ' + relTime(ts) : ''}</div>
+        </div>`;
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => location.href = '/analyze?id=' + encodeURIComponent(t.id));
+      actEl.appendChild(item);
+    });
+  }
+})().catch(err => {
+  console.error('Dashboard load error:', err);
+  toast('Erreur de chargement du dashboard', 'error');
 });
 </script>
 </body>
