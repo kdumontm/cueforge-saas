@@ -941,6 +941,97 @@
     const pct = b.style.height;
     b.setAttribute('data-tt', `MRR · ${Math.round(parseFloat(pct)*450)} €`);
   });
+
+  // 🎯 2026-04-21 QA : wire up des boutons "dead" de admin.html
+  function wireByText(scope, text, handler){
+    scope.querySelectorAll('button').forEach(b=>{
+      if(b.textContent.trim().includes(text) && !b.dataset.wired){
+        b.dataset.wired = '1';
+        b.addEventListener('click', handler);
+      }
+    });
+  }
+  // Topbar
+  document.querySelectorAll('.topbar button').forEach(b=>{
+    const txt = b.textContent.trim();
+    if(b.dataset.wired) return;
+    if(txt === 'Find'){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>toast('Recherche globale : ⌘K bientôt actif', 'info'));
+    } else if(b.dataset.tt === 'Logs système'){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>toast('Logs système — page dédiée en construction', 'info'));
+    } else if(b.classList.contains('avatar')){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>{ location.href = '/settings#account'; });
+    }
+  });
+
+  // Top action bar (Export CSV / Voir logs / Rafraîchir)
+  const topActions = document.querySelector('.admin-top') || document;
+  wireByText(topActions, 'Exporter CSV', async ()=>{
+    try {
+      const users = await api.adminUsers({ limit: 500 });
+      const rows = (Array.isArray(users) ? users : (users.items || []));
+      const csv = [
+        ['id','email','name','plan','created_at','last_login_at'],
+        ...rows.map(u => [u.id, u.email, u.name || '', u.subscription_plan || 'free', u.created_at || '', u.last_login_at || ''])
+      ].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `cueforge-users-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      toast(`${rows.length} users exportés`, 'success');
+    } catch(err){ toast(`Export : ${err.message}`, 'warn'); }
+  });
+  wireByText(topActions, 'Voir logs', ()=>toast('Logs système — vue dédiée en construction', 'info'));
+  wireByText(topActions, 'Rafraîchir', async ()=>{
+    toast('Rafraîchissement…', 'info');
+    try { await Promise.all([loadKpis(), loadUsers()]); toast('Données à jour', 'success'); }
+    catch(err){ toast(`Refresh : ${err.message}`, 'warn'); }
+  });
+
+  // Users pane header (+ Créer user / Inviter)
+  wireByText(document, '+ Créer user', ()=>toast('Création manuelle user — en cours de dev', 'info'));
+  wireByText(document, 'Inviter', async ()=>{
+    const email = prompt('Email de l\'invité ?');
+    if(!email) return;
+    try { await api.post('/admin/users/invite', { email }); toast(`Invitation envoyée à ${email}`, 'success'); }
+    catch(err){ toast(`Invite : ${err.message}`, 'warn'); }
+  });
+
+  // Voir tout activity
+  wireByText(document, 'Voir tout', ()=>toast('Activité complète — page dédiée à venir', 'info'));
+  // Tout l'historique
+  wireByText(document, 'Tout l', ()=>toast('Historique complet — page dédiée à venir', 'info'));
+  // Pause / Retry queue
+  wireByText(document, 'Pause queue', async ()=>{
+    if(!confirm('Mettre en pause toute la file d\'analyse ?')) return;
+    try { await api.post('/admin/queue/pause', {}); toast('Queue pausée', 'success'); }
+    catch(err){ toast(`Pause : ${err.message}`, 'warn'); }
+  });
+  wireByText(document, 'Retry errors', async ()=>{
+    try { const r = await api.post('/admin/queue/retry-failed', {}); toast(`${r.retried || 'Jobs'} relancés`, 'success'); }
+    catch(err){ toast(`Retry : ${err.message}`, 'warn'); }
+  });
+  // Gérer (intégrations)
+  document.querySelectorAll('button').forEach(b=>{
+    if(b.textContent.trim() === 'Gérer →' && !b.dataset.wired){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>{ location.href = '/settings#integrations'; });
+    }
+  });
+
+  // Row action "Voir profil"
+  document.addEventListener('click', e=>{
+    const act = e.target.closest('button[data-act="view"]');
+    if(!act) return;
+    e.stopPropagation();
+    const row = act.closest('tr[data-id]');
+    if(row){ toast(`Profil user #${row.dataset.id} — en construction`, 'info'); }
+  });
 </script>
 </body>
 </html>

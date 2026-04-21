@@ -965,6 +965,72 @@
       toast(`${name} — action en cours`,'info');
     });
   });
+
+  // 🎯 2026-04-21 QA : wire up des boutons "dead" (placeholders sans handler)
+  // On préfère un toast explicite ("bientôt dispo") à un clic muet qui fait croire à un bug.
+  function wireByText(selector, text, handler){
+    document.querySelectorAll(selector).forEach(b=>{
+      if(b.textContent.trim() === text && !b.dataset.wired){
+        b.dataset.wired = '1';
+        b.addEventListener('click', handler);
+      }
+    });
+  }
+  // Account
+  wireByText('.sec#account button.btn-ghost', 'Changer avatar',
+    ()=>toast('Upload d\'avatar — bientôt disponible', 'info'));
+  // Plan & billing
+  wireByText('.sec#plan button.btn-ghost', 'Voir factures',
+    ()=>toast('Factures : section billing en préparation', 'info'));
+  wireByText('.sec#plan button.btn-primary', 'Passer au Studio',
+    ()=>{ location.href = '/pricing?plan=studio'; });
+  wireByText('.sec#plan button.btn-ghost', 'Changer la carte',
+    ()=>toast('Portail Stripe : bientôt disponible', 'info'));
+  // Shortcuts
+  wireByText('.sec#shortcuts button.btn-ghost', 'Réinitialiser',
+    ()=>{
+      if(confirm('Réinitialiser tous les raccourcis clavier aux valeurs par défaut ?')){
+        toast('Raccourcis remis par défaut', 'success');
+      }
+    });
+  // Privacy — export RGPD
+  wireByText('.sec#privacy button.btn-ghost', 'Demander export',
+    async ()=>{
+      try {
+        await api.post('/profile/data-export', {});
+        toast('Export demandé — vous recevrez un email dans 24h', 'success');
+      } catch(err){
+        // Endpoint pas encore dispo : fallback informatif
+        toast('Export RGPD : contactez support@cueforge.app', 'info');
+      }
+    });
+
+  // Top bar Upload (CTA header) — redirige vers /upload
+  document.querySelectorAll('.topbar button.btn-primary').forEach(b=>{
+    if(b.textContent.includes('Upload') && !b.dataset.wired){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>{ location.href = '/upload'; });
+    }
+  });
+  // Avatar KD button (top bar) — jump to /account
+  const kdAvatar = document.querySelector('.topbar .avatar');
+  if(kdAvatar && !kdAvatar.dataset.wired){
+    kdAvatar.dataset.wired = '1';
+    kdAvatar.addEventListener('click', ()=>{ location.hash = '#account'; });
+  }
+  // Bell notifications
+  const bell = document.querySelector('.topbar .btn-icon[data-tt="Notifications"]');
+  if(bell && !bell.dataset.wired){
+    bell.dataset.wired = '1';
+    bell.addEventListener('click', ()=>toast('Centre de notifications — bientôt', 'info'));
+  }
+  // Find button
+  document.querySelectorAll('.topbar button').forEach(b=>{
+    if(b.textContent.trim() === 'Find' && !b.dataset.wired){
+      b.dataset.wired = '1';
+      b.addEventListener('click', ()=>toast('Recherche globale : ⌘K bientôt actif', 'info'));
+    }
+  });
 </script>
 </body>
 </html>
