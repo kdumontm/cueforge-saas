@@ -214,7 +214,7 @@
         <button>Année</button>
         <button>All time</button>
       </div>
-      <button class="btn btn-ghost btn-sm" style="margin-left:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px" id="stats-export-csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
     </div>
   </div>
 
@@ -519,7 +519,7 @@
         </div>
         <div style="color:var(--c-secondary);font-size:13px;margin-top:6px">Score moyen 9.2 sur 14 transitions mesurées. Gardez vos tracks peak-hour autour de cette fenêtre.</div>
       </div>
-      <button class="btn btn-ghost">Voir l'analyse →</button>
+      <button class="btn btn-ghost" id="stats-view-insight">Voir l'analyse →</button>
     </div>
   </div>
 </main>
@@ -837,6 +837,50 @@
       toast(`Filtrer Library par ${key}`,'info');
     });
   });
+
+  // 🎯 2026-04-21 QA : wire up des dead buttons stats.html
+  // Export CSV : génère CSV depuis /stats + /tracks
+  const btnExport = document.getElementById('stats-export-csv');
+  if(btnExport){
+    btnExport.addEventListener('click', async ()=>{
+      try {
+        toast('Génération export…','info');
+        const [stats, tracks] = await Promise.all([
+          api.stats().catch(()=>({})),
+          api.tracks({limit:500, sort:'-created_at'}).catch(()=>({tracks:[]}))
+        ]);
+        const list = tracks.tracks || tracks.items || [];
+        const rows = [
+          ['title','artist','bpm','key','energy','duration_s','created_at'],
+          ...list.map(t => [
+            t.title || t.original_filename || '',
+            t.artist || '',
+            t.bpm || t.analysis?.bpm || '',
+            t.key || t.analysis?.key || '',
+            t.analysis?.energy || '',
+            t.duration || '',
+            t.created_at || ''
+          ])
+        ];
+        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], {type:'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `cueforge-stats-${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+        toast(`${list.length} tracks exportés`,'success');
+      } catch(err){ toast(`Export : ${err.message}`,'warn'); }
+    });
+  }
+
+  // "Voir l'analyse" de l'insight : bascule sur stats détaillées
+  const btnViewInsight = document.getElementById('stats-view-insight');
+  if(btnViewInsight){
+    btnViewInsight.addEventListener('click', ()=>{
+      toast('Analyse détaillée — vue dédiée à venir','info');
+    });
+  }
 </script>
 </body>
 </html>
