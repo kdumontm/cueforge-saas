@@ -116,15 +116,14 @@ document.addEventListener('click', (e)=>{
 });
 
 // -------- Find button (⌘K) — toujours disponible, pas d'authentification requise --------
-(function(){
+(function attachFindListeners(){
   // Re-attach Find listener à chaque navigation de page (SPA)
   // Déplacé hors de la section dépendante de l'api pour éviter les race conditions
   document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
-    // Retire les anciens listeners (prevent duplicates lors des navigations SPA)
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    // Ajoute le nouveau listener
-    newBtn.addEventListener('click', (e) => {
+    // Skip si déjà attaché (marker data-tc-find-attached)
+    if(btn.dataset.tcFindAttached) return;
+    btn.dataset.tcFindAttached = '1';
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       if(window.__tcSearch) window.__tcSearch.open();
     });
