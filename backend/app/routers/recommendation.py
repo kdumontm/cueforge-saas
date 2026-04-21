@@ -20,7 +20,7 @@ router = APIRouter()
 
 # Request/Response models
 class RecommendationRequest(BaseModel):
-    current_track_id: str
+    current_track_id: int
     user_preferences: Optional[Dict[str, float]] = None
 
 

@@ -1152,9 +1152,13 @@ def _run_batch_analysis(track_ids: List[int], user_id: int):
     )
 
 
+class BatchAnalyzeRequest(BaseModel):
+    track_ids: List[int]
+
+
 @router.post("/analyze-batch")
 async def analyze_batch(
-    track_ids: List[int] = Query(...),
+    req: BatchAnalyzeRequest,
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -1164,6 +1168,7 @@ async def analyze_batch(
     Processes tracks in parallel using ThreadPoolExecutor.
     Returns immediately with status "queued".
     """
+    track_ids = req.track_ids
     if len(track_ids) > 20:
         raise HTTPException(status_code=400, detail="Maximum 20 tracks per batch")
 

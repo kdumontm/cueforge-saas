@@ -22,8 +22,8 @@ router = APIRouter()
 
 # Request/Response models
 class TransitionScoreRequest(BaseModel):
-    track_id_1: str
-    track_id_2: str
+    track_id_1: int
+    track_id_2: int
 
 
 class TransitionScoreResponse(BaseModel):
@@ -48,8 +48,8 @@ class KeyPathResponse(BaseModel):
 
 
 class EnergyMatchRequest(BaseModel):
-    track_id_1: str
-    track_id_2: str
+    track_id_1: int
+    track_id_2: int
 
 
 class EnergyMatchResponse(BaseModel):
@@ -58,7 +58,7 @@ class EnergyMatchResponse(BaseModel):
 
 
 class SuggestNextRequest(BaseModel):
-    current_track_id: str
+    current_track_id: int
     user_preferences: Optional[Dict[str, float]] = None
 
 
