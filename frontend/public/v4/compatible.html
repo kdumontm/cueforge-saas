@@ -212,7 +212,7 @@
           <div class="eyebrow">Camelot Wheel</div>
           <h3 style="margin:2px 0 0;font-family:var(--font-display);font-size:16px">Compatibilité harmonique</h3>
         </div>
-        <div class="segment"><button class="active">Camelot</button><button>Standard</button></div>
+        <div class="segment" id="seg-notation"><button class="active" data-notation="camelot">Camelot</button><button data-notation="standard">Standard</button></div>
       </div>
 
       <div class="wheel">
@@ -826,6 +826,37 @@ document.getElementById('rules-reset').addEventListener('click', () => {
   document.getElementById('rule-phrase').classList.toggle('on', RULE_DEFAULTS.phrase);
   document.getElementById('rule-exclude').classList.toggle('on', RULE_DEFAULTS.exclude);
   toast('Règles réinitialisées', 'success');
+});
+
+// ------------ Notation toggle (Camelot / Standard) ------------
+let currentNotation = 'camelot';
+const CAMELOT_TO_STANDARD = {
+  '1A':'Abm','2A':'Ebm','3A':'Bbm','4A':'Fm','5A':'Cm','6A':'Gm','7A':'Dm','8A':'Am','9A':'Em','10A':'Bm','11A':'F#m','12A':'C#m',
+  '1B':'B','2B':'F#','3B':'Db','4B':'Ab','5B':'Eb','6B':'Bb','7B':'F','8B':'C','9B':'G','10B':'D','11B':'A','12B':'E'
+};
+function camelotToLabel(code){
+  if(!code) return '—';
+  if(currentNotation === 'standard') return CAMELOT_TO_STANDARD[code] || code;
+  return code;
+}
+document.querySelectorAll('#seg-notation button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#seg-notation button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentNotation = btn.dataset.notation;
+    // Re-render label central si un track est chargé
+    if(sourceTrack){
+      const ctrKey = document.getElementById('wheel-center-key');
+      const ctrNote = document.getElementById('wheel-center-note');
+      const cam = getTrackCamelot(sourceTrack);
+      if(ctrKey) ctrKey.textContent = camelotToLabel(cam) || (sourceTrack.analysis?.key || '—');
+      if(ctrNote){
+        if(currentNotation === 'standard') ctrNote.textContent = cam || (sourceTrack.analysis?.key || '—');
+        else ctrNote.textContent = sourceTrack.analysis?.key || cam || '—';
+      }
+    }
+    toast(`Notation · ${currentNotation === 'camelot' ? 'Camelot' : 'Standard'}`, 'info');
+  });
 });
 
 boot();
