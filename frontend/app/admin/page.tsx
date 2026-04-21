@@ -1,16 +1,14 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 /**
- * /admin → redirige vers /admin/dashboard
- * L'ancienne page monolithique est remplacée par des pages séparées.
+ * /admin → redirige vers le nouveau design v4 admin (/v4/admin.html)
+ * Les sous-routes /admin/users, /admin/tracks, etc. restent intactes.
  */
 export default function AdminRedirect() {
-  const router = useRouter();
   useEffect(() => {
-    router.replace("/admin/dashboard");
-  }, [router]);
+    window.location.replace("/v4/admin.html");
+  }, []);
 
   return (
     <div className="flex items-center justify-center h-64">
