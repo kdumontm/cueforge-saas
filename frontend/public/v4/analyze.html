@@ -823,10 +823,15 @@ async function loadTrack(){
     document.getElementById('thero-cues').textContent = cues.length;
 
     // Afficher bouton "Lancer l'analyse" si la piste n'est pas analysée
+    // 🔴 Fix 2026-04-21 : on se fie UNIQUEMENT à la présence de bpm dans analysis.
+    // Le backend renvoie status='completed' (pas 'analyzed'/'ready'), donc check
+    // par status est trompeur. Si analysis.bpm existe, c'est analysé, point.
+    // On masque aussi pendant 'analyzing'/'pending' pour éviter double-click.
     const btnLaunch = document.getElementById('btn-launch-analyze');
     if(btnLaunch){
-      const needsAnalysis = !t.analysis || Object.keys(t.analysis || {}).length === 0
-        || t.analysis.bpm == null || (t.status && t.status !== 'analyzed' && t.status !== 'ready');
+      const hasBpm = t.analysis && t.analysis.bpm != null;
+      const inProgress = t.status === 'analyzing' || t.status === 'pending';
+      const needsAnalysis = !hasBpm && !inProgress;
       btnLaunch.style.display = needsAnalysis ? '' : 'none';
     }
 
