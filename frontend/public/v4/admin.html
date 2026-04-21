@@ -768,6 +768,23 @@
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
+  // Admin gate : redirect non-admin users to home before any admin API call
+  (async () => {
+    try {
+      const me = await api.me();
+      if(!me || !me.is_admin){
+        if(typeof toast === 'function') toast('Accès réservé aux administrateurs', 'warn');
+        setTimeout(()=>{ location.href = '/'; }, 800);
+        throw new Error('not-admin');
+      }
+    } catch(e){
+      if(e.message === 'not-admin') throw e;
+      // if api.me() itself fails, redirect to login
+      location.href = '/login';
+      throw e;
+    }
+  })();
+
   // ===== KPIs =====
   async function loadKpis(){
     try {
@@ -995,12 +1012,55 @@
 
   // Users pane header (+ Créer user / Inviter)
   wireByText(document, '+ Créer user', ()=>toast('Création manuelle user — en cours de dev', 'info'));
-  wireByText(document, 'Inviter', async ()=>{
-    const email = prompt('Email de l\'invité ?');
-    if(!email) return;
-    try { await api.post('/admin/users/invite', { email }); toast(`Invitation envoyée à ${email}`, 'success'); }
-    catch(err){ toast(`Invite : ${err.message}`, 'warn'); }
+  wireByText(document, 'Inviter', ()=>{
+    openInviteModal();
   });
+
+  // Inline invite modal (replaces blocking prompt)
+  function openInviteModal(){
+    let m = document.getElementById('tc-invite-modal');
+    if(!m){
+      m = document.createElement('div');
+      m.id = 'tc-invite-modal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(10,8,14,.72);backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;z-index:9999;padding-top:18vh';
+      m.innerHTML = `
+        <div style="width:min(440px,92vw);background:linear-gradient(180deg,#1a1822,#12111a);border:1px solid rgba(255,255,255,.08);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:22px 24px">
+          <div style="font-size:16px;font-weight:600;margin-bottom:4px">Inviter un nouveau user</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px">Envoie un email d'invitation. Le compte sera créé au premier login.</div>
+          <input id="tc-invite-email" type="email" placeholder="email@example.com" style="width:100%;background:var(--s-2);border:1px solid var(--b-default);border-radius:8px;padding:10px 12px;color:#fff;font-size:14px;font-family:inherit" autocomplete="off" spellcheck="false" />
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+            <button id="tc-invite-cancel" class="btn btn-ghost btn-sm">Annuler</button>
+            <button id="tc-invite-send" class="btn btn-primary btn-sm">Envoyer</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(m);
+      const close = ()=>{ m.style.display='none'; m.querySelector('#tc-invite-email').value=''; };
+      m.addEventListener('click', (e)=>{ if(e.target === m) close(); });
+      m.querySelector('#tc-invite-cancel').addEventListener('click', close);
+      m.querySelector('#tc-invite-email').addEventListener('keydown', (e)=>{
+        if(e.key==='Escape') close();
+        else if(e.key==='Enter') m.querySelector('#tc-invite-send').click();
+      });
+      m.querySelector('#tc-invite-send').addEventListener('click', async ()=>{
+        const email = m.querySelector('#tc-invite-email').value.trim();
+        if(!email){ toast('Email requis', 'warn'); return; }
+        const btn = m.querySelector('#tc-invite-send');
+        btn.disabled = true; btn.textContent = 'Envoi…';
+        try {
+          await api.post('/admin/users/invite', { email });
+          toast(`Invitation envoyée à ${email}`, 'success');
+          close();
+        } catch(err){
+          toast(`Invite : ${err.message}`, 'warn');
+        } finally {
+          btn.disabled = false; btn.textContent = 'Envoyer';
+        }
+      });
+    }
+    m.style.display = 'flex';
+    setTimeout(()=>m.querySelector('#tc-invite-email').focus(), 30);
+  }
 
   // Voir tout activity
   wireByText(document, 'Voir tout', ()=>toast('Activité complète — page dédiée à venir', 'info'));

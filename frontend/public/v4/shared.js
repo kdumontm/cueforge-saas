@@ -31,16 +31,60 @@
   });
 })();
 
+// -------- Inline Search overlay (replace blocking prompt) --------
+(function(){
+  if(document.getElementById('tc-search-overlay')) return;
+  const el = document.createElement('div');
+  el.id = 'tc-search-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(10,8,14,.72);backdrop-filter:blur(8px);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding-top:18vh';
+  el.innerHTML = `
+    <div style="width:min(560px,92vw);background:linear-gradient(180deg,#1a1822,#12111a);border:1px solid rgba(255,255,255,.08);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:18px 20px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#ffba7a;flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="tc-search-input" type="text" placeholder="Rechercher un track, artiste, genre…" style="flex:1;background:transparent;border:none;outline:none;color:#fff;font-size:16px;font-family:inherit" autocomplete="off" spellcheck="false" />
+        <kbd style="font-family:var(--font-mono,monospace);font-size:10px;color:rgba(255,255,255,.4);padding:3px 6px;border:1px solid rgba(255,255,255,.12);border-radius:4px">ESC</kbd>
+      </div>
+      <div style="margin-top:12px;font-size:11.5px;color:rgba(255,255,255,.4);font-family:var(--font-mono,monospace)">Enter → ouvre la library filtrée</div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  const input = el.querySelector('#tc-search-input');
+  function open(){
+    el.style.display = 'flex';
+    setTimeout(()=>input.focus(), 30);
+  }
+  function close(){
+    el.style.display = 'none';
+    input.value = '';
+  }
+  el.addEventListener('click', (e)=>{ if(e.target === el) close(); });
+  input.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){ close(); }
+    else if(e.key === 'Enter'){
+      const q = input.value.trim();
+      if(q){ location.href = '/library?q=' + encodeURIComponent(q); }
+      else { close(); }
+    }
+  });
+  window.__tcSearch = { open, close };
+})();
+
 // -------- Global keyboard --------
 document.addEventListener('keydown', (e)=>{
   const isTyping = /input|textarea/i.test(document.activeElement?.tagName||'');
-  if(isTyping) return;
-  // ⌘K or Ctrl+K — palette
+  // ⌘K or Ctrl+K — palette (works even when typing, to refocus search)
   if((e.metaKey || e.ctrlKey) && e.key.toLowerCase()==='k'){
     e.preventDefault();
     const pal = document.querySelector('[data-palette]');
     if(pal){ pal.classList.toggle('open'); }
-    else { toast('Command palette — ⌘K','info'); }
+    else if(window.__tcSearch){ window.__tcSearch.open(); }
+    return;
+  }
+  if(isTyping) return;
+  // ESC closes search overlay from anywhere
+  if(e.key === 'Escape' && window.__tcSearch){
+    const el = document.getElementById('tc-search-overlay');
+    if(el && el.style.display === 'flex'){ window.__tcSearch.close(); }
   }
 });
 

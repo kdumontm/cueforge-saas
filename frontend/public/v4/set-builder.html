@@ -842,7 +842,12 @@ async function saveSet(){
       }
       draftMode = false;
       history.replaceState(null, '', '/set-builder?id='+created.id);
-      toast('Set sauvegardé','success');
+      // Refresh the local sets list so the history button cycles correctly
+      try { allSets = await api.sets(); } catch(_){}
+      toast(`Set "${name}" sauvegardé (#${created.id})`,'success');
+      // Update visible title input
+      const titleEl = document.getElementById('set-title');
+      if(titleEl) titleEl.value = name;
     } else {
       await api.patch(`/sets/${currentSet.id}`, { name });
       toast('Set mis à jour','success');
@@ -859,10 +864,14 @@ async function saveSet(){
 document.getElementById('btn-save').addEventListener('click', saveSet);
 document.getElementById('btn-new').addEventListener('click', () => {
   currentSet = buildDraftFromLibrary();
+  currentSet.name = 'Nouveau set';
   draftMode = true;
   history.replaceState(null, '', '/set-builder');
+  // Reset the title input so the user sees the fresh name
+  const titleEl = document.getElementById('set-title');
+  if(titleEl) titleEl.value = 'Nouveau set';
   renderAll();
-  toast('Nouveau brouillon','info');
+  toast('Nouveau brouillon prêt — clique "Sauver" pour le créer','info');
 });
 document.getElementById('btn-history').addEventListener('click', () => {
   if(!allSets.length){ toast('Aucun set sauvegardé','info'); return; }
@@ -872,8 +881,25 @@ document.getElementById('btn-history').addEventListener('click', () => {
   location.href = '/set-builder?id='+next.id;
 });
 document.getElementById('btn-export').addEventListener('click', () => {
-  if(!currentSet.id){ toast('Sauvegarde le set d\'abord','info'); return; }
-  toast('Export bientôt disponible','info');
+  if(!currentSet.id){ toast('Sauvegarde le set d\'abord','warn'); return; }
+  if(!currentSet.tracks?.length){ toast('Ajoute au moins un track au set','warn'); return; }
+  // Export M3U (client-side) — le format est universel (Rekordbox/Serato lisent aussi)
+  const lines = ['#EXTM3U', `#PLAYLIST:${currentSet.name || 'TrackCue Set'}`];
+  currentSet.tracks.forEach(t => {
+    const title = t.title || t.original_filename || `Track #${t.id}`;
+    const artist = t.artist || 'Unknown';
+    const dur = Math.round(((t.analysis?.duration_ms || t.duration_ms || 0)/1000));
+    lines.push(`#EXTINF:${dur},${artist} - ${title}`);
+    lines.push(title + '.mp3');
+  });
+  const blob = new Blob([lines.join('\n')], {type:'audio/x-mpegurl'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (currentSet.name || 'set').replace(/[^\w\-]+/g,'_');
+  a.href = url; a.download = `${safeName}.m3u`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast(`Set exporté : ${currentSet.tracks.length} tracks (.m3u)`,'success');
 });
 document.querySelectorAll('.exp-btn').forEach(b => {
   b.addEventListener('click', () => {
