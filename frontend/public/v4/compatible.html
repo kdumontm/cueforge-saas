@@ -310,6 +310,8 @@ if(!api.requireAuth()) throw new Error('redirect');
 
 // ------------ Camelot helpers ------------
 const KEY_NAMES = ['B','F#','C#','Ab','Eb','Bb','F','C','G','D','A','E'];
+// Relatif mineur pour chaque slot Camelot : 1A=Abm, 2A=Ebm, 3A=Bbm, 4A=Fm, 5A=Cm, 6A=Gm, 7A=Dm, 8A=Am, 9A=Em, 10A=Bm, 11A=F#m, 12A=C#m
+const MINOR_NAMES = ['Abm','Ebm','Bbm','Fm','Cm','Gm','Dm','Am','Em','Bm','F#m','C#m'];
 // notation conversion : certains backends exposent "Am", "C#m", "F major" etc. On tente de normaliser en Camelot
 // Table standard mapping note+mode → Camelot
 const NOTE_TO_CAMELOT = {
@@ -639,7 +641,7 @@ function drawWheel(srcCam, byKey){
     const [lxC,lyC] = polar(outerR+8, amid);
     const lblC = document.createElementNS('http://www.w3.org/2000/svg','text');
     lblC.setAttribute('x',lxC);lblC.setAttribute('y',lyC);lblC.setAttribute('class','wheel-note');
-    lblC.textContent = majorKey+'m/'+majorKey;
+    lblC.textContent = MINOR_NAMES[i]+'/'+majorKey;
     svg.appendChild(lblC);
   }
   svg.querySelectorAll('.wheel-seg').forEach(s=>{
