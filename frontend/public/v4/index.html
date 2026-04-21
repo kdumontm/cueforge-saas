@@ -432,7 +432,7 @@ function relTime(iso){
   const processing = (tracks && tracks.tracks || []).find(t => /process|analy|pending/i.test(t.status || ''));
   if(processing){
     document.getElementById('live-now').style.display = '';
-    document.getElementById('live-title').textContent = processing.title || 'Sans titre';
+    document.getElementById('live-title').textContent = processing.title || processing.original_filename || processing.filename || 'Sans titre';
     document.getElementById('live-artist').textContent = processing.artist || '';
     document.getElementById('live-cover').style.background = coverFor(processing.id);
     const pct = Number(processing.progress || 0) * 100;
@@ -461,7 +461,7 @@ function relTime(iso){
       row.innerHTML = `
         <div class="track-cover" style="background:${coverFor(t.id)}"></div>
         <div style="min-width:0">
-          <div class="track-name">${t.title || 'Sans titre'}</div>
+          <div class="track-name">${t.title || t.original_filename || t.filename || 'Sans titre'}</div>
           <div class="track-artist">${t.artist || '—'}</div>
         </div>
         <div class="track-mini-wave" data-seed="${seed}"></div>
@@ -488,7 +488,7 @@ function relTime(iso){
       const pct = Math.round(Number(q.progress || 0) * 100);
       d.innerHTML = `
         <div style="min-width:0">
-          <div style="font-family:var(--font-display);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.title || 'Sans titre'}</div>
+          <div style="font-family:var(--font-display);font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.title || q.original_filename || q.filename || 'Sans titre'}</div>
           <div style="color:var(--c-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${q.artist || '—'}</div>
         </div>
         <div>
@@ -518,7 +518,7 @@ function relTime(iso){
       item.innerHTML = `
         <span class="act-dot analyze">●</span>
         <div class="act-body">
-          <div class="act-title"><strong>${t.artist || 'Artiste inconnu'} — ${t.title || 'Sans titre'}</strong></div>
+          <div class="act-title"><strong>${t.artist || 'Artiste inconnu'} — ${t.title || t.original_filename || t.filename || 'Sans titre'}</strong></div>
           <div class="act-meta">${bpmKey || '—'}${ts ? ' · ' + relTime(ts) : ''}</div>
         </div>`;
       item.style.cursor = 'pointer';

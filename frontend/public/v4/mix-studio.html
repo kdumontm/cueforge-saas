@@ -582,7 +582,7 @@
     const energy = tr.analysis?.energy ?? tr.energy_level ?? null;
     const durMs = tr.analysis?.duration_ms || tr.duration_ms;
 
-    title.textContent = tr.title || 'Sans titre';
+    title.textContent = tr.title || tr.original_filename || tr.filename || 'Sans titre';
     artist.textContent = tr.artist || '—';
     bpmEl.textContent = bpm ? Number(bpm).toFixed(1) : '—';
     timeEl.textContent = durMs ? fmt.dur(durMs/1000) : '—';
@@ -598,10 +598,13 @@
   }
 
   function renderPair(){
-    $('xf-a').textContent = 'A · ' + (deckA ? (deckA.title || 'Sans titre') : '—');
-    $('xf-b').textContent = 'B · ' + (deckB ? (deckB.title || 'Sans titre') : '—');
-    $('pair-label').textContent = deckA && deckB
-      ? `${(deckA.title||'?').slice(0,14)} → ${(deckB.title||'?').slice(0,14)}`
+    // 🔴 Fix 2026-04-21 : fallback original_filename pour tracks sans ID3 title
+    const nameA = deckA ? (deckA.title || deckA.original_filename || deckA.filename || 'Sans titre') : null;
+    const nameB = deckB ? (deckB.title || deckB.original_filename || deckB.filename || 'Sans titre') : null;
+    $('xf-a').textContent = 'A · ' + (nameA || '—');
+    $('xf-b').textContent = 'B · ' + (nameB || '—');
+    $('pair-label').textContent = nameA && nameB
+      ? `${nameA.slice(0,14)} → ${nameB.slice(0,14)}`
       : '—';
   }
 
@@ -746,7 +749,7 @@
         <div data-id="${t.id}" class="pick-row" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent">
           <div style="width:36px;height:36px;border-radius:6px;background:linear-gradient(135deg,var(--pink),var(--cyan));flex-shrink:0"></div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.title||'Sans titre').replace(/[<>]/g,'')}</div>
+            <div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.title||t.original_filename||t.filename||'Sans titre').replace(/[<>]/g,'')}</div>
             <div style="font-size:11px;color:var(--c-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(t.artist||'—').replace(/[<>]/g,'')}</div>
           </div>
           <div style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);display:flex;gap:8px;flex-shrink:0">
@@ -841,7 +844,9 @@
     if(!lastScore){ await refreshScore(); }
     // Persist as a small 2-track set
     try {
-      const name = `Mix ${(deckA.title||'?').slice(0,20)} → ${(deckB.title||'?').slice(0,20)}`;
+      const nA = deckA.title || deckA.original_filename || deckA.filename || '?';
+      const nB = deckB.title || deckB.original_filename || deckB.filename || '?';
+      const name = `Mix ${nA.slice(0,20)} → ${nB.slice(0,20)}`;
       const created = await api.post('/sets', {name, target_duration_min: 10, genre_tags:[]});
       await api.post(`/sets/${created.id}/tracks`, {track_id: Number(deckA.id)});
       await api.post(`/sets/${created.id}/tracks`, {track_id: Number(deckB.id)});
