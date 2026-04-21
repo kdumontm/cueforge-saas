@@ -1107,8 +1107,13 @@ function createWebAudioPlayer(audioBuffer){
     }
   }
 
-  function _play(){
+  async function _play(){
     if(!_paused) return;
+    // ctx.resume() DOIT être awaited pour que l'audio sorte réellement
+    // (Chrome autoplay policy : resume ne prend effet qu'après await lors d'un user gesture)
+    if(ctx.state === 'suspended'){
+      try { await ctx.resume(); } catch(e){}
+    }
     // AudioBufferSourceNode ne peut être joué qu'une fois → on en recrée un à chaque play()
     stopSource();
     source = ctx.createBufferSource();
@@ -1124,7 +1129,6 @@ function createWebAudioPlayer(audioBuffer){
         listeners.ended.forEach(fn => { try { fn(); } catch(e){} });
       }
     };
-    if(ctx.state === 'suspended') ctx.resume();
     const offset = Math.min(Math.max(0, _startOffset), _duration - 0.01);
     source.start(0, offset);
     _startCtxTime = ctx.currentTime;
@@ -1173,7 +1177,7 @@ function createWebAudioPlayer(audioBuffer){
     get duration(){ return _duration; },
     get currentTime(){ return currentTime(); },
     set currentTime(v){ _seek(Number(v) || 0); },
-    play(){ _play(); return Promise.resolve(); },
+    play(){ return _play(); },
     pause(){ _pause(); },
     addEventListener(ev, fn){
       if(listeners[ev]) listeners[ev].push(fn);
@@ -1269,7 +1273,7 @@ const playBtn = document.querySelector('.tr-btn.play');
 playBtn.addEventListener('click', async () => {
   const a = await ensureAudio();
   if(!a) return;
-  if(a.paused){ a.play(); setPlayingUI(true); }
+  if(a.paused){ await a.play(); setPlayingUI(true); }
   else { a.pause(); setPlayingUI(false); }
 });
 
