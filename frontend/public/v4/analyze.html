@@ -33,6 +33,7 @@
   }
   .rail-tabs button.active{color:var(--c-primary);border-color:var(--amber)}
   .rail-list{flex:1;overflow-y:auto;margin:0 -6px;padding:0 6px;display:flex;flex-direction:column;gap:4px}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
   .rail-item{
     display:grid;grid-template-columns:32px 1fr 28px;gap:10px;align-items:center;
     padding:8px;border-radius:8px;cursor:pointer;
@@ -1096,7 +1097,8 @@ document.querySelectorAll('.tr-btn').forEach(btn => {
   if(tt.startsWith('Prev cue')){
     btn.addEventListener('click', async () => {
       const a = await ensureAudio();
-      if(!a || currentCues.length === 0) return;
+      if(!a){ toast('Chargez une piste d\'abord', 'warn'); return; }
+      if(currentCues.length === 0){ toast('Aucun cue — upload + analyse requise', 'info'); return; }
       const now = a.currentTime * 1000;
       const prev = [...currentCues].reverse().find(c => (c.position_ms || c.time_ms || 0) < now - 500);
       if(prev) a.currentTime = (prev.position_ms || prev.time_ms || 0) / 1000;
@@ -1105,10 +1107,12 @@ document.querySelectorAll('.tr-btn').forEach(btn => {
   } else if(tt.startsWith('Next cue')){
     btn.addEventListener('click', async () => {
       const a = await ensureAudio();
-      if(!a || currentCues.length === 0) return;
+      if(!a){ toast('Chargez une piste d\'abord', 'warn'); return; }
+      if(currentCues.length === 0){ toast('Aucun cue — upload + analyse requise', 'info'); return; }
       const now = a.currentTime * 1000;
       const nxt = currentCues.find(c => (c.position_ms || c.time_ms || 0) > now + 200);
       if(nxt) a.currentTime = (nxt.position_ms || nxt.time_ms || 0) / 1000;
+      else toast('Dernier cue atteint', 'info');
     });
   } else if(tt.startsWith('Record')){
     btn.addEventListener('click', () => toast('Record — bientôt disponible', 'info'));
@@ -1137,8 +1141,14 @@ document.querySelectorAll('.pad').forEach(p => {
 document.querySelectorAll('#mode-segment button').forEach(b => {
   b.addEventListener('click', () => {
     const mode = b.dataset.mode;
-    if(mode === 'mix'){ location.href = `/mix-studio?deckA=${trackId || ''}`; }
-    else if(mode === 'compare'){ location.href = `/compatible?id=${trackId || ''}`; }
+    if(mode === 'mix'){
+      if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
+      location.href = `/mix-studio?deckA=${trackId}`;
+    }
+    else if(mode === 'compare'){
+      if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
+      location.href = `/compatible?id=${trackId}`;
+    }
     // analyze = current page
   });
 });
@@ -1166,19 +1176,27 @@ document.getElementById('btn-share')?.addEventListener('click', async () => {
 });
 
 document.getElementById('btn-export')?.addEventListener('click', () => {
-  if(!trackId) return;
+  if(!trackId){ toast('Aucune piste à exporter — uploadez-en une d\'abord', 'warn'); return; }
   location.href = `/set-builder?track=${trackId}`;
 });
 
 // ========== AI suggérer ==========
 document.getElementById('btn-ai-suggest')?.addEventListener('click', async () => {
-  if(!trackId) return;
+  if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
   const btn = document.getElementById('btn-ai-suggest');
   const origHtml = btn.innerHTML;
-  btn.innerHTML = 'Analyse…';
+  // 🎯 2026-04-21 QA : spinner SVG + timeout 30s via AbortController.
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg> Analyse…';
   btn.disabled = true;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('timeout')), 30000);
+  });
   try {
-    const res = await api.get(`/tracks/${trackId}/suggest-cues`);
+    const res = await Promise.race([
+      api.get(`/tracks/${trackId}/suggest-cues`),
+      timeoutPromise,
+    ]);
     const items = (res && (res.suggestions || res.cues || (Array.isArray(res) ? res : []))) || [];
     const ai = document.getElementById('ai-sug');
     const title = document.getElementById('ai-sug-title');
@@ -1198,8 +1216,13 @@ document.getElementById('btn-ai-suggest')?.addEventListener('click', async () =>
     ai.style.display = '';
     ai.dataset.suggestions = JSON.stringify(items);
   } catch(err){
-    toast('AI suggest : '+err.message, 'warn');
+    if(/timeout/i.test(err.message || '')){
+      toast('AI suggest : timeout (30s) — réessayez', 'warn');
+    } else {
+      toast('AI suggest : '+err.message, 'warn');
+    }
   } finally {
+    clearTimeout(timeoutId);
     btn.innerHTML = origHtml;
     btn.disabled = false;
   }
