@@ -18,7 +18,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.track import Track, TrackAnalysis
@@ -33,26 +33,28 @@ router = APIRouter(prefix="/sets", tags=["dj-sets"])
 # ── Schemas ─────────────────────────────────────────────────────────────────
 
 class DJSetCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    venue: Optional[str] = None
-    event_date: Optional[str] = None
-    target_duration_min: Optional[int] = None
-    target_bpm_start: Optional[float] = None
-    target_bpm_end: Optional[float] = None
-    genre_tags: List[str] = []
+    # 2026-04-21 QA : sans max_length, un POST /sets avec name de 2000+ chars
+    # faisait 500 (SQLAlchemy String(255) overflow). On valide proprement côté Pydantic.
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
+    venue: Optional[str] = Field(None, max_length=255)
+    event_date: Optional[str] = Field(None, max_length=64)
+    target_duration_min: Optional[int] = Field(None, ge=1, le=1440)
+    target_bpm_start: Optional[float] = Field(None, ge=40, le=220)
+    target_bpm_end: Optional[float] = Field(None, ge=40, le=220)
+    genre_tags: List[str] = Field(default_factory=list, max_length=32)
 
 
 class DJSetUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    venue: Optional[str] = None
-    event_date: Optional[str] = None
-    target_duration_min: Optional[int] = None
-    target_bpm_start: Optional[float] = None
-    target_bpm_end: Optional[float] = None
-    genre_tags: Optional[List[str]] = None
-    status: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=5000)
+    venue: Optional[str] = Field(None, max_length=255)
+    event_date: Optional[str] = Field(None, max_length=64)
+    target_duration_min: Optional[int] = Field(None, ge=1, le=1440)
+    target_bpm_start: Optional[float] = Field(None, ge=40, le=220)
+    target_bpm_end: Optional[float] = Field(None, ge=40, le=220)
+    genre_tags: Optional[List[str]] = Field(None, max_length=32)
+    status: Optional[str] = Field(None, max_length=32)
 
 
 class SetTrackAdd(BaseModel):

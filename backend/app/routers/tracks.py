@@ -210,6 +210,18 @@ async def upload_track(
         # Module import ou toute erreur imprévue : on ignore (fallback local)
         pass
 
+    # 🎯 2026-04-21 QA : déclenche l'analyse auto en background après l'upload.
+    # Avant : le track restait "pending" ad vitam, Kevin devait cliquer "Analyser"
+    # manuellement — cassait tout le flow suggest-cues / Mix Studio / Compatible.
+    # Maintenant : l'utilisateur upload, l'analyse démarre immédiatement, l'UI peut
+    # poller /tracks/{id} pour suivre la progression.
+    if background_tasks:
+        try:
+            background_tasks.add_task(_run_analysis, track.id)
+            logger.info(f"[UPLOAD] Auto-trigger _run_analysis for track {track.id}")
+        except Exception as e:
+            logger.warning(f"[UPLOAD] Failed to enqueue analysis for track {track.id}: {e}")
+
     return TrackUploadResponse(
         id=track.id,
         status=track.status.value,
@@ -1827,7 +1839,7 @@ def _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max,
 @router.get("", response_model=TrackListResponse)
 def list_tracks(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     # v2: Advanced filters
     genre: Optional[str] = Query(None),
     artist: Optional[str] = Query(None),
@@ -1844,7 +1856,10 @@ def list_tracks(
     current_user: User = Depends(get_current_user),
 ):
     # ⚡ Enforce limit server-side (safety cap)
-    limit = min(limit, 100)
+    # 2026-04-21 QA : v4 pages compatible/set-builder/mix-studio demandent limit=200
+    # pour charger la bibliothèque entière dans la wheel / timeline → on élargit le cap
+    # à 500 (assez pour un DJ sérieux, mais évite un DoS via limit=99999).
+    limit = min(limit, 500)
 
     # ⚡ Build base query WITH filters but WITHOUT eager loading (for count)
     q = db.query(Track).filter(Track.user_id == current_user.id)

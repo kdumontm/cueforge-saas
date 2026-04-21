@@ -32,6 +32,12 @@ class TransitionScoreResponse(BaseModel):
     bpm_compatibility: float
     energy_compatibility: float
     details: Dict[str, float]
+    # 2026-04-21 QA : quand une des 2 tracks n'est pas encore analysée on retourne
+    # quand même 200 avec analysis_pending=True (au lieu d'un 400 qui cassait le UI
+    # Mix Studio en permanence). Le frontend affiche "Analyse en cours..." et peut
+    # retry plus tard.
+    analysis_pending: bool = False
+    pending_track_ids: List[int] = []
 
 
 class KeyPathRequest(BaseModel):
@@ -86,12 +92,32 @@ async def score_transition(
         if not track1 or not track2:
             raise HTTPException(status_code=404, detail="Track not found")
 
+        # Ownership check: user can only score transitions between their own tracks
+        if track1.user_id != current_user.id or track2.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not your track")
+
         # Get analysis data
         analysis1 = track1.analysis
         analysis2 = track2.analysis
 
+        # 2026-04-21 QA : si une des tracks n'a pas encore été analysée on retourne
+        # un 200 avec analysis_pending=True plutôt qu'un 400 — le frontend Mix Studio
+        # peut afficher "Analyse en cours…" et re-poller plus tard.
         if not analysis1 or not analysis2:
-            raise HTTPException(status_code=400, detail="Track analysis not available")
+            pending_ids = []
+            if not analysis1:
+                pending_ids.append(track1.id)
+            if not analysis2:
+                pending_ids.append(track2.id)
+            return TransitionScoreResponse(
+                overall_score=0.0,
+                key_compatibility=0.0,
+                bpm_compatibility=0.0,
+                energy_compatibility=0.0,
+                details={},
+                analysis_pending=True,
+                pending_track_ids=pending_ids,
+            )
 
         # Mock audio data (in production, load from file)
         y1 = np.zeros(44100 * 3)  # 3-second dummy
