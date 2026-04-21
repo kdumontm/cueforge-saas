@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="/v4/shared.css">
 <style>
   /* Page-specific — Settings */
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
   .settings-layout{display:grid;grid-template-columns:240px 1fr;gap:32px;margin-top:24px;align-items:flex-start}
 
   /* Side nav */
@@ -887,23 +889,13 @@
         const t = document.querySelector(href);
         if(t){
           e.preventDefault();
-          // window.scrollTo avec (x,y) fonctionne toujours ; scrollTo({behavior:'smooth'})
-          // est parfois bloqué par CSS scroll-behavior ou prefers-reduced-motion.
-          // On fait un fade-scroll manuel pour garder la sensation smooth sans bug.
+          // Scroll synchrone : fonctionne dans TOUS les contextes (incl. CDP/tests),
+          // contrairement à rAF qui est pause quand le tab n'a pas focus,
+          // et à scrollTo({behavior:'smooth'}) qui est parfois bloqué par le browser.
+          // CSS scroll-behavior:smooth sur html donne le lissage visuel.
           const rect = t.getBoundingClientRect();
-          const startY = window.scrollY;
-          const targetTop = rect.top + startY - 80;
-          const distance = targetTop - startY;
-          const duration = 350;
-          const startTime = performance.now();
-          function easeInOut(t){ return t<.5 ? 2*t*t : -1+(4-2*t)*t; }
-          function step(now){
-            const elapsed = now - startTime;
-            const progress = Math.min(elapsed/duration, 1);
-            window.scrollTo(0, startY + distance * easeInOut(progress));
-            if(progress < 1) requestAnimationFrame(step);
-          }
-          requestAnimationFrame(step);
+          const targetTop = rect.top + window.scrollY - 80;
+          window.scrollTo(0, targetTop);
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
         }
