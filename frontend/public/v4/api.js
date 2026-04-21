@@ -139,7 +139,7 @@
     adminUsers(p={}){ return api.get('/admin/stats/users-activity', p); },
     sets(p={})      { return api.get('/sets', p); },
     playlists(p={}) { return api.get('/playlists', p); },
-    compare(a,b)    { return api.get('/compare', { track_a_id: a, track_b_id: b }); },
+    compare(a,b)    { return api.get('/compare', { track_a: a, track_b: b }); },
     recoSimilar(id) { return api.post(`/recommendation/similar/${id}`, { limit: 20 }); },
     uploadTrack(file, onProgress){
       return new Promise((resolve, reject)=>{

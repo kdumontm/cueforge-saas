@@ -689,8 +689,8 @@
     recChip.style.display = 'inline-flex';
     try {
       const [score, energyMatch] = await Promise.all([
-        api.post('/mix/transition-score', {track_id_1: String(deckA.id), track_id_2: String(deckB.id)}).catch(()=>null),
-        api.post('/mix/energy-match', {track_id_1: String(deckA.id), track_id_2: String(deckB.id)}).catch(()=>null),
+        api.post('/mix/transition-score', {track_id_1: deckA.id, track_id_2: deckB.id}).catch(()=>null),
+        api.post('/mix/energy-match', {track_id_1: deckA.id, track_id_2: deckB.id}).catch(()=>null),
       ]);
       if(!score){
         toast('Score indisponible (analyse manquante)', 'warn');
@@ -817,7 +817,7 @@
     const ra = library[Math.floor(Math.random()*library.length)];
     await loadToDeck('A', ra);
     try {
-      const sug = await api.post('/recommendation/next-track', {current_track_id: String(ra.id)});
+      const sug = await api.post('/recommendation/next-track', {current_track_id: ra.id});
       const b = library.find(t=>String(t.id)===String(sug.track_id));
       if(b) await loadToDeck('B', b);
       else toast('Pas de suggestion','warn');
@@ -829,7 +829,7 @@
   bind('btn-suggest-b', async ()=>{
     if(!deckA){ toast('Charge A d\'abord','warn'); return; }
     try {
-      const sug = await api.post('/recommendation/next-track', {current_track_id: String(deckA.id)});
+      const sug = await api.post('/recommendation/next-track', {current_track_id: deckA.id});
       const b = library.find(t=>String(t.id)===String(sug.track_id));
       if(b) await loadToDeck('B', b);
       else toast('Pas de suggestion','warn');
