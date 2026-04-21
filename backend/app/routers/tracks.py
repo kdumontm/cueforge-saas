@@ -1850,8 +1850,10 @@ def list_tracks(
     q = db.query(Track).filter(Track.user_id == current_user.id)
     q = _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max)
 
-    # ⚡ OPTIM: Count with DISTINCT to avoid over-counting on joins
-    total = db.query(func.count(func.distinct(Track.id))).select_entity_from(q.statement).scalar() or 0
+    # 🔴 Fix QA 2026-04-21 : l'ancien `select_entity_from(q.statement)` produisait
+    # un SQL cassé (500). On utilise q.with_entities() qui garde les filtres mais
+    # change la SELECT pour un COUNT DISTINCT — évite le sur-comptage sur outerjoin.
+    total = q.with_entities(func.count(func.distinct(Track.id))).scalar() or 0
 
     # ⚡ NOW add eager loading to the same filtered query
     q = q.options(
