@@ -25,11 +25,17 @@ class RecommendationRequest(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
-    track_id: str
-    title: str
-    artist: str
+    # 2026-04-21 QA : track_id doit être int (DB type) pas str — frontend fait
+    # déjà String(sug.track_id) donc pas de breakage côté UI.
+    track_id: int
+    title: Optional[str] = None
+    artist: Optional[str] = None
     compatibility_score: float
     reason: str
+    # Enrichissement pour le Mix Studio (évite re-fetch)
+    bpm: Optional[float] = None
+    key: Optional[str] = None
+    camelot: Optional[str] = None
 
 
 class BuildSetRequest(BaseModel):
@@ -93,40 +99,94 @@ async def get_next_track_recommendation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get next track recommendation based on current track."""
+    """Get next track recommendation based on current track.
+
+    v4 QA 2026-04-21 : remplace le mock score par scoring Camelot multi-facteur
+    (harmonic + BPM + energy) et enrichit la réponse avec bpm/key/camelot.
+    """
+    from sqlalchemy.orm import selectinload
+    from app.services.camelot import transition_score, key_to_camelot
     try:
-        current_track = db.query(Track).filter(Track.id == request.current_track_id).first()
+        current_track = (
+            db.query(Track)
+            .options(selectinload(Track.analysis))
+            .filter(Track.id == request.current_track_id)
+            .first()
+        )
 
         if not current_track:
             raise HTTPException(status_code=404, detail="Current track not found")
 
-        # Find similar tracks (join TrackAnalysis for BPM filter)
-        ref_bpm = current_track.analysis.bpm if current_track.analysis else 120
-        similar = db.query(Track).join(TrackAnalysis, Track.id == TrackAnalysis.track_id).filter(
-            Track.user_id == current_user.id,
-            Track.id != request.current_track_id,
-            TrackAnalysis.bpm >= ref_bpm - 10,
-            TrackAnalysis.bpm <= ref_bpm + 10
-        ).limit(20).all()
+        # Candidates : same user, analysed, dans une fenêtre BPM large (±15)
+        ref_bpm = current_track.analysis.bpm if current_track.analysis and current_track.analysis.bpm else 120
+        candidates = (
+            db.query(Track)
+            .options(selectinload(Track.analysis))
+            .join(TrackAnalysis, Track.id == TrackAnalysis.track_id)
+            .filter(
+                Track.user_id == current_user.id,
+                Track.id != request.current_track_id,
+                TrackAnalysis.bpm >= ref_bpm - 15,
+                TrackAnalysis.bpm <= ref_bpm + 15,
+            )
+            .limit(50)
+            .all()
+        )
 
-        if not similar:
+        if not candidates:
             raise HTTPException(status_code=400, detail="No recommendations available")
 
-        # Simple scoring based on BPM match
-        best_track = similar[0]
+        cur_bpm = current_track.analysis.bpm if current_track.analysis else None
+        cur_key = current_track.analysis.key if current_track.analysis else None
+
+        best = None
+        best_score = 0.0
+        best_details = None
+        if cur_bpm and cur_key:
+            for c in candidates:
+                c_bpm = c.analysis.bpm if c.analysis else None
+                c_key = c.analysis.key if c.analysis else None
+                if not c_bpm or not c_key:
+                    continue
+                result = transition_score(cur_bpm, cur_key, c_bpm, c_key)
+                s = result.get("overall_score", 0)
+                if s > best_score:
+                    best_score = s
+                    best = c
+                    best_details = result
+
+        if best is None:
+            best = candidates[0]
+            best_score = 50.0
+            reason = "Pas d'analyse complète — suggestion par BPM proche"
+        else:
+            rec = best_details.get("recommendation", "possible") if best_details else "possible"
+            reason_map = {
+                "excellent": "Compatibilité harmonique et BPM excellente",
+                "good": "Bonne compatibilité harmonique et BPM",
+                "possible": "Compatible avec transition maîtrisée",
+                "risky": "Transition possible mais risquée",
+            }
+            reason = reason_map.get(rec, "Compatible")
+
+        best_bpm = best.analysis.bpm if best.analysis else None
+        best_key = best.analysis.key if best.analysis else None
 
         return RecommendationResponse(
-            track_id=best_track.id,
-            title=best_track.title or "Unknown",
-            artist=best_track.artist or "Unknown",
-            compatibility_score=0.82,
-            reason="Similar BPM and key, great energy flow"
+            track_id=best.id,
+            title=best.title,
+            artist=best.artist,
+            compatibility_score=round(best_score / 100.0, 3),
+            reason=reason,
+            bpm=best_bpm,
+            key=best_key,
+            camelot=key_to_camelot(best_key) if best_key else None,
         )
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error getting recommendation: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to get recommendation")
+        logger.exception(f"Error getting recommendation user={current_user.id} track={request.current_track_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to get recommendation: {type(exc).__name__}: {str(exc)[:200]}")
 
 
 @router.post("/recommendation/build-set", response_model=BuildSetResponse)
