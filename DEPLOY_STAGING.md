@@ -1,95 +1,81 @@
-# Staging CueForge — guide déploiement
+# Staging CueForge — setup gratuit (Vercel)
 
-> Objectif : avoir un env **staging** isolé (backend + frontend) pour tester le design v4 et toute nouvelle feature **avant** de pusher en prod.
+> Objectif : tester le design v4 sur un vrai déploiement **sans coût supplémentaire**.
 
 ## Principe
 
-| Branche | Env | URL (Railway) | Rôle |
-|--|--|--|--|
-| `main` | production | `cueforge-saas-production.up.railway.app` | Clients réels, données réelles |
-| `staging` | staging | `<staging-backend>.up.railway.app` + `<staging-frontend>.up.railway.app` | Preview v4, QA, tests de bout en bout |
+| Branche | Env | Plateforme | Backend | Coût |
+|--|--|--|--|--|
+| `main` | production | Railway | `cueforge-saas-production.up.railway.app` | existant |
+| `staging` | staging (preview v4) | **Vercel free tier** | réutilise backend prod (lecture) | **0 €** |
 
-Les deux environnements utilisent le **même code** mais des variables d'env et une DB différentes.
+Vercel free tier (Hobby) offre : 100 GB bandwidth/mois, builds illimités sur branches non-main, HTTPS auto, preview URLs par push. Largement suffisant pour tester le v4.
 
-## Ce qui est déjà en place sur la branche `staging`
+## ⚠️ Règle importante — mutations
 
-- Tous les fichiers de la branche `main`
-- Les 9 écrans v4 en HTML statique dans `frontend/public/v4/`
-- Une page hub Next.js à `/v4` (`frontend/app/v4/page.tsx`) qui liste les 9 écrans
-- Un composant `<StagingBanner />` qui s'affiche **uniquement** si :
-  - `NEXT_PUBLIC_ENV=staging` est défini, OU
-  - le hostname contient « staging », « preview » ou « test »
-- Un `railway.staging.toml` (voir plus bas) pour config backend staging
+Le frontend staging pointe sur le **backend prod**. Les pages `/v4/*.html` sont 100% statiques (données fake, aucun appel API), donc **safe à 100%**. Mais les autres routes Next.js (`/dashboard`, `/login`, `/api/*`) qui tapent la vraie API vont **écrire dans la vraie DB prod** si tu fais des actions (upload, create set, etc.).
 
-## Étapes Railway (UI — à faire une fois)
+→ **Pour tester le v4 :** ouvre directement `/v4` et clique uniquement sur les liens v4. Safe.
+→ **Pour tester des mutations :** attends qu'on ait les moyens de faire un backend staging dédié (~15€/mois), ou fais les tests en local avec un backend en `docker-compose up`.
 
-### 1. Service backend staging
+## Setup Vercel (5 minutes)
 
-1. Railway → projet CueForge → **+ New** → **GitHub Repo** → `kdumontm/cueforge-saas`
-2. Name : `cueforge-backend-staging`
-3. Branch : `staging`
-4. Build : Dockerfile `backend/Dockerfile`
-5. Variables d'env (copier depuis le service prod et adapter) :
-   - `DATABASE_URL` → **nouvelle DB Postgres** (clic + New → Postgres dans le même projet, puis reference)
-   - `ENVIRONMENT=staging`
-   - `DIAGNOSTICS_KEY` → même valeur que prod OK pour pouvoir diagnostiquer
-   - `REDIS_URL` → si on veut Redis, même procédure, sinon skip
-   - Secrets API externes : AcoustID/Spotify/MusicBrainz/iTunes → **même clés que prod** (read-only)
-   - Storage R2 : **nouveau bucket** `cueforge-audio-staging` pour ne pas polluer la prod
-6. Deploy
+### 1. Créer le projet Vercel
 
-### 2. Service frontend staging
+1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository**
+2. Choisir `kdumontm/cueforge-saas`
+3. **Root directory** : `frontend`
+4. **Framework Preset** : Next.js (auto-détecté)
+5. **Production Branch** : `staging` ← très important, pas `main`
+6. **Environment Variables** :
+   - `NEXT_PUBLIC_ENV` = `staging`
+   - `BACKEND_INTERNAL_URL` = `https://cueforge-saas-production.up.railway.app`
+   - `NEXT_PUBLIC_API_URL` = `https://cueforge-saas-production.up.railway.app`
+7. **Deploy**
 
-1. Railway → **+ New** → **GitHub Repo** → `kdumontm/cueforge-saas`
-2. Name : `cueforge-frontend-staging`
-3. Branch : `staging`
-4. Root directory : `frontend`
-5. Build : nixpacks auto (le `frontend/nixpacks.toml` existant fait `npm run build` + `npm start`)
-6. Variables d'env :
-   - `BACKEND_INTERNAL_URL` → URL du service backend staging créé à l'étape 1
-   - `NEXT_PUBLIC_ENV=staging` ← c'est cette var qui active la bannière jaune
-   - `NEXT_PUBLIC_API_URL` → URL backend staging
-7. Deploy
+Vercel va builder et te donner une URL du type `cueforge-saas.vercel.app` ou `cueforge-staging.vercel.app`.
 
-### 3. Vérif finale
+### 2. Vérifs
 
-Une fois les deux services up :
+- Ouvre `https://<ton-projet>.vercel.app/v4`
+  → tu dois voir le hub des 9 écrans + la bannière jaune/rose « Staging — environnement de test » tout en haut
+- Clique sur « Analyze », « Library », etc. → les pages v4 HTML s'ouvrent, interactions OK
+- Ouvre `https://<ton-projet>.vercel.app/` → la page d'accueil prod s'affiche avec la bannière staging → on est bien en test
 
-- Ouvre `https://<staging-frontend>.up.railway.app/v4` → tu dois voir la page hub avec les 9 cartes + la bannière jaune « Staging — environnement de test » en haut
-- Clique sur « Analyze » → `/v4/analyze.html` doit s'ouvrir avec tout le design interactif
-- Ouvre `https://<staging-frontend>.up.railway.app/` → la prod UI s'affiche normalement **avec la bannière jaune** (= on est bien en staging)
-
-## Workflow quotidien
+### 3. Workflow quotidien
 
 ```bash
-# nouveau dev sur staging
+# dev sur staging
 git checkout staging
 # ... code ...
-git commit -am "feat: ..."
+git commit -am "..."
 git push origin staging
-# → Railway auto-deploy staging uniquement, prod intouchée
+# → Vercel auto-deploy staging en ~45s (URL preview stable)
 
-# quand tout est validé, merge vers prod
+# quand tout est bon, merge vers prod
 git checkout main
 git merge staging
 git push origin main
-# → Railway auto-deploy prod
+# → Railway auto-deploy prod (inchangé)
 ```
 
-## Coûts
+### 4. Preview URLs par PR (bonus)
 
-- Backend staging : 1 service Railway (~5€/mois sleep quand inactif)
-- Postgres staging : 1 DB Railway (~5€/mois)
-- Frontend staging : 1 service Railway (~5€/mois)
-- Total : **~15€/mois** pour un env de test complet isolé de la prod
+Vercel génère aussi une URL par push sur n'importe quelle branche (ex: `cueforge-staging-abc123.vercel.app`). Utile pour partager un aperçu d'une feature avant merge dans `staging`.
 
-Si le budget est un blocker, alternative 0€ :
-- Deploy le frontend staging sur **Vercel** (gratuit tier hobby), connecté à la branche `staging`
-- Pas de backend staging dédié → le frontend staging pointe sur le backend prod en lecture seule (risqué pour les mutations)
+## Si un jour on veut un backend staging dédié (≠ 0€)
+
+Quand le budget le permet, créer sur Railway :
+
+1. Service backend `cueforge-backend-staging` connecté à la branche `staging`, Dockerfile `backend/Dockerfile`, nouvelle DB Postgres, env `ENVIRONMENT=staging` + bucket R2 `cueforge-audio-staging`
+2. Mettre à jour les env Vercel : `BACKEND_INTERNAL_URL` + `NEXT_PUBLIC_API_URL` → nouveau backend staging
+3. Coût : ~10€/mois (backend + DB)
+
+Voir `railway.staging.toml` et `frontend/.env.staging.example` pour les templates de config.
 
 ## Rollback
 
-Si un bug staging est accidentellement mergé dans prod :
+Si une feature mergée casse la prod :
 
 ```bash
 git checkout main
@@ -97,4 +83,4 @@ git revert <sha-buggy>
 git push origin main
 ```
 
-Railway redéploie prod avec la version précédente.
+Railway redéploie prod automatiquement sur la version précédente.
