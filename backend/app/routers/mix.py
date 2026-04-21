@@ -69,9 +69,15 @@ class SuggestNextRequest(BaseModel):
 
 
 class SuggestNextResponse(BaseModel):
-    suggested_track_id: str
+    suggested_track_id: int
     compatibility_score: float
     reason: str
+    # v4 QA 2026-04-21 : enrichir la réponse pour le UI Mix Studio
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    bpm: Optional[float] = None
+    key: Optional[str] = None
+    camelot: Optional[str] = None
 
 
 # Endpoints
@@ -208,33 +214,99 @@ async def suggest_next_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Suggest next track based on current track and mix compatibility."""
+    """Suggest next track based on current track and mix compatibility.
+
+    v4 QA 2026-04-21 : remplace le mock score 0.75 par un vrai scoring multi-facteur
+    (harmonic + BPM via transition_score) + enrichit la réponse avec titre/artiste/bpm/key
+    pour que le UI Mix Studio affiche directement le suggestion sans re-fetch.
+    """
+    from sqlalchemy.orm import selectinload
+    from app.models.analysis import Analysis
+    from app.services.camelot import transition_score, key_to_camelot
+
     try:
-        current_track = db.query(Track).filter(Track.id == request.current_track_id).first()
+        current_track = (
+            db.query(Track)
+            .options(selectinload(Track.analysis))
+            .filter(Track.id == request.current_track_id)
+            .first()
+        )
 
         if not current_track:
             raise HTTPException(status_code=404, detail="Current track not found")
 
-        # Get user's tracks or library
-        similar_tracks = db.query(Track).filter(
-            Track.user_id == current_user.id,
-            Track.id != request.current_track_id
-        ).limit(10).all()
+        # Only consider tracks owned by the current user AND analysed
+        candidates = (
+            db.query(Track)
+            .options(selectinload(Track.analysis))
+            .join(Analysis, Analysis.track_id == Track.id)
+            .filter(
+                Track.user_id == current_user.id,
+                Track.id != request.current_track_id,
+            )
+            .limit(50)
+            .all()
+        )
 
-        if not similar_tracks:
-            raise HTTPException(status_code=400, detail="No other tracks available")
+        if not candidates:
+            raise HTTPException(status_code=400, detail="Aucun autre morceau analysé dans votre bibliothèque.")
 
-        # Mock scoring
-        best_track = similar_tracks[0]
-        best_score = 0.75
+        # Si le track courant n'a pas d'analyse, on ne peut pas scorer : renvoyer le premier candidat
+        cur_bpm = getattr(current_track.analysis, 'bpm', None) if current_track.analysis else None
+        cur_key = getattr(current_track.analysis, 'key', None) if current_track.analysis else None
+
+        if not cur_bpm or not cur_key:
+            best = candidates[0]
+            best_score_pct = 50.0
+            reason = "Morceau courant non analysé — suggestion par défaut"
+        else:
+            # Score each candidate with the full multi-factor transition_score
+            best = None
+            best_score_pct = 0.0
+            best_details = None
+            for c in candidates:
+                c_bpm = getattr(c.analysis, 'bpm', None) if c.analysis else None
+                c_key = getattr(c.analysis, 'key', None) if c.analysis else None
+                if not c_bpm or not c_key:
+                    continue
+                result = transition_score(cur_bpm, cur_key, c_bpm, c_key)
+                score = result.get('overall_score', 0)
+                if score > best_score_pct:
+                    best_score_pct = score
+                    best = c
+                    best_details = result
+
+            if best is None:
+                # Fallback: first candidate, neutral score
+                best = candidates[0]
+                best_score_pct = 50.0
+                reason = "Pas d'analyse disponible pour scorer — suggestion par défaut"
+            else:
+                rec = best_details.get('recommendation', 'possible') if best_details else 'possible'
+                reason_map = {
+                    'excellent': 'Compatibilité harmonique et BPM excellente',
+                    'good': 'Bonne compatibilité harmonique et BPM',
+                    'possible': 'Compatible avec transition maîtrisée',
+                    'risky': 'Transition possible mais risquée',
+                }
+                reason = reason_map.get(rec, 'Compatible')
+
+        best_bpm = getattr(best.analysis, 'bpm', None) if best.analysis else None
+        best_key = getattr(best.analysis, 'key', None) if best.analysis else None
 
         return SuggestNextResponse(
-            suggested_track_id=best_track.id,
-            compatibility_score=best_score,
-            reason="Compatible BPM and key"
+            suggested_track_id=best.id,
+            compatibility_score=round(best_score_pct / 100.0, 3),  # 0-1 range
+            reason=reason,
+            title=best.title,
+            artist=best.artist,
+            bpm=best_bpm,
+            key=best_key,
+            camelot=key_to_camelot(best_key) if best_key else None,
         )
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error suggesting next track: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to suggest next track")
+        logger.exception(f"Error suggesting next track for user={current_user.id} track={request.current_track_id}: {exc}")
+        # v4 QA : expose l'erreur réelle en dev pour pouvoir diagnostiquer
+        raise HTTPException(status_code=500, detail=f"Failed to suggest next track: {type(exc).__name__}: {str(exc)[:200]}")
