@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'CueForge v4 — Design Preview',
-  description: 'Preview des 9 écrans CueForge v4 (staging uniquement)',
+  description: 'Preview des 9 écrans CueForge v4',
   robots: { index: false, follow: false },
 };
 
@@ -96,7 +96,7 @@ export default function V4HubPage() {
           }}
         >
           <span style={{ width: 6, height: 6, borderRadius: 999, background: '#ffb020' }} />
-          Staging preview — design v4
+          Design v4 — Studio Neon
         </div>
 
         <h1
@@ -224,15 +224,14 @@ export default function V4HubPage() {
             lineHeight: 1.6,
           }}
         >
-          <strong style={{ color: '#fff' }}>Cette page n’apparaît pas en prod.</strong>{' '}
-          Elle est hébergée sur la branche <code style={codeStyle}>staging</code>.
-          La prod sur <code style={codeStyle}>main</code> continue de tourner
-          sans changement.{' '}
+          <strong style={{ color: '#fff' }}>Preview design v4.</strong>{' '}
+          Les 9 écrans sont statiques avec données d’exemple — interactions
+          réelles (drag, shortcuts, toasts) mais aucun appel API.{' '}
           <Link
             href="/"
             style={{ color: '#ffb020', textDecoration: 'underline' }}
           >
-            ← retour prod
+            ← retour accueil
           </Link>
         </div>
       </div>
