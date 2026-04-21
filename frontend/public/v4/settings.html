@@ -756,8 +756,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260421d"></script>
-<script src="/v4/shared.js?v=20260421d"></script>
+<script src="/v4/api.js?v=20260421e"></script>
+<script src="/v4/shared.js?v=20260421e"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -890,8 +890,19 @@
         if(t){
           e.preventDefault();
           const targetTop = t.getBoundingClientRect().top + window.scrollY - 80;
-          // Native smooth scroll : fiable en CDP comme en usage réel
-          window.scrollTo({top: targetTop, behavior: 'smooth'});
+          // Si le tab est visible, tenter le smooth natif ; sinon (CDP/background) jump instantané.
+          // Le jump instantané fonctionne dans tous les contextes (tests E2E inclus).
+          if(document.visibilityState === 'visible'){
+            window.scrollTo({top: targetTop, behavior: 'smooth'});
+            // Fallback si le smooth natif ne bouge pas (certains navigateurs/contextes)
+            setTimeout(()=>{
+              if(Math.abs(window.scrollY - targetTop) > 2){
+                window.scrollTo(0, targetTop);
+              }
+            }, 500);
+          } else {
+            window.scrollTo(0, targetTop);
+          }
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
           history.replaceState(null, '', href);
