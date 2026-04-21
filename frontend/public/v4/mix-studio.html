@@ -579,7 +579,10 @@
     const camelot = tr.camelot_code || parseKey(tr.analysis?.key || tr.key) || '—';
     const note = tr.analysis?.key || tr.key || '—';
     const bpm = tr.analysis?.bpm || tr.bpm;
-    const energy = tr.analysis?.energy ?? tr.energy_level ?? null;
+    // 🔴 Fix 2026-04-21 : backend peut renvoyer energy en 0-1 (legacy) OU 0-100 (actuel).
+    // Normalise en ratio 0-1 pour fmt.pct qui fait *100.
+    const energyRaw = tr.analysis?.energy ?? tr.energy_level ?? null;
+    const energy = energyRaw == null ? null : (energyRaw > 1.0 ? energyRaw/100 : energyRaw);
     const durMs = tr.analysis?.duration_ms || tr.duration_ms;
 
     title.textContent = tr.title || tr.original_filename || tr.filename || 'Sans titre';

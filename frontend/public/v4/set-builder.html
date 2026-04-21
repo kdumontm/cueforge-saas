@@ -409,8 +409,14 @@ function coverGradient(seed){
 function getCam(t){ return t?.camelot_code || parseKey(t?.analysis?.key); }
 function getBpm(t){ return t?.analysis?.bpm ?? null; }
 function getE(t){
+  // 🔴 Fix 2026-04-21 : backend peut renvoyer energy en 0-1 (legacy) OU 0-100 (actuel).
+  // Normalise en 0-100 puis convertit en 0-10 pour l'affichage compact.
   if(typeof t?.energy_level === 'number') return t.energy_level;
-  if(typeof t?.analysis?.energy === 'number') return Math.round(t.analysis.energy * 100)/10;
+  const e = t?.analysis?.energy;
+  if(typeof e === 'number'){
+    const pct = e > 1.0 ? e : e * 100;
+    return Math.round(pct)/10;
+  }
   return null;
 }
 
