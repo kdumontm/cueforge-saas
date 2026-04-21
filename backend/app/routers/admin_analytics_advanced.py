@@ -53,7 +53,8 @@ class RealtimeEvent(Base):
     user_agent = Column(String(500), nullable=True)
     country = Column(String(50), nullable=True)
     city = Column(String(100), nullable=True)
-    metadata = Column(JSON, nullable=True)
+    # 'metadata' réservé SQLAlchemy Declarative
+    extra_metadata = Column("meta", JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = relationship("User", foreign_keys=[user_id])

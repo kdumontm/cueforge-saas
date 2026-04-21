@@ -30,7 +30,8 @@ class PushNotification(Base):
     total_sent = Column(Integer, default=0)
     total_delivered = Column(Integer, default=0)
     total_clicked = Column(Integer, default=0)
-    metadata = Column(JSON, default=dict)
+    # 'metadata' réservé SQLAlchemy → renommage attribut + column name
+    extra_metadata = Column("meta", JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class SMSTemplate(Base):

@@ -8,7 +8,7 @@ from enum import Enum
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, JSON, ForeignKey, func
 from sqlalchemy.orm import Session, relationship
 
@@ -928,23 +928,19 @@ async def list_environments(
 
 @router.post("/environments")
 async def create_environment(
-    name: str = Query(...),
-    environment_type: str = Query(...),
-    base_url: str = Query(...),
-    database_url: Optional[str] = Query(None),
-    config: Optional[Dict[str, Any]] = Query(None),
+    payload: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     admin: str = Depends(require_admin),
 ):
     """
-    Crée un nouvel environnement.
+    Crée un nouvel environnement (body JSON: name, environment_type, base_url, database_url?, config?).
     """
     env = Environment(
-        name=name,
-        environment_type=environment_type,
-        base_url=base_url,
-        database_url=database_url,
-        config=config or {},
+        name=payload.get("name", ""),
+        environment_type=payload.get("environment_type", ""),
+        base_url=payload.get("base_url", ""),
+        database_url=payload.get("database_url"),
+        config=payload.get("config") or {},
     )
     db.add(env)
     db.commit()
@@ -1127,13 +1123,14 @@ async def get_environment_variables(
 @router.put("/environments/{env_id}/variables")
 async def update_environment_variables(
     env_id: int,
-    variables: Dict[str, str] = Query(...),
+    payload: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     admin: str = Depends(require_admin),
 ):
     """
-    Met à jour les variables d'environnement.
+    Met à jour les variables d'environnement (body JSON: {variables: {...}}).
     """
+    variables: Dict[str, str] = payload.get("variables") or {}
     for key, value in variables.items():
         var = db.query(EnvironmentVariable).filter(
             EnvironmentVariable.environment_id == env_id,
@@ -1236,19 +1233,17 @@ async def list_webhook_endpoints(
 
 @router.post("/webhook-testing/test")
 async def send_test_webhook(
-    endpoint_url: str = Query(...),
-    event_type: str = Query(...),
-    payload: Optional[Dict[str, Any]] = Query(None),
+    body: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     admin: str = Depends(require_admin),
 ):
     """
-    Envoie un webhook de test.
+    Envoie un webhook de test (body: endpoint_url, event_type, payload?).
     """
     log = WebhookTestLog(
-        endpoint_url=endpoint_url,
-        event_type=event_type,
-        payload=payload or {},
+        endpoint_url=body.get("endpoint_url", ""),
+        event_type=body.get("event_type", ""),
+        payload=body.get("payload") or {},
         is_success=True,
         response_status=200,
     )
@@ -1486,13 +1481,14 @@ async def get_keyboard_shortcuts(
 
 @router.put("/preferences/shortcuts")
 async def update_keyboard_shortcuts(
-    shortcuts: Dict[str, str] = Query(...),
+    body: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
     admin: str = Depends(require_admin),
 ):
     """
-    Met à jour la configuration des raccourcis clavier.
+    Met à jour la configuration des raccourcis clavier (body: {shortcuts: {...}}).
     """
+    shortcuts: Dict[str, str] = body.get("shortcuts") or {}
     prefs = db.query(AdminPreference).filter(
         AdminPreference.admin_email == admin
     ).first()

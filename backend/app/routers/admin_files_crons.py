@@ -28,7 +28,8 @@ class ManagedFile(Base):
     height = Column(Integer, nullable=True)
     folder = Column(String(500), default="/")
     tags = Column(JSON, default=list)
-    metadata = Column(JSON, default=dict)
+    # 'metadata' est un nom réservé par SQLAlchemy Declarative → utiliser file_metadata
+    file_metadata = Column("meta", JSON, default=dict)
     uploaded_by = Column(Integer, nullable=True)
     is_public = Column(Boolean, default=True)
     download_count = Column(Integer, default=0)
@@ -116,7 +117,7 @@ def _ser_file(f):
         "id": f.id, "filename": f.filename, "original_name": f.original_name,
         "path": f.path, "url": f.url, "cdn_url": f.cdn_url, "mime_type": f.mime_type,
         "size_bytes": f.size_bytes, "width": f.width, "height": f.height,
-        "folder": f.folder, "tags": f.tags or [], "metadata": f.metadata or {},
+        "folder": f.folder, "tags": f.tags or [], "metadata": f.file_metadata or {},
         "is_public": f.is_public, "download_count": f.download_count,
         "created_at": f.created_at.isoformat() if f.created_at else None,
     }
@@ -174,7 +175,7 @@ def create_file(data: dict, db: Session = Depends(get_db), _=Depends(require_adm
         mime_type=data.get("mime_type", ""), size_bytes=data.get("size_bytes", 0),
         width=data.get("width"), height=data.get("height"),
         folder=data.get("folder", "/"), tags=data.get("tags", []),
-        metadata=data.get("metadata", {}), is_public=data.get("is_public", True),
+        file_metadata=data.get("metadata", {}), is_public=data.get("is_public", True),
     )
     db.add(f)
     db.commit()
@@ -186,9 +187,12 @@ def update_file(file_id: int, data: dict, db: Session = Depends(get_db), _=Depen
     f = db.query(ManagedFile).filter(ManagedFile.id == file_id).first()
     if not f:
         raise HTTPException(404)
-    for k in ["original_name", "folder", "tags", "is_public", "metadata"]:
+    for k in ["original_name", "folder", "tags", "is_public"]:
         if k in data:
             setattr(f, k, data[k])
+    # metadata → file_metadata (nom réservé SQLAlchemy)
+    if "metadata" in data:
+        f.file_metadata = data["metadata"]
     db.commit()
     db.refresh(f)
     return _ser_file(f)

@@ -4,7 +4,7 @@ Admin – RBAC Permissions, Audit Trail, Multi-langue i18n
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, JSON, ForeignKey, func
 from datetime import datetime
 import json
 
@@ -72,8 +72,6 @@ class Locale(Base):
     direction = Column(String(5), default="ltr")  # ltr, rtl
     completion_percentage = Column(Float, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-from sqlalchemy import Float
 
 # ── Serializers ───────────────────────────────────────
 def _ser_role(r):

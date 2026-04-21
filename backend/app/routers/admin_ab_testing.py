@@ -43,7 +43,8 @@ class ABTestEvent(Base):
     user_id = Column(Integer, nullable=True)
     session_id = Column(String(200))
     event_type = Column(String(50))  # impression, click, conversion
-    metadata = Column(JSON, default=dict)
+    # 'metadata' réservé SQLAlchemy Declarative
+    extra_metadata = Column("meta", JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class HeatmapConfig(Base):
