@@ -951,8 +951,8 @@
       }
     });
   }
-  // Topbar
-  document.querySelectorAll('.topbar button').forEach(b=>{
+  // Topbar (la classe est .topnav, pas .topbar)
+  document.querySelectorAll('.topnav button').forEach(b=>{
     const txt = b.textContent.trim();
     if(b.dataset.wired) return;
     if(txt === 'Find'){
