@@ -408,7 +408,7 @@ function relTime(iso){
     });
   }
   document.getElementById('kpi-tracks').textContent = total.toLocaleString('fr-FR');
-  document.getElementById('kpi-tracks-sub').textContent = totalAnalyses ? `${totalAnalyses} analyses` : (total===0 ? 'Démarre en uploadant un track' : '');
+  document.getElementById('kpi-tracks-sub').textContent = totalAnalyses ? `${totalAnalyses} analyse${totalAnalyses>1?'s':''}` : (total===0 ? 'Démarre en uploadant un track' : '');
   document.getElementById('kpi-cues').textContent = totalCues ? totalCues.toLocaleString('fr-FR') : '—';
   document.getElementById('kpi-cues-sub').textContent = totalCues ? 'sur les 8 derniers tracks' : 'Aucun cue pour l\'instant';
   document.getElementById('kpi-sets').textContent = totalSets.toLocaleString('fr-FR');
