@@ -1,7 +1,10 @@
 """Router admin — Gestion des utilisateurs."""
+import csv
+import io
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -54,6 +57,45 @@ async def list_users(
             for u in users
         ],
     }
+
+
+# IMPORTANT: Cette route DOIT être déclarée avant /users/{user_id} sinon FastAPI
+# essaie de parser "export" comme un int et renvoie 422.
+# QA 2026-04-21: fix pour shadowing de admin_extended.export_users par ce router.
+@router.get("/users/export")
+async def export_users(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Export tous les utilisateurs en CSV."""
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id", "email", "name", "subscription_plan", "is_admin",
+        "email_verified", "oauth_provider", "organization_id", "org_role",
+        "tracks_today", "last_login_at", "created_at",
+    ])
+    for u in users:
+        writer.writerow([
+            u.id,
+            u.email,
+            u.name or "",
+            u.subscription_plan or "",
+            u.is_admin,
+            u.email_verified,
+            u.oauth_provider or "",
+            u.organization_id or "",
+            u.org_role or "",
+            u.tracks_today or 0,
+            u.last_login_at.isoformat() if u.last_login_at else "",
+            u.created_at.isoformat() if u.created_at else "",
+        ])
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users_export.csv"},
+    )
 
 
 @router.get("/users/{user_id}")
