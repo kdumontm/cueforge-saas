@@ -62,20 +62,6 @@ async def get_favorites(
     """
     from sqlalchemy.orm import selectinload
 
-    # DEBUG: log what's actually in the Favorites table for this user
-    import logging
-    logger = logging.getLogger(__name__)
-    raw_favs = db.query(Favorite).filter(Favorite.user_id == current_user.id).all()
-    logger.warning(
-        "[FAV_DEBUG] user_id=%s | raw Favorite rows=%d | track_ids=%s",
-        current_user.id, len(raw_favs), [f.track_id for f in raw_favs]
-    )
-    raw_any = db.query(Favorite).limit(10).all()
-    logger.warning(
-        "[FAV_DEBUG] raw all favorites (any user) sample=%s",
-        [(f.user_id, f.track_id) for f in raw_any]
-    )
-
     # JOIN direct entre Favorite et Track pour garantir cohérence
     rows = (
         db.query(Track, Favorite.created_at)
@@ -92,7 +78,6 @@ async def get_favorites(
         .order_by(Favorite.created_at.desc())
         .all()
     )
-    logger.warning("[FAV_DEBUG] joined rows count=%d", len(rows))
 
     tracks_data = []
     for track, favorited_at in rows:
@@ -113,14 +98,6 @@ async def get_favorites(
     return {
         "tracks": tracks_data,
         "count": len(tracks_data),
-        "_debug": {
-            "user_id": current_user.id,
-            "raw_fav_count": len(raw_favs),
-            "raw_fav_track_ids": [f.track_id for f in raw_favs],
-            "raw_any_count": len(raw_any),
-            "raw_any_sample": [(f.user_id, f.track_id) for f in raw_any],
-            "joined_count": len(rows),
-        },
     }
 
 
