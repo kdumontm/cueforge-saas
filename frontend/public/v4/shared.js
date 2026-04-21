@@ -118,8 +118,10 @@ document.addEventListener('click', (e)=>{
 // -------- Find button (⌘K) — toujours disponible, pas d'authentification requise --------
 (function attachFindListeners(){
   // Re-attach Find listener à chaque navigation de page (SPA)
-  // Déplacé hors de la section dépendante de l'api pour éviter les race conditions
-  document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
+  // Cherche le bouton Find dans la topbar (match sur textContent "Find" ou data-tt contenant "Search")
+  document.querySelectorAll('.topnav-actions button, .topnav-actions a').forEach(btn => {
+    const isFindBtn = /find/i.test(btn.textContent || '') || /search/i.test(btn.getAttribute('data-tt') || '');
+    if (!isFindBtn) return;
     // Skip si déjà attaché (marker data-tc-find-attached)
     if(btn.dataset.tcFindAttached) return;
     btn.dataset.tcFindAttached = '1';
