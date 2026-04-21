@@ -1063,39 +1063,159 @@ document.querySelectorAll('.stem-ctls button').forEach(b=>{
   });
 });
 
-// ========== Audio engine (HTML5 <audio>) ==========
+// ========== Audio engine (WebAudio API) ==========
+// Chrome's HTML5 <audio> element stalle systématiquement à ~3230ms sur notre
+// endpoint /audio malgré Range 206 valide (testé 2026-04-21). Donc on utilise
+// WebAudio + AudioBufferSourceNode qui fonctionne parfaitement (decodeAudioData
+// réussit en ~500ms sur les mêmes bytes). On expose un wrapper qui mime l'API
+// HTMLAudioElement (paused/play/pause/currentTime/addEventListener) pour que
+// le reste du code reste inchangé.
+function createWebAudioPlayer(audioBuffer){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const listeners = { ended: [], timeupdate: [] };
+  let source = null;
+  let gainNode = ctx.createGain();
+  gainNode.connect(ctx.destination);
+  let _paused = true;
+  let _startOffset = 0;      // position dans le buffer au dernier play() (en s)
+  let _startCtxTime = 0;     // ctx.currentTime au dernier play()
+  let _duration = audioBuffer.duration;
+  let _timeupdateTimer = null;
+
+  function currentTime(){
+    if(_paused) return _startOffset;
+    return _startOffset + (ctx.currentTime - _startCtxTime);
+  }
+
+  function fireTimeupdate(){
+    listeners.timeupdate.forEach(fn => { try { fn(); } catch(e){} });
+  }
+
+  function startTimer(){
+    if(_timeupdateTimer) return;
+    _timeupdateTimer = setInterval(fireTimeupdate, 100); // 10Hz, proche d'un <audio>
+  }
+  function stopTimer(){
+    if(_timeupdateTimer){ clearInterval(_timeupdateTimer); _timeupdateTimer = null; }
+  }
+
+  function stopSource(){
+    if(source){
+      try { source.onended = null; source.stop(); } catch(e){}
+      try { source.disconnect(); } catch(e){}
+      source = null;
+    }
+  }
+
+  function _play(){
+    if(!_paused) return;
+    // AudioBufferSourceNode ne peut être joué qu'une fois → on en recrée un à chaque play()
+    stopSource();
+    source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(gainNode);
+    source.onended = () => {
+      // Distingue fin naturelle vs pause() manuelle (pause stop source + reset onended)
+      if(!_paused){
+        _paused = true;
+        _startOffset = _duration;
+        stopTimer();
+        fireTimeupdate();
+        listeners.ended.forEach(fn => { try { fn(); } catch(e){} });
+      }
+    };
+    if(ctx.state === 'suspended') ctx.resume();
+    const offset = Math.min(Math.max(0, _startOffset), _duration - 0.01);
+    source.start(0, offset);
+    _startCtxTime = ctx.currentTime;
+    _paused = false;
+    startTimer();
+  }
+
+  function _pause(){
+    if(_paused) return;
+    const pos = currentTime();
+    _startOffset = Math.min(pos, _duration);
+    _paused = true;
+    stopSource();
+    stopTimer();
+  }
+
+  function _seek(sec){
+    const target = Math.max(0, Math.min(sec, _duration));
+    const wasPlaying = !_paused;
+    if(wasPlaying){
+      stopSource();
+      _startOffset = target;
+      _startCtxTime = ctx.currentTime;
+      source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(gainNode);
+      source.onended = () => {
+        if(!_paused){
+          _paused = true;
+          _startOffset = _duration;
+          stopTimer();
+          fireTimeupdate();
+          listeners.ended.forEach(fn => { try { fn(); } catch(e){} });
+        }
+      };
+      source.start(0, target);
+    } else {
+      _startOffset = target;
+    }
+    fireTimeupdate();
+  }
+
+  // Wrapper compatible <audio>
+  return {
+    get paused(){ return _paused; },
+    get duration(){ return _duration; },
+    get currentTime(){ return currentTime(); },
+    set currentTime(v){ _seek(Number(v) || 0); },
+    play(){ _play(); return Promise.resolve(); },
+    pause(){ _pause(); },
+    addEventListener(ev, fn){
+      if(listeners[ev]) listeners[ev].push(fn);
+    },
+    removeEventListener(ev, fn){
+      if(listeners[ev]){
+        const i = listeners[ev].indexOf(fn);
+        if(i >= 0) listeners[ev].splice(i, 1);
+      }
+    },
+    _ctx: ctx,
+    _buffer: audioBuffer,
+    _destroy(){ stopSource(); stopTimer(); try { ctx.close(); } catch(e){} }
+  };
+}
+
 async function ensureAudio(){
   if(audioEl) return audioEl;
   if(!trackId) return null;
   try {
-    // Fetch audio as blob avec token JWT, puis créer un Object URL
+    // 1. Fetch bytes avec JWT
     const tok = typeof api.token === 'function' ? api.token() : '';
-    const resp = await fetch(`/api/v1/tracks/${trackId}/audio`, {
+    let resp = await fetch(`/api/v1/tracks/${trackId}/audio`, {
       headers: tok ? { 'Authorization': 'Bearer ' + tok } : {}
     });
-    if(!resp.ok){
-      // Si 401, on tente un ping api.me() pour forcer un refresh puis on recommence une fois
-      if(resp.status === 401 && !audioEl){
-        try { await api.me(); } catch {}
-        const tok2 = typeof api.token === 'function' ? api.token() : '';
-        const resp2 = await fetch(`/api/v1/tracks/${trackId}/audio`, {
-          headers: tok2 ? { 'Authorization': 'Bearer ' + tok2 } : {}
-        });
-        if(!resp2.ok) throw new Error('HTTP '+resp2.status);
-        const blob2 = await resp2.blob();
-        audioBlobUrl = URL.createObjectURL(blob2);
-        audioEl = new Audio(audioBlobUrl);
-        audioEl.preload = 'auto';
-        audioEl.addEventListener('ended', () => setPlayingUI(false));
-        audioEl.addEventListener('timeupdate', updatePlayheadUI);
-        return audioEl;
-      }
-      throw new Error('HTTP '+resp.status);
+    if(!resp.ok && resp.status === 401){
+      try { await api.me(); } catch {}
+      const tok2 = typeof api.token === 'function' ? api.token() : '';
+      resp = await fetch(`/api/v1/tracks/${trackId}/audio`, {
+        headers: tok2 ? { 'Authorization': 'Bearer ' + tok2 } : {}
+      });
     }
-    const blob = await resp.blob();
-    audioBlobUrl = URL.createObjectURL(blob);
-    audioEl = new Audio(audioBlobUrl);
-    audioEl.preload = 'auto';
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+
+    // 2. Decode via WebAudio (fonctionne là où <audio> stalle)
+    const arrayBuf = await resp.arrayBuffer();
+    const ctxTmp = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await ctxTmp.decodeAudioData(arrayBuf);
+    try { ctxTmp.close(); } catch(e){}
+
+    // 3. Wrapper compatible <audio>
+    audioEl = createWebAudioPlayer(audioBuffer);
     audioEl.addEventListener('ended', () => setPlayingUI(false));
     audioEl.addEventListener('timeupdate', updatePlayheadUI);
     return audioEl;
