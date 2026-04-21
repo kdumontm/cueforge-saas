@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrackCue — Admin</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body{background-image:var(--aurora-calm)}
+
+  /* LAYOUT — admin 2 col (nav + content) */
+  .admin-wrap{
+    display:grid;grid-template-columns:240px 1fr;gap:20px;
+    margin-top:20px;
+  }
+  .admin-nav{
+    position:sticky;top:80px;align-self:start;
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;
+    padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+    max-height:calc(100vh - 110px);overflow:auto;
+  }
+  .admin-nav .grp{
+    font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--c-tertiary);
+    padding:10px 10px 6px;margin-top:4px;
+  }
+  .admin-nav .grp:first-child{margin-top:0}
+  .admin-nav a{
+    display:flex;align-items:center;gap:10px;
+    padding:7px 10px;border-radius:8px;
+    font-size:13px;color:var(--c-secondary);text-decoration:none;
+    transition:all var(--t-fast) var(--ease);cursor:pointer;
+  }
+  .admin-nav a:hover{background:var(--s-2);color:var(--c-primary)}
+  .admin-nav a.active{background:linear-gradient(90deg,var(--amber-soft),transparent);color:var(--amber);border-left:2px solid var(--amber);padding-left:8px}
+  .admin-nav a svg{width:14px;height:14px;stroke-width:1.7;opacity:.8}
+  .admin-nav a .count{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
+
+  .admin-main{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+  /* Page head */
+  .ah{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .ah-title{font-family:var(--font-display);font-weight:700;font-size:26px;letter-spacing:-0.02em;margin:0}
+  .ah-title em{font-family:var(--font-editorial);font-style:italic;font-weight:400;color:var(--c-secondary)}
+  .ah-sub{font-size:13px;color:var(--c-tertiary);margin-top:2px}
+  .ah-actions{display:flex;gap:8px}
+
+  /* KPI row */
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .kpi{
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;
+    padding:14px 16px;display:flex;flex-direction:column;gap:6px;
+    position:relative;overflow:hidden;
+  }
+  .kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:var(--amber);opacity:.5}
+  .kpi.cyan::before{background:var(--cyan)}
+  .kpi.pink::before{background:var(--pink)}
+  .kpi.green::before{background:var(--green)}
+  .kpi .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary)}
+  .kpi .val{font-family:var(--font-display);font-weight:700;font-size:28px;letter-spacing:-0.02em;line-height:1}
+  .kpi .trend{display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:11px;color:var(--green)}
+  .kpi .trend.down{color:var(--red)}
+  .kpi .trend svg{width:10px;height:10px}
+
+  /* Card blocks */
+  .card{
+    background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;
+    overflow:hidden;
+  }
+  .card-head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 16px;border-bottom:1px solid var(--b-subtle);
+  }
+  .card-title{font-family:var(--font-display);font-weight:600;font-size:14px;letter-spacing:-0.01em}
+  .card-sub{font-size:11.5px;color:var(--c-tertiary);margin-top:2px;font-family:var(--font-mono);letter-spacing:.05em}
+  .card-action{display:flex;gap:6px;align-items:center}
+
+  /* Search + filters */
+  .tb-filters{
+    display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--b-subtle);
+    flex-wrap:wrap;
+  }
+  .tb-search{
+    flex:1;min-width:220px;display:flex;align-items:center;gap:8px;
+    padding:7px 12px;background:var(--s-2);border:1px solid var(--b-default);border-radius:9px;
+  }
+  .tb-search input{
+    flex:1;background:transparent;border:none;outline:none;color:var(--c-primary);
+    font-family:var(--font-body);font-size:13px;
+  }
+  .tb-search svg{width:14px;height:14px;color:var(--c-tertiary)}
+  .tb-chip{
+    padding:5px 10px;border-radius:var(--r-pill);font-family:var(--font-mono);font-size:11px;
+    background:var(--s-2);border:1px solid var(--b-subtle);color:var(--c-secondary);cursor:pointer;
+    transition:all var(--t-fast);
+  }
+  .tb-chip.active{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+  .tb-chip:hover{background:var(--s-3)}
+
+  /* Table (users) */
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl thead th{
+    text-align:left;padding:10px 16px;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary);
+    border-bottom:1px solid var(--b-subtle);background:var(--s-2);
+    position:sticky;top:0;
+  }
+  .tbl tbody tr{transition:background var(--t-fast);cursor:pointer}
+  .tbl tbody tr:hover{background:var(--s-2)}
+  .tbl tbody tr.flagged{background:rgba(239,68,68,0.04)}
+  .tbl tbody td{padding:10px 16px;border-bottom:1px solid var(--b-subtle);vertical-align:middle}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .usr{display:flex;align-items:center;gap:10px}
+  .usr-av{
+    width:28px;height:28px;border-radius:50%;
+    background:linear-gradient(135deg,var(--pink),var(--amber));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:10px;font-weight:600;color:#fff;
+    flex-shrink:0;
+  }
+  .usr-av.violet{background:linear-gradient(135deg,var(--violet),var(--cyan))}
+  .usr-av.green{background:linear-gradient(135deg,var(--green),var(--cyan))}
+  .usr-av.red{background:linear-gradient(135deg,var(--red),var(--pink))}
+  .usr-nm{font-weight:500;color:var(--c-primary)}
+  .usr-em{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)}
+  .plan-pill{
+    display:inline-flex;align-items:center;gap:4px;
+    padding:3px 8px;border-radius:var(--r-pill);
+    font-family:var(--font-mono);font-size:10.5px;font-weight:600;letter-spacing:.04em;
+  }
+  .plan-pill.pro{background:var(--amber-soft);color:var(--amber)}
+  .plan-pill.free{background:var(--s-3);color:var(--c-secondary)}
+  .plan-pill.studio{background:var(--violet-soft);color:var(--violet)}
+  .plan-pill.trial{background:var(--cyan-soft);color:var(--cyan)}
+  .usage-bar{height:4px;background:var(--s-3);border-radius:2px;overflow:hidden;width:80px}
+  .usage-bar .fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px}
+  .usage-bar .fill.warn{background:linear-gradient(90deg,var(--amber),var(--red))}
+  .tbl .act{display:flex;gap:4px;opacity:0;transition:opacity var(--t-fast)}
+  .tbl tbody tr:hover .act{opacity:1}
+  .tbl .act button{
+    width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+    background:transparent;border:1px solid var(--b-default);border-radius:6px;
+    color:var(--c-secondary);cursor:pointer;transition:all var(--t-fast);
+  }
+  .tbl .act button:hover{background:var(--s-3);color:var(--c-primary)}
+  .tbl .act button.danger:hover{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+
+  /* Health dashboard */
+  .health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}
+  .health-cell{
+    padding:14px;background:var(--s-2);border:1px solid var(--b-subtle);border-radius:10px;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .health-cell .hd{display:flex;justify-content:space-between;align-items:center}
+  .health-cell .nm{font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);letter-spacing:.04em}
+  .health-cell .st{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:10px}
+  .health-cell .dot{width:7px;height:7px;border-radius:50%}
+  .health-cell.ok .dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+  .health-cell.ok .st{color:#8ef0aa}
+  .health-cell.warn .dot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .health-cell.warn .st{color:var(--amber)}
+  .health-cell.down .dot{background:var(--red);box-shadow:0 0 6px var(--red)}
+  .health-cell.down .st{color:var(--red)}
+  .health-cell .met{display:flex;gap:14px;margin-top:2px}
+  .health-cell .met span{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)}
+  .health-cell .met b{color:var(--c-primary);font-weight:500}
+  .spark{height:26px;margin-top:4px}
+
+  /* Jobs queue */
+  .jobs-head{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px;border-bottom:1px solid var(--b-subtle)}
+  .job-stat{padding:10px 12px;background:var(--s-2);border:1px solid var(--b-subtle);border-radius:10px}
+  .job-stat .l{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary)}
+  .job-stat .v{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-0.02em;margin-top:4px}
+  .job-stat.running .v{color:var(--amber)}
+  .job-stat.queue .v{color:var(--cyan)}
+  .job-stat.failed .v{color:var(--red)}
+  .job-stat.done .v{color:var(--green)}
+
+  .jobs-list{max-height:340px;overflow:auto}
+  .job-row{
+    display:grid;grid-template-columns:18px 1fr 100px 80px 90px 28px;gap:10px;align-items:center;
+    padding:10px 16px;border-bottom:1px solid var(--b-subtle);font-size:13px;
+    transition:background var(--t-fast);cursor:pointer;
+  }
+  .job-row:hover{background:var(--s-2)}
+  .job-row.run{background:rgba(255,122,24,0.04)}
+  .job-row.err{background:rgba(239,68,68,0.05)}
+  .job-dot{width:7px;height:7px;border-radius:50%;background:var(--c-tertiary)}
+  .job-dot.run{background:var(--amber);animation:pulse 1.6s infinite}
+  .job-dot.done{background:var(--green)}
+  .job-dot.err{background:var(--red)}
+  .job-dot.queue{background:var(--cyan)}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--amber)}50%{opacity:.5;box-shadow:0 0 0 var(--amber)}}
+  .job-title{display:flex;align-items:center;gap:8px}
+  .job-title b{font-weight:500}
+  .job-title small{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)}
+  .prog{height:4px;background:var(--s-3);border-radius:2px;overflow:hidden}
+  .prog .f{height:100%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px}
+  .job-dur{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);text-align:right}
+
+  /* Integrations */
+  .int-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px}
+  .int-cell{
+    padding:14px;background:var(--s-2);border:1px solid var(--b-subtle);border-radius:10px;
+    display:flex;flex-direction:column;gap:8px;position:relative;
+  }
+  .int-cell .hd{display:flex;align-items:center;justify-content:space-between}
+  .int-cell .nm{font-family:var(--font-display);font-weight:600;font-size:13px}
+  .int-cell .dot{width:7px;height:7px;border-radius:50%}
+  .int-cell.on .dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+  .int-cell.off .dot{background:var(--c-quaternary)}
+  .int-cell.err .dot{background:var(--red);box-shadow:0 0 6px var(--red)}
+  .int-cell .sub{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);letter-spacing:.04em}
+  .int-cell .calls{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--c-secondary)}
+
+  /* Revenue bar */
+  .rev-bars{padding:16px;display:flex;align-items:end;gap:6px;height:180px}
+  .rev-bars .b{
+    flex:1;background:linear-gradient(180deg,var(--amber),var(--pink));border-radius:4px 4px 0 0;
+    position:relative;cursor:pointer;min-height:4px;
+    transition:all var(--t-fast);
+  }
+  .rev-bars .b:hover{filter:brightness(1.2)}
+  .rev-bars .b.now{background:linear-gradient(180deg,var(--pink),var(--violet))}
+  .rev-bars .b::after{
+    content:attr(data-month);position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);
+    font-family:var(--font-mono);font-size:9px;color:var(--c-tertiary);text-transform:uppercase;letter-spacing:.04em;
+  }
+
+  /* Alerts list */
+  .alerts{display:flex;flex-direction:column}
+  .alert{
+    display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:start;
+    padding:10px 16px;border-bottom:1px solid var(--b-subtle);cursor:pointer;
+    transition:background var(--t-fast);
+  }
+  .alert:hover{background:var(--s-2)}
+  .alert:last-child{border-bottom:none}
+  .alert-ic{
+    width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:12px;font-weight:700;
+  }
+  .alert.crit .alert-ic{background:var(--red-soft);color:var(--red)}
+  .alert.warn .alert-ic{background:var(--amber-soft);color:var(--amber)}
+  .alert.info .alert-ic{background:var(--cyan-soft);color:var(--cyan)}
+  .alert-bd .ti{font-size:13px;color:var(--c-primary)}
+  .alert-bd .ti b{font-weight:600}
+  .alert-bd .mt{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);margin-top:2px;letter-spacing:.04em}
+  .alert .time{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);white-space:nowrap}
+
+  /* Two col */
+  .two{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+
+  @media (max-width: 1100px){
+    .admin-wrap{grid-template-columns:1fr}
+    .admin-nav{position:relative;top:auto;max-height:none;flex-direction:row;overflow:auto;flex-wrap:nowrap}
+    .admin-nav .grp{display:none}
+    .admin-nav a{flex-shrink:0;padding:6px 10px}
+    .kpi-row{grid-template-columns:repeat(2,1fr)}
+    .two{grid-template-columns:1fr}
+    .int-grid{grid-template-columns:repeat(2,1fr)}
+    .health-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- SHARED TOP NAV -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <span class="mark"></span>
+    <span>TrackCue</span>
+    <span class="chip chip-pink" style="margin-left:6px"><span class="chip-dot"></span>Admin</span>
+  </div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+    <a href="admin.html" class="active">Admin</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm" data-tt="Search · ⌘K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find</button>
+    <span class="topnav-sep"></span>
+    <button class="btn-icon btn btn-ghost btn-sm" data-tt="Logs système"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+    <button class="avatar" data-tt="Kevin · superadmin">KD</button>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- Page head -->
+  <div class="ah reveal">
+    <div>
+      <h1 class="ah-title">Admin <em>/ tout ce qui fait tourner TrackCue</em></h1>
+      <div class="ah-sub">Users, tracks, subscriptions, jobs, intégrations, system health — en un coup d’œil.</div>
+    </div>
+    <div class="ah-actions">
+      <button class="btn btn-ghost btn-sm">Exporter CSV</button>
+      <button class="btn btn-ghost btn-sm">Voir logs →</button>
+      <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v5h-5"/></svg>Rafraîchir</button>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi reveal">
+      <span class="lbl">Users actifs · 30j</span>
+      <span class="val">2 847</span>
+      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+12,4 % vs mois -1</span>
+    </div>
+    <div class="kpi cyan reveal reveal-2">
+      <span class="lbl">Tracks analysés · 30j</span>
+      <span class="val">184 629</span>
+      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+28,1 %</span>
+    </div>
+    <div class="kpi pink reveal reveal-3">
+      <span class="lbl">MRR · avril</span>
+      <span class="val">42 860 €</span>
+      <span class="trend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+7,8 %</span>
+    </div>
+    <div class="kpi green reveal reveal-4">
+      <span class="lbl">Uptime · 30j</span>
+      <span class="val">99,94 %</span>
+      <span class="trend down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 10 6 6 6-6"/></svg>2 incidents mineurs</span>
+    </div>
+  </div>
+
+  <!-- 2 cols: Users table (left) + System health (right) -->
+  <div class="admin-wrap">
+
+    <!-- NAV -->
+    <aside class="admin-nav reveal">
+      <div class="grp">Opérations</div>
+      <a href="#users" class="active" data-sec="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users <span class="count">2 847</span>
+      </a>
+      <a href="#orgs" data-sec="orgs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Organisations <span class="count">142</span>
+      </a>
+      <a href="#tracks" data-sec="tracks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        Tracks <span class="count">1,2 M</span>
+      </a>
+      <a href="#subscriptions" data-sec="subs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+        Subscriptions <span class="count">1 318</span>
+      </a>
+      <a href="#invoices" data-sec="inv">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        Invoices <span class="count">842</span>
+      </a>
+
+      <div class="grp">Technique</div>
+      <a href="#health" data-sec="health">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        System health
+      </a>
+      <a href="#jobs" data-sec="jobs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Jobs · queue <span class="count">12</span>
+      </a>
+      <a href="#integrations" data-sec="int">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Intégrations
+      </a>
+      <a href="#feature-flags" data-sec="flags">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg>
+        Feature flags
+      </a>
+      <a href="#webhooks" data-sec="wh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 17l-3-3m0 0 3-3m-3 3h6M6 17l-3-3m0 0 3-3m-3 3h6M9 3v18"/></svg>
+        Webhooks
+      </a>
+
+      <div class="grp">Sécurité</div>
+      <a href="#audit" data-sec="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        Audit log
+      </a>
+      <a href="#impersonate" data-sec="imp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Impersonation
+      </a>
+      <a href="#dsr" data-sec="dsr">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        DSR · RGPD <span class="count">3</span>
+      </a>
+
+      <div class="grp">Support</div>
+      <a href="#feedback" data-sec="fb">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Feedback <span class="count">28</span>
+      </a>
+      <a href="#changelog" data-sec="cl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+        Changelog
+      </a>
+    </aside>
+
+    <!-- MAIN -->
+    <section class="admin-main">
+
+      <!-- USERS TABLE -->
+      <div id="users" class="card reveal">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Users · tous comptes</div>
+            <div class="card-sub">2 847 · 412 Pro · 12 flagged pour abuse</div>
+          </div>
+          <div class="card-action">
+            <button class="btn btn-ghost btn-sm">+ Créer user</button>
+            <button class="btn btn-primary btn-sm">Inviter →</button>
+          </div>
+        </div>
+        <div class="tb-filters">
+          <div class="tb-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input placeholder="Chercher par email, nom DJ, id user...">
+          </div>
+          <span class="tb-chip active" data-filter="all">Tous</span>
+          <span class="tb-chip" data-filter="pro">Pro</span>
+          <span class="tb-chip" data-filter="trial">Trial</span>
+          <span class="tb-chip" data-filter="free">Free</span>
+          <span class="tb-chip" data-filter="flagged">Flagged</span>
+          <span class="tb-chip" data-filter="churned">Churned</span>
+        </div>
+        <div style="max-height:420px;overflow:auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Plan</th>
+              <th>Storage</th>
+              <th>Tracks</th>
+              <th>Dernière connexion</th>
+              <th>Inscrit le</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="users-body">
+            <!-- populated by JS -->
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <!-- 2 col: health + jobs -->
+      <div class="two">
+
+        <!-- System health -->
+        <div id="health" class="card reveal">
+          <div class="card-head">
+            <div>
+              <div class="card-title">System health · live</div>
+              <div class="card-sub">Services critiques · auto-refresh 10s</div>
+            </div>
+            <span class="chip chip-green"><span class="chip-dot"></span>All systems nominal</span>
+          </div>
+          <div class="health-grid">
+            <div class="health-cell ok">
+              <div class="hd"><span class="nm">API · FastAPI</span><span class="st"><span class="dot"></span>OK</span></div>
+              <div class="met"><span>p50 <b>42 ms</b></span><span>p95 <b>118 ms</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,18 10,16 20,14 30,17 40,12 50,10 60,14 70,8 80,12 90,10 100,14"/></svg>
+            </div>
+            <div class="health-cell ok">
+              <div class="hd"><span class="nm">Postgres · primary</span><span class="st"><span class="dot"></span>OK</span></div>
+              <div class="met"><span>Conn <b>18/100</b></span><span>Lag <b>0 ms</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,14 10,12 20,13 30,11 40,14 50,12 60,13 70,10 80,13 90,11 100,12"/></svg>
+            </div>
+            <div class="health-cell warn">
+              <div class="hd"><span class="nm">R2 · Cloudflare</span><span class="st"><span class="dot"></span>Slow writes</span></div>
+              <div class="met"><span>p95 <b>980 ms</b></span><span>Err <b>0,2 %</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#ff7a18" stroke-width="1.5" points="0,10 10,12 20,11 30,14 40,18 50,20 60,22 70,20 80,22 90,21 100,23"/></svg>
+            </div>
+            <div class="health-cell ok">
+              <div class="hd"><span class="nm">Redis · queue</span><span class="st"><span class="dot"></span>OK</span></div>
+              <div class="met"><span>Ops/s <b>1 240</b></span><span>Mem <b>48 %</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,16 10,14 20,15 30,13 40,14 50,12 60,11 70,13 80,12 90,14 100,13"/></svg>
+            </div>
+            <div class="health-cell ok">
+              <div class="hd"><span class="nm">AcoustID</span><span class="st"><span class="dot"></span>OK</span></div>
+              <div class="met"><span>Calls/24h <b>8,4k</b></span><span>Match <b>94 %</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,14 10,13 20,11 30,12 40,10 50,11 60,9 70,11 80,10 90,12 100,10"/></svg>
+            </div>
+            <div class="health-cell down">
+              <div class="hd"><span class="nm">Spotify API</span><span class="st"><span class="dot"></span>Rate-limited</span></div>
+              <div class="met"><span>429/h <b>284</b></span><span>Quota <b>98 %</b></span></div>
+              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#ef4444" stroke-width="1.5" points="0,8 10,10 20,12 30,14 40,16 50,18 60,20 70,21 80,22 90,23 100,24"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alerts" class="card reveal reveal-2">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Alertes · 24h</div>
+              <div class="card-sub">4 actives · 2 acquittées</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Voir tout →</button>
+          </div>
+          <div class="alerts">
+            <div class="alert crit">
+              <div class="alert-ic">!</div>
+              <div class="alert-bd">
+                <div class="ti"><b>Spotify API rate-limited</b> · 284 erreurs 429 / dernière heure</div>
+                <div class="mt">Enrichissement des métadonnées dégradé · fallback iTunes actif</div>
+              </div>
+              <span class="time">il y a 12 min</span>
+            </div>
+            <div class="alert warn">
+              <div class="alert-ic">⚠</div>
+              <div class="alert-bd">
+                <div class="ti"><b>R2 writes lents</b> · p95 &gt; 900 ms</div>
+                <div class="mt">Uploads toujours OK mais user-perçu dégradé · bucket cueforge-audio</div>
+              </div>
+              <span class="time">il y a 34 min</span>
+            </div>
+            <div class="alert warn">
+              <div class="alert-ic">⚠</div>
+              <div class="alert-bd">
+                <div class="ti"><b>12 jobs Demucs failed</b> · out-of-memory</div>
+                <div class="mt">Suite d’un track 24-bit / 72 min · hard-retry possible en manuel</div>
+              </div>
+              <span class="time">il y a 1 h</span>
+            </div>
+            <div class="alert info">
+              <div class="alert-ic">i</div>
+              <div class="alert-bd">
+                <div class="ti"><b>Pic d’inscriptions</b> · +48 users / dernière heure</div>
+                <div class="mt">Vraisemblable effet newsletter · watch conversion trial → Pro</div>
+              </div>
+              <span class="time">il y a 2 h</span>
+            </div>
+            <div class="alert info">
+              <div class="alert-ic">i</div>
+              <div class="alert-bd">
+                <div class="ti"><b>DSR export</b> · 3 demandes RGPD en attente</div>
+                <div class="mt">Délai max 30 j · la plus ancienne date de 8 j</div>
+              </div>
+              <span class="time">il y a 6 h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOBS QUEUE -->
+      <div id="jobs" class="card reveal">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Jobs · analyse & stems</div>
+            <div class="card-sub">Queue temps réel · priorité Pro &gt; Free</div>
+          </div>
+          <div class="card-action">
+            <button class="btn btn-ghost btn-sm">Pause queue</button>
+            <button class="btn btn-ghost btn-sm">Retry errors</button>
+          </div>
+        </div>
+        <div class="jobs-head">
+          <div class="job-stat running"><span class="l">Running</span><div class="v">7</div></div>
+          <div class="job-stat queue"><span class="l">Queue</span><div class="v">24</div></div>
+          <div class="job-stat done"><span class="l">Done · 24h</span><div class="v">14 820</div></div>
+          <div class="job-stat failed"><span class="l">Failed · 24h</span><div class="v">38</div></div>
+        </div>
+        <div class="jobs-list">
+          <div class="job-row run">
+            <span class="job-dot run"></span>
+            <div class="job-title"><b>Nothing But You — CamelPhat</b> <small>· demucs-4-stems</small></div>
+            <div class="prog"><div class="f" style="width:68%"></div></div>
+            <span class="job-dur">42 / 62 s</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+          </div>
+          <div class="job-row run">
+            <span class="job-dot run"></span>
+            <div class="job-title"><b>Avalanche.mp3</b> <small>· beatgrid-essentia</small></div>
+            <div class="prog"><div class="f" style="width:34%"></div></div>
+            <span class="job-dur">18 / 52 s</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+          </div>
+          <div class="job-row run">
+            <span class="job-dot run"></span>
+            <div class="job-title"><b>Midnight Drive Pt.2</b> <small>· cue-detection</small></div>
+            <div class="prog"><div class="f" style="width:12%"></div></div>
+            <span class="job-dur">4 / 38 s</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+          </div>
+          <div class="job-row">
+            <span class="job-dot queue"></span>
+            <div class="job-title"><b>Solar Flare (Original Mix)</b> <small>· en attente · position 1</small></div>
+            <div class="prog"><div class="f" style="width:0%"></div></div>
+            <span class="job-dur">—</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↑</button>
+          </div>
+          <div class="job-row">
+            <span class="job-dot queue"></span>
+            <div class="job-title"><b>Lost in Tokyo</b> <small>· en attente · position 2</small></div>
+            <div class="prog"><div class="f" style="width:0%"></div></div>
+            <span class="job-dur">—</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↑</button>
+          </div>
+          <div class="job-row err">
+            <span class="job-dot err"></span>
+            <div class="job-title"><b>Late Night Drive.flac</b> <small>· failed · OOM demucs</small></div>
+            <div class="prog"><div class="f" style="width:100%;background:var(--red)"></div></div>
+            <span class="job-dur">err</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--red)">Retry</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↻</button>
+          </div>
+          <div class="job-row">
+            <span class="job-dot done"></span>
+            <div class="job-title"><b>Odesza — Line of Sight</b> <small>· done</small></div>
+            <div class="prog"><div class="f" style="width:100%;background:var(--green)"></div></div>
+            <span class="job-dur">48 s</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
+            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">✓</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue + Integrations -->
+      <div class="two">
+        <!-- Revenue -->
+        <div id="revenue" class="card reveal">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Revenue · 12 derniers mois</div>
+              <div class="card-sub">MRR · 42 860 € · +22 % YoY</div>
+            </div>
+            <span class="chip chip-amber">MRR</span>
+          </div>
+          <div class="rev-bars">
+            <div class="b" data-month="m" style="height:38%"></div>
+            <div class="b" data-month="j" style="height:42%"></div>
+            <div class="b" data-month="j" style="height:48%"></div>
+            <div class="b" data-month="a" style="height:52%"></div>
+            <div class="b" data-month="s" style="height:58%"></div>
+            <div class="b" data-month="o" style="height:62%"></div>
+            <div class="b" data-month="n" style="height:68%"></div>
+            <div class="b" data-month="d" style="height:72%"></div>
+            <div class="b" data-month="j" style="height:78%"></div>
+            <div class="b" data-month="f" style="height:82%"></div>
+            <div class="b" data-month="m" style="height:88%"></div>
+            <div class="b now" data-month="a" style="height:96%"></div>
+          </div>
+        </div>
+
+        <!-- Integrations -->
+        <div id="integrations" class="card reveal reveal-2">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Intégrations · état global</div>
+              <div class="card-sub">API externes · quotas & erreurs</div>
+            </div>
+            <button class="btn btn-ghost btn-sm">Gérer →</button>
+          </div>
+          <div class="int-grid">
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">AcoustID</span><span class="dot"></span></div>
+              <div class="sub">Fingerprint ID</div>
+              <div class="calls"><span>8,4k / 24h</span><span>Quota 42 %</span></div>
+            </div>
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">MusicBrainz</span><span class="dot"></span></div>
+              <div class="sub">Metadata</div>
+              <div class="calls"><span>6,1k / 24h</span><span>Quota 28 %</span></div>
+            </div>
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">iTunes</span><span class="dot"></span></div>
+              <div class="sub">Metadata fallback</div>
+              <div class="calls"><span>3,8k / 24h</span><span>Quota 18 %</span></div>
+            </div>
+            <div class="int-cell err">
+              <div class="hd"><span class="nm">Spotify</span><span class="dot"></span></div>
+              <div class="sub">Audio features</div>
+              <div class="calls"><span style="color:var(--red)">284 × 429</span><span>Quota 98 %</span></div>
+            </div>
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">Stripe</span><span class="dot"></span></div>
+              <div class="sub">Paiements</div>
+              <div class="calls"><span>128 evts / 24h</span><span>0 errors</span></div>
+            </div>
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">Cloudflare R2</span><span class="dot"></span></div>
+              <div class="sub">Storage audio</div>
+              <div class="calls"><span>280 Go / 1 TB</span><span>Quota 28 %</span></div>
+            </div>
+            <div class="int-cell off">
+              <div class="hd"><span class="nm">Last.fm</span><span class="dot"></span></div>
+              <div class="sub">Scrobble · off</div>
+              <div class="calls"><span>—</span><span>Désactivé</span></div>
+            </div>
+            <div class="int-cell on">
+              <div class="hd"><span class="nm">Sentry</span><span class="dot"></span></div>
+              <div class="sub">Error tracking</div>
+              <div class="calls"><span>42 events / 24h</span><span>0 regressions</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit log -->
+      <div id="audit" class="card reveal">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Audit log · dernières actions admin</div>
+            <div class="card-sub">Impersonation · suppressions · changements de plan</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">Tout l’historique →</button>
+        </div>
+        <table class="tbl">
+          <thead>
+            <tr><th>Admin</th><th>Action</th><th>Cible</th><th>IP</th><th>Quand</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="usr"><div class="usr-av">KD</div><div><div class="usr-nm">Kevin Dumont</div><div class="usr-em">superadmin</div></div></div></td>
+              <td><span class="plan-pill studio">impersonate</span></td>
+              <td>sebastien@clubmix.fr</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">82.65.xx.xx</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 14 min</td>
+            </tr>
+            <tr>
+              <td><div class="usr"><div class="usr-av violet">MR</div><div><div class="usr-nm">Marie Rousseau</div><div class="usr-em">support</div></div></div></td>
+              <td><span class="plan-pill pro">upgrade · Free → Pro</span></td>
+              <td>lucas@djlucas.fr</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">34.11.xx.xx</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 42 min</td>
+            </tr>
+            <tr>
+              <td><div class="usr"><div class="usr-av">KD</div><div><div class="usr-nm">Kevin Dumont</div><div class="usr-em">superadmin</div></div></div></td>
+              <td><span class="plan-pill" style="background:var(--red-soft);color:var(--red)">delete account</span></td>
+              <td>spam34@example.com</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">82.65.xx.xx</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 1 h</td>
+            </tr>
+            <tr>
+              <td><div class="usr"><div class="usr-av green">AT</div><div><div class="usr-nm">Automation</div><div class="usr-em">bot</div></div></div></td>
+              <td><span class="plan-pill trial">extend trial · +7 j</span></td>
+              <td>pierre@techno.io</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">—</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 3 h</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script>
+  // ---- Users table data + filter ----
+  const USERS = [
+    { id:1, n:'Sebastien Martin', e:'sebastien@clubmix.fr', av:'SM', col:'violet', plan:'pro', storage:68, tracks:1284, last:'il y a 12 min', signed:'2025-11-08' },
+    { id:2, n:'Lucas Dupont',   e:'lucas@djlucas.fr',    av:'LD', col:'',       plan:'pro', storage:42, tracks:612, last:'il y a 1 h',    signed:'2026-02-14' },
+    { id:3, n:'Marie Pelletier',e:'marie@nightowl.fm',   av:'MP', col:'green',  plan:'studio', storage:88, tracks:3240, last:'il y a 3 h',  signed:'2025-06-22' },
+    { id:4, n:'Pierre Lemaire', e:'pierre@techno.io',    av:'PL', col:'',       plan:'trial',storage:18, tracks:42,  last:'il y a 4 h',    signed:'2026-04-12' },
+    { id:5, n:'Inès Moreau',    e:'ines@deephousefrance.com',av:'IM', col:'violet', plan:'pro', storage:92, tracks:2104, last:'hier',     signed:'2025-09-03', warn:true },
+    { id:6, n:'Tom Charpentier',e:'tom.c@gmail.com',     av:'TC', col:'green',  plan:'free', storage:14, tracks:28,  last:'hier',          signed:'2026-04-02' },
+    { id:7, n:'Juliette Faure', e:'jules@audiocraft.fr', av:'JF', col:'',       plan:'pro', storage:52, tracks:940, last:'il y a 2 j',    signed:'2025-12-18' },
+    { id:8, n:'Spam account',   e:'bot89423@example.com',av:'SB', col:'red',    plan:'free', storage:1,  tracks:3,   last:'il y a 3 j',    signed:'2026-04-18', flag:true },
+    { id:9, n:'Émile Royer',    e:'emile@discotheque.co',av:'ER', col:'green',  plan:'pro', storage:61, tracks:720, last:'il y a 4 j',    signed:'2025-10-30' },
+    { id:10,n:'Alice Bonnefoy', e:'alice.b@mgmtmusic.fr',av:'AB', col:'violet', plan:'studio',storage:74, tracks:1842,last:'il y a 5 j',    signed:'2025-07-11' },
+    { id:11,n:'Baptiste Nguyen',e:'bap@vinylnight.fr',   av:'BN', col:'',       plan:'free', storage:6,  tracks:12,  last:'il y a 7 j',    signed:'2026-04-10' },
+    { id:12,n:'Rémi Pons',      e:'rpons@test.fr',       av:'RP', col:'red',    plan:'trial',storage:2,  tracks:1,   last:'il y a 14 j',   signed:'2026-04-06', flag:true }
+  ];
+
+  function planPill(p){
+    const m = { pro:'Pro', free:'Free', studio:'Studio', trial:'Trial' };
+    return `<span class="plan-pill ${p}">${m[p]}</span>`;
+  }
+
+  function renderUsers(filter='all'){
+    const body = document.getElementById('users-body');
+    if(!body) return;
+    const list = USERS.filter(u => {
+      if(filter==='all') return true;
+      if(filter==='flagged') return u.flag || u.warn;
+      return u.plan === filter;
+    });
+    body.innerHTML = list.map(u => `
+      <tr class="${u.flag?'flagged':''}" data-id="${u.id}">
+        <td>
+          <div class="usr">
+            <div class="usr-av ${u.col}">${u.av}</div>
+            <div><div class="usr-nm">${u.n}${u.flag?' <span style="color:var(--red);font-size:10px">⚠ flagged</span>':''}</div><div class="usr-em">${u.e}</div></div>
+          </div>
+        </td>
+        <td>${planPill(u.plan)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="usage-bar"><div class="fill ${u.storage>85?'warn':''}" style="width:${u.storage}%"></div></div>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary)">${u.storage} %</span>
+          </div>
+        </td>
+        <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary)">${u.tracks.toLocaleString('fr')}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.last}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.signed}</td>
+        <td>
+          <div class="act">
+            <button data-tt="Voir profil"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button data-tt="Impersonate"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M21 11v6M18 14h6"/></svg></button>
+            <button class="danger" data-tt="Suspendre"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg></button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  renderUsers();
+
+  // Filter chips
+  document.querySelectorAll('.tb-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('.tb-chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      renderUsers(c.dataset.filter);
+      if(typeof toast === 'function') toast(`Filtre · ${c.textContent.trim()}`, 'info');
+    });
+  });
+
+  // Click row → open profile (fake toast)
+  document.addEventListener('click', e => {
+    const row = e.target.closest('#users-body tr');
+    if(row && !e.target.closest('.act')){
+      const id = row.dataset.id;
+      const u = USERS.find(x => x.id == id);
+      if(u && typeof toast === 'function') toast(`Ouverture · ${u.n}`, 'info');
+    }
+    const act = e.target.closest('.act button');
+    if(act && typeof toast === 'function'){
+      const lbl = act.dataset.tt || 'Action';
+      toast(`${lbl} · à confirmer`, 'info');
+      e.stopPropagation();
+    }
+  });
+
+  // Admin nav active (static links + soft scroll)
+  document.querySelectorAll('.admin-nav a').forEach(a => {
+    a.addEventListener('click', e => {
+      document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // Search
+  const searchInput = document.querySelector('.tb-search input');
+  if(searchInput){
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase().trim();
+      if(!q){ renderUsers(); return; }
+      const body = document.getElementById('users-body');
+      const list = USERS.filter(u => u.n.toLowerCase().includes(q) || u.e.toLowerCase().includes(q));
+      body.innerHTML = list.length ? list.map(u => `
+        <tr class="${u.flag?'flagged':''}" data-id="${u.id}">
+          <td><div class="usr"><div class="usr-av ${u.col}">${u.av}</div><div><div class="usr-nm">${u.n}</div><div class="usr-em">${u.e}</div></div></div></td>
+          <td>${planPill(u.plan)}</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="usage-bar"><div class="fill ${u.storage>85?'warn':''}" style="width:${u.storage}%"></div></div><span style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary)">${u.storage} %</span></div></td>
+          <td style="font-family:var(--font-mono);font-size:12px">${u.tracks.toLocaleString('fr')}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.last}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${u.signed}</td>
+          <td><div class="act"><button>👁</button></div></td>
+        </tr>
+      `).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun résultat pour « ${q} »</td></tr>`;
+    });
+  }
+
+  // Revenue bar tooltip
+  document.querySelectorAll('.rev-bars .b').forEach(b => {
+    const pct = b.style.height;
+    b.setAttribute('data-tt', `MRR · ${Math.round(parseFloat(pct)*450)} €`);
+  });
+</script>
+</body>
+</html>

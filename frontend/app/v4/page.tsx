@@ -62,6 +62,12 @@ const SCREENS = [
     desc: 'Compte, plan, thèmes, shortcuts, intégrations, privacy, labs.',
     icon: '⚙️',
   },
+  {
+    slug: 'admin',
+    name: 'Admin',
+    desc: 'Back-office — users, orgs, subs, health, jobs, integrations, audit, DSR.',
+    icon: '🛠️',
+  },
 ];
 
 export default function V4HubPage() {
