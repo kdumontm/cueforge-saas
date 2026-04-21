@@ -44,12 +44,23 @@ const nextConfig = {
   },
   // Proxy /api/v1/* vers le backend Railway (même domaine = plus de CORS)
   async rewrites() {
-    return [
-      {
-        source: '/api/v1/:path*',
-        destination: `${BACKEND_INTERNAL_URL}/api/v1/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [
+        // /admin → sert le nouveau design v4 (URL reste /admin, contenu = /v4/admin.html)
+        // beforeFiles bypass l'app router pour cette URL exacte, les sous-routes /admin/xxx
+        // continuent de fonctionner normalement.
+        {
+          source: '/admin',
+          destination: '/v4/admin.html',
+        },
+      ],
+      afterFiles: [
+        {
+          source: '/api/v1/:path*',
+          destination: `${BACKEND_INTERNAL_URL}/api/v1/:path*`,
+        },
+      ],
+    };
   },
   // Headers de cache pour les assets statiques
   async headers() {
