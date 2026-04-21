@@ -2086,9 +2086,11 @@ def duplicate_track(
     mais on clone les métadonnées, l'analyse et tous les cue points + loops.
     Le nouveau titre est suffixé " (copie)".
     """
-    tid = validate_track_id(track_id)
+    # 🔴 Fix QA 2026-04-21 : validate_track_id ne retourne rien (juste raise HTTPException)
+    # donc `tid = validate_track_id(...)` mettait tid=None → query ne matchait jamais → 404.
+    validate_track_id(track_id)
     src = db.query(Track).filter(
-        Track.id == tid,
+        Track.id == track_id,
         Track.user_id == current_user.id,
     ).options(
         selectinload(Track.analysis),
