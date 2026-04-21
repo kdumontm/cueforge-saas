@@ -18,22 +18,42 @@
   function getToken(){ try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } }
   function getRefresh(){ try { return localStorage.getItem(REFRESH_KEY) || ''; } catch { return ''; } }
   function setToken(t){ try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
+  function setRefresh(t){ try { localStorage.setItem(REFRESH_KEY, t); } catch {} }
   function clearAuth(){ try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(REFRESH_KEY); } catch {} }
 
+  let _refreshInFlight = null;
   async function refreshToken(){
+    // Dédoublonnage : si un refresh est déjà en cours, toutes les requêtes 401
+    // concurrentes partagent la même promesse (évite de gaspiller le RT en rotation).
+    if(_refreshInFlight) return _refreshInFlight;
     const rt = getRefresh();
     if(!rt) return false;
-    try {
-      const r = await fetch(`${BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: rt }),
-      });
-      if(!r.ok) return false;
-      const d = await r.json();
-      if(d && d.access_token){ setToken(d.access_token); return true; }
-      return false;
-    } catch { return false; }
+    _refreshInFlight = (async () => {
+      try {
+        const r = await fetch(`${BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: rt }),
+        });
+        if(r.status === 401){
+          // Refresh token invalidé côté serveur → déconnexion propre côté client
+          clearAuth();
+          return false;
+        }
+        if(!r.ok) return false;
+        const d = await r.json();
+        if(d && d.access_token){
+          setToken(d.access_token);
+          // 🔴 Fix : le backend fait de la rotation, on DOIT persister le nouveau refresh
+          // sinon au 2e appel le hash ne matchera plus et on se fera logout.
+          if(d.refresh_token) setRefresh(d.refresh_token);
+          return true;
+        }
+        return false;
+      } catch { return false; }
+    })();
+    try { return await _refreshInFlight; }
+    finally { _refreshInFlight = null; }
   }
 
   async function request(path, opts={}, retry=true){

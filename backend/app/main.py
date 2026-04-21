@@ -1346,13 +1346,13 @@ _safe_mount("app.routers.admin_storage", tags=["admin-storage"])
 _safe_mount("app.routers.tags", "/api/v1", ["tags"])
 _safe_mount("app.routers.activity", "/api/v1", ["activity"])
 
-# v10 routers — features avancées
-_safe_mount("app.routers.mix", "/api", ["mix"])
-_safe_mount("app.routers.fingerprint", "/api", ["fingerprint"])
-_safe_mount("app.routers.ml", "/api", ["ml"])
-_safe_mount("app.routers.recommendation", "/api", ["recommendation"])
-_safe_mount("app.routers.audio_quality", "/api", ["quality"])
-_safe_mount("app.routers.advanced_analysis", "/api", ["advanced-analysis"])
+# v10 routers — features avancées (préfixe corrigé: /api/v1 pour cohérence avec le reste de l'API)
+_safe_mount("app.routers.mix", "/api/v1", ["mix"])
+_safe_mount("app.routers.fingerprint", "/api/v1", ["fingerprint"])
+_safe_mount("app.routers.ml", "/api/v1", ["ml"])
+_safe_mount("app.routers.recommendation", "/api/v1", ["recommendation"])
+_safe_mount("app.routers.audio_quality", "/api/v1", ["quality"])
+_safe_mount("app.routers.advanced_analysis", "/api/v1", ["advanced-analysis"])
 
 # SEO
 _safe_mount("app.routers.seo")
