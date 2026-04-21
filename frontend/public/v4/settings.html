@@ -7,8 +7,8 @@
 <link rel="stylesheet" href="/v4/shared.css">
 <style>
   /* Page-specific — Settings */
-  html{scroll-behavior:smooth}
-  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+  /* NOTE: pas de scroll-behavior:smooth global — ça casse window.scrollTo dans
+     les contextes sans focus (CDP, tab arrière-plan). Le lissage est fait en JS. */
   .settings-layout{display:grid;grid-template-columns:240px 1fr;gap:32px;margin-top:24px;align-items:flex-start}
 
   /* Side nav */
@@ -889,13 +889,29 @@
         const t = document.querySelector(href);
         if(t){
           e.preventDefault();
-          // Scroll synchrone : fonctionne dans TOUS les contextes (incl. CDP/tests),
-          // contrairement à rAF qui est pause quand le tab n'a pas focus,
-          // et à scrollTo({behavior:'smooth'}) qui est parfois bloqué par le browser.
-          // CSS scroll-behavior:smooth sur html donne le lissage visuel.
+          // Jump scroll synchrone (fonctionne en CDP/tab arrière-plan/focus).
+          // Pour l'utilisateur réel, on lance en plus une animation rAF légère par-dessus
+          // uniquement si le tab a le focus (sinon rAF est pausé et le scroll reste OK).
           const rect = t.getBoundingClientRect();
           const targetTop = rect.top + window.scrollY - 80;
-          window.scrollTo(0, targetTop);
+          if(document.visibilityState === 'visible' && document.hasFocus()){
+            // Smooth animation pour l'utilisateur
+            const startY = window.scrollY;
+            const distance = targetTop - startY;
+            const duration = 320;
+            const startTime = performance.now();
+            function easeInOut(t){ return t<.5 ? 2*t*t : -1+(4-2*t)*t; }
+            function step(now){
+              const elapsed = now - startTime;
+              const progress = Math.min(elapsed/duration, 1);
+              window.scrollTo(0, startY + distance * easeInOut(progress));
+              if(progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+          } else {
+            // Jump instantané si tab pas focus (CDP, tests)
+            window.scrollTo(0, targetTop);
+          }
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
         }
