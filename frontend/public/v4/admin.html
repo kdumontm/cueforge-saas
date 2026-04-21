@@ -763,7 +763,7 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260421e"></script>
+<script src="/v4/api.js?v=20260421f"></script>
 <script src="/v4/shared.js?v=20260421e"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
@@ -988,11 +988,13 @@
   const topActions = document.querySelector('.admin-top') || document;
   wireByText(topActions, 'Exporter CSV', async ()=>{
     try {
-      const users = await api.adminUsers({ limit: 500 });
-      const rows = (Array.isArray(users) ? users : (users.items || []));
+      // Appelle /admin/users/advanced (même endpoint que loadUsers) au lieu de
+      // /admin/stats/users-activity qui retourne du time-series, pas des users.
+      const res = await api.post('/admin/users/advanced', { skip: 0, limit: 500, sort_by: 'created_at', sort_dir: 'desc' });
+      const rows = (res && Array.isArray(res.items)) ? res.items : [];
       const csv = [
-        ['id','email','name','plan','created_at','last_login_at'],
-        ...rows.map(u => [u.id, u.email, u.name || '', u.subscription_plan || 'free', u.created_at || '', u.last_login_at || ''])
+        ['id','email','name','plan','email_verified','oauth_provider','created_at','last_login_at','is_admin'],
+        ...rows.map(u => [u.id, u.email, u.name || '', u.subscription_plan || 'free', u.email_verified ? 'yes' : 'no', u.oauth_provider || '', u.created_at || '', u.last_login_at || '', u.is_admin ? 'yes' : 'no'])
       ].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], {type:'text/csv'});
       const url = URL.createObjectURL(blob);
