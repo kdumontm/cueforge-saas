@@ -337,8 +337,8 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260421c"></script>
-<script src="/v4/shared.js?v=20260421c"></script>
+<script src="/v4/api.js?v=20260421d"></script>
+<script src="/v4/shared.js?v=20260421d"></script>
 <script>
 // ---- Auth guard ----
 if(!api.requireAuth()) { /* redirected */ }
@@ -416,7 +416,11 @@ function renderTrack(t, i){
   const keyName = t.analysis?.key || '';
   const camelot = t.camelot_code || parseKey(keyName) || '—';
   const energy = t.analysis?.energy != null ? Number(t.analysis.energy) : (t.energy_level ? t.energy_level : 0);
-  const energyNorm = Math.max(0, Math.min(10, energy > 1 ? energy : energy * 10));
+  // Normalisation robuste : backend stocke 0-100, mais tolère 0-1 et 0-10 (legacy)
+  // >10 → échelle 0-100 (diviser par 10). 1-10 → direct. 0-1 → × 10.
+  const energyNorm = Math.max(0, Math.min(10,
+    energy > 10 ? energy / 10 : (energy > 1 ? energy : energy * 10)
+  ));
   const cueCount = (t.cue_points || []).length;
   const identified = !!(t.spotify_id || t.musicbrainz_id);
   const ready = t.status === 'ready' || t.status === 'analyzed' || t.status === 'completed';
@@ -841,14 +845,16 @@ document.querySelector('#drop-genre [data-drop-clear]').addEventListener('click'
   closeAllDrops(); state.page=1; load();
 });
 
-// Energy drop
+// Energy drop — UI échelle 0-10, backend échelle 0-100 → ×10
 document.querySelector('#drop-energy [data-drop-apply]').addEventListener('click', ()=>{
   const mn = parseFloat(document.getElementById('f-energy-min').value);
   const mx = parseFloat(document.getElementById('f-energy-max').value);
-  state.energyMin = isNaN(mn) ? null : mn;
-  state.energyMax = isNaN(mx) ? null : mx;
+  state.energyMin = isNaN(mn) ? null : mn * 10;
+  state.energyMax = isNaN(mx) ? null : mx * 10;
+  const uiMn = isNaN(mn) ? null : mn;
+  const uiMx = isNaN(mx) ? null : mx;
   const has = state.energyMin!=null || state.energyMax!=null;
-  syncTriggerLabel('drop-energy', has ? `Energy · ${state.energyMin??'∗'}-${state.energyMax??'∗'}` : 'Energy', has);
+  syncTriggerLabel('drop-energy', has ? `Energy · ${uiMn??'∗'}-${uiMx??'∗'}` : 'Energy', has);
   closeAllDrops(); state.page=1; load();
 });
 document.querySelector('#drop-energy [data-drop-clear]').addEventListener('click', ()=>{

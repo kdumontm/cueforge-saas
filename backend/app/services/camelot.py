@@ -84,6 +84,33 @@ def camelot_to_key(code: str) -> Optional[str]:
     return CAMELOT_TO_KEY.get(code.upper())
 
 
+# Variantes de musical key par Camelot code (pour filtrer la DB — les
+# analyses stockent soit "A minor", soit "Am", soit des équivalents enharmoniques).
+_CAMELOT_KEY_VARIANTS: dict[str, list[str]] = {}
+for _musical, _code in KEY_TO_CAMELOT.items():
+    _CAMELOT_KEY_VARIANTS.setdefault(_code, []).append(_musical)
+    # Ajouter les formes shorthand : "A minor" → "Am", "C major" → "C"
+    if " minor" in _musical:
+        _base = _musical.replace(" minor", "")
+        _CAMELOT_KEY_VARIANTS[_code].append(f"{_base}m")
+        _CAMELOT_KEY_VARIANTS[_code].append(_base)  # tolère "A" pour A minor (rare)
+    elif " major" in _musical:
+        _base = _musical.replace(" major", "")
+        _CAMELOT_KEY_VARIANTS[_code].append(_base)
+
+
+def camelot_to_key_variants(code: str) -> list[str]:
+    """Return all key string variants (full + shorthand + enharmonic) for a Camelot code.
+
+    Example: "8A" → ["A minor", "Am", "A"]
+             "8B" → ["C major", "C"]
+             "1A" → ["Ab minor", "G# minor", "Abm", "G#m", "Ab", "G#"]
+    """
+    if not code:
+        return []
+    return list(dict.fromkeys(_CAMELOT_KEY_VARIANTS.get(code.upper(), [])))
+
+
 def get_compatible_keys(camelot_code: str) -> list[str]:
     """Return list of Camelot codes compatible with the given code.
 

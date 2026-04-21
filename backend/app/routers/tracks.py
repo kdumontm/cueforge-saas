@@ -1821,14 +1821,27 @@ def _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max,
         if bpm_max is not None:
             q = q.filter(TrackAnalysis.bpm <= bpm_max)
         if key:
-            from app.services.camelot import key_to_camelot
-            camelot = key_to_camelot(key)
-            if camelot:
-                q = q.filter(
-                    (TrackAnalysis.key == key) | (Track.camelot_code == camelot)
-                )
+            from app.services.camelot import key_to_camelot, camelot_to_key_variants
+            import re
+            # Détection input Camelot (ex: "8A", "12B")
+            if re.fullmatch(r"\d{1,2}[ABab]", key.strip()):
+                camelot = key.strip().upper()
+                variants = camelot_to_key_variants(camelot)
+                # Filtrer sur toutes les variantes musical key + camelot_code
+                if variants:
+                    q = q.filter(
+                        (TrackAnalysis.key.in_(variants)) | (Track.camelot_code == camelot)
+                    )
+                else:
+                    q = q.filter(Track.camelot_code == camelot)
             else:
-                q = q.filter(TrackAnalysis.key == key)
+                camelot = key_to_camelot(key)
+                if camelot:
+                    q = q.filter(
+                        (TrackAnalysis.key == key) | (Track.camelot_code == camelot)
+                    )
+                else:
+                    q = q.filter(TrackAnalysis.key == key)
         if energy_min is not None:
             q = q.filter(TrackAnalysis.energy >= energy_min)
         if energy_max is not None:
@@ -1883,15 +1896,23 @@ def list_tracks(
         "year", "bpm", "key", "rating", "energy", "duration",
         "original_filename", "updated_at",
     }
+    # Champs qui vivent sur TrackAnalysis (pas sur Track) — outerjoin requis
+    ANALYSIS_SORT_FIELDS = {"bpm", "key", "energy", "duration"}
     if sort_by not in ALLOWED_SORT_FIELDS:
         sort_by = "created_at"
-    sort_col = getattr(Track, sort_by, None)
-    if sort_col is None:
-        sort_col = Track.created_at
-    if sort_dir == "asc":
-        q = q.order_by(sort_col.asc())
+    if sort_by in ANALYSIS_SORT_FIELDS:
+        # Si pas déjà joint (via filtres), ajouter l'outerjoin
+        if not any([bpm_min, bpm_max, key, energy_min, energy_max]):
+            q = q.outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+        sort_col = getattr(TrackAnalysis, sort_by, None) or Track.created_at
     else:
-        q = q.order_by(sort_col.desc())
+        sort_col = getattr(Track, sort_by, None) or Track.created_at
+    # NULLS LAST pour un tri lisible (tracks non analysés en bas, peu importe asc/desc)
+    from sqlalchemy import nullslast
+    if sort_dir == "asc":
+        q = q.order_by(nullslast(sort_col.asc()))
+    else:
+        q = q.order_by(nullslast(sort_col.desc()))
 
     offset = (page - 1) * limit
     tracks = q.offset(offset).limit(limit).all()
