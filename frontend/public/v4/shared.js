@@ -17,12 +17,17 @@
 
 // -------- Active nav highlight --------
 (function(){
-  const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+  // normalise : '/' = home, '/analyze' = analyze, '/v4/xxx.html' fallback legacy
+  const path = location.pathname.toLowerCase().replace(/\/$/,'') || '/';
+  const legacy = (path.split('/').pop() || '').replace(/\.html$/,'');
   document.querySelectorAll('.topnav-links a').forEach(a=>{
-    const href = (a.getAttribute('href')||'').toLowerCase();
-    if(href && (href===here || (here==='' && href==='index.html'))){
-      a.classList.add('active');
-    }
+    const href = (a.getAttribute('href')||'').toLowerCase().replace(/\/$/,'');
+    const match =
+      href === path ||                              // /analyze === /analyze
+      (href === '/' && (path === '' || path === '/')) || // home
+      (href !== '/' && href !== '' && path.startsWith(href + '/')) || // sub-page
+      (legacy && href === '/' + legacy);             // fallback
+    if(match){ a.classList.add('active'); }
   });
 })();
 

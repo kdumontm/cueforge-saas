@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Library</title>
-<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="/v4/shared.css">
 <style>
   .filter-bar{
     display:flex;gap:10px;align-items:center;flex-wrap:wrap;
@@ -153,16 +153,16 @@
   <div class="topnav-brand"><span class="mark"></span><span>TrackCue</span></div>
   <span class="topnav-sep"></span>
   <nav class="topnav-links">
-    <a href="index.html">Overview</a>
-    <a href="analyze.html">Analyze</a>
-    <a href="library.html">Library</a>
-    <a href="compatible.html">Compatible</a>
-    <a href="set-builder.html">Set Builder</a>
-    <a href="mix-studio.html">Mix Studio</a>
-    <a href="stats.html">Stats</a>
-    <a href="upload.html">Upload</a>
-    <a href="settings.html">Settings</a>
-    <a href="admin.html">Admin</a>
+    <a href="/">Overview</a>
+    <a href="/analyze">Analyze</a>
+    <a href="/library">Library</a>
+    <a href="/compatible">Compatible</a>
+    <a href="/set-builder">Set Builder</a>
+    <a href="/mix-studio">Mix Studio</a>
+    <a href="/stats">Stats</a>
+    <a href="/upload">Upload</a>
+    <a href="/settings">Settings</a>
+    <a href="/admin">Admin</a>
   </nav>
   <div class="topnav-actions">
     <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
@@ -264,7 +264,7 @@
 
 </main>
 
-<script src="shared.js"></script>
+<script src="/v4/shared.js"></script>
 <script>
 const LIB = [
   {t:"Nothing But You (Extended Mix)",a:"Camelphat, Max Milner",bpm:"122.0",k:"8A",kn:"Am",e:7.4,g:"Melodic House",dt:"il y a 12min",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",cues:8,id:true,ready:true,sd:7.1},
@@ -330,7 +330,7 @@ LIB.forEach((r,i)=>{
   row.addEventListener('click',(e)=>{
     if(e.target.closest('.lib-actions')||e.target.closest('.chk')) return;
     toast(`Ouverture · ${r.t}`,'info');
-    setTimeout(()=>location.href='analyze.html',400);
+    setTimeout(()=>location.href='/analyze',400);
   });
   // Action buttons
   row.querySelectorAll('.lib-actions button').forEach(b=>{

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Overview</title>
-<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="/v4/shared.css">
 <style>
   /* Page-specific — Overview */
   .hero{
@@ -176,16 +176,16 @@
   </div>
   <span class="topnav-sep"></span>
   <nav class="topnav-links">
-    <a href="index.html">Overview</a>
-    <a href="analyze.html">Analyze</a>
-    <a href="library.html">Library</a>
-    <a href="compatible.html">Compatible</a>
-    <a href="set-builder.html">Set Builder</a>
-    <a href="mix-studio.html">Mix Studio</a>
-    <a href="stats.html">Stats</a>
-    <a href="upload.html">Upload</a>
-    <a href="settings.html">Settings</a>
-    <a href="admin.html">Admin</a>
+    <a href="/">Overview</a>
+    <a href="/analyze">Analyze</a>
+    <a href="/library">Library</a>
+    <a href="/compatible">Compatible</a>
+    <a href="/set-builder">Set Builder</a>
+    <a href="/mix-studio">Mix Studio</a>
+    <a href="/stats">Stats</a>
+    <a href="/upload">Upload</a>
+    <a href="/settings">Settings</a>
+    <a href="/admin">Admin</a>
   </nav>
   <div class="topnav-actions">
     <button class="btn btn-ghost btn-sm" data-tt="Search · ⌘K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find</button>
@@ -295,7 +295,7 @@
       <div class="card reveal reveal-2" style="padding:20px;margin-bottom:20px">
         <div class="section-head">
           <h2>Récemment analysés</h2>
-          <a href="library.html">Tout voir · Library →</a>
+          <a href="/library">Tout voir · Library →</a>
         </div>
 
         <div id="recent-tracks">
@@ -307,7 +307,7 @@
       <div class="card reveal reveal-3" style="padding:20px">
         <div class="section-head">
           <h2>File d'analyse</h2>
-          <a href="upload.html">Gérer la queue →</a>
+          <a href="/upload">Gérer la queue →</a>
         </div>
         <div id="queue-list"></div>
       </div>
@@ -365,19 +365,19 @@
           <h2>Raccourcis</h2>
         </div>
         <div class="quick-grid">
-          <button class="quick pressable" onclick="location.href='analyze.html'">
+          <button class="quick pressable" onclick="location.href='/analyze'">
             <span class="quick-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg></span>
             <div><h4>Analyser un morceau</h4><p>Deep-dive sur un track · cue edit · stems</p></div>
           </button>
-          <button class="quick pressable" onclick="location.href='set-builder.html'">
+          <button class="quick pressable" onclick="location.href='/set-builder'">
             <span class="quick-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg></span>
             <div><h4>Nouveau set</h4><p>Timeline · énergie · phrase match</p></div>
           </button>
-          <button class="quick pressable" onclick="location.href='mix-studio.html'">
+          <button class="quick pressable" onclick="location.href='/mix-studio'">
             <span class="quick-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></svg></span>
             <div><h4>Mix Studio</h4><p>Dual deck · sync · assist</p></div>
           </button>
-          <button class="quick pressable" onclick="location.href='compatible.html'">
+          <button class="quick pressable" onclick="location.href='/compatible'">
             <span class="quick-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
             <div><h4>Trouve un match</h4><p>Key · BPM · énergie · phrase</p></div>
           </button>
@@ -388,7 +388,7 @@
 
 </main>
 
-<script src="shared.js"></script>
+<script src="/v4/shared.js"></script>
 <script>
 // Recent tracks data
 const recents = [
@@ -415,7 +415,7 @@ recents.forEach(r=>{
     <div class="track-key">${r.k}</div>
     <button class="btn-icon btn btn-ghost btn-sm track-action" data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
   `;
-  row.addEventListener('click',()=>{ toast(`Ouverture · ${r.t}`,'info'); setTimeout(()=>location.href='analyze.html',400); });
+  row.addEventListener('click',()=>{ toast(`Ouverture · ${r.t}`,'info'); setTimeout(()=>location.href='/analyze',400); });
   recEl.appendChild(row);
   buildWave(row.querySelector('.track-mini-wave'), 56, r.seed, {envelope:(p)=>0.3+0.7*Math.sin(p*Math.PI*2+1)*0.5+0.5});
 });

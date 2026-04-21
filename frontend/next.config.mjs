@@ -45,14 +45,21 @@ const nextConfig = {
   // Proxy /api/v1/* vers le backend Railway (même domaine = plus de CORS)
   async rewrites() {
     return {
+      // beforeFiles : sert le nouveau design v4 Studio Neon sur les URLs principales
+      // URL reste propre (/, /analyze, ...), contenu = HTML static du design v4.
+      // Les sous-routes /dashboard/xxx, /admin/xxx, etc. continuent via app router.
       beforeFiles: [
-        // /admin → sert le nouveau design v4 (URL reste /admin, contenu = /v4/admin.html)
-        // beforeFiles bypass l'app router pour cette URL exacte, les sous-routes /admin/xxx
-        // continuent de fonctionner normalement.
-        {
-          source: '/admin',
-          destination: '/v4/admin.html',
-        },
+        { source: '/',             destination: '/v4/index.html'       },
+        { source: '/dashboard',    destination: '/v4/stats.html'       },
+        { source: '/analyze',      destination: '/v4/analyze.html'     },
+        { source: '/library',      destination: '/v4/library.html'     },
+        { source: '/compatible',   destination: '/v4/compatible.html'  },
+        { source: '/set-builder',  destination: '/v4/set-builder.html' },
+        { source: '/mix-studio',   destination: '/v4/mix-studio.html'  },
+        { source: '/stats',        destination: '/v4/stats.html'       },
+        { source: '/upload',       destination: '/v4/upload.html'      },
+        { source: '/settings',     destination: '/v4/settings.html'    },
+        { source: '/admin',        destination: '/v4/admin.html'       },
       ],
       afterFiles: [
         {
