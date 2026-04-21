@@ -756,8 +756,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260421c"></script>
-<script src="/v4/shared.js?v=20260421c"></script>
+<script src="/v4/api.js?v=20260421d"></script>
+<script src="/v4/shared.js?v=20260421d"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -889,31 +889,12 @@
         const t = document.querySelector(href);
         if(t){
           e.preventDefault();
-          // Jump scroll synchrone (fonctionne en CDP/tab arrière-plan/focus).
-          // Pour l'utilisateur réel, on lance en plus une animation rAF légère par-dessus
-          // uniquement si le tab a le focus (sinon rAF est pausé et le scroll reste OK).
-          const rect = t.getBoundingClientRect();
-          const targetTop = rect.top + window.scrollY - 80;
-          if(document.visibilityState === 'visible' && document.hasFocus()){
-            // Smooth animation pour l'utilisateur
-            const startY = window.scrollY;
-            const distance = targetTop - startY;
-            const duration = 320;
-            const startTime = performance.now();
-            function easeInOut(t){ return t<.5 ? 2*t*t : -1+(4-2*t)*t; }
-            function step(now){
-              const elapsed = now - startTime;
-              const progress = Math.min(elapsed/duration, 1);
-              window.scrollTo(0, startY + distance * easeInOut(progress));
-              if(progress < 1) requestAnimationFrame(step);
-            }
-            requestAnimationFrame(step);
-          } else {
-            // Jump instantané si tab pas focus (CDP, tests)
-            window.scrollTo(0, targetTop);
-          }
+          const targetTop = t.getBoundingClientRect().top + window.scrollY - 80;
+          // Native smooth scroll : fiable en CDP comme en usage réel
+          window.scrollTo({top: targetTop, behavior: 'smooth'});
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
+          history.replaceState(null, '', href);
         }
       }
     });
