@@ -113,6 +113,14 @@ async def get_favorites(
     return {
         "tracks": tracks_data,
         "count": len(tracks_data),
+        "_debug": {
+            "user_id": current_user.id,
+            "raw_fav_count": len(raw_favs),
+            "raw_fav_track_ids": [f.track_id for f in raw_favs],
+            "raw_any_count": len(raw_any),
+            "raw_any_sample": [(f.user_id, f.track_id) for f in raw_any],
+            "joined_count": len(rows),
+        },
     }
 
 
