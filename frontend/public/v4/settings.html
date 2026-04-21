@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Settings</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Page-specific — Settings */
+  .settings-layout{display:grid;grid-template-columns:240px 1fr;gap:32px;margin-top:24px;align-items:flex-start}
+
+  /* Side nav */
+  .side-nav{
+    position:sticky;top:calc(var(--nav-h) + 24px);
+    display:flex;flex-direction:column;gap:2px;
+    padding:8px;
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    border:1px solid var(--b-default);
+    border-radius:var(--r-4);
+    box-shadow:var(--e-2);
+  }
+  .side-nav a{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 12px;border-radius:var(--r-2);
+    font-family:var(--font-display);font-size:13px;font-weight:500;
+    color:var(--c-secondary);
+    transition:all var(--t-fast) var(--ease);
+    cursor:pointer;
+  }
+  .side-nav a:hover{background:var(--s-2);color:var(--c-primary)}
+  .side-nav a.active{background:var(--amber-soft);color:#ffba7a;border-left:2px solid var(--amber);padding-left:10px}
+  .side-nav a svg{width:15px;height:15px;stroke-width:1.7;flex-shrink:0}
+  .side-nav-group{
+    font-family:var(--font-mono);font-size:10px;color:var(--c-quaternary);
+    padding:12px 12px 4px;letter-spacing:.12em;text-transform:uppercase;
+  }
+  .side-nav-group:first-child{padding-top:4px}
+
+  /* Sections */
+  .settings-main{display:flex;flex-direction:column;gap:20px;min-width:0}
+  .sec{
+    padding:24px 26px;border:1px solid var(--b-default);border-radius:var(--r-5);
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    box-shadow:var(--e-2);
+    scroll-margin-top:calc(var(--nav-h) + 24px);
+  }
+  .sec-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--b-subtle)}
+  .sec-title{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em;margin:0}
+  .sec-title .editorial{color:var(--c-secondary);font-weight:400;font-size:18px}
+  .sec-sub{color:var(--c-secondary);font-size:13px;margin-top:4px;max-width:440px}
+
+  /* Rows */
+  .row-split{display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .field-label{font-size:12.5px;font-weight:500}
+  .field-hint{font-size:11.5px;color:var(--c-tertiary);margin-top:-2px}
+
+  .option-row{
+    display:flex;justify-content:space-between;align-items:center;gap:18px;
+    padding:14px 16px;border-radius:var(--r-3);
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    margin-bottom:10px;
+    transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease);
+  }
+  .option-row:hover{border-color:var(--b-default);background:var(--s-3)}
+  .option-info{flex:1;min-width:0}
+  .option-label{font-size:13.5px;font-weight:500}
+  .option-hint{font-size:12px;color:var(--c-tertiary);margin-top:3px;max-width:480px}
+  .option-trail{display:flex;align-items:center;gap:10px;flex-shrink:0}
+
+  /* Theme picker */
+  .theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px}
+  .theme-card{
+    padding:14px 12px;border:1.5px solid var(--b-default);border-radius:var(--r-4);
+    background:var(--s-1);cursor:pointer;text-align:left;
+    transition:all var(--t-fast) var(--ease);
+    position:relative;overflow:hidden;
+  }
+  .theme-card:hover{transform:translateY(-2px);border-color:var(--b-strong)}
+  .theme-card.active{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-soft)}
+  .theme-card.active::after{
+    content:"✓";position:absolute;top:8px;right:10px;
+    width:20px;height:20px;border-radius:50%;
+    background:var(--amber);color:var(--c-invert);
+    font-family:var(--font-mono);font-size:11px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .theme-preview{
+    height:60px;border-radius:var(--r-2);margin-bottom:10px;
+    position:relative;overflow:hidden;
+    border:1px solid var(--b-subtle);
+  }
+  .theme-preview.neon{background:
+    radial-gradient(200px 100px at 0% 0%, rgba(255,46,107,.4), transparent),
+    radial-gradient(200px 100px at 100% 100%, rgba(139,92,246,.35), transparent),
+    linear-gradient(180deg,#12111a,#050406)}
+  .theme-preview.warm{background:
+    radial-gradient(200px 100px at 0% 0%, rgba(255,122,24,.4), transparent),
+    linear-gradient(180deg,#1a1212,#0a0606)}
+  .theme-preview.cyber{background:
+    radial-gradient(200px 100px at 100% 0%, rgba(31,212,212,.4), transparent),
+    radial-gradient(200px 100px at 0% 100%, rgba(139,92,246,.35), transparent),
+    linear-gradient(180deg,#0c1220,#040810)}
+  .theme-name{font-family:var(--font-display);font-size:13px;font-weight:600;margin:0 0 2px}
+  .theme-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary)}
+
+  /* Accent swatches */
+  .accents{display:flex;gap:8px;flex-wrap:wrap}
+  .swatch{
+    width:32px;height:32px;border-radius:10px;cursor:pointer;
+    border:2px solid transparent;
+    transition:transform var(--t-fast) var(--ease-spring),border-color var(--t-fast) var(--ease);
+    position:relative;
+  }
+  .swatch:hover{transform:scale(1.12)}
+  .swatch.active{border-color:rgba(255,255,255,.8);transform:scale(1.15);box-shadow:0 0 0 4px var(--s-0),0 0 0 5px currentColor}
+
+  /* Integrations */
+  .integ-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .integ{
+    display:flex;gap:14px;align-items:center;
+    padding:14px;border-radius:var(--r-4);
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    position:relative;transition:all var(--t-fast) var(--ease);
+  }
+  .integ:hover{background:var(--s-3);border-color:var(--b-default)}
+  .integ-logo{
+    width:44px;height:44px;border-radius:10px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:14px;color:#fff;
+  }
+  .integ-body{flex:1;min-width:0}
+  .integ-name{font-size:13.5px;font-weight:600}
+  .integ-state{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);margin-top:2px}
+  .integ-state.on{color:var(--green)}
+  .integ-action .btn{min-width:82px;justify-content:center}
+
+  /* Keyboard shortcuts */
+  .kbd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 24px}
+  .kbd-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 12px;border-radius:var(--r-2);
+    transition:background var(--t-fast) var(--ease);
+    border-bottom:1px solid var(--b-subtle);
+  }
+  .kbd-row:hover{background:var(--s-2)}
+  .kbd-label{font-size:12.5px;color:var(--c-secondary)}
+  .kbd-keys{display:flex;gap:4px}
+
+  /* Plan card */
+  .plan{
+    padding:22px 24px;border-radius:var(--r-5);
+    background:
+      radial-gradient(600px 300px at 100% 0%, rgba(255,122,24,.18), transparent 60%),
+      radial-gradient(400px 200px at 0% 100%, rgba(255,46,107,.16), transparent 60%),
+      linear-gradient(180deg,var(--s-3) 0%,var(--s-1) 100%);
+    border:1px solid rgba(255,122,24,.25);
+    display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;
+    position:relative;overflow:hidden;
+  }
+  .plan::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity:.55;mix-blend-mode:overlay}
+  .plan h3{font-family:var(--font-display);font-size:22px;font-weight:700;margin:0;letter-spacing:-0.01em}
+  .plan .plan-desc{color:var(--c-secondary);font-size:13px;margin-top:6px;max-width:420px}
+  .plan-meta{display:flex;gap:22px;margin-top:14px;padding-top:14px;border-top:1px solid var(--b-subtle)}
+  .plan-meta div{display:flex;flex-direction:column;gap:2px}
+  .plan-meta .ml{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);letter-spacing:.1em;text-transform:uppercase}
+  .plan-meta .mv{font-family:var(--font-mono);font-size:13px;font-weight:600}
+
+  /* Usage bars */
+  .usage{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+  .usage-row{display:grid;grid-template-columns:140px 1fr 90px;gap:14px;align-items:center}
+  .usage-label{font-size:12px;color:var(--c-secondary)}
+  .usage-bar{height:6px;background:var(--s-3);border-radius:3px;overflow:hidden;position:relative}
+  .usage-bar-fill{height:100%;border-radius:3px;transition:width var(--t-slow) var(--ease)}
+  .usage-bar-fill.ok{background:linear-gradient(90deg,var(--green),var(--cyan))}
+  .usage-bar-fill.warn{background:linear-gradient(90deg,var(--amber),var(--pink))}
+  .usage-value{font-family:var(--font-mono);font-size:11.5px;text-align:right}
+
+  /* Account header */
+  .acc-head{display:flex;gap:20px;align-items:center}
+  .acc-avatar{
+    width:68px;height:68px;border-radius:18px;
+    background:linear-gradient(135deg,var(--violet) 0%,var(--pink) 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-display);font-weight:700;font-size:24px;
+    box-shadow:0 12px 32px rgba(139,92,246,.3),0 0 0 1px rgba(255,255,255,.08) inset;
+    flex-shrink:0;
+  }
+  .acc-info h4{font-family:var(--font-display);margin:0;font-size:18px;font-weight:600}
+  .acc-info p{margin:2px 0 0;color:var(--c-secondary);font-size:13px}
+  .acc-badges{display:flex;gap:6px;margin-top:8px}
+
+  /* Danger zone */
+  .danger{border-color:rgba(239,68,68,.22)}
+  .danger .sec-title{color:#fecaca}
+
+  @media (max-width:1080px){
+    .settings-layout{grid-template-columns:1fr}
+    .side-nav{position:static;flex-direction:row;overflow-x:auto}
+    .row-split{grid-template-columns:1fr}
+    .integ-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- SHARED TOP NAV -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <span class="mark"></span>
+    <span>CueForge</span>
+    <span class="chip chip-cyan" style="margin-left:6px"><span class="chip-dot"></span>Pro</span>
+  </div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm" data-tt="Search · ⌘K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find</button>
+    <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Upload</button>
+    <span class="topnav-sep"></span>
+    <button class="btn-icon btn btn-ghost btn-sm" data-tt="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
+    <button class="avatar" data-tt="Kevin · kenin@">KD</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow reveal">Settings · profil · intégrations</div>
+      <h1 class="page-title reveal reveal-1">Settings <span class="editorial">/ à votre main</span></h1>
+      <p class="page-sub reveal reveal-2">Préférences, apparence, intégrations DJ — tout ce qui fait de CueForge le vôtre.</p>
+    </div>
+    <button class="btn btn-primary reveal reveal-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>Sauvegarder</button>
+  </div>
+
+  <div class="settings-layout">
+    <!-- SIDE NAV -->
+    <aside class="side-nav reveal reveal-2">
+      <div class="side-nav-group">Préférences</div>
+      <a href="#account" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Compte</a>
+      <a href="#plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l2.5 7.5H22l-6.3 4.6L18.2 22 12 17.3 5.8 22l2.5-7.9L2 9.5h7.5z"/></svg>Plan & billing</a>
+      <a href="#appearance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>Apparence</a>
+      <a href="#audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>Audio & analyse</a>
+      <a href="#shortcuts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>Raccourcis</a>
+      <div class="side-nav-group">Connexions</div>
+      <a href="#integrations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Intégrations DJ</a>
+      <a href="#notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Notifications</a>
+      <a href="#privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Confidentialité</a>
+      <div class="side-nav-group">Avancé</div>
+      <a href="#labs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 3l1 3h4l1-3"/><path d="M10 6v4l-5 8a3 3 0 0 0 2.6 4.5h8.8A3 3 0 0 0 19 18l-5-8V6"/></svg>Labs</a>
+      <a href="#danger" style="color:#fca5a5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Danger zone</a>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="settings-main">
+
+      <!-- Account -->
+      <section class="sec reveal reveal-2" id="account">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Compte <span class="editorial">/ qui mix</span></h2>
+            <div class="sec-sub">Informations de profil et infos DJ qui apparaissent sur vos sets exportés.</div>
+          </div>
+        </div>
+        <div class="acc-head">
+          <div class="acc-avatar">KD</div>
+          <div class="acc-info" style="flex:1">
+            <h4>Kevin Dumont</h4>
+            <p>kenin.dumont@gmail.com · Rejoint mars 2026</p>
+            <div class="acc-badges">
+              <span class="chip chip-amber"><span class="chip-dot"></span>Pro</span>
+              <span class="chip chip-cyan"><span class="chip-dot"></span>Desktop beta</span>
+              <span class="chip"><span class="chip-dot" style="color:var(--violet)"></span>Early adopter #47</span>
+            </div>
+          </div>
+          <div>
+            <button class="btn btn-ghost">Changer avatar</button>
+          </div>
+        </div>
+        <div style="height:20px"></div>
+        <div class="row-split">
+          <div class="field"><label class="field-label">Nom affiché</label><input class="input" value="Kevin Dumont"></div>
+          <div class="field"><label class="field-label">Nom de DJ</label><input class="input" value="KEVN" placeholder="ex. KEVN"><div class="field-hint">Utilisé sur les exports de sets (Rekordbox, Serato)</div></div>
+          <div class="field"><label class="field-label">Email</label><input class="input" value="kenin.dumont@gmail.com"></div>
+          <div class="field"><label class="field-label">Ville / club base</label><input class="input" value="Paris · Rex Club"></div>
+          <div class="field"><label class="field-label">Langue</label>
+            <div class="segment">
+              <button class="active">Français</button>
+              <button>English</button>
+              <button>Español</button>
+            </div>
+          </div>
+          <div class="field"><label class="field-label">Fuseau horaire</label><input class="input" value="Europe/Paris — UTC+01:00"></div>
+        </div>
+      </section>
+
+      <!-- Plan -->
+      <section class="sec reveal reveal-3" id="plan">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Plan & billing <span class="editorial">/ votre usage</span></h2>
+            <div class="sec-sub">Plan Pro actif · facturation mensuelle · annulable à tout moment.</div>
+          </div>
+          <button class="btn btn-ghost">Voir factures</button>
+        </div>
+        <div class="plan">
+          <div style="position:relative;z-index:1">
+            <span class="chip chip-amber"><span class="chip-dot"></span>PRO · ACTIF</span>
+            <h3 style="margin-top:10px">CueForge Pro <span class="editorial" style="color:var(--amber)">/ 29€ par mois</span></h3>
+            <div class="plan-desc">Analyse illimitée · stems haute fidélité · 50 Go de stockage · exports DJ complets · priority support.</div>
+            <div class="plan-meta">
+              <div><span class="ml">Prochain prélèvement</span><span class="mv">05 mai 2026</span></div>
+              <div><span class="ml">Période</span><span class="mv">Mensuel</span></div>
+              <div><span class="ml">Moyen</span><span class="mv">Visa · •• 4242</span></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;position:relative;z-index:1">
+            <button class="btn btn-primary">Passer au Studio</button>
+            <button class="btn btn-ghost btn-sm">Changer la carte</button>
+          </div>
+        </div>
+        <div class="usage">
+          <div class="usage-row">
+            <div class="usage-label">Stockage</div>
+            <div class="usage-bar"><div class="usage-bar-fill ok" style="width:48%"></div></div>
+            <div class="usage-value">24.1 / 50 GB</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-label">Tracks analysés</div>
+            <div class="usage-bar"><div class="usage-bar-fill ok" style="width:26%"></div></div>
+            <div class="usage-value">1 284 / ∞</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-label">Stems séparés (mois)</div>
+            <div class="usage-bar"><div class="usage-bar-fill warn" style="width:72%"></div></div>
+            <div class="usage-value">721 / 1 000</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-label">API calls</div>
+            <div class="usage-bar"><div class="usage-bar-fill ok" style="width:14%"></div></div>
+            <div class="usage-value">2.8k / 20k</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Appearance -->
+      <section class="sec reveal reveal-3" id="appearance">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Apparence <span class="editorial">/ l'œil</span></h2>
+            <div class="sec-sub">Thème, accents, densité. Reflète votre style — pas juste une prévisualisation.</div>
+          </div>
+        </div>
+        <div class="field"><label class="field-label">Thème</label>
+          <div class="theme-grid">
+            <button class="theme-card active">
+              <div class="theme-preview neon"></div>
+              <div class="theme-name">Studio Neon</div>
+              <div class="theme-meta">Signature · dark + aurora</div>
+            </button>
+            <button class="theme-card">
+              <div class="theme-preview warm"></div>
+              <div class="theme-name">Amber Noir</div>
+              <div class="theme-meta">Warm · moins de saturation</div>
+            </button>
+            <button class="theme-card">
+              <div class="theme-preview cyber"></div>
+              <div class="theme-name">Cyber Blue</div>
+              <div class="theme-meta">Cool · cyan + violet</div>
+            </button>
+          </div>
+        </div>
+        <div style="height:18px"></div>
+        <div class="field"><label class="field-label">Couleur d'accent</label>
+          <div class="accents">
+            <span class="swatch active" style="background:#ff7a18;color:#ff7a18"></span>
+            <span class="swatch" style="background:#ff2e6b;color:#ff2e6b"></span>
+            <span class="swatch" style="background:#d4ff2a;color:#d4ff2a"></span>
+            <span class="swatch" style="background:#1fd4d4;color:#1fd4d4"></span>
+            <span class="swatch" style="background:#8b5cf6;color:#8b5cf6"></span>
+            <span class="swatch" style="background:#4ade80;color:#4ade80"></span>
+            <span class="swatch" style="background:linear-gradient(135deg,#ff7a18,#ff2e6b);color:#ff7a18" data-tt="Aurora"></span>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Densité d'interface</div>
+            <div class="option-hint">Compacte = plus de contenu à l'écran · confortable = plus d'espace</div>
+          </div>
+          <div class="option-trail">
+            <div class="segment">
+              <button>Compacte</button>
+              <button class="active">Normale</button>
+              <button>Confortable</button>
+            </div>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Animations & micro-interactions</div>
+            <div class="option-hint">Pressions, ripples, spring transitions · désactivable si epilepsie</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Grain & aurora background</div>
+            <div class="option-hint">Le fond aurora + le bruit — économise 2% CPU sur machines modestes</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Police monospace pour les données</div>
+            <div class="option-hint">JetBrains Mono · recommandé pour le BPM et les timecodes</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+      </section>
+
+      <!-- Audio & analyse -->
+      <section class="sec reveal reveal-3" id="audio">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Audio & analyse <span class="editorial">/ la précision</span></h2>
+            <div class="sec-sub">Paramètres qui impactent directement la détection de BPM, de clé et la qualité des cues.</div>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Algorithme de détection BPM</div>
+            <div class="option-hint">Madmom (précis, +2s/track) · Essentia (rapide) · Hybride (meilleur compromis)</div>
+          </div>
+          <div class="segment">
+            <button>Essentia</button>
+            <button class="active">Hybride</button>
+            <button>Madmom</button>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Notation de clé</div>
+            <div class="option-hint">Camelot (1A-12B) · Classique (C, Am...) · Open Key (5d...)</div>
+          </div>
+          <div class="segment">
+            <button class="active">Camelot</button>
+            <button>Classique</button>
+            <button>Open Key</button>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Séparation stems (Demucs)</div>
+            <div class="option-hint">Qualité htdemucs_ft · 4 stems · ~8s/track sur Apple Silicon · obligatoire sur Pro</div>
+          </div>
+          <span class="chip chip-lime"><span class="chip-dot"></span>Toujours on</span>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Cues auto par genre</div>
+            <div class="option-hint">Templates de cues adaptés : Melodic = 8 cues · House = 6 cues · Techno = 10 cues</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Snap sur beatgrid par défaut</div>
+            <div class="option-hint">Cues et loops snappent sur la grille · peut être désactivé track par track</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Pre-gain auto (headroom -6 dB)</div>
+            <div class="option-hint">Compensation auto pour éviter le clipping sur l'analyse</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+      </section>
+
+      <!-- Shortcuts -->
+      <section class="sec reveal reveal-3" id="shortcuts">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Raccourcis clavier <span class="editorial">/ vitesse</span></h2>
+            <div class="sec-sub">Personnalisables — cliquez une combinaison pour la réassigner.</div>
+          </div>
+          <button class="btn btn-ghost">Réinitialiser</button>
+        </div>
+        <div class="kbd-grid">
+          <div class="kbd-row"><span class="kbd-label">Ouvrir command palette</span><span class="kbd-keys"><kbd class="kbd">⌘</kbd><kbd class="kbd">K</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Nouvel upload</span><span class="kbd-keys"><kbd class="kbd">⌘</kbd><kbd class="kbd">U</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Poser un cue</span><span class="kbd-keys"><kbd class="kbd">C</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Créer loop</span><span class="kbd-keys"><kbd class="kbd">L</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Lecture / pause</span><span class="kbd-keys"><kbd class="kbd">Espace</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Mode Analyze</span><span class="kbd-keys"><kbd class="kbd">1</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Mode Mix (dual deck)</span><span class="kbd-keys"><kbd class="kbd">2</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Mode Compare</span><span class="kbd-keys"><kbd class="kbd">3</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Zoom waveform +</span><span class="kbd-keys"><kbd class="kbd">+</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Zoom waveform -</span><span class="kbd-keys"><kbd class="kbd">-</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Snap on/off</span><span class="kbd-keys"><kbd class="kbd">S</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Solo stem focus</span><span class="kbd-keys"><kbd class="kbd">⌥</kbd><kbd class="kbd">1-4</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Sync decks</span><span class="kbd-keys"><kbd class="kbd">⌘</kbd><kbd class="kbd">⇧</kbd><kbd class="kbd">S</kbd></span></div>
+          <div class="kbd-row"><span class="kbd-label">Exporter Rekordbox</span><span class="kbd-keys"><kbd class="kbd">⌘</kbd><kbd class="kbd">E</kbd></span></div>
+        </div>
+      </section>
+
+      <!-- Integrations -->
+      <section class="sec reveal reveal-3" id="integrations">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Intégrations DJ <span class="editorial">/ votre écosystème</span></h2>
+            <div class="sec-sub">Connectez vos softs DJ et catalogues pour import/export en un clic.</div>
+          </div>
+          <a href="upload.html#sources" style="font-family:var(--font-display);font-size:12px;color:var(--amber)">Gérer les imports →</a>
+        </div>
+        <div class="integ-grid">
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#000,#444)">RB</div>
+            <div class="integ-body">
+              <div class="integ-name">Rekordbox</div>
+              <div class="integ-state on">Connecté · export auto</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Gérer</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#0061ff,#2d84ff)">S</div>
+            <div class="integ-body">
+              <div class="integ-name">Serato DJ Pro</div>
+              <div class="integ-state on">Connecté · 412 tracks synchro</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Gérer</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#ff6b00,#ff9500)">T</div>
+            <div class="integ-body">
+              <div class="integ-name">Traktor Pro</div>
+              <div class="integ-state">Non connecté</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-primary btn-sm">Connecter</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#1db954,#1ed760)"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 14.4c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.4-1-.3.1-.7-.1-.8-.5-.1-.3.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9z"/></svg></div>
+            <div class="integ-body">
+              <div class="integ-name">Spotify</div>
+              <div class="integ-state on">Import playlists · hors-ligne désactivé</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Gérer</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#0095ff,#00d4ff)">BP</div>
+            <div class="integ-body">
+              <div class="integ-name">Beatport</div>
+              <div class="integ-state">Non connecté</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-primary btn-sm">Connecter</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#ff3b30,#ff9500)">☁</div>
+            <div class="integ-body">
+              <div class="integ-name">Google Drive</div>
+              <div class="integ-state on">3 dossiers watch · auto-import</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Gérer</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#0061ff,#00d4ff)">Dr</div>
+            <div class="integ-body">
+              <div class="integ-name">Dropbox</div>
+              <div class="integ-state on">Connecté · 2 dossiers watch</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Gérer</button></div>
+          </div>
+          <div class="integ">
+            <div class="integ-logo" style="background:linear-gradient(135deg,#8b5cf6,#ff2e6b)">+</div>
+            <div class="integ-body">
+              <div class="integ-name">Ajouter une source</div>
+              <div class="integ-state">SoundCloud · Bandcamp · Apple Music…</div>
+            </div>
+            <div class="integ-action"><button class="btn btn-ghost btn-sm">Parcourir</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Notifications -->
+      <section class="sec reveal reveal-3" id="notifications">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Notifications <span class="editorial">/ quand CueForge vous parle</span></h2>
+            <div class="sec-sub">App, email, push desktop — tout ce qu'on vous envoie.</div>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Analyse terminée</div>
+            <div class="option-hint">Toast in-app quand un batch se termine</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Transition risquée détectée</div>
+            <div class="option-hint">Alerte si score compat &lt; 5/10 dans un set en cours</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Nouvelle suggestion IA hebdomadaire</div>
+            <div class="option-hint">Digest email le dimanche soir · « 5 tracks qui matchent votre style »</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Newsletter produit</div>
+            <div class="option-hint">Nouveautés CueForge · 1x par mois maximum</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+      </section>
+
+      <!-- Privacy -->
+      <section class="sec reveal reveal-3" id="privacy">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Confidentialité <span class="editorial">/ vos données, vos règles</span></h2>
+            <div class="sec-sub">CueForge ne revend jamais vos données. Tout le contrôle est ici.</div>
+          </div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Partager mes stats agrégées (anonymes) pour améliorer l'IA</div>
+            <div class="option-hint">Aucune donnée identifiable · aide la détection BPM/clé à progresser</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Analytics produit</div>
+            <div class="option-hint">Clics, pages vues · anonymisé · via PostHog self-hosted</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Sessions publiques (profil DJ)</div>
+            <div class="option-hint">Partager un lien lecture-seule vers vos sets · off par défaut</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Exporter toutes mes données</div>
+            <div class="option-hint">Archive complète · tracks · cues · sets · stats · au format JSON + WAV</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">Demander export</button>
+        </div>
+      </section>
+
+      <!-- Labs -->
+      <section class="sec reveal reveal-3" id="labs">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Labs <span class="editorial">/ features en cours</span></h2>
+            <div class="sec-sub">Accès anticipé aux fonctionnalités en bêta — peuvent casser. Retours bienvenus.</div>
+          </div>
+          <span class="chip chip-violet"><span class="chip-dot"></span>12 features</span>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Mashup Studio (phases 1-3)</div>
+            <div class="option-hint">Parité MIK 11 Pro — stems, key shift, quantize — déjà live</div>
+          </div>
+          <span class="chip chip-green"><span class="chip-dot"></span>Actif</span>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">AI mix assist temps réel</div>
+            <div class="option-hint">Suggestions de transitions pendant que vous jouez · deux-deck seulement</div>
+          </div>
+          <div class="switch on" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Phrase-aware key shifting</div>
+            <div class="option-hint">Pitch intelligent qui préserve la tonalité perçue · expérimental</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">Mode hardware (CDJ-3000 sync)</div>
+            <div class="option-hint">Synchronisation cues depuis un CDJ via ethernet · early preview</div>
+          </div>
+          <div class="switch" data-switch></div>
+        </div>
+        <div class="option-row">
+          <div class="option-info">
+            <div class="option-label">GPU analysis (Modal)</div>
+            <div class="option-hint">Séparation stems 10× plus rapide · gelé (budget)</div>
+          </div>
+          <span class="chip"><span class="chip-dot" style="color:var(--c-quaternary)"></span>En attente</span>
+        </div>
+      </section>
+
+      <!-- Danger -->
+      <section class="sec danger reveal reveal-4" id="danger">
+        <div class="sec-head">
+          <div>
+            <h2 class="sec-title">Danger zone</h2>
+            <div class="sec-sub">Actions irréversibles — bien réfléchir avant de cliquer.</div>
+          </div>
+        </div>
+        <div class="option-row" style="border-color:rgba(239,68,68,.15)">
+          <div class="option-info">
+            <div class="option-label">Réinitialiser toutes les stats et sessions</div>
+            <div class="option-hint">Garde vos tracks et cues · efface l'historique de sessions et les graphs</div>
+          </div>
+          <button class="btn btn-danger btn-sm">Réinitialiser</button>
+        </div>
+        <div class="option-row" style="border-color:rgba(239,68,68,.15)">
+          <div class="option-info">
+            <div class="option-label">Supprimer tous les stems (24 Go)</div>
+            <div class="option-hint">Libère l'espace · les stems seront régénérés à la demande</div>
+          </div>
+          <button class="btn btn-danger btn-sm">Supprimer</button>
+        </div>
+        <div class="option-row" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)">
+          <div class="option-info">
+            <div class="option-label" style="color:#fecaca">Supprimer définitivement le compte</div>
+            <div class="option-hint">Toutes les données perdues sous 30 jours · subscription annulée · aucun retour possible</div>
+          </div>
+          <button class="btn btn-danger">Supprimer mon compte</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+  // Side-nav active on scroll + click
+  const links = document.querySelectorAll('.side-nav a');
+  links.forEach(a=>{
+    a.addEventListener('click',e=>{
+      const href = a.getAttribute('href');
+      if(href && href.startsWith('#')){
+        const t = document.querySelector(href);
+        if(t){
+          e.preventDefault();
+          t.scrollIntoView({behavior:'smooth', block:'start'});
+          links.forEach(x=>x.classList.remove('active'));
+          a.classList.add('active');
+        }
+      }
+    });
+  });
+
+  // Scroll spy
+  const sections = Array.from(document.querySelectorAll('.sec[id]'));
+  const observer = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        const id = e.target.id;
+        links.forEach(a=>{
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, {rootMargin:'-20% 0% -60% 0%', threshold:0});
+  sections.forEach(s=>observer.observe(s));
+
+  // Switch toggle
+  document.querySelectorAll('[data-switch]').forEach(s=>{
+    s.addEventListener('click',()=>{
+      s.classList.toggle('on');
+      toast(s.classList.contains('on') ? 'Activé' : 'Désactivé','info');
+    });
+  });
+
+  // Segment toggle
+  document.querySelectorAll('.segment').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+      });
+    });
+  });
+
+  // Theme card selection
+  document.querySelectorAll('.theme-card').forEach(c=>{
+    c.addEventListener('click',()=>{
+      document.querySelectorAll('.theme-card').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      const name = c.querySelector('.theme-name').textContent;
+      toast(`Thème : ${name}`,'success');
+    });
+  });
+
+  // Swatches
+  document.querySelectorAll('.swatch').forEach(s=>{
+    s.addEventListener('click',()=>{
+      document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('active'));
+      s.classList.add('active');
+      toast('Accent mis à jour','info');
+    });
+  });
+
+  // Save button
+  document.querySelectorAll('.btn-primary').forEach(b=>{
+    if(b.textContent.includes('Sauvegarder')){
+      b.addEventListener('click',()=>toast('Settings sauvegardés ✓','success'));
+    }
+  });
+
+  // Danger buttons
+  document.querySelectorAll('.btn-danger').forEach(b=>{
+    b.addEventListener('click',()=>toast('Confirmation requise — modale à venir','error'));
+  });
+
+  // Integration connect
+  document.querySelectorAll('.integ-action .btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const name = b.closest('.integ').querySelector('.integ-name').textContent;
+      toast(`${name} — action en cours`,'info');
+    });
+  });
+</script>
+</body>
+</html>

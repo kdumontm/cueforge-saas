@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CueForge — Stats</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Page-specific — Stats */
+  .stats-head{
+    display:grid;grid-template-columns:1fr auto;gap:24px;align-items:flex-end;
+    margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--b-subtle);
+  }
+  .range-seg{display:flex;gap:4px}
+
+  /* KPI grid */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .kpi{
+    padding:18px 20px;border:1px solid var(--b-default);border-radius:var(--r-5);
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    position:relative;overflow:hidden;box-shadow:var(--e-2);
+    transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease);
+  }
+  .kpi:hover{transform:translateY(-2px);border-color:var(--b-strong)}
+  .kpi .eyebrow{margin-bottom:8px}
+  .kpi .value{font-family:var(--font-display);font-weight:700;font-size:30px;letter-spacing:-0.02em;line-height:1}
+  .kpi .value .unit{font-size:14px;color:var(--c-secondary);font-weight:500;margin-left:4px}
+  .kpi .delta{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-family:var(--font-mono);font-size:11.5px}
+  .kpi .delta.up{color:var(--green)}
+  .kpi .delta.down{color:var(--red)}
+  .kpi .spark{position:absolute;right:16px;bottom:14px;opacity:.85}
+
+  /* Main grid */
+  .main-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:20px}
+  .panel{padding:20px 22px;border:1px solid var(--b-default);border-radius:var(--r-5);
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);box-shadow:var(--e-2);position:relative;overflow:hidden}
+  .panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+  .panel-title{font-family:var(--font-display);font-weight:600;font-size:15px;letter-spacing:-0.005em;margin:0}
+  .panel-sub{color:var(--c-tertiary);font-size:12px;margin-top:2px}
+
+  /* Energy-over-time chart */
+  .chart-wrap{height:260px;position:relative}
+  .chart-wrap svg{width:100%;height:100%;display:block;overflow:visible}
+  .chart-grid line{stroke:var(--b-subtle);stroke-width:1}
+  .chart-axis text{fill:var(--c-tertiary);font-size:10px;font-family:var(--font-mono)}
+  .chart-line{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+  .chart-area{opacity:.22}
+  .chart-dot{transition:r var(--t-fast) var(--ease)}
+  .chart-dot:hover{r:7}
+
+  /* Mix-quality distribution */
+  .quality-bars{display:flex;flex-direction:column;gap:10px}
+  .qb{display:grid;grid-template-columns:80px 1fr 50px;gap:12px;align-items:center}
+  .qb-label{font-family:var(--font-mono);font-size:11.5px;color:var(--c-secondary)}
+  .qb-track{height:8px;background:var(--s-3);border-radius:4px;overflow:hidden;position:relative}
+  .qb-fill{height:100%;border-radius:4px;transition:width var(--t-slow) var(--ease)}
+  .qb-fill.perf{background:linear-gradient(90deg,#4ade80,#22c55e)}
+  .qb-fill.good{background:linear-gradient(90deg,#d4ff2a,#a3e635)}
+  .qb-fill.fair{background:linear-gradient(90deg,#ff7a18,#f97316)}
+  .qb-fill.risky{background:linear-gradient(90deg,#ff2e6b,#e11d48)}
+  .qb-value{font-family:var(--font-mono);font-size:12px;text-align:right}
+
+  /* Top lists */
+  .top-list{display:flex;flex-direction:column;gap:6px}
+  .top-row{
+    display:grid;grid-template-columns:22px 1fr 64px;gap:10px;align-items:center;
+    padding:8px 10px;border-radius:var(--r-2);
+    transition:background var(--t-fast) var(--ease);cursor:pointer;
+  }
+  .top-row:hover{background:var(--s-2)}
+  .top-rank{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);text-align:center}
+  .top-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top-bar{height:4px;background:var(--s-3);border-radius:2px;overflow:hidden;margin-top:3px}
+  .top-bar-fill{height:100%;background:linear-gradient(90deg,var(--amber),var(--pink));border-radius:2px}
+  .top-num{font-family:var(--font-mono);font-size:11.5px;color:var(--c-secondary);text-align:right}
+
+  /* Camelot distribution */
+  .camelot-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-top:8px}
+  .cam-cell{
+    aspect-ratio:1;border-radius:var(--r-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:9.5px;line-height:1;
+    background:var(--s-2);border:1px solid var(--b-subtle);
+    position:relative;cursor:pointer;
+    transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease);
+  }
+  .cam-cell:hover{transform:scale(1.08);z-index:2;border-color:var(--b-strong)}
+  .cam-cell .num{font-size:10px;font-weight:600;color:var(--c-primary)}
+  .cam-cell .count{font-size:9px;color:var(--c-tertiary);margin-top:1px}
+  .cam-cell[data-heat="5"]{background:rgba(255,46,107,.55);border-color:rgba(255,46,107,.7)}
+  .cam-cell[data-heat="4"]{background:rgba(255,122,24,.45);border-color:rgba(255,122,24,.6)}
+  .cam-cell[data-heat="3"]{background:rgba(255,122,24,.25);border-color:rgba(255,122,24,.35)}
+  .cam-cell[data-heat="2"]{background:rgba(212,255,42,.15);border-color:rgba(212,255,42,.25)}
+  .cam-cell[data-heat="1"]{background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.2)}
+  .cam-cell[data-heat="0"]{opacity:.4}
+  .cam-header{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-bottom:4px}
+  .cam-header span{text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);font-weight:500}
+  .cam-row-label{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);display:flex;align-items:center;gap:6px;margin-top:6px;margin-bottom:3px}
+  .cam-row-label::before,.cam-row-label::after{content:"";flex:1;height:1px;background:var(--b-subtle)}
+
+  /* BPM histogram */
+  .histo-wrap{height:180px;display:flex;align-items:flex-end;gap:3px;padding:0 4px;margin-top:8px}
+  .bar{
+    flex:1;background:linear-gradient(180deg,var(--amber) 0%,rgba(255,122,24,.35) 100%);
+    border-radius:3px 3px 0 0;min-height:4px;position:relative;
+    transition:transform var(--t-fast) var(--ease),filter var(--t-fast) var(--ease);
+    cursor:pointer;
+  }
+  .bar::after{
+    content:attr(data-label);position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);
+    font-family:var(--font-mono);font-size:9.5px;color:var(--c-tertiary);
+    opacity:0;transition:opacity var(--t-fast) var(--ease);
+  }
+  .bar:hover{filter:brightness(1.3)}
+  .bar:hover::after{opacity:1}
+  .bar.peak{background:linear-gradient(180deg,var(--pink) 0%,rgba(255,46,107,.3) 100%)}
+
+  /* Activity heatmap */
+  .heat{display:grid;grid-template-columns:24px repeat(52,1fr);gap:3px;margin-top:8px}
+  .heat .day-label{font-family:var(--font-mono);font-size:9.5px;color:var(--c-tertiary);display:flex;align-items:center}
+  .heat-cell{
+    aspect-ratio:1;border-radius:2px;background:var(--s-3);
+    cursor:pointer;transition:transform var(--t-fast) var(--ease);
+  }
+  .heat-cell:hover{transform:scale(1.8);z-index:2;border:1px solid var(--b-strong)}
+  .heat-cell[data-l="1"]{background:rgba(255,122,24,.15)}
+  .heat-cell[data-l="2"]{background:rgba(255,122,24,.32)}
+  .heat-cell[data-l="3"]{background:rgba(255,122,24,.55)}
+  .heat-cell[data-l="4"]{background:rgba(255,122,24,.85);box-shadow:0 0 6px rgba(255,122,24,.5)}
+  .heat-legend{display:flex;align-items:center;gap:8px;margin-top:12px;font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary)}
+  .heat-legend .dots{display:flex;gap:3px}
+  .heat-legend .dots span{width:11px;height:11px;border-radius:2px;background:var(--s-3)}
+
+  /* Donut gauges */
+  .gauge-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .gauge{text-align:center;padding:14px 10px;background:var(--s-2);border-radius:var(--r-4);border:1px solid var(--b-subtle)}
+  .gauge svg{width:80px;height:80px;margin:0 auto 8px;display:block}
+  .gauge-bg{stroke:var(--s-3);stroke-width:8;fill:none}
+  .gauge-fg{stroke-width:8;fill:none;stroke-linecap:round;transform:rotate(-90deg);transform-origin:center}
+  .gauge .num{font-family:var(--font-mono);font-weight:600;font-size:18px}
+  .gauge .lbl{font-size:11px;color:var(--c-secondary);margin-top:2px}
+
+  /* Session feed */
+  .feed{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+  .feed-row{
+    display:flex;gap:12px;padding:10px 12px;border-radius:var(--r-3);
+    transition:background var(--t-fast) var(--ease);cursor:pointer;
+    border:1px solid transparent;
+  }
+  .feed-row:hover{background:var(--s-2);border-color:var(--b-subtle)}
+  .feed-date{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);width:48px;flex-shrink:0;text-align:center;padding-top:3px}
+  .feed-body{flex:1;min-width:0}
+  .feed-title{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .feed-meta{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);margin-top:2px;display:flex;gap:10px}
+  .feed-score{
+    font-family:var(--font-mono);font-weight:600;font-size:14px;
+    padding:6px 10px;border-radius:var(--r-2);background:var(--s-2);border:1px solid var(--b-subtle);
+    display:flex;align-items:center;
+  }
+  .feed-score.hi{color:var(--green);border-color:rgba(74,222,128,.3);background:var(--green-soft)}
+  .feed-score.mid{color:#e5ff70;border-color:rgba(212,255,42,.3);background:var(--lime-soft)}
+  .feed-score.lo{color:#ffba7a;border-color:rgba(255,122,24,.3);background:var(--amber-soft)}
+
+  @media (max-width:1080px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .main-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- SHARED TOP NAV -->
+<header class="topnav">
+  <div class="topnav-brand">
+    <span class="mark"></span>
+    <span>CueForge</span>
+    <span class="chip chip-cyan" style="margin-left:6px"><span class="chip-dot"></span>Pro</span>
+  </div>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="index.html">Overview</a>
+    <a href="analyze.html">Analyze</a>
+    <a href="library.html">Library</a>
+    <a href="compatible.html">Compatible</a>
+    <a href="set-builder.html">Set Builder</a>
+    <a href="mix-studio.html">Mix Studio</a>
+    <a href="stats.html">Stats</a>
+    <a href="upload.html">Upload</a>
+    <a href="settings.html">Settings</a>
+  </nav>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm" data-tt="Search · ⌘K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find</button>
+    <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Upload</button>
+    <span class="topnav-sep"></span>
+    <button class="btn-icon btn btn-ghost btn-sm" data-tt="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
+    <button class="avatar" data-tt="Kevin · kenin@">KD</button>
+  </div>
+</header>
+
+<main class="page">
+  <!-- Header + range -->
+  <div class="stats-head">
+    <div>
+      <div class="eyebrow reveal">Analytics · vos 30 derniers jours</div>
+      <h1 class="page-title reveal reveal-1">Stats <span class="editorial">/ votre signature</span></h1>
+      <p class="page-sub reveal reveal-2">Ce que vos mix révèlent sur votre style. Les chiffres racontent — vous décidez.</p>
+    </div>
+    <div class="range-seg reveal reveal-2">
+      <div class="segment">
+        <button>7j</button>
+        <button class="active">30j</button>
+        <button>90j</button>
+        <button>Année</button>
+        <button>All time</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-left:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi reveal reveal-1">
+      <div class="eyebrow">Tracks analysés</div>
+      <div class="value">1 284</div>
+      <div class="delta up">↑ 12.4% vs 30j précédents</div>
+      <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#ff7a18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,22 8,18 16,20 24,14 32,16 40,10 48,12 56,8 64,9 72,5 80,3"/></svg>
+    </div>
+    <div class="kpi reveal reveal-2">
+      <div class="eyebrow">Cues posés</div>
+      <div class="value">8 412</div>
+      <div class="delta up">↑ 6.6 / track moyenne</div>
+      <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#ff2e6b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,20 8,15 16,17 24,12 32,14 40,8 48,10 56,6 64,7 72,4 80,2"/></svg>
+    </div>
+    <div class="kpi reveal reveal-3">
+      <div class="eyebrow">Sets créés</div>
+      <div class="value">23 <span class="unit">sets</span></div>
+      <div class="delta up">↑ 4 ce mois · 18h cumulées</div>
+      <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#1fd4d4" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,18 10,16 20,14 30,15 40,10 50,11 60,8 70,6 80,4"/></svg>
+    </div>
+    <div class="kpi reveal reveal-4">
+      <div class="eyebrow">Compat. moyenne</div>
+      <div class="value">8.2 <span class="unit">/ 10</span></div>
+      <div class="delta up">↑ 0.3 — nouveau peak</div>
+      <svg class="spark" width="80" height="28" viewBox="0 0 80 28"><polyline fill="none" stroke="#4ade80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" points="0,15 10,16 20,12 30,14 40,11 50,9 60,10 70,6 80,4"/></svg>
+    </div>
+  </div>
+
+  <!-- Row 1: Energy chart + Quality distribution -->
+  <div class="main-grid">
+    <div class="panel reveal reveal-2">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Courbe d'énergie moyenne</h3>
+          <div class="panel-sub">Énergie par position dans vos 23 sets — 0:00 → 2:00:00</div>
+        </div>
+        <div class="segment">
+          <button class="active">Moyenne</button>
+          <button>Tous sets</button>
+          <button>Par club</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 600 240" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="eArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#ff7a18" stop-opacity=".45"/>
+              <stop offset="100%" stop-color="#ff7a18" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="eLine" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stop-color="#8b5cf6"/>
+              <stop offset="45%" stop-color="#ff2e6b"/>
+              <stop offset="100%" stop-color="#ff7a18"/>
+            </linearGradient>
+          </defs>
+          <!-- grid -->
+          <g class="chart-grid">
+            <line x1="0" x2="600" y1="48" y2="48"/>
+            <line x1="0" x2="600" y1="96" y2="96"/>
+            <line x1="0" x2="600" y1="144" y2="144"/>
+            <line x1="0" x2="600" y1="192" y2="192"/>
+          </g>
+          <g class="chart-axis">
+            <text x="4" y="12">10</text>
+            <text x="4" y="60">8</text>
+            <text x="4" y="108">6</text>
+            <text x="4" y="156">4</text>
+            <text x="4" y="204">2</text>
+            <text x="0" y="236" font-size="9">0:00</text>
+            <text x="140" y="236" font-size="9">0:30</text>
+            <text x="290" y="236" font-size="9">1:00</text>
+            <text x="440" y="236" font-size="9">1:30</text>
+            <text x="570" y="236" font-size="9">2:00</text>
+          </g>
+          <!-- Area under curve -->
+          <path class="chart-area" fill="url(#eArea)" d="M30,180 C80,168 120,150 170,132 S250,88 300,96 S360,70 410,58 S470,36 520,46 S570,80 580,110 L580,220 L30,220 Z"/>
+          <!-- Line -->
+          <path class="chart-line" stroke="url(#eLine)" d="M30,180 C80,168 120,150 170,132 S250,88 300,96 S360,70 410,58 S470,36 520,46 S570,80 580,110"/>
+          <!-- Peak annotations -->
+          <circle class="chart-dot" cx="410" cy="58" r="5" fill="#ff2e6b" stroke="#050406" stroke-width="2"/>
+          <circle class="chart-dot" cx="300" cy="96" r="5" fill="#ff7a18" stroke="#050406" stroke-width="2"/>
+          <circle class="chart-dot" cx="170" cy="132" r="5" fill="#8b5cf6" stroke="#050406" stroke-width="2"/>
+          <!-- Phase labels -->
+          <g font-family="JetBrains Mono" font-size="9" fill="#6b6780">
+            <text x="60" y="34">Intro</text>
+            <text x="190" y="34">Warm-up</text>
+            <text x="310" y="34">Build</text>
+            <text x="420" y="34" fill="#ff8aab">Peak</text>
+            <text x="530" y="34">Wind-down</text>
+          </g>
+          <!-- Peak tooltip -->
+          <g transform="translate(410,58)">
+            <rect x="-55" y="-44" width="110" height="34" rx="6" fill="#1a1926" stroke="rgba(255,255,255,.12)"/>
+            <text x="-48" y="-29" fill="#f4f1ec" font-family="JetBrains Mono" font-size="9.5">1h04 · Energy 9.1</text>
+            <text x="-48" y="-17" fill="#6b6780" font-family="JetBrains Mono" font-size="9">Peak Time — 23 sets</text>
+            <path d="M0,-10 L-5,-5 L5,-5 Z" fill="#1a1926"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel reveal reveal-3">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Qualité des transitions</h3>
+          <div class="panel-sub">Score compat. sur vos 412 transitions enregistrées</div>
+        </div>
+        <span class="chip chip-green"><span class="chip-dot"></span>82% en ≥ 8</span>
+      </div>
+      <div class="quality-bars">
+        <div class="qb"><div class="qb-label">Perfect (9-10)</div><div class="qb-track"><div class="qb-fill perf" style="width:48%"></div></div><div class="qb-value">198</div></div>
+        <div class="qb"><div class="qb-label">Good (7-9)</div><div class="qb-track"><div class="qb-fill good" style="width:34%"></div></div><div class="qb-value">140</div></div>
+        <div class="qb"><div class="qb-label">Fair (5-7)</div><div class="qb-track"><div class="qb-fill fair" style="width:14%"></div></div><div class="qb-value">58</div></div>
+        <div class="qb"><div class="qb-label">Risky (&lt; 5)</div><div class="qb-track"><div class="qb-fill risky" style="width:4%"></div></div><div class="qb-value">16</div></div>
+      </div>
+      <div class="gauge-row">
+        <div class="gauge">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#4ade80" stroke-dasharray="160 201" />
+          </svg>
+          <div class="num">79%</div>
+          <div class="lbl">Phrase aligné</div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#1fd4d4" stroke-dasharray="188 201" />
+          </svg>
+          <div class="num">94%</div>
+          <div class="lbl">Key compat.</div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-fg" cx="40" cy="40" r="32" stroke="#ff7a18" stroke-dasharray="172 201" />
+          </svg>
+          <div class="num">86%</div>
+          <div class="lbl">BPM ≤ 3%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Top artists / genres / keys -->
+  <div class="main-grid" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="panel reveal reveal-3">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Top artistes</h3>
+          <div class="panel-sub">Tracks joués · 30j</div>
+        </div>
+      </div>
+      <div class="top-list">
+        <div class="top-row"><div class="top-rank">01</div><div><div class="top-name">Camelphat</div><div class="top-bar"><div class="top-bar-fill" style="width:100%"></div></div></div><div class="top-num">42</div></div>
+        <div class="top-row"><div class="top-rank">02</div><div><div class="top-name">Tale Of Us</div><div class="top-bar"><div class="top-bar-fill" style="width:88%"></div></div></div><div class="top-num">37</div></div>
+        <div class="top-row"><div class="top-rank">03</div><div><div class="top-name">Mind Against</div><div class="top-bar"><div class="top-bar-fill" style="width:74%"></div></div></div><div class="top-num">31</div></div>
+        <div class="top-row"><div class="top-rank">04</div><div><div class="top-name">Adriatique</div><div class="top-bar"><div class="top-bar-fill" style="width:66%"></div></div></div><div class="top-num">28</div></div>
+        <div class="top-row"><div class="top-rank">05</div><div><div class="top-name">Âme</div><div class="top-bar"><div class="top-bar-fill" style="width:59%"></div></div></div><div class="top-num">25</div></div>
+        <div class="top-row"><div class="top-rank">06</div><div><div class="top-name">Stephan Bodzin</div><div class="top-bar"><div class="top-bar-fill" style="width:50%"></div></div></div><div class="top-num">21</div></div>
+        <div class="top-row"><div class="top-rank">07</div><div><div class="top-name">Artbat</div><div class="top-bar"><div class="top-bar-fill" style="width:43%"></div></div></div><div class="top-num">18</div></div>
+        <div class="top-row"><div class="top-rank">08</div><div><div class="top-name">Colyn</div><div class="top-bar"><div class="top-bar-fill" style="width:36%"></div></div></div><div class="top-num">15</div></div>
+      </div>
+    </div>
+
+    <div class="panel reveal reveal-4">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Top genres</h3>
+          <div class="panel-sub">Distribution des 1 284 tracks</div>
+        </div>
+      </div>
+      <!-- Donut -->
+      <div style="display:flex;gap:16px;align-items:center;margin-top:8px">
+        <svg viewBox="0 0 120 120" style="width:120px;height:120px;flex-shrink:0">
+          <!-- Melodic techno 42% -->
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#ff7a18" stroke-width="20" stroke-dasharray="126.66 301.59" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
+          <!-- Deep house 24% -->
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#ff2e6b" stroke-width="20" stroke-dasharray="72.38 301.59" stroke-dashoffset="-126.66" transform="rotate(-90 60 60)"/>
+          <!-- Progressive 18% -->
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#8b5cf6" stroke-width="20" stroke-dasharray="54.29 301.59" stroke-dashoffset="-199.04" transform="rotate(-90 60 60)"/>
+          <!-- Afro 10% -->
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#1fd4d4" stroke-width="20" stroke-dasharray="30.16 301.59" stroke-dashoffset="-253.33" transform="rotate(-90 60 60)"/>
+          <!-- Other 6% -->
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#d4ff2a" stroke-width="20" stroke-dasharray="18.1 301.59" stroke-dashoffset="-283.49" transform="rotate(-90 60 60)"/>
+          <text x="60" y="58" text-anchor="middle" fill="#f4f1ec" font-family="Space Grotesk" font-size="18" font-weight="700">1 284</text>
+          <text x="60" y="72" text-anchor="middle" fill="#6b6780" font-family="JetBrains Mono" font-size="9">tracks</text>
+        </svg>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#ff7a18"></span><span style="flex:1">Melodic tech.</span><span class="mono muted">42%</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#ff2e6b"></span><span style="flex:1">Deep house</span><span class="mono muted">24%</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#8b5cf6"></span><span style="flex:1">Progressive</span><span class="mono muted">18%</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#1fd4d4"></span><span style="flex:1">Afro / Organic</span><span class="mono muted">10%</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#d4ff2a"></span><span style="flex:1">Autres</span><span class="mono muted">6%</span></div>
+        </div>
+      </div>
+      <!-- BPM histogram -->
+      <div style="margin-top:22px;padding-top:14px;border-top:1px solid var(--b-subtle)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <div class="eyebrow">Distribution BPM</div>
+          <div class="mono" style="font-size:11px;color:var(--c-secondary)">médiane <strong style="color:var(--c-primary)">122</strong></div>
+        </div>
+        <div class="histo-wrap" id="bpmHisto"></div>
+      </div>
+    </div>
+
+    <div class="panel reveal reveal-4">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Top clés (Camelot)</h3>
+          <div class="panel-sub">Heatmap 12 × 2 — intensité = fréquence</div>
+        </div>
+      </div>
+      <div class="cam-row-label">Minor (A) — Deep / Melodic</div>
+      <div class="camelot-grid">
+        <div class="cam-cell" data-heat="2"><div class="num">1A</div><div class="count">42</div></div>
+        <div class="cam-cell" data-heat="3"><div class="num">2A</div><div class="count">58</div></div>
+        <div class="cam-cell" data-heat="1"><div class="num">3A</div><div class="count">24</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">4A</div><div class="count">38</div></div>
+        <div class="cam-cell" data-heat="3"><div class="num">5A</div><div class="count">64</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">6A</div><div class="count">48</div></div>
+        <div class="cam-cell" data-heat="4"><div class="num">7A</div><div class="count">92</div></div>
+        <div class="cam-cell" data-heat="5" style="animation:pulseCell 2s ease-in-out infinite"><div class="num">8A</div><div class="count">128</div></div>
+        <div class="cam-cell" data-heat="5"><div class="num">9A</div><div class="count">114</div></div>
+        <div class="cam-cell" data-heat="3"><div class="num">10A</div><div class="count">72</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">11A</div><div class="count">46</div></div>
+        <div class="cam-cell" data-heat="1"><div class="num">12A</div><div class="count">28</div></div>
+      </div>
+      <div class="cam-row-label">Major (B) — Uplifting / Peak</div>
+      <div class="camelot-grid">
+        <div class="cam-cell" data-heat="1"><div class="num">1B</div><div class="count">18</div></div>
+        <div class="cam-cell" data-heat="1"><div class="num">2B</div><div class="count">22</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">3B</div><div class="count">8</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">4B</div><div class="count">34</div></div>
+        <div class="cam-cell" data-heat="1"><div class="num">5B</div><div class="count">20</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">6B</div><div class="count">42</div></div>
+        <div class="cam-cell" data-heat="3"><div class="num">7B</div><div class="count">58</div></div>
+        <div class="cam-cell" data-heat="3"><div class="num">8B</div><div class="count">66</div></div>
+        <div class="cam-cell" data-heat="2"><div class="num">9B</div><div class="count">38</div></div>
+        <div class="cam-cell" data-heat="1"><div class="num">10B</div><div class="count">26</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">11B</div><div class="count">12</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">12B</div><div class="count">6</div></div>
+      </div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--b-subtle);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="eyebrow">Signature clé</div>
+          <div class="mono" style="font-size:16px;font-weight:600;margin-top:4px">8A <span style="color:var(--c-tertiary)">— Fm (A minor)</span></div>
+        </div>
+        <span class="chip chip-pink"><span class="chip-dot"></span>10% de vos tracks</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Heatmap + Sessions feed -->
+  <div class="main-grid">
+    <div class="panel reveal reveal-4">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Activité — 52 semaines</h3>
+          <div class="panel-sub">Tracks analysés par jour · 365j</div>
+        </div>
+        <div class="mono" style="font-size:12px;color:var(--c-secondary)">Streak actuel <strong style="color:var(--amber)">12 jours</strong></div>
+      </div>
+      <div class="heat" id="heatmap"></div>
+      <div class="heat-legend">
+        <span>Moins</span>
+        <div class="dots">
+          <span></span>
+          <span data-l="1" style="background:rgba(255,122,24,.15)"></span>
+          <span data-l="2" style="background:rgba(255,122,24,.32)"></span>
+          <span data-l="3" style="background:rgba(255,122,24,.55)"></span>
+          <span data-l="4" style="background:rgba(255,122,24,.85)"></span>
+        </div>
+        <span>Plus</span>
+        <span style="margin-left:auto">Meilleur jour : <strong style="color:var(--c-primary)">sam. 14 févr. — 38 tracks</strong></span>
+      </div>
+    </div>
+
+    <div class="panel reveal reveal-5">
+      <div class="panel-head">
+        <div>
+          <h3 class="panel-title">Sessions récentes</h3>
+          <div class="panel-sub">Vos 6 derniers sets · score global</div>
+        </div>
+        <a href="set-builder.html" style="font-family:var(--font-display);font-size:12px;color:var(--amber)">Voir tous →</a>
+      </div>
+      <div class="feed">
+        <div class="feed-row">
+          <div class="feed-date">20<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Rex Club — set #23</div>
+            <div class="feed-meta"><span>01:48</span><span>·</span><span>14 tracks</span><span>·</span><span>122.4 BPM</span></div>
+          </div>
+          <div class="feed-score hi">8.6</div>
+        </div>
+        <div class="feed-row">
+          <div class="feed-date">15<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Concrete — afterhours</div>
+            <div class="feed-meta"><span>02:15</span><span>·</span><span>18 tracks</span><span>·</span><span>124.0 BPM</span></div>
+          </div>
+          <div class="feed-score hi">9.1</div>
+        </div>
+        <div class="feed-row">
+          <div class="feed-date">12<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Badaboum — opening</div>
+            <div class="feed-meta"><span>01:20</span><span>·</span><span>11 tracks</span><span>·</span><span>118.8 BPM</span></div>
+          </div>
+          <div class="feed-score mid">7.4</div>
+        </div>
+        <div class="feed-row">
+          <div class="feed-date">08<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Maison Sage — warm-up</div>
+            <div class="feed-meta"><span>01:30</span><span>·</span><span>12 tracks</span><span>·</span><span>120.0 BPM</span></div>
+          </div>
+          <div class="feed-score hi">8.3</div>
+        </div>
+        <div class="feed-row">
+          <div class="feed-date">03<br><span style="color:var(--c-quaternary);font-size:9px">AVR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Studio — record test</div>
+            <div class="feed-meta"><span>00:55</span><span>·</span><span>8 tracks</span><span>·</span><span>122.0 BPM</span></div>
+          </div>
+          <div class="feed-score lo">6.8</div>
+        </div>
+        <div class="feed-row">
+          <div class="feed-date">28<br><span style="color:var(--c-quaternary);font-size:9px">MAR</span></div>
+          <div class="feed-body">
+            <div class="feed-title">Djoon — peak slot</div>
+            <div class="feed-meta"><span>01:45</span><span>·</span><span>15 tracks</span><span>·</span><span>123.2 BPM</span></div>
+          </div>
+          <div class="feed-score hi">8.9</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4: Insight callout -->
+  <div class="panel reveal reveal-5" style="margin-top:8px;background:
+    radial-gradient(500px 250px at 0% 0%, rgba(139,92,246,.22), transparent 55%),
+    radial-gradient(500px 250px at 100% 100%, rgba(255,122,24,.18), transparent 55%),
+    linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);">
+    <div style="display:grid;grid-template-columns:80px 1fr auto;gap:20px;align-items:center">
+      <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--violet),var(--pink));display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(139,92,246,.35)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:28px;height:28px"><path d="M12 2l2.5 7.5H22l-6.3 4.6L18.2 22 12 17.3 5.8 22l2.5-7.9L2 9.5h7.5z"/></svg>
+      </div>
+      <div>
+        <div class="eyebrow" style="color:#b9a3ff">Insight de la semaine</div>
+        <div style="font-family:var(--font-display);font-size:18px;font-weight:600;margin-top:4px;line-height:1.3">
+          Vos meilleures transitions arrivent <span class="editorial" style="color:var(--amber);font-size:18px">entre 1h et 1h15 de set</span> — c'est votre zone de flow.
+        </div>
+        <div style="color:var(--c-secondary);font-size:13px;margin-top:6px">Score moyen 9.2 sur 14 transitions mesurées. Gardez vos tracks peak-hour autour de cette fenêtre.</div>
+      </div>
+      <button class="btn btn-ghost">Voir l'analyse →</button>
+    </div>
+  </div>
+</main>
+
+<script src="shared.js"></script>
+<script>
+  // BPM histogram (100 → 140)
+  (function(){
+    const el = document.getElementById('bpmHisto');
+    const data = [2,4,6,8,10,14,18,24,30,42,58,74,92,110,125,108,82,64,46,30,20,12,8,5,3,2,1,1,0,0];
+    const peak = Math.max(...data);
+    const peakIdx = data.indexOf(peak);
+    data.forEach((v,i)=>{
+      const bar = document.createElement('div');
+      bar.className = 'bar' + (i===peakIdx ? ' peak' : '');
+      bar.style.height = (v/peak*100)+'%';
+      bar.setAttribute('data-label', (100 + i*1.5).toFixed(0));
+      bar.title = `${(100+i*1.5).toFixed(0)} BPM · ${v} tracks`;
+      el.appendChild(bar);
+    });
+  })();
+
+  // Activity heatmap 52 cols × 7 rows
+  (function(){
+    const el = document.getElementById('heatmap');
+    const days = ['Lun','Mer','Ven'];
+    // Label row placeholder
+    // Day labels column
+    const labelCol = document.createElement('div');
+    labelCol.style.display = 'grid';
+    labelCol.style.gridRow = '1 / span 7';
+    labelCol.style.gridTemplateRows = 'repeat(7,1fr)';
+    labelCol.style.gap = '3px';
+    ['','Lun','','Mer','','Ven',''].forEach(d=>{
+      const s = document.createElement('div');
+      s.textContent = d;
+      s.className = 'day-label';
+      s.style.fontSize = '9px';
+      s.style.color = '#6b6780';
+      labelCol.appendChild(s);
+    });
+    // Simpler: just build a 7-row × 52-col grid of cells
+    el.style.gridTemplateColumns = 'repeat(52,1fr)';
+    el.style.gridTemplateRows = 'repeat(7,14px)';
+    el.innerHTML = '';
+    const now = new Date();
+    for(let r=0;r<7;r++){
+      for(let c=0;c<52;c++){
+        const cell = document.createElement('div');
+        cell.className = 'heat-cell';
+        // Fake activity: weekend + recent weeks higher
+        const rand = seededRand(r*53+c);
+        const recentBoost = c > 44 ? 1.2 : 1;
+        const weekendBoost = (r===5||r===6) ? 1.4 : 1;
+        const v = rand * recentBoost * weekendBoost;
+        let lvl = 0;
+        if(v > 0.85) lvl = 4;
+        else if(v > 0.65) lvl = 3;
+        else if(v > 0.4) lvl = 2;
+        else if(v > 0.2) lvl = 1;
+        if(c > 50 && r > 4) lvl = 0; // future days
+        cell.setAttribute('data-l', lvl);
+        const weeksAgo = 51 - c;
+        cell.setAttribute('data-tt', `Sem -${weeksAgo} · ${Math.floor(v*40)} tracks`);
+        el.appendChild(cell);
+      }
+    }
+  })();
+
+  // Camelot cell pulse animation keyframe
+  const style = document.createElement('style');
+  style.textContent = `@keyframes pulseCell{0%,100%{box-shadow:0 0 0 0 rgba(255,46,107,.4)}50%{box-shadow:0 0 0 4px rgba(255,46,107,0)}}`;
+  document.head.appendChild(style);
+
+  // Range segment toggle + toast
+  document.querySelectorAll('.segment').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        toast(`Période : ${b.textContent}`,'info');
+      });
+    });
+  });
+
+  // KPI hover pulse
+  document.querySelectorAll('.kpi').forEach(k=>{
+    k.addEventListener('click', ()=>toast('Drill-down à venir','info'));
+  });
+
+  // Session feed click
+  document.querySelectorAll('.feed-row').forEach(r=>{
+    r.addEventListener('click', ()=>toast('Session ouverte dans Set Builder','info'));
+  });
+
+  // Camelot cell click
+  document.querySelectorAll('.cam-cell').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const key = c.querySelector('.num').textContent;
+      toast(`Filtrer Library par ${key}`,'info');
+    });
+  });
+</script>
+</body>
+</html>

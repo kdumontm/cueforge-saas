@@ -1,0 +1,30 @@
+# Railway config pour le service BACKEND STAGING
+#
+# Ce fichier documente la config à appliquer sur le service
+# "cueforge-backend-staging" dans Railway UI. Railway lit par défaut
+# `railway.toml` à la racine, donc ce fichier est purement documentaire.
+#
+# Pour l'utiliser : copier son contenu dans les settings Railway du
+# service staging (ou renommer en railway.toml sur la branche staging
+# si on veut qu'il soit auto-appliqué — mais attention, le frontend
+# a son propre nixpacks.toml).
+
+[build]
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Variables d'env attendues (à configurer dans Railway UI):
+#   ENVIRONMENT=staging
+#   DATABASE_URL=<new postgres instance for staging>
+#   DIAGNOSTICS_KEY=<same as prod>
+#   REDIS_URL=<optional, new redis for staging>
+#   SENTRY_ENVIRONMENT=staging
+#   R2_BUCKET=cueforge-audio-staging
+#   # + same external API keys as prod (read-only):
+#   ACOUSTID_API_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
+#   MUSICBRAINZ_USER_AGENT, LASTFM_API_KEY, ITUNES_ENABLED
