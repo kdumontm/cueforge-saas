@@ -425,6 +425,7 @@
         <div class="thero-right">
           <div class="quality-badge" id="quality-badge" style="display:none"><span class="dot"></span><span class="txt" id="quality-txt">—</span></div>
           <div class="thero-actions">
+            <button class="btn btn-sm btn-primary" id="btn-launch-analyze" style="display:none">Lancer l'analyse</button>
             <button class="btn btn-sm btn-ghost" id="btn-duplicate" data-tt="Dupliquer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></button>
             <button class="btn btn-sm btn-ghost" id="btn-share" data-tt="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></button>
             <button class="btn btn-sm btn-primary" id="btn-export">Export →</button>
@@ -580,13 +581,33 @@ let audioEl = null;
 let audioBlobUrl = null;
 let playheadTimer = null;
 
-// Main wave (visuel décoratif, la waveform réelle serait peuplée via analysis.waveform_peaks)
+// Main wave — buildWave wipe innerHTML, donc on ré-ajoute le playhead APRES
 const wave = document.getElementById('wave');
-buildWave(wave, 380, 7.1, {progress:0, envelope:(p,ph)=>{
-  const contours = [0.55,0.68,1.0,0.5,0.72,1.0,0.42,0.58];
-  const base = contours[ph]||0.6;
-  return base * (0.6+0.4*Math.sin(p*Math.PI*6));
-}});
+function rebuildWaveFromPeaks(peaks){
+  // Si on a des peaks réelles, on construit la waveform exacte
+  wave.innerHTML = '';
+  const count = Array.isArray(peaks) && peaks.length ? peaks.length : 380;
+  for(let i=0;i<count;i++){
+    const h = Array.isArray(peaks) && peaks.length
+      ? Math.min(1, Math.max(0.06, Math.abs(Number(peaks[i]) || 0)))
+      : (() => {
+          const phrase = Math.floor(i/(count/8));
+          const contours = [0.55,0.68,1.0,0.5,0.72,1.0,0.42,0.58];
+          const base = contours[phrase]||0.6;
+          return Math.min(1, base * (0.6+0.4*Math.sin((i/count)*Math.PI*6)));
+        })();
+    const b = document.createElement('div');
+    b.className = 'wbar';
+    b.style.height = (h*100)+'%';
+    wave.appendChild(b);
+  }
+  // ré-ajouter le playhead (buildWave l'a supprimé via innerHTML = '')
+  const ph = document.createElement('div');
+  ph.className = 'playhead';
+  ph.style.left = '0%';
+  wave.appendChild(ph);
+}
+rebuildWaveFromPeaks(null);
 
 // Stems (visuels décoratifs)
 function buildStemWave(id, seed, style){
@@ -801,6 +822,14 @@ async function loadTrack(){
     document.getElementById('thero-status').textContent = t.status || '—';
     document.getElementById('thero-cues').textContent = cues.length;
 
+    // Afficher bouton "Lancer l'analyse" si la piste n'est pas analysée
+    const btnLaunch = document.getElementById('btn-launch-analyze');
+    if(btnLaunch){
+      const needsAnalysis = !t.analysis || Object.keys(t.analysis || {}).length === 0
+        || t.analysis.bpm == null || (t.status && t.status !== 'analyzed' && t.status !== 'ready');
+      btnLaunch.style.display = needsAnalysis ? '' : 'none';
+    }
+
     const eyebrow = document.getElementById('thero-eyebrow');
     const src = t.acoustid_id ? 'AcoustID' : (t.musicbrainz_id ? 'MusicBrainz' : (t.spotify_id ? 'Spotify' : null));
     eyebrow.innerHTML = '';
@@ -843,6 +872,15 @@ async function loadTrack(){
       qBadge.style.display = '';
     } else {
       qBadge.style.display = 'none';
+    }
+
+    // Waveform réelle — utiliser analysis.waveform_peaks si dispo
+    if(a.waveform_peaks && Array.isArray(a.waveform_peaks) && a.waveform_peaks.length > 0){
+      rebuildWaveFromPeaks(a.waveform_peaks);
+    } else {
+      // Reset le playhead au moins, au cas où on a changé de piste
+      const ph = wave.querySelector('.playhead');
+      if(ph) ph.style.left = '0%';
     }
 
     // Phrase ruler — réel, à partir de section_labels + structural_summary
@@ -1254,6 +1292,51 @@ document.querySelectorAll('#insp-tabs button').forEach(b => {
       p.style.display = (p.dataset.panel === tab) ? '' : 'none';
     });
   });
+});
+
+// ========== Lancer l'analyse ==========
+document.getElementById('btn-launch-analyze')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if(!trackId){ toast('Aucune piste sélectionnée', 'warn'); return; }
+  const originalTxt = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.2-8.55"/></svg> Analyse…';
+  try {
+    await api.post(`/tracks/${trackId}/analyze`);
+    toast('Analyse lancée', 'info');
+    // Polling : vérifier toutes les 3s, max 40 essais (2 min)
+    let attempts = 0;
+    const pollId = setInterval(async () => {
+      attempts++;
+      try {
+        const t = await api.track(trackId);
+        const a = t.analysis || {};
+        if(a.bpm != null || t.status === 'analyzed' || t.status === 'ready'){
+          clearInterval(pollId);
+          btn.disabled = false;
+          btn.textContent = originalTxt;
+          await loadTrack();
+          toast('Analyse terminée · '+(a.bpm ? Number(a.bpm).toFixed(1)+' BPM' : 'OK'), 'success');
+        } else if(attempts >= 40){
+          clearInterval(pollId);
+          btn.disabled = false;
+          btn.textContent = originalTxt;
+          toast('Analyse toujours en cours — rafraîchissez dans 1 min', 'warn');
+        }
+      } catch(err){
+        // Network blip pendant polling — on continue
+        if(attempts >= 40){
+          clearInterval(pollId);
+          btn.disabled = false;
+          btn.textContent = originalTxt;
+        }
+      }
+    }, 3000);
+  } catch(err){
+    btn.disabled = false;
+    btn.textContent = originalTxt;
+    toast('Analyse impossible : '+err.message, 'error');
+  }
 });
 
 // ========== Seek bar — click sur waveform ==========

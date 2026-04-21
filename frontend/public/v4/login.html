@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Connexion — TrackCue</title>
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0; url=/login">
+<script>
+  // Préserve ?next= si présent, puis redirige vers la page de login Next.js
+  var p = new URLSearchParams(location.search);
+  var next = p.get('next') || '';
+  var dest = '/login' + (next ? ('?next=' + encodeURIComponent(next)) : '');
+  location.replace(dest);
+</script>
+<style>body{background:#0b0b0f;color:#e7e7ef;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>
+</head>
+<body>
+<p>Redirection vers la connexion… <a href="/login" style="color:#6166f1">/login</a></p>
+</body>
+</html>
