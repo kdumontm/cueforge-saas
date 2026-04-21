@@ -115,22 +115,18 @@ document.addEventListener('click', (e)=>{
   setTimeout(()=>ripple.remove(),500);
 });
 
-// -------- Find button (⌘K) — toujours disponible, pas d'authentification requise --------
-(function attachFindListeners(){
-  // Re-attach Find listener à chaque navigation de page (SPA)
-  // Cherche le bouton Find dans la topbar (match sur textContent "Find" ou data-tt contenant "Search")
-  document.querySelectorAll('.topnav-actions button, .topnav-actions a').forEach(btn => {
-    const isFindBtn = /find/i.test(btn.textContent || '') || /search/i.test(btn.getAttribute('data-tt') || '');
-    if (!isFindBtn) return;
-    // Skip si déjà attaché (marker data-tc-find-attached)
-    if(btn.dataset.tcFindAttached) return;
-    btn.dataset.tcFindAttached = '1';
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if(window.__tcSearch) window.__tcSearch.open();
-    });
-  });
-})();
+// -------- Find button (⌘K) — délégation d'événements au niveau du document --------
+// Utilise event delegation pour que ça marche même après navigation SPA
+document.addEventListener('click', (e) => {
+  // Remonte jusqu'au button/a le plus proche
+  const btn = e.target.closest('button, a');
+  if (!btn) return;
+  // Vérifie si c'est le bouton Find
+  const isFindBtn = /find/i.test(btn.textContent || '') && btn.closest('.topnav-actions');
+  if (!isFindBtn) return;
+  e.preventDefault();
+  if(window.__tcSearch) window.__tcSearch.open();
+}, true); // Utilise la phase de capture pour intercepter avant les autres listeners
 
 // -------- Top-nav avatar + upload + notifications + admin gating (dépend de api) --------
 (async function(){
