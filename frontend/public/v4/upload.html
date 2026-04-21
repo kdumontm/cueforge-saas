@@ -210,9 +210,9 @@
       <p class="page-sub reveal reveal-2">Déposez, connectez, ou importez depuis un dossier. L'IA s'occupe de l'identification et de l'analyse.</p>
     </div>
     <div class="row reveal reveal-3">
-      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Aide</button>
-      <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Rejouer échoués</button>
-      <button class="btn btn-ghost btn-icon" data-tt="Pause la queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+      <button class="btn btn-ghost" id="btn-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Aide</button>
+      <button class="btn btn-ghost" id="btn-retry-failed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Rejouer échoués</button>
+      <button class="btn btn-ghost btn-icon" id="btn-pause-queue" data-tt="Pause la queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
     </div>
   </div>
 
@@ -358,25 +358,29 @@
       </div>
 
       <div class="q-stats">
-        <div class="q-stat active"><div class="num">3</div><div class="lbl">En cours</div></div>
-        <div class="q-stat pend"><div class="num">11</div><div class="lbl">En attente</div></div>
-        <div class="q-stat done"><div class="num">128</div><div class="lbl">Réussis 24h</div></div>
-        <div class="q-stat err"><div class="num">2</div><div class="lbl">Échoués</div></div>
+        <div class="q-stat active"><div class="num" id="qs-active">—</div><div class="lbl">En cours</div></div>
+        <div class="q-stat pend"><div class="num" id="qs-pending">—</div><div class="lbl">En attente</div></div>
+        <div class="q-stat done"><div class="num" id="qs-done">—</div><div class="lbl">Réussis 24h</div></div>
+        <div class="q-stat err"><div class="num" id="qs-err">—</div><div class="lbl">Échoués</div></div>
       </div>
 
       <div class="q-filter">
-        <span class="chip active">Tous · 18</span>
-        <span class="chip">En cours · 3</span>
-        <span class="chip">Attente · 11</span>
-        <span class="chip">Réussis · 4</span>
-        <span class="chip">Échoués · 2</span>
+        <span class="chip active" data-filter="all">Tous</span>
+        <span class="chip" data-filter="analyzing">En cours</span>
+        <span class="chip" data-filter="pending">Attente</span>
+        <span class="chip" data-filter="done">Réussis</span>
+        <span class="chip" data-filter="err">Échoués</span>
       </div>
 
       <div class="q-list" id="qList">
 
         <!-- Uploads en cours / terminés (injectés par JS) -->
+        <div id="qEmptyState" style="padding:40px 16px;text-align:center;color:var(--c-tertiary);font-size:13px">
+          Aucun upload en cours — glisse un fichier ou clique sur <strong>Choisir fichiers</strong>
+        </div>
 
-        <!-- Placeholder par défaut -->
+        <!-- MOCK placeholders supprimés 2026-04-21 : la queue affiche seulement les uploads réels -->
+        <div style="display:none">
         <!-- Analyzing 1 -->
         <div class="q-row analyzing">
           <div class="q-cover s1">
@@ -582,6 +586,7 @@
           </div>
           <div class="q-status"><span class="q-step-chip">En attente</span></div>
         </div>
+        </div><!-- /mock placeholders -->
 
       </div>
     </div>
@@ -630,6 +635,9 @@
   }
 
   function addUploadRow(file){
+    // Hide empty-state placeholder as soon as the first row is added
+    const empty = document.getElementById('qEmptyState');
+    if(empty) empty.style.display = 'none';
     const row = document.createElement('div');
     row.className = 'q-row analyzing';
     const ext = (file.name.split('.').pop()||'').toUpperCase();
@@ -762,6 +770,53 @@
       requestAnimationFrame(()=>{d.style.animation=''});
     });
   }, 2500);
+
+  // ---- Topbar action buttons ----
+  document.getElementById('btn-help')?.addEventListener('click', () => {
+    window.open('https://github.com/kdumontm/cueforge-saas#readme', '_blank');
+  });
+
+  let queuePaused = false;
+  document.getElementById('btn-pause-queue')?.addEventListener('click', (e) => {
+    queuePaused = !queuePaused;
+    e.currentTarget.classList.toggle('btn-primary', queuePaused);
+    e.currentTarget.classList.toggle('btn-ghost', !queuePaused);
+    toast(queuePaused ? 'Queue en pause' : 'Queue relancée', 'info');
+  });
+
+  document.getElementById('btn-retry-failed')?.addEventListener('click', () => {
+    const errs = document.querySelectorAll('.q-row.err');
+    if(!errs.length){ toast('Aucun échec à rejouer', 'info'); return; }
+    errs.forEach(r => r.remove());
+    toast(`${errs.length} upload${errs.length>1?'s':''} à réessayer — glisse les fichiers`, 'info');
+  });
+
+  // ---- Live queue stats from /tracks ----
+  (async function loadQueueStats(){
+    try {
+      const res = await api.tracks({limit: 200, sort: '-created_at'});
+      const tracks = Array.isArray(res) ? res : (res?.items || res?.tracks || res?.results || []);
+      const day = Date.now() - 86400000;
+      let active = 0, pending = 0, done24h = 0, err = 0;
+      tracks.forEach(t => {
+        const st = (t.analysis_status || t.status || '').toLowerCase();
+        const created = t.created_at ? new Date(t.created_at).getTime() : 0;
+        if(st === 'analyzing' || st === 'processing') active++;
+        else if(st === 'pending' || st === 'queued') pending++;
+        else if(st === 'error' || st === 'failed') err++;
+        else if((st === 'completed' || st === 'ready' || t.analysis) && created > day) done24h++;
+      });
+      document.getElementById('qs-active').textContent = active;
+      document.getElementById('qs-pending').textContent = pending;
+      document.getElementById('qs-done').textContent = done24h;
+      document.getElementById('qs-err').textContent = err;
+    } catch(e){
+      console.warn('Queue stats failed', e);
+      ['qs-active','qs-pending','qs-done','qs-err'].forEach(id => {
+        const el = document.getElementById(id); if(el) el.textContent = '0';
+      });
+    }
+  })();
 </script>
 </body>
 </html>
