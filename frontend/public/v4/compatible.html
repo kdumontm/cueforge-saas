@@ -246,8 +246,8 @@
 
       <div class="mm-list" id="mm-list"></div>
 
-      <div style="display:flex;justify-content:center;margin-top:14px">
-        <button class="btn btn-sm btn-ghost">Voir 142 matchs →</button>
+      <div id="see-all-matches-wrap" style="display:none;justify-content:center;margin-top:14px">
+        <button id="see-all-matches" class="btn btn-sm btn-ghost">Voir tous les matchs →</button>
       </div>
     </div>
   </div>
@@ -256,32 +256,32 @@
   <div class="card rules-card reveal reveal-4">
     <div class="match-head">
       <h3>Règles de matching <span class="muted" style="font-weight:400">· tes préférences</span></h3>
-      <button class="btn btn-sm btn-ghost">Reset</button>
+      <button id="rules-reset" class="btn btn-sm btn-ghost">Reset</button>
     </div>
     <div class="rules-grid">
       <div class="rule">
         <span class="nm"><span style="color:var(--cyan)">◯</span>BPM tolerance</span>
-        <span class="val">±3%</span>
+        <span class="val" id="rule-bpm">±3%</span>
       </div>
       <div class="rule">
         <span class="nm"><span style="color:var(--amber)">◯</span>Key distance max</span>
-        <span class="val">±2 Camelot</span>
+        <span class="val" id="rule-key">±2 Camelot</span>
       </div>
       <div class="rule">
         <span class="nm"><span style="color:var(--pink)">◯</span>Energy delta</span>
-        <span class="val">±1.5</span>
+        <span class="val" id="rule-energy">±1.5</span>
       </div>
       <div class="rule">
         <span class="nm"><span style="color:var(--lime)">◯</span>Allow relative (A↔B)</span>
-        <span class="sw switch on"></span>
+        <span class="sw switch on" id="rule-relative"></span>
       </div>
       <div class="rule">
         <span class="nm"><span style="color:var(--violet)">◯</span>Prefer phrase align</span>
-        <span class="sw switch on"></span>
+        <span class="sw switch on" id="rule-phrase"></span>
       </div>
       <div class="rule">
         <span class="nm"><span style="color:var(--green)">◯</span>Exclude déjà joués</span>
-        <span class="sw switch"></span>
+        <span class="sw switch" id="rule-exclude"></span>
       </div>
     </div>
   </div>
@@ -666,6 +666,18 @@ function renderMatchList(scored){
 
   document.getElementById('src-match-count').textContent = filtered.length + ' match' + (filtered.length>1?'s':'');
 
+  // "Voir tous les matchs" apparait seulement si > 20 résultats
+  const seeAllWrap = document.getElementById('see-all-matches-wrap');
+  const seeAllBtn = document.getElementById('see-all-matches');
+  if(seeAllWrap && seeAllBtn){
+    if(filtered.length > 20){
+      seeAllWrap.style.display = 'flex';
+      seeAllBtn.textContent = `Voir les ${filtered.length} matchs →`;
+    } else {
+      seeAllWrap.style.display = 'none';
+    }
+  }
+
   const top = filtered.slice(0, 20);
   if(!top.length){
     mmEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--c-tertiary)">Aucun match avec ces filtres.</div>';
@@ -777,6 +789,43 @@ document.getElementById('btn-change-source').addEventListener('click', () => {
   currentWheelFilter = null;
   renderAll();
   toast('Source · '+(next.title || 'Track'), 'info');
+});
+
+// ------------ See all matches → library filtré ------------
+document.getElementById('see-all-matches').addEventListener('click', () => {
+  if(!sourceTrack) return;
+  const url = new URL('/library', location.origin);
+  if(sourceTrack.camelot_code) url.searchParams.set('key', sourceTrack.camelot_code);
+  if(sourceTrack.analysis?.bpm){
+    const b = Number(sourceTrack.analysis.bpm);
+    url.searchParams.set('bpm_min', (b*0.95).toFixed(1));
+    url.searchParams.set('bpm_max', (b*1.05).toFixed(1));
+  }
+  location.href = url.toString();
+});
+
+// ------------ Règles : toggle switches + reset ------------
+const RULE_DEFAULTS = {
+  bpm: '±3%', key: '±2 Camelot', energy: '±1.5',
+  relative: true, phrase: true, exclude: false
+};
+['rule-relative','rule-phrase','rule-exclude'].forEach(id => {
+  const sw = document.getElementById(id);
+  if(!sw) return;
+  sw.style.cursor = 'pointer';
+  sw.addEventListener('click', () => {
+    sw.classList.toggle('on');
+    toast('Préférence mise à jour', 'info');
+  });
+});
+document.getElementById('rules-reset').addEventListener('click', () => {
+  document.getElementById('rule-bpm').textContent = RULE_DEFAULTS.bpm;
+  document.getElementById('rule-key').textContent = RULE_DEFAULTS.key;
+  document.getElementById('rule-energy').textContent = RULE_DEFAULTS.energy;
+  document.getElementById('rule-relative').classList.toggle('on', RULE_DEFAULTS.relative);
+  document.getElementById('rule-phrase').classList.toggle('on', RULE_DEFAULTS.phrase);
+  document.getElementById('rule-exclude').classList.toggle('on', RULE_DEFAULTS.exclude);
+  toast('Règles réinitialisées', 'success');
 });
 
 boot();
