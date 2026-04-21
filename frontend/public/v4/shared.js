@@ -114,12 +114,11 @@ document.addEventListener('click', (e)=>{
     // Admin link visibility : masquer pour les non-admins
     const adminLinks = document.querySelectorAll('.topnav-links a[href="/admin"], .topnav-links a[href="/v4/admin.html"]');
 
-    // Find (⌘K) — ouvre palette ou redirige vers /library?q=
+    // Find (⌘K) — ouvre overlay inline au lieu de prompt()
     document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        const q = prompt('Rechercher dans ta library :');
-        if(q && q.trim()) location.href = '/library?q=' + encodeURIComponent(q.trim());
+        if(window.__tcSearch) window.__tcSearch.open();
       });
     });
 
