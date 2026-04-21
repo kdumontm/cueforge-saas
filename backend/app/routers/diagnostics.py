@@ -69,6 +69,11 @@ def check_env_vars() -> Dict[str, Any]:
         "DIAGNOSTICS_KEY":     bool(os.getenv("DIAGNOSTICS_KEY")),
         "UPLOAD_DIR":          os.getenv("UPLOAD_DIR", "(non défini → défaut)"),
         "MAX_FILE_SIZE_MB":    os.getenv("MAX_FILE_SIZE_MB", "200"),
+        # Cloudflare R2
+        "R2_ACCOUNT_ID":       bool(os.getenv("R2_ACCOUNT_ID")),
+        "R2_ACCESS_KEY_ID":    bool(os.getenv("R2_ACCESS_KEY_ID")),
+        "R2_SECRET_ACCESS_KEY": bool(os.getenv("R2_SECRET_ACCESS_KEY")),
+        "R2_BUCKET":           bool(os.getenv("R2_BUCKET")),
     }
     missing = [k for k, v in vars_to_check.items() if v is False]
     return {"vars": vars_to_check, "missing_required": missing}
