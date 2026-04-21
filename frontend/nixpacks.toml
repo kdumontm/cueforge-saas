@@ -18,3 +18,4 @@ cmds = ["npm run build"]
 # standalone output: copier les fichiers statiques puis démarrer le serveur Node
 cmd = "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && node .next/standalone/server.js"
 # Force rebuild: 1776777120
+# Force rebuild: 1776778101
