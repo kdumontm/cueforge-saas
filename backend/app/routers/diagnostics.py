@@ -432,3 +432,177 @@ async def cleanup_mashup_tracks(
     except Exception as e:
         db.rollback()
         return {"error": "cleanup failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+# ── Audit storage : qui occupe l'espace disque ? ─────────────────────────────
+
+@router.get("/diagnostics/storage-audit")
+async def storage_audit(
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Croise les fichiers présents sur disque avec les Track.file_path en DB.
+
+    Retourne :
+    - file_count / db_count : totaux
+    - orphan_files : fichiers sur disque sans aucune ligne DB qui les référence
+    - missing_files : tracks avec file_path qui n'existent plus sur disque
+    - tracks_without_path : tracks avec file_path NULL ou vide
+    - top_files : 10 plus gros fichiers du dossier uploads
+    - total_disk_bytes : somme des tailles sur disque
+    """
+    import traceback
+    try:
+        from app.models.track import Track
+
+        upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+        if not os.path.isdir(upload_dir):
+            return {"error": "upload_dir introuvable", "upload_dir": upload_dir}
+
+        # 1) Inventaire disque (fichier → taille)
+        disk_files: Dict[str, int] = {}
+        for name in os.listdir(upload_dir):
+            full = os.path.join(upload_dir, name)
+            if os.path.isfile(full):
+                try:
+                    disk_files[name] = os.path.getsize(full)
+                except OSError:
+                    disk_files[name] = 0
+
+        # 2) Inventaire DB (track_id, user_id, title, file_path)
+        db_rows = db.query(
+            Track.id, Track.user_id, Track.title, Track.file_path, Track.file_size
+        ).all()
+
+        # Indexer les paths référencés en DB par basename ET full path
+        db_basenames = set()
+        db_paths = set()
+        tracks_without_path = []
+        for tid, uid, title, fpath, fsize in db_rows:
+            if not fpath:
+                tracks_without_path.append({
+                    "id": tid, "user_id": uid, "title": title, "file_size": fsize,
+                })
+                continue
+            db_paths.add(fpath)
+            db_basenames.add(os.path.basename(fpath))
+
+        # 3) Orphelins : fichiers présents sur disque mais pas référencés
+        orphans = []
+        for name, size in disk_files.items():
+            if name not in db_basenames:
+                orphans.append({"filename": name, "size_bytes": size})
+        orphans.sort(key=lambda x: x["size_bytes"], reverse=True)
+
+        # 4) Manquants : tracks dont le fichier n'est plus sur disque
+        missing = []
+        for tid, uid, title, fpath, fsize in db_rows:
+            if not fpath:
+                continue
+            base = os.path.basename(fpath)
+            if base not in disk_files:
+                # Vérifie aussi le path absolu au cas où il pointerait ailleurs
+                if not os.path.exists(fpath):
+                    missing.append({
+                        "id": tid, "user_id": uid, "title": title,
+                        "file_path": fpath, "expected_size": fsize,
+                    })
+
+        # 5) Top fichiers par taille
+        top_files = sorted(
+            [{"filename": n, "size_bytes": s} for n, s in disk_files.items()],
+            key=lambda x: x["size_bytes"], reverse=True,
+        )[:10]
+
+        total_bytes = sum(disk_files.values())
+        orphan_bytes = sum(o["size_bytes"] for o in orphans)
+
+        return {
+            "upload_dir": upload_dir,
+            "file_count": len(disk_files),
+            "db_track_count": len(db_rows),
+            "tracks_without_path": {
+                "count": len(tracks_without_path),
+                "items": tracks_without_path[:20],
+            },
+            "orphan_files": {
+                "count": len(orphans),
+                "total_bytes": orphan_bytes,
+                "total_mb": round(orphan_bytes / 1e6, 2),
+                "items": orphans[:50],
+            },
+            "missing_files": {
+                "count": len(missing),
+                "items": missing[:20],
+            },
+            "top_files": top_files,
+            "total_disk_bytes": total_bytes,
+            "total_disk_mb": round(total_bytes / 1e6, 2),
+        }
+    except Exception as e:
+        return {"error": "storage_audit failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.delete("/diagnostics/storage-orphans")
+async def cleanup_storage_orphans(
+    confirm: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Supprime les fichiers orphelins (présents sur disque mais sans ligne DB).
+    Dry-run par défaut. Passer ?confirm=true pour exécuter réellement.
+    """
+    import traceback
+    try:
+        from app.models.track import Track
+
+        upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+        if not os.path.isdir(upload_dir):
+            return {"error": "upload_dir introuvable", "upload_dir": upload_dir}
+
+        # Liste basenames référencés par la DB
+        db_basenames = set()
+        for (fpath,) in db.query(Track.file_path).all():
+            if fpath:
+                db_basenames.add(os.path.basename(fpath))
+
+        # Trouve les orphelins
+        orphans = []
+        for name in os.listdir(upload_dir):
+            full = os.path.join(upload_dir, name)
+            if os.path.isfile(full) and name not in db_basenames:
+                try:
+                    orphans.append({"filename": name, "size_bytes": os.path.getsize(full), "path": full})
+                except OSError:
+                    pass
+
+        if not confirm:
+            return {
+                "dry_run": True,
+                "would_delete": len(orphans),
+                "would_free_mb": round(sum(o["size_bytes"] for o in orphans) / 1e6, 2),
+                "items": orphans[:50],
+                "next_step": "Pour confirmer, ajouter ?confirm=true",
+            }
+
+        deleted = 0
+        freed_bytes = 0
+        errors = []
+        for o in orphans:
+            try:
+                os.remove(o["path"])
+                deleted += 1
+                freed_bytes += o["size_bytes"]
+            except OSError as e:
+                errors.append({"path": o["path"], "error": str(e)})
+
+        return {
+            "dry_run": False,
+            "deleted": deleted,
+            "freed_mb": round(freed_bytes / 1e6, 2),
+            "errors": errors,
+        }
+    except Exception as e:
+        return {"error": "cleanup failed", "detail": str(e), "traceback": traceback.format_exc()}
