@@ -105,7 +105,23 @@ document.addEventListener('click', (e)=>{
   setTimeout(()=>ripple.remove(),500);
 });
 
-// -------- Top-nav avatar + find + upload + notifications + admin gating --------
+// -------- Find button (⌘K) — toujours disponible, pas d'authentification requise --------
+(function(){
+  // Re-attach Find listener à chaque navigation de page (SPA)
+  // Déplacé hors de la section dépendante de l'api pour éviter les race conditions
+  document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
+    // Retire les anciens listeners (prevent duplicates lors des navigations SPA)
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    // Ajoute le nouveau listener
+    newBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if(window.__tcSearch) window.__tcSearch.open();
+    });
+  });
+})();
+
+// -------- Top-nav avatar + upload + notifications + admin gating (dépend de api) --------
 (async function(){
   try {
     if(typeof api === 'undefined') return;
@@ -113,14 +129,6 @@ document.addEventListener('click', (e)=>{
 
     // Admin link visibility : masquer pour les non-admins
     const adminLinks = document.querySelectorAll('.topnav-links a[href="/admin"], .topnav-links a[href="/v4/admin.html"]');
-
-    // Find (⌘K) — ouvre overlay inline au lieu de prompt()
-    document.querySelectorAll('.topnav-actions [data-tt^="Search"], .topnav-actions [data-tt^="Find"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if(window.__tcSearch) window.__tcSearch.open();
-      });
-    });
 
     // Upload button (top-right) — le bouton "+ Upload"
     document.querySelectorAll('.topnav-actions .btn-primary').forEach(btn => {
