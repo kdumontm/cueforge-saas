@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CueForge — Analyze</title>
+<title>TrackCue — Analyze</title>
 <link rel="stylesheet" href="shared.css">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -50,63 +50,62 @@
   /* CENTER — analysis canvas */
   .canvas{display:flex;flex-direction:column;gap:16px;min-width:0}
 
-  /* Track hero */
+  /* Track hero (compact) */
   .thero{
-    display:grid;grid-template-columns:160px 1fr auto;gap:20px;
-    padding:20px;border-radius:18px;
+    display:grid;grid-template-columns:72px 1fr auto;gap:14px;align-items:center;
+    padding:12px 14px;border-radius:14px;
     background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
     border:1px solid var(--b-default);
     box-shadow:var(--e-2);
     position:relative;overflow:hidden;
   }
   .thero::before{
-    content:"";position:absolute;top:-40%;right:-10%;width:400px;height:400px;
-    background:radial-gradient(circle,rgba(255,122,24,.12),transparent 60%);
+    content:"";position:absolute;top:-60%;right:-5%;width:280px;height:280px;
+    background:radial-gradient(circle,rgba(255,122,24,.08),transparent 60%);
     pointer-events:none;
   }
   .thero-cover{
-    width:160px;height:160px;border-radius:12px;
+    width:72px;height:72px;border-radius:10px;
     background:
       radial-gradient(at 30% 30%, rgba(255,255,255,.15), transparent 40%),
       linear-gradient(135deg,var(--pink) 0%,var(--amber) 60%,var(--violet) 100%);
-    position:relative;overflow:hidden;box-shadow:var(--e-3);
+    position:relative;overflow:hidden;box-shadow:var(--e-2);
     flex-shrink:0;
   }
   .thero-cover::after{
     content:"";position:absolute;inset:0;
     background:
-      repeating-linear-gradient(45deg,transparent 0 12px,rgba(0,0,0,.12) 12px 14px),
-      repeating-linear-gradient(-45deg,transparent 0 22px,rgba(255,255,255,.05) 22px 24px);
+      repeating-linear-gradient(45deg,transparent 0 10px,rgba(0,0,0,.12) 10px 12px),
+      repeating-linear-gradient(-45deg,transparent 0 18px,rgba(255,255,255,.05) 18px 20px);
   }
-  .thero-main{display:flex;flex-direction:column;gap:12px;min-width:0;position:relative;z-index:1}
-  .thero-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--c-tertiary)}
-  .thero-eyebrow .sep{margin:0 8px;color:var(--c-quaternary)}
-  .thero-title{font-family:var(--font-display);font-weight:700;font-size:32px;letter-spacing:-0.02em;line-height:1;margin:0}
-  .thero-title .editorial{color:var(--c-secondary);font-weight:400;font-size:28px;display:block;margin-top:2px}
-  .thero-stats{display:flex;gap:8px;flex-wrap:wrap}
+  .thero-main{display:flex;flex-direction:column;gap:6px;min-width:0;position:relative;z-index:1}
+  .thero-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--c-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thero-eyebrow .sep{margin:0 6px;color:var(--c-quaternary)}
+  .thero-title{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em;line-height:1.1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thero-title .editorial{color:var(--c-secondary);font-weight:400;font-size:16px;margin-left:6px}
+  .thero-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
   .stat-chip{
-    padding:8px 12px;
+    padding:3px 8px;
     background:var(--s-3);
     border:1px solid var(--b-subtle);
-    border-radius:10px;
-    display:flex;flex-direction:column;gap:2px;
-    min-width:68px;
+    border-radius:8px;
+    display:inline-flex;align-items:baseline;gap:5px;
   }
-  .stat-chip .lbl{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary)}
-  .stat-chip .val{font-family:var(--font-mono);font-size:15px;font-weight:600;color:var(--c-primary)}
+  .stat-chip .lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary)}
+  .stat-chip .val{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--c-primary)}
   .stat-chip.accent{border-color:var(--amber-soft)}
   .stat-chip.accent .val{color:var(--amber)}
   .stat-chip.key .val{color:var(--cyan)}
   .stat-chip.energy .val{color:var(--pink)}
-  .thero-right{display:flex;flex-direction:column;gap:10px;align-items:flex-end;position:relative;z-index:1}
+  .thero-right{display:flex;flex-direction:column;gap:6px;align-items:flex-end;position:relative;z-index:1}
   .quality-badge{
-    display:flex;align-items:center;gap:10px;
+    display:flex;align-items:center;gap:6px;
     background:var(--green-soft);border:1px solid rgba(74,222,128,.3);
-    border-radius:var(--r-pill);padding:6px 12px;
+    border-radius:var(--r-pill);padding:3px 8px;
   }
-  .quality-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
-  .quality-badge .txt{font-family:var(--font-mono);font-size:11px;color:#8ef0aa;letter-spacing:.05em}
-  .thero-actions{display:flex;gap:8px}
+  .quality-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+  .quality-badge .txt{font-family:var(--font-mono);font-size:10px;color:#8ef0aa;letter-spacing:.04em}
+  .thero-actions{display:flex;gap:6px}
 
   /* Mode switcher */
   .mode-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 4px}
@@ -342,7 +341,7 @@
 
 <header class="topnav">
   <div class="topnav-brand">
-    <span class="mark"></span><span>CueForge</span>
+    <span class="mark"></span><span>TrackCue</span>
   </div>
   <span class="topnav-sep"></span>
   <nav class="topnav-links">
@@ -411,8 +410,7 @@
             <span style="color:var(--green)">● AcoustID</span>
           </div>
           <h1 class="thero-title">
-            Nothing But You
-            <span class="editorial">— Extended Mix</span>
+            Nothing But You<span class="editorial">— Extended Mix</span>
           </h1>
           <div class="thero-stats">
             <div class="stat-chip accent"><span class="lbl">BPM</span><span class="val">122.0</span></div>
@@ -421,7 +419,6 @@
             <div class="stat-chip"><span class="lbl">Dur.</span><span class="val">6:42</span></div>
             <div class="stat-chip"><span class="lbl">Bars</span><span class="val">164</span></div>
             <div class="stat-chip"><span class="lbl">Peak</span><span class="val">-0.8</span></div>
-            <div class="stat-chip"><span class="lbl">ISRC</span><span class="val" style="font-size:11px">GB5KW2301234</span></div>
           </div>
         </div>
         <div class="thero-right">

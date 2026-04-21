@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'CueForge v4 — Design Preview',
-  description: 'Preview des 9 écrans CueForge v4',
+  title: 'TrackCue v4 — Design Preview',
+  description: 'Preview des 9 écrans TrackCue v4',
   robots: { index: false, follow: false },
 };
 
@@ -108,7 +108,7 @@ export default function V4HubPage() {
             letterSpacing: -2,
           }}
         >
-          CueForge{' '}
+          TrackCue{' '}
           <em
             style={{
               fontFamily: '"Instrument Serif", Georgia, serif',
