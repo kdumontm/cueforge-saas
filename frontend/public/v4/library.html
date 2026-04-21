@@ -584,9 +584,17 @@ async function loadCounts(){
   try {
     const stats = await api.stats().catch(()=>null);
     if(stats){
+      // 🔴 Fix 2026-04-21 : /stats/overview renvoie total_analyses (pas
+      // analyzed_tracks). Sans ce fallback, tous les tracks apparaissaient
+      // comme "Analyse en cours" même quand completed.
       const total = stats.tracks?.total || stats.total_tracks || stats.total || 0;
-      const ready = stats.tracks?.analyzed || stats.analyzed_tracks || 0;
-      const pending = stats.tracks?.pending || stats.pending_tracks || (total - ready) || 0;
+      const ready = stats.tracks?.analyzed
+        ?? stats.analyzed_tracks
+        ?? stats.total_analyses
+        ?? 0;
+      const pending = stats.tracks?.pending
+        ?? stats.pending_tracks
+        ?? Math.max(0, total - ready);
       document.getElementById('c-all').textContent = fmt.num(total);
       document.getElementById('c-ready').textContent = fmt.num(ready);
       document.getElementById('c-analyzing').textContent = fmt.num(pending);
