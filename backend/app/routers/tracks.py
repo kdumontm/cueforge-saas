@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
 
@@ -1787,6 +1788,42 @@ async def analyze_track_local(
 
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
+def _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max):
+    """Helper function to apply common track filters (DRY)"""
+    if genre:
+        q = q.filter(Track.genre.ilike(f"%{genre}%"))
+    if artist:
+        q = q.filter(Track.artist.ilike(f"%{artist}%"))
+    if rating_min is not None:
+        q = q.filter(Track.rating >= rating_min)
+    if search:
+        q = q.filter(
+            (Track.title.ilike(f"%{search}%")) |
+            (Track.artist.ilike(f"%{search}%")) |
+            (Track.original_filename.ilike(f"%{search}%"))
+        )
+    if any([bpm_min, bpm_max, key, energy_min, energy_max]):
+        q = q.outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+        if bpm_min is not None:
+            q = q.filter(TrackAnalysis.bpm >= bpm_min)
+        if bpm_max is not None:
+            q = q.filter(TrackAnalysis.bpm <= bpm_max)
+        if key:
+            from app.services.camelot import key_to_camelot
+            camelot = key_to_camelot(key)
+            if camelot:
+                q = q.filter(
+                    (TrackAnalysis.key == key) | (Track.camelot_code == camelot)
+                )
+            else:
+                q = q.filter(TrackAnalysis.key == key)
+        if energy_min is not None:
+            q = q.filter(TrackAnalysis.energy >= energy_min)
+        if energy_max is not None:
+            q = q.filter(TrackAnalysis.energy <= energy_max)
+    return q
+
+
 @router.get("", response_model=TrackListResponse)
 def list_tracks(
     page: int = Query(1, ge=1),
@@ -1809,49 +1846,19 @@ def list_tracks(
     # ⚡ Enforce limit server-side (safety cap)
     limit = min(limit, 100)
 
-    # ⚡ Ne charge que analysis + cue_points + track_tags (pas loop_markers pour le listing)
-    q = db.query(Track).filter(Track.user_id == current_user.id).options(
+    # ⚡ Build base query WITH filters but WITHOUT eager loading (for count)
+    q = db.query(Track).filter(Track.user_id == current_user.id)
+    q = _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max)
+
+    # ⚡ OPTIM: Count with DISTINCT to avoid over-counting on joins
+    total = db.query(func.count(func.distinct(Track.id))).select_entity_from(q.statement).scalar() or 0
+
+    # ⚡ NOW add eager loading to the same filtered query
+    q = q.options(
         selectinload(Track.analysis),
         selectinload(Track.cue_points),
         selectinload(Track.track_tags),
     )
-
-    # v2: Apply filters
-    if genre:
-        q = q.filter(Track.genre.ilike(f"%{genre}%"))
-    if artist:
-        q = q.filter(Track.artist.ilike(f"%{artist}%"))
-    if rating_min is not None:
-        q = q.filter(Track.rating >= rating_min)
-    if search:
-        q = q.filter(
-            (Track.title.ilike(f"%{search}%")) |
-            (Track.artist.ilike(f"%{search}%")) |
-            (Track.original_filename.ilike(f"%{search}%"))
-        )
-
-    # BPM/Key/Energy filters require join with analysis
-    if any([bpm_min, bpm_max, key, energy_min, energy_max]):
-        q = q.outerjoin(TrackAnalysis, TrackAnalysis.track_id == Track.id)
-        if bpm_min is not None:
-            q = q.filter(TrackAnalysis.bpm >= bpm_min)
-        if bpm_max is not None:
-            q = q.filter(TrackAnalysis.bpm <= bpm_max)
-        if key:
-            from app.services.camelot import key_to_camelot
-            camelot = key_to_camelot(key)
-            if camelot:
-                q = q.filter(
-                    (TrackAnalysis.key == key) | (Track.camelot_code == camelot)
-                )
-            else:
-                q = q.filter(TrackAnalysis.key == key)
-        if energy_min is not None:
-            q = q.filter(TrackAnalysis.energy >= energy_min)
-        if energy_max is not None:
-            q = q.filter(TrackAnalysis.energy <= energy_max)
-
-    total = q.count()
 
     # Sorting — whitelist stricte pour éviter l'accès à des champs internes
     ALLOWED_SORT_FIELDS = {

@@ -56,7 +56,7 @@ async def get_favorites(
     """
     Get all favorite tracks for the current user with full track details.
     """
-    from sqlalchemy.orm import joinedload
+    from sqlalchemy.orm import selectinload
 
     favorites = db.query(Favorite).filter(
         Favorite.user_id == current_user.id
@@ -67,11 +67,14 @@ async def get_favorites(
     if not track_ids:
         return {"tracks": [], "count": 0}
 
+    # ⚡ OPTIM: Utilise selectinload pour eviter N+1 sur analysis/cue_points/track_tags
     tracks = db.query(Track).filter(
         Track.id.in_(track_ids),
         Track.user_id == current_user.id,
     ).options(
-        joinedload(Track.analysis)
+        selectinload(Track.analysis),
+        selectinload(Track.cue_points),
+        selectinload(Track.track_tags),
     ).all()
 
     # Convert to dict representation
