@@ -261,8 +261,8 @@
         <div class="hint" style="margin-top:4px">Glisse pour réordonner · clique sur un transition dot pour les détails</div>
       </div>
       <div class="tl-tools">
-        <div class="segment"><button class="active">Énergie</button><button>BPM</button><button>Key</button></div>
-        <button class="btn btn-sm btn-ghost">AI suggest<span class="chip chip-violet" style="margin-left:4px">NEW</span></button>
+        <div class="segment" id="tl-metric-segment"><button class="active" data-metric="energy">Énergie</button><button data-metric="bpm">BPM</button><button data-metric="key">Key</button></div>
+        <button class="btn btn-sm btn-ghost" id="btn-ai-suggest">AI suggest<span class="chip chip-violet" style="margin-left:4px">NEW</span></button>
       </div>
     </div>
 
@@ -316,7 +316,7 @@
           Suggérées <span class="chip chip-violet">AI · 6 matchs</span>
         </div>
         <div class="sug-list" id="sug-list"></div>
-        <button class="btn btn-sm btn-ghost" style="margin-top:10px;width:100%;justify-content:center">Voir tous les matchs →</button>
+        <button class="btn btn-sm btn-ghost" id="btn-see-all-matches" style="margin-top:10px;width:100%;justify-content:center">Voir tous les matchs →</button>
       </div>
 
       <!-- Export -->
@@ -340,7 +340,7 @@
             <div><div class="nm">Playlist</div><div class="ext">.m3u8</div></div>
           </button>
         </div>
-        <button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%;justify-content:center">Copier sur USB</button>
+        <button class="btn btn-primary btn-sm" id="btn-copy-usb" style="margin-top:10px;width:100%;justify-content:center">Copier sur USB</button>
       </div>
 
       <!-- Gig context -->
@@ -885,6 +885,36 @@ document.getElementById('set-title').addEventListener('change', (e) => {
   if(currentSet){
     currentSet.name = e.target.value;
   }
+});
+
+// Segment switcher Énergie/BPM/Key
+document.querySelectorAll('#tl-metric-segment button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#tl-metric-segment button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const metric = b.dataset.metric;
+    toast(`Timeline · ${metric === 'energy' ? 'Énergie' : metric === 'bpm' ? 'BPM' : 'Key'}`, 'info');
+  });
+});
+
+// AI suggest — re-roll suggestions (pour l'instant rafraîchit sug-list depuis allTracks)
+document.getElementById('btn-ai-suggest').addEventListener('click', () => {
+  if(!currentSet?.tracks?.length){ toast('Ajoute au moins un track','info'); return; }
+  renderSuggestions();
+  toast('Suggestions rafraîchies','success');
+});
+
+// Voir tous les matchs → /compatible pour le dernier track du set
+document.getElementById('btn-see-all-matches').addEventListener('click', () => {
+  const last = currentSet?.tracks?.[currentSet.tracks.length - 1];
+  if(!last){ toast('Ajoute un track pour voir ses matchs','info'); return; }
+  location.href = '/compatible?id=' + encodeURIComponent(last.id);
+});
+
+// Copier sur USB → guide export
+document.getElementById('btn-copy-usb').addEventListener('click', () => {
+  if(!currentSet.id){ toast('Sauvegarde le set d\'abord','info'); return; }
+  toast('Export USB : branche ta clé, puis copie le dossier exporté','info');
 });
 
 boot();
