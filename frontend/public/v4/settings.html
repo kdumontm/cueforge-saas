@@ -887,7 +887,18 @@
         const t = document.querySelector(href);
         if(t){
           e.preventDefault();
-          t.scrollIntoView({behavior:'smooth', block:'start'});
+          // Le scrolling s'opère sur <body> (overflow:auto), pas sur window.
+          // Calculer la position absolue du target et scroller le bon conteneur.
+          const scroller = document.scrollingElement || document.body;
+          const rect = t.getBoundingClientRect();
+          const currentTop = scroller.scrollTop || window.scrollY || 0;
+          const offset = 80; // marge sous la topnav
+          const targetTop = rect.top + currentTop - offset;
+          // Scroll immédiat (plus fiable que smooth qui est parfois bloqué par CSS/CDP)
+          if(scroller.scrollTo){ scroller.scrollTo({top: targetTop, behavior: 'smooth'}); }
+          else { scroller.scrollTop = targetTop; }
+          // Fallback window au cas où
+          window.scrollTo({top: targetTop, behavior: 'smooth'});
           links.forEach(x=>x.classList.remove('active'));
           a.classList.add('active');
         }
