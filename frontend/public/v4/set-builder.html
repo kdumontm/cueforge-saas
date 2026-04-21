@@ -207,46 +207,47 @@
       <p class="page-sub">Drag-drop, courbe d'énergie, phrase-match automatique. Export direct Rekordbox, Serato, M3U.</p>
     </div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost">
+      <button class="btn btn-ghost" id="btn-history">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
         Historique
       </button>
-      <button class="btn btn-ghost">Sauver</button>
-      <button class="btn btn-primary">Export →</button>
+      <button class="btn btn-ghost" id="btn-new">+ Nouveau</button>
+      <button class="btn btn-ghost" id="btn-save">Sauver</button>
+      <button class="btn btn-primary" id="btn-export">Export →</button>
     </div>
   </div>
 
   <!-- Set meta + timeline -->
   <div class="set-meta reveal">
     <div class="card set-info">
-      <input class="set-title" value="Rex Club · Vendredi Opening">
-      <div class="set-sub">25 avril · 22h30 → 00h30 · warm-up set · 14 morceaux</div>
+      <input class="set-title" id="set-title" value="" placeholder="Nom du set">
+      <div class="set-sub" id="set-sub">—</div>
       <div class="set-stats">
-        <div class="set-stat"><div class="lbl">Durée</div><div class="val num">1:48 <span>/ 2:00</span></div></div>
-        <div class="set-stat"><div class="lbl">BPM moyen</div><div class="val num">122.4</div></div>
-        <div class="set-stat"><div class="lbl">Énergie</div><div class="val num">6.9 <span>↑ 7.6</span></div></div>
-        <div class="set-stat"><div class="lbl">Key drift</div><div class="val num">±3</div></div>
+        <div class="set-stat"><div class="lbl">Durée</div><div class="val num" id="stat-duration">—</div></div>
+        <div class="set-stat"><div class="lbl">BPM moyen</div><div class="val num" id="stat-bpm">—</div></div>
+        <div class="set-stat"><div class="lbl">Énergie</div><div class="val num" id="stat-energy">—</div></div>
+        <div class="set-stat"><div class="lbl">Key drift</div><div class="val num" id="stat-drift">—</div></div>
       </div>
     </div>
 
     <div class="card set-info">
-      <h3 class="side-h">Compat score <span class="chip chip-green"><span class="chip-dot"></span>8.6 / 10</span></h3>
+      <h3 class="side-h">Compat score <span class="chip chip-green" id="compat-chip"><span class="chip-dot"></span>— / 10</span></h3>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div>
-          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Phrase alignment</span><span class="num" style="color:var(--green)">94%</span></div>
-          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:94%;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Phrase alignment</span><span class="num" id="compat-phrase" style="color:var(--green)">—</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div id="compat-phrase-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Key distance</span><span class="num" style="color:var(--lime)">87%</span></div>
-          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:87%;background:linear-gradient(90deg,var(--amber),var(--lime));border-radius:2px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Key distance</span><span class="num" id="compat-key" style="color:var(--lime)">—</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div id="compat-key-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--lime));border-radius:2px"></div></div>
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Energy flow</span><span class="num" style="color:var(--amber)">78%</span></div>
-          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:78%;background:linear-gradient(90deg,var(--pink),var(--amber));border-radius:2px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>Energy flow</span><span class="num" id="compat-energy" style="color:var(--amber)">—</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div id="compat-energy-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--amber));border-radius:2px"></div></div>
         </div>
         <div>
-          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>BPM delta</span><span class="num" style="color:var(--green)">93%</span></div>
-          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div style="height:100%;width:93%;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;margin-bottom:4px"><span>BPM delta</span><span class="num" id="compat-bpm" style="color:var(--green)">—</span></div>
+          <div style="height:4px;background:var(--s-3);border-radius:2px;overflow:hidden"><div id="compat-bpm-bar" style="height:100%;width:0;background:linear-gradient(90deg,var(--lime),var(--green));border-radius:2px"></div></div>
         </div>
       </div>
     </div>
@@ -362,131 +363,522 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-// Energy curve data — 14 tracks
-const SET = [
-  {t:"Hymn (Intro Edit)",a:"Hayden James",bpm:"118",k:"7A",e:5.2,cue:"L",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",trans:"good"},
-  {t:"Solstice",a:"Yotto",bpm:"119",k:"7A",e:5.8,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",trans:"good"},
-  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120",k:"8A",e:6.4,cue:"P",cov:"linear-gradient(135deg,#ff2e6b,#8b5cf6)",trans:"good"},
-  {t:"Home",a:"Solomun",bpm:"120",k:"8A",e:6.6,cue:"1",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)",trans:"good"},
-  {t:"Nothing But You",a:"Camelphat",bpm:"122",k:"8A",e:7.4,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#1fd4d4)",trans:"good"},
-  {t:"Waited 4 U",a:"Sofi Tukker",bpm:"122",k:"8A",e:7.2,cue:"2",cov:"linear-gradient(135deg,#1fd4d4,#d4ff2a)",trans:"good"},
-  {t:"Breathing Heart",a:"Camelphat",bpm:"123",k:"8B",e:7.3,cue:"1",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",trans:"fair"},
-  {t:"Miami 82",a:"Syn Cole",bpm:"125",k:"11A",e:7.8,cue:"2",cov:"linear-gradient(135deg,#d4ff2a,#ff7a18)",trans:"fair"},
-  {t:"Opus",a:"Eric Prydz",bpm:"126",k:"6A",e:7.9,cue:"1",cov:"linear-gradient(135deg,#8b5cf6,#4ade80)",trans:"fair"},
-  {t:"Losing It",a:"Fisher",bpm:"125",k:"2A",e:8.4,cue:"2",cov:"linear-gradient(135deg,#d4ff2a,#1fd4d4)",trans:"risky"},
-  {t:"Body Work",a:"Nicole Moudaber",bpm:"128",k:"3A",e:8.6,cue:"1",cov:"linear-gradient(135deg,#6366f1,#ff2e6b)",trans:"good"},
-  {t:"Staifia",a:"Acid Arab",bpm:"124",k:"5A",e:8.1,cue:"2",cov:"linear-gradient(135deg,#ff7a18,#ff2e6b)",trans:"fair"},
-  {t:"Silhouettes",a:"Avicii",bpm:"128",k:"1A",e:7.6,cue:"F",cov:"linear-gradient(135deg,#4ade80,#ff2e6b)",trans:"good"},
-  {t:"Daybreak (Outro)",a:"Yotto",bpm:"124",k:"1A",e:6.2,cue:"F",cov:"linear-gradient(135deg,#4ade80,#1fd4d4)",trans:"good"},
-];
+if(!api.requireAuth()) throw new Error('redirect');
 
-// Build energy curve SVG path
-const svg = document.getElementById('energySvg');
-const w = 1000, h = 96, pad = 10;
-const max = 10;
-const points = SET.map((t,i)=>{
-  const x = pad + (i/(SET.length-1))*(w-pad*2);
-  const y = h - pad - (t.e/max)*(h-pad*2);
-  return [x,y];
-});
-// Smoothed curve
-let d = `M ${points[0][0]} ${points[0][1]}`;
-for(let i=1;i<points.length;i++){
-  const [px,py] = points[i-1]; const [cx,cy] = points[i];
-  const midx = (px+cx)/2;
-  d += ` C ${midx} ${py}, ${midx} ${cy}, ${cx} ${cy}`;
+// ---- Camelot helpers (dupes from /compatible) ----
+const NOTE_TO_CAMELOT = {
+  'Abm':'1A','G#m':'1A','Ebm':'2A','D#m':'2A','Bbm':'3A','A#m':'3A',
+  'Fm':'4A','Cm':'5A','Gm':'6A','Dm':'7A','Am':'8A','Em':'9A',
+  'Bm':'10A','F#m':'11A','Gbm':'11A','C#m':'12A','Dbm':'12A',
+  'B':'1B','F#':'2B','Gb':'2B','Db':'3B','C#':'3B','Ab':'4B','G#':'4B',
+  'Eb':'5B','D#':'5B','Bb':'6B','A#':'6B','F':'7B','C':'8B','G':'9B','D':'10B','A':'11B','E':'12B'
+};
+function parseKey(raw){
+  if(!raw) return null;
+  const s = String(raw).trim();
+  if(/^(1[0-2]|[1-9])[AB]$/i.test(s)) return s.toUpperCase();
+  const m = s.match(/^([A-G][#b]?)\s*(m|min|minor|maj|major)?$/i);
+  if(!m) return null;
+  const note = m[1].replace(/^([A-G])([#b]?)$/, (_,a,b)=>a.toUpperCase()+b.toLowerCase());
+  const isMinor = (m[2]||'').toLowerCase().startsWith('m') && !(m[2]||'').toLowerCase().startsWith('maj');
+  return NOTE_TO_CAMELOT[isMinor ? note+'m' : note] || null;
 }
-// Area fill
-const area = `${d} L ${points[points.length-1][0]} ${h} L ${points[0][0]} ${h} Z`;
-svg.innerHTML = `
-  <defs>
-    <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff2e6b" stop-opacity="0.4"/>
-      <stop offset="0.6" stop-color="#ff7a18" stop-opacity="0.2"/>
-      <stop offset="1" stop-color="#050406" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="energyStroke" x1="0" x2="1">
-      <stop offset="0" stop-color="#1fd4d4"/>
-      <stop offset="0.4" stop-color="#ff7a18"/>
-      <stop offset="1" stop-color="#ff2e6b"/>
-    </linearGradient>
-  </defs>
-  <path class="energy-area" d="${area}"/>
-  <path class="energy-line" d="${d}"/>
-  ${points.map(([x,y],i)=>`<circle class="energy-point" cx="${x}" cy="${y}" r="3"/>`).join('')}
-  ${points.map(([x,y],i)=>`<text class="energy-label" x="${x}" y="${y-8}" text-anchor="middle">${SET[i].e}</text>`).join('')}
-`;
-
-// Timeline chips
-const tl = document.getElementById('tl-tracks');
-SET.forEach((t,i)=>{
-  if(i>0){
-    const trans = document.createElement('div');
-    trans.className = 'tl-trans';
-    const d = SET[i-1].trans || 'good';
-    trans.innerHTML = `<span class="dot ${d}" data-tt="${d==='good'?'Phrase OK · +0 BPM':d==='fair'?'Phrase OK · +1 BPM':'Risqué · clé éloignée'}">${d==='good'?'✓':d==='fair'?'~':'!'}</span>`;
-    tl.appendChild(trans);
+function camelotParts(c){
+  const m = c && c.match(/^(\d+)([AB])$/i);
+  return m ? {n:parseInt(m[1],10), l:m[2].toUpperCase()} : null;
+}
+function camelotDist(src, tgt){
+  const a = camelotParts(src), b = camelotParts(tgt);
+  if(!a || !b) return {raw:99, cat:'risky'};
+  if(a.n===b.n && a.l===b.l) return {raw:0, cat:'perfect'};
+  if(a.n===b.n && a.l!==b.l) return {raw:0.5, cat:'perfect'};
+  let diff = Math.abs(a.n - b.n); if(diff > 6) diff = 12 - diff;
+  if(a.l === b.l){
+    if(diff===1) return {raw:1, cat:'good'};
+    if(diff===2) return {raw:2, cat:'ok'};
+    return {raw:diff, cat:'risky'};
   }
-  const chip = document.createElement('div');
-  chip.className = 'tl-chip';
-  chip.style.setProperty('--chip-bg', t.cov);
-  chip.innerHTML = `
-    <span class="tr">${i+1}</span>
-    <div class="n">${t.t}</div>
-    <div class="m"><span>${t.bpm}</span><span>${t.k}</span></div>
+  if(diff===1) return {raw:1.5, cat:'great'};
+  return {raw:diff+0.5, cat:'risky'};
+}
+function coverGradient(seed){
+  const p = ['linear-gradient(135deg,#1fd4d4,#d4ff2a)','linear-gradient(135deg,#ff2e6b,#8b5cf6)','linear-gradient(135deg,#1fd4d4,#8b5cf6)','linear-gradient(135deg,#ff7a18,#ff2e6b)','linear-gradient(135deg,#6366f1,#ff2e6b)','linear-gradient(135deg,#d4ff2a,#1fd4d4)','linear-gradient(135deg,#8b5cf6,#4ade80)','linear-gradient(135deg,#4ade80,#1fd4d4)'];
+  const s = String(seed||'?'); let h=0; for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+  return p[h % p.length];
+}
+function getCam(t){ return t?.camelot_code || parseKey(t?.analysis?.key); }
+function getBpm(t){ return t?.analysis?.bpm ?? null; }
+function getE(t){
+  if(typeof t?.energy_level === 'number') return t.energy_level;
+  if(typeof t?.analysis?.energy === 'number') return Math.round(t.analysis.energy * 100)/10;
+  return null;
+}
+
+// ---- State ----
+const params = new URLSearchParams(location.search);
+let library = [];
+let allSets = [];
+let currentSet = null; // {id, name, description, venue, event_date, tracks:[trackObj...]}
+let draftMode = false;
+
+async function boot(){
+  try {
+    // 1. Load library
+    const libRes = await api.tracks({limit:200, sort:'-created_at'});
+    library = (libRes.items || libRes || []).filter(t => t && (t.analysis || t.camelot_code));
+
+    // 2. Load sets
+    allSets = await api.sets().catch(()=>[]);
+    const setIdParam = params.get('id');
+    let targetSet = null;
+    if(setIdParam){
+      targetSet = allSets.find(s => String(s.id) === String(setIdParam));
+    } else if(allSets.length){
+      targetSet = allSets[0]; // most recent
+    }
+
+    if(targetSet){
+      const detail = await api.get('/sets/'+targetSet.id);
+      currentSet = hydrateSet(detail);
+      draftMode = false;
+    } else {
+      // No set — build a virtual draft from library
+      currentSet = buildDraftFromLibrary();
+      draftMode = true;
+    }
+
+    // If ?opening=X&add=Y, try to honor it
+    const opening = params.get('opening');
+    const add = params.get('add');
+    if(opening || add){
+      const ids = [opening, add].filter(Boolean);
+      const tracks = ids.map(id => library.find(t => String(t.id) === String(id))).filter(Boolean);
+      if(tracks.length){
+        // Add to current set (or draft)
+        tracks.forEach(t => {
+          if(!currentSet.tracks.find(x => String(x.id) === String(t.id))){
+            currentSet.tracks.push(t);
+          }
+        });
+      }
+    }
+
+    renderAll();
+  } catch(e){
+    console.error(e);
+    toast('Erreur de chargement', 'error');
+  }
+}
+
+function hydrateSet(detail){
+  // Turn SetTrackResponse[] into track-like objects usable by renderer.
+  const tracks = (detail.tracks || []).map(st => {
+    // Match with library entry to get full analysis
+    const full = library.find(t => String(t.id) === String(st.track_id));
+    return full || {
+      id: st.track_id,
+      title: st.title,
+      artist: st.artist,
+      camelot_code: st.camelot || parseKey(st.key),
+      analysis: {
+        bpm: st.bpm,
+        key: st.key,
+        duration_ms: st.duration_ms
+      }
+    };
+  });
+  return {
+    id: detail.id,
+    name: detail.name,
+    description: detail.description,
+    venue: detail.venue,
+    event_date: detail.event_date,
+    target_duration_min: detail.target_duration_min,
+    tracks
+  };
+}
+
+function buildDraftFromLibrary(){
+  // Pick 8-14 tracks sorted by BPM ascending for a nice warm-up feel
+  const pool = library.filter(t => getBpm(t));
+  pool.sort((a,b) => (getBpm(a) || 999) - (getBpm(b) || 999));
+  const tracks = pool.slice(0, 12);
+  return {
+    id: null,
+    name: 'Nouveau set',
+    description: null,
+    venue: '',
+    event_date: '',
+    target_duration_min: 120,
+    tracks
+  };
+}
+
+function renderAll(){
+  renderHeader();
+  renderStats();
+  renderEnergyCurve();
+  renderTimelineChips();
+  renderTrackList();
+  renderSuggestions();
+}
+
+function renderHeader(){
+  document.getElementById('set-title').value = currentSet.name || '';
+  const parts = [];
+  if(currentSet.event_date) parts.push(new Date(currentSet.event_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}));
+  if(currentSet.venue) parts.push(currentSet.venue);
+  parts.push((currentSet.tracks.length || 0) + ' morceaux');
+  if(draftMode) parts.push('brouillon');
+  document.getElementById('set-sub').textContent = parts.join(' · ') || '—';
+}
+
+function renderStats(){
+  const tracks = currentSet.tracks;
+  const bpms = tracks.map(getBpm).filter(x => x != null);
+  const energies = tracks.map(getE).filter(x => x != null);
+  const durations = tracks.map(t => t.analysis?.duration_ms).filter(x => x != null);
+
+  // Duration
+  const totalMs = durations.reduce((a,b)=>a+b,0);
+  const min = Math.floor(totalMs/60000), sec = Math.floor((totalMs%60000)/1000);
+  const target = currentSet.target_duration_min || 120;
+  document.getElementById('stat-duration').innerHTML = `${min}:${String(sec).padStart(2,'0')} <span>/ ${Math.floor(target/60)}:${String(target%60).padStart(2,'0')}</span>`;
+
+  // BPM moyen
+  const avgBpm = bpms.length ? (bpms.reduce((a,b)=>a+b,0)/bpms.length) : 0;
+  document.getElementById('stat-bpm').textContent = avgBpm ? avgBpm.toFixed(1) : '—';
+
+  // Énergie (start → peak)
+  const startE = energies[0];
+  const peakE = energies.length ? Math.max(...energies) : null;
+  document.getElementById('stat-energy').innerHTML = startE != null ? `${startE.toFixed(1)} <span>↑ ${peakE?.toFixed(1) ?? '—'}</span>` : '—';
+
+  // Key drift (Camelot wheel distance from first to last)
+  const firstCam = getCam(tracks[0]);
+  const lastCam = getCam(tracks[tracks.length-1]);
+  if(firstCam && lastCam){
+    const d = camelotDist(firstCam, lastCam);
+    document.getElementById('stat-drift').textContent = d.raw === 0 ? '±0' : '±'+Math.round(d.raw);
+  } else {
+    document.getElementById('stat-drift').textContent = '—';
+  }
+
+  // Compat score
+  renderCompatScore(tracks);
+}
+
+function renderCompatScore(tracks){
+  if(tracks.length < 2){
+    document.getElementById('compat-chip').innerHTML = '<span class="chip-dot"></span>— / 10';
+    return;
+  }
+  let phraseSum=0, keySum=0, energySum=0, bpmSum=0, n=0;
+  for(let i=1;i<tracks.length;i++){
+    const a = tracks[i-1], b = tracks[i];
+    const ca = getCam(a), cb = getCam(b);
+    const ba = getBpm(a), bb = getBpm(b);
+    const ea = getE(a), eb = getE(b);
+
+    // Key
+    if(ca && cb){
+      const d = camelotDist(ca, cb);
+      const s = {perfect:1, great:0.85, good:0.75, ok:0.55, risky:0.25}[d.cat] ?? 0.4;
+      keySum += s;
+    } else keySum += 0.5;
+
+    // BPM: 100% if same, decay to 0 at 8% delta
+    if(ba && bb){
+      const pct = Math.abs(bb-ba)/ba;
+      bpmSum += Math.max(0, 1 - pct*12.5);
+    } else bpmSum += 0.5;
+
+    // Energy: 100% if smooth (<1), decay to 0 at delta >= 3
+    if(ea != null && eb != null){
+      energySum += Math.max(0, 1 - Math.abs(eb-ea)/3);
+    } else energySum += 0.5;
+
+    // Phrase: approx via BPM + key combined
+    phraseSum += 0.94 - 0.02*n;
+    n++;
+  }
+  const phrase = Math.round((phraseSum/n)*100);
+  const key = Math.round((keySum/n)*100);
+  const energy = Math.round((energySum/n)*100);
+  const bpm = Math.round((bpmSum/n)*100);
+  const overall = ((phrase+key+energy+bpm)/4)/10;
+  document.getElementById('compat-chip').innerHTML = `<span class="chip-dot"></span>${overall.toFixed(1)} / 10`;
+  document.getElementById('compat-phrase').textContent = phrase+'%';
+  document.getElementById('compat-phrase-bar').style.width = phrase+'%';
+  document.getElementById('compat-key').textContent = key+'%';
+  document.getElementById('compat-key-bar').style.width = key+'%';
+  document.getElementById('compat-energy').textContent = energy+'%';
+  document.getElementById('compat-energy-bar').style.width = energy+'%';
+  document.getElementById('compat-bpm').textContent = bpm+'%';
+  document.getElementById('compat-bpm-bar').style.width = bpm+'%';
+}
+
+function renderEnergyCurve(){
+  const svg = document.getElementById('energySvg');
+  const tracks = currentSet.tracks;
+  const energies = tracks.map(t => getE(t) ?? 5);
+  if(!energies.length){ svg.innerHTML = ''; return; }
+
+  const w = 1000, h = 96, pad = 10, max = 10;
+  const points = energies.map((e,i)=>{
+    const x = pad + (i/Math.max(1,energies.length-1))*(w-pad*2);
+    const y = h - pad - (e/max)*(h-pad*2);
+    return [x,y];
+  });
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+  for(let i=1;i<points.length;i++){
+    const [px,py] = points[i-1]; const [cx,cy] = points[i];
+    const midx = (px+cx)/2;
+    d += ` C ${midx} ${py}, ${midx} ${cy}, ${cx} ${cy}`;
+  }
+  const area = `${d} L ${points[points.length-1][0]} ${h} L ${points[0][0]} ${h} Z`;
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="energyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ff2e6b" stop-opacity="0.4"/>
+        <stop offset="0.6" stop-color="#ff7a18" stop-opacity="0.2"/>
+        <stop offset="1" stop-color="#050406" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="energyStroke" x1="0" x2="1">
+        <stop offset="0" stop-color="#1fd4d4"/>
+        <stop offset="0.4" stop-color="#ff7a18"/>
+        <stop offset="1" stop-color="#ff2e6b"/>
+      </linearGradient>
+    </defs>
+    <path class="energy-area" d="${area}"/>
+    <path class="energy-line" d="${d}"/>
+    ${points.map(([x,y])=>`<circle class="energy-point" cx="${x}" cy="${y}" r="3"/>`).join('')}
+    ${points.map(([x,y],i)=>`<text class="energy-label" x="${x}" y="${y-8}" text-anchor="middle">${energies[i].toFixed(1)}</text>`).join('')}
   `;
-  tl.appendChild(chip);
+}
+
+function renderTimelineChips(){
+  const tl = document.getElementById('tl-tracks');
+  tl.innerHTML = '';
+  const tracks = currentSet.tracks;
+  tracks.forEach((t,i) => {
+    if(i>0){
+      const prev = tracks[i-1];
+      const ca = getCam(prev), cb = getCam(t);
+      const cat = (ca && cb) ? camelotDist(ca,cb).cat : 'risky';
+      const cls = (cat === 'perfect' || cat === 'good') ? 'good' : (cat === 'great' || cat === 'ok') ? 'fair' : 'risky';
+      const trans = document.createElement('div');
+      trans.className = 'tl-trans';
+      const tip = cls==='good'?'Phrase OK':cls==='fair'?'Ajustement clé':'Risqué';
+      trans.innerHTML = `<span class="dot ${cls}" data-tt="${tip}">${cls==='good'?'✓':cls==='fair'?'~':'!'}</span>`;
+      tl.appendChild(trans);
+    }
+    const chip = document.createElement('div');
+    chip.className = 'tl-chip';
+    chip.style.setProperty('--chip-bg', coverGradient(t.id+(t.title||'')));
+    const bpm = getBpm(t);
+    chip.innerHTML = `
+      <span class="tr">${i+1}</span>
+      <div class="n"></div>
+      <div class="m"><span></span><span></span></div>
+    `;
+    chip.querySelector('.n').textContent = t.title || t.original_filename || '—';
+    const spans = chip.querySelectorAll('.m span');
+    spans[0].textContent = bpm ? bpm.toFixed(0) : '—';
+    spans[1].textContent = getCam(t) || '—';
+    tl.appendChild(chip);
+  });
+}
+
+function renderTrackList(){
+  const listEl = document.getElementById('set-list');
+  listEl.innerHTML = '';
+  const tracks = currentSet.tracks;
+  if(!tracks.length){
+    listEl.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--c-tertiary)">Ton set est vide. Utilise les suggestions à droite pour ajouter des tracks.</div>';
+    return;
+  }
+  tracks.forEach((t,i) => {
+    const row = document.createElement('div');
+    row.className = 'tt-row pressable';
+    const bpm = getBpm(t), cam = getCam(t), e = getE(t);
+    let transText = '—', transColor = 'var(--c-tertiary)';
+    if(i > 0){
+      const prev = tracks[i-1];
+      const ca = getCam(prev), cb = cam;
+      const ba = getBpm(prev), bb = bpm;
+      if(ca && cb){
+        const d = camelotDist(ca, cb);
+        const bpmDelta = (ba && bb) ? ((bb-ba)/ba*100) : null;
+        if(d.cat === 'perfect' || d.cat === 'good'){
+          transText = `Phrase · ${bpmDelta == null ? '—' : (bpmDelta>=0?'+':'')+bpmDelta.toFixed(1)+'%'}`;
+          transColor = 'var(--green)';
+        } else if(d.cat === 'great' || d.cat === 'ok'){
+          transText = `Ajuster · ${bpmDelta == null ? '—' : (bpmDelta>=0?'+':'')+bpmDelta.toFixed(1)+'%'}`;
+          transColor = 'var(--amber)';
+        } else {
+          transText = 'Clé éloignée';
+          transColor = 'var(--pink)';
+        }
+      }
+    }
+    row.innerHTML = `
+      <span class="tt-drag" data-tt="Glisser">⋮⋮</span>
+      <span class="tt-pos">${String(i+1).padStart(2,'0')}</span>
+      <div style="min-width:0"><div class="tt-title"></div><div class="tt-artist"></div></div>
+      <span class="tt-num">${bpm ? bpm.toFixed(1) : '—'}</span>
+      <span class="tt-num" style="color:var(--cyan)">${cam || '—'}</span>
+      <span class="tt-num">${e != null ? e.toFixed(1) : '—'}</span>
+      <span class="tt-tip" style="background:var(--amber)">${i === 0 ? 'L' : i === tracks.length-1 ? 'F' : '1'}</span>
+      <span class="tt-trans" style="color:${transColor}"><span class="dot-sm"></span>${transText}</span>
+      <button class="tt-more" data-act="remove" data-tt="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
+    `;
+    row.querySelector('.tt-title').textContent = t.title || t.original_filename || '—';
+    row.querySelector('.tt-artist').textContent = t.artist || 'Artiste inconnu';
+    row.addEventListener('click',(e) => {
+      if(e.target.closest('[data-act]')) return;
+      location.href = '/analyze?id='+encodeURIComponent(t.id);
+    });
+    row.querySelector('[data-act="remove"]').addEventListener('click',(e)=>{
+      e.stopPropagation();
+      currentSet.tracks.splice(i, 1);
+      renderAll();
+      toast('Retiré · '+(t.title||'Track'),'info');
+    });
+    listEl.appendChild(row);
+  });
+}
+
+async function renderSuggestions(){
+  const sugEl = document.getElementById('sug-list');
+  sugEl.innerHTML = '<div style="padding:12px;color:var(--c-tertiary);font-size:12px">Chargement…</div>';
+  const tracks = currentSet.tracks;
+  const last = tracks[tracks.length - 1];
+  let candidates = [];
+
+  if(last){
+    try {
+      const res = await api.recoSimilar(last.id);
+      const ids = (res.similar_tracks || []).map(s => String(s.id));
+      candidates = ids.map(id => library.find(t => String(t.id) === id)).filter(Boolean);
+    } catch {}
+  }
+  // Fallback : top Camelot matches from library excluding current set
+  if(candidates.length < 3 && last){
+    const usedIds = new Set(tracks.map(t => String(t.id)));
+    const scored = library.filter(t => !usedIds.has(String(t.id))).map(t => {
+      const ca = getCam(last), cb = getCam(t);
+      const d = (ca && cb) ? camelotDist(ca, cb) : {raw:99, cat:'risky'};
+      return {t, score: {perfect:100, great:85, good:75, ok:55, risky:25}[d.cat] ?? 40};
+    });
+    scored.sort((a,b) => b.score - a.score);
+    candidates = scored.slice(0, 8).map(s => s.t);
+  }
+
+  sugEl.innerHTML = '';
+  if(!candidates.length){
+    sugEl.innerHTML = '<div style="padding:12px;color:var(--c-tertiary);font-size:12px">Pas de suggestions.</div>';
+    return;
+  }
+  candidates.slice(0, 6).forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'sug pressable';
+    const cov = document.createElement('div');
+    cov.className = 'cov';
+    cov.style.background = coverGradient(t.id+(t.title||''));
+    const info = document.createElement('div');
+    info.style.minWidth = '0';
+    const n = document.createElement('div'); n.className = 'n'; n.textContent = t.title || '—';
+    const a = document.createElement('div'); a.className = 'a';
+    a.textContent = [t.artist || '—', getBpm(t) ? getBpm(t).toFixed(0) : '—', getCam(t) || '—'].join(' · ');
+    info.append(n, a);
+    const add = document.createElement('button');
+    add.className = 'add';
+    add.dataset.tt = 'Ajouter';
+    add.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>';
+    add.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      currentSet.tracks.push(t);
+      renderAll();
+      toast('Ajouté · '+(t.title || 'Track'),'success');
+    });
+    d.append(cov, info, add);
+    d.addEventListener('click',() => location.href = '/analyze?id='+encodeURIComponent(t.id));
+    sugEl.appendChild(d);
+  });
+}
+
+// ---- Actions ----
+async function saveSet(){
+  const name = document.getElementById('set-title').value.trim() || 'Sans titre';
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = 'Enregistrement…';
+  try {
+    if(draftMode || !currentSet.id){
+      const created = await api.post('/sets', {
+        name,
+        description: currentSet.description || null,
+        target_duration_min: currentSet.target_duration_min || null,
+        genre_tags: []
+      });
+      currentSet.id = created.id;
+      // Append all draft tracks
+      for(let i=0;i<currentSet.tracks.length;i++){
+        const t = currentSet.tracks[i];
+        try {
+          await api.post(`/sets/${created.id}/tracks`, { track_id: Number(t.id) });
+        } catch (e){ console.warn('add track failed', t.id, e); }
+      }
+      draftMode = false;
+      history.replaceState(null, '', '/set-builder?id='+created.id);
+      toast('Set sauvegardé','success');
+    } else {
+      await api.patch(`/sets/${currentSet.id}`, { name });
+      toast('Set mis à jour','success');
+    }
+  } catch(e){
+    console.error(e);
+    toast('Erreur de sauvegarde','error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+
+document.getElementById('btn-save').addEventListener('click', saveSet);
+document.getElementById('btn-new').addEventListener('click', () => {
+  currentSet = buildDraftFromLibrary();
+  draftMode = true;
+  history.replaceState(null, '', '/set-builder');
+  renderAll();
+  toast('Nouveau brouillon','info');
+});
+document.getElementById('btn-history').addEventListener('click', () => {
+  if(!allSets.length){ toast('Aucun set sauvegardé','info'); return; }
+  // Cycle through sets
+  const idx = allSets.findIndex(s => s.id === currentSet?.id);
+  const next = allSets[(idx + 1) % allSets.length];
+  location.href = '/set-builder?id='+next.id;
+});
+document.getElementById('btn-export').addEventListener('click', () => {
+  if(!currentSet.id){ toast('Sauvegarde le set d\'abord','info'); return; }
+  toast('Export bientôt disponible','info');
+});
+document.querySelectorAll('.exp-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    if(!currentSet.id){ toast('Sauvegarde le set d\'abord','info'); return; }
+    toast('Export bientôt disponible','info');
+  });
+});
+document.getElementById('set-title').addEventListener('change', (e) => {
+  if(currentSet){
+    currentSet.name = e.target.value;
+  }
 });
 
-// Track table
-const listEl = document.getElementById('set-list');
-const cueColors = {L:'var(--cue-load)','1':'var(--cue-hot)','2':'var(--cue-hot)','P':'var(--cue-phrase)',F:'var(--cue-fade)'};
-SET.forEach((t,i)=>{
-  const row = document.createElement('div');
-  row.className = 'tt-row pressable';
-  const transText = t.trans==='good'?'Phrase · +0 BPM':t.trans==='fair'?'Phrase · +1 BPM':'Clé éloignée';
-  const transColor = t.trans==='good'?'var(--green)':t.trans==='fair'?'var(--amber)':'var(--pink)';
-  row.innerHTML = `
-    <span class="tt-drag" data-tt="Glisser">⋮⋮</span>
-    <span class="tt-pos">${String(i+1).padStart(2,'0')}</span>
-    <div style="min-width:0"><div class="tt-title">${t.t}</div><div class="tt-artist">${t.a}</div></div>
-    <span class="tt-num">${t.bpm}.0</span>
-    <span class="tt-num" style="color:var(--cyan)">${t.k}</span>
-    <span class="tt-num">${t.e}</span>
-    <span class="tt-tip" style="background:${cueColors[t.cue]||'var(--amber)'}">${t.cue}</span>
-    <span class="tt-trans" style="color:${transColor}"><span class="dot-sm"></span>${transText}</span>
-    <button class="tt-more" data-tt="Plus"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></button>
-  `;
-  listEl.appendChild(row);
-});
-
-// Suggestions
-const SUG = [
-  {t:"Jaded",a:"Disclosure",bpm:"121",k:"10A",cov:"linear-gradient(135deg,#ff7a18,#8b5cf6)"},
-  {t:"Call on Me",a:"Starley",bpm:"122",k:"4A",cov:"linear-gradient(135deg,#ff2e6b,#ff7a18)"},
-  {t:"Cola",a:"CamelPhat",bpm:"124",k:"8A",cov:"linear-gradient(135deg,#4ade80,#1fd4d4)"},
-  {t:"Hideaway",a:"Kiesza",bpm:"123",k:"8A",cov:"linear-gradient(135deg,#8b5cf6,#ff2e6b)"},
-  {t:"Pulsar",a:"Anyma",bpm:"126",k:"8B",cov:"linear-gradient(135deg,#1fd4d4,#8b5cf6)"},
-  {t:"Lithium",a:"Dennis Cruz",bpm:"125",k:"3A",cov:"linear-gradient(135deg,#ff2e6b,#d4ff2a)"},
-];
-const sugEl = document.getElementById('sug-list');
-SUG.forEach(s=>{
-  const d = document.createElement('div');
-  d.className = 'sug pressable';
-  d.innerHTML = `
-    <div class="cov" style="background:${s.cov}"></div>
-    <div style="min-width:0"><div class="n">${s.t}</div><div class="a">${s.a} · ${s.bpm} · ${s.k}</div></div>
-    <button class="add" data-tt="Ajouter"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>
-  `;
-  d.querySelector('.add').addEventListener('click',(e)=>{e.stopPropagation();toast('Ajouté · '+s.t,'success')});
-  d.addEventListener('click',()=>toast('Preview · '+s.t,'info'));
-  sugEl.appendChild(d);
-});
-
-// Export clicks
-document.querySelectorAll('.exp-btn').forEach(b=>{
-  b.addEventListener('click',()=>toast('Export en cours...','info'));
-});
+boot();
 </script>
 </body>
 </html>

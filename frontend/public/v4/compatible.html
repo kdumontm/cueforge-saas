@@ -179,31 +179,26 @@
       <p class="page-sub">Matchs harmoniques et rythmiques depuis la clé source. Plus c'est proche du centre de la roue, plus ça sonne.</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center">
-      <button class="btn btn-ghost">Changer source</button>
-      <button class="btn btn-primary">
+      <button class="btn btn-ghost" id="btn-change-source">Changer source</button>
+      <a class="btn btn-primary" href="/set-builder">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
-        Tous ajouter au set
-      </button>
+        Ouvrir Set Builder
+      </a>
     </div>
   </div>
 
   <!-- Source track -->
   <div class="src-card reveal">
-    <div class="src-cover"></div>
+    <div class="src-cover" id="src-cover"></div>
     <div>
       <div class="eyebrow" style="color:var(--amber);margin-bottom:4px">Track source</div>
-      <div class="src-title">Nothing But You <span class="editorial muted" style="font-weight:400">— Extended Mix</span></div>
-      <div class="src-artist">Camelphat, Max Milner · Melodic House</div>
-      <div class="src-stats">
-        <span class="chip chip-amber"><span class="chip-dot"></span>122.0 BPM</span>
-        <span class="chip chip-cyan"><span class="chip-dot"></span>8A · A minor</span>
-        <span class="chip chip-pink"><span class="chip-dot"></span>Energy 7.4</span>
-        <span class="chip">6:42</span>
-      </div>
+      <div class="src-title" id="src-title">Chargement…</div>
+      <div class="src-artist" id="src-artist">—</div>
+      <div class="src-stats" id="src-stats"></div>
     </div>
     <div class="src-right">
-      <div class="eyebrow">142 matchs trouvés</div>
-      <button class="btn btn-sm btn-ghost">Ajuster la source</button>
+      <div class="eyebrow" id="src-match-count">— matchs</div>
+      <a class="btn btn-sm btn-ghost" id="btn-analyze-src" href="/analyze">Analyser</a>
     </div>
   </div>
 
@@ -223,8 +218,8 @@
       <div class="wheel">
         <svg viewBox="-170 -170 340 340" id="wheelSvg"></svg>
         <div class="wheel-center">
-          <div class="big">8A</div>
-          <div class="sm">A minor · 122</div>
+          <div class="big" id="wheel-center-key">—</div>
+          <div class="sm" id="wheel-center-note">—</div>
         </div>
       </div>
 
@@ -311,169 +306,468 @@
 <script src="/v4/api.js"></script>
 <script src="/v4/shared.js"></script>
 <script>
-// Camelot wheel
-const keys = [
-  {n:'1A',key:'Abm',c:'#ff7a18'},{n:'2A',key:'Ebm',c:'#ffae18'},{n:'3A',key:'Bbm',c:'#d4ff2a'},
-  {n:'4A',key:'Fm',c:'#84d944'},{n:'5A',key:'Cm',c:'#4ade80'},{n:'6A',key:'Gm',c:'#1fd4d4'},
-  {n:'7A',key:'Dm',c:'#3b82f6'},{n:'8A',key:'Am',c:'#8b5cf6'},{n:'9A',key:'Em',c:'#b249f8'},
-  {n:'10A',key:'Bm',c:'#d946ef'},{n:'11A',key:'F#m',c:'#ff2e6b'},{n:'12A',key:'C#m',c:'#ff5a3e'},
-];
+if(!api.requireAuth()) throw new Error('redirect');
+
+// ------------ Camelot helpers ------------
+const KEY_NAMES = ['B','F#','C#','Ab','Eb','Bb','F','C','G','D','A','E'];
+// notation conversion : certains backends exposent "Am", "C#m", "F major" etc. On tente de normaliser en Camelot
+// Table standard mapping note+mode → Camelot
+const NOTE_TO_CAMELOT = {
+  // Minors (A)
+  'Abm':'1A','G#m':'1A',
+  'Ebm':'2A','D#m':'2A',
+  'Bbm':'3A','A#m':'3A',
+  'Fm':'4A',
+  'Cm':'5A',
+  'Gm':'6A',
+  'Dm':'7A',
+  'Am':'8A',
+  'Em':'9A',
+  'Bm':'10A',
+  'F#m':'11A','Gbm':'11A',
+  'C#m':'12A','Dbm':'12A',
+  // Majors (B)
+  'B':'1B',
+  'F#':'2B','Gb':'2B',
+  'Db':'3B','C#':'3B',
+  'Ab':'4B','G#':'4B',
+  'Eb':'5B','D#':'5B',
+  'Bb':'6B','A#':'6B',
+  'F':'7B',
+  'C':'8B',
+  'G':'9B',
+  'D':'10B',
+  'A':'11B',
+  'E':'12B'
+};
+function parseKey(raw){
+  if(!raw) return null;
+  const s = String(raw).trim();
+  // Déjà camelot ?
+  if(/^(1[0-2]|[1-9])[AB]$/i.test(s)) return s.toUpperCase();
+  // Format "C minor", "A major", "Am", "C#m", "F#"...
+  let m = s.match(/^([A-G][#b]?)\s*(m|min|minor|maj|major)?$/i);
+  if(!m) return null;
+  let note = m[1].replace(/^([A-G])([#b]?)$/, (_,a,b)=>a.toUpperCase()+b.toLowerCase());
+  const modeHint = (m[2]||'').toLowerCase();
+  const isMinor = modeHint.startsWith('m') && !modeHint.startsWith('maj');
+  const key = isMinor ? note+'m' : note;
+  return NOTE_TO_CAMELOT[key] || null;
+}
+// Returns {number:1-12, letter:'A'|'B'}
+function camelotParts(c){
+  const m = c.match(/^(\d+)([AB])$/i);
+  return m ? {n:parseInt(m[1],10), l:m[2].toUpperCase()} : null;
+}
+// Camelot distance between two codes. 0 = same, returns object {raw:number, cat:'perfect'|'great'|'good'|'ok'|'risky', label:string}
+function camelotDist(src, tgt){
+  const a = camelotParts(src), b = camelotParts(tgt);
+  if(!a || !b) return {raw:99, cat:'risky', label:'?'};
+  if(a.n===b.n && a.l===b.l) return {raw:0, cat:'perfect', label:'same'};
+  if(a.n===b.n && a.l!==b.l) return {raw:0.5, cat:'perfect', label:'rel'}; // relative major/minor
+  // Steps around the wheel (circular)
+  let diff = Math.abs(a.n - b.n);
+  if(diff > 6) diff = 12 - diff;
+  const sign = ((b.n - a.n + 12) % 12) <= 6 ? '+' : '-';
+  const sameLetter = a.l === b.l;
+  if(sameLetter){
+    if(diff===1) return {raw:1, cat:'good', label:sign+'1'};
+    if(diff===2) return {raw:2, cat:'ok', label:sign+'2'};
+    if(diff===3) return {raw:3, cat:'risky', label:sign+'3'};
+    return {raw:diff, cat:'risky', label:sign+diff};
+  } else {
+    // energy jump : +1 step AND letter flip = great
+    if(diff===1) return {raw:1.5, cat:'great', label:sign+'1↕'};
+    if(diff===0) return {raw:0.5, cat:'perfect', label:'rel'};
+    return {raw:diff+0.5, cat:'risky', label:sign+diff+'↕'};
+  }
+}
+
+// ------------ State ------------
+const params = new URLSearchParams(location.search);
+let sourceTrack = null;
+let allTracks = [];
+let currentFilter = 'all'; // all | key | energy | phrase
+let currentWheelFilter = null; // '8A' | null
+
+// ------------ Load ------------
+async function boot(){
+  try {
+    const res = await api.tracks({limit:200, sort:'-created_at'});
+    allTracks = (res.items || res || []).filter(t => t && (t.analysis || t.camelot_code));
+    if(!allTracks.length){
+      renderEmpty();
+      return;
+    }
+    const idParam = params.get('id');
+    if(idParam){
+      sourceTrack = allTracks.find(t => String(t.id) === String(idParam));
+      if(!sourceTrack){
+        // Pas dans la liste paginée — fetch direct
+        try { sourceTrack = await api.track(idParam); } catch {}
+      }
+    }
+    if(!sourceTrack) sourceTrack = allTracks[0];
+    renderAll();
+  } catch(e){
+    console.error(e);
+    toast('Erreur de chargement', 'error');
+    renderEmpty();
+  }
+}
+
+function renderEmpty(){
+  document.getElementById('src-title').textContent = 'Aucune piste';
+  document.getElementById('src-artist').textContent = 'Uploade ton premier track pour voir les compatibilités.';
+  document.getElementById('src-stats').innerHTML = '<a class="chip chip-amber" href="/upload" style="text-decoration:none"><span class="chip-dot"></span>Uploader</a>';
+  document.getElementById('src-match-count').textContent = '0 matchs';
+  document.getElementById('mm-list').innerHTML = '<div class="mm-empty" style="padding:40px 20px;text-align:center;color:var(--c-tertiary)">Pas de tracks à comparer.</div>';
+  drawWheel(null, {});
+}
+
+function getTrackCamelot(t){
+  if(!t) return null;
+  if(t.camelot_code) return t.camelot_code;
+  const key = t.analysis?.key;
+  return parseKey(key);
+}
+function getTrackBpm(t){
+  return t?.analysis?.bpm || null;
+}
+function getTrackEnergy(t){
+  // backend returns energy (0-1 float) and energy_level (0-10 int). Normalize to 0-10.
+  if(typeof t?.energy_level === 'number') return t.energy_level;
+  if(typeof t?.analysis?.energy === 'number') return Math.round(t.analysis.energy * 10 * 10)/10;
+  return null;
+}
+function coverGradient(seed){
+  const palettes = [
+    'linear-gradient(135deg,#1fd4d4,#d4ff2a)',
+    'linear-gradient(135deg,#ff2e6b,#8b5cf6)',
+    'linear-gradient(135deg,#1fd4d4,#8b5cf6)',
+    'linear-gradient(135deg,#ff7a18,#ff2e6b)',
+    'linear-gradient(135deg,#6366f1,#ff2e6b)',
+    'linear-gradient(135deg,#d4ff2a,#1fd4d4)'
+  ];
+  const s = String(seed||'?');
+  let h=0; for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
+}
+function durationLabel(ms){
+  if(!ms) return '';
+  const s = Math.round(ms/1000);
+  const m = Math.floor(s/60), sec = s%60;
+  return m+':'+String(sec).padStart(2,'0');
+}
+
+function renderAll(){
+  renderSource();
+  const scored = scoreMatches();
+  renderWheel(scored);
+  renderMatchList(scored);
+  renderDistanceViz(scored);
+}
+
+function renderSource(){
+  const t = sourceTrack;
+  const title = t.title || t.original_filename || 'Sans titre';
+  const artist = t.artist || 'Artiste inconnu';
+  const bpm = getTrackBpm(t);
+  const camelot = getTrackCamelot(t);
+  const energy = getTrackEnergy(t);
+  const dur = t.analysis?.duration_ms;
+
+  document.getElementById('src-title').textContent = title;
+  document.getElementById('src-artist').textContent = artist + (t.genre ? ' · '+t.genre : '');
+  document.getElementById('src-cover').style.background = coverGradient(t.id+(t.title||''));
+
+  const stats = document.getElementById('src-stats');
+  stats.innerHTML = '';
+  const make = (cls, text) => {
+    const s = document.createElement('span');
+    s.className = 'chip '+cls;
+    s.innerHTML = '<span class="chip-dot"></span>';
+    s.appendChild(document.createTextNode(text));
+    return s;
+  };
+  if(bpm) stats.appendChild(make('chip-amber', bpm.toFixed(1)+' BPM'));
+  if(camelot) stats.appendChild(make('chip-cyan', camelot));
+  if(energy != null) stats.appendChild(make('chip-pink', 'Energy '+energy));
+  if(dur){
+    const d = document.createElement('span');
+    d.className = 'chip';
+    d.textContent = durationLabel(dur);
+    stats.appendChild(d);
+  }
+  // Link "Analyser" → analyze with id
+  document.getElementById('btn-analyze-src').href = '/analyze?id='+encodeURIComponent(t.id);
+}
+
+function scoreMatches(){
+  const srcCam = getTrackCamelot(sourceTrack);
+  const srcBpm = getTrackBpm(sourceTrack) || 120;
+  const srcE = getTrackEnergy(sourceTrack) ?? 5;
+
+  const out = [];
+  for(const t of allTracks){
+    if(String(t.id) === String(sourceTrack.id)) continue;
+    const cam = getTrackCamelot(t);
+    const bpm = getTrackBpm(t);
+    const energy = getTrackEnergy(t);
+    if(!cam && !bpm) continue;
+
+    // Key score
+    let keyScore = 40, keyDist = {cat:'risky', label:'?', raw:99};
+    if(srcCam && cam){
+      keyDist = camelotDist(srcCam, cam);
+      const base = {perfect:40, great:34, good:26, ok:16, risky:6}[keyDist.cat] ?? 0;
+      keyScore = base;
+    }
+
+    // BPM score (0-30, 100% at delta=0, 0 at delta>=10%)
+    let bpmScore = 15;
+    let bpmDeltaPct = null;
+    if(bpm && srcBpm){
+      const pct = Math.abs(bpm - srcBpm) / srcBpm * 100;
+      bpmDeltaPct = ((bpm - srcBpm) / srcBpm * 100);
+      bpmScore = Math.max(0, 30 * (1 - pct / 8));
+    }
+
+    // Energy score (0-30)
+    let eScore = 15;
+    let eDelta = null;
+    if(energy != null && srcE != null){
+      eDelta = energy - srcE;
+      eScore = Math.max(0, 30 * (1 - Math.abs(eDelta) / 5));
+    }
+
+    const total = Math.round(keyScore + bpmScore + eScore);
+    out.push({
+      track: t,
+      camelot: cam,
+      bpm, energy,
+      keyDist,
+      bpmDeltaPct,
+      eDelta,
+      score: Math.min(99, total),
+      cls: keyDist.cat || 'risky'
+    });
+  }
+  out.sort((a,b) => b.score - a.score);
+  return out;
+}
+
+// ------------ Wheel ------------
 const svg = document.getElementById('wheelSvg');
-const innerR = 75;
-const midR = 110;
-const outerR = 158;
-const sourceKey = '8A';
-const matches = {'8A':'perfect','8B':'perfect','7A':'good','9A':'good','5A':'great','11B':'great','7B':'ok','9B':'ok','6A':'ok','10A':'ok'};
+const innerR = 75, midR = 110, outerR = 158;
 function polar(r,a){return [r*Math.cos(a-Math.PI/2), r*Math.sin(a-Math.PI/2)]}
 function arcPath(r1,r2,a1,a2){
   const [x1,y1]=polar(r2,a1),[x2,y2]=polar(r2,a2),[x3,y3]=polar(r1,a2),[x4,y4]=polar(r1,a1);
   const large = (a2-a1>Math.PI)?1:0;
   return `M${x1} ${y1} A${r2} ${r2} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${r1} ${r1} 0 ${large} 0 ${x4} ${y4} Z`;
 }
-// 12 segments — inner (minor A) and outer (major B)
-for(let i=0;i<12;i++){
-  const a1 = (i/12)*Math.PI*2;
-  const a2 = ((i+1)/12)*Math.PI*2;
-  const k = keys[i];
-  const labelA = k.n, labelB = k.n.replace('A','B');
-  const majorKey = ['B','F#','C#','Ab','Eb','Bb','F','C','G','D','A','E'][i];
-  // Inner (minor A)
-  const segA = document.createElementNS('http://www.w3.org/2000/svg','path');
-  segA.setAttribute('d', arcPath(innerR,midR,a1,a2));
-  const mA = matches[labelA];
-  let fillA = 'var(--s-3)';
-  let className = 'wheel-seg';
-  if(mA){
-    const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
-    fillA = cmap[mA];
-    className += ' '+mA;
-    if(labelA===sourceKey) className += ' source';
-  }
-  segA.setAttribute('fill',fillA);
-  segA.setAttribute('fill-opacity', labelA===sourceKey?'1':(mA?'0.8':'0.3'));
-  segA.setAttribute('stroke','var(--s-0)');
-  segA.setAttribute('stroke-width','2');
-  segA.setAttribute('class', className);
-  segA.setAttribute('data-key', labelA);
-  svg.appendChild(segA);
-  // Outer (major B)
-  const segB = document.createElementNS('http://www.w3.org/2000/svg','path');
-  segB.setAttribute('d', arcPath(midR,outerR,a1,a2));
-  const mB = matches[labelB];
-  let fillB = 'var(--s-2)';
-  let classB = 'wheel-seg';
-  if(mB){
-    const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
-    fillB = cmap[mB];
-    classB += ' '+mB;
-  }
-  segB.setAttribute('fill',fillB);
-  segB.setAttribute('fill-opacity', mB?'0.65':'0.2');
-  segB.setAttribute('stroke','var(--s-0)');
-  segB.setAttribute('stroke-width','2');
-  segB.setAttribute('class', classB);
-  segB.setAttribute('data-key', labelB);
-  svg.appendChild(segB);
-  // Labels
-  const amid = (a1+a2)/2;
-  const [lxA,lyA] = polar((innerR+midR)/2, amid);
-  const lblA = document.createElementNS('http://www.w3.org/2000/svg','text');
-  lblA.setAttribute('x',lxA);lblA.setAttribute('y',lyA);lblA.setAttribute('class','wheel-lbl');
-  lblA.textContent = labelA;
-  if(mA) lblA.setAttribute('fill','#050406');
-  svg.appendChild(lblA);
-  const [lxB,lyB] = polar((midR+outerR)/2, amid);
-  const lblB = document.createElementNS('http://www.w3.org/2000/svg','text');
-  lblB.setAttribute('x',lxB);lblB.setAttribute('y',lyB);lblB.setAttribute('class','wheel-lbl');
-  lblB.textContent = labelB;
-  if(mB) lblB.setAttribute('fill','#050406');
-  svg.appendChild(lblB);
-  // Key letters outside
-  const [lxC,lyC] = polar(outerR+8, amid);
-  const lblC = document.createElementNS('http://www.w3.org/2000/svg','text');
-  lblC.setAttribute('x',lxC);lblC.setAttribute('y',lyC);lblC.setAttribute('class','wheel-note');
-  lblC.textContent = majorKey+'m/'+majorKey;
-  svg.appendChild(lblC);
+
+function renderWheel(scored){
+  const srcCam = getTrackCamelot(sourceTrack);
+  // Count matches by camelot to highlight the wheel segments
+  const byKey = {};
+  scored.forEach(s => {
+    if(!s.camelot) return;
+    byKey[s.camelot] = byKey[s.camelot] || {count:0, best:s.keyDist.cat};
+    byKey[s.camelot].count++;
+    // keep best category
+    const order = {perfect:0, great:1, good:2, ok:3, risky:4};
+    if((order[s.keyDist.cat] ?? 99) < (order[byKey[s.camelot].best] ?? 99)){
+      byKey[s.camelot].best = s.keyDist.cat;
+    }
+  });
+  // Update center
+  document.getElementById('wheel-center-key').textContent = srcCam || '—';
+  const bpm = getTrackBpm(sourceTrack);
+  document.getElementById('wheel-center-note').textContent = (sourceTrack.analysis?.key || '—') + (bpm ? ' · '+bpm.toFixed(0) : '');
+
+  drawWheel(srcCam, byKey);
 }
-svg.querySelectorAll('.wheel-seg').forEach(s=>{
-  s.addEventListener('click',()=>toast('Filtre · '+s.getAttribute('data-key'),'info'));
+
+function drawWheel(srcCam, byKey){
+  svg.innerHTML = '';
+  const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
+  for(let i=0;i<12;i++){
+    const a1 = (i/12)*Math.PI*2;
+    const a2 = ((i+1)/12)*Math.PI*2;
+    const labelA = (i+1)+'A', labelB = (i+1)+'B';
+    const majorKey = KEY_NAMES[i];
+    for(const [r1, r2, label] of [[innerR, midR, labelA], [midR, outerR, labelB]]){
+      const seg = document.createElementNS('http://www.w3.org/2000/svg','path');
+      seg.setAttribute('d', arcPath(r1, r2, a1, a2));
+      let fill = r1 === innerR ? 'var(--s-3)' : 'var(--s-2)';
+      let opacity = r1 === innerR ? '0.3' : '0.2';
+      let className = 'wheel-seg';
+      const cat = byKey[label]?.best;
+      if(cat){ fill = cmap[cat]; opacity = '0.8'; className += ' '+cat; }
+      if(label === srcCam){ fill = 'var(--amber)'; opacity = '1'; className += ' source'; }
+      seg.setAttribute('fill', fill);
+      seg.setAttribute('fill-opacity', opacity);
+      seg.setAttribute('stroke', 'var(--s-0)');
+      seg.setAttribute('stroke-width', '2');
+      seg.setAttribute('class', className);
+      seg.setAttribute('data-key', label);
+      svg.appendChild(seg);
+      // Label
+      const amid = (a1+a2)/2;
+      const [lx, ly] = polar((r1+r2)/2, amid);
+      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x', lx);
+      txt.setAttribute('y', ly);
+      txt.setAttribute('class', 'wheel-lbl');
+      txt.textContent = label;
+      if(cat || label === srcCam) txt.setAttribute('fill', '#050406');
+      svg.appendChild(txt);
+    }
+    // Outside key name
+    const amid = (a1+a2)/2;
+    const [lxC,lyC] = polar(outerR+8, amid);
+    const lblC = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lblC.setAttribute('x',lxC);lblC.setAttribute('y',lyC);lblC.setAttribute('class','wheel-note');
+    lblC.textContent = majorKey+'m/'+majorKey;
+    svg.appendChild(lblC);
+  }
+  svg.querySelectorAll('.wheel-seg').forEach(s=>{
+    s.addEventListener('click',()=>{
+      const k = s.getAttribute('data-key');
+      currentWheelFilter = (currentWheelFilter === k) ? null : k;
+      renderMatchList(scoreMatches());
+      toast(currentWheelFilter ? ('Filtre · '+currentWheelFilter) : 'Filtre réinitialisé', 'info');
+    });
+  });
+}
+
+// ------------ Match list ------------
+function renderMatchList(scored){
+  const mmEl = document.getElementById('mm-list');
+  mmEl.innerHTML = '';
+  let filtered = scored.slice();
+  if(currentWheelFilter) filtered = filtered.filter(s => s.camelot === currentWheelFilter);
+  if(currentFilter === 'key') filtered = filtered.filter(s => s.keyDist.cat === 'perfect' || s.keyDist.cat === 'great');
+  else if(currentFilter === 'energy') filtered = filtered.filter(s => s.eDelta != null && Math.abs(s.eDelta) <= 1.5);
+  else if(currentFilter === 'phrase') filtered = filtered.filter(s => s.bpmDeltaPct != null && Math.abs(s.bpmDeltaPct) <= 2);
+
+  document.getElementById('src-match-count').textContent = filtered.length + ' match' + (filtered.length>1?'s':'');
+
+  const top = filtered.slice(0, 20);
+  if(!top.length){
+    mmEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--c-tertiary)">Aucun match avec ces filtres.</div>';
+    return;
+  }
+  top.forEach((s) => {
+    const t = s.track;
+    const d = document.createElement('div');
+    d.className = 'mm '+s.cls+' pressable';
+
+    const cov = document.createElement('div');
+    cov.className = 'mm-cov';
+    cov.style.background = coverGradient(t.id+(t.title||''));
+
+    const info = document.createElement('div');
+    info.className = 'mm-info';
+    const nm = document.createElement('div');
+    nm.className = 'mm-n';
+    nm.textContent = t.title || t.original_filename || 'Sans titre';
+    const ar = document.createElement('div');
+    ar.className = 'mm-a';
+    ar.textContent = t.artist || 'Artiste inconnu';
+    const specs = document.createElement('div');
+    specs.className = 'mm-specs';
+    specs.innerHTML = `<span class="mm-spec">${s.bpm ? s.bpm.toFixed(1)+' BPM' : '—'}</span><span class="mm-spec">·</span><span class="mm-spec">${s.camelot || '—'}</span>`;
+    info.append(nm, ar, specs);
+
+    const score = document.createElement('div');
+    score.className = 'mm-score';
+    score.innerHTML = `<span class="pct">${s.score}</span><span class="lbl">Match</span>`;
+
+    const dist = document.createElement('div');
+    dist.className = 'mm-dist';
+    const bpmD = s.bpmDeltaPct == null ? '—' : (s.bpmDeltaPct>=0?'+':'')+s.bpmDeltaPct.toFixed(1)+'%';
+    const eD = s.eDelta == null ? '—' : (s.eDelta>=0?'+':'')+s.eDelta.toFixed(1);
+    dist.innerHTML = `<div class="row"><span>BPM</span><span>${bpmD}</span></div><div class="row"><span>Key</span><span>${s.keyDist.label}</span></div><div class="row"><span>Δ E</span><span>${eD}</span></div>`;
+
+    const acts = document.createElement('div');
+    acts.className = 'mm-acts';
+    acts.innerHTML = `
+      <button data-act="preview" title="Voir"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></button>
+      <button data-act="set" title="Set builder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+    `;
+
+    d.append(cov, info, score, dist, acts);
+
+    d.addEventListener('click',(e)=>{
+      if(e.target.closest('.mm-acts')) return;
+      location.href = '/analyze?id='+encodeURIComponent(t.id);
+    });
+    acts.querySelector('[data-act="preview"]').addEventListener('click',(e)=>{
+      e.stopPropagation();
+      location.href = '/analyze?id='+encodeURIComponent(t.id);
+    });
+    acts.querySelector('[data-act="set"]').addEventListener('click',(e)=>{
+      e.stopPropagation();
+      location.href = '/set-builder?opening='+encodeURIComponent(sourceTrack.id)+'&add='+encodeURIComponent(t.id);
+    });
+    mmEl.appendChild(d);
+  });
+}
+
+// ------------ Distance viz ------------
+function renderDistanceViz(scored){
+  const dp = document.getElementById('dist-points');
+  dp.innerHTML = '';
+  // Source point on left
+  const src = document.createElement('div');
+  src.className = 'dist-point source';
+  src.setAttribute('data-c','source');
+  src.style.left = '2%';
+  src.innerHTML = `<span class="tt">${(sourceTrack.title || 'Source').replace(/[<>]/g,'')}</span>`;
+  dp.appendChild(src);
+  // Top 15 matches, x based on combined distance (key raw + bpm pct/2)
+  const pts = scored.slice(0,15);
+  const maxDist = Math.max(...pts.map(s => (s.keyDist.raw||0) + (s.bpmDeltaPct ? Math.abs(s.bpmDeltaPct)/2 : 0)), 1);
+  pts.forEach(s => {
+    const dist = (s.keyDist.raw||0) + (s.bpmDeltaPct ? Math.abs(s.bpmDeltaPct)/2 : 0);
+    const x = 5 + (dist / maxDist) * 85; // 5% → 90%
+    const el = document.createElement('div');
+    el.className = 'dist-point';
+    el.setAttribute('data-c', s.cls);
+    el.style.left = x+'%';
+    const title = (s.track.title || 'Track').replace(/[<>]/g,'');
+    el.innerHTML = `<span class="tt">${title} · ${s.score}</span>`;
+    dp.appendChild(el);
+  });
+}
+
+// ------------ Filter chips ------------
+document.querySelectorAll('.match-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.match-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const map = {'Tous':'all','Key only':'key','Energy':'energy','Phrase':'phrase'};
+    currentFilter = map[btn.textContent.trim()] || 'all';
+    renderMatchList(scoreMatches());
+  });
 });
 
-// Match list
-const MM = [
-  {t:"Waited 4 U (Club Mix)",a:"Sofi Tukker",bpm:"122.0",k:"8A",pct:94,bpmD:"±0",kD:"same",eD:"-0.2",cls:"perfect"},
-  {t:"Delta (Spada Remix)",a:"Nils Hoffmann",bpm:"120.0",k:"9A",pct:89,bpmD:"-1.6%",kD:"+1",eD:"-0.6",cls:"great"},
-  {t:"Home",a:"Solomun",bpm:"120.0",k:"7A",pct:87,bpmD:"-1.6%",kD:"-1",eD:"-0.5",cls:"great"},
-  {t:"Breathing Heart",a:"CamelPhat",bpm:"123.0",k:"8B",pct:85,bpmD:"+0.8%",kD:"rel",eD:"+0.3",cls:"good"},
-  {t:"Body Work",a:"Nicole Moudaber",bpm:"128.0",k:"3A",pct:78,bpmD:"+4.9%",kD:"-5",eD:"+1.5",cls:"ok"},
-  {t:"Losing It",a:"Fisher",bpm:"125.0",k:"2A",pct:71,bpmD:"+2.5%",kD:"+6",eD:"+1.2",cls:"risky"},
-];
-const mmEl = document.getElementById('mm-list');
-const covs = ['linear-gradient(135deg,#1fd4d4,#d4ff2a)','linear-gradient(135deg,#ff2e6b,#8b5cf6)','linear-gradient(135deg,#1fd4d4,#8b5cf6)','linear-gradient(135deg,#ff7a18,#ff2e6b)','linear-gradient(135deg,#6366f1,#ff2e6b)','linear-gradient(135deg,#d4ff2a,#1fd4d4)'];
-MM.forEach((m,i)=>{
-  const d = document.createElement('div');
-  d.className = 'mm '+m.cls+' pressable';
-  d.innerHTML = `
-    <div class="mm-cov" style="background:${covs[i]}"></div>
-    <div class="mm-info">
-      <div class="mm-n">${m.t}</div>
-      <div class="mm-a">${m.a}</div>
-      <div class="mm-specs">
-        <span class="mm-spec">${m.bpm} BPM</span>
-        <span class="mm-spec">·</span>
-        <span class="mm-spec">${m.k}</span>
-      </div>
-    </div>
-    <div class="mm-score"><span class="pct">${m.pct}</span><span class="lbl">Match</span></div>
-    <div class="mm-dist">
-      <div class="row"><span>BPM</span><span>${m.bpmD}</span></div>
-      <div class="row"><span>Key</span><span>${m.kD}</span></div>
-      <div class="row"><span>Δ E</span><span>${m.eD}</span></div>
-    </div>
-    <div class="mm-acts">
-      <button data-tt="Prévisualiser"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></button>
-      <button data-tt="Ajouter au set"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
-    </div>
-  `;
-  d.addEventListener('click',(e)=>{
-    if(e.target.closest('.mm-acts')) return;
-    toast(`Match · ${m.t}`,'info');
-    setTimeout(()=>location.href='/analyze',400);
-  });
-  d.querySelectorAll('.mm-acts button').forEach(b=>{
-    b.addEventListener('click',(e)=>{e.stopPropagation();toast(b.dataset.tt+' · '+m.t,'info')});
-  });
-  mmEl.appendChild(d);
+// ------------ Change source ------------
+document.getElementById('btn-change-source').addEventListener('click', () => {
+  // Pick a random different source from the library
+  if(allTracks.length < 2) return;
+  const others = allTracks.filter(t => String(t.id) !== String(sourceTrack.id));
+  const next = others[Math.floor(Math.random() * others.length)];
+  sourceTrack = next;
+  history.replaceState(null, '', '/compatible?id='+encodeURIComponent(next.id));
+  currentWheelFilter = null;
+  renderAll();
+  toast('Source · '+(next.title || 'Track'), 'info');
 });
 
-// Distance viz
-const dp = document.getElementById('dist-points');
-const pts = [
-  {x:2,c:'source',l:'Nothing But You',s:''},
-  {x:5,c:'perfect',l:'Waited 4 U',s:'94'},
-  {x:10,c:'great',l:'Delta',s:'89'},
-  {x:14,c:'great',l:'Home',s:'87'},
-  {x:20,c:'good',l:'Breathing Heart',s:'85'},
-  {x:32,c:'ok',l:'Solstice',s:'82'},
-  {x:38,c:'ok',l:'Cola',s:'80'},
-  {x:42,c:'good',l:'Pulsar',s:'79'},
-  {x:48,c:'ok',l:'Body Work',s:'78'},
-  {x:55,c:'risky',l:'Lithium',s:'72'},
-  {x:62,c:'ok',l:'Silhouettes',s:'70'},
-  {x:70,c:'risky',l:'Losing It',s:'71'},
-  {x:76,c:'risky',l:'Opus',s:'68'},
-  {x:84,c:'risky',l:'Miami 82',s:'64'},
-  {x:90,c:'risky',l:'Jaded',s:'61'},
-];
-pts.forEach(p=>{
-  const el = document.createElement('div');
-  el.className = 'dist-point';
-  el.setAttribute('data-c',p.c);
-  el.style.left = p.x+'%';
-  el.innerHTML = `<span class="tt">${p.l}${p.s?' · '+p.s:''}</span>`;
-  if(p.c==='source') el.classList.add('source');
-  dp.appendChild(el);
-});
+boot();
 </script>
 </body>
 </html>
