@@ -9,7 +9,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 from pydantic import BaseModel
@@ -370,21 +370,29 @@ def stream_audio(
     # 🔴 FIX (faille 5) : Validation path traversal — le chemin doit rester dans UPLOAD_DIR
     safe = storage_svc.safe_path(track.file_path) if track.file_path else None
 
-    # ── R2 fallback ──────────────────────────────────────────────────────────
+    # ── R2 fallback (cache local ephémère) ──────────────────────────────────
     # Post-migration R2 (2026-04-21) : les fichiers existants sont sur R2 mais
-    # plus sur le disque Railway (storage local éphémère). Si le fichier local
-    # est absent mais qu'on a une r2_key, on redirige vers une URL signée R2.
-    # Le browser handle les Range requests directement auprès de R2 — plus
-    # rapide et élimine le backend comme proxy de bande passante.
+    # plus sur le disque Railway. Stratégie : si r2_key set et fichier local
+    # absent, télécharger de R2 vers UPLOAD_DIR (cache local ephémère) puis
+    # servir via FileResponse normal. Évite les problèmes CORS d'un redirect
+    # cross-origin vers R2 (pas de config CORS sur le bucket) et réutilise
+    # la logique Range existante. Le cache est local au container → repeuplé
+    # après chaque redémarrage, mais les re-downloads sont rares (listen session).
     if (not safe or not os.path.exists(safe)) and getattr(track, "r2_key", None):
         try:
             from app.services import r2_service
             if r2_service.enabled():
-                signed_url = r2_service.get_signed_url(track.r2_key, ttl_seconds=3600)
-                logger.info("Audio request redirect to R2: track=%d, key=%s", track_id, track.r2_key)
-                return RedirectResponse(url=signed_url, status_code=302)
+                # Cible : UPLOAD_DIR/<r2_key> (basename UUID.ext)
+                upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+                os.makedirs(upload_dir, exist_ok=True)
+                cache_path = os.path.join(upload_dir, track.r2_key)
+                if not os.path.exists(cache_path):
+                    logger.info("Audio cache miss track=%d, downloading from R2 key=%s", track_id, track.r2_key)
+                    r2_service.download_file(track.r2_key, cache_path)
+                # Refresh safe path post-cache
+                safe = storage_svc.safe_path(cache_path)
         except Exception as e:
-            logger.error("R2 redirect failed for track %d: %s", track_id, e)
+            logger.error("R2 cache download failed for track %d: %s", track_id, e)
             # Fall through to 404 below
 
     if not safe or not os.path.exists(safe):
