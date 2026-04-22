@@ -551,6 +551,62 @@ async def storage_audit(
 
 # ── Cloudflare R2 : healthcheck, migration, purge locale ────────────────────
 
+@router.get("/diagnostics/storage-coverage")
+async def storage_coverage(
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Audite TOUS les tracks : combien ont leur audio accessible (local ou R2), combien sont 404.
+    """
+    import traceback
+    try:
+        from app.models.track import Track
+        from app.services import r2_service, storage as storage_svc
+
+        r2_keys_live = set()
+        if r2_service.enabled():
+            for obj in r2_service.list_objects():
+                r2_keys_live.add(obj.get("Key"))
+
+        tracks = db.query(Track).all()
+        ok_local = 0
+        ok_r2 = 0
+        broken = []
+        for t in tracks:
+            local = False
+            if t.file_path:
+                safe = storage_svc.safe_path(t.file_path)
+                if safe and os.path.exists(safe):
+                    local = True
+            r2_hit = bool(getattr(t, "r2_key", None) and t.r2_key in r2_keys_live)
+            if local:
+                ok_local += 1
+            elif r2_hit:
+                ok_r2 += 1
+            else:
+                broken.append({
+                    "id": t.id,
+                    "user_id": t.user_id,
+                    "title": t.title,
+                    "original_filename": getattr(t, "original_filename", None),
+                    "file_path": t.file_path,
+                    "r2_key": getattr(t, "r2_key", None),
+                    "status": str(t.status) if t.status else None,
+                })
+
+        return {
+            "total": len(tracks),
+            "ok_local_only": ok_local,
+            "ok_r2": ok_r2,
+            "broken_count": len(broken),
+            "broken": broken[:100],
+            "r2_objects_total": len(r2_keys_live),
+        }
+    except Exception as e:
+        return {"error": "storage_coverage failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
 @router.get("/diagnostics/track-storage/{track_id}")
 async def track_storage_inspect(
     track_id: int,
