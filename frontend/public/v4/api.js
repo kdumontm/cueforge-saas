@@ -134,6 +134,11 @@
     me()            { return request('/auth/me'); },
     tracks(p={})    { return api.get('/tracks', p); },
     track(id)       { return api.get(`/tracks/${id}`); },
+    // 🔴 2026-04-22 : bypass cache navigateur (max-age=60) — à utiliser
+    //    immédiatement après un POST/DELETE qui mute l'état de la track
+    //    (cues ajoutés, status changé, apply-suggested, etc.) sinon le GET
+    //    suivant servirait une version stale. Pattern Bug #5/#13/#15.
+    trackFresh(id)  { return api.get(`/tracks/${id}`, { _t: Date.now() }); },
     stats()         { return api.get('/stats/overview'); },
     adminOverview() { return api.get('/admin/stats/overview'); },
     adminUsers(p={}){ return api.get('/admin/stats/users-activity', p); },

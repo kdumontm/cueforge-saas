@@ -564,8 +564,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260421c"></script>
-<script src="/v4/shared.js?v=20260421c"></script>
+<script src="/v4/api.js?v=20260422a"></script>
+<script src="/v4/shared.js?v=20260422a"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -831,7 +831,11 @@ async function loadTrack(){
   }
 
   try {
-    const t = await api.track(trackId);
+    // Fetch frais si forcé par un handler mutatif (cache 60s sur /tracks/{id})
+    const t = window.__forceTrackRefresh
+      ? await api.trackFresh(trackId)
+      : await api.track(trackId);
+    window.__forceTrackRefresh = false;
     currentTrack = t;
     const title = t.title || t.original_filename || t.filename || 'Sans titre';
     const artist = t.artist || '—';
@@ -1434,7 +1438,15 @@ document.getElementById('btn-ai-suggest')?.addEventListener('click', async () =>
       api.get(`/tracks/${trackId}/suggest-cues`),
       timeoutPromise,
     ]);
-    const items = (res && (res.suggestions || res.cues || (Array.isArray(res) ? res : []))) || [];
+    // 🔴 Fix 2026-04-22 : le backend /tracks/{id}/suggest-cues renvoie
+    //    {track_id, genre, suggested_cues: [...], total_suggestions}.
+    //    On lisait `suggestions || cues` → toujours [] → "Aucune suggestion AI"
+    //    alors que le backend renvoyait bien 3 cues. Ajout de `suggested_cues`
+    //    (nom officiel) en tête de la chain de fallback.
+    const items = (res && (
+      res.suggested_cues || res.suggestions || res.cues ||
+      (Array.isArray(res) ? res : [])
+    )) || [];
     const ai = document.getElementById('ai-sug');
     const title = document.getElementById('ai-sug-title');
     const body = document.getElementById('ai-sug-body');
@@ -1471,6 +1483,10 @@ document.getElementById('ai-sug-apply')?.addEventListener('click', async () => {
     const res = await api.post(`/tracks/${trackId}/apply-suggested-cues`, {});
     toast(`${res.added || res.count || 'Suggestions'} appliquées`, 'success');
     document.getElementById('ai-sug').style.display = 'none';
+    // 🔴 Fix 2026-04-22 : loadTrack() via api.track() est caché 60s par le navigateur
+    //    → après apply les nouveaux cues ne s'afficheraient pas. On force un fetch
+    //    frais en bumpant un flag global lu par loadTrack.
+    window.__forceTrackRefresh = true;
     await loadTrack();
   } catch(err){
     toast('Application impossible : '+err.message, 'warn');
