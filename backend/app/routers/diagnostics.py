@@ -551,6 +551,69 @@ async def storage_audit(
 
 # ── Cloudflare R2 : healthcheck, migration, purge locale ────────────────────
 
+@router.delete("/diagnostics/purge-orphan-tracks")
+async def purge_orphan_tracks(
+    confirm: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Supprime les tracks dont l'audio est introuvable (ni local ni R2).
+    Dry run par défaut, confirm=true pour exécuter.
+    """
+    import traceback
+    try:
+        from app.models.track import Track, TrackAnalysis, CuePoint
+        from app.services import r2_service, storage as storage_svc
+
+        r2_keys_live = set()
+        if r2_service.enabled():
+            for obj in r2_service.list_objects():
+                r2_keys_live.add(obj.get("Key"))
+
+        tracks = db.query(Track).all()
+        orphans = []
+        for t in tracks:
+            local_ok = False
+            if t.file_path:
+                safe = storage_svc.safe_path(t.file_path)
+                if safe and os.path.exists(safe):
+                    local_ok = True
+            r2_ok = bool(getattr(t, "r2_key", None) and t.r2_key in r2_keys_live)
+            if not local_ok and not r2_ok:
+                orphans.append(t)
+
+        if not confirm:
+            return {
+                "dry_run": True,
+                "would_delete": len(orphans),
+                "items": [
+                    {"id": t.id, "user_id": t.user_id, "filename": getattr(t, "original_filename", None), "status": str(t.status)}
+                    for t in orphans[:50]
+                ],
+                "next_step": "Ajouter ?confirm=true pour exécuter",
+            }
+
+        deleted = 0
+        errors = []
+        for t in orphans:
+            try:
+                # Clean related rows (cues, analysis) first
+                db.query(CuePoint).filter(CuePoint.track_id == t.id).delete(synchronize_session=False)
+                db.query(TrackAnalysis).filter(TrackAnalysis.track_id == t.id).delete(synchronize_session=False)
+                db.delete(t)
+                db.commit()
+                deleted += 1
+            except Exception as e:
+                db.rollback()
+                errors.append({"id": t.id, "error": str(e)})
+
+        return {"dry_run": False, "deleted": deleted, "errors": errors}
+    except Exception as e:
+        db.rollback()
+        return {"error": "purge_orphan_tracks failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
 @router.get("/diagnostics/storage-coverage")
 async def storage_coverage(
     db: Session = Depends(get_db),
