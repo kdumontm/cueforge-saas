@@ -826,51 +826,62 @@ async def repair_track_status(
 
     Dry-run par défaut, passer ?confirm=true pour exécuter.
     """
-    from app.models.track import Track, TrackAnalysis
-    from sqlalchemy import and_, or_
+    try:
+        from app.models.track import Track, TrackAnalysis
 
-    # Tracks avec status non-ready + analyse complète
-    rows = (
-        db.query(Track, TrackAnalysis)
-        .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
-        .filter(
-            Track.status.in_(['failed', 'pending', 'processing']),
-            TrackAnalysis.bpm.isnot(None),
-            TrackAnalysis.key.isnot(None),
+        # Tracks avec status non-ready + analyse complète
+        rows = (
+            db.query(Track, TrackAnalysis)
+            .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+            .filter(
+                Track.status.in_(['failed', 'pending', 'processing']),
+                TrackAnalysis.bpm.isnot(None),
+                TrackAnalysis.key.isnot(None),
+            )
+            .all()
         )
-        .all()
-    )
 
-    candidates = [
-        {
-            "track_id": t.id,
-            "user_id": t.user_id,
-            "title": t.title or t.original_filename,
-            "current_status": t.status,
-            "bpm": a.bpm,
-            "key": a.key,
-            "cue_points_count": len(t.cue_points) if t.cue_points is not None else 0,
-        }
-        for t, a in rows
-    ]
+        candidates = []
+        for t, a in rows:
+            try:
+                cue_count = len(t.cue_points) if t.cue_points is not None else 0
+            except Exception:
+                cue_count = -1
+            candidates.append({
+                "track_id": t.id,
+                "user_id": t.user_id,
+                "title": t.title or t.original_filename,
+                "current_status": str(t.status) if t.status is not None else None,
+                "bpm": a.bpm,
+                "key": a.key,
+                "cue_points_count": cue_count,
+            })
 
-    if not confirm:
+        if not confirm:
+            return {
+                "dry_run": True,
+                "candidates_count": len(candidates),
+                "candidates_preview": candidates[:10],
+                "message": "Pass ?confirm=true to repair",
+            }
+
+        # Execute repair
+        fixed = 0
+        ids = []
+        for t, _a in rows:
+            t.status = 'ready'
+            ids.append(t.id)
+            fixed += 1
+        db.commit()
+
         return {
-            "dry_run": True,
-            "candidates_count": len(candidates),
-            "candidates_preview": candidates[:10],
-            "message": "Pass ?confirm=true to repair",
+            "dry_run": False,
+            "fixed": fixed,
+            "ids": ids,
         }
-
-    # Execute repair
-    fixed = 0
-    for t, _a in rows:
-        t.status = 'ready'
-        fixed += 1
-    db.commit()
-
-    return {
-        "dry_run": False,
-        "fixed": fixed,
-        "ids": [t.id for t, _a in rows],
-    }
+    except Exception as exc:
+        logger.exception("repair-track-status failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {str(exc)[:300]}",
+        )
