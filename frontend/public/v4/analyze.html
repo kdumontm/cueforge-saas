@@ -1561,12 +1561,12 @@ wave.addEventListener('click', async (e) => {
         cue_type: 'hot_cue',
         color: 'orange',
       });
-      // 🔴 Fix 2026-04-22 : utiliser la réponse POST directement (authoritative + instant)
-      //    plus un GET en backup pour s'aligner sur la liste canonique du serveur.
-      //    Avant on dépendait uniquement du GET qui pouvait être servi stale par le cache.
+      // 🔴 Fix 2026-04-22 : la réponse POST est authoritative. Pas de GET backup,
+      //    sinon le cache navigateur sur /api/v1/tracks (max-age=60) écrase les
+      //    cues fraîchement ajoutés avec la version stale d'il y a 60s.
       let cues = Array.isArray(currentCues) ? currentCues.slice() : [];
       if(created && created.id){
-        // Déduplique (au cas où le GET suivant renvoie déjà le cue)
+        // Déduplique (défense contre double-fire)
         if(!cues.some(c => c.id === created.id)) cues.push(created);
       }
       // Tri par position pour matcher le comportement serveur (ORDER BY position_ms)
@@ -1576,20 +1576,8 @@ wave.addEventListener('click', async (e) => {
       document.getElementById('cues-count-transport').textContent = cues.length;
       renderCueMarkers(cues, effectiveDurMs);
       renderCueList(cues);
-      // Backup refresh pour consistance avec serveur (si un autre onglet a modifié)
-      try {
-        const t = await api.get(`/tracks/${trackId}`);
-        const freshCues = t.cue_points || [];
-        const freshDur = currentDurMs || (t.analysis?.duration_ms) || (t.duration_ms) || effectiveDurMs;
-        currentCues = freshCues;
-        if(!currentDurMs && freshDur) currentDurMs = freshDur;
-        document.getElementById('thero-cues').textContent = freshCues.length;
-        document.getElementById('cues-count-transport').textContent = freshCues.length;
-        renderCueMarkers(freshCues, freshDur);
-        renderCueList(freshCues);
-      } catch(refreshErr){
-        console.warn('[analyze] refresh après POST cue a échoué (DOM reste local):', refreshErr);
-      }
+      // Réattacher les handlers (sélection/scroll-to) sur les nouveaux éléments DOM
+      if(typeof attachCueHandlers === 'function') attachCueHandlers();
       toast(`Cue inséré à ${time_s.toFixed(2)}s`, 'success');
     } catch(err){
       const msg = err.message || 'Erreur';
