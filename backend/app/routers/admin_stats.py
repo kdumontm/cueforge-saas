@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.config import get_settings
 from app.database import get_db
 from app.middleware.admin import require_admin
 from app.models.user import User
@@ -283,8 +283,9 @@ def _fmt_ago(dt: Optional[datetime]) -> str:
 
 def _env_configured(*names: str) -> bool:
     """Return True if at least one of the env var names is set to a non-empty value."""
+    s = get_settings()
     for name in names:
-        val = getattr(settings, name, None) or os.getenv(name)
+        val = getattr(s, name, None) or os.getenv(name)
         if val:
             return True
     return False
@@ -319,9 +320,9 @@ async def get_admin_full_dashboard(
         Track.created_at >= seven_days_ago
     ).scalar() or 0
 
-    # storage_estimate: somme réelle des file_size_bytes si dispo
+    # storage_estimate: somme réelle des file_size (bytes) si dispo
     try:
-        total_bytes = db.query(func.coalesce(func.sum(Track.file_size_bytes), 0)).scalar() or 0
+        total_bytes = db.query(func.coalesce(func.sum(Track.file_size), 0)).scalar() or 0
         storage_gb = round(total_bytes / (1024 ** 3), 2) if total_bytes else round(total_tracks * 0.1, 2)
     except Exception:
         storage_gb = round(total_tracks * 0.1, 2)
