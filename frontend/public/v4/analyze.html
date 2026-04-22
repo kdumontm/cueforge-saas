@@ -1336,11 +1336,11 @@ document.querySelectorAll('#mode-segment button').forEach(b => {
     const mode = b.dataset.mode;
     if(mode === 'mix'){
       if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
-      location.href = `/mix-studio?deckA=${trackId}`;
+      location.href = `/v4/mix-studio.html?deckA=${trackId}`;
     }
     else if(mode === 'compare'){
       if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
-      location.href = `/compatible?id=${trackId}`;
+      location.href = `/v4/compatible.html?id=${trackId}`;
     }
     // analyze = current page
   });
@@ -1352,7 +1352,7 @@ document.getElementById('btn-duplicate')?.addEventListener('click', async () => 
   try {
     const dup = await api.post(`/tracks/${trackId}/duplicate`, {});
     toast('Piste dupliquée', 'success');
-    setTimeout(() => location.href = `/analyze?id=${dup.id}`, 400);
+    setTimeout(() => location.href = `/v4/analyze.html?id=${dup.id}`, 400);
   } catch(err){
     toast('Duplication impossible : '+err.message, 'warn');
   }
@@ -1517,10 +1517,63 @@ document.getElementById('btn-launch-analyze')?.addEventListener('click', async (
   }
 });
 
-// ========== Seek bar — click sur waveform ==========
+// ========== Helpers tool actif (V/C/L/S/F) ==========
+function getActiveTool(){
+  // Parse la kbd-mini du bouton .tool-btn.active dans la toolbar radio
+  const btn = document.querySelector('.tool-btn.active .kbd-mini');
+  return btn ? btn.textContent.trim().toUpperCase() : 'V';
+}
+
+// ========== Waveform click — V=seek, C=insert cue, L/S/F=toast ==========
 wave.addEventListener('click', async (e) => {
+  // Ignorer les clicks sur les markers existants (ils ont leurs propres handlers)
+  if(e.target.closest('.wmark')) return;
   const rect = wave.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
+  if(!rect.width) return; // safety : waveform pas encore dimensionnée
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const tool = getActiveTool();
+
+  if(tool === 'C'){
+    // Insertion d'un cue à la position cliquée
+    if(!trackId){ toast('Aucune piste chargée', 'warn'); return; }
+    if(!currentDurMs){ toast('Durée inconnue — attendez l\'analyse', 'warn'); return; }
+    const time_s = (pct * currentDurMs) / 1000;
+    const label = `Cue ${(currentCues?.length || 0) + 1}`;
+    try {
+      const created = await api.post(`/cues/${trackId}/points`, {
+        time: time_s,
+        label,
+        cue_type: 'hot_cue',
+        color: 'orange',
+      });
+      // Refresh les cues depuis la piste (plus fiable qu'un splice local)
+      try {
+        const t = await api.get(`/tracks/${trackId}`);
+        const cues = t.cue_points || [];
+        currentCues = cues;
+        document.getElementById('thero-cues').textContent = cues.length;
+        document.getElementById('cues-count-transport').textContent = cues.length;
+        renderCueMarkers(cues, currentDurMs);
+        renderCueList(cues);
+      } catch(_e) {}
+      toast(`Cue inséré à ${time_s.toFixed(2)}s`, 'success');
+    } catch(err){
+      const msg = err.message || 'Erreur';
+      if(msg.includes('409') || /already exists/i.test(msg)){
+        toast('Un cue existe déjà à cette position', 'warn');
+      } else {
+        toast('Cue impossible : '+msg, 'error');
+      }
+    }
+    return;
+  }
+
+  if(tool === 'L' || tool === 'S' || tool === 'F'){
+    toast(`Outil ${tool} — à venir. Bascule sur V pour seek ou C pour insérer un cue.`, 'info');
+    return;
+  }
+
+  // V (Select) ou fallback = seek
   const a = await ensureAudio();
   if(a && currentDurMs){
     a.currentTime = (pct * currentDurMs) / 1000;
