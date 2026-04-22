@@ -188,13 +188,111 @@ document.addEventListener('click', (e) => {
     avBtns.forEach(btn=>{
       btn.textContent = initials;
       btn.title = email || name;
+      btn.setAttribute('aria-haspopup', 'menu');
+      btn.setAttribute('aria-expanded', 'false');
       btn.addEventListener('click', (e)=>{
         e.preventDefault();
-        location.href = '/settings';
+        e.stopPropagation();
+        window.__tcOpenUserMenu(btn, { name, email, isAdmin: !!me.is_admin });
       });
     });
   } catch {}
 })();
+
+// -------- User menu (dropdown sous l'avatar) --------
+window.__tcOpenUserMenu = function(anchor, userInfo){
+  // Si déjà ouvert, on ferme
+  const existing = document.querySelector('.user-menu');
+  if(existing){ existing.remove(); anchor.setAttribute('aria-expanded', 'false'); return; }
+
+  const { name, email, isAdmin } = userInfo || {};
+
+  const menu = document.createElement('div');
+  menu.className = 'user-menu';
+  menu.setAttribute('role', 'menu');
+
+  const displayName = (name && name.trim()) || (email ? email.split('@')[0] : 'Compte');
+  const safeEmail = email || '';
+
+  menu.innerHTML = `
+    <div class="user-menu-head">
+      <div class="user-menu-name">${escapeHtml(displayName)}</div>
+      ${safeEmail ? `<div class="user-menu-email">${escapeHtml(safeEmail)}</div>` : ''}
+    </div>
+    <div class="user-menu-sep"></div>
+    <a href="/settings" role="menuitem" class="user-menu-item" data-action="settings">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      <span>Settings</span>
+    </a>
+    ${isAdmin ? `<a href="/admin" role="menuitem" class="user-menu-item" data-action="admin">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5l-8-3Z"/></svg>
+      <span>Admin</span>
+    </a>` : ''}
+    <a href="/upload" role="menuitem" class="user-menu-item" data-action="upload">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>Upload</span>
+    </a>
+    <div class="user-menu-sep"></div>
+    <button type="button" role="menuitem" class="user-menu-item user-menu-item-danger" data-action="logout">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Se déconnecter</span>
+    </button>
+  `;
+
+  document.body.appendChild(menu);
+
+  // Positionnement sous l'avatar, aligné à droite
+  const r = anchor.getBoundingClientRect();
+  const mw = menu.offsetWidth || 240;
+  let left = r.right - mw;
+  if(left < 8) left = 8;
+  menu.style.top = (r.bottom + 8) + 'px';
+  menu.style.left = left + 'px';
+
+  anchor.setAttribute('aria-expanded', 'true');
+
+  // Click outside / Escape → close
+  const close = ()=>{
+    menu.remove();
+    anchor.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', close);
+    window.removeEventListener('scroll', close, true);
+  };
+  const onDocClick = (ev)=>{
+    if(menu.contains(ev.target)) return;
+    if(anchor.contains(ev.target)) return;
+    close();
+  };
+  const onKey = (ev)=>{ if(ev.key === 'Escape') close(); };
+  setTimeout(()=>{
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+  }, 0);
+
+  // Actions
+  menu.addEventListener('click', (ev)=>{
+    const item = ev.target.closest('[data-action]');
+    if(!item) return;
+    const action = item.getAttribute('data-action');
+    if(action === 'logout'){
+      ev.preventDefault();
+      close();
+      try {
+        if(typeof api !== 'undefined' && api.logout) api.logout();
+        else { localStorage.removeItem('tc_token'); location.href = '/'; }
+      } catch { location.href = '/'; }
+    }
+    // Les autres items sont des <a href> → navigation native
+  });
+};
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 // -------- Seeded random for deterministic waveforms --------
 window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floor(x)};
