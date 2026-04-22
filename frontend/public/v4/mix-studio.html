@@ -222,6 +222,58 @@
   .assist-step .desc{color:var(--c-secondary);line-height:1.5}
   .assist-step .desc strong{color:var(--c-primary);font-weight:500}
 
+  /* ==== Library drag-drop bar (persistent) ==== */
+  .dd-bar{
+    margin:0 0 18px;padding:14px 16px;
+    background:linear-gradient(180deg,var(--s-2),var(--s-1));
+    border:1px solid var(--b-default);border-radius:14px;
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .dd-bar-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .dd-bar-head h3{margin:0;font-family:var(--font-display);font-weight:600;font-size:13px}
+  .dd-bar-head .sub{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary);letter-spacing:.08em;text-transform:uppercase}
+  .dd-bar-search{
+    width:100%;background:var(--s-1);border:1px solid var(--b-default);color:var(--c-primary);
+    padding:8px 12px;border-radius:8px;font-size:13px;outline:none;
+    transition:border-color var(--t-fast);
+  }
+  .dd-bar-search:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,122,24,.12)}
+  .dd-bar-rail{
+    display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px;
+    scrollbar-width:thin;scrollbar-color:var(--s-3) transparent;
+  }
+  .dd-bar-rail::-webkit-scrollbar{height:6px}
+  .dd-bar-rail::-webkit-scrollbar-thumb{background:var(--s-3);border-radius:3px}
+  .dd-chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:10px;
+    padding:8px 12px;border-radius:10px;background:var(--s-2);border:1px solid var(--b-subtle);
+    cursor:grab;user-select:none;transition:all var(--t-fast);
+    min-width:230px;max-width:260px;
+  }
+  .dd-chip:active{cursor:grabbing}
+  .dd-chip:hover{background:var(--s-3);border-color:var(--amber);transform:translateY(-1px)}
+  .dd-chip.dragging{opacity:.45;transform:scale(.97)}
+  .dd-chip .cov{width:34px;height:34px;border-radius:6px;flex-shrink:0;background:linear-gradient(135deg,var(--pink),var(--cyan));position:relative;overflow:hidden}
+  .dd-chip .cov::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 6px,rgba(0,0,0,.15) 6px 8px)}
+  .dd-chip .info{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+  .dd-chip .nm{font-family:var(--font-display);font-weight:500;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dd-chip .ar{color:var(--c-secondary);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dd-chip .meta{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);display:flex;gap:6px;flex-shrink:0}
+  .dd-empty{padding:14px;font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);text-align:center}
+  .deck.drop-active{
+    outline:2px dashed var(--amber);outline-offset:-4px;
+    background:linear-gradient(180deg,rgba(255,122,24,.10),var(--s-1));
+    transition:outline var(--t-fast), background var(--t-fast);
+  }
+  .deck.drop-active::after{
+    content:"⇓ Lâche pour charger";
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    padding:8px 14px;border-radius:8px;
+    background:var(--amber);color:#050406;font-family:var(--font-mono);font-size:11.5px;font-weight:600;
+    box-shadow:0 4px 14px rgba(255,122,24,.4);letter-spacing:.08em;text-transform:uppercase;
+    z-index:10;pointer-events:none;
+  }
+
   /* Deck summary at bottom */
   .bottom-bar{
     margin-top:16px;padding:12px 16px;
@@ -273,6 +325,16 @@
       <button class="btn btn-ghost" id="btn-auto-pair">Paire auto</button>
       <button class="btn btn-primary" id="btn-save-mix">Logger le mix</button>
     </div>
+  </div>
+
+  <!-- LIBRARY DRAG-DROP BAR -->
+  <div class="dd-bar reveal" id="dd-bar">
+    <div class="dd-bar-head">
+      <h3>Ta library <span class="sub" id="dd-count">— 0 tracks</span></h3>
+      <span class="sub">Glisse un track sur le deck A ou B pour le charger</span>
+    </div>
+    <input type="text" id="dd-search" class="dd-bar-search" placeholder="Rechercher titre, artiste, BPM, Camelot…" autocomplete="off" spellcheck="false" />
+    <div class="dd-bar-rail" id="dd-rail"><div class="dd-empty">Chargement…</div></div>
   </div>
 
   <!-- DECKS -->
@@ -472,7 +534,7 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422c"></script>
 <script src="/v4/shared.js?v=20260422c"></script>
 <script>
 (async function(){
@@ -878,6 +940,87 @@
   $('picker-search').addEventListener('input', (e)=>renderPickerList(e.target.value));
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePicker(); });
 
+  // ---------- Drag & drop bar ----------
+  function renderDragRail(filter){
+    const rail = $('dd-rail');
+    const fx = (filter||'').toLowerCase().trim();
+    const filtered = library.filter(t=>{
+      if(!fx) return true;
+      const hay = [t.title, t.artist, t.camelot_code, t.analysis?.key, t.key, t.analysis?.bpm, t.bpm].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(fx);
+    });
+    if(!filtered.length){
+      rail.innerHTML = '<div class="dd-empty">Aucun track ne correspond</div>';
+      return;
+    }
+    rail.innerHTML = filtered.slice(0, 80).map(t => {
+      const camelot = t.camelot_code || parseKey(t.analysis?.key || t.key) || '—';
+      const bpm = t.analysis?.bpm || t.bpm;
+      const title = (t.title || t.original_filename || t.filename || 'Sans titre').replace(/[<>]/g,'');
+      const artist = (t.artist || '—').replace(/[<>]/g,'');
+      return `
+        <div class="dd-chip" draggable="true" data-id="${t.id}" title="Glisser vers le Deck A ou B">
+          <div class="cov"></div>
+          <div class="info">
+            <div class="nm">${title}</div>
+            <div class="ar">${artist}</div>
+          </div>
+          <div class="meta">
+            <span>${bpm ? Number(bpm).toFixed(0) : '—'}</span>
+            <span>${camelot}</span>
+          </div>
+        </div>`;
+    }).join('');
+    rail.querySelectorAll('.dd-chip').forEach(el => {
+      el.addEventListener('dragstart', ev => {
+        const id = el.dataset.id;
+        ev.dataTransfer.setData('text/trackcue-id', id);
+        ev.dataTransfer.setData('text/plain', id);
+        ev.dataTransfer.effectAllowed = 'copyMove';
+        el.classList.add('dragging');
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      // Double-clic : fallback (charge sur le premier deck vide)
+      el.addEventListener('dblclick', () => {
+        const tr = library.find(x => String(x.id) === String(el.dataset.id));
+        if(!tr) return;
+        const side = !deckA ? 'A' : (!deckB ? 'B' : 'A');
+        loadToDeck(side, tr);
+        toast(`✓ ${tr.title || 'Track'} → Deck ${side}`, 'success');
+      });
+    });
+  }
+  $('dd-search').addEventListener('input', e => renderDragRail(e.target.value));
+
+  // Deck drop zones
+  document.querySelectorAll('.deck').forEach(deck => {
+    const side = deck.classList.contains('a') ? 'A' : deck.classList.contains('b') ? 'B' : null;
+    if(!side) return;
+    deck.addEventListener('dragover', ev => {
+      // Active seulement si la source est bien une dd-chip (via dataTransfer)
+      const types = ev.dataTransfer?.types || [];
+      if(types.includes('text/trackcue-id') || types.includes('text/plain')){
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'copy';
+        deck.classList.add('drop-active');
+      }
+    });
+    deck.addEventListener('dragleave', ev => {
+      // Ne retire que si on sort vraiment du deck (pas juste d'un enfant)
+      if(ev.target === deck) deck.classList.remove('drop-active');
+    });
+    deck.addEventListener('drop', async ev => {
+      ev.preventDefault();
+      deck.classList.remove('drop-active');
+      const id = ev.dataTransfer.getData('text/trackcue-id') || ev.dataTransfer.getData('text/plain');
+      if(!id) return;
+      const tr = library.find(x => String(x.id) === String(id));
+      if(!tr){ toast('Track introuvable', 'warn'); return; }
+      await loadToDeck(side, tr);
+      toast(`✓ ${tr.title || 'Track'} → Deck ${side}`, 'success');
+    });
+  });
+
   // Hot pads (visuels pour l'instant — toggle active + toast)
   document.querySelectorAll('.dk-pad').forEach(pad => {
     pad.addEventListener('click', () => {
@@ -901,6 +1044,8 @@
     library = Array.isArray(libRes) ? libRes
               : (libRes?.items || libRes?.tracks || libRes?.results || []);
     $('lib-count').textContent = `${library.length} tracks`;
+    $('dd-count').textContent = `— ${library.length} track${library.length>1?'s':''}`;
+    renderDragRail('');
 
     if(!library.length){
       toast('Bibliothèque vide — upload des tracks d\'abord','warn');
