@@ -239,15 +239,46 @@ window.__tcOpenUserMenu = function(anchor, userInfo){
     </button>
   `;
 
+  // Placé hors-écran d'abord pour mesurer sans flash
+  menu.style.top = '-9999px';
+  menu.style.left = '-9999px';
+  menu.style.visibility = 'hidden';
   document.body.appendChild(menu);
 
-  // Positionnement sous l'avatar, aligné à droite
-  const r = anchor.getBoundingClientRect();
-  const mw = menu.offsetWidth || 240;
-  let left = r.right - mw;
-  if(left < 8) left = 8;
-  menu.style.top = (r.bottom + 8) + 'px';
-  menu.style.left = left + 'px';
+  // Positionnement viewport-aware (flip + clamp)
+  const place = () => {
+    const r = anchor.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+    const gap = 8;
+    const margin = 8;
+
+    // Par défaut : sous l'ancre, aligné à droite
+    let top = r.bottom + gap;
+    let left = r.right - mw;
+
+    // Flip au-dessus si pas de place en bas ET plus de place en haut
+    const spaceBelow = vh - r.bottom - gap;
+    const spaceAbove = r.top - gap;
+    if (mh > spaceBelow && spaceAbove > spaceBelow) {
+      top = r.top - mh - gap;
+    }
+
+    // Clamp horizontal dans le viewport
+    if (left + mw > vw - margin) left = vw - mw - margin;
+    if (left < margin) left = margin;
+
+    // Clamp vertical dans le viewport
+    if (top < margin) top = margin;
+    if (top + mh > vh - margin) top = Math.max(margin, vh - mh - margin);
+
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+    menu.style.visibility = 'visible';
+  };
+  requestAnimationFrame(place);
 
   anchor.setAttribute('aria-expanded', 'true');
 
