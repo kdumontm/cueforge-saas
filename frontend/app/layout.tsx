@@ -24,7 +24,13 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'TrackCue — Analyse audio pour DJs',
   description: 'Analyse automatique BPM, cue points et export Rekordbox pour DJs professionnels',
-  icons: { icon: '/favicon.ico' },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+    ],
+    apple: '/icons/icon-192.svg',
+  },
   manifest: '/manifest.json',
   openGraph: {
     title: 'TrackCue — Analyse audio pour DJs',
@@ -33,7 +39,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: 'https://trackcue.app/og-image.png',
+        url: 'https://trackcue.app/og-image.svg',
         width: 1200,
         height: 630,
         alt: 'TrackCue — Audio analysis for DJs',
@@ -44,7 +50,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'TrackCue — Analyse audio pour DJs',
     description: 'Analyse automatique BPM, cue points et export Rekordbox',
-    images: ['https://trackcue.app/og-image.png'],
+    images: ['https://trackcue.app/og-image.svg'],
   },
 };
 
@@ -54,12 +60,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
-        <meta name="theme-color" content="#a855f7" />
+        <meta name="theme-color" content="#c026d3" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="TrackCue" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         {/* DNS prefetch + Preconnect backend API (Railway) */}
         <link rel="dns-prefetch" href="https://trackcue-saas-production.up.railway.app" />
         <link rel="preconnect" href="https://trackcue-saas-production.up.railway.app" />
