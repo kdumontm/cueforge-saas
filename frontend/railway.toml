@@ -1,0 +1,9 @@
+# Per-service Railway config — forces Nixpacks builder
+# (default changed to Railpack 2026-04-22 which mis-detects backend/Dockerfile)
+[build]
+builder = "NIXPACKS"
+nixpacksConfigPath = "nixpacks.toml"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
