@@ -42,7 +42,10 @@
   /* Library table */
   .lib{
     background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;
-    overflow:hidden;
+    /* overflow:clip au lieu de hidden : clip les coins arrondis SANS créer
+       un scroll ancestor pour l'enfant .lib-head (sticky top:56px) qui
+       sinon se retrouve poussé 56px DANS .lib et chevauche la 1ère ligne. */
+    overflow:clip;
   }
   .lib-head{
     display:grid;grid-template-columns:36px 36px 1fr 120px 90px 100px 70px 120px 110px 40px;
