@@ -495,7 +495,11 @@ function renderTrack(t, i){
           const r = await api.post(`/favorites/${t.id}`);
           if(r && r.is_favorite){ state.favoriteIds.add(t.id); toast('Favori ajouté','info'); }
           else { state.favoriteIds.delete(t.id); toast('Favori supprimé','info'); }
+          // Update chip counter immédiatement (ne pas attendre loadCounts async)
+          const chipFav = document.getElementById('c-favorites');
+          if(chipFav) chipFav.textContent = fmt.num(state.favoriteIds.size);
           load();
+          loadCounts();
         } catch(err){ toast('Erreur: '+err.message,'warn'); }
       } else if(a === 'delete'){
         if(!confirm(`Supprimer "${title}" ?`)) return;
