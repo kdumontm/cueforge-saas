@@ -1359,18 +1359,41 @@ document.getElementById('btn-duplicate')?.addEventListener('click', async () => 
 });
 
 document.getElementById('btn-share')?.addEventListener('click', async () => {
-  const url = location.origin + `/analyze?id=${trackId || ''}`;
+  // 🔴 Fix : URL canonique = la page v4 actuelle (pas la legacy /analyze) + trackId en paramètre.
+  const url = trackId
+    ? `${location.origin}/v4/analyze.html?id=${trackId}`
+    : location.href;
+  // Tentative 1 : Clipboard API moderne (nécessite HTTPS + document focus)
   try {
     await navigator.clipboard.writeText(url);
     toast('Lien copié', 'success');
-  } catch {
-    toast('Copie impossible : '+url, 'warn');
+    return;
+  } catch (e) {
+    // Tentative 2 : fallback legacy via textarea + execCommand
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        toast('Lien copié', 'success');
+        return;
+      }
+    } catch (_e) { /* continue */ }
+    // Tentative 3 : prompt() pour laisser l'utilisateur copier manuellement
+    toast('Copie bloquée — copiez le lien depuis la fenêtre qui s\'ouvre', 'warn');
+    try { window.prompt('Copiez ce lien', url); } catch (_e) {}
   }
 });
 
 document.getElementById('btn-export')?.addEventListener('click', () => {
   if(!trackId){ toast('Aucune piste à exporter — uploadez-en une d\'abord', 'warn'); return; }
-  location.href = `/set-builder?track=${trackId}`;
+  // 🔴 Fix : rediriger vers /v4/set-builder.html (la page v4 actuelle) pas la legacy /set-builder.
+  location.href = `/v4/set-builder.html?track=${trackId}`;
 });
 
 // ========== AI suggérer ==========
