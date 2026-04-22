@@ -2211,7 +2211,8 @@ def duplicate_track(
         raise HTTPException(status_code=404, detail="Track not found")
 
     # Clone du Track — on exclut id, user_id, created_at, updated_at, file_path (partagé)
-    excluded = {"id", "created_at", "updated_at", "played_count", "last_played_at"}
+    # 🔴 Fix #116 : exclure 'status' pour ne pas propager un "failed" legacy → dérivé après coup
+    excluded = {"id", "created_at", "updated_at", "played_count", "last_played_at", "status"}
     track_data = {}
     for col in Track.__table__.columns:
         if col.name in excluded:
@@ -2224,6 +2225,10 @@ def duplicate_track(
     # Reset compteurs
     track_data["played_count"] = 0
     track_data["last_played_at"] = None
+    # 🔴 Fix #116 : dériver le status du duplicate depuis la présence d'analyse
+    # Si la source a une analyse complète, le duplicate est "ready" (même analyse clonée).
+    # Sinon, on copie le status réel de la source (pending / processing / failed).
+    track_data["status"] = "ready" if src.analysis else (src.status or "pending")
 
     dup = Track(**track_data)
     db.add(dup)

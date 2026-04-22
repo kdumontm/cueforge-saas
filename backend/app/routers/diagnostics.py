@@ -810,3 +810,68 @@ async def cleanup_storage_orphans(
         }
     except Exception as e:
         return {"error": "cleanup failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/diagnostics/repair-track-status")
+async def repair_track_status(
+    confirm: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    🔴 Fix #117 : répare les tracks où status=failed/pending mais analysis est complète.
+
+    Scanne tous les tracks avec status in ('failed', 'pending', 'processing') mais qui
+    ont une TrackAnalysis liée avec bpm + key_ non-null. Met status='ready'.
+
+    Dry-run par défaut, passer ?confirm=true pour exécuter.
+    """
+    from app.models.track import Track
+    from app.models.track_analysis import TrackAnalysis
+    from sqlalchemy import and_, or_
+
+    # Tracks avec status non-ready + analyse complète
+    rows = (
+        db.query(Track, TrackAnalysis)
+        .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
+        .filter(
+            Track.status.in_(['failed', 'pending', 'processing']),
+            TrackAnalysis.bpm.isnot(None),
+            TrackAnalysis.key.isnot(None),
+        )
+        .all()
+    )
+
+    candidates = [
+        {
+            "track_id": t.id,
+            "user_id": t.user_id,
+            "title": t.title or t.original_filename,
+            "current_status": t.status,
+            "bpm": a.bpm,
+            "key": a.key_,
+            "cue_points_count": len(t.cue_points) if t.cue_points is not None else 0,
+        }
+        for t, a in rows
+    ]
+
+    if not confirm:
+        return {
+            "dry_run": True,
+            "candidates_count": len(candidates),
+            "candidates_preview": candidates[:10],
+            "message": "Pass ?confirm=true to repair",
+        }
+
+    # Execute repair
+    fixed = 0
+    for t, _a in rows:
+        t.status = 'ready'
+        fixed += 1
+    db.commit()
+
+    return {
+        "dry_run": False,
+        "fixed": fixed,
+        "ids": [t.id for t, _a in rows],
+    }
