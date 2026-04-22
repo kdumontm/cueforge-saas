@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Analyze</title>
-<link rel="stylesheet" href="/v4/shared.css?v=20260422">
+<link rel="stylesheet" href="/v4/shared.css?v=20260422b">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -378,9 +378,9 @@
       <span id="breadcrumb-title" style="font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)">—</span>
     </div>
     <div class="segment" id="mode-segment">
+      <!-- 🔴 2026-04-22 : retiré "Mix" — déjà une page dédiée /mix-studio (cf. Kevin) -->
       <button class="active" data-mode="analyze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze<span class="kbd">1</span></button>
-      <button data-mode="mix"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/></svg> Mix<span class="kbd">2</span></button>
-      <button data-mode="compare"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare<span class="kbd">3</span></button>
+      <button data-mode="compare"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare<span class="kbd">2</span></button>
     </div>
   </div>
 
@@ -465,27 +465,17 @@
           <div class="playhead" style="left:38%"></div>
         </div>
 
-        <div class="stems">
-          <div class="stem-row" data-stem="drums">
-            <div class="stem-meta"><span class="stem-dot"></span><span class="stem-name">Drums</span></div>
-            <div class="stem-wave" id="stem-drums"></div>
-            <div class="stem-ctls"><button>S</button><button>M</button></div>
+        <!-- 🔴 2026-04-22 : les stems n'étaient QUE décoratifs (waves générés
+             à partir de seeds, aucune séparation audio). Kevin voyait les waves
+             + boutons S/M et croyait que ça marchait. Remplacé par un vrai
+             placeholder "Coming soon" jusqu'à ce que la séparation (Demucs/
+             Spleeter) soit branchée côté backend. -->
+        <div class="stems-placeholder" style="margin-top:12px;padding:18px 16px;border:1px dashed var(--b-default);border-radius:10px;background:var(--s-1);display:flex;align-items:center;justify-content:space-between;gap:16px">
+          <div>
+            <div style="font-family:var(--font-display);font-size:13px;color:var(--c-primary);margin-bottom:4px">Stems · Drums / Bass / Vocals / Other</div>
+            <div style="font-size:12px;color:var(--c-tertiary)">Séparation audio en cours de développement — sera branchée sur le player une fois le GPU dispo.</div>
           </div>
-          <div class="stem-row" data-stem="bass">
-            <div class="stem-meta"><span class="stem-dot"></span><span class="stem-name">Bass</span></div>
-            <div class="stem-wave" id="stem-bass"></div>
-            <div class="stem-ctls"><button>S</button><button>M</button></div>
-          </div>
-          <div class="stem-row" data-stem="vocals">
-            <div class="stem-meta"><span class="stem-dot"></span><span class="stem-name">Vocals</span></div>
-            <div class="stem-wave" id="stem-vocals"></div>
-            <div class="stem-ctls"><button>S</button><button>M</button></div>
-          </div>
-          <div class="stem-row" data-stem="other">
-            <div class="stem-meta"><span class="stem-dot"></span><span class="stem-name">Other</span></div>
-            <div class="stem-wave" id="stem-other"></div>
-            <div class="stem-ctls"><button>S</button><button>M</button></div>
-          </div>
+          <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:var(--r-pill);background:var(--amber-soft);color:#ffba7a;border:1px solid rgba(255,122,24,.3);white-space:nowrap">Coming soon</span>
         </div>
       </div>
 
@@ -564,8 +554,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422a"></script>
-<script src="/v4/shared.js?v=20260422a"></script>
+<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/shared.js?v=20260422b"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -598,24 +588,28 @@ function parseKeyToCamelot(k){
 // Main wave — buildWave wipe innerHTML, donc on ré-ajoute le playhead APRES
 const wave = document.getElementById('wave');
 function rebuildWaveFromPeaks(peaks){
-  // Si on a des peaks réelles, on construit la waveform exacte
   wave.innerHTML = '';
-  const count = Array.isArray(peaks) && peaks.length ? peaks.length : 380;
-  for(let i=0;i<count;i++){
-    const h = Array.isArray(peaks) && peaks.length
-      ? Math.min(1, Math.max(0.06, Math.abs(Number(peaks[i]) || 0)))
-      : (() => {
-          const phrase = Math.floor(i/(count/8));
-          const contours = [0.55,0.68,1.0,0.5,0.72,1.0,0.42,0.58];
-          const base = contours[phrase]||0.6;
-          return Math.min(1, base * (0.6+0.4*Math.sin((i/count)*Math.PI*6)));
-        })();
-    const b = document.createElement('div');
-    b.className = 'wbar';
-    b.style.height = (h*100)+'%';
-    wave.appendChild(b);
+  // 🔴 2026-04-22 : si pas de peaks réelles, on montre un skeleton plat (pas
+  // des barres décoratives type "8 phrases lissées" qui laissaient croire que
+  // la waveform était celle du morceau). Le skeleton disparaît dès qu'on a des
+  // peaks — soit depuis l'analyse backend (analysis.waveform_peaks) soit
+  // calculées client-side à partir de l'AudioBuffer une fois le son chargé.
+  if(!Array.isArray(peaks) || !peaks.length){
+    const skel = document.createElement('div');
+    skel.className = 'wave-skeleton';
+    skel.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--c-tertiary);font-family:var(--font-display);font-size:12px;pointer-events:none';
+    skel.textContent = 'Waveform en cours de génération…';
+    wave.appendChild(skel);
+  } else {
+    for(let i=0;i<peaks.length;i++){
+      const h = Math.min(1, Math.max(0.06, Math.abs(Number(peaks[i]) || 0)));
+      const b = document.createElement('div');
+      b.className = 'wbar';
+      b.style.height = (h*100)+'%';
+      wave.appendChild(b);
+    }
   }
-  // ré-ajouter le playhead (buildWave l'a supprimé via innerHTML = '')
+  // ré-ajouter le playhead
   const ph = document.createElement('div');
   ph.className = 'playhead';
   ph.style.left = '0%';
@@ -623,36 +617,35 @@ function rebuildWaveFromPeaks(peaks){
 }
 rebuildWaveFromPeaks(null);
 
-// Stems (visuels décoratifs)
-function buildStemWave(id, seed, style){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.innerHTML = '';
-  const count = 220;
-  for(let i=0;i<count;i++){
-    let h = 0.2;
-    const r = seededRand(seed+i*0.21);
-    if(style==='beat'){
-      const step = i%8;
-      h = (step===0||step===4)?0.95:(step===2||step===6)?0.5:0.15+r*.3;
-    } else if(style==='sub'){
-      h = 0.4+0.5*Math.sin(i*.14)+r*.15;
-    } else if(style==='mid'){
-      h = 0.15 + (Math.sin(i*.07)>.3?.65+r*.2:.2*r);
-    } else {
-      h = 0.2+r*.5;
+// 🔴 2026-04-22 : calcule les peaks à partir d'un AudioBuffer WebAudio
+// (downsample abs max par fenêtre). Permet d'avoir une waveform réelle même
+// quand le backend n'a pas encore stocké analysis.waveform_peaks.
+function computePeaksFromBuffer(audioBuffer, targetCount = 380){
+  try {
+    const channel = audioBuffer.getChannelData(0);
+    const blockSize = Math.max(1, Math.floor(channel.length / targetCount));
+    const peaks = new Array(targetCount);
+    for(let i=0;i<targetCount;i++){
+      let max = 0;
+      const start = i * blockSize;
+      const end = Math.min(start + blockSize, channel.length);
+      for(let j=start; j<end; j++){
+        const v = Math.abs(channel[j]);
+        if(v > max) max = v;
+      }
+      peaks[i] = max;
     }
-    h = Math.max(.1,Math.min(1,h));
-    const b = document.createElement('div');
-    b.className='wbar';
-    b.style.height = (h*100)+'%';
-    el.appendChild(b);
+    // Normalise pour que le max soit ~1 (sinon les morceaux quiets ont une wave plate)
+    const peakMax = peaks.reduce((m,v)=> v>m?v:m, 0) || 1;
+    return peaks.map(v => v / peakMax);
+  } catch(_) {
+    return null;
   }
 }
-buildStemWave('stem-drums', 3.3, 'beat');
-buildStemWave('stem-bass', 11.1, 'sub');
-buildStemWave('stem-vocals', 19.9, 'mid');
-buildStemWave('stem-other', 5.5, 'air');
+
+// 🔴 2026-04-22 : buildStemWave supprimée — les stems sont maintenant un
+// placeholder "Coming soon" honnête. Plus de waveforms décoratifs qui laissent
+// croire que la séparation audio existe.
 
 /* ========== Rail : vraies pistes de l'utilisateur ========== */
 const covers = [
@@ -679,12 +672,15 @@ async function loadRail(){
       if(myEpoch !== railEpoch) return; // abandonné : un autre tab a été cliqué entre-temps
       items = (fav && (fav.items || fav.tracks || (Array.isArray(fav) ? fav : []))) || [];
     } else if(railTab === 'recent'){
-      const list = await api.tracks({ limit: 30, sort: '-last_played_at' });
+      // 🔴 2026-04-22 : le backend /tracks n'accepte pas "sort" — il faut
+      // sort_by + sort_dir (whitelist côté routeur). "last_played_at" n'est PAS
+      // whitelisté → retombe sur "created_at" en ordre desc (pistes récentes).
+      const list = await api.tracks({ limit: 30, sort_by: 'created_at', sort_dir: 'desc' });
       if(myEpoch !== railEpoch) return;
       // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks,total,page,pages}
       items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     } else {
-      const list = await api.tracks({ limit: 30, sort: '-created_at' });
+      const list = await api.tracks({ limit: 30, sort_by: 'created_at', sort_dir: 'desc' });
       if(myEpoch !== railEpoch) return;
       items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     }
@@ -1069,31 +1065,8 @@ document.querySelectorAll('.tool-btn').forEach(b=>{
   });
 });
 
-// Stem S/M
-// ⚠️ Les stems sont actuellement purement visuels (waves décoratifs) — aucune
-// séparation audio réelle n'est routée vers le WebAudio player. Les toggles
-// S/M (Solo/Mute) modifient la classe CSS `.muted` pour un aperçu de l'UX
-// mais n'affectent pas ce qui est entendu. On prévient l'utilisateur une
-// seule fois par session pour éviter le faux feedback.
-let __stemWarnShown = false;
-document.querySelectorAll('.stem-ctls button').forEach(b=>{
-  b.addEventListener('click',()=>{
-    const row = b.closest('.stem-row');
-    const isS = b.textContent.trim()==='S';
-    if(isS){
-      document.querySelectorAll('.stem-row').forEach(r=>r.classList.toggle('muted', r!==row));
-      b.classList.toggle('on');
-      if(!b.classList.contains('on')) document.querySelectorAll('.stem-row').forEach(r=>r.classList.remove('muted'));
-    } else {
-      row.classList.toggle('muted');
-      b.classList.toggle('on');
-    }
-    if(!__stemWarnShown){
-      __stemWarnShown = true;
-      try { toast('Preview visuel — séparation audio des stems à venir', 'info'); } catch(_) {}
-    }
-  });
-});
+// 🔴 2026-04-22 : handler Stem S/M supprimé — remplacé par placeholder
+// "Coming soon" (les stem-ctls n'existent plus dans le DOM).
 
 // ========== Audio engine (WebAudio API) ==========
 // Chrome's HTML5 <audio> element stalle systématiquement à ~3230ms sur notre
@@ -1254,6 +1227,19 @@ async function ensureAudio(){
     audioEl = createWebAudioPlayer(audioBuffer);
     audioEl.addEventListener('ended', () => setPlayingUI(false));
     audioEl.addEventListener('timeupdate', updatePlayheadUI);
+
+    // 🔴 2026-04-22 : calcule une waveform réelle depuis le buffer si le backend
+    // n'en a pas (la majorité des morceaux de Kevin n'ont pas encore waveform_peaks
+    // stockés). Dessiné par-dessus le skeleton.
+    try {
+      const waveEl = document.getElementById('wave');
+      const hasRealPeaks = waveEl && waveEl.querySelectorAll('.wbar').length > 10;
+      if(!hasRealPeaks){
+        const peaks = computePeaksFromBuffer(audioBuffer, 380);
+        if(peaks) rebuildWaveFromPeaks(peaks);
+      }
+    } catch(_) {}
+
     return audioEl;
   } catch(err){
     toast('Lecture impossible : '+err.message, 'warn');

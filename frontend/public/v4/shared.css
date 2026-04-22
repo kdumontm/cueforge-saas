@@ -286,7 +286,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 }
 .search .input{padding-left:38px}
 .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--c-tertiary);width:16px;height:16px;pointer-events:none}
-.search kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+.search kbd,.search .kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
 
 .kbd{
   font-family:var(--font-mono);
