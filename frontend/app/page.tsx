@@ -73,6 +73,16 @@ export default function LandingPage() {
       {/* Page-specific styles pour la landing */}
       <style dangerouslySetInnerHTML={{ __html: LANDING_CSS }} />
 
+      {/* Redirige les utilisateurs déjà connectés vers /dashboard */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        (function(){
+          try {
+            var t = localStorage.getItem('trackcue_token');
+            if (t) { window.location.replace('/dashboard'); }
+          } catch (e) {}
+        })();
+      ` }} />
+
       <div className="v4-landing">
         {/* TOP NAV */}
         <header className="topnav">
