@@ -1,358 +1,607 @@
 import Link from 'next/link';
-import { Music2, Zap, Download, ChevronRight, Check, Disc3, Headphones, BarChart3, Layers, Palette, Wand2, Shield, Globe, ArrowRight, Play, Clock, Target, Sparkles, Radio, Library } from 'lucide-react';
+import type { Metadata } from 'next';
 
-// Pre-computed waveform heights (deterministic, no Math.random)
-const WAVEFORM_HEIGHTS = Array.from({ length: 80 }, (_, i) => {
-  const base = Math.sin(i * 0.15) * 30;
-  const detail = Math.sin(i * 0.4) * 15 + Math.cos(i * 0.25) * 10;
-  return Math.max(10, Math.min(70, base + detail + 35));
-});
+export const metadata: Metadata = {
+  title: 'TrackCue — Prépare tes sets 10× plus vite',
+  description:
+    "Analyse automatique BPM, Camelot key, cue points & énergie. Export Rekordbox, Serato, Traktor. L'outil des DJs qui préparent sérieusement.",
+};
+
+const FEATURES = [
+  {
+    title: 'Analyse IA',
+    editorial: 'qui comprend.',
+    body:
+      'BPM, tonalité Camelot, énergie, structure phrase-par-phrase. Pas du pattern-matching naïf : un vrai modèle audio entraîné sur 2M+ de tracks.',
+    chip: 'chip-amber',
+    chipLabel: 'BPM · Key · Energy',
+  },
+  {
+    title: 'Hot Cues',
+    editorial: 'posés au bon endroit.',
+    body:
+      'Intros, drops, breakdowns, outros détectés automatiquement. Prêts à charger dans tes decks — tu ajustes, tu mixes, tu joues.',
+    chip: 'chip-pink',
+    chipLabel: '8 cue points auto',
+  },
+  {
+    title: 'Stem separation',
+    editorial: 'sans compromis.',
+    body:
+      'Isole drums, bass, vocals et melodic en un clic. Propulsé par Demucs v4 — qualité studio, export WAV ou MP3.',
+    chip: 'chip-violet',
+    chipLabel: '4 stems · Demucs v4',
+  },
+  {
+    title: 'Export universel',
+    editorial: 'vers tous tes DAWs.',
+    body:
+      'Rekordbox XML natif, Serato crates, Traktor NML, Mixxx. Les cues, la grille, les métadonnées — tout passe, rien ne se perd.',
+    chip: 'chip-cyan',
+    chipLabel: 'Rekordbox · Serato · Traktor',
+  },
+  {
+    title: 'Compatibilité harmonique',
+    editorial: 'intelligente.',
+    body:
+      'Le Camelot Wheel revisité. TrackCue te montre quelles tracks de ta library mixent ensemble, pas juste celles qui collent sur la roue.',
+    chip: 'chip-lime',
+    chipLabel: 'Harmonic mixing',
+  },
+  {
+    title: 'Library qui respire',
+    editorial: "jusqu'à 50k tracks.",
+    body:
+      "Recherche floue, filtres BPM / key / energy / tags, tri par compatibilité avec une track de référence. Ça scrolle vite, ça retrouve tout.",
+    chip: 'chip-green',
+    chipLabel: "Jusqu'à 50 000 tracks",
+  },
+];
+
+const WORKFLOW = [
+  { step: '01', title: 'Tu uploades', body: 'MP3, FLAC, WAV, AIFF. En batch si besoin — on gère.' },
+  { step: '02', title: 'On analyse', body: 'BPM, key, cues, énergie, stems. 45 secondes par track.' },
+  { step: '03', title: 'Tu exportes', body: 'Rekordbox ouvre ta library, tout est prêt. Go DJ.' },
+];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-bg-primary overflow-hidden">
-      {/* Hero glow effects */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent-purple opacity-10 blur-[120px] rounded-full" />
-        <div className="absolute top-[60vh] right-0 w-[600px] h-[300px] bg-accent-pink opacity-5 blur-[100px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[300px] bg-accent-cyan opacity-5 blur-[100px] rounded-full" />
-      </div>
+    <>
+      {/* V4 Design System */}
+      <link rel="stylesheet" href="/v4/shared.css?v=20260422d" />
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
-            <Music2 size={18} className="text-white" />
+      {/* Page-specific styles pour la landing */}
+      <style dangerouslySetInnerHTML={{ __html: LANDING_CSS }} />
+
+      <div className="v4-landing">
+        {/* TOP NAV */}
+        <header className="topnav">
+          <Link href="/" className="topnav-brand" style={{ textDecoration: 'none' }}>
+            <span className="mark"></span>
+            <span>TrackCue</span>
+          </Link>
+          <span className="topnav-sep"></span>
+          <nav className="topnav-links">
+            <a href="#features">Features</a>
+            <a href="#workflow">Workflow</a>
+            <Link href="/pricing">Tarifs</Link>
+            <Link href="/download">Download</Link>
+            <Link href="/changelog">Changelog</Link>
+            <Link href="/docs">Docs</Link>
+          </nav>
+          <div className="topnav-actions">
+            <Link href="/login" className="btn btn-ghost btn-sm">Connexion</Link>
+            <Link href="/register" className="btn btn-primary btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
+              Commencer
+            </Link>
           </div>
-          <span className="text-xl font-bold text-white">TrackCue</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/pricing" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
-            Tarifs
-          </Link>
-          <Link href="/login" className="px-4 py-2 text-slate-300 hover:text-white text-sm font-medium transition-colors">
-            Connexion
-          </Link>
-          <Link href="/register" className="px-4 py-2 bg-accent-purple hover:bg-accent-purple-light text-white text-sm font-semibold rounded-lg transition-all hover:shadow-lg hover:shadow-purple-900/40">
-            Commencer gratuitement
-          </Link>
-        </div>
-      </nav>
+        </header>
 
-      {/* Hero */}
-      <section className="relative z-10 text-center px-6 pt-20 pb-24 max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-purple/10 border border-accent-purple/30 text-accent-purple-light text-xs font-medium mb-8">
-          <Disc3 size={12} className="animate-spin-slow" />
-          Analyse audio propulsée par IA
-        </div>
-
-        <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight mb-6">
-          Prépare tes sets{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-purple to-accent-pink glow-text">
-            10&times; plus vite
-          </span>
-        </h1>
-
-        <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Upload ton audio, TrackCue détecte automatiquement le BPM, les drops, les phrases
-          et génère tes cue points prêts pour Rekordbox, Serato et Traktor.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/register" prefetch={true} className="flex items-center gap-2 px-6 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50 glow-purple">
-            Analyser un morceau <ChevronRight size={18} />
-          </Link>
-          <Link href="/login" prefetch={true} className="flex items-center gap-2 px-6 py-3.5 bg-bg-elevated hover:bg-bg-card text-slate-300 font-medium rounded-xl border border-slate-700/50 transition-all">
-            J&apos;ai déjà un compte
-          </Link>
-        </div>
-
-        {/* Trust badges */}
-        <div className="flex items-center justify-center gap-6 mt-12 text-xs text-slate-500">
-          <span className="flex items-center gap-1.5"><Shield size={13} className="text-green-500" /> Gratuit pour commencer</span>
-          <span className="flex items-center gap-1.5"><Clock size={13} className="text-blue-400" /> Setup en 30 secondes</span>
-          <span className="flex items-center gap-1.5"><Globe size={13} className="text-purple-400" /> Aucune installation</span>
-        </div>
-      </section>
-
-      {/* Dashboard Preview */}
-      <section className="relative z-10 px-6 max-w-5xl mx-auto pb-20">
-        <div className="bg-gradient-to-b from-bg-secondary to-bg-card rounded-2xl border border-slate-700/50 p-1 shadow-2xl shadow-purple-900/10">
-          <div className="bg-bg-primary rounded-xl p-4 space-y-3">
-            {/* Fake topbar */}
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                <div className="w-3 h-3 rounded-full bg-green-500/50" />
+        <main className="page">
+          {/* HERO */}
+          <section className="hero reveal">
+            <div className="hero-grid">
+              <div className="hero-copy">
+                <div className="eyebrow" style={{ marginBottom: 18, color: 'var(--amber)' }}>
+                  v4 · Studio Neon
+                </div>
+                <h1 className="hero-title">
+                  Prépare tes sets{' '}
+                  <span className="editorial">comme un tailleur,</span><br />
+                  pas comme un touriste.
+                </h1>
+                <p className="hero-lead">
+                  TrackCue analyse ton catalogue — BPM, Camelot, énergie, cues, stems — et exporte
+                  propre vers Rekordbox, Serato, Traktor. Moins de clics, plus de musique.
+                </p>
+                <div className="hero-actions">
+                  <Link href="/register" className="btn btn-primary btn-lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 3v18l15-9z" fill="currentColor"/></svg>
+                    Commencer gratuitement
+                  </Link>
+                  <Link href="/pricing" className="btn btn-lg">
+                    Voir les tarifs
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                  </Link>
+                </div>
+                <div className="hero-meta">
+                  <div className="hero-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
+                    5 analyses/jour gratuites
+                  </div>
+                  <div className="hero-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
+                    Aucune carte
+                  </div>
+                  <div className="hero-meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
+                    Desktop app incluse
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 text-center">
-                <span className="text-[10px] text-slate-500 font-mono">trackcue.app/dashboard</span>
+
+              {/* Live preview card */}
+              <div className="live-preview">
+                <div className="live-now-head">
+                  <span className="eyebrow"><span className="live-dot"></span>En analyse</span>
+                  <span className="mono hint">ETA 00:42</span>
+                </div>
+                <div className="live-track">
+                  <div className="live-cover"></div>
+                  <div className="live-info">
+                    <div className="live-title">Strobe (Club Mix)</div>
+                    <div className="live-artist">deadmau5 · For Lack of a Better Name</div>
+                  </div>
+                </div>
+                <div className="live-progress"><div className="live-progress-fill" style={{ width: '72%' }}></div></div>
+                <div className="live-steps">
+                  <span className="done">BPM</span>
+                  <span className="done">Key</span>
+                  <span className="doing">Cues</span>
+                  <span>Stems</span>
+                </div>
+                <div className="live-kpis">
+                  <div>
+                    <div className="eyebrow">BPM</div>
+                    <div className="live-kpi-val num">128.0</div>
+                  </div>
+                  <div>
+                    <div className="eyebrow">Key</div>
+                    <div className="live-kpi-val" style={{ color: 'var(--cyan)' }}>8A</div>
+                  </div>
+                  <div>
+                    <div className="eyebrow">Energy</div>
+                    <div className="live-kpi-val" style={{ color: 'var(--pink)' }}>7.2</div>
+                  </div>
+                </div>
               </div>
             </div>
-            {/* Fake waveform */}
-            <div className="bg-bg-elevated rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-accent-purple/20 rounded-lg flex items-center justify-center">
-                  <Play size={16} className="text-accent-purple" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-white">Shed My Skin — Ben Böhmer</div>
-                  <div className="text-[11px] text-slate-500">124 BPM &bull; 6A &bull; Melodic House</div>
-                </div>
-              </div>
-              {/* Fake waveform bars */}
-              <div className="flex items-center gap-px h-16">
-                {WAVEFORM_HEIGHTS.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-sm"
-                    style={{
-                      height: `${h}%`,
-                      background: i < 25 ? 'linear-gradient(to top, #6366f1, #a855f7)' : 'rgba(99, 102, 241, 0.2)',
-                    }}
-                  />
-                ))}
-              </div>
-              {/* Fake cue points */}
-              <div className="flex gap-2 mt-2">
-                {['Intro', 'Build', 'Drop', 'Break', 'Drop 2', 'Outro'].map((name, i) => (
-                  <span key={i} className={`px-2 py-0.5 rounded text-[9px] font-semibold ${
-                    ['bg-green-500/20 text-green-400', 'bg-blue-500/20 text-blue-400', 'bg-red-500/20 text-red-400',
-                     'bg-yellow-500/20 text-yellow-400', 'bg-red-500/20 text-red-400', 'bg-orange-500/20 text-orange-400'][i]
-                  }`}>
-                    {name}
+          </section>
+
+          {/* TRUST CHIPS */}
+          <section className="trust reveal reveal-2">
+            <div className="trust-label eyebrow">Exports natifs</div>
+            <div className="trust-chips">
+              <span className="chip">Rekordbox XML</span>
+              <span className="chip">Serato</span>
+              <span className="chip">Traktor NML</span>
+              <span className="chip">Mixxx</span>
+              <span className="chip">Spotify playlists</span>
+              <span className="chip">Beatport crates</span>
+              <span className="chip chip-amber"><span className="chip-dot"></span>Desktop app · macOS · Windows · Linux</span>
+            </div>
+          </section>
+
+          {/* FEATURES */}
+          <section id="features" className="features">
+            <div className="section-head-lg">
+              <div className="eyebrow">Features</div>
+              <h2 className="h-2">
+                Tout ce qu'il faut.{' '}
+                <span className="editorial">Rien de plus.</span>
+              </h2>
+              <p className="muted" style={{ maxWidth: 640, fontSize: 15 }}>
+                Des outils pensés pour la préparation réelle d'un set, pas pour remplir une page de specs.
+              </p>
+            </div>
+            <div className="feature-grid">
+              {FEATURES.map((f, i) => (
+                <article key={f.title} className={`feature card reveal reveal-${(i % 4) + 1}`}>
+                  <span className={`chip ${f.chip}`} style={{ alignSelf: 'flex-start' }}>
+                    <span className="chip-dot"></span>
+                    {f.chipLabel}
                   </span>
-                ))}
-              </div>
+                  <h3 className="feature-title">
+                    {f.title}<br />
+                    <span className="editorial">{f.editorial}</span>
+                  </h3>
+                  <p className="feature-body">{f.body}</p>
+                </article>
+              ))}
             </div>
-            {/* Fake track list */}
-            <div className="space-y-1">
-              {[
-                { title: 'Lost Highway', artist: 'Stephan Bodzin', bpm: 134, key: '10B', energy: 88 },
-                { title: 'Equinox', artist: 'Solomun', bpm: 122, key: '3A', energy: 65 },
-                { title: 'Disco Volante', artist: 'ANNA', bpm: 136, key: '8A', energy: 91 },
-              ].map((t, i) => (
-                <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-elevated/50 text-xs">
-                  <span className="text-slate-500 w-4 text-right font-mono">{i + 2}</span>
-                  <div className="flex-1">
-                    <span className="text-white font-medium">{t.title}</span>
-                    <span className="text-slate-500 ml-2">{t.artist}</span>
-                  </div>
-                  <span className="text-slate-400 font-mono">{t.bpm}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-accent-purple/20 text-accent-purple text-[10px] font-medium">{t.key}</span>
-                  <div className="w-12 h-1.5 bg-bg-primary rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500" style={{ width: `${t.energy}%` }} />
-                  </div>
+          </section>
+
+          {/* WORKFLOW */}
+          <section id="workflow" className="workflow">
+            <div className="section-head-lg">
+              <div className="eyebrow">Workflow</div>
+              <h2 className="h-2">
+                Trois étapes.{' '}
+                <span className="editorial">Aucune friction.</span>
+              </h2>
+            </div>
+            <div className="workflow-grid">
+              {WORKFLOW.map((w) => (
+                <div key={w.step} className="workflow-step card">
+                  <div className="workflow-num">{w.step}</div>
+                  <div className="workflow-title">{w.title}</div>
+                  <div className="workflow-body">{w.body}</div>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* Features Grid */}
-      <section id="features" className="relative z-10 px-6 max-w-6xl mx-auto pb-24">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Tout ce dont un DJ a besoin</h2>
-          <p className="text-slate-400 max-w-xl mx-auto">Des outils professionnels pour analyser, organiser et préparer tes morceaux comme un pro.</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-5">
-          <FeatureCard icon={<Zap size={22} className="text-yellow-400" />} title="Analyse IA ultra-rapide" desc="BPM précis, tonalité, énergie, détection des drops et des phrases musicales. Tout en automatique." />
-          <FeatureCard icon={<Target size={22} className="text-red-400" />} title="Hot Cues intelligents" desc="8 hot cues colorés placés automatiquement sur les drops, intros, breaks et transitions clés." />
-          <FeatureCard icon={<Download size={22} className="text-green-400" />} title="Export multi-format" desc="Rekordbox XML, Serato, Traktor, M3U — compatible avec tous les logiciels DJ du marché." />
-          <FeatureCard icon={<Radio size={22} className="text-purple-400" />} title="Roue de Camelot" desc="Visualise les compatibilités harmoniques entre tes morceaux pour des transitions parfaites." />
-          <FeatureCard icon={<Layers size={22} className="text-blue-400" />} title="Set Builder" desc="Construis tes sets avec scoring de compatibilité BPM/Key et suggestions IA pour le prochain morceau." />
-          <FeatureCard icon={<Library size={22} className="text-cyan-400" />} title="Smart Crates" desc="Organise automatiquement tes tracks par énergie, genre, tags avec des crates dynamiques." />
-          <FeatureCard icon={<BarChart3 size={22} className="text-orange-400" />} title="Statistiques DJ" desc="Distribution BPM, tonalités, énergie, genres — comprends ta collection en un coup d'oeil." />
-          <FeatureCard icon={<Palette size={22} className="text-pink-400" />} title="Tags & Couleurs" desc="Catégorise, tague et colore tes morceaux comme dans Rekordbox. Batch edit pour aller vite." />
-          <FeatureCard icon={<Wand2 size={22} className="text-indigo-400" />} title="Metadata enrichie" desc="Titre, artiste, label, album — édite toutes les infos depuis l'interface. Fini les fichiers mal tagués." />
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="relative z-10 px-6 max-w-4xl mx-auto pb-24">
-        <h2 className="text-3xl font-bold text-white text-center mb-12">Comment ça marche</h2>
-        <div className="grid md:grid-cols-4 gap-6">
-          {[
-            { n: '01', title: 'Upload', desc: 'MP3, WAV, FLAC, AIFF — glisse tes fichiers.', icon: <Music2 size={20} /> },
-            { n: '02', title: 'Analyse IA', desc: 'BPM, tonalité, structure, drops et beats.', icon: <Zap size={20} /> },
-            { n: '03', title: 'Organise', desc: 'Tags, couleurs, playlists, smart crates.', icon: <Layers size={20} /> },
-            { n: '04', title: 'Exporte', desc: 'Un clic pour Rekordbox, Serato ou Traktor.', icon: <Download size={20} /> },
-          ].map((step, i) => (
-            <div key={i} className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-purple/20 to-accent-pink/10 border border-accent-purple/20 flex items-center justify-center mx-auto mb-4 text-accent-purple">
-                {step.icon}
+          {/* CTA band */}
+          <section className="cta-band">
+            <div className="cta-inner card elevated">
+              <div>
+                <div className="eyebrow" style={{ color: 'var(--pink)' }}>Tu commences quand ?</div>
+                <h2 className="h-2" style={{ margin: '8px 0 6px' }}>
+                  5 analyses par jour,{' '}
+                  <span className="editorial">gratuites. Toujours.</span>
+                </h2>
+                <p className="muted" style={{ margin: 0, maxWidth: 480 }}>
+                  Crée ton compte en 30 secondes. Aucune carte bancaire demandée.
+                  Upgrade quand tu es prêt — jamais avant.
+                </p>
               </div>
-              <span className="text-accent-purple font-mono text-xs font-bold">{step.n}</span>
-              <h3 className="text-white font-semibold mt-1 mb-1">{step.title}</h3>
-              <p className="text-slate-400 text-sm">{step.desc}</p>
+              <div className="cta-actions">
+                <Link href="/register" className="btn btn-primary btn-lg">
+                  Créer un compte
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </Link>
+                <Link href="/pricing" className="btn btn-ghost btn-lg">Comparer les plans</Link>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* Stats Section */}
-      <section className="relative z-10 px-6 max-w-4xl mx-auto pb-24">
-        <div className="bg-gradient-to-br from-accent-purple/10 to-accent-pink/5 rounded-2xl border border-accent-purple/20 p-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { value: '10+', label: 'Formats supportés', icon: <Music2 size={18} /> },
-              { value: '< 30s', label: 'Temps d\'analyse', icon: <Clock size={18} /> },
-              { value: '8', label: 'Hot Cues auto', icon: <Target size={18} /> },
-              { value: '3', label: 'Export DJ software', icon: <Download size={18} /> },
-            ].map((stat, i) => (
-              <div key={i}>
-                <div className="text-accent-purple mb-2 flex justify-center">{stat.icon}</div>
-                <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-slate-400">{stat.label}</div>
+          {/* FOOTER */}
+          <footer className="v4-footer">
+            <div className="v4-footer-brand">
+              <div className="topnav-brand" style={{ fontSize: 18 }}>
+                <span className="mark"></span>
+                <span>TrackCue</span>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Use case section */}
-      <section className="relative z-10 px-6 max-w-6xl mx-auto pb-24">
-        <h2 className="text-3xl font-bold text-white text-center mb-12">Conçu pour chaque DJ</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            {
-              title: 'DJ Club',
-              desc: 'Prépare tes sets du week-end en quelques minutes. Analyse toute ta collection, organise par énergie, et exporte pour Rekordbox.',
-              icon: <Headphones size={24} />,
-              color: 'from-purple-600 to-pink-600',
-            },
-            {
-              title: 'DJ Mobile',
-              desc: 'Reçois des demandes de dernière minute ? Upload, analyse et ajoute à ton set en temps réel. Compatibilité BPM/Key garantie.',
-              icon: <Radio size={24} />,
-              color: 'from-blue-600 to-cyan-600',
-            },
-            {
-              title: 'DJ Producer',
-              desc: 'Analyse tes propres productions pour vérifier le BPM, la tonalité et la structure. Exporte avec des cue points pour le live.',
-              icon: <Sparkles size={24} />,
-              color: 'from-orange-600 to-red-600',
-            },
-          ].map((useCase, i) => (
-            <div key={i} className="bg-bg-secondary border border-slate-800/50 rounded-2xl p-6 hover:border-accent-purple/30 transition-all group">
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${useCase.color} flex items-center justify-center mb-4 text-white shadow-lg`}>
-                {useCase.icon}
-              </div>
-              <h3 className="text-white font-bold text-lg mb-2">{useCase.title}</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">{useCase.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="relative z-10 px-6 pb-24">
-        <div className="max-w-2xl mx-auto bg-gradient-to-br from-bg-secondary to-bg-card rounded-2xl border border-accent-purple/20 p-10 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Prêt à accélérer ta préparation ?</h2>
-          <p className="text-slate-400 mb-8">Gratuit pour commencer. Aucune carte bancaire requise.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
-            {['BPM & Tonalité', 'Hot Cues auto', 'Export Rekordbox', 'Set Builder', 'Smart Crates'].map(f => (
-              <div key={f} className="flex items-center gap-1.5 text-sm text-slate-300">
-                <Check size={14} className="text-green-400" /> {f}
-              </div>
-            ))}
-          </div>
-          <Link href="/register" prefetch={true} className="inline-flex items-center gap-2 px-8 py-3.5 bg-accent-purple hover:bg-accent-purple-light text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-purple-900/50">
-            Créer mon compte gratuit <ChevronRight size={18} />
-          </Link>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="relative z-10 max-w-3xl mx-auto px-6 py-20">
-        <div className="text-center mb-12">
-          <span className="text-xs font-bold uppercase tracking-widest text-accent-cyan">FAQ</span>
-          <h2 className="text-3xl font-bold text-white mt-2">Questions fréquentes</h2>
-        </div>
-        <div className="space-y-3">
-          {[
-            { q: 'TrackCue est-il gratuit ?', a: 'Oui ! Le plan gratuit permet d\'analyser jusqu\'à 50 tracks par mois. Pour un usage intensif, le plan Pro offre des analyses illimitées et des fonctionnalités avancées.' },
-            { q: 'Quels formats audio sont supportés ?', a: 'TrackCue supporte MP3, WAV, FLAC, AIFF, AAC, OGG et M4A. Tes fichiers sont analysés dans le cloud et ne sont jamais partagés.' },
-            { q: 'Puis-je exporter vers Rekordbox, Serato ou Traktor ?', a: 'Absolument ! TrackCue exporte en XML Rekordbox, M3U, CSV, et prend aussi en charge l\'import depuis ces trois logiciels.' },
-            { q: 'L\'analyse est-elle précise ?', a: 'Notre moteur d\'analyse utilise des algorithmes avancés pour détecter le BPM, la tonalité, l\'énergie et la structure des morceaux avec une précision professionnelle.' },
-            { q: 'Mes fichiers sont-ils sécurisés ?', a: 'Tes fichiers audio sont chiffrés pendant le transfert et l\'analyse, puis supprimés de nos serveurs après traitement. Seules les métadonnées sont conservées.' },
-          ].map((faq, i) => (
-            <details key={i} className="group bg-bg-secondary border border-slate-800/50 rounded-xl overflow-hidden">
-              <summary className="flex items-center justify-between px-5 py-4 cursor-pointer text-sm font-medium text-white hover:text-accent-purple transition-colors list-none">
-                {faq.q}
-                <ChevronRight size={16} className="text-slate-500 group-open:rotate-90 transition-transform" />
-              </summary>
-              <div className="px-5 pb-4 text-sm text-slate-400 leading-relaxed">
-                {faq.a}
-              </div>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-black/40 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="col-span-1">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 bg-accent-purple rounded-lg flex items-center justify-center">
-                  <Music2 size={18} className="text-white" />
-                </div>
-                <span className="text-xl font-bold text-white">TrackCue</span>
-              </div>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                L&apos;outil d&apos;analyse audio et de préparation de sets pour DJs professionnels.
+              <p className="muted" style={{ fontSize: 13, maxWidth: 320, marginTop: 12 }}>
+                L'outil d'analyse et de préparation pour DJs qui prennent leurs sets au sérieux.
               </p>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Produit</h4>
-              <ul className="space-y-2">
-                <li><Link href="/pricing" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Tarifs</Link></li>
-                <li><Link href="/dashboard" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Dashboard</Link></li>
-                <li><a href="#features" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Fonctionnalités</a></li>
-              </ul>
+            <div className="v4-footer-cols">
+              <div>
+                <div className="eyebrow">Produit</div>
+                <Link href="/pricing">Tarifs</Link>
+                <Link href="/download">Download</Link>
+                <Link href="/changelog">Changelog</Link>
+                <Link href="/docs">Docs</Link>
+              </div>
+              <div>
+                <div className="eyebrow">Compte</div>
+                <Link href="/login">Connexion</Link>
+                <Link href="/register">Inscription</Link>
+                <Link href="/dashboard">Dashboard</Link>
+              </div>
+              <div>
+                <div className="eyebrow">Legal</div>
+                <Link href="/cgu">CGU</Link>
+                <Link href="/cgu#privacy">Confidentialité</Link>
+                <a href="mailto:hello@trackcue.com">Contact</a>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Légal</h4>
-              <ul className="space-y-2">
-                <li><Link href="/cgu" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">CGU</Link></li>
-                <li><a href="mailto:contact@trackcue.app" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Contact</a></li>
-              </ul>
+            <div className="v4-footer-bottom mono hint">
+              © 2026 TrackCue. Tous droits réservés.
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider">Communauté</h4>
-              <ul className="space-y-2">
-                <li><a href="https://twitter.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Twitter / X</a></li>
-                <li><a href="https://discord.gg/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Discord</a></li>
-                <li><a href="https://instagram.com/trackcue" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-accent-purple transition-colors">Instagram</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500">&copy; 2026 TrackCue. Tous droits réservés.</p>
-            <div className="flex items-center gap-4">
-              <Link href="/cgu" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">CGU</Link>
-              <Link href="/pricing" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Tarifs</Link>
-              <a href="mailto:contact@trackcue.app" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Contact</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
+          </footer>
+        </main>
+      </div>
+    </>
   );
 }
 
-function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
-  return (
-    <div className="bg-bg-secondary border border-slate-800/50 rounded-2xl p-6 hover:border-accent-purple/30 transition-all hover:bg-bg-card group">
-      <div className="w-10 h-10 rounded-xl bg-bg-elevated flex items-center justify-center mb-4 group-hover:bg-accent-purple/10 transition-colors">
-        {icon}
-      </div>
-      <h3 className="text-white font-semibold mb-2">{title}</h3>
-      <p className="text-slate-400 text-sm leading-relaxed">{desc}</p>
-    </div>
-  );
+const LANDING_CSS = `
+/* Force v4 aurora background on landing (override du body layout) */
+.v4-landing {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  background: var(--s-0);
+  background-image: var(--aurora-hot);
+  background-attachment: fixed;
+  color: var(--c-primary);
+  font-family: var(--font-body);
 }
+.v4-landing::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: .55;
+  mix-blend-mode: overlay;
+}
+
+.v4-landing .page {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  padding: 48px 32px 96px;
+}
+
+/* HERO */
+.v4-landing .hero {
+  position: relative;
+  border: 1px solid var(--b-default);
+  border-radius: 24px;
+  padding: 56px 56px;
+  margin-bottom: 48px;
+  background:
+    radial-gradient(900px 500px at 90% 0%, rgba(255,46,107,0.20), transparent 55%),
+    radial-gradient(700px 400px at 0% 100%, rgba(139,92,246,0.20), transparent 55%),
+    linear-gradient(180deg, var(--s-2) 0%, var(--s-1) 100%);
+  overflow: hidden;
+  box-shadow: var(--e-3);
+}
+.v4-landing .hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: .6;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.v4-landing .hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+.v4-landing .hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  margin: 0 0 20px;
+}
+.v4-landing .hero-title .editorial {
+  color: var(--c-secondary);
+  font-weight: 400;
+  font-size: 0.88em;
+}
+.v4-landing .hero-lead {
+  color: var(--c-secondary);
+  font-size: 16px;
+  line-height: 1.55;
+  margin: 0 0 32px;
+  max-width: 520px;
+}
+.v4-landing .hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.v4-landing .hero-meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--c-tertiary);
+  font-family: var(--font-mono);
+}
+.v4-landing .hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.v4-landing .hero-meta-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--green);
+}
+
+/* Live preview */
+.v4-landing .live-preview {
+  background: rgba(5,4,6,0.55);
+  border: 1px solid var(--b-default);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  backdrop-filter: blur(12px);
+}
+.v4-landing .live-now-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.v4-landing .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 14px var(--pink);
+  animation: livePulse 1.6s ease-in-out infinite;
+  display: inline-block;
+  margin-right: 6px;
+}
+@keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.v4-landing .live-track { display: flex; gap: 12px; align-items: center; }
+.v4-landing .live-cover {
+  width: 52px; height: 52px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--pink), var(--amber));
+  flex-shrink: 0; position: relative; overflow: hidden;
+}
+.v4-landing .live-cover::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, transparent 0 8px, rgba(0,0,0,.18) 8px 10px);
+}
+.v4-landing .live-info { flex: 1; min-width: 0; }
+.v4-landing .live-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v4-landing .live-artist {
+  color: var(--c-secondary); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v4-landing .live-progress {
+  height: 6px; border-radius: 3px; background: var(--s-3);
+  overflow: hidden; position: relative;
+}
+.v4-landing .live-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pink), var(--amber));
+  border-radius: 3px; position: relative;
+}
+.v4-landing .live-progress-fill::after {
+  content: ""; position: absolute; right: 0; top: -2px; bottom: -2px; width: 10px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.8));
+  filter: blur(3px);
+}
+.v4-landing .live-steps {
+  display: flex; gap: 6px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--c-secondary);
+}
+.v4-landing .live-steps span {
+  flex: 1; padding: 3px 6px; border-radius: 4px;
+  background: var(--s-3); text-align: center;
+  border: 1px solid var(--b-subtle);
+}
+.v4-landing .live-steps span.done {
+  background: var(--green-soft); border-color: rgba(74,222,128,.3); color: #8ef0aa;
+}
+.v4-landing .live-steps span.doing {
+  background: var(--amber-soft); border-color: rgba(255,122,24,.3); color: #ffba7a;
+}
+.v4-landing .live-kpis {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding-top: 10px; border-top: 1px solid var(--b-subtle);
+}
+.v4-landing .live-kpi-val {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  letter-spacing: -0.01em; line-height: 1; margin-top: 4px;
+}
+
+/* TRUST */
+.v4-landing .trust {
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+  padding: 32px 0 48px; border-bottom: 1px solid var(--b-subtle);
+  margin-bottom: 64px; text-align: center;
+}
+.v4-landing .trust-label { color: var(--c-tertiary); }
+.v4-landing .trust-chips {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+}
+
+/* FEATURES */
+.v4-landing .section-head-lg { margin-bottom: 32px; max-width: 760px; }
+.v4-landing .section-head-lg .eyebrow { color: var(--pink); margin-bottom: 12px; }
+.v4-landing .section-head-lg .h-2 { font-size: 38px; margin: 0 0 12px; }
+.v4-landing .feature-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; margin-bottom: 80px;
+}
+.v4-landing .feature {
+  padding: 24px; display: flex; flex-direction: column; gap: 14px;
+  transition: transform var(--t-med) var(--ease), border-color var(--t-med) var(--ease);
+}
+.v4-landing .feature:hover { transform: translateY(-2px); border-color: var(--b-strong); }
+.v4-landing .feature-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 19px;
+  letter-spacing: -0.015em; line-height: 1.2; margin: 0;
+}
+.v4-landing .feature-title .editorial {
+  color: var(--c-secondary); font-weight: 400; font-size: 17px;
+}
+.v4-landing .feature-body {
+  color: var(--c-secondary); font-size: 13.5px; line-height: 1.55; margin: 0;
+}
+
+/* WORKFLOW */
+.v4-landing .workflow-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 80px;
+}
+.v4-landing .workflow-step {
+  padding: 28px; display: flex; flex-direction: column; gap: 10px;
+}
+.v4-landing .workflow-num {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em;
+  color: var(--amber); margin-bottom: 6px;
+}
+.v4-landing .workflow-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  letter-spacing: -0.015em;
+}
+.v4-landing .workflow-body {
+  color: var(--c-secondary); font-size: 14px; line-height: 1.55;
+}
+
+/* CTA BAND */
+.v4-landing .cta-band { margin-bottom: 80px; }
+.v4-landing .cta-inner {
+  padding: 40px 44px;
+  display: grid; grid-template-columns: 1.4fr 1fr;
+  gap: 32px; align-items: center;
+  background:
+    radial-gradient(600px 300px at 100% 0%, rgba(255,46,107,0.16), transparent 60%),
+    radial-gradient(500px 250px at 0% 100%, rgba(255,122,24,0.14), transparent 60%),
+    linear-gradient(180deg, var(--s-3) 0%, var(--s-2) 100%);
+}
+.v4-landing .cta-actions {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;
+}
+
+/* FOOTER */
+.v4-landing .v4-footer {
+  border-top: 1px solid var(--b-subtle);
+  padding-top: 48px;
+  display: grid; grid-template-columns: 1.2fr 2fr; gap: 48px;
+}
+.v4-landing .v4-footer-cols {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+}
+.v4-landing .v4-footer-cols > div { display: flex; flex-direction: column; gap: 8px; }
+.v4-landing .v4-footer-cols .eyebrow { color: var(--c-tertiary); margin-bottom: 6px; }
+.v4-landing .v4-footer-cols a {
+  color: var(--c-secondary); font-size: 13px; transition: color var(--t-fast);
+}
+.v4-landing .v4-footer-cols a:hover { color: var(--c-primary); }
+.v4-landing .v4-footer-bottom {
+  grid-column: 1 / -1; padding: 32px 0 0;
+  border-top: 1px solid var(--b-subtle); margin-top: 32px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 960px) {
+  .v4-landing .hero { padding: 36px 28px; }
+  .v4-landing .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+  .v4-landing .feature-grid { grid-template-columns: repeat(2, 1fr); }
+  .v4-landing .workflow-grid { grid-template-columns: 1fr; }
+  .v4-landing .cta-inner { grid-template-columns: 1fr; padding: 32px 24px; }
+  .v4-landing .cta-actions { justify-content: flex-start; }
+  .v4-landing .v4-footer { grid-template-columns: 1fr; gap: 32px; }
+  .v4-landing .v4-footer-cols { grid-template-columns: repeat(2, 1fr); }
+  .v4-landing .topnav-links { display: none; }
+}
+@media (max-width: 640px) {
+  .v4-landing .page { padding: 32px 20px 64px; }
+  .v4-landing .feature-grid { grid-template-columns: 1fr; }
+  .v4-landing .hero-title { font-size: 36px; }
+}
+`;
