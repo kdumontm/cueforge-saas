@@ -1134,7 +1134,7 @@ export default function DashboardV2() {
       addToast('Sélectionne un vrai track', 'info');
       return;
     }
-    addToast('Génération des cue points (algo pro v4)...', 'info');
+    addToast('Génération des cue points (algo pro)...', 'info');
     try {
       const token = (await import('@/lib/api')).getToken();
       const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';

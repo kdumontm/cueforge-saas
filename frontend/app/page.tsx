@@ -114,7 +114,7 @@ export default function LandingPage() {
             <div className="hero-grid">
               <div className="hero-copy">
                 <div className="eyebrow" style={{ marginBottom: 18, color: 'var(--amber)' }}>
-                  v4 · Studio Neon
+                  Studio Neon
                 </div>
                 <h1 className="hero-title">
                   Prépare tes sets{' '}
