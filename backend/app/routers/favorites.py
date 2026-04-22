@@ -6,6 +6,7 @@ from app.models.favorite import Favorite
 from app.models.track import Track
 from app.models.user import User
 from app.middleware.auth import get_current_user
+from app.schemas.track import TrackListItemResponse
 
 router = APIRouter()
 
@@ -79,22 +80,19 @@ async def get_favorites(
         .all()
     )
 
+    # Utilise TrackListItemResponse pour garantir la même shape que /tracks
+    # (analysis nested, status, cue_points count, etc.) → évite le bug "—" partout
+    # dans /v4/library sur la vue Favoris (le front lit t.analysis.bpm/key/energy).
     tracks_data = []
     for track, favorited_at in rows:
-        tracks_data.append({
-            'id': track.id,
-            'title': track.title,
-            'original_filename': track.original_filename,
-            'artist': track.artist,
-            'album': track.album,
-            'bpm': getattr(track.analysis, 'bpm', None) if track.analysis else None,
-            'key': getattr(track.analysis, 'key', None) if track.analysis else None,
-            'duration': getattr(track.analysis, 'duration_ms', None) if track.analysis else None,
-            'genre': track.genre,
-            'artwork_url': track.artwork_url,
-            'year': track.year,
-            'favorited_at': favorited_at.isoformat() if favorited_at else None,
-        })
+        item = TrackListItemResponse.model_validate(track).model_dump(mode='json')
+        # Le front compte (t.cue_points || []).length pour la barre des cues → fournir la liste
+        item['cue_points'] = [
+            {'id': cp.id, 'position_ms': cp.position_ms}
+            for cp in (track.cue_points or [])
+        ]
+        item['favorited_at'] = favorited_at.isoformat() if favorited_at else None
+        tracks_data.append(item)
 
     return {
         "tracks": tracks_data,
