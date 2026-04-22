@@ -667,22 +667,28 @@ const railEl = document.getElementById('rail-list');
 const railCountEl = document.getElementById('rail-count');
 
 let railTab = 'queue'; // queue | fav | recent
+let railEpoch = 0; // 🔴 Fix #114 : empêche les réponses stale d'écraser le panel après un switch rapide
 
 async function loadRail(){
+  const myEpoch = ++railEpoch;
   railEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Chargement…</div>';
   try {
     let items = [];
     if(railTab === 'fav'){
       const fav = await api.get('/favorites');
+      if(myEpoch !== railEpoch) return; // abandonné : un autre tab a été cliqué entre-temps
       items = (fav && (fav.items || fav.tracks || (Array.isArray(fav) ? fav : []))) || [];
     } else if(railTab === 'recent'){
       const list = await api.tracks({ limit: 30, sort: '-last_played_at' });
+      if(myEpoch !== railEpoch) return;
       // 🔴 Fix 2026-04-21 : /tracks renvoie {tracks,total,page,pages}
       items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     } else {
       const list = await api.tracks({ limit: 30, sort: '-created_at' });
+      if(myEpoch !== railEpoch) return;
       items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     }
+    if(myEpoch !== railEpoch) return;
     railCountEl.textContent = `${items.length} · tracks`;
     railEl.innerHTML = '';
     items.forEach((t,i)=>{
@@ -710,6 +716,7 @@ async function loadRail(){
       railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">${msg} <a href="/upload" style="color:var(--amber)">Uploader</a></div>`;
     }
   } catch(err){
+    if(myEpoch !== railEpoch) return;
     railCountEl.textContent = 'err';
     railEl.innerHTML = `<div style="padding:12px;color:var(--pink);font-size:12px">Erreur : ${err.message}</div>`;
   }
