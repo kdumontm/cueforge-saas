@@ -748,14 +748,20 @@ function renderCueMarkers(cues, durationMs){
   if(!cues || cues.length === 0 || !durationMs) return;
 
   cues.forEach((c, i)=>{
-    const pct = Math.max(0, Math.min(100, (c.time_ms / durationMs) * 100));
-    const type = (c.type || 'hot').toLowerCase();
+    // 🔴 Fix 2026-04-22 : l'API retourne position_ms/name/cue_type (pas time_ms/label/type).
+    //    Fallback sur les anciens noms au cas où.
+    const posMs = c.position_ms ?? c.time_ms ?? 0;
+    const name = c.name || c.label || '';
+    const type = (c.cue_type || c.type || 'hot').toLowerCase();
+    const pct = Math.max(0, Math.min(100, (posMs / durationMs) * 100));
     const el = document.createElement('div');
     el.className = 'cue-marker'+(i===0?' selected':'');
     el.dataset.type = type;
     el.style.left = pct+'%';
-    const tipLabel = c.label ? c.label.substring(0,1) : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
-    const caption = c.label || type;
+    const tipLabel = name
+      ? name.substring(0,1).toUpperCase()
+      : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
+    const caption = name || type;
     el.innerHTML = `<div class="cue-tip"></div><div class="cue-line"></div><div class="cue-label"></div>`;
     el.querySelector('.cue-tip').textContent = tipLabel;
     el.querySelector('.cue-label').textContent = caption;
@@ -777,8 +783,13 @@ function renderCueList(cues){
     return;
   }
   cues.forEach((c, i)=>{
-    const type = (c.type || 'hot').toLowerCase();
-    const tipLabel = c.label ? c.label.substring(0,1) : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
+    // 🔴 Fix 2026-04-22 : l'API retourne position_ms/name/cue_type (pas time_ms/label/type).
+    const posMs = c.position_ms ?? c.time_ms ?? 0;
+    const name = c.name || c.label || '';
+    const type = (c.cue_type || c.type || 'hot').toLowerCase();
+    const tipLabel = name
+      ? name.substring(0,1).toUpperCase()
+      : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
     const item = document.createElement('div');
     item.className = 'cue-item'+(i===0?' selected':'');
     item.dataset.type = type;
@@ -788,9 +799,9 @@ function renderCueList(cues){
       <div class="tm"></div>
     `;
     item.querySelector('.tip').textContent = tipLabel;
-    item.querySelector('.nm').textContent = c.label || `Cue ${i+1}`;
+    item.querySelector('.nm').textContent = name || `Cue ${i+1}`;
     item.querySelector('.mt').textContent = c.description || type;
-    const sec = (c.time_ms || 0)/1000;
+    const sec = posMs / 1000;
     const m = Math.floor(sec/60);
     const s = (sec%60).toFixed(1);
     item.querySelector('.tm').textContent = `${m}:${String(s).padStart(4,'0')}`;
@@ -807,7 +818,7 @@ async function loadTrack(){
       const items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
       if(items[0]){
         trackId = items[0].id;
-        history.replaceState(null, '', `/analyze?id=${trackId}`);
+        history.replaceState(null, '', `/v4/analyze.html?id=${trackId}`);
       } else {
         document.getElementById('thero-title').textContent = 'Aucune piste disponible';
         document.getElementById('thero-genre').textContent = 'Uploadez votre première piste';
