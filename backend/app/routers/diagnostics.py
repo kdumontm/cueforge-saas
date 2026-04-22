@@ -826,8 +826,7 @@ async def repair_track_status(
 
     Dry-run par défaut, passer ?confirm=true pour exécuter.
     """
-    from app.models.track import Track
-    from app.models.track_analysis import TrackAnalysis
+    from app.models.track import Track, TrackAnalysis
     from sqlalchemy import and_, or_
 
     # Tracks avec status non-ready + analyse complète
