@@ -1,34 +1,24 @@
-# Force rebuild: 2026-04-15
+# Nixpacks config for Railway — frontend Next.js 14 standalone
+# Last reset: 2026-04-22 (clean rebuild after 6 consecutive failed deploys)
+
 [variables]
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 CI = "true"
 NEXT_TELEMETRY_DISABLED = "1"
-# Empêche Railway de passer --production à npm ci (cause EUSAGE sur Node 22 / npm 10)
+# Prevents Railway from passing --production to npm ci (causes EUSAGE on Node 22 / npm 10)
 NPM_CONFIG_PRODUCTION = "false"
-# NODE_OPTIONS est aussi injecté directement dans le script build de package.json pour fiabilité
+# NODE_OPTIONS is also injected in package.json build script for reliability
 NODE_OPTIONS = "--max-old-space-size=4096"
 
+[phases.setup]
+nixPkgs = ["nodejs_22", "npm-10_x"]
+
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm ci --prefer-offline --no-audit"]
 
 [phases.build]
 cmds = ["npm run build"]
 
 [start]
-# standalone output: copier les fichiers statiques puis démarrer le serveur Node
+# standalone output: copy static + public assets then start Node server
 cmd = "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && node .next/standalone/server.js"
-# Force rebuild: 1776777120
-# Force rebuild: 1776778101
-# Force rebuild: 1776778789
-# Force rebuild: 2026-04-21T13:48:24Z
-# Force rebuild: 2026-04-21T13:53:39Z
-# Force rebuild: 2026-04-21T13:58:57Z
-# Force rebuild: 2026-04-21T14:08:36Z
-# Force rebuild: 2026-04-21T14:14:52Z
-# Force rebuild: 2026-04-21T14:23:54Z
-# Force rebuild: 2026-04-21T14:31:56Z
-# Force rebuild: 2026-04-21T14:36:56Z
-# Force rebuild: 2026-04-21T14:46:26Z
-# Force rebuild: 2026-04-21T14:51:18Z
-# Force rebuild: 2026-04-22T11:35:00Z
-# Force rebuild: 2026-04-22T11:45:00Z-fake-data-stems-mix-contextmenu
