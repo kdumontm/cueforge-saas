@@ -13,7 +13,7 @@ import sys
 import time
 import shutil
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
@@ -550,6 +550,165 @@ async def storage_audit(
 
 
 # ── Cloudflare R2 : healthcheck, migration, purge locale ────────────────────
+
+@router.get("/diagnostics/track-storage/{track_id}")
+async def track_storage_inspect(
+    track_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Inspecte l'état brut de stockage d'une track : file_path, r2_key, existence locale/R2.
+    Utile pour diagnostiquer les 404 sur /tracks/{id}/audio.
+    """
+    import traceback
+    try:
+        from app.models.track import Track
+        from app.services import r2_service, storage as storage_svc
+
+        t = db.query(Track).filter(Track.id == track_id).first()
+        if not t:
+            return {"error": f"track {track_id} not found"}
+
+        out = {
+            "id": t.id,
+            "user_id": t.user_id,
+            "title": t.title,
+            "original_filename": getattr(t, "original_filename", None),
+            "status": str(t.status) if t.status is not None else None,
+            "file_path": t.file_path,
+            "r2_key": getattr(t, "r2_key", None),
+            "file_size_db": getattr(t, "file_size", None),
+        }
+
+        # Local file check
+        local_exists = False
+        local_size = None
+        if t.file_path:
+            safe = storage_svc.safe_path(t.file_path) if t.file_path else None
+            out["safe_path"] = safe
+            if safe and os.path.exists(safe):
+                local_exists = True
+                try:
+                    local_size = os.path.getsize(safe)
+                except OSError:
+                    local_size = None
+        out["local_exists"] = local_exists
+        out["local_size_bytes"] = local_size
+
+        # Cache path (où R2 download atterrit)
+        upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+        if getattr(t, "r2_key", None):
+            cache_path = os.path.join(upload_dir, t.r2_key)
+            out["r2_cache_path"] = cache_path
+            out["r2_cache_exists"] = os.path.exists(cache_path)
+
+        # R2 object existence
+        r2_found = None
+        r2_size = None
+        if r2_service.enabled() and getattr(t, "r2_key", None):
+            try:
+                r2_found = r2_service.object_exists(t.r2_key)
+                if r2_found:
+                    for obj in r2_service.list_objects():
+                        if obj.get("Key") == t.r2_key:
+                            r2_size = obj.get("Size")
+                            break
+            except Exception as e:
+                out["r2_lookup_error"] = str(e)
+        out["r2_exists"] = r2_found
+        out["r2_size_bytes"] = r2_size
+
+        # Candidats R2 par basename
+        if not r2_found and t.file_path:
+            basename = os.path.basename(t.file_path)
+            out["basename"] = basename
+            if r2_service.enabled():
+                matches = []
+                for obj in r2_service.list_objects():
+                    k = obj.get("Key", "")
+                    if basename and basename in k:
+                        matches.append({"key": k, "size": obj.get("Size")})
+                out["r2_basename_matches"] = matches[:5]
+
+        return out
+    except Exception as e:
+        return {"error": "track_storage_inspect failed", "detail": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/diagnostics/heal-track-storage")
+async def heal_track_storage(
+    track_id: Optional[int] = None,
+    confirm: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(_require_key),
+):
+    """
+    Répare les tracks dont r2_key est null mais dont le basename du file_path existe
+    dans R2 (cas classique post-migration ou post-bug d'upload).
+
+    - track_id=None → scan toutes les tracks cassées
+    - track_id=N → fix seulement cette track
+    - confirm=false → dry run
+    """
+    import traceback
+    try:
+        from app.models.track import Track
+        from app.services import r2_service
+
+        if not r2_service.enabled():
+            return {"error": "R2 non configuré"}
+
+        # Liste les objets R2 pour matching
+        r2_objects = {obj.get("Key"): obj.get("Size") for obj in r2_service.list_objects()}
+
+        q = db.query(Track).filter(Track.r2_key.is_(None))
+        if track_id is not None:
+            q = q.filter(Track.id == track_id)
+        broken = q.all()
+
+        plan = []
+        fixed = 0
+        for t in broken:
+            if not t.file_path:
+                plan.append({"id": t.id, "skip": "file_path null", "title": t.title})
+                continue
+            basename = os.path.basename(t.file_path)
+            # Essayer direct basename, puis avec préfixes
+            candidate_keys = [basename]
+            # Aussi chercher si un objet R2 contient le basename
+            for k in r2_objects.keys():
+                if basename in k and k not in candidate_keys:
+                    candidate_keys.append(k)
+
+            matched_key = None
+            for ck in candidate_keys:
+                if ck in r2_objects:
+                    matched_key = ck
+                    break
+
+            if not matched_key:
+                plan.append({"id": t.id, "skip": "no R2 match", "basename": basename, "title": t.title})
+                continue
+
+            if confirm:
+                t.r2_key = matched_key
+                db.commit()
+                fixed += 1
+                plan.append({"id": t.id, "fixed": True, "r2_key": matched_key})
+            else:
+                plan.append({"id": t.id, "would_set_r2_key": matched_key, "title": t.title})
+
+        return {
+            "dry_run": not confirm,
+            "scanned": len(broken),
+            "fixed": fixed if confirm else 0,
+            "plan": plan[:50],
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": "heal_track_storage failed", "detail": str(e), "traceback": traceback.format_exc()}
+
 
 @router.get("/diagnostics/r2-status")
 async def r2_status(_: None = Depends(_require_key)):
