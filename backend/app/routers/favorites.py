@@ -84,6 +84,7 @@ async def get_favorites(
         tracks_data.append({
             'id': track.id,
             'title': track.title,
+            'original_filename': track.original_filename,
             'artist': track.artist,
             'album': track.album,
             'bpm': getattr(track.analysis, 'bpm', None) if track.analysis else None,
