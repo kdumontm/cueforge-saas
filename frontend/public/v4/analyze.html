@@ -1066,6 +1066,12 @@ document.querySelectorAll('.tool-btn').forEach(b=>{
 });
 
 // Stem S/M
+// ⚠️ Les stems sont actuellement purement visuels (waves décoratifs) — aucune
+// séparation audio réelle n'est routée vers le WebAudio player. Les toggles
+// S/M (Solo/Mute) modifient la classe CSS `.muted` pour un aperçu de l'UX
+// mais n'affectent pas ce qui est entendu. On prévient l'utilisateur une
+// seule fois par session pour éviter le faux feedback.
+let __stemWarnShown = false;
 document.querySelectorAll('.stem-ctls button').forEach(b=>{
   b.addEventListener('click',()=>{
     const row = b.closest('.stem-row');
@@ -1077,6 +1083,10 @@ document.querySelectorAll('.stem-ctls button').forEach(b=>{
     } else {
       row.classList.toggle('muted');
       b.classList.toggle('on');
+    }
+    if(!__stemWarnShown){
+      __stemWarnShown = true;
+      try { toast('Preview visuel — séparation audio des stems à venir', 'info'); } catch(_) {}
     }
   });
 });
