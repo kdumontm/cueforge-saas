@@ -1547,8 +1547,12 @@ wave.addEventListener('click', async (e) => {
   if(tool === 'C'){
     // Insertion d'un cue à la position cliquée
     if(!trackId){ toast('Aucune piste chargée', 'warn'); return; }
-    if(!currentDurMs){ toast('Durée inconnue — attendez l\'analyse', 'warn'); return; }
-    const time_s = (pct * currentDurMs) / 1000;
+    // 🔴 Fix 2026-04-22 : fallback sur currentTrack.analysis.duration_ms si currentDurMs
+    //    n'est pas encore set (refresh avant decode audio complet). Sinon on bloque
+    //    l'utilisateur alors que la durée est déjà connue via l'API.
+    const effectiveDurMs = currentDurMs || (currentTrack?.analysis?.duration_ms) || (currentTrack?.duration_ms) || 0;
+    if(!effectiveDurMs){ toast('Durée inconnue — attendez l\'analyse', 'warn'); return; }
+    const time_s = (pct * effectiveDurMs) / 1000;
     const label = `Cue ${(currentCues?.length || 0) + 1}`;
     try {
       const created = await api.post(`/cues/${trackId}/points`, {
@@ -1557,16 +1561,35 @@ wave.addEventListener('click', async (e) => {
         cue_type: 'hot_cue',
         color: 'orange',
       });
-      // Refresh les cues depuis la piste (plus fiable qu'un splice local)
+      // 🔴 Fix 2026-04-22 : utiliser la réponse POST directement (authoritative + instant)
+      //    plus un GET en backup pour s'aligner sur la liste canonique du serveur.
+      //    Avant on dépendait uniquement du GET qui pouvait être servi stale par le cache.
+      let cues = Array.isArray(currentCues) ? currentCues.slice() : [];
+      if(created && created.id){
+        // Déduplique (au cas où le GET suivant renvoie déjà le cue)
+        if(!cues.some(c => c.id === created.id)) cues.push(created);
+      }
+      // Tri par position pour matcher le comportement serveur (ORDER BY position_ms)
+      cues.sort((a,b) => (a.position_ms ?? a.time_ms ?? 0) - (b.position_ms ?? b.time_ms ?? 0));
+      currentCues = cues;
+      document.getElementById('thero-cues').textContent = cues.length;
+      document.getElementById('cues-count-transport').textContent = cues.length;
+      renderCueMarkers(cues, effectiveDurMs);
+      renderCueList(cues);
+      // Backup refresh pour consistance avec serveur (si un autre onglet a modifié)
       try {
         const t = await api.get(`/tracks/${trackId}`);
-        const cues = t.cue_points || [];
-        currentCues = cues;
-        document.getElementById('thero-cues').textContent = cues.length;
-        document.getElementById('cues-count-transport').textContent = cues.length;
-        renderCueMarkers(cues, currentDurMs);
-        renderCueList(cues);
-      } catch(_e) {}
+        const freshCues = t.cue_points || [];
+        const freshDur = currentDurMs || (t.analysis?.duration_ms) || (t.duration_ms) || effectiveDurMs;
+        currentCues = freshCues;
+        if(!currentDurMs && freshDur) currentDurMs = freshDur;
+        document.getElementById('thero-cues').textContent = freshCues.length;
+        document.getElementById('cues-count-transport').textContent = freshCues.length;
+        renderCueMarkers(freshCues, freshDur);
+        renderCueList(freshCues);
+      } catch(refreshErr){
+        console.warn('[analyze] refresh après POST cue a échoué (DOM reste local):', refreshErr);
+      }
       toast(`Cue inséré à ${time_s.toFixed(2)}s`, 'success');
     } catch(err){
       const msg = err.message || 'Erreur';
