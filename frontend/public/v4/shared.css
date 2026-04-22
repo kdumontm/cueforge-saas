@@ -637,6 +637,53 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* ============================================================
+   Responsive — fit all viewports, no horizontal slide
+   ============================================================ */
+html{max-width:100vw;overflow-x:hidden}
+body{max-width:100vw}
+
+/* Page container shrinks cleanly; children never force horizontal overflow */
+.page{width:100%;box-sizing:border-box}
+.page > *{min-width:0;max-width:100%}
+
+/* Topnav stays on one row and scrolls horizontally (within itself) instead
+   of blowing out the body on narrow screens */
+.topnav{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none}
+.topnav::-webkit-scrollbar{display:none}
+.topnav-links{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;flex-wrap:nowrap}
+.topnav-links::-webkit-scrollbar{display:none}
+.topnav-links a{flex:0 0 auto;white-space:nowrap}
+.topnav-actions{flex-shrink:0}
+
+/* Media / cards never overflow their column */
+img,video,canvas,svg{max-width:100%}
+.card,.surface,.glass{max-width:100%}
+
+@media (max-width:1280px){
+  .page{padding:28px 24px 80px}
+}
+@media (max-width:1024px){
+  .page{padding:24px 20px 72px}
+  .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:768px){
+  .page{padding:20px 14px 64px}
+  .page-header{flex-direction:column;align-items:flex-start;gap:12px;padding-bottom:16px;margin-bottom:20px}
+  .page-title{font-size:28px}
+  .page-title .editorial{font-size:24px}
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  .row,.row-between{flex-wrap:wrap}
+  .topnav{padding:0 14px;gap:10px;height:52px}
+}
+@media (max-width:520px){
+  .page{padding:16px 12px 56px}
+  .page-title{font-size:22px}
+  .page-title .editorial{font-size:19px}
+  .topnav-brand span:last-child{display:none}
+}
+
+/* ============================================================
    Page-specific sections will be loaded per file.
    Keep shared core here.
    ============================================================ */

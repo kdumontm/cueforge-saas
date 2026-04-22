@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Mix Studio</title>
-<link rel="stylesheet" href="/v4/shared.css?v=20260422d">
+<link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   body{background-image:
     radial-gradient(800px 400px at 10% 0%,rgba(255,46,107,0.14),transparent 55%),
@@ -287,6 +287,20 @@
   }
   .rec-indicator .dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.6s ease-in-out infinite;box-shadow:0 0 8px var(--red)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* Responsive */
+  @media (max-width:1200px){
+    .decks{grid-template-columns:1fr 260px 1fr;gap:12px}
+    .dk-eq{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  }
+  @media (max-width:960px){
+    .decks{grid-template-columns:1fr;gap:14px}
+    .dk-pads{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  @media (max-width:640px){
+    .dk-track{grid-template-columns:48px 1fr;gap:10px}
+    .dk-eq{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
 </style>
 </head>
 <body>

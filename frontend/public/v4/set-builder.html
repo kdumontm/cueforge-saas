@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Set Builder</title>
-<link rel="stylesheet" href="/v4/shared.css?v=20260422d">
+<link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   /* Set meta */
   .set-meta{
@@ -173,6 +173,26 @@
   }
   .exp-btn .nm{font-family:var(--font-display);font-size:12.5px;font-weight:500}
   .exp-btn .ext{font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
+
+  /* Responsive */
+  @media (max-width:1200px){
+    .sb-grid{grid-template-columns:1fr 300px;gap:16px}
+    .set-meta{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:960px){
+    .sb-grid{grid-template-columns:1fr;gap:14px}
+    .set-meta{grid-template-columns:1fr;gap:12px}
+    .set-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .tl-row,.tl-head-row{grid-template-columns:28px 28px 1fr 70px 60px 70px 36px;font-size:11px}
+    .tl-row > :nth-child(n+8),.tl-head-row > :nth-child(n+8){display:none}
+  }
+  @media (max-width:640px){
+    .set-stats{grid-template-columns:1fr}
+    .exp{grid-template-columns:1fr}
+    .tl-row,.tl-head-row{grid-template-columns:28px 1fr 60px 36px}
+    .tl-row > :nth-child(2),.tl-head-row > :nth-child(2){display:none}
+    .tl-row > :nth-child(n+5),.tl-head-row > :nth-child(n+5){display:none}
+  }
 </style>
 </head>
 <body>

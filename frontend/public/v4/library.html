@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Library</title>
-<link rel="stylesheet" href="/v4/shared.css?v=20260422d">
+<link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   .filter-bar{
     display:flex;gap:10px;align-items:center;flex-wrap:wrap;
@@ -171,6 +171,38 @@
   .drop-menu .opt.on{background:var(--amber);color:#050406;border-color:var(--amber)}
   .drop-menu .acts{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
   .drop-menu .btn{font-size:12px;padding:5px 10px}
+
+  /* Responsive — hide non-essential columns on narrow screens */
+  @media (max-width:1200px){
+    .lib-head,.lib-row{
+      grid-template-columns:36px 36px 1fr 80px 80px 100px 40px;
+      gap:10px;
+    }
+    /* Hide: Aperçu(4), Cues(8), Ajouté(9) */
+    .lib-head > :nth-child(4),.lib-row > :nth-child(4),
+    .lib-head > :nth-child(8),.lib-row > :nth-child(8),
+    .lib-head > :nth-child(9),.lib-row > :nth-child(9){display:none}
+  }
+  @media (max-width:768px){
+    .lib-head,.lib-row{
+      grid-template-columns:32px 32px 1fr 64px 40px;
+      gap:8px;padding:8px 12px;
+    }
+    /* Hide also: Clé(6), Énergie(7) */
+    .lib-head > :nth-child(6),.lib-row > :nth-child(6),
+    .lib-head > :nth-child(7),.lib-row > :nth-child(7){display:none}
+    .filter-bar{flex-wrap:wrap;gap:8px}
+  }
+  @media (max-width:520px){
+    .lib-head,.lib-row{
+      grid-template-columns:28px 1fr 40px;
+      gap:8px;
+    }
+    /* Hide also: cover(2), BPM(5) */
+    .lib-head > :nth-child(2),.lib-row > :nth-child(2),
+    .lib-head > :nth-child(5),.lib-row > :nth-child(5){display:none}
+    .lib-t .a{display:none}
+  }
 </style>
 </head>
 <body>

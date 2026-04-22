@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Analyze</title>
-<link rel="stylesheet" href="/v4/shared.css?v=20260422d">
+<link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -336,6 +336,44 @@
   .ai-sug .h strong{font-size:12.5px;font-family:var(--font-display);font-weight:600}
   .ai-sug p{margin:0 0 10px;font-size:12px;color:var(--c-secondary);line-height:1.5}
   .ai-sug-actions{display:flex;gap:6px}
+
+  /* Responsive — the page adapts instead of sliding off-screen */
+  @media (max-width:1400px){
+    .workspace{grid-template-columns:220px 1fr 320px;gap:16px}
+  }
+  @media (max-width:1200px){
+    .workspace{grid-template-columns:200px 1fr;gap:14px}
+    .inspector{position:static;max-height:none;grid-column:1/-1}
+    .inspector .insp-panel{max-height:420px}
+  }
+  @media (max-width:960px){
+    .workspace{grid-template-columns:1fr;gap:12px;margin-top:12px}
+    .rail{position:static;height:auto;max-height:280px}
+    .rail-list{max-height:200px}
+    .inspector{position:static;max-height:none}
+    .inspector .insp-panel{max-height:none}
+    .thero{grid-template-columns:56px 1fr;grid-template-rows:auto auto;gap:10px}
+    .thero-cover{width:56px;height:56px}
+    .thero-title{font-size:17px}
+    .thero-right{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center}
+    .toolbar{flex-wrap:wrap;gap:6px}
+    .tool-group{flex-wrap:wrap}
+    .mode-row{flex-direction:column;align-items:flex-start;gap:10px}
+    .transport{grid-template-columns:1fr;gap:12px;justify-items:stretch}
+    .time-disp{justify-content:center}
+    .tr-btns{justify-content:center;flex-wrap:wrap}
+    .pads{justify-content:center;flex-wrap:wrap}
+    .wave{height:140px}
+  }
+  @media (max-width:640px){
+    .stem-row{grid-template-columns:64px 1fr;gap:6px;height:auto;padding:6px 0}
+    .stem-ctls{grid-column:1/-1;justify-content:flex-start;padding-left:70px;margin-top:4px}
+    .time-current{font-size:18px}
+    .thero{padding:10px 12px}
+    .thero-title{font-size:16px}
+    .stat-chip{padding:2px 6px}
+    .stat-chip .val{font-size:11px}
+  }
 </style>
 </head>
 <body>
