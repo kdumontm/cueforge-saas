@@ -1207,15 +1207,44 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
     OPT #7: Ajoute Cache-Control headers sur les réponses GET/HEAD.
     OPT #8: Ajoute ETag support — retourne 304 Not Modified si If-None-Match match.
     """
+    # BUG FIX 2026-04-22 : endpoints sensibles aux mutations qui ne doivent JAMAIS
+    # être mis en cache par le navigateur — sinon un POST/DELETE est suivi d'un GET
+    # qui retourne une version stale depuis le cache navigateur (5 min par défaut).
+    # Exemple reproduit : POST /favorites/138 → GET /favorites ne montre pas 138.
+    NO_CACHE_PREFIXES = (
+        "/api/v1/admin",
+        "/api/v1/favorites",
+        "/api/v1/notifications",
+        "/api/v1/playlists",
+        "/api/v1/sets",
+        "/api/v1/profile",
+        "/api/v1/mashup",
+        "/api/v1/mix",
+        "/api/v1/recommendation",
+        "/api/v1/history",
+        "/api/v1/auth",
+        "/api/v1/users",
+        "/api/v1/tags",
+        "/api/v1/categories",
+        "/api/v1/collections",
+        "/api/v1/referrals",
+        "/api/v1/organization",
+        "/api/v1/subscription",
+        "/api/v1/billing",
+        "/api/v1/stats",
+    )
+
     async def dispatch(self, request, call_next):
         response = await call_next(request)
 
+        path = request.url.path
+
         # OPT #7: Cache-Control headers selon le type de requête
         if request.method in ("GET", "HEAD"):
-            # Admin endpoints: jamais de cache navigateur (les données changent en temps réel)
-            if "/api/v1/admin" in request.url.path:
+            # Endpoints user-scoped mutables : pas de cache navigateur
+            if any(path.startswith(p) for p in self.NO_CACHE_PREFIXES):
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            elif "/api/v1/tracks" in request.url.path or "/api/v1/cues" in request.url.path:
+            elif "/api/v1/tracks" in path or "/api/v1/cues" in path:
                 response.headers["Cache-Control"] = "private, max-age=60"
             else:
                 response.headers["Cache-Control"] = "private, max-age=300"
