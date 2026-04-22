@@ -344,19 +344,15 @@
       </a>
       <a href="#orgs" data-sec="orgs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Organisations <span class="count">142</span>
+        Organisations <span class="count" id="nav-orgs-count">—</span>
       </a>
       <a href="#tracks" data-sec="tracks">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        Tracks <span class="count">1,2 M</span>
+        Tracks <span class="count" id="nav-tracks-count">—</span>
       </a>
       <a href="#subscriptions" data-sec="subs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
-        Subscriptions <span class="count">1 318</span>
-      </a>
-      <a href="#invoices" data-sec="inv">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
-        Invoices <span class="count">842</span>
+        Subscriptions <span class="count" id="nav-subs-count">—</span>
       </a>
 
       <div class="grp">Technique</div>
@@ -366,7 +362,7 @@
       </a>
       <a href="#jobs" data-sec="jobs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        Jobs · queue <span class="count">12</span>
+        Jobs · queue <span class="count" id="nav-jobs-count">—</span>
       </a>
       <a href="#integrations" data-sec="int">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -392,13 +388,13 @@
       </a>
       <a href="#dsr" data-sec="dsr">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-        DSR · RGPD <span class="count">3</span>
+        DSR · RGPD
       </a>
 
       <div class="grp">Support</div>
       <a href="#feedback" data-sec="fb">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Feedback <span class="count">28</span>
+        Feedback <span class="count" id="nav-feedback-count">—</span>
       </a>
       <a href="#changelog" data-sec="cl">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
@@ -461,41 +457,12 @@
           <div class="card-head">
             <div>
               <div class="card-title">System health · live</div>
-              <div class="card-sub">Services critiques · auto-refresh 10s</div>
+              <div class="card-sub">Services critiques · status config + live DB</div>
             </div>
-            <span class="chip chip-green"><span class="chip-dot"></span>All systems nominal</span>
+            <span class="chip chip-green" id="health-global-chip"><span class="chip-dot"></span>Chargement…</span>
           </div>
-          <div class="health-grid">
-            <div class="health-cell ok">
-              <div class="hd"><span class="nm">API · FastAPI</span><span class="st"><span class="dot"></span>OK</span></div>
-              <div class="met"><span>p50 <b>42 ms</b></span><span>p95 <b>118 ms</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,18 10,16 20,14 30,17 40,12 50,10 60,14 70,8 80,12 90,10 100,14"/></svg>
-            </div>
-            <div class="health-cell ok">
-              <div class="hd"><span class="nm">Postgres · primary</span><span class="st"><span class="dot"></span>OK</span></div>
-              <div class="met"><span>Conn <b>18/100</b></span><span>Lag <b>0 ms</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,14 10,12 20,13 30,11 40,14 50,12 60,13 70,10 80,13 90,11 100,12"/></svg>
-            </div>
-            <div class="health-cell warn">
-              <div class="hd"><span class="nm">R2 · Cloudflare</span><span class="st"><span class="dot"></span>Slow writes</span></div>
-              <div class="met"><span>p95 <b>980 ms</b></span><span>Err <b>0,2 %</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#ff7a18" stroke-width="1.5" points="0,10 10,12 20,11 30,14 40,18 50,20 60,22 70,20 80,22 90,21 100,23"/></svg>
-            </div>
-            <div class="health-cell ok">
-              <div class="hd"><span class="nm">Redis · queue</span><span class="st"><span class="dot"></span>OK</span></div>
-              <div class="met"><span>Ops/s <b>1 240</b></span><span>Mem <b>48 %</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,16 10,14 20,15 30,13 40,14 50,12 60,11 70,13 80,12 90,14 100,13"/></svg>
-            </div>
-            <div class="health-cell ok">
-              <div class="hd"><span class="nm">AcoustID</span><span class="st"><span class="dot"></span>OK</span></div>
-              <div class="met"><span>Calls/24h <b>8,4k</b></span><span>Match <b>94 %</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#4ade80" stroke-width="1.5" points="0,14 10,13 20,11 30,12 40,10 50,11 60,9 70,11 80,10 90,12 100,10"/></svg>
-            </div>
-            <div class="health-cell down">
-              <div class="hd"><span class="nm">Spotify API</span><span class="st"><span class="dot"></span>Rate-limited</span></div>
-              <div class="met"><span>429/h <b>284</b></span><span>Quota <b>98 %</b></span></div>
-              <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline fill="none" stroke="#ef4444" stroke-width="1.5" points="0,8 10,10 20,12 30,14 40,16 50,18 60,20 70,21 80,22 90,23 100,24"/></svg>
-            </div>
+          <div class="health-grid" id="health-grid">
+            <div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--c-tertiary)">Chargement…</div>
           </div>
         </div>
 
@@ -503,52 +470,13 @@
         <div id="alerts" class="card reveal reveal-2">
           <div class="card-head">
             <div>
-              <div class="card-title">Alertes · 24h</div>
-              <div class="card-sub">4 actives · 2 acquittées</div>
+              <div class="card-title">Alertes · dérivées de l'état système</div>
+              <div class="card-sub" id="alerts-sub">—</div>
             </div>
             <button class="btn btn-ghost btn-sm">Voir tout →</button>
           </div>
-          <div class="alerts">
-            <div class="alert crit">
-              <div class="alert-ic">!</div>
-              <div class="alert-bd">
-                <div class="ti"><b>Spotify API rate-limited</b> · 284 erreurs 429 / dernière heure</div>
-                <div class="mt">Enrichissement des métadonnées dégradé · fallback iTunes actif</div>
-              </div>
-              <span class="time">il y a 12 min</span>
-            </div>
-            <div class="alert warn">
-              <div class="alert-ic">⚠</div>
-              <div class="alert-bd">
-                <div class="ti"><b>R2 writes lents</b> · p95 &gt; 900 ms</div>
-                <div class="mt">Uploads toujours OK mais user-perçu dégradé · bucket cueforge-audio</div>
-              </div>
-              <span class="time">il y a 34 min</span>
-            </div>
-            <div class="alert warn">
-              <div class="alert-ic">⚠</div>
-              <div class="alert-bd">
-                <div class="ti"><b>12 jobs Demucs failed</b> · out-of-memory</div>
-                <div class="mt">Suite d’un track 24-bit / 72 min · hard-retry possible en manuel</div>
-              </div>
-              <span class="time">il y a 1 h</span>
-            </div>
-            <div class="alert info">
-              <div class="alert-ic">i</div>
-              <div class="alert-bd">
-                <div class="ti"><b>Pic d’inscriptions</b> · +48 users / dernière heure</div>
-                <div class="mt">Vraisemblable effet newsletter · watch conversion trial → Pro</div>
-              </div>
-              <span class="time">il y a 2 h</span>
-            </div>
-            <div class="alert info">
-              <div class="alert-ic">i</div>
-              <div class="alert-bd">
-                <div class="ti"><b>DSR export</b> · 3 demandes RGPD en attente</div>
-                <div class="mt">Délai max 30 j · la plus ancienne date de 8 j</div>
-              </div>
-              <span class="time">il y a 6 h</span>
-            </div>
+          <div class="alerts" id="alerts-list">
+            <div style="padding:16px;text-align:center;color:var(--c-tertiary)">Chargement…</div>
           </div>
         </div>
       </div>
@@ -566,68 +494,13 @@
           </div>
         </div>
         <div class="jobs-head">
-          <div class="job-stat running"><span class="l">Running</span><div class="v">7</div></div>
-          <div class="job-stat queue"><span class="l">Queue</span><div class="v">24</div></div>
-          <div class="job-stat done"><span class="l">Done · 24h</span><div class="v">14 820</div></div>
-          <div class="job-stat failed"><span class="l">Failed · 24h</span><div class="v">38</div></div>
+          <div class="job-stat running"><span class="l">Running</span><div class="v" id="jobs-running">—</div></div>
+          <div class="job-stat queue"><span class="l">Queue</span><div class="v" id="jobs-queued">—</div></div>
+          <div class="job-stat done"><span class="l">Done · 24h</span><div class="v" id="jobs-done">—</div></div>
+          <div class="job-stat failed"><span class="l">Failed · 24h</span><div class="v" id="jobs-failed">—</div></div>
         </div>
-        <div class="jobs-list">
-          <div class="job-row run">
-            <span class="job-dot run"></span>
-            <div class="job-title"><b>Nothing But You — CamelPhat</b> <small>· demucs-4-stems</small></div>
-            <div class="prog"><div class="f" style="width:68%"></div></div>
-            <span class="job-dur">42 / 62 s</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
-          </div>
-          <div class="job-row run">
-            <span class="job-dot run"></span>
-            <div class="job-title"><b>Avalanche.mp3</b> <small>· beatgrid-essentia</small></div>
-            <div class="prog"><div class="f" style="width:34%"></div></div>
-            <span class="job-dur">18 / 52 s</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
-          </div>
-          <div class="job-row run">
-            <span class="job-dot run"></span>
-            <div class="job-title"><b>Midnight Drive Pt.2</b> <small>· cue-detection</small></div>
-            <div class="prog"><div class="f" style="width:12%"></div></div>
-            <span class="job-dur">4 / 38 s</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
-          </div>
-          <div class="job-row">
-            <span class="job-dot queue"></span>
-            <div class="job-title"><b>Solar Flare (Original Mix)</b> <small>· en attente · position 1</small></div>
-            <div class="prog"><div class="f" style="width:0%"></div></div>
-            <span class="job-dur">—</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--amber)">Pro</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↑</button>
-          </div>
-          <div class="job-row">
-            <span class="job-dot queue"></span>
-            <div class="job-title"><b>Lost in Tokyo</b> <small>· en attente · position 2</small></div>
-            <div class="prog"><div class="f" style="width:0%"></div></div>
-            <span class="job-dur">—</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↑</button>
-          </div>
-          <div class="job-row err">
-            <span class="job-dot err"></span>
-            <div class="job-title"><b>Late Night Drive.flac</b> <small>· failed · OOM demucs</small></div>
-            <div class="prog"><div class="f" style="width:100%;background:var(--red)"></div></div>
-            <span class="job-dur">err</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--red)">Retry</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">↻</button>
-          </div>
-          <div class="job-row">
-            <span class="job-dot done"></span>
-            <div class="job-title"><b>Odesza — Line of Sight</b> <small>· done</small></div>
-            <div class="prog"><div class="f" style="width:100%;background:var(--green)"></div></div>
-            <span class="job-dur">48 s</span>
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">Free</span>
-            <button class="btn btn-ghost btn-sm" style="width:24px;height:24px;padding:0">✓</button>
-          </div>
+        <div class="jobs-list" id="jobs-list">
+          <div style="padding:16px;text-align:center;color:var(--c-tertiary)">Chargement…</div>
         </div>
       </div>
 
@@ -638,23 +511,12 @@
           <div class="card-head">
             <div>
               <div class="card-title">Revenue · 12 derniers mois</div>
-              <div class="card-sub">MRR · 42 860 € · +22 % YoY</div>
+              <div class="card-sub" id="revenue-sub">—</div>
             </div>
             <span class="chip chip-amber">MRR</span>
           </div>
-          <div class="rev-bars">
-            <div class="b" data-month="m" style="height:38%"></div>
-            <div class="b" data-month="j" style="height:42%"></div>
-            <div class="b" data-month="j" style="height:48%"></div>
-            <div class="b" data-month="a" style="height:52%"></div>
-            <div class="b" data-month="s" style="height:58%"></div>
-            <div class="b" data-month="o" style="height:62%"></div>
-            <div class="b" data-month="n" style="height:68%"></div>
-            <div class="b" data-month="d" style="height:72%"></div>
-            <div class="b" data-month="j" style="height:78%"></div>
-            <div class="b" data-month="f" style="height:82%"></div>
-            <div class="b" data-month="m" style="height:88%"></div>
-            <div class="b now" data-month="a" style="height:96%"></div>
+          <div class="rev-bars" id="revenue-bars">
+            <div style="width:100%;text-align:center;color:var(--c-tertiary);padding:24px 0;font-size:12px">Chargement…</div>
           </div>
         </div>
 
@@ -667,47 +529,8 @@
             </div>
             <button class="btn btn-ghost btn-sm">Gérer →</button>
           </div>
-          <div class="int-grid">
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">AcoustID</span><span class="dot"></span></div>
-              <div class="sub">Fingerprint ID</div>
-              <div class="calls"><span>8,4k / 24h</span><span>Quota 42 %</span></div>
-            </div>
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">MusicBrainz</span><span class="dot"></span></div>
-              <div class="sub">Metadata</div>
-              <div class="calls"><span>6,1k / 24h</span><span>Quota 28 %</span></div>
-            </div>
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">iTunes</span><span class="dot"></span></div>
-              <div class="sub">Metadata fallback</div>
-              <div class="calls"><span>3,8k / 24h</span><span>Quota 18 %</span></div>
-            </div>
-            <div class="int-cell err">
-              <div class="hd"><span class="nm">Spotify</span><span class="dot"></span></div>
-              <div class="sub">Audio features</div>
-              <div class="calls"><span style="color:var(--red)">284 × 429</span><span>Quota 98 %</span></div>
-            </div>
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">Stripe</span><span class="dot"></span></div>
-              <div class="sub">Paiements</div>
-              <div class="calls"><span>128 evts / 24h</span><span>0 errors</span></div>
-            </div>
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">Cloudflare R2</span><span class="dot"></span></div>
-              <div class="sub">Storage audio</div>
-              <div class="calls"><span>280 Go / 1 TB</span><span>Quota 28 %</span></div>
-            </div>
-            <div class="int-cell off">
-              <div class="hd"><span class="nm">Last.fm</span><span class="dot"></span></div>
-              <div class="sub">Scrobble · off</div>
-              <div class="calls"><span>—</span><span>Désactivé</span></div>
-            </div>
-            <div class="int-cell on">
-              <div class="hd"><span class="nm">Sentry</span><span class="dot"></span></div>
-              <div class="sub">Error tracking</div>
-              <div class="calls"><span>42 events / 24h</span><span>0 regressions</span></div>
-            </div>
+          <div class="int-grid" id="int-grid">
+            <div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--c-tertiary)">Chargement…</div>
           </div>
         </div>
       </div>
@@ -725,35 +548,8 @@
           <thead>
             <tr><th>Admin</th><th>Action</th><th>Cible</th><th>IP</th><th>Quand</th></tr>
           </thead>
-          <tbody>
-            <tr>
-              <td><div class="usr"><div class="usr-av">KD</div><div><div class="usr-nm">Kevin Dumont</div><div class="usr-em">superadmin</div></div></div></td>
-              <td><span class="plan-pill studio">impersonate</span></td>
-              <td>sebastien@clubmix.fr</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">82.65.xx.xx</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 14 min</td>
-            </tr>
-            <tr>
-              <td><div class="usr"><div class="usr-av violet">MR</div><div><div class="usr-nm">Marie Rousseau</div><div class="usr-em">support</div></div></div></td>
-              <td><span class="plan-pill pro">upgrade · Free → Pro</span></td>
-              <td>lucas@djlucas.fr</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">34.11.xx.xx</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 42 min</td>
-            </tr>
-            <tr>
-              <td><div class="usr"><div class="usr-av">KD</div><div><div class="usr-nm">Kevin Dumont</div><div class="usr-em">superadmin</div></div></div></td>
-              <td><span class="plan-pill" style="background:var(--red-soft);color:var(--red)">delete account</span></td>
-              <td>spam34@example.com</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">82.65.xx.xx</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 1 h</td>
-            </tr>
-            <tr>
-              <td><div class="usr"><div class="usr-av green">AT</div><div><div class="usr-nm">Automation</div><div class="usr-em">bot</div></div></div></td>
-              <td><span class="plan-pill trial">extend trial · +7 j</span></td>
-              <td>pierre@techno.io</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">—</td>
-              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">il y a 3 h</td>
-            </tr>
+          <tbody id="audit-body">
+            <tr><td colspan="5" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr>
           </tbody>
         </table>
       </div>
@@ -763,8 +559,8 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
-<script src="/v4/shared.js?v=20260422d"></script>
+<script src="/v4/api.js?v=20260422e"></script>
+<script src="/v4/shared.js?v=20260422e"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -785,28 +581,215 @@
     }
   })();
 
-  // ===== KPIs =====
-  async function loadKpis(){
-    try {
-      const d = await api.adminOverview();
-      document.getElementById('kpi-users').textContent = fmt.num(d.total_users);
-      document.getElementById('kpi-users-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+${fmt.num(d.new_users_7d)} cette semaine`;
-      document.getElementById('kpi-tracks').textContent = fmt.num(d.total_tracks);
-      document.getElementById('kpi-tracks-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>${fmt.num(d.tracks_analyzed)} analysés · +${fmt.num(d.tracks_uploaded_7d)} · 7j`;
-      document.getElementById('kpi-mrr').textContent = fmt.money((d.revenue_metrics?.mrr_estimate || 0) * 100, 'EUR');
-      const mrrTrend = `${d.revenue_metrics?.total_pro_users || 0} Pro · ${d.revenue_metrics?.total_unlimited_users || 0} Unlimited`;
-      document.getElementById('kpi-mrr-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>${mrrTrend}`;
-      document.getElementById('kpi-storage').textContent = `${d.storage_estimate_gb} Go`;
-      document.getElementById('kpi-storage-trend').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18"/></svg>${d.active_users_7d} actifs · 7j`;
+  // ===== Helpers =====
+  function setText(id, value){ const el = document.getElementById(id); if(el) el.textContent = value; }
+  function setHTML(id, value){ const el = document.getElementById(id); if(el) el.innerHTML = value; }
+  function escapeHtml(s){
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
 
-      document.getElementById('nav-users-count').textContent = fmt.num(d.total_users);
-      const pro = d.revenue_metrics?.total_pro_users || 0;
-      const unlim = d.revenue_metrics?.total_unlimited_users || 0;
-      document.getElementById('users-card-sub').textContent = `${fmt.num(d.total_users)} total · ${pro} Pro · ${unlim} Unlimited`;
+  // ===== FULL DASHBOARD — 100 % DB réelle =====
+  async function loadFullDashboard(){
+    let d;
+    try {
+      d = await api.adminFullDashboard();
     } catch(err){
-      if(typeof toast === 'function') toast(`Overview impossible : ${err.message}`, 'error');
+      if(typeof toast === 'function') toast(`Dashboard impossible : ${err.message}`, 'error');
+      return;
+    }
+
+    // ── KPIs ──
+    const kpis = d.kpis || {};
+    setText('kpi-users', fmt.num(kpis.users?.total || 0));
+    setHTML('kpi-users-trend',
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>+${fmt.num(kpis.users?.new_7d || 0)} · 7j`);
+    setText('kpi-tracks', fmt.num(kpis.tracks?.total || 0));
+    setHTML('kpi-tracks-trend',
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>${fmt.num(kpis.tracks?.analyzed || 0)} analysés · +${fmt.num(kpis.tracks?.uploaded_7d || 0)} · 7j`);
+    setText('kpi-mrr', fmt.money((kpis.mrr?.estimate_eur || 0) * 100, 'EUR'));
+    setHTML('kpi-mrr-trend',
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited`);
+    setText('kpi-storage', `${kpis.storage?.estimate_gb ?? 0} Go`);
+    setHTML('kpi-storage-trend',
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18"/></svg>${kpis.storage?.active_users_7d || 0} actifs · 7j`);
+
+    // ── Users card sub ──
+    setText('users-card-sub',
+      `${fmt.num(kpis.users?.total || 0)} total · ${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited`);
+
+    // ── Nav counts ──
+    const nav = d.nav_counts || {};
+    setText('nav-users-count', fmt.num(nav.users || 0));
+    setText('nav-orgs-count', fmt.num(nav.orgs || 0));
+    setText('nav-tracks-count', fmt.num(nav.tracks || 0));
+    setText('nav-subs-count', fmt.num(nav.subscriptions_active || 0));
+    setText('nav-jobs-count', fmt.num(nav.jobs_queue || 0));
+    setText('nav-feedback-count', fmt.num(nav.feedback_new || 0));
+
+    // ── System health ──
+    const health = d.system_health || [];
+    const healthGrid = document.getElementById('health-grid');
+    if(healthGrid){
+      if(health.length === 0){
+        healthGrid.innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--c-tertiary);text-align:center">Aucune donnée de santé</div>';
+      } else {
+        healthGrid.innerHTML = health.map(h => {
+          const s = h.status || 'ok';
+          return `
+            <div class="health-cell ${escapeHtml(s)}">
+              <div class="hd"><span class="nm">${escapeHtml(h.name)}</span><span class="st"><span class="dot"></span>${escapeHtml(h.label || s.toUpperCase())}</span></div>
+              <div class="met"><span>${escapeHtml(h.met_left || '')}</span><span>${escapeHtml(h.met_right || '')}</span></div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+    // Global chip
+    const globalChip = document.getElementById('health-global-chip');
+    if(globalChip){
+      const downs = health.filter(h => h.status === 'down').length;
+      const warns = health.filter(h => h.status === 'warn' || h.status === 'off').length;
+      if(downs > 0){
+        globalChip.className = 'chip chip-red';
+        globalChip.innerHTML = `<span class="chip-dot"></span>${downs} service(s) down`;
+      } else if(warns > 0){
+        globalChip.className = 'chip chip-amber';
+        globalChip.innerHTML = `<span class="chip-dot"></span>${warns} service(s) dégradé(s)`;
+      } else {
+        globalChip.className = 'chip chip-green';
+        globalChip.innerHTML = `<span class="chip-dot"></span>All systems nominal`;
+      }
+    }
+
+    // ── Alerts ──
+    const alerts = d.alerts || [];
+    const alertsList = document.getElementById('alerts-list');
+    const alertsSub = document.getElementById('alerts-sub');
+    if(alertsSub) alertsSub.textContent = `${alerts.length} alerte(s) active(s)`;
+    if(alertsList){
+      if(alerts.length === 0){
+        alertsList.innerHTML = '<div style="padding:20px;color:var(--c-tertiary);text-align:center">Aucune alerte — tout roule ✓</div>';
+      } else {
+        const icons = {crit:'!', warn:'⚠', info:'i'};
+        alertsList.innerHTML = alerts.map(a => {
+          const sev = a.severity || 'info';
+          return `
+            <div class="alert ${escapeHtml(sev)}">
+              <div class="alert-ic">${icons[sev] || 'i'}</div>
+              <div class="alert-bd">
+                <div class="ti"><b>${escapeHtml(a.title)}</b></div>
+                <div class="mt">${escapeHtml(a.body || '')}</div>
+              </div>
+              <span class="time">${escapeHtml(a.when || '')}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // ── Jobs ──
+    const jobs = d.jobs || {};
+    setText('jobs-running', fmt.num(jobs.running || 0));
+    setText('jobs-queued', fmt.num(jobs.queued || 0));
+    setText('jobs-done', fmt.num(jobs.done_24h || 0));
+    setText('jobs-failed', fmt.num(jobs.failed_24h || 0));
+    const jobsList = document.getElementById('jobs-list');
+    if(jobsList){
+      const recent = jobs.recent || [];
+      if(recent.length === 0){
+        jobsList.innerHTML = '<div style="padding:20px;color:var(--c-tertiary);text-align:center">Aucun job récent</div>';
+      } else {
+        jobsList.innerHTML = recent.map(j => {
+          const bucket = j.bucket || 'queue';
+          const rowCls = bucket === 'run' ? 'run' : (bucket === 'err' ? 'err' : '');
+          const dotCls = bucket;
+          const progressColor = bucket === 'err' ? 'background:var(--red)' : (bucket === 'done' ? 'background:var(--green)' : '');
+          const durText = bucket === 'err' ? 'err' :
+                         (bucket === 'queue' ? '—' :
+                         (j.duration_s != null ? `${j.duration_s} s` : '—'));
+          const planColor = j.plan === 'pro' ? 'var(--amber)' : (j.plan === 'unlimited' ? 'var(--violet)' : 'var(--c-tertiary)');
+          const planLabel = (j.plan || 'free').charAt(0).toUpperCase() + (j.plan || 'free').slice(1);
+          return `
+            <div class="job-row ${rowCls}" data-id="${j.id}">
+              <span class="job-dot ${dotCls}"></span>
+              <div class="job-title"><b>${escapeHtml(j.title || '—')}</b> <small>· ${escapeHtml(j.status || '')}</small></div>
+              <div class="prog"><div class="f" style="width:${j.progress || 0}%;${progressColor}"></div></div>
+              <span class="job-dur">${escapeHtml(durText)}</span>
+              <span style="font-family:var(--font-mono);font-size:11px;color:${planColor}">${escapeHtml(planLabel)}</span>
+              <span></span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // ── Revenue 12m ──
+    const rev = d.revenue_12m || [];
+    const revBars = document.getElementById('revenue-bars');
+    const revSub = document.getElementById('revenue-sub');
+    if(revBars && rev.length > 0){
+      const max = Math.max(...rev.map(r => r.mrr_eur || 0), 1);
+      revBars.innerHTML = rev.map(r => {
+        const pct = Math.max(4, ((r.mrr_eur || 0) / max) * 100);
+        const cls = r.is_current ? 'b now' : 'b';
+        return `<div class="${cls}" data-month="${escapeHtml(r.label || '')}" data-tt="${escapeHtml(r.month || '')} · ${fmt.num(Math.round(r.mrr_eur || 0))} €" style="height:${pct}%"></div>`;
+      }).join('');
+      const current = rev[rev.length - 1];
+      if(revSub) revSub.textContent = `MRR actuel · ${fmt.num(Math.round(current?.mrr_eur || 0))} € (estimation sur les abos actifs)`;
+    } else if(revBars){
+      revBars.innerHTML = '<div style="width:100%;text-align:center;color:var(--c-tertiary);padding:24px 0;font-size:12px">Aucun revenu</div>';
+      if(revSub) revSub.textContent = '—';
+    }
+
+    // ── Intégrations ──
+    const integrations = d.integrations || [];
+    const intGrid = document.getElementById('int-grid');
+    if(intGrid){
+      if(integrations.length === 0){
+        intGrid.innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--c-tertiary);text-align:center">Aucune intégration</div>';
+      } else {
+        intGrid.innerHTML = integrations.map(i => {
+          const s = i.status || 'off';
+          const label = s === 'on' ? 'Actif' : (s === 'err' ? 'Erreur' : (s === 'warn' ? 'Dégradé' : 'Non configuré'));
+          return `
+            <div class="int-cell ${escapeHtml(s)}">
+              <div class="hd"><span class="nm">${escapeHtml(i.name)}</span><span class="dot"></span></div>
+              <div class="sub">${escapeHtml(i.sub || '')}</div>
+              <div class="calls"><span>${escapeHtml(label)}</span><span>${escapeHtml(i.detail || '')}</span></div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // ── Audit log ──
+    const audit = d.audit_log || [];
+    const auditBody = document.getElementById('audit-body');
+    if(auditBody){
+      if(audit.length === 0){
+        auditBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucune action admin récente</td></tr>';
+      } else {
+        auditBody.innerHTML = audit.map(a => {
+          const name = a.admin_name || 'admin';
+          const inits = (name.split(/\s+/).slice(0,2).map(p => p[0]).join('') || '??').toUpperCase();
+          const actionCls = /delete/i.test(a.action) ? '' : (/upgrade|pro|plan/i.test(a.action) ? 'pro' : (/impersonate/i.test(a.action) ? 'studio' : 'trial'));
+          const actionStyle = /delete/i.test(a.action) ? 'background:var(--red-soft);color:var(--red)' : '';
+          return `
+            <tr>
+              <td><div class="usr"><div class="usr-av">${escapeHtml(inits)}</div><div><div class="usr-nm">${escapeHtml(name)}</div><div class="usr-em">${escapeHtml(a.admin_role || '')}</div></div></div></td>
+              <td><span class="plan-pill ${escapeHtml(actionCls)}" style="${actionStyle}">${escapeHtml(a.action)}</span></td>
+              <td>${escapeHtml(a.target)}${a.target_id ? ' · #' + a.target_id : ''}</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${escapeHtml(a.ip || '—')}</td>
+              <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${escapeHtml(a.when || '—')}</td>
+            </tr>
+          `;
+        }).join('');
+      }
     }
   }
+
+  // Alias pour compat avec le code plus bas qui appelle loadKpis()
+  const loadKpis = loadFullDashboard;
 
   // ===== Users table =====
   const PLAN_LABELS = { pro:'Pro', free:'Free', unlimited:'Unlimited', trial:'Trial', enterprise:'Enterprise' };

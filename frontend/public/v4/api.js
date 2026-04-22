@@ -141,6 +141,7 @@
     trackFresh(id)  { return api.get(`/tracks/${id}`, { _t: Date.now() }); },
     stats()         { return api.get('/stats/overview'); },
     adminOverview() { return api.get('/admin/stats/overview'); },
+    adminFullDashboard() { return api.get('/admin/stats/full-dashboard'); },
     adminUsers(p={}){ return api.get('/admin/stats/users-activity', p); },
     sets(p={})      { return api.get('/sets', p); },
     playlists(p={}) { return api.get('/playlists', p); },
