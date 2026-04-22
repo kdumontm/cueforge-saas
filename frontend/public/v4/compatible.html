@@ -105,33 +105,37 @@
   .mm.ok{--match-color:var(--cyan)}
   .mm.risky{--match-color:var(--violet)}
 
-  /* Rules panel */
+  /* Rules panel — éditable */
   .rules-card{padding:20px;margin-top:20px}
-  .rules-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+  .rules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
   .rule{
-    padding:12px 14px;border-radius:10px;
+    padding:14px 16px;border-radius:10px;
     background:var(--s-1);border:1px solid var(--b-subtle);
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;flex-direction:column;gap:8px;
   }
-  .rule .nm{font-family:var(--font-display);font-weight:500;font-size:13px;display:flex;align-items:center;gap:8px}
-  .rule .val{font-family:var(--font-mono);font-size:12px;color:var(--c-secondary)}
-  .rule .sw{display:inline-block}
-
-  /* Distance viz */
-  .dist-card{padding:20px;margin-top:20px}
-  .dist-viz{height:140px;position:relative;padding:16px 0 24px;overflow:hidden}
-  .dist-axis{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--b-default)}
-  .dist-axis-ticks{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;justify-content:space-between;padding:0 10px;font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)}
-  .dist-axis-ticks span{align-self:flex-end}
-  .dist-point{
-    position:absolute;top:50%;transform:translate(-50%,-50%);
-    width:22px;height:22px;border-radius:50%;
-    background:var(--amber);
-    box-shadow:0 0 0 3px var(--s-1),0 0 0 4px currentColor,0 0 20px currentColor;
-    cursor:pointer;transition:transform var(--t-fast) var(--ease-spring);
+  .rule .nm{font-family:var(--font-display);font-weight:500;font-size:13px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .rule .val{font-family:var(--font-mono);font-size:12px;color:var(--amber);font-weight:600}
+  .rule input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:4px;
+    background:var(--s-3);border-radius:2px;outline:none;cursor:pointer;
   }
-  .dist-point:hover{transform:translate(-50%,-50%) scale(1.3)}
-  .dist-point.source{background:var(--amber);color:var(--amber);z-index:5}
+  .rule input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:14px;height:14px;
+    border-radius:50%;background:var(--amber);cursor:pointer;
+    box-shadow:0 0 0 3px rgba(255,186,122,.15);
+    transition:transform var(--t-fast) var(--ease-spring);
+  }
+  .rule input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+  .rule input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--amber);cursor:pointer}
+  .rules-switches{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--b-subtle)}
+  .rule-sw{
+    flex:1;min-width:140px;
+    padding:10px 12px;border-radius:10px;
+    background:var(--s-1);border:1px solid var(--b-subtle);
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    font-family:var(--font-display);font-size:12.5px;cursor:pointer;
+  }
+  .rule-sw .sw{display:inline-block}
   .dist-point[data-c=perfect]{background:var(--green);color:var(--green)}
   .dist-point[data-c=great]{background:var(--lime);color:var(--lime)}
   .dist-point[data-c=good]{background:var(--amber);color:var(--amber)}
@@ -252,58 +256,45 @@
     </div>
   </div>
 
-  <!-- Rules -->
+  <!-- Rules éditables -->
   <div class="card rules-card reveal reveal-4">
     <div class="match-head">
-      <h3>Règles de matching <span class="muted" style="font-weight:400">· tes préférences</span></h3>
+      <h3>Règles de matching <span class="muted" style="font-weight:400">· ajuste et vois les matchs se recalculer</span></h3>
       <button id="rules-reset" class="btn btn-sm btn-ghost">Reset</button>
     </div>
     <div class="rules-grid">
       <div class="rule">
-        <span class="nm"><span style="color:var(--cyan)">◯</span>BPM tolerance</span>
-        <span class="val" id="rule-bpm">±3%</span>
+        <span class="nm"><span><span style="color:var(--cyan)">◯</span> BPM tolerance</span><span class="val" id="rule-bpm-val">±3%</span></span>
+        <input type="range" id="rule-bpm" min="1" max="12" step="0.5" value="3" />
       </div>
       <div class="rule">
-        <span class="nm"><span style="color:var(--amber)">◯</span>Key distance max</span>
-        <span class="val" id="rule-key">±2 Camelot</span>
+        <span class="nm"><span><span style="color:var(--amber)">◯</span> Key distance max</span><span class="val" id="rule-key-val">±2 Camelot</span></span>
+        <input type="range" id="rule-key" min="0" max="6" step="1" value="2" />
       </div>
       <div class="rule">
-        <span class="nm"><span style="color:var(--pink)">◯</span>Energy delta</span>
-        <span class="val" id="rule-energy">±1.5</span>
+        <span class="nm"><span><span style="color:var(--pink)">◯</span> Energy delta</span><span class="val" id="rule-energy-val">±1.5</span></span>
+        <input type="range" id="rule-energy" min="0.5" max="5" step="0.1" value="1.5" />
       </div>
-      <div class="rule">
-        <span class="nm"><span style="color:var(--lime)">◯</span>Allow relative (A↔B)</span>
+    </div>
+    <div class="rules-switches">
+      <label class="rule-sw" for="rule-relative">
+        <span><span style="color:var(--lime)">◯</span> Allow relative (A↔B)</span>
         <span class="sw switch on" id="rule-relative"></span>
-      </div>
-      <div class="rule">
-        <span class="nm"><span style="color:var(--violet)">◯</span>Prefer phrase align</span>
+      </label>
+      <label class="rule-sw" for="rule-phrase">
+        <span><span style="color:var(--violet)">◯</span> Prefer phrase align</span>
         <span class="sw switch on" id="rule-phrase"></span>
-      </div>
-      <div class="rule">
-        <span class="nm"><span style="color:var(--green)">◯</span>Exclude déjà joués</span>
+      </label>
+      <label class="rule-sw" for="rule-exclude">
+        <span><span style="color:var(--green)">◯</span> Exclude déjà joués</span>
         <span class="sw switch" id="rule-exclude"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Distance viz -->
-  <div class="card dist-card reveal reveal-5">
-    <div class="match-head">
-      <h3>Distance harmonique <span class="muted" style="font-weight:400">· dispersion des 20 top matchs</span></h3>
-      <span class="hint">Gauche = identique · Droite = éloigné</span>
-    </div>
-    <div class="dist-viz">
-      <div class="dist-axis"></div>
-      <div class="dist-axis-ticks">
-        <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
-      </div>
-      <div id="dist-points"></div>
+      </label>
     </div>
   </div>
 
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422c"></script>
 <script src="/v4/shared.js?v=20260422c"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
@@ -477,7 +468,6 @@ function renderAll(){
   const scored = scoreMatches();
   renderWheel(scored);
   renderMatchList(scored);
-  renderDistanceViz(scored);
 }
 
 function renderSource(){
@@ -520,37 +510,54 @@ function scoreMatches(){
   const srcBpm = getTrackBpm(sourceTrack) || 120;
   const srcE = getTrackEnergy(sourceTrack) ?? 5;
 
+  // Règles utilisateur (persistées dans localStorage) — affectent scoring ET filtrage hard.
+  const rules = getRules();
+  const bpmTol = rules.bpm;            // % toléré
+  const keyMax = rules.key;            // distance Camelot max (raw)
+  const eTol = rules.energy;           // delta energy max
+  const allowRelative = rules.relative;
+  const excludePlayed = rules.exclude;
+
   const out = [];
   for(const t of allTracks){
     if(String(t.id) === String(sourceTrack.id)) continue;
+    if(excludePlayed && t.played_at) continue; // si la track a été jouée → skip
     const cam = getTrackCamelot(t);
     const bpm = getTrackBpm(t);
     const energy = getTrackEnergy(t);
     if(!cam && !bpm) continue;
 
-    // Key score
+    // --- Key score
     let keyScore = 40, keyDist = {cat:'risky', label:'?', raw:99};
     if(srcCam && cam){
       keyDist = camelotDist(srcCam, cam);
       const base = {perfect:40, great:34, good:26, ok:16, risky:6}[keyDist.cat] ?? 0;
       keyScore = base;
+      // Hard filter : si la distance raw dépasse le max configuré → on force 'risky' pour exclure du top.
+      if(!allowRelative && keyDist.label === 'rel'){
+        // utilisateur refuse A↔B → on dégrade
+        keyScore = 8; keyDist = {...keyDist, cat:'risky'};
+      }
+      if(keyDist.raw > keyMax){
+        keyScore = Math.max(0, keyScore - 25);
+      }
     }
 
-    // BPM score (0-30, 100% at delta=0, 0 at delta>=10%)
+    // --- BPM score : 100% si delta=0, 0% au-delà de bpmTol
     let bpmScore = 15;
     let bpmDeltaPct = null;
     if(bpm && srcBpm){
       const pct = Math.abs(bpm - srcBpm) / srcBpm * 100;
       bpmDeltaPct = ((bpm - srcBpm) / srcBpm * 100);
-      bpmScore = Math.max(0, 30 * (1 - pct / 8));
+      bpmScore = Math.max(0, 30 * (1 - pct / Math.max(bpmTol, 0.5)));
     }
 
-    // Energy score (0-30)
+    // --- Energy score
     let eScore = 15;
     let eDelta = null;
     if(energy != null && srcE != null){
       eDelta = energy - srcE;
-      eScore = Math.max(0, 30 * (1 - Math.abs(eDelta) / 5));
+      eScore = Math.max(0, 30 * (1 - Math.abs(eDelta) / Math.max(eTol, 0.5)));
     }
 
     const total = Math.round(keyScore + bpmScore + eScore);
@@ -603,6 +610,10 @@ function renderWheel(scored){
 
 function drawWheel(srcCam, byKey){
   svg.innerHTML = '';
+  // Palette cohérente avec les catégories theoretical de camelotDist :
+  //   perfect = vert (same/relative)      great = lime (+1 step + letter flip)
+  //   good    = orange (+1 same letter)   ok    = cyan (+2 same letter)
+  //   risky   = violet (+3 ou ≥1 letter flip)
   const cmap = {perfect:'#4ade80',great:'#d4ff2a',good:'#ff7a18',ok:'#1fd4d4',risky:'#8b5cf6'};
   for(let i=0;i<12;i++){
     const a1 = (i/12)*Math.PI*2;
@@ -612,12 +623,23 @@ function drawWheel(srcCam, byKey){
     for(const [r1, r2, label] of [[innerR, midR, labelA], [midR, outerR, labelB]]){
       const seg = document.createElementNS('http://www.w3.org/2000/svg','path');
       seg.setAttribute('d', arcPath(r1, r2, a1, a2));
-      let fill = r1 === innerR ? 'var(--s-3)' : 'var(--s-2)';
-      let opacity = r1 === innerR ? '0.3' : '0.2';
+
+      // Couleur THEORIQUE : chaque segment est teinté selon sa distance au source,
+      // même si aucun track de la library n'est dans cette tonalité.
+      let fill = 'var(--s-2)';
+      let opacity = '0.18';
       let className = 'wheel-seg';
-      const cat = byKey[label]?.best;
-      if(cat){ fill = cmap[cat]; opacity = '0.8'; className += ' '+cat; }
+      let cat = null;
+      if(srcCam && label !== srcCam){
+        cat = camelotDist(srcCam, label).cat;
+        fill = cmap[cat] || fill;
+        // Library-present → opacité forte, sinon opacité moyenne (theoretical)
+        opacity = byKey[label] ? '0.82' : '0.42';
+        className += ' '+cat;
+        if(byKey[label]) className += ' has-tracks';
+      }
       if(label === srcCam){ fill = 'var(--amber)'; opacity = '1'; className += ' source'; }
+
       seg.setAttribute('fill', fill);
       seg.setAttribute('fill-opacity', opacity);
       seg.setAttribute('stroke', 'var(--s-0)');
@@ -625,6 +647,7 @@ function drawWheel(srcCam, byKey){
       seg.setAttribute('class', className);
       seg.setAttribute('data-key', label);
       svg.appendChild(seg);
+
       // Label
       const amid = (a1+a2)/2;
       const [lx, ly] = polar((r1+r2)/2, amid);
@@ -633,8 +656,33 @@ function drawWheel(srcCam, byKey){
       txt.setAttribute('y', ly);
       txt.setAttribute('class', 'wheel-lbl');
       txt.textContent = label;
-      if(cat || label === srcCam) txt.setAttribute('fill', '#050406');
+      // Texte noir uniquement si le segment est bien coloré et library-present OU source
+      if(label === srcCam || (cat && byKey[label])) txt.setAttribute('fill', '#050406');
       svg.appendChild(txt);
+
+      // Badge compteur pour les tonalités où on a des tracks réels
+      if(byKey[label]){
+        const [bx, by] = polar((r1+r2)/2 + 2, amid + 0.18);
+        const badge = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        badge.setAttribute('cx', bx);
+        badge.setAttribute('cy', by - 10);
+        badge.setAttribute('r', 5);
+        badge.setAttribute('fill', '#050406');
+        badge.setAttribute('stroke', 'rgba(255,255,255,.55)');
+        badge.setAttribute('stroke-width', '1');
+        svg.appendChild(badge);
+        const bt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        bt.setAttribute('x', bx);
+        bt.setAttribute('y', by - 7);
+        bt.setAttribute('text-anchor', 'middle');
+        bt.setAttribute('fill', '#fff');
+        bt.setAttribute('font-size', '7');
+        bt.setAttribute('font-family', 'var(--font-mono, monospace)');
+        bt.setAttribute('font-weight', '600');
+        bt.setAttribute('pointer-events', 'none');
+        bt.textContent = byKey[label].count;
+        svg.appendChild(bt);
+      }
     }
     // Outside key name
     const amid = (a1+a2)/2;
@@ -647,6 +695,9 @@ function drawWheel(srcCam, byKey){
   svg.querySelectorAll('.wheel-seg').forEach(s=>{
     s.addEventListener('click',()=>{
       const k = s.getAttribute('data-key');
+      // Ne filtre que si on a des tracks dans cette tonalité
+      if(k === srcCam){ toast('C\'est la tonalité source', 'info'); return; }
+      if(!byKey[k]){ toast('Aucun track en '+k+' dans ta library', 'warn'); return; }
       currentWheelFilter = (currentWheelFilter === k) ? null : k;
       renderMatchList(scoreMatches());
       toast(currentWheelFilter ? ('Filtre · '+currentWheelFilter) : 'Filtre réinitialisé', 'info');
@@ -740,33 +791,6 @@ function renderMatchList(scored){
   });
 }
 
-// ------------ Distance viz ------------
-function renderDistanceViz(scored){
-  const dp = document.getElementById('dist-points');
-  dp.innerHTML = '';
-  // Source point on left
-  const src = document.createElement('div');
-  src.className = 'dist-point source';
-  src.setAttribute('data-c','source');
-  src.style.left = '2%';
-  src.innerHTML = `<span class="tt">${(sourceTrack.title || 'Source').replace(/[<>]/g,'')}</span>`;
-  dp.appendChild(src);
-  // Top 15 matches, x based on combined distance (key raw + bpm pct/2)
-  const pts = scored.slice(0,15);
-  const maxDist = Math.max(...pts.map(s => (s.keyDist.raw||0) + (s.bpmDeltaPct ? Math.abs(s.bpmDeltaPct)/2 : 0)), 1);
-  pts.forEach(s => {
-    const dist = (s.keyDist.raw||0) + (s.bpmDeltaPct ? Math.abs(s.bpmDeltaPct)/2 : 0);
-    const x = 5 + (dist / maxDist) * 85; // 5% → 90%
-    const el = document.createElement('div');
-    el.className = 'dist-point';
-    el.setAttribute('data-c', s.cls);
-    el.style.left = x+'%';
-    const title = (s.track.title || 'Track').replace(/[<>]/g,'');
-    el.innerHTML = `<span class="tt">${title} · ${s.score}</span>`;
-    dp.appendChild(el);
-  });
-}
-
 // ------------ Filter chips ------------
 document.querySelectorAll('.match-filter').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -804,29 +828,70 @@ document.getElementById('see-all-matches').addEventListener('click', () => {
   location.href = url.toString();
 });
 
-// ------------ Règles : toggle switches + reset ------------
-const RULE_DEFAULTS = {
-  bpm: '±3%', key: '±2 Camelot', energy: '±1.5',
-  relative: true, phrase: true, exclude: false
-};
+// ------------ Règles éditables (persistées localStorage) ------------
+const RULES_KEY = 'trackcue_compatible_rules_v1';
+const RULE_DEFAULTS = { bpm:3, key:2, energy:1.5, relative:true, phrase:true, exclude:false };
+function getRules(){
+  try{
+    const raw = localStorage.getItem(RULES_KEY);
+    if(!raw) return {...RULE_DEFAULTS};
+    return Object.assign({...RULE_DEFAULTS}, JSON.parse(raw));
+  }catch{ return {...RULE_DEFAULTS}; }
+}
+function saveRules(r){
+  try{ localStorage.setItem(RULES_KEY, JSON.stringify(r)); }catch{}
+}
+function paintRules(){
+  const r = getRules();
+  const bpmEl = document.getElementById('rule-bpm');
+  const keyEl = document.getElementById('rule-key');
+  const eEl = document.getElementById('rule-energy');
+  bpmEl.value = r.bpm;
+  keyEl.value = r.key;
+  eEl.value = r.energy;
+  document.getElementById('rule-bpm-val').textContent = '±' + Number(r.bpm).toFixed(r.bpm % 1 ? 1 : 0) + '%';
+  document.getElementById('rule-key-val').textContent = '±' + r.key + ' Camelot';
+  document.getElementById('rule-energy-val').textContent = '±' + Number(r.energy).toFixed(1);
+  document.getElementById('rule-relative').classList.toggle('on', !!r.relative);
+  document.getElementById('rule-phrase').classList.toggle('on', !!r.phrase);
+  document.getElementById('rule-exclude').classList.toggle('on', !!r.exclude);
+}
+// Sliders
+['rule-bpm','rule-key','rule-energy'].forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('input', () => {
+    const r = getRules();
+    const field = id.replace('rule-','');
+    r[field] = parseFloat(el.value);
+    saveRules(r);
+    paintRules();
+    if(sourceTrack) renderAll();
+  });
+});
+// Switches
 ['rule-relative','rule-phrase','rule-exclude'].forEach(id => {
   const sw = document.getElementById(id);
   if(!sw) return;
   sw.style.cursor = 'pointer';
-  sw.addEventListener('click', () => {
-    sw.classList.toggle('on');
-    toast('Préférence mise à jour', 'info');
+  sw.addEventListener('click', (e) => {
+    e.preventDefault();
+    const r = getRules();
+    const field = id.replace('rule-','');
+    r[field] = !r[field];
+    saveRules(r);
+    paintRules();
+    if(sourceTrack) renderAll();
+    toast('Règle mise à jour', 'info');
   });
 });
 document.getElementById('rules-reset').addEventListener('click', () => {
-  document.getElementById('rule-bpm').textContent = RULE_DEFAULTS.bpm;
-  document.getElementById('rule-key').textContent = RULE_DEFAULTS.key;
-  document.getElementById('rule-energy').textContent = RULE_DEFAULTS.energy;
-  document.getElementById('rule-relative').classList.toggle('on', RULE_DEFAULTS.relative);
-  document.getElementById('rule-phrase').classList.toggle('on', RULE_DEFAULTS.phrase);
-  document.getElementById('rule-exclude').classList.toggle('on', RULE_DEFAULTS.exclude);
+  saveRules({...RULE_DEFAULTS});
+  paintRules();
+  if(sourceTrack) renderAll();
   toast('Règles réinitialisées', 'success');
 });
+paintRules();
 
 // ------------ Notation toggle (Camelot / Standard) ------------
 let currentNotation = 'camelot';

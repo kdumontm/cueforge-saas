@@ -55,9 +55,12 @@
     border-bottom:1px solid var(--b-subtle);
     position:sticky;top:56px;background:var(--s-1);z-index:5;
   }
-  .lib-head .sortable{cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px}
-  .lib-head .sortable:hover{color:var(--c-primary)}
-  .lib-head .sortable.active{color:var(--amber)}
+  .lib-head .sortable{cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border-radius:4px;transition:all var(--t-fast)}
+  .lib-head .sortable::after{content:"↕";opacity:.3;font-size:10px;margin-left:2px}
+  .lib-head .sortable:hover{color:var(--c-primary);background:var(--s-2)}
+  .lib-head .sortable:hover::after{opacity:.7}
+  .lib-head .sortable.active{color:var(--amber);background:var(--amber-soft)}
+  .lib-head .sortable.active::after{content:""}
   .lib-row{
     display:grid;grid-template-columns:36px 36px 1fr 120px 90px 100px 70px 120px 110px 40px;
     gap:14px;align-items:center;
@@ -216,6 +219,9 @@
     <button class="view-chip" data-view="ready">Ready to play<span class="bd" id="c-ready">—</span></button>
     <button class="view-chip" data-view="analyzing">Analyse en cours<span class="bd" id="c-analyzing">—</span></button>
     <button class="view-chip" data-view="favorites">Favoris<span class="bd" id="c-favorites">—</span></button>
+    <!-- Vues personnalisées (injectées par JS) -->
+    <span id="custom-views-slot" style="display:contents"></span>
+    <button class="view-chip" id="btn-new-view" style="border-style:dashed;color:var(--amber)">+ Nouvelle vue</button>
   </div>
 
   <!-- Filter bar -->
@@ -340,7 +346,7 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422c"></script>
 <script src="/v4/shared.js?v=20260422c"></script>
 <script>
 // ---- Auth guard ----
@@ -754,16 +760,106 @@ function exportCsv(selectedIds){
   toast(`${rows.length} track${rows.length>1?'s':''} exporté${rows.length>1?'s':''}`,'info');
 }
 
-// ---- View chips ----
-document.querySelectorAll('.view-chip').forEach(c=>{
-  c.addEventListener('click',()=>{
-    document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
-    c.classList.add('active');
-    state.view = c.dataset.view || 'all';
-    state.page = 1;
-    load();
+// ---- View chips (presets + custom saved views) ----
+const CUSTOM_VIEWS_KEY = 'trackcue_library_views_v1';
+
+function loadCustomViews(){
+  try { return JSON.parse(localStorage.getItem(CUSTOM_VIEWS_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveCustomViews(list){
+  try { localStorage.setItem(CUSTOM_VIEWS_KEY, JSON.stringify(list)); } catch {}
+}
+
+function renderCustomViews(){
+  const slot = document.getElementById('custom-views-slot');
+  if(!slot) return;
+  slot.innerHTML = '';
+  const views = loadCustomViews();
+  views.forEach(v => {
+    const chip = document.createElement('button');
+    chip.className = 'view-chip';
+    chip.dataset.customId = v.id;
+    chip.innerHTML = `${v.name}<span class="bd" style="margin-left:4px;cursor:pointer" title="Supprimer">✕</span>`;
+    chip.addEventListener('click', (e) => {
+      // Clic sur la croix : delete
+      if(e.target.classList.contains('bd')){
+        e.stopPropagation();
+        if(!confirm(`Supprimer la vue "${v.name}" ?`)) return;
+        const list = loadCustomViews().filter(x => x.id !== v.id);
+        saveCustomViews(list);
+        renderCustomViews();
+        toast('Vue supprimée','info');
+        return;
+      }
+      // Appliquer la vue
+      document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
+      chip.classList.add('active');
+      // Restaurer les filtres
+      Object.assign(state, {
+        query: v.filters.query || '',
+        bpmMin: v.filters.bpmMin ?? null,
+        bpmMax: v.filters.bpmMax ?? null,
+        key: v.filters.key || null,
+        genre: v.filters.genre || null,
+        energyMin: v.filters.energyMin ?? null,
+        energyMax: v.filters.energyMax ?? null,
+        sortBy: v.filters.sortBy || 'created_at',
+        sortDir: v.filters.sortDir || 'desc',
+        view: v.filters.view || 'all',
+        page: 1,
+      });
+      // Mettre à jour les inputs/labels
+      document.getElementById('search-input').value = state.query;
+      document.getElementById('f-bpm-min').value = state.bpmMin ?? '';
+      document.getElementById('f-bpm-max').value = state.bpmMax ?? '';
+      document.getElementById('f-genre').value = state.genre || '';
+      document.getElementById('f-energy-min').value = state.energyMin != null ? state.energyMin/10 : '';
+      document.getElementById('f-energy-max').value = state.energyMax != null ? state.energyMax/10 : '';
+      syncTriggerLabel('drop-bpm', state.bpmMin!=null || state.bpmMax!=null ? `BPM · ${state.bpmMin??'∗'}-${state.bpmMax??'∗'}` : 'BPM', state.bpmMin!=null || state.bpmMax!=null);
+      syncTriggerLabel('drop-key', state.key ? `Key · ${state.key}` : 'Key', !!state.key);
+      syncTriggerLabel('drop-genre', state.genre ? `Genre · ${state.genre}` : 'Genre', !!state.genre);
+      syncTriggerLabel('drop-energy', state.energyMin!=null || state.energyMax!=null ? 'Energy · custom' : 'Energy', state.energyMin!=null || state.energyMax!=null);
+      toast(`Vue "${v.name}" appliquée`,'info');
+      load();
+    });
+    slot.appendChild(chip);
   });
+}
+
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('.view-chip');
+  if(!c || c.id === 'btn-new-view' || c.dataset.customId) return;
+  document.querySelectorAll('.view-chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  state.view = c.dataset.view || 'all';
+  state.page = 1;
+  load();
 });
+
+// Nouvelle vue : capture l'état actuel dans localStorage
+document.getElementById('btn-new-view')?.addEventListener('click', () => {
+  const name = prompt('Nom de la vue (ex. "House 124 BPM 8A") :');
+  if(!name || !name.trim()) return;
+  const list = loadCustomViews();
+  list.push({
+    id: 'v_' + Date.now(),
+    name: name.trim().slice(0, 32),
+    filters: {
+      query: state.query,
+      bpmMin: state.bpmMin, bpmMax: state.bpmMax,
+      key: state.key, genre: state.genre,
+      energyMin: state.energyMin, energyMax: state.energyMax,
+      sortBy: state.sortBy, sortDir: state.sortDir,
+      view: state.view,
+    },
+  });
+  saveCustomViews(list);
+  renderCustomViews();
+  toast(`Vue "${name}" sauvegardée ✓`,'success');
+});
+
+renderCustomViews();
 
 // ---- Sortable headers ----
 document.querySelectorAll('.lib-head .sortable').forEach(h=>{
