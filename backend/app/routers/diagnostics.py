@@ -848,7 +848,7 @@ async def repair_track_status(
             "title": t.title or t.original_filename,
             "current_status": t.status,
             "bpm": a.bpm,
-            "key": a.key_,
+            "key": a.key,
             "cue_points_count": len(t.cue_points) if t.cue_points is not None else 0,
         }
         for t, a in rows
