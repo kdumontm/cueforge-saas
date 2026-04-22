@@ -252,16 +252,16 @@
         </div>
         <div class="sources">
           <button class="source-btn pressable">
-            <span class="status on"></span>
+            <span class="status off"></span>
             <div class="source-ic" style="background:linear-gradient(135deg,#000,#444);color:#fff">RB</div>
             <div class="source-name">Rekordbox</div>
-            <div class="mono hint">1 284 tracks</div>
+            <div class="mono hint">Non connecté</div>
           </button>
           <button class="source-btn pressable">
-            <span class="status on"></span>
+            <span class="status off"></span>
             <div class="source-ic" style="background:linear-gradient(135deg,#0061ff,#2d84ff);color:#fff">S</div>
             <div class="source-name">Serato</div>
-            <div class="mono hint">412 tracks</div>
+            <div class="mono hint">Non connecté</div>
           </button>
           <button class="source-btn pressable">
             <span class="status off"></span>
@@ -270,18 +270,18 @@
             <div class="mono hint">Non connecté</div>
           </button>
           <button class="source-btn pressable">
-            <span class="status on"></span>
+            <span class="status off"></span>
             <div class="source-ic" style="background:linear-gradient(135deg,#1db954,#1ed760);color:#fff">
               <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 14.4c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.4-1-.3.1-.7-.1-.8-.5-.1-.3.1-.7.5-.8 4-.9 7.5-.5 10.3 1.2.3.2.4.6.2.9zm1.2-2.8c-.2.4-.7.5-1.1.3-2.8-1.7-7.1-2.2-10.4-1.2-.4.1-.9-.1-1-.6-.1-.4.1-.9.6-1 3.8-1.1 8.6-.6 11.8 1.4.4.3.5.8.3 1.2zm.1-2.9c-3.4-2-9-2.2-12.2-1.2-.5.2-1.1-.1-1.3-.7-.2-.5.1-1.1.7-1.3 3.7-1.1 9.9-.9 13.8 1.4.5.3.7 1 .4 1.5-.3.5-1 .7-1.5.3z"/></svg>
             </div>
             <div class="source-name">Spotify</div>
-            <div class="mono hint">Import playlists</div>
+            <div class="mono hint">À connecter</div>
           </button>
           <button class="source-btn pressable">
-            <span class="status on"></span>
+            <span class="status off"></span>
             <div class="source-ic" style="background:linear-gradient(135deg,#ff3b30,#ff9500);color:#fff">☁</div>
             <div class="source-name">Drive / Dropbox</div>
-            <div class="mono hint">3 dossiers watch</div>
+            <div class="mono hint">À connecter</div>
           </button>
           <button class="source-btn pressable">
             <span class="status off"></span>
@@ -349,11 +349,11 @@
       <div class="queue-head">
         <div>
           <h3 class="queue-title">File d'analyse</h3>
-          <div class="queue-sub">18 tracks · 3 en cours · ~4 min restant</div>
+          <div class="queue-sub" id="qs-summary">Synchronisation…</div>
         </div>
-        <div class="mono" style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c-secondary)">
+        <div class="mono" id="qs-throughput-wrap" style="display:none;align-items:center;gap:8px;font-size:11px;color:var(--c-secondary)">
           <span class="spinner"></span>
-          <span>2.4 tracks / min</span>
+          <span id="qs-throughput">—</span>
         </div>
       </div>
 
@@ -810,11 +810,44 @@
       document.getElementById('qs-pending').textContent = pending;
       document.getElementById('qs-done').textContent = done24h;
       document.getElementById('qs-err').textContent = err;
+
+      // Summary header
+      const summaryEl = document.getElementById('qs-summary');
+      if(summaryEl){
+        const inflight = active + pending;
+        if(inflight === 0 && err === 0){
+          summaryEl.textContent = tracks.length
+            ? `${tracks.length} tracks · tout est à jour`
+            : 'Aucun import — glisse tes fichiers ici';
+        } else {
+          const parts = [];
+          if(active) parts.push(`${active} en cours`);
+          if(pending) parts.push(`${pending} en attente`);
+          if(err) parts.push(`${err} échec${err>1?'s':''}`);
+          summaryEl.textContent = parts.join(' · ');
+        }
+      }
+
+      // Throughput estimation : moyenne des dernières 24h si done24h > 0
+      const tpWrap = document.getElementById('qs-throughput-wrap');
+      const tpEl = document.getElementById('qs-throughput');
+      if(tpWrap && tpEl){
+        if(active > 0 && done24h > 0){
+          const rate = done24h / 24; // tracks/heure moyenne sur 24h
+          const etaMin = Math.max(1, Math.round((active + pending) / Math.max(rate/60, 0.05)));
+          tpEl.textContent = `~${etaMin} min restant`;
+          tpWrap.style.display = 'inline-flex';
+        } else {
+          tpWrap.style.display = 'none';
+        }
+      }
     } catch(e){
       console.warn('Queue stats failed', e);
       ['qs-active','qs-pending','qs-done','qs-err'].forEach(id => {
         const el = document.getElementById(id); if(el) el.textContent = '0';
       });
+      const summaryEl = document.getElementById('qs-summary');
+      if(summaryEl) summaryEl.textContent = 'Statistiques indisponibles';
     }
   })();
 </script>

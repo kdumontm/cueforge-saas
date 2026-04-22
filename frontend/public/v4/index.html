@@ -377,6 +377,28 @@ function coverFor(id){
 // ---- fmt helpers ----
 function bpmStr(b){ return (b==null||isNaN(b)) ? '—' : Number(b).toFixed(1); }
 function keyStr(k){ return k || '—'; }
+// Extrait BPM depuis un track (top-level ou dans analysis)
+function bpmFromTrack(t){
+  if(t == null) return null;
+  const b = t.bpm ?? t.analysis?.bpm ?? t.analysis?.tempo;
+  return (b==null || isNaN(b)) ? null : Number(b);
+}
+// Extrait clé (Camelot ou musicale) depuis un track
+function keyFromTrack(t){
+  if(t == null) return null;
+  return t.camelot || t.key || t.analysis?.camelot || t.analysis?.key || null;
+}
+// Extrait artiste depuis un track (avec fallback filename)
+function artistFromTrack(t){
+  if(t == null) return '';
+  if(t.artist) return t.artist;
+  if(t.album_artist) return t.album_artist;
+  // Si filename est "Artist - Title.mp3", extraire l'artiste
+  const fn = t.original_filename || t.filename || '';
+  const m = fn.match(/^(.+?)\s*[-–—]\s*(.+?)\.[a-z0-9]+$/i);
+  if(m) return m[1].trim();
+  return '';
+}
 function relTime(iso){
   if(!iso) return '';
   const d = new Date(iso); const now = new Date();
@@ -428,12 +450,16 @@ function relTime(iso){
   }
 
   // --- Live now : un track avec status processing/analyzing ---
-  // (on check si un des tracks fetchés a un status "processing")
-  const processing = (tracks && tracks.tracks || []).find(t => /process|analy|pending/i.test(t.status || ''));
+  // Statuts actifs uniquement — PAS "analyzed" (complété), PAS "failed", PAS "completed"
+  const IN_PROGRESS_STATUSES = ['pending','queued','processing','analyzing','uploading'];
+  const processing = (tracks && tracks.tracks || []).find(t => {
+    const st = String(t.status || t.analysis_status || '').toLowerCase();
+    return IN_PROGRESS_STATUSES.includes(st);
+  });
   if(processing){
     document.getElementById('live-now').style.display = '';
     document.getElementById('live-title').textContent = processing.title || processing.original_filename || processing.filename || 'Sans titre';
-    document.getElementById('live-artist').textContent = processing.artist || '';
+    document.getElementById('live-artist').textContent = artistFromTrack(processing);
     document.getElementById('live-cover').style.background = coverFor(processing.id);
     const pct = Number(processing.progress || 0) * 100;
     document.getElementById('live-progress-fill').style.width = `${Math.min(100,pct)}%`;
@@ -458,15 +484,16 @@ function relTime(iso){
       row.className = 'track-row pressable focus-ring';
       row.tabIndex = 0;
       const seed = (Number(t.id) || i) + 0.31;
+      const a = artistFromTrack(t);
       row.innerHTML = `
         <div class="track-cover" style="background:${coverFor(t.id)}"></div>
         <div style="min-width:0">
           <div class="track-name">${t.title || t.original_filename || t.filename || 'Sans titre'}</div>
-          <div class="track-artist">${t.artist || '—'}</div>
+          <div class="track-artist">${a || '—'}</div>
         </div>
         <div class="track-mini-wave" data-seed="${seed}"></div>
-        <div class="track-bpm">${bpmStr(t.bpm)}</div>
-        <div class="track-key">${keyStr(t.key)}</div>
+        <div class="track-bpm">${bpmStr(bpmFromTrack(t))}</div>
+        <div class="track-key">${keyStr(keyFromTrack(t))}</div>
         <button class="btn-icon btn btn-ghost btn-sm track-action" data-tt="Analyser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
       `;
       row.addEventListener('click', () => location.href = '/analyze?id=' + encodeURIComponent(t.id));
@@ -478,7 +505,11 @@ function relTime(iso){
   // --- Queue d'analyse ---
   const qEl = document.getElementById('queue-list');
   qEl.innerHTML = '';
-  const queue = trackList.filter(t => /process|analy|pending|queued/i.test(t.status || ''));
+  // Même filtre que "En analyse" : uniquement les statuts actifs (pas "analyzed")
+  const queue = trackList.filter(t => {
+    const st = String(t.status || t.analysis_status || '').toLowerCase();
+    return IN_PROGRESS_STATUSES.includes(st);
+  });
   if(queue.length === 0){
     qEl.innerHTML = `<div style="padding:16px 14px;color:var(--c-tertiary);font-family:var(--font-mono);font-size:11px">Aucun morceau en cours d'analyse.</div>`;
   } else {
@@ -513,12 +544,18 @@ function relTime(iso){
     trackList.slice(0, 6).forEach(t => {
       const item = document.createElement('div');
       item.className = 'act-item';
-      const bpmKey = [bpmStr(t.bpm)+' BPM', keyStr(t.key)].filter(x => x !== '—').join(' · ');
+      const b = bpmFromTrack(t);
+      const k = keyFromTrack(t);
+      const a = artistFromTrack(t);
+      const bpmKey = [
+        b != null ? (b.toFixed(1)+' BPM') : null,
+        k || null
+      ].filter(Boolean).join(' · ');
       const ts = t.updated_at || t.created_at;
       item.innerHTML = `
         <span class="act-dot analyze">●</span>
         <div class="act-body">
-          <div class="act-title"><strong>${t.artist || 'Artiste inconnu'} — ${t.title || t.original_filename || t.filename || 'Sans titre'}</strong></div>
+          <div class="act-title"><strong>${a || 'Artiste inconnu'} — ${t.title || t.original_filename || t.filename || 'Sans titre'}</strong></div>
           <div class="act-meta">${bpmKey || '—'}${ts ? ' · ' + relTime(ts) : ''}</div>
         </div>`;
       item.style.cursor = 'pointer';
