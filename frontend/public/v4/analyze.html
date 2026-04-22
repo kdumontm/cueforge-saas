@@ -1535,6 +1535,32 @@ function getActiveTool(){
   return btn ? btn.textContent.trim().toUpperCase() : 'V';
 }
 
+// ========== Zoom waveform (boutons Zoom in/out) ==========
+// 🔴 Fix 2026-04-22 : avant c'étaient des boutons purement décoratifs (aucun handler).
+//    Maintenant : zoom horizontal via minWidth sur .wave et .ruler, overflow-x scroll
+//    sur .wave-block quand zoom > 1. Le ruler scale avec la wave pour rester aligné.
+let zoomLevel = 1;
+function setZoom(newLevel){
+  const clamped = Math.max(1, Math.min(8, newLevel));
+  if(clamped === zoomLevel) return;
+  zoomLevel = clamped;
+  const waveEl = document.getElementById('wave');
+  const rulerEl = document.getElementById('phrase-ruler');
+  const block = document.querySelector('.wave-block');
+  if(waveEl) waveEl.style.minWidth = (100 * zoomLevel) + '%';
+  if(rulerEl) rulerEl.style.minWidth = (100 * zoomLevel) + '%';
+  if(block){
+    block.style.overflowX = zoomLevel > 1 ? 'auto' : 'hidden';
+    block.style.overflowY = 'hidden';
+  }
+  const label = document.querySelector('.zoom-label');
+  if(label) label.textContent = zoomLevel + '×';
+}
+document.querySelector('[data-tt="Zoom in"]')?.addEventListener('click', () => setZoom(zoomLevel + 1));
+document.querySelector('[data-tt="Zoom out"]')?.addEventListener('click', () => setZoom(zoomLevel - 1));
+// Align le label initial (HTML statique affichait "4×" à tort)
+(() => { const l = document.querySelector('.zoom-label'); if(l) l.textContent = '1×'; })();
+
 // ========== Waveform click — V=seek, C=insert cue, L/S/F=toast ==========
 wave.addEventListener('click', async (e) => {
   // Ignorer les clicks sur les markers existants (ils ont leurs propres handlers)
