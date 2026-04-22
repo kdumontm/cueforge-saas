@@ -593,7 +593,7 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422d"></script>
 <script src="/v4/shared.js?v=20260422d"></script>
 <script>
   // ---- Auth guard ----
@@ -669,19 +669,63 @@
     return row;
   }
 
-  function markDone(row, track){
-    row.className = 'q-row done';
+  function markUploadComplete(row, track){
+    // Upload OK, analyse en attente → état "pending" visible dans le filtre
+    row.className = 'q-row pending';
+    row.setAttribute('data-track-id', track?.id || '');
     const title = row.querySelector('.q-title');
     if(track?.title || track?.original_filename) title.textContent = track.title || track.original_filename;
     row.querySelector('.q-meta').innerHTML = `
       <span class="mono">Upload terminé</span>
       <span>·</span>
-      <span class="mono">Analyse en queue</span>
+      <span class="mono" style="color:var(--cyan)">Analyse en cours…</span>
     `;
     row.querySelector('.q-status').innerHTML = `
-      <span class="q-step-chip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg>Ready</span>
-      <button class="btn btn-sm btn-ghost" onclick="location.href='/analyze?id=${track?.id||''}'">Ouvrir</button>
+      <span class="q-step-chip active"><span class="spinner" style="width:9px;height:9px;border-width:1.5px;border-top-color:var(--cyan)"></span>Analyse</span>
     `;
+    // Démarre le polling backend
+    if(track?.id) pollAnalysis(row, track.id);
+  }
+
+  async function pollAnalysis(row, trackId, attempts = 0){
+    const MAX_ATTEMPTS = 60; // 60 × 5s = 5 min max
+    if(attempts >= MAX_ATTEMPTS){
+      row.querySelector('.q-meta').innerHTML = `<span style="color:#fecaca">Analyse plus longue que prévu — vérifie dans la Library</span>`;
+      row.querySelector('.q-status').innerHTML = `
+        <button class="btn btn-sm btn-ghost" onclick="location.href='/v4/library.html'">Voir library</button>
+      `;
+      return;
+    }
+    try {
+      // Récupère le track mis à jour
+      const t = await (api.track ? api.track(trackId) : api.request(`/tracks/${trackId}`)).catch(()=>null);
+      const status = (t?.analysis_status || t?.status || '').toLowerCase();
+      if(status === 'completed' || status === 'ready' || t?.analysis){
+        // Analyse terminée → état done + BPM/Key si dispo
+        row.className = 'q-row done';
+        const bpm = t.bpm || t.analysis?.bpm;
+        const key = t.key || t.analysis?.key;
+        const metaBits = [];
+        if(bpm) metaBits.push(`<span class="mono">${Number(bpm).toFixed(1)} BPM</span>`);
+        if(key) metaBits.push(`<span class="mono">${key}</span>`);
+        metaBits.push(`<span class="mono" style="color:var(--green,#4ade80)">✓ Analysé</span>`);
+        row.querySelector('.q-meta').innerHTML = metaBits.join('<span>·</span>');
+        row.querySelector('.q-status').innerHTML = `
+          <span class="q-step-chip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg>Prêt</span>
+          <button class="btn btn-sm btn-ghost" onclick="location.href='/v4/analyze.html?id=${trackId}'">Ouvrir</button>
+        `;
+        return;
+      }
+      if(status === 'error' || status === 'failed'){
+        markError(row, t?.error_message || 'Analyse échouée');
+        return;
+      }
+      // Toujours en cours → re-poll dans 5s
+      setTimeout(() => pollAnalysis(row, trackId, attempts + 1), 5000);
+    } catch(e){
+      // Erreur réseau : retry quand même, plus lentement
+      setTimeout(() => pollAnalysis(row, trackId, attempts + 1), 10000);
+    }
   }
 
   function markError(row, msg){
@@ -702,8 +746,8 @@
           const pct = Math.round(p*100);
           progressEl.textContent = `Upload · ${pct}%`;
         });
-        markDone(row, t);
-        toast(`${f.name} uploadé`,'success');
+        markUploadComplete(row, t);
+        toast(`${f.name} uploadé — analyse en cours`,'success');
       } catch(err){
         markError(row, err.message);
         toast(`Erreur upload : ${err.message}`,'error');
@@ -740,12 +784,40 @@
     });
   });
 
-  // Queue filter chips
+  // Queue filter chips — filtre vraiment les lignes par classe q-row
+  function applyQueueFilter(filter){
+    const rows = document.querySelectorAll('#qList .q-row');
+    let visible = 0;
+    rows.forEach(r => {
+      let show = false;
+      if(filter === 'all') show = true;
+      else if(filter === 'analyzing') show = r.classList.contains('analyzing');
+      else if(filter === 'pending') show = r.classList.contains('pending');
+      else if(filter === 'done') show = r.classList.contains('done');
+      else if(filter === 'err') show = r.classList.contains('err');
+      r.style.display = show ? '' : 'none';
+      if(show) visible++;
+    });
+    // Affiche un message vide si aucun résultat
+    const empty = document.getElementById('qEmptyState');
+    if(empty){
+      if(visible === 0 && rows.length > 0){
+        empty.style.display = '';
+        const labels = {all:'upload', analyzing:'upload en cours', pending:'track en attente d\'analyse', done:'analyse réussie', err:'échec'};
+        empty.innerHTML = `Aucun ${labels[filter]||'résultat'} pour ce filtre`;
+      } else if(rows.length === 0){
+        empty.style.display = '';
+        empty.innerHTML = 'Aucun upload en cours — glisse un fichier ou clique sur <strong>Choisir fichiers</strong>';
+      } else {
+        empty.style.display = 'none';
+      }
+    }
+  }
   document.querySelectorAll('.q-filter .chip').forEach(c=>{
     c.addEventListener('click',()=>{
       document.querySelectorAll('.q-filter .chip').forEach(x=>x.classList.remove('active'));
       c.classList.add('active');
-      toast(`Filtre : ${c.textContent.split(' ·')[0]}`,'info');
+      applyQueueFilter(c.dataset.filter || 'all');
     });
   });
 

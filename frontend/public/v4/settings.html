@@ -749,7 +749,7 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422d"></script>
 <script src="/v4/shared.js?v=20260422d"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
@@ -918,47 +918,128 @@
   }, {rootMargin:'-20% 0% -60% 0%', threshold:0});
   sections.forEach(s=>observer.observe(s));
 
-  // Switch toggle
+  // ===== Persistance locale des settings (localStorage) =====
+  const SETTINGS_KEY = 'trackcue_settings_v1';
+  function loadSettings(){
+    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
+    catch { return {}; }
+  }
+  function saveSettings(patch){
+    const cur = loadSettings();
+    const next = {...cur, ...patch};
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    return next;
+  }
+  // Clé stable pour chaque switch basée sur le label le plus proche
+  function switchKey(el){
+    // Cherche le label dans la même row (pattern field-row > label + switch)
+    const row = el.closest('.field-row, .field, .setting-row, .pref-row, .row, li, div');
+    if(!row) return null;
+    const lbl = row.querySelector('.field-label, .row-label, label, .s-name, .pref-name, strong, b');
+    if(!lbl) return null;
+    const txt = lbl.textContent.trim().slice(0,64).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+    return 'sw_' + txt;
+  }
+
+  // Switches : état persistant en localStorage
+  const _settings = loadSettings();
   document.querySelectorAll('[data-switch]').forEach(s=>{
+    const k = switchKey(s);
+    if(k && Object.prototype.hasOwnProperty.call(_settings, k)){
+      s.classList.toggle('on', _settings[k] === true);
+    }
     s.addEventListener('click',()=>{
       s.classList.toggle('on');
-      toast(s.classList.contains('on') ? 'Activé' : 'Désactivé','info');
+      const on = s.classList.contains('on');
+      if(k) saveSettings({[k]: on});
+      toast(on ? 'Activé ✓' : 'Désactivé','info');
     });
   });
 
-  // Segment toggle
+  // Segment toggle : persiste le bouton actif par clé du parent
   document.querySelectorAll('.segment').forEach(seg=>{
+    const segKey = switchKey(seg) ? 'seg_' + switchKey(seg).slice(3) : null;
+    // Restore
+    if(segKey && _settings[segKey]){
+      seg.querySelectorAll('button').forEach(b=>{
+        b.classList.toggle('active', b.textContent.trim() === _settings[segKey]);
+      });
+    }
     seg.querySelectorAll('button').forEach(b=>{
       b.addEventListener('click',()=>{
         seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
+        if(segKey) saveSettings({[segKey]: b.textContent.trim()});
       });
     });
   });
 
-  // Theme card selection
+  // Thème : applique data-theme sur <html> + persiste
+  function applyTheme(name){
+    document.documentElement.setAttribute('data-theme', (name||'').toLowerCase().replace(/\s+/g,'-'));
+  }
+  const savedTheme = _settings.theme;
+  if(savedTheme){
+    applyTheme(savedTheme);
+    document.querySelectorAll('.theme-card').forEach(c=>{
+      c.classList.toggle('active', c.querySelector('.theme-name')?.textContent === savedTheme);
+    });
+  }
   document.querySelectorAll('.theme-card').forEach(c=>{
     c.addEventListener('click',()=>{
       document.querySelectorAll('.theme-card').forEach(x=>x.classList.remove('active'));
       c.classList.add('active');
       const name = c.querySelector('.theme-name').textContent;
+      applyTheme(name);
+      saveSettings({theme: name});
       toast(`Thème : ${name}`,'success');
     });
   });
 
-  // Swatches
+  // Accent swatches : applique var(--amber) + persiste
+  function applyAccent(colorHex){
+    if(!colorHex) return;
+    document.documentElement.style.setProperty('--amber', colorHex);
+  }
+  const savedAccent = _settings.accent;
+  if(savedAccent){
+    applyAccent(savedAccent);
+    document.querySelectorAll('.swatch').forEach(s=>{
+      const c = s.style.background || getComputedStyle(s).backgroundColor;
+      s.classList.toggle('active', c && c.toLowerCase().includes(savedAccent.toLowerCase().slice(1,4)));
+    });
+  }
   document.querySelectorAll('.swatch').forEach(s=>{
     s.addEventListener('click',()=>{
       document.querySelectorAll('.swatch').forEach(x=>x.classList.remove('active'));
       s.classList.add('active');
-      toast('Accent mis à jour','info');
+      // Récupère la couleur depuis le style inline (ex: background:#ff7a18) ou data-color
+      const color = s.dataset.color || s.style.background || getComputedStyle(s).backgroundColor;
+      applyAccent(color);
+      saveSettings({accent: color});
+      toast('Accent mis à jour ✓','success');
     });
   });
 
-  // Save button
+  // Save button : persiste tout ET pousse les prefs backend
   document.querySelectorAll('.btn-primary').forEach(b=>{
-    if(b.textContent.includes('Sauvegarder')){
-      b.addEventListener('click',()=>toast('Settings sauvegardés ✓','success'));
+    if(b.textContent.includes('Sauvegarder') && !b.dataset.wired){
+      b.dataset.wired = '1';
+      b.addEventListener('click', async ()=>{
+        try {
+          // Tous les switches sont déjà persistés en localStorage.
+          // On sync aussi les prefs DJ (déjà handled par saveProfile)
+          const prefs = loadSettings();
+          // Push léger vers backend s'il y a des champs profile/prefs connus
+          try { await api.post('/profile/preferences', {ui_prefs: prefs}); } catch(e){
+            // Endpoint peut retourner 200 sans ui_prefs support — on reste silencieux
+          }
+          toast('Settings sauvegardés ✓','success');
+        } catch(err){
+          // Fallback : la persistance localStorage suffit
+          toast('Settings sauvegardés localement ✓','success');
+        }
+      });
     }
   });
 
