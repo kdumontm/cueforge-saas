@@ -383,28 +383,16 @@
           <div class="panel-sub" id="genres-sub">Distribution de ta librairie</div>
         </div>
       </div>
-      <!-- Donut -->
+      <!-- Donut (arcs injectés dynamiquement par loadStats depuis s.genres_breakdown) -->
       <div style="display:flex;gap:16px;align-items:center;margin-top:8px">
-        <svg viewBox="0 0 120 120" style="width:120px;height:120px;flex-shrink:0">
-          <!-- Melodic techno 42% -->
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#ff7a18" stroke-width="20" stroke-dasharray="126.66 301.59" stroke-dashoffset="0" transform="rotate(-90 60 60)"/>
-          <!-- Deep house 24% -->
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#ff2e6b" stroke-width="20" stroke-dasharray="72.38 301.59" stroke-dashoffset="-126.66" transform="rotate(-90 60 60)"/>
-          <!-- Progressive 18% -->
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#8b5cf6" stroke-width="20" stroke-dasharray="54.29 301.59" stroke-dashoffset="-199.04" transform="rotate(-90 60 60)"/>
-          <!-- Afro 10% -->
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#1fd4d4" stroke-width="20" stroke-dasharray="30.16 301.59" stroke-dashoffset="-253.33" transform="rotate(-90 60 60)"/>
-          <!-- Other 6% -->
-          <circle cx="60" cy="60" r="48" fill="none" stroke="#d4ff2a" stroke-width="20" stroke-dasharray="18.1 301.59" stroke-dashoffset="-283.49" transform="rotate(-90 60 60)"/>
-          <text id="donut-total" x="60" y="58" text-anchor="middle" fill="#f4f1ec" font-family="Space Grotesk" font-size="18" font-weight="700">0</text>
+        <svg id="genre-donut-svg" viewBox="0 0 120 120" style="width:120px;height:120px;flex-shrink:0">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="20"/>
+          <g id="genre-donut-arcs"></g>
+          <text id="donut-total" x="60" y="58" text-anchor="middle" fill="#f4f1ec" font-family="Space Grotesk" font-size="18" font-weight="700">—</text>
           <text x="60" y="72" text-anchor="middle" fill="#6b6780" font-family="JetBrains Mono" font-size="9">tracks</text>
         </svg>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#ff7a18"></span><span style="flex:1">Melodic tech.</span><span class="mono muted">42%</span></div>
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#ff2e6b"></span><span style="flex:1">Deep house</span><span class="mono muted">24%</span></div>
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#8b5cf6"></span><span style="flex:1">Progressive</span><span class="mono muted">18%</span></div>
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#1fd4d4"></span><span style="flex:1">Afro / Organic</span><span class="mono muted">10%</span></div>
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:#d4ff2a"></span><span style="flex:1">Autres</span><span class="mono muted">6%</span></div>
+        <div id="genre-legend" style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
+          <div style="padding:8px 0;text-align:center;color:var(--c-tertiary);font-size:11px">Chargement…</div>
         </div>
       </div>
       <!-- BPM histogram -->
@@ -433,7 +421,7 @@
         <div class="cam-cell" data-heat="0"><div class="num">5A</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">6A</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">7A</div><div class="count">—</div></div>
-        <div class="cam-cell" data-heat="5" style="animation:pulseCell 2s ease-in-out infinite"><div class="num">8A</div><div class="count">—</div></div>
+        <div class="cam-cell" data-heat="0"><div class="num">8A</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">9A</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">10A</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">11A</div><div class="count">—</div></div>
@@ -454,12 +442,12 @@
         <div class="cam-cell" data-heat="0"><div class="num">11B</div><div class="count">—</div></div>
         <div class="cam-cell" data-heat="0"><div class="num">12B</div><div class="count">—</div></div>
       </div>
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--b-subtle);display:flex;justify-content:space-between;align-items:center">
+      <div id="signature-key-row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--b-subtle);display:flex;justify-content:space-between;align-items:center">
         <div>
           <div class="eyebrow">Signature clé</div>
-          <div class="mono" style="font-size:16px;font-weight:600;margin-top:4px">8A <span style="color:var(--c-tertiary)">— Fm (A minor)</span></div>
+          <div class="mono" id="signature-key-label" style="font-size:16px;font-weight:600;margin-top:4px">— <span style="color:var(--c-tertiary)">aucune tonalité dominante</span></div>
         </div>
-        <span class="chip chip-pink"><span class="chip-dot"></span>10% de vos tracks</span>
+        <span class="chip chip-pink" id="signature-key-chip" style="display:none"><span class="chip-dot"></span><span id="signature-key-pct">—</span> de vos tracks</span>
       </div>
     </div>
   </div>
@@ -503,8 +491,8 @@
     </div>
   </div>
 
-  <!-- Row 4: Insight callout -->
-  <div class="panel reveal reveal-5" style="margin-top:8px;background:
+  <!-- Row 4: Insight callout - caché tant qu'on n'a pas de vraies data de transitions -->
+  <div id="insight-panel" class="panel reveal reveal-5" style="display:none;margin-top:8px;background:
     radial-gradient(500px 250px at 0% 0%, rgba(139,92,246,.22), transparent 55%),
     radial-gradient(500px 250px at 100% 100%, rgba(255,122,24,.18), transparent 55%),
     linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);">
@@ -513,18 +501,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:28px;height:28px"><path d="M12 2l2.5 7.5H22l-6.3 4.6L18.2 22 12 17.3 5.8 22l2.5-7.9L2 9.5h7.5z"/></svg>
       </div>
       <div>
-        <div class="eyebrow" style="color:#b9a3ff">Insight de la semaine</div>
-        <div style="font-family:var(--font-display);font-size:18px;font-weight:600;margin-top:4px;line-height:1.3">
-          Vos meilleures transitions arrivent <span class="editorial" style="color:var(--amber);font-size:18px">entre 1h et 1h15 de set</span> — c'est votre zone de flow.
-        </div>
-        <div style="color:var(--c-secondary);font-size:13px;margin-top:6px">Score moyen 9.2 sur 14 transitions mesurées. Gardez vos tracks peak-hour autour de cette fenêtre.</div>
+        <div class="eyebrow" style="color:#b9a3ff">Insight</div>
+        <div id="insight-main" style="font-family:var(--font-display);font-size:18px;font-weight:600;margin-top:4px;line-height:1.3">—</div>
+        <div id="insight-sub" style="color:var(--c-secondary);font-size:13px;margin-top:6px">—</div>
       </div>
       <button class="btn btn-ghost" id="stats-view-insight">Voir l'analyse →</button>
     </div>
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
+<script src="/v4/api.js?v=20260422c"></script>
 <script src="/v4/shared.js?v=20260422c"></script>
 <script>
   // ---- Auth guard ----
@@ -630,20 +616,37 @@
           ? `Distribution de tes ${fmt.num(s.total_tracks)} track${s.total_tracks>1?'s':''}`
           : 'Importe des tracks pour voir ta répartition';
       }
-      // Update genre list (legend)
-      const totalGenreCount = (s.genres_breakdown || []).reduce((sum,g)=>sum+g.count, 0);
-      if(totalGenreCount > 0){
-        const genreLegendParent = document.querySelector('.panel svg[viewBox="0 0 120 120"]')?.parentElement;
-        if(genreLegendParent){
-          const legendList = genreLegendParent.querySelector('div[style*="flex-direction:column"]');
-          if(legendList){
-            const colors = ['#ff7a18','#ff2e6b','#8b5cf6','#1fd4d4','#d4ff2a'];
-            legendList.innerHTML = (s.genres_breakdown.slice(0,5)).map((g,i)=>{
-              const pct = Math.round(g.count/totalGenreCount*100);
-              return `<div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]||'#6b6780'}"></span><span style="flex:1">${g.genre}</span><span class="mono muted">${pct}%</span></div>`;
-            }).join('');
-          }
+      // Update genre legend + donut arcs avec vraies données
+      const genres = (s.genres_breakdown || []);
+      const totalGenreCount = genres.reduce((sum,g)=>sum+g.count, 0);
+      const colors = ['#ff7a18','#ff2e6b','#8b5cf6','#1fd4d4','#d4ff2a'];
+      const legendEl = document.getElementById('genre-legend');
+      const arcsEl = document.getElementById('genre-donut-arcs');
+      if(totalGenreCount > 0 && genres.length > 0){
+        if(legendEl){
+          legendEl.innerHTML = genres.slice(0,5).map((g,i)=>{
+            const pct = Math.round(g.count/totalGenreCount*100);
+            const name = (g.genre||'—').replace(/</g,'&lt;');
+            return `<div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]||'#6b6780'}"></span><span style="flex:1">${name}</span><span class="mono muted">${pct}%</span></div>`;
+          }).join('');
         }
+        if(arcsEl){
+          // Arcs: circumference of r=48 = 2π·48 ≈ 301.59
+          const CIRC = 2 * Math.PI * 48;
+          let offset = 0;
+          arcsEl.innerHTML = genres.slice(0,5).map((g,i)=>{
+            const frac = g.count/totalGenreCount;
+            const len = CIRC * frac;
+            const arc = `<circle cx="60" cy="60" r="48" fill="none" stroke="${colors[i]||'#6b6780'}" stroke-width="20" stroke-dasharray="${len.toFixed(2)} ${(CIRC-len).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 60 60)"/>`;
+            offset += len;
+            return arc;
+          }).join('');
+        }
+      } else {
+        if(legendEl){
+          legendEl.innerHTML = '<div style="padding:8px 0;text-align:center;color:var(--c-tertiary);font-size:11px">Ajoute des tracks avec un genre pour voir ta répartition</div>';
+        }
+        if(arcsEl) arcsEl.innerHTML = '';
       }
 
       // BPM médiane
@@ -710,10 +713,13 @@
           : 'Aucun set · crée ton premier pour voir l\'historique';
       }
 
-      // Key distribution — update Camelot heatmap counts
+      // Key distribution — update Camelot heatmap counts + signature key
+      const keyDistRaw = (s.key_distribution || []);
       const keyMap = {};
-      (s.key_distribution || []).forEach(k => { keyMap[k.key] = k.count; });
+      let totalKeyCount = 0;
+      keyDistRaw.forEach(k => { keyMap[k.key] = k.count; totalKeyCount += Number(k.count||0); });
       const maxKey = Math.max(1, ...Object.values(keyMap));
+      let topKey = null; let topKeyCount = 0;
       document.querySelectorAll('.cam-cell').forEach(cell => {
         const camelot = cell.querySelector('.num')?.textContent;
         const countEl = cell.querySelector('.count');
@@ -722,13 +728,144 @@
         // Re-heat based on real data
         const heat = count === 0 ? 0 : Math.ceil(count/maxKey * 5);
         cell.setAttribute('data-heat', heat);
+        // Clear any existing pulse animation
+        cell.style.animation = '';
+        if(count > topKeyCount){ topKeyCount = count; topKey = camelot; }
       });
+      // Signature key: apply pulse on real top key + update label
+      const sigLabel = document.getElementById('signature-key-label');
+      const sigChip = document.getElementById('signature-key-chip');
+      const sigPct = document.getElementById('signature-key-pct');
+      if(topKey && topKeyCount > 0){
+        // Camelot → note humaine (minor = A suffix, major = B suffix)
+        const CAMELOT_TO_NOTE = {
+          '1A':'Abm','1B':'B','2A':'Ebm','2B':'F#','3A':'Bbm','3B':'Db',
+          '4A':'Fm','4B':'Ab','5A':'Cm','5B':'Eb','6A':'Gm','6B':'Bb',
+          '7A':'Dm','7B':'F','8A':'Am','8B':'C','9A':'Em','9B':'G',
+          '10A':'Bm','10B':'D','11A':'F#m','11B':'A','12A':'Dbm','12B':'E',
+        };
+        const note = CAMELOT_TO_NOTE[topKey] || '—';
+        if(sigLabel) sigLabel.innerHTML = `${topKey} <span style="color:var(--c-tertiary)">— ${note}</span>`;
+        const sharePct = totalKeyCount > 0 ? Math.round(topKeyCount/totalKeyCount*100) : 0;
+        if(sigChip && sigPct){
+          sigChip.style.display = '';
+          sigPct.textContent = sharePct + '%';
+        }
+        // Apply pulse animation on top key cell
+        document.querySelectorAll('.cam-cell').forEach(cell => {
+          if(cell.querySelector('.num')?.textContent === topKey){
+            cell.style.animation = 'pulseCell 2s ease-in-out infinite';
+          }
+        });
+      } else {
+        if(sigLabel) sigLabel.innerHTML = `— <span style="color:var(--c-tertiary)">pas encore de tonalité dominante</span>`;
+        if(sigChip) sigChip.style.display = 'none';
+      }
 
-      // Activity heatmap — real 30 days data projected into 52-week grid
+      // Activity heatmap — real 30 days data (not projected into fake 52-week grid)
       const activityByDate = {};
-      (s.activity_last_30_days || []).forEach(a => { activityByDate[a.date] = a.uploads; });
+      (s.activity_last_30_days || []).forEach(a => { activityByDate[a.date] = Number(a.uploads||0); });
       window._activityByDate = activityByDate;
-      window._maxDaily = Math.max(1, ...Object.values(activityByDate));
+      const _maxDaily = Math.max(1, ...Object.values(activityByDate), 1);
+      window._maxDaily = _maxDaily;
+      // Rebuild heatmap: 52 cols × 7 rows, mais seulement les 30 derniers jours ont des données réelles
+      (function rebuildHeatmap(){
+        const el = document.getElementById('heatmap');
+        if(!el) return;
+        el.innerHTML = '';
+        el.style.gridTemplateColumns = 'repeat(52,1fr)';
+        el.style.gridTemplateRows = 'repeat(7,14px)';
+        const today = new Date();
+        // Align end of grid (bottom-right) with aujourd'hui
+        // Case (r=6, c=51) = today. Each step back in c = -7 days, -1 r = -1 day
+        let bestCount = 0; let bestDate = null;
+        for(let r=0;r<7;r++){
+          for(let c=0;c<52;c++){
+            const cell = document.createElement('div');
+            cell.className = 'heat-cell';
+            // Days ago: total cells = 52*7=364; bottom-right = 0 days ago
+            const daysAgo = (51-c)*7 + (6-r);
+            const d = new Date(today); d.setDate(today.getDate() - daysAgo);
+            const iso = d.toISOString().slice(0,10);
+            const count = activityByDate[iso] || 0;
+            let lvl = 0;
+            if(count > 0){
+              const ratio = count / _maxDaily;
+              if(ratio >= 0.85) lvl = 4;
+              else if(ratio >= 0.6) lvl = 3;
+              else if(ratio >= 0.35) lvl = 2;
+              else lvl = 1;
+            }
+            cell.setAttribute('data-l', lvl);
+            cell.setAttribute('data-tt', `${iso} · ${count} track${count>1?'s':''}`);
+            if(count > bestCount){ bestCount = count; bestDate = iso; }
+            el.appendChild(cell);
+          }
+        }
+        // Meilleur jour override avec la vraie valeur computed here
+        const bestDayEl = document.getElementById('best-day');
+        if(bestDayEl && bestDate && bestCount > 0){
+          bestDayEl.textContent = `${fmt.date(bestDate)} — ${bestCount} track${bestCount>1?'s':''}`;
+        } else if(bestDayEl){
+          bestDayEl.textContent = '—';
+        }
+      })();
+
+      // BPM histogram — on va fetch les tracks et construire un vrai histogramme
+      (async function realBpmHisto(){
+        const el = document.getElementById('bpmHisto');
+        if(!el) return;
+        try {
+          const tr = await api.tracks({limit:500}).catch(()=>({tracks:[]}));
+          const list = tr.tracks || tr.items || [];
+          const bpms = list.map(t => Number(t.bpm || t.analysis?.bpm || 0)).filter(v => v > 0);
+          el.innerHTML = '';
+          if(bpms.length === 0){
+            el.innerHTML = '<div style="padding:28px 0;text-align:center;color:var(--c-tertiary);font-size:11px;grid-column:1 / -1">Aucun BPM analysé pour l\'instant</div>';
+            return;
+          }
+          // Bins de 1.5 BPM de 100 à 145 → 30 bins
+          const BIN_W = 1.5; const BIN_START = 100; const BINS = 30;
+          const counts = new Array(BINS).fill(0);
+          bpms.forEach(b => {
+            const idx = Math.floor((b - BIN_START) / BIN_W);
+            if(idx >= 0 && idx < BINS) counts[idx]++;
+          });
+          const peak = Math.max(...counts, 1);
+          const peakIdx = counts.indexOf(peak);
+          counts.forEach((v,i)=>{
+            const bar = document.createElement('div');
+            bar.className = 'bar' + (i===peakIdx && v>0 ? ' peak' : '');
+            bar.style.height = (v/peak*100)+'%';
+            bar.setAttribute('data-label', (BIN_START + i*BIN_W).toFixed(0));
+            bar.title = `${(BIN_START+i*BIN_W).toFixed(0)} BPM · ${v} tracks`;
+            el.appendChild(bar);
+          });
+          // Median: compute real median from bpm array
+          const sorted = [...bpms].sort((a,b)=>a-b);
+          const median = sorted.length % 2 === 1
+            ? sorted[(sorted.length-1)/2]
+            : (sorted[sorted.length/2 - 1] + sorted[sorted.length/2]) / 2;
+          const bpmMed = document.getElementById('bpm-median');
+          if(bpmMed) bpmMed.textContent = median.toFixed(0);
+        } catch(e){
+          console.warn('BPM histo error:', e);
+          el.innerHTML = '<div style="padding:28px 0;text-align:center;color:var(--c-tertiary);font-size:11px;grid-column:1 / -1">Erreur de chargement</div>';
+        }
+      })();
+
+      // Insight panel — affiché uniquement si on a des vraies transitions et sets
+      const insightPanel = document.getElementById('insight-panel');
+      const insightMain = document.getElementById('insight-main');
+      const insightSub = document.getElementById('insight-sub');
+      if(setsCount > 0 && totalTx > 0 && insightPanel){
+        const pctOk = Math.round(((Number(tq.perfect||0)+Number(tq.good||0))/totalTx)*100);
+        insightPanel.style.display = '';
+        if(insightMain) insightMain.innerHTML = `Sur tes ${setsCount} set${setsCount>1?'s':''}, <span class="editorial" style="color:var(--amber);font-size:18px">${pctOk}% de tes transitions</span> sont notées ≥ 8.`;
+        if(insightSub) insightSub.textContent = `Analyse basée sur ${totalTx} transition${totalTx>1?'s':''} mesurée${totalTx>1?'s':''}. Continue d'affiner tes enchaînements clé+BPM pour monter ce score.`;
+      } else if(insightPanel){
+        insightPanel.style.display = 'none';
+      }
 
       // Header sub
       const sub = document.querySelector('.page-sub');
@@ -741,68 +878,11 @@
     }
   })();
 
-  // BPM histogram (100 → 140) — fallback visualisation (updated by real data if available)
-  (function(){
-    const el = document.getElementById('bpmHisto');
-    const data = [2,4,6,8,10,14,18,24,30,42,58,74,92,110,125,108,82,64,46,30,20,12,8,5,3,2,1,1,0,0];
-    const peak = Math.max(...data);
-    const peakIdx = data.indexOf(peak);
-    data.forEach((v,i)=>{
-      const bar = document.createElement('div');
-      bar.className = 'bar' + (i===peakIdx ? ' peak' : '');
-      bar.style.height = (v/peak*100)+'%';
-      bar.setAttribute('data-label', (100 + i*1.5).toFixed(0));
-      bar.title = `${(100+i*1.5).toFixed(0)} BPM · ${v} tracks`;
-      el.appendChild(bar);
-    });
-  })();
-
-  // Activity heatmap 52 cols × 7 rows
-  (function(){
-    const el = document.getElementById('heatmap');
-    const days = ['Lun','Mer','Ven'];
-    // Label row placeholder
-    // Day labels column
-    const labelCol = document.createElement('div');
-    labelCol.style.display = 'grid';
-    labelCol.style.gridRow = '1 / span 7';
-    labelCol.style.gridTemplateRows = 'repeat(7,1fr)';
-    labelCol.style.gap = '3px';
-    ['','Lun','','Mer','','Ven',''].forEach(d=>{
-      const s = document.createElement('div');
-      s.textContent = d;
-      s.className = 'day-label';
-      s.style.fontSize = '9px';
-      s.style.color = '#6b6780';
-      labelCol.appendChild(s);
-    });
-    // Simpler: just build a 7-row × 52-col grid of cells
-    el.style.gridTemplateColumns = 'repeat(52,1fr)';
-    el.style.gridTemplateRows = 'repeat(7,14px)';
-    el.innerHTML = '';
-    const now = new Date();
-    for(let r=0;r<7;r++){
-      for(let c=0;c<52;c++){
-        const cell = document.createElement('div');
-        cell.className = 'heat-cell';
-        // Fake activity: weekend + recent weeks higher
-        const rand = seededRand(r*53+c);
-        const recentBoost = c > 44 ? 1.2 : 1;
-        const weekendBoost = (r===5||r===6) ? 1.4 : 1;
-        const v = rand * recentBoost * weekendBoost;
-        let lvl = 0;
-        if(v > 0.85) lvl = 4;
-        else if(v > 0.65) lvl = 3;
-        else if(v > 0.4) lvl = 2;
-        else if(v > 0.2) lvl = 1;
-        if(c > 50 && r > 4) lvl = 0; // future days
-        cell.setAttribute('data-l', lvl);
-        const weeksAgo = 51 - c;
-        cell.setAttribute('data-tt', `Sem -${weeksAgo} · ${Math.floor(v*40)} tracks`);
-        el.appendChild(cell);
-      }
-    }
-  })();
+  // NOTE (2026-04-22): BPM histogramme + activity heatmap sont désormais
+  // entièrement construits par loadStats() à partir de vraies données
+  // (api.tracks + s.activity_last_30_days). Les anciens IIFE fakes utilisant
+  // seededRand/data[] hardcodés ont été supprimés — demande Kevin
+  // "Je vois que du fake info je veux que du réel par rapport a mon compte".
 
   // Camelot cell pulse animation keyframe
   const style = document.createElement('style');
