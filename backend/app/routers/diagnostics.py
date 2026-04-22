@@ -166,16 +166,39 @@ def run_diagnostics(
     """
     t0 = time.perf_counter()
 
-    checks = [
+    # 🔴 Fix 2026-04-22 : parallélise les checks HTTP externes (musicbrainz/itunes/spotify)
+    # pour éviter de dépasser le timeout proxy Railway (~30s) quand un des externes est lent.
+    # Les checks locaux (db, env, fpcalc, storage, python) restent en série.
+    local_checks = [
         _check("database",      lambda: check_database(db)),
         _check("env_vars",      check_env_vars),
         _check("fpcalc",        check_fpcalc),
-        _check("musicbrainz",   check_musicbrainz),
-        _check("itunes",        check_itunes),
-        _check("spotify",       check_spotify),
         _check("storage",       check_storage),
         _check("python",        check_python),
     ]
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    remote_checks = []
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {
+            pool.submit(_check, "musicbrainz", check_musicbrainz): "musicbrainz",
+            pool.submit(_check, "itunes",      check_itunes):      "itunes",
+            pool.submit(_check, "spotify",     check_spotify):     "spotify",
+        }
+        try:
+            for fut in as_completed(futures, timeout=20):
+                try:
+                    remote_checks.append(fut.result(timeout=1))
+                except Exception as e:
+                    remote_checks.append({"name": futures[fut], "ok": False, "detail": f"error: {e}", "ms": 0})
+        except Exception:
+            # Timeout global : on marque comme failed les checks qui n'ont pas répondu
+            done_names = {c["name"] for c in remote_checks}
+            for fut, name in futures.items():
+                if name not in done_names:
+                    remote_checks.append({"name": name, "ok": False, "detail": "global timeout >20s", "ms": 20000})
+
+    checks = local_checks + remote_checks
 
     all_ok  = all(c["ok"] for c in checks)
     failing = [c["name"] for c in checks if not c["ok"]]

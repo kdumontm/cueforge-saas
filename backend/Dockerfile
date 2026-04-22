@@ -44,6 +44,8 @@ ENV SKIP_DEEP_ANALYSIS=1
 
 EXPOSE 8000
 
-# ⚡ 1 worker pour rester dans les limites RAM Railway
+# ⚡ 2 workers : double la capacité pour éviter les 502 "Application failed to respond"
+# quand plusieurs requêtes tombent en même temps (ex : /analyze qui charge 3 endpoints).
+# Les imports ML (torch/demucs/beat_this) sont lazy → RAM au boot ≈ 200-300MB/worker.
 # Shell form (pas de []) pour que $PORT soit résolu par /bin/sh
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency 50 --timeout-keep-alive 30
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2 --limit-concurrency 200 --timeout-keep-alive 30 --proxy-headers --forwarded-allow-ips="*"
