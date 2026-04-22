@@ -2225,10 +2225,11 @@ def duplicate_track(
     # Reset compteurs
     track_data["played_count"] = 0
     track_data["last_played_at"] = None
-    # 🔴 Fix #116 : dériver le status du duplicate depuis la présence d'analyse
-    # Si la source a une analyse complète, le duplicate est "ready" (même analyse clonée).
-    # Sinon, on copie le status réel de la source (pending / processing / failed).
-    track_data["status"] = "ready" if src.analysis else (src.status or "pending")
+    # 🔴 Fix #116 : dériver le status du duplicate depuis la présence d'analyse.
+    # TrackStatus enum = pending / uploading / analyzing / generating_cues / completed / failed.
+    # Si la source a une analyse complète, le duplicate est "completed" (même analyse clonée).
+    # Sinon, on copie le status réel de la source (pending / analyzing / failed).
+    track_data["status"] = "completed" if src.analysis else (src.status or "pending")
 
     dup = Track(**track_data)
     db.add(dup)

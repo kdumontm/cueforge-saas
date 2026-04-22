@@ -829,12 +829,13 @@ async def repair_track_status(
     try:
         from app.models.track import Track, TrackAnalysis
 
-        # Tracks avec status non-ready + analyse complète
+        # Tracks avec status non-completed + analyse complète.
+        # Enum valide : pending / uploading / analyzing / generating_cues / completed / failed.
         rows = (
             db.query(Track, TrackAnalysis)
             .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
             .filter(
-                Track.status.in_(['failed', 'pending', 'processing']),
+                Track.status.in_(['failed', 'pending', 'uploading', 'analyzing', 'generating_cues']),
                 TrackAnalysis.bpm.isnot(None),
                 TrackAnalysis.key.isnot(None),
             )
@@ -865,11 +866,11 @@ async def repair_track_status(
                 "message": "Pass ?confirm=true to repair",
             }
 
-        # Execute repair
+        # Execute repair — status 'completed' (pas 'ready' qui n'existe pas dans l'enum).
         fixed = 0
         ids = []
         for t, _a in rows:
-            t.status = 'ready'
+            t.status = 'completed'
             ids.append(t.id)
             fixed += 1
         db.commit()
