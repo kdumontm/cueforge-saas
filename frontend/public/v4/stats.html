@@ -810,12 +810,23 @@
   document.head.appendChild(style);
 
   // Range segment toggle + toast
+  // 🔴 2026-04-22 QA : les chips togglent visuellement mais /stats/overview
+  //   ne supporte pas encore de paramètre période (ni les panels de charts
+  //   "Moyenne / Tous sets / Par club"). On garde le toggle CSS pour le feedback
+  //   visuel mais on remplace le toast trompeur "Période : 7j" (qui laisse
+  //   croire que les KPI ont été filtrés) par un toast honnête "bientôt dispo".
+  //   Pattern identique à Stems S/M (Bug #16) et V/C/L/S/F toolbar (commit af16b3d).
+  const __segWarnedGroups = new WeakSet();
   document.querySelectorAll('.segment').forEach(seg=>{
     seg.querySelectorAll('button').forEach(b=>{
       b.addEventListener('click', ()=>{
         seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
-        toast(`Période : ${b.textContent}`,'info');
+        // Toast une seule fois par groupe (évite spam si user clique 5x)
+        if(!__segWarnedGroups.has(seg)){
+          __segWarnedGroups.add(seg);
+          toast(`${b.textContent.trim()} · filtre à venir — données actuelles = all time`, 'info');
+        }
       });
     });
   });
