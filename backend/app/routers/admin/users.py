@@ -137,11 +137,12 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
     - Maintenant : ~35 DELETEs × 1 (= IN :ids) + skip tables absentes via cache
       = ~10-15 round-trips TOTAL quelque soit N.
 
-    Pas de savepoint : on vérifie d'abord via information_schema que la paire
-    (table, colonne) existe, donc le DELETE ne peut pas échouer pour cause de
-    schéma. Si un DELETE échoue quand même (ex: contrainte FK résiduelle),
-    l'exception remonte à l'appelant qui rollback la tx.
+    Savepoint par table : chaque DELETE s'exécute DANS un savepoint isolé.
+    En cas de contrainte FK ou autre erreur, on rollback juste ce savepoint,
+    pas la transaction entière. Cela permet aux DELETE suivantes de continuer.
     """
+    logger.info(f"[admin.purge_users] démarrage purge en masse pour {len(user_ids)} users")
+
     if not user_ids:
         return {
             "tracks": 0,
@@ -179,41 +180,53 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
 
     # 2. Purge SQL des tables enfants avec filtrage schéma-aware
     #    ANY(:ids) fonctionne pour Postgres avec un List[int] direct.
+    #
+    #    IMPORTANT: Postgres signale une erreur de contrainte FK (ex: violation
+    #    NOT NULL) en levant une exception. SQLAlchemy marque la session comme
+    #    "failed transaction" — les requêtes suivantes échouent silencieusement
+    #    avec une erreur "current transaction is aborted".
+    #
+    #    Solution: utiliser db.begin_nested() pour créer un savepoint local.
+    #    Chaque DELETE est exécuté DANS ce savepoint : en cas d'erreur,
+    #    on reste dans la transaction principale (qui elle n'est pas cassée).
     children_deleted = 0
     for tbl, col in _USER_CHILD_TABLES:
         if col is None:
             continue
         if not _table_has_column(db, tbl, col):
             continue
+
+        # Chaque DELETE s'exécute dans un savepoint isolé
+        savepoint = db.begin_nested()
         try:
             res = db.execute(
                 text(f"DELETE FROM {tbl} WHERE {col} = ANY(:ids)"),
                 {"ids": user_ids},
             )
             children_deleted += (res.rowcount or 0)
+            savepoint.commit()  # Valide le DELETE
         except Exception as e:
             logger.warning(f"[admin.purge_users] purge {tbl}.{col} échoué : {e}")
-            # Créer un savepoint nested pour continuer sans casser la transaction principale
-            try:
-                with db.begin_nested():
-                    pass
-            except Exception as nested_e:
-                logger.warning(f"[admin.purge_users] nested rollback échoué : {nested_e}")
+            savepoint.rollback()  # Annule juste ce DELETE, pas toute la tx
 
     # 3. Nullify CMS
     for tbl, col in _USER_NULLIFY_TABLES:
         if not _table_has_column(db, tbl, col):
             continue
+        savepoint = db.begin_nested()
         try:
             db.execute(
                 text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = ANY(:ids)"),
                 {"ids": user_ids},
             )
+            savepoint.commit()
         except Exception as e:
             logger.warning(f"[admin.purge_users] nullify {tbl}.{col} échoué : {e}")
+            savepoint.rollback()
 
     # 4. Organisations : transfert au 1er admin survivant, sinon delete.
     if _table_has_column(db, "organizations", "owner_id"):
+        savepoint = db.begin_nested()
         try:
             res_transfer = db.execute(
                 text(
@@ -234,27 +247,36 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
                 logger.info(
                     f"[admin.purge_users] transfert {res_transfer.rowcount} org(s) pour uids={user_ids}"
                 )
+            savepoint.commit()
         except Exception as e:
             logger.warning(f"[admin.purge_users] transfert orgs échoué → fallback delete : {e}")
+            savepoint.rollback()
+            # Fallback: DELETE au lieu de TRANSFER
+            savepoint_delete = db.begin_nested()
             try:
                 db.execute(
                     text("DELETE FROM organizations WHERE owner_id = ANY(:ids)"),
                     {"ids": user_ids},
                 )
+                savepoint_delete.commit()
             except Exception as e2:
                 logger.warning(f"[admin.purge_users] delete orgs fallback échoué : {e2}")
+                savepoint_delete.rollback()
 
     # 5. Memberships / invites par user
     for tbl, col in [("organization_members", "user_id"), ("org_invites", "invited_by")]:
         if not _table_has_column(db, tbl, col):
             continue
+        savepoint = db.begin_nested()
         try:
             db.execute(
                 text(f"DELETE FROM {tbl} WHERE {col} = ANY(:ids)"),
                 {"ids": user_ids},
             )
+            savepoint.commit()
         except Exception as e:
             logger.debug(f"[admin.purge_users] purge {tbl} skip : {e}")
+            savepoint.rollback()
 
     db.flush()
 
