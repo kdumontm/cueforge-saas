@@ -1050,6 +1050,8 @@ function renderCueList(cues){
     const item = document.createElement('div');
     item.className = 'cue-item'+(i===0?' selected':'');
     item.dataset.type = type;
+    // 🔴 2026-04-24 (Bug #30 — Rekordbox UX) : palette Rekordbox 8 couleurs par index
+    item.dataset.cueIndex = i % 8;
     item.innerHTML = `
       <span class="tip"></span>
       <div class="info"><div class="nm"></div><div class="mt"></div></div>
