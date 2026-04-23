@@ -185,6 +185,8 @@
   .health-cell .met{display:flex;gap:14px;margin-top:2px}
   .health-cell .met span{font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)}
   .health-cell .met b{color:var(--c-primary);font-weight:500}
+  .health-cell[data-health-idx]{transition:background-color 200ms,border-color 200ms}
+  .health-cell[data-health-idx]:hover{background:var(--s-1);border-color:var(--b-default)}
   .spark{height:26px;margin-top:4px}
 
   /* Jobs queue */
@@ -420,6 +422,10 @@
       <a href="#cl" data-sec="cl">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
         Changelog
+      </a>
+      <a href="#resolutions" data-sec="resolutions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4m7 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+        Résolutions <span class="count" id="nav-resolutions-count">—</span>
       </a>
     </aside>
 
@@ -686,6 +692,52 @@
         </div>
       </div>
 
+      <!-- RÉSOLUTIONS — historique des tickets résolus (status=done/rejected) -->
+      <div id="resolutions" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Résolutions · historique tickets résolus</div>
+            <div class="card-sub" id="resolutions-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <div class="tb-filters">
+          <div class="tb-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="resolutions-search" placeholder="Chercher par sujet ou réponse admin…">
+          </div>
+          <select id="resolutions-filter-month" style="padding:5px 10px;border-radius:var(--r-pill);font-family:var(--font-mono);font-size:11px;background:var(--s-2);border:1px solid var(--b-subtle);color:var(--c-secondary);cursor:pointer">
+            <option value="">Tous les mois</option>
+          </select>
+          <select id="resolutions-filter-scope" style="padding:5px 10px;border-radius:var(--r-pill);font-family:var(--font-mono);font-size:11px;background:var(--s-2);border:1px solid var(--b-subtle);color:var(--c-secondary);cursor:pointer">
+            <option value="">Tous les scopes</option>
+            <option value="user">User feedback</option>
+            <option value="admin">Notes admin</option>
+          </select>
+          <select id="resolutions-filter-type" style="padding:5px 10px;border-radius:var(--r-pill);font-family:var(--font-mono);font-size:11px;background:var(--s-2);border:1px solid var(--b-subtle);color:var(--c-secondary);cursor:pointer">
+            <option value="">Tous les types</option>
+            <option value="bug">Bug</option>
+            <option value="feature">Feature</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div style="max-height:420px;overflow:auto">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Sujet / Message</th>
+                <th>Scope</th>
+                <th>Résolu</th>
+              </tr>
+            </thead>
+            <tbody id="resolutions-body">
+              <tr><td colspan="5" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- FEEDBACK -->
       <div id="fb" class="card reveal" style="display:none">
         <div class="card-head">
@@ -760,6 +812,27 @@
         </div>
       </div>
 
+      <!-- MODALE détails service santé -->
+      <div id="health-modal" role="dialog" aria-modal="true" aria-hidden="true"
+           style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+                  align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+        <div style="background:linear-gradient(180deg,#1b1825,#12111a);color:#fff;border:1px solid rgba(255,255,255,.1);
+                    border-radius:16px;width:min(600px,100%);padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px">
+            <div>
+              <div style="font-size:16px;font-weight:700" id="health-m-title">Service</div>
+              <div style="font-size:12px;color:#8a87a0" id="health-m-status">—</div>
+            </div>
+            <button type="button" id="health-m-close" style="background:transparent;border:none;color:#8a87a0;cursor:pointer;font-size:24px;line-height:1">×</button>
+          </div>
+          <div id="health-m-error" style="display:none;margin:12px 0;padding:12px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;font-size:12px;color:#fca5a5;font-family:var(--font-mono);white-space:pre-wrap;word-break:break-word"></div>
+          <div id="health-m-hint" style="display:none;margin:16px 0 0 0;padding:14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;font-size:13px;color:#6ee7b7;line-height:1.5"></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+            <button type="button" id="health-m-ok" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:10px 20px;border-radius:8px;font-weight:500">Fermer</button>
+          </div>
+        </div>
+      </div>
+
       <!-- CHANGELOG -->
       <div id="cl" class="card reveal" style="display:none">
         <div class="card-head">
@@ -776,7 +849,7 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260423f"></script>
+<script src="/v4/api.js?v=20260423g"></script>
 <script src="/v4/shared.js?v=20260423-feedback-pagepath"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
@@ -856,15 +929,25 @@
       if(health.length === 0){
         healthGrid.innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--c-tertiary);text-align:center">Aucune donnée de santé</div>';
       } else {
-        healthGrid.innerHTML = health.map(h => {
+        healthGrid.innerHTML = health.map((h, idx) => {
           const s = h.status || 'ok';
+          const clickable = (h.error || h.hint) ? 'style="cursor:pointer"' : '';
           return `
-            <div class="health-cell ${escapeHtml(s)}">
+            <div class="health-cell ${escapeHtml(s)}" data-health-idx="${idx}" ${clickable}>
               <div class="hd"><span class="nm">${escapeHtml(h.name)}</span><span class="st"><span class="dot"></span>${escapeHtml(h.label || s.toUpperCase())}</span></div>
               <div class="met"><span>${escapeHtml(h.met_left || '')}</span><span>${escapeHtml(h.met_right || '')}</span></div>
             </div>
           `;
         }).join('');
+        // Ajouter les event listeners pour les cells cliquables
+        healthGrid.querySelectorAll('.health-cell[data-health-idx]').forEach(cell => {
+          cell.addEventListener('click', () => {
+            const idx = parseInt(cell.dataset.healthIdx, 10);
+            if(health[idx]){
+              openHealthModal(health[idx]);
+            }
+          });
+        });
       }
     }
     // Global chip
@@ -883,6 +966,42 @@
         globalChip.innerHTML = `<span class="chip-dot"></span>All systems nominal`;
       }
     }
+
+    // ── Fonction pour afficher la modale health ──
+    window.openHealthModal = function(service){
+      const modal = document.getElementById('health-modal');
+      if(!modal) return;
+      document.getElementById('health-m-title').textContent = service.name || 'Service';
+      const statusLabel = service.status === 'ok' ? ' tout va bien' : (service.status === 'down' ? 'en panne' : (service.status === 'warn' ? 'dégradé' : 'non configuré'));
+      document.getElementById('health-m-status').textContent = statusLabel;
+      const errEl = document.getElementById('health-m-error');
+      const hintEl = document.getElementById('health-m-hint');
+      if(service.error){
+        errEl.style.display = 'block';
+        errEl.textContent = '❌ Erreur : ' + service.error;
+      } else {
+        errEl.style.display = 'none';
+      }
+      if(service.hint){
+        hintEl.style.display = 'block';
+        hintEl.innerHTML = '<strong>✓ Comment résoudre</strong><br/>' + escapeHtml(service.hint).replace(/\n/g, '<br/>');
+      } else {
+        hintEl.style.display = 'none';
+      }
+      modal.style.display = 'flex';
+    };
+    document.getElementById('health-m-close').addEventListener('click', () => {
+      document.getElementById('health-modal').style.display = 'none';
+    });
+    document.getElementById('health-m-ok').addEventListener('click', () => {
+      document.getElementById('health-modal').style.display = 'none';
+    });
+    // Fermer la modale en cliquant en dehors
+    document.getElementById('health-modal').addEventListener('click', (e) => {
+      if(e.target.id === 'health-modal'){
+        document.getElementById('health-modal').style.display = 'none';
+      }
+    });
 
     // ── Alerts ──
     const alerts = d.alerts || [];

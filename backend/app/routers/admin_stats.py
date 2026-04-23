@@ -520,7 +520,7 @@ async def get_admin_full_dashboard(
     if redis_configured:
         try:
             import redis as _redis  # type: ignore
-            url = getattr(settings, "REDIS_URL", None) or os.getenv("REDIS_URL")
+            url = os.getenv("REDIS_URL")
             if url:
                 client = _redis.from_url(url, socket_connect_timeout=1, socket_timeout=1)
                 client.ping()
