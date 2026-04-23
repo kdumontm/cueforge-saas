@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Page Builder · CueForge Admin</title>
+<link rel="preload" href="/v4/shared.js?v=20260423-pagebuilder" as="script">
+<style>
+  :root{
+    --bg-0:#0a080e; --bg-1:#121018; --bg-2:#1a1722;
+    --c-1:#fff; --c-2:#b8b0c4; --c-3:#8a8298;
+    --border:rgba(255,255,255,.08);
+    --border-s:rgba(255,255,255,.14);
+    --amber:#ff7a18; --pink:#ff4d8d; --cyan:#00d4ff;
+    --amber-soft:rgba(255,122,24,.15);
+    --green:#22c55e; --red:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;padding:0;background:var(--bg-0);color:var(--c-1);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Inter",sans-serif;font-size:13px;overflow:hidden}
+
+  .pb-root{display:grid;grid-template-columns:240px 1fr 280px;grid-template-rows:48px 1fr;height:100vh;gap:0}
+
+  /* Topbar */
+  .pb-topbar{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--bg-1),var(--bg-0));z-index:10}
+  .pb-topbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;color:var(--c-1);text-decoration:none}
+  .pb-topbar .brand-dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--amber),var(--pink))}
+  .pb-topbar .title{font-size:12px;color:var(--c-2);margin-left:8px}
+  .pb-topbar .title b{color:var(--amber)}
+  .pb-topbar .spacer{flex:1}
+  .pb-topbar button{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--c-1);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+  .pb-topbar button:hover{background:rgba(255,122,24,.15);border-color:var(--amber)}
+  .pb-topbar button.primary{background:linear-gradient(135deg,var(--amber),var(--pink));border:none;color:#fff}
+  .pb-topbar button.danger{color:var(--red)}
+  .pb-topbar button.danger:hover{background:rgba(239,68,68,.15);border-color:var(--red)}
+
+  /* Left pane — pages */
+  .pb-pages{border-right:1px solid var(--border);background:var(--bg-1);overflow-y:auto;padding:12px 0}
+  .pb-pages .grp{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--c-3);padding:8px 16px 6px;font-weight:700}
+  .pb-pages .grp:first-child{padding-top:0}
+  .pb-pages a{display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:12px;color:var(--c-2);text-decoration:none;cursor:pointer;border-left:2px solid transparent}
+  .pb-pages a:hover{background:var(--bg-2);color:var(--c-1)}
+  .pb-pages a.active{background:var(--amber-soft);color:var(--amber);border-left-color:var(--amber)}
+  .pb-pages a svg{width:14px;height:14px;opacity:.8;flex-shrink:0}
+  .pb-pages a .count{margin-left:auto;font-size:9px;color:var(--c-3);font-family:ui-monospace,monospace;background:rgba(255,255,255,.06);padding:2px 6px;border-radius:4px}
+  .pb-pages a.active .count{background:var(--amber-soft);color:var(--amber)}
+
+  /* Center pane — preview */
+  .pb-preview{position:relative;overflow:hidden;background:#000}
+  .pb-preview .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--c-3);font-size:14px;gap:12px;text-align:center;padding:40px}
+  .pb-preview .empty svg{width:80px;height:80px;opacity:.3}
+  .pb-preview iframe{width:100%;height:100%;border:none;background:#000}
+  .pb-preview .loading{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:2;background:rgba(18,16,24,.95);padding:6px 14px;border-radius:20px;font-size:11px;color:var(--amber);border:1px solid var(--border-s);opacity:0;transition:opacity .2s}
+  .pb-preview .loading.on{opacity:1}
+
+  /* Right pane — palette */
+  .pb-palette{border-left:1px solid var(--border);background:var(--bg-1);overflow-y:auto;padding:12px}
+  .pb-palette h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--c-3);margin:0 0 8px;font-weight:700}
+  .pb-palette .hint{font-size:11px;color:var(--c-3);background:var(--bg-2);padding:8px 10px;border-radius:6px;margin-bottom:12px;line-height:1.5;border:1px solid var(--border)}
+  .pb-palette .hint b{color:var(--amber)}
+  .pb-palette .blocks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+  .pb-palette .block{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:12px 8px;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;transition:all .15s;user-select:none}
+  .pb-palette .block:hover{background:rgba(255,122,24,.12);border-color:var(--amber);transform:translateY(-1px)}
+  .pb-palette .block:active{cursor:grabbing}
+  .pb-palette .block.dragging{opacity:.5;border-color:var(--amber)}
+  .pb-palette .block svg{width:22px;height:22px;color:var(--amber)}
+  .pb-palette .block .lbl{font-size:10.5px;font-weight:600;color:var(--c-1);line-height:1.2}
+  .pb-palette .block .desc{font-size:9px;color:var(--c-3);line-height:1.2}
+  .pb-palette .section{margin-bottom:16px}
+  .pb-palette .divider{height:1px;background:var(--border);margin:16px 0}
+  .pb-palette .actions{display:flex;flex-direction:column;gap:6px}
+  .pb-palette .actions button{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--c-1);padding:8px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px}
+  .pb-palette .actions button:hover{background:var(--bg-2);border-color:var(--amber);color:var(--amber)}
+  .pb-palette .actions button.danger:hover{background:rgba(239,68,68,.1);border-color:var(--red);color:var(--red)}
+  .pb-palette .actions button svg{width:14px;height:14px;opacity:.8}
+
+  /* Status */
+  .pb-toast{position:fixed;top:60px;right:20px;z-index:100;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);color:var(--green);padding:10px 16px;border-radius:10px;font-size:12px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.3);animation:slideI .3s ease}
+  .pb-toast.err{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:var(--red)}
+  @keyframes slideI{from{transform:translateY(-10px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+  @media (max-width:1100px){
+    .pb-root{grid-template-columns:200px 1fr 240px}
+    .pb-palette .blocks{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<div class="pb-root">
+
+  <!-- ─── Topbar ─────────────────────────────────────────────────── -->
+  <div class="pb-topbar">
+    <a href="/admin" class="brand">
+      <span class="brand-dot"></span>
+      CueForge Admin
+    </a>
+    <span class="title">Page Builder · édition <b id="pb-current-label">—</b></span>
+    <span class="spacer"></span>
+    <button id="pb-reset" class="danger" title="Reset TOUS les changements de cette page">↺ Reset page</button>
+    <button id="pb-reload" title="Recharger l'aperçu">⟳ Reload</button>
+    <button id="pb-done" class="primary">✓ Terminé</button>
+  </div>
+
+  <!-- ─── Left : pages list ──────────────────────────────────────── -->
+  <aside class="pb-pages" id="pb-pages">
+    <!-- rempli en JS -->
+  </aside>
+
+  <!-- ─── Center : preview ───────────────────────────────────────── -->
+  <main class="pb-preview" id="pb-preview">
+    <div class="empty" id="pb-empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+      <div>
+        <div style="font-size:15px;color:var(--c-1);font-weight:600;margin-bottom:6px">Choisis une page à éditer →</div>
+        <div style="max-width:360px">Clique sur une page dans la liste à gauche.<br>Ensuite drag & drop les blocs depuis la palette de droite.</div>
+      </div>
+    </div>
+    <div class="loading" id="pb-loading">Chargement…</div>
+    <iframe id="pb-iframe" style="display:none"></iframe>
+  </main>
+
+  <!-- ─── Right : palette ────────────────────────────────────────── -->
+  <aside class="pb-palette">
+    <div class="hint">
+      <b>Comment ça marche ?</b><br>
+      Drag un bloc → dépose-le sur la page → il s'insère là où tu l'as lâché.<br>
+      Clique sur un bloc existant dans la page pour le <b>redimensionner / cacher / réordonner</b>.
+    </div>
+
+    <div class="section">
+      <h3>Ajouter un bloc</h3>
+      <div class="blocks" id="pb-blocks">
+        <!-- rempli en JS -->
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <h3>Actions page</h3>
+      <div class="actions">
+        <button id="pb-edit-mode" data-on="1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Mode édition <span id="pb-mode-state" style="margin-left:auto;color:var(--green);font-family:ui-monospace,monospace;font-size:10px">ON</span>
+        </button>
+        <button id="pb-open-tab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+          Ouvrir dans un onglet
+        </button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <h3 style="color:var(--c-3)">Aide</h3>
+      <div style="font-size:10.5px;color:var(--c-3);line-height:1.6">
+        <code style="background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;color:var(--amber)">Ctrl+Shift+E</code> dans la page = toggle édition<br>
+        <code style="background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;color:var(--amber)">Ctrl+Shift+R</code> = reset la page<br>
+        <code style="background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;color:var(--amber)">Échap</code> = sortir du mode édition<br><br>
+        Tous tes changements sont stockés <b style="color:var(--c-1)">localement</b> dans ton navigateur. Les autres users voient toujours la page d'origine.
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── Pages ────────────────────────────────────────────────────────
+  const PAGES = [
+    {grp:'Application', items:[
+      {path:'/dashboard',   label:'Dashboard',   icon:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'},
+      {path:'/analyze',     label:'Analyze',     icon:'M3 12h4l3-9 4 18 3-9h4'},
+      {path:'/library',     label:'Library',     icon:'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'},
+      {path:'/set-builder', label:'Set Builder', icon:'M9 18V5l12-2v13M9 9h12M6 21c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z'},
+      {path:'/mix-studio',  label:'Mix Studio',  icon:'M3 3v18M7 3v18M11 3v18M15 3v18M19 3v18'},
+      {path:'/stats',       label:'Stats',       icon:'M3 3v18h18M8 14v4M12 10v8M16 6v12'},
+      {path:'/settings',    label:'Settings',    icon:'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'},
+      {path:'/upload',      label:'Upload',      icon:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12'},
+      {path:'/compatible',  label:'Compatible',  icon:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0'},
+      {path:'/billing',     label:'Billing',     icon:'M1 4h22v16H1zM1 10h22'},
+      {path:'/onboarding',  label:'Onboarding',  icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'},
+    ]},
+    {grp:'Public', items:[
+      {path:'/',            label:'Landing',     icon:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10'},
+      {path:'/pricing',     label:'Pricing',     icon:'M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01'},
+      {path:'/login',       label:'Login',       icon:'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3'},
+      {path:'/blog',        label:'Blog',        icon:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H9'},
+      {path:'/docs',        label:'Docs',        icon:'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20'},
+      {path:'/download',    label:'Download',    icon:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3'},
+      {path:'/changelog',   label:'Changelog',   icon:'M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z'},
+      {path:'/cgu',         label:'CGU',         icon:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'},
+    ]},
+    {grp:'Admin', items:[
+      {path:'/admin',       label:'Admin',       icon:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
+    ]},
+  ];
+
+  // ── Palette blocks (HTML snippets to insert in iframe) ──────────
+  const BLOCKS = [
+    {
+      id:'title', label:'Titre',  desc:'H2 large',
+      icon:'M6 4v16M18 4v16M6 12h12',
+      html:'<h2 data-cf-added="1" style="font-size:28px;font-weight:800;margin:24px 0 16px;color:#fff;letter-spacing:-0.02em">Nouveau titre</h2>',
+    },
+    {
+      id:'text', label:'Paragraphe', desc:'Texte long',
+      icon:'M4 6h16M4 10h16M4 14h12M4 18h8',
+      html:'<p data-cf-added="1" style="font-size:14px;line-height:1.7;color:#b8b0c4;margin:12px 0;max-width:680px">Nouveau paragraphe. Clique pour éditer le texte, redimensionner ou déplacer.</p>',
+    },
+    {
+      id:'button', label:'Bouton', desc:'Primary CTA',
+      icon:'M4 12h16M10 6l-6 6 6 6',
+      html:'<button data-cf-added="1" style="background:linear-gradient(135deg,#ff7a18,#ff4d8d);color:#fff;border:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin:8px 0;box-shadow:0 4px 16px rgba(255,122,24,.3)">Bouton</button>',
+    },
+    {
+      id:'card', label:'Card', desc:'Panneau',
+      icon:'M3 3h18v18H3zM3 9h18M9 21V9',
+      html:'<div data-cf-added="1" class="card" style="background:rgba(26,23,34,.8);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;margin:12px 0;max-width:480px"><h3 style="margin:0 0 8px;font-size:15px;font-weight:700;color:#fff">Nouvelle card</h3><p style="margin:0;font-size:13px;color:#b8b0c4;line-height:1.6">Contenu de la card. Clique pour resize ou déplacer.</p></div>',
+    },
+    {
+      id:'kpi', label:'KPI', desc:'Métrique',
+      icon:'M3 3v18h18M8 14v4M12 10v8M16 6v12',
+      html:'<div data-cf-added="1" class="kpi" style="display:inline-flex;flex-direction:column;gap:4px;background:rgba(255,122,24,.1);border:1px solid rgba(255,122,24,.3);border-radius:12px;padding:16px 20px;margin:8px 12px 8px 0;min-width:140px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#ff7a18;font-weight:700">Nouveau KPI</span><span style="font-size:26px;font-weight:800;color:#fff;font-family:ui-monospace,monospace">—</span></div>',
+    },
+    {
+      id:'badge', label:'Badge', desc:'Tag coloré',
+      icon:'M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
+      html:'<span data-cf-added="1" style="display:inline-block;background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.4);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;margin:4px">BADGE</span>',
+    },
+    {
+      id:'divider', label:'Séparateur', desc:'Ligne horizontale',
+      icon:'M3 12h18',
+      html:'<hr data-cf-added="1" style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:24px 0">',
+    },
+    {
+      id:'spacer', label:'Espace', desc:'Air vertical',
+      icon:'M12 4v16M6 8l6-6 6 6M6 16l6 6 6-6',
+      html:'<div data-cf-added="1" style="height:48px"></div>',
+    },
+    {
+      id:'image', label:'Image', desc:'Placeholder',
+      icon:'M3 3h18v18H3zM16 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-5-5L5 21',
+      html:'<div data-cf-added="1" style="background:linear-gradient(135deg,#1a1722,#2a2532);border:1px dashed rgba(255,255,255,.15);border-radius:12px;padding:48px 24px;margin:12px 0;text-align:center;color:#8a8298;font-size:13px;max-width:400px">🖼️ Image (à configurer)</div>',
+    },
+    {
+      id:'input', label:'Input', desc:'Champ texte',
+      icon:'M3 6h18v12H3zM7 10v4',
+      html:'<input data-cf-added="1" type="text" placeholder="Nouveau champ…" style="background:rgba(26,23,34,.6);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#fff;padding:10px 14px;font-size:13px;margin:8px 0;min-width:240px;font-family:inherit">',
+    },
+  ];
+
+  // ── State ────────────────────────────────────────────────────────
+  let currentPath = null;
+  let editMode = true;
+
+  // ── Render pages list ────────────────────────────────────────────
+  const pagesEl = document.getElementById('pb-pages');
+  function renderPages(){
+    pagesEl.innerHTML = '';
+    PAGES.forEach(g => {
+      const grpEl = document.createElement('div');
+      grpEl.className = 'grp';
+      grpEl.textContent = g.grp;
+      pagesEl.appendChild(grpEl);
+      g.items.forEach(p => {
+        const a = document.createElement('a');
+        a.dataset.path = p.path;
+        a.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${p.icon}"/></svg>
+          <span>${p.label}</span>
+          <span class="count" data-count="${p.path}"></span>
+        `;
+        a.addEventListener('click', () => selectPage(p.path));
+        pagesEl.appendChild(a);
+      });
+    });
+    refreshCounts();
+  }
+
+  // Count of overrides per page (how many customizations)
+  function refreshCounts(){
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem('cf_layout_v1') || '{}') || {}; } catch {}
+    document.querySelectorAll('[data-count]').forEach(el => {
+      const p = el.dataset.count;
+      const data = all[p] || {};
+      const n = Object.keys(data).length;
+      el.textContent = n > 0 ? n : '';
+      el.style.display = n > 0 ? '' : 'none';
+    });
+  }
+
+  // ── Render palette ───────────────────────────────────────────────
+  const blocksEl = document.getElementById('pb-blocks');
+  function renderBlocks(){
+    blocksEl.innerHTML = '';
+    BLOCKS.forEach(b => {
+      const el = document.createElement('div');
+      el.className = 'block';
+      el.draggable = true;
+      el.dataset.blockId = b.id;
+      el.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${b.icon}"/></svg>
+        <div class="lbl">${b.label}</div>
+        <div class="desc">${b.desc}</div>
+      `;
+      el.addEventListener('dragstart', e => {
+        el.classList.add('dragging');
+        e.dataTransfer.setData('application/cf-block', b.id);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      // Fallback : double-clic = insère en haut de la page
+      el.addEventListener('dblclick', () => insertBlock(b.id, null));
+      blocksEl.appendChild(el);
+    });
+  }
+
+  // ── Iframe glue ──────────────────────────────────────────────────
+  const iframe = document.getElementById('pb-iframe');
+  const emptyEl = document.getElementById('pb-empty');
+  const loadingEl = document.getElementById('pb-loading');
+
+  function selectPage(path){
+    currentPath = path;
+    document.querySelectorAll('.pb-pages a').forEach(x => x.classList.toggle('active', x.dataset.path === path));
+    document.getElementById('pb-current-label').textContent = path;
+    emptyEl.style.display = 'none';
+    iframe.style.display = 'block';
+    loadingEl.classList.add('on');
+    iframe.src = path + (path.includes('?') ? '&' : '?') + 'edit=1&_pb=' + Date.now();
+  }
+
+  iframe.addEventListener('load', () => {
+    loadingEl.classList.remove('on');
+    refreshCounts();
+    // Si on était en mode édition, re-applique (le layout-editor enclenche via ?edit=1)
+  });
+
+  // Drop sur l'iframe : on capte aussi sur son parent pour fallback
+  const previewEl = document.getElementById('pb-preview');
+
+  // HTML5 drag events dans l'iframe same-origin
+  function wireIframeDrops(){
+    try {
+      const doc = iframe.contentDocument;
+      if(!doc) return;
+      doc.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }, true);
+      doc.addEventListener('drop', e => {
+        const blockId = e.dataTransfer.getData('application/cf-block');
+        if(!blockId) return;
+        e.preventDefault();
+        // Cible : élément sous le curseur
+        const target = doc.elementFromPoint(e.clientX, e.clientY);
+        insertBlock(blockId, target);
+      }, true);
+    } catch(err){
+      console.warn('[page-builder] iframe drop wiring failed', err);
+    }
+  }
+  iframe.addEventListener('load', wireIframeDrops);
+
+  // Insert a block into the iframe at a position
+  function insertBlock(blockId, targetEl){
+    const block = BLOCKS.find(b => b.id === blockId);
+    if(!block) return;
+    const doc = iframe.contentDocument;
+    if(!doc){
+      toast('Pas de page chargée', true);
+      return;
+    }
+    // Parse HTML into element
+    const wrap = doc.createElement('div');
+    wrap.innerHTML = block.html.trim();
+    const newEl = wrap.firstElementChild;
+    if(!newEl) return;
+    // Unique id so layout-editor can track it
+    newEl.id = newEl.id || ('cf-add-' + Date.now() + '-' + Math.floor(Math.random()*1000));
+    // Insertion : right after the target, or in main
+    let parent, anchor;
+    if(targetEl && targetEl !== doc.body && targetEl !== doc.documentElement){
+      parent = targetEl.parentElement || doc.body;
+      anchor = targetEl.nextSibling;
+    } else {
+      parent = doc.querySelector('main') || doc.body;
+      anchor = parent.firstChild;
+    }
+    parent.insertBefore(newEl, anchor);
+    // Persist in a dedicated localStorage key so we can replay on reload
+    persistAddedBlock(currentPath, {
+      id: newEl.id,
+      html: newEl.outerHTML,
+      parentSelector: cssPath(parent, doc),
+      afterSelector: anchor && anchor.nodeType === 1 ? cssPath(anchor.previousElementSibling || anchor, doc) : null,
+      ts: Date.now(),
+    });
+    toast(`${block.label} ajouté`);
+    refreshCounts();
+  }
+
+  // simple css path for a node inside a doc (idem logic qu'on a dans layout-editor)
+  function cssPath(el, doc){
+    if(!el || el === doc.body || el === doc.documentElement) return 'body';
+    if(el.id) return '#' + CSS.escape(el.id);
+    const parts = [];
+    let cur = el;
+    while(cur && cur !== doc.body && parts.length < 6){
+      let part = cur.tagName.toLowerCase();
+      if(cur.classList && cur.classList.length){
+        const c = Array.from(cur.classList).find(x => !/^(reveal|reveal-\d+|active|open|hidden|cf-[\w-]+)$/.test(x));
+        if(c) part += '.' + CSS.escape(c);
+      }
+      const p = cur.parentElement;
+      if(p){
+        const sibs = Array.from(p.children).filter(s => s.tagName === cur.tagName);
+        if(sibs.length > 1) part += `:nth-of-type(${sibs.indexOf(cur)+1})`;
+      }
+      parts.unshift(part);
+      cur = cur.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function persistAddedBlock(path, block){
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem('cf_added_blocks_v1') || '{}') || {}; } catch {}
+    all[path] = all[path] || [];
+    all[path].push(block);
+    try { localStorage.setItem('cf_added_blocks_v1', JSON.stringify(all)); }
+    catch(e){ console.warn('save failed', e); }
+  }
+
+  // ── Toolbar actions ──────────────────────────────────────────────
+  document.getElementById('pb-reload').addEventListener('click', () => {
+    if(!currentPath){ toast('Sélectionne une page', true); return; }
+    iframe.src = currentPath + '?edit=1&_pb=' + Date.now();
+    toast('Aperçu rechargé');
+  });
+
+  document.getElementById('pb-reset').addEventListener('click', () => {
+    if(!currentPath){ toast('Sélectionne une page', true); return; }
+    if(!confirm(`Reset TOUS les changements sur ${currentPath} ?`)) return;
+    let all = {}, added = {};
+    try { all   = JSON.parse(localStorage.getItem('cf_layout_v1') || '{}') || {}; } catch {}
+    try { added = JSON.parse(localStorage.getItem('cf_added_blocks_v1') || '{}') || {}; } catch {}
+    delete all[currentPath];
+    delete added[currentPath];
+    localStorage.setItem('cf_layout_v1', JSON.stringify(all));
+    localStorage.setItem('cf_added_blocks_v1', JSON.stringify(added));
+    iframe.src = currentPath + '?edit=1&_pb=' + Date.now();
+    refreshCounts();
+    toast('Page remise par défaut');
+  });
+
+  document.getElementById('pb-done').addEventListener('click', () => {
+    if(currentPath){
+      location.href = currentPath;
+    } else {
+      location.href = '/admin';
+    }
+  });
+
+  document.getElementById('pb-edit-mode').addEventListener('click', (e) => {
+    editMode = !editMode;
+    const btn = e.currentTarget;
+    btn.querySelector('#pb-mode-state').textContent = editMode ? 'ON' : 'OFF';
+    btn.querySelector('#pb-mode-state').style.color = editMode ? 'var(--green)' : 'var(--c-3)';
+    if(!currentPath) return;
+    // Post message au layout-editor dans l'iframe
+    try {
+      iframe.contentWindow.postMessage({type:'cf-toggle-edit', on:editMode}, location.origin);
+    } catch {}
+  });
+
+  document.getElementById('pb-open-tab').addEventListener('click', () => {
+    if(!currentPath){ toast('Sélectionne une page', true); return; }
+    window.open(currentPath + '?edit=1', '_blank');
+  });
+
+  // ── Toast ────────────────────────────────────────────────────────
+  function toast(msg, err){
+    const t = document.createElement('div');
+    t.className = 'pb-toast' + (err ? ' err' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 1800);
+  }
+
+  // ── Boot ─────────────────────────────────────────────────────────
+  renderPages();
+  renderBlocks();
+
+  // Deeplink : ?page=/analyze
+  const qs = new URLSearchParams(location.search);
+  if(qs.get('page')){
+    setTimeout(() => selectPage(qs.get('page')), 100);
+  }
+})();
+</script>
+</body>
+</html>

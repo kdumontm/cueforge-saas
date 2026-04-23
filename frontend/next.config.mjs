@@ -73,7 +73,8 @@ const nextConfig = {
         { source: '/stats',        destination: '/v4/stats.html'       },
         { source: '/upload',       destination: '/v4/upload.html'      },
         { source: '/settings',     destination: '/v4/settings.html'    },
-        { source: '/admin',        destination: '/v4/admin.html'       },
+        { source: '/admin',              destination: '/v4/admin.html'        },
+        { source: '/admin/page-builder', destination: '/v4/page-builder.html' },
       ],
       afterFiles: [
         {

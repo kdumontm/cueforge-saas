@@ -6,7 +6,7 @@
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260423-fbsearch" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-layouted" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-pagebuilder" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-fbsearch">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -427,9 +427,13 @@
       </a>
 
       <div class="grp">Personnalisation</div>
-      <a href="/admin/modules" title="Canvas WYSIWYG : drag & resize des modules CueForge (waveform, track list, cue points, …)">
+      <a href="/admin/page-builder" title="Éditeur visuel : liste des pages + aperçu live + palette de blocs drag & drop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Page Builder <span class="count" style="font-size:9px;padding:2px 6px;border-radius:4px;background:linear-gradient(135deg,rgba(255,122,24,.25),rgba(255,77,141,.25));color:var(--amber)">NEW</span>
+      </a>
+      <a href="/admin/modules" title="Ancien canvas WYSIWYG (modules DJ : waveform, track list, cue points…)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Modules UI <span class="count" style="font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(255,165,0,.15);color:var(--amber)">WYSIWYG</span>
+        Modules UI
       </a>
       <a href="/admin/theme-editor" title="Couleurs, boutons, cards, dark mode, CSS overrides">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
@@ -905,7 +909,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423-batchQ"></script>
-<script src="/v4/shared.js?v=20260423-layouted"></script>
+<script src="/v4/shared.js?v=20260423-pagebuilder"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 

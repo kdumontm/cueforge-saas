@@ -18,11 +18,18 @@
   'use strict';
 
   const LS_KEY       = 'cf_layout_v1';
+  const LS_ADDED_KEY = 'cf_added_blocks_v1';         // blocs ajoutés via page-builder
   const TOGGLE_KEY   = 'cf_layout_editor_enabled';   // affiche/cache le bouton
   const MIN_W        = 80;
   const MIN_H        = 40;
   const SNAP         = 8;
   const PAGE_KEY     = location.pathname.replace(/\/+$/,'') || '/';
+
+  // Si on est inséré dans l'iframe du page-builder
+  const IN_PAGE_BUILDER = (() => {
+    try { return window.parent && window.parent !== window && window.parent.location.pathname === '/admin/page-builder'; }
+    catch { return false; }
+  })();
 
   // ── Storage ──────────────────────────────────────────────────────────
   function loadAll(){
@@ -87,6 +94,33 @@
           }
         });
       } catch(_){ /* sélecteur invalide → on ignore */ }
+    });
+  }
+
+  // ── Rejoue les blocs ajoutés via le page-builder ─────────────────────
+  function replayAddedBlocks(){
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem(LS_ADDED_KEY) || '{}') || {}; } catch { return; }
+    const list = all[PAGE_KEY] || [];
+    list.forEach(blk => {
+      try {
+        // Si ce bloc existe déjà (par id), on skip
+        if(blk.id && document.getElementById(blk.id)) return;
+        const parent = blk.parentSelector ? document.querySelector(blk.parentSelector) : (document.querySelector('main') || document.body);
+        if(!parent) return;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = blk.html.trim();
+        const el = wrap.firstElementChild;
+        if(!el) return;
+        // Position : après afterSelector si dispo, sinon append
+        let anchor = null;
+        if(blk.afterSelector){
+          const ref = document.querySelector(blk.afterSelector);
+          if(ref) anchor = ref.nextSibling;
+        }
+        if(anchor) parent.insertBefore(el, anchor);
+        else parent.appendChild(el);
+      } catch(_){ /* ignore failed replay */ }
     });
   }
 
@@ -431,20 +465,35 @@
 
   // ── Boot ─────────────────────────────────────────────────────────────
   function boot(){
-    // 1. Applique les overrides stockés (toujours — c'est par device)
+    // 1. Rejoue les blocs ajoutés via page-builder
+    try { replayAddedBlocks(); } catch(e){ console.warn('[layout-editor] replay failed', e); }
+
+    // 2. Applique les overrides stockés (toujours — c'est par device)
     try { applyOverrides(); } catch(e){ console.warn('[layout-editor] apply failed', e); }
 
-    // 2. Décide si on affiche le bouton éditeur :
-    //    - ?edit=1 dans l'URL
+    // 3. Décide si on affiche le bouton éditeur :
+    //    - ?edit=1 dans l'URL (page-builder l'ajoute toujours)
     //    - OU flag localStorage (Ctrl+Shift+E le toggle)
+    //    - OU on est dans l'iframe du page-builder
     const urlEdit = /[?&]edit=1\b/.test(location.search);
     const flagOn = localStorage.getItem(TOGGLE_KEY) === '1';
-    const showButton = urlEdit || flagOn;
+    const showButton = urlEdit || flagOn || IN_PAGE_BUILDER;
 
     injectCSS();
     if(showButton){
       ensureButton();
-      if(urlEdit) toggleEditor(true);
+      if(urlEdit || IN_PAGE_BUILDER) toggleEditor(true);
+    }
+
+    // Dans l'iframe du page-builder : écoute les ordres du parent
+    if(IN_PAGE_BUILDER){
+      window.addEventListener('message', (ev) => {
+        if(ev.origin !== location.origin) return;
+        const msg = ev.data || {};
+        if(msg.type === 'cf-toggle-edit'){
+          toggleEditor(!!msg.on);
+        }
+      });
     }
 
     // Raccourci Ctrl+Shift+E = toggle bouton d'édition
