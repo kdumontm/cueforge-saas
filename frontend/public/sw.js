@@ -4,8 +4,13 @@
  * Cache-first uniquement pour les assets statiques stables (images, fonts, manifest)
  */
 
-const CACHE_NAME = 'trackcue-v4';
-const SWR_CACHE_NAME = 'trackcue-swr-v1';
+// 🔴 2026-04-23 : bump v4 → v5 pour purger les anciennes pages /login, /register, /dashboard…
+//   cachées avant la migration v4. Certains users (ex: Kevin) avaient encore la version
+//   Next.js pré-migration servie depuis le cache du SW alors que le serveur renvoie bien
+//   la version v4. Un bump de CACHE_NAME + le activate handler supprimant les anciens
+//   caches suffit à forcer l'invalidation au prochain pageview.
+const CACHE_NAME = 'trackcue-v5';
+const SWR_CACHE_NAME = 'trackcue-swr-v2';
 const STATIC_ASSETS = [
   '/manifest.json',
 ];
