@@ -229,5 +229,5 @@ async def generate_fingerprint(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error generating fingerprint: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to generate fingerprint")
+        logger.error(f"Error generating fingerprint: {exc}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"Fingerprint generation unavailable: {str(exc)}")
