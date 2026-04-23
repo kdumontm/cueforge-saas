@@ -176,10 +176,11 @@ async def detect_versions(
         ).limit(5).all()
 
         for v in similar:
+            duration_ms = v.analysis.duration_ms if v.analysis else None
             versions.append({
                 "id": v.id,
                 "title": v.title,
-                "duration": v.duration,
+                "duration_ms": duration_ms,
                 "version_type": "variant"
             })
 
