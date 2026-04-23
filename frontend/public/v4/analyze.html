@@ -515,6 +515,21 @@
           <div class="playhead" style="left:38%"></div>
         </div>
 
+        <!-- 🔴 2026-04-23 bis : Phase INSTANT découpée — le track est déjà visible
+             mais l'analyse avancée (sections, drops, bpm_advanced, groove…) tourne
+             en background. On affiche un indicateur discret qui disparaît quand
+             primary_status=ready. -->
+        <div id="primary-complete-block" style="margin-top:12px;padding:10px 14px;border:1px solid rgba(122,162,255,.25);border-radius:10px;background:rgba(122,162,255,.06);display:none;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:14px;height:14px;border:2px solid rgba(122,162,255,.3);border-top-color:#7aa2ff;border-radius:50%;animation:spin 1s linear infinite"></div>
+            <div>
+              <div style="font-family:var(--font-display);font-size:12px;color:var(--c-primary)">Analyse avancée en cours</div>
+              <div id="primary-complete-hint" style="font-size:11px;color:var(--c-tertiary)">Calcul des sections, drops et BPM précis…</div>
+            </div>
+          </div>
+          <span id="primary-complete-badge" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-pill);background:rgba(122,162,255,.12);color:#7aa2ff;border:1px solid rgba(122,162,255,.3);white-space:nowrap">Running</span>
+        </div>
+
         <!-- 🔴 2026-04-23 : pipeline d'analyse découpé (primary / stems / cues).
              Le track est visible dès que la primary est finie. Les stems tournent
              en background (Demucs) et on affiche ici une vraie barre de progression
@@ -1165,6 +1180,32 @@ function attachCueHandlers(){
 let __pipelinePollTimer = null;
 let __pipelineLastStemsStatus = null;
 let __pipelineLastCuesStatus = null;
+let __pipelineLastPrimaryStatus = null;
+
+function updatePrimaryCompleteUI(state){
+  // 2026-04-23 bis : bloc "Analyse avancée" — visible si primary_status=running
+  const block = document.getElementById('primary-complete-block');
+  const hint = document.getElementById('primary-complete-hint');
+  const badge = document.getElementById('primary-complete-badge');
+  if(!block || !hint || !badge) return;
+
+  const primary = state.primary_status || 'pending';
+  if(primary === 'running' || primary === 'pending'){
+    block.style.display = 'flex';
+    badge.textContent = primary === 'running' ? 'Running' : 'Pending';
+    hint.textContent = 'Calcul des sections, drops et BPM précis…';
+  } else if(primary === 'failed'){
+    block.style.display = 'flex';
+    badge.textContent = 'Failed';
+    badge.style.background = 'rgba(255,100,100,.12)';
+    badge.style.color = '#ff7a7a';
+    badge.style.border = '1px solid rgba(255,100,100,.3)';
+    hint.textContent = 'L\'analyse avancée a échoué — relance l\'analyse depuis la library.';
+  } else {
+    // ready
+    block.style.display = 'none';
+  }
+}
 
 function updateStemsUI(state){
   const bar = document.getElementById('stems-progress-bar');
@@ -1210,16 +1251,28 @@ function updateCuesActionRow(state, track){
   const mode = (track && track.cue_generation_mode) || state.cue_generation_mode || 'auto';
   const cuesStatus = state.cues_status || 'pending';
   const stemsStatus = state.stems_status || 'pending';
+  // 2026-04-23 bis : primary_status — on attend 'ready' pour que les cues aient
+  // accès aux sections/drops/bpm_advanced (sinon cues sans contexte).
+  const primaryStatus = state.primary_status || 'pending';
+  const primaryReady = (primaryStatus === 'ready');
 
   if(mode === 'auto'){
-    // Auto → cues générés pendant la primary. On n'affiche le bouton que si
-    // les cues ne sont pas encore là (fallback de secours).
+    // Auto → cues générés à la fin de primary_complete. Affiche bouton Regénérer
+    // seulement quand primary est ready + cues déjà calculés (ou échoués).
     if(cuesStatus === 'ready'){
+      row.style.display = 'flex';
+      hint.textContent = 'Cue points générés automatiquement.';
+      btn.textContent = 'Regénérer cue points';
+      btn.disabled = !primaryReady;
+    } else if(!primaryReady){
+      // Analyse avancée pas encore finie → on cache le bouton pour éviter
+      // la confusion (le bloc "Analyse avancée en cours" explique déjà)
       row.style.display = 'none';
     } else {
+      // primary ready mais cues failed/pending → permettre regénération manuelle
       row.style.display = 'flex';
-      hint.textContent = 'Les cues s\'ajoutent automatiquement — relancer si besoin.';
-      btn.textContent = 'Regénérer cue points';
+      hint.textContent = 'Cue auto échouée — relancer manuellement.';
+      btn.textContent = 'Générer cue points';
       btn.disabled = false;
     }
     return;
@@ -1230,16 +1283,21 @@ function updateCuesActionRow(state, track){
     if(cuesStatus === 'ready'){
       hint.textContent = 'Cue points générés. Relance pour écraser les existants.';
       btn.textContent = 'Regénérer cue points';
-    } else if(cuesStatus === 'running'){
+      btn.disabled = !primaryReady;
+    } else if(cuesStatus === 'running' || cuesStatus === 'processing'){
       hint.textContent = 'Génération des cues en cours…';
       btn.textContent = 'Génération…';
       btn.disabled = true;
       return;
+    } else if(!primaryReady){
+      hint.textContent = 'Analyse avancée en cours — disponible dans ~10s.';
+      btn.textContent = 'En attente…';
+      btn.disabled = true;
     } else {
       hint.textContent = 'Cue points non générés — cliquez pour les créer.';
       btn.textContent = 'Générer cue points';
+      btn.disabled = false;
     }
-    btn.disabled = false;
     return;
   }
 
@@ -1274,17 +1332,24 @@ async function pollPipelineOnce(){
     const state = await api.get(`/tracks/${trackId}/pipeline-status`);
     if(!state) return;
 
+    updatePrimaryCompleteUI(state);
     updateStemsUI(state);
     updateCuesActionRow(state, currentTrack);
 
-    // Si les stems viennent de finir et qu'on n'a encore jamais vu "ready",
-    // on rafraîchit le track pour récupérer stem_data côté analysis.
+    // Détecte les transitions d'état pour rafraîchir l'analyse affichée
+    const primaryJustReady = state.primary_status === 'ready' && __pipelineLastPrimaryStatus && __pipelineLastPrimaryStatus !== 'ready';
     const stemsJustReady = state.stems_status === 'ready' && __pipelineLastStemsStatus !== 'ready';
     const cuesJustReady = state.cues_status === 'ready' && __pipelineLastCuesStatus !== 'ready';
+    __pipelineLastPrimaryStatus = state.primary_status;
     __pipelineLastStemsStatus = state.stems_status;
     __pipelineLastCuesStatus = state.cues_status;
 
-    if(cuesJustReady){
+    if(primaryJustReady){
+      // Analyse avancée terminée → reload pour avoir sections, drops, bpm_advanced…
+      window.__forceTrackRefresh = true;
+      await loadTrack();
+      toast('Analyse avancée terminée', 'info');
+    } else if(cuesJustReady){
       window.__forceTrackRefresh = true;
       await loadTrack();
       toast('Cue points générés', 'success');
@@ -1293,10 +1358,10 @@ async function pollPipelineOnce(){
       await loadTrack();
     }
 
-    // Stop polling quand stems ET cues sont dans un état final
+    // Stop polling quand primary + stems + cues sont tous finaux
+    const primaryFinal = state.primary_status === 'ready' || state.primary_status === 'failed';
     const stemsFinal = state.stems_status === 'ready' || state.stems_status === 'failed';
-    const cuesFinal = state.cues_status === 'ready' || state.cues_status === 'failed' || state.cues_status === 'pending';
-    if(stemsFinal && state.cues_status !== 'running'){
+    if(primaryFinal && stemsFinal && state.cues_status !== 'running' && state.cues_status !== 'processing'){
       // On s'arrête — sauf si on est en mode on_demand avant clic (cues pending).
       // Le handler du bouton redémarrera le polling si besoin.
       stopPipelinePolling();

@@ -99,6 +99,10 @@ PENDING_MIGRATIONS = {
         "stems_progress": "INTEGER DEFAULT 0",
         "cues_status": "VARCHAR(20) DEFAULT 'pending'",
         "cue_generation_mode": "VARCHAR(20) DEFAULT 'auto'",
+        # 2026-04-23 bis — phase INSTANT + PRIMARY_COMPLETE background
+        # primary_status : pending → running (INSTANT fait, primary complète en bg)
+        #                  → ready (tous champs avancés remplis) | failed
+        "primary_status": "VARCHAR(20) DEFAULT 'pending'",
     },
     "track_analyses": {
         # Waveform and spectral data columns

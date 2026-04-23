@@ -759,6 +759,10 @@ def _run_analysis(track_id: int):
         _log(f"[PIPELINE] track {track_id}: cue_generation_mode={cue_gen_mode}")
 
         # Reset pipeline states au début de chaque analyse
+        # 2026-04-23 bis : primary_status ajouté (INSTANT fini = running,
+        # primary_complete fini = ready). cues_status en auto attend
+        # primary_complete pour avoir sections/drops disponibles.
+        track.primary_status = 'pending'
         track.stems_status = 'pending'
         track.stems_progress = 0
         track.cues_status = 'pending' if cue_gen_mode != 'skipped' else 'skipped'
@@ -788,39 +792,40 @@ def _run_analysis(track_id: int):
             pass
         return
 
-    # ─ PHASE 2 : Analyse SANS session DB (30-120s) ─
-    # Piste 2 speedup : defer_deep=True par défaut → la phase deep (~120s)
-    # tourne en background après status=completed, l'utilisateur voit les
-    # résultats primaires ~2x plus vite. Les champs deep remplissent la DB
-    # progressivement via compute_deep_only().
-    _defer_deep = os.environ.get("DEFER_DEEP_ANALYSIS", "1") == "1"
-    _log(f"[ANALYSIS] Phase 2 — calling analyze_audio for track {track_id} (defer_deep={_defer_deep})...")
-    analysis_data = None
+    # ─ PHASE 2 : INSTANT (~3-5s) — rendre track visible ASAP ─
+    # 2026-04-23 bis : on ne fait plus analyze_audio() complet ici (~14s).
+    # INSTANT calcule juste BPM / key / energy / waveform / duration en ~3-5s.
+    # La phase PRIMARY_COMPLETE (analyze_audio full) tourne ensuite en background
+    # et remplit les champs avancés (sections, drops, bpm_advanced, loudness LUFS,
+    # groove, vocal, production, mixing_compat…) dans la TrackAnalysis existante.
+    _log(f"[ANALYSIS] Phase 2 INSTANT — calling analyze_audio_instant for track {track_id}...")
+    instant_data = None
     try:
-        analysis_data = analysis_svc.analyze_audio(
-            file_path,
-            use_stem_separation=use_stems,
-            track_id=track_id,
-            defer_deep=_defer_deep,
-        )
-        _log(f"[ANALYSIS] Phase 2 done — got {len(analysis_data) if analysis_data else 0} keys, bpm={analysis_data.get('bpm') if analysis_data else 'N/A'}")
+        instant_data = analysis_svc.analyze_audio_instant(file_path, track_id=track_id)
+        if instant_data and instant_data.get("error"):
+            raise RuntimeError(instant_data["error"])
+        _log(f"[ANALYSIS] Phase 2 INSTANT done in {instant_data.get('_instant_elapsed_s', '?')}s — bpm={instant_data.get('bpm')}, key={instant_data.get('key')}")
     except Exception as e:
-        _log(f"[ANALYSIS] Phase 2 CRASHED: {e}\n{_tb.format_exc()}")
-        # Rouvrir session et fail
+        _log(f"[ANALYSIS] Phase 2 INSTANT CRASHED: {e}\n{_tb.format_exc()}")
         db = SessionLocal()
         try:
             track = db.query(Track).filter(Track.id == track_id).first()
             if track:
                 track.status = TrackStatus.failed
-                track.error_message = str(e)
+                track.error_message = f"Instant phase: {e}"
+                track.primary_status = 'failed'
                 db.commit()
         finally:
             db.close()
         _release_quota(_quota_user_id)
         return
 
-    # ─ PHASE 3 : Commit final (session courte) ─
-    _log(f"[ANALYSIS] Phase 3 — committing results for track {track_id}...")
+    # ─ PHASE 3 : Commit minimal INSTANT + status=completed ─
+    # Track visible dans la library dès maintenant. Les champs avancés arriveront
+    # via _run_primary_complete_background. cues_status reste 'pending' pour
+    # tous les modes (auto inclus) — cues générés après primary_complete pour
+    # profiter des sections/drops.
+    _log(f"[ANALYSIS] Phase 3 — committing INSTANT results for track {track_id}...")
     db = SessionLocal()
     try:
         track = db.query(Track).filter(Track.id == track_id).first()
@@ -828,134 +833,40 @@ def _run_analysis(track_id: int):
             _log(f"[ANALYSIS] Phase 3: track {track_id} disappeared from DB!")
             return
 
-        # Save analysis (v6.3: includes LUFS, variable BPM, mood, danceability,
-        # stereo width, spectral centroid, section confidence, advanced BPM)
+        # TrackAnalysis minimal — tous les champs non calculés en INSTANT
+        # resteront NULL jusqu'à primary_complete.
         analysis = TrackAnalysis(
             track_id=track.id,
-            bpm=analysis_data.get("bpm"),
-            bpm_confidence=analysis_data.get("bpm_confidence"),
-            key=analysis_data.get("key"),
-            key_confidence=analysis_data.get("key_confidence"),
-            key_secondary=analysis_data.get("key_secondary"),
-            energy=analysis_data.get("energy"),
-            duration_ms=analysis_data.get("duration_ms"),
-            drop_positions=analysis_data.get("drop_positions", []),
-            phrase_positions=analysis_data.get("phrase_positions", []),
-            beat_positions=analysis_data.get("beat_positions", []),
-            section_labels=analysis_data.get("section_labels", []),
-            loudness_lufs=analysis_data.get("loudness_lufs"),
-            loudness_range_lu=analysis_data.get("loudness_range_lu"),
-            replay_gain_db=analysis_data.get("replay_gain_db"),
-            bpm_map=analysis_data.get("bpm_map"),
-            bpm_stable=analysis_data.get("bpm_stable", True),
-            mood=analysis_data.get("mood"),
-            danceability=analysis_data.get("danceability"),
-            # v6.3: New analysis fields
-            stereo_width=analysis_data.get("stereo_width"),
-            mono_compatibility=analysis_data.get("mono_compatibility"),
-            stereo_balance=analysis_data.get("stereo_balance"),
-            stereo_width_label=analysis_data.get("stereo_width_label"),
-            spectral_centroid_mean=analysis_data.get("spectral_centroid_mean"),
-            brightness_label=analysis_data.get("brightness_label"),
-            bpm_advanced=analysis_data.get("bpm_advanced"),
-            # v6.4: Audio quality metrics
-            has_clipping=analysis_data.get("has_clipping"),
-            clipping_ratio=analysis_data.get("clipping_ratio"),
-            has_dc_offset=analysis_data.get("has_dc_offset"),
-            dc_offset_mean=analysis_data.get("dc_offset_mean"),
-            true_peak_db=analysis_data.get("true_peak_db"),
-            true_peak_value=analysis_data.get("true_peak_value"),
-            # v6.5: Structural summary
-            structural_summary=analysis_data.get("structural_summary"),
-            # v6.5: Encoding quality & audio quality score
-            encoding_quality=analysis_data.get("encoding_quality"),
-            estimated_bitrate_kbps=analysis_data.get("estimated_bitrate_kbps"),
-            is_upscaled=analysis_data.get("is_upscaled"),
-            spectral_rolloff_hz=analysis_data.get("spectral_rolloff_hz"),
-            spectral_contrast_mean=analysis_data.get("spectral_contrast_mean"),
-            audio_quality_score=analysis_data.get("audio_quality_score"),
-            audio_quality_grade=analysis_data.get("audio_quality_grade"),
-            audio_quality_breakdown=analysis_data.get("audio_quality_breakdown"),
-            accent_points=analysis_data.get("accent_points"),
-            downbeat_ms=analysis_data.get("downbeat_ms"),
-            # v6.6: JSON summary blobs
-            rhythm_summary=analysis_data.get("rhythm_summary"),
-            spectral_summary=analysis_data.get("spectral_summary"),
-            dj_mix_recommendations=analysis_data.get("dj_mix_recommendations"),
-            quality_extended=analysis_data.get("quality_extended"),
-            # v6.5: Sub-bass, loudness war
-            sub_bass_quality=analysis_data.get("sub_bass_quality"),
-            sub_bass_clarity=analysis_data.get("sub_bass_clarity"),
-            loudness_war_detected=analysis_data.get("loudness_war_detected"),
-            loudness_war_severity=analysis_data.get("loudness_war_severity"),
-            compression_score=analysis_data.get("compression_score"),
-            # v6.5: Rhythm & groove
-            groove_swing=analysis_data.get("groove_swing"),
-            syncopation_index=analysis_data.get("syncopation_index"),
-            rhythmic_complexity=analysis_data.get("rhythmic_complexity"),
-            offbeat_energy_ratio=analysis_data.get("offbeat_energy_ratio"),
-            beat_strength_mean=analysis_data.get("beat_strength_mean"),
-            # v6.7: Harmonic, vocal, production, mixing compatibility
-            harmonic_summary=analysis_data.get("harmonic_summary"),
-            vocal_analysis=analysis_data.get("vocal_analysis"),
-            production_analysis=analysis_data.get("production_analysis"),
-            mixing_compatibility=analysis_data.get("mixing_compatibility"),
-            # v6.9: Deep analysis blobs
-            section_deep_analysis=analysis_data.get("section_deep_analysis"),
-            loudness_deep_analysis=analysis_data.get("loudness_deep_analysis"),
-            key_deep_analysis=analysis_data.get("key_deep_analysis"),
+            bpm=instant_data.get("bpm"),
+            bpm_confidence=instant_data.get("bpm_confidence"),
+            key=instant_data.get("key"),
+            key_confidence=instant_data.get("key_confidence"),
+            energy=instant_data.get("energy"),
+            duration_ms=instant_data.get("duration_ms"),
+            beat_positions=instant_data.get("beat_positions", []),
+            waveform_peaks=instant_data.get("waveform_peaks"),
+            spectral_energy=instant_data.get("spectral_energy"),
+            bpm_stable=True,  # pas de bpm_map à ce stade
         )
         db.add(analysis)
         db.flush()
 
-        # Auto loop markers
+        # ── Auto genre detection (champs dispo : bpm, energy, key, spectral) ──
         try:
-            auto_loops = analysis_data.get("auto_loops", [])
-            for i, loop_data in enumerate(auto_loops):
-                from app.models.track import LoopMarker
-                loop = LoopMarker(
-                    track_id=track.id,
-                    start_ms=loop_data["start_ms"],
-                    end_ms=loop_data["end_ms"],
-                    name=loop_data.get("name", f"Loop {i+1}"),
-                    color=loop_data.get("color", "green"),
-                    number=i + 1,
-                    length_beats=loop_data.get("length_beats"),
-                    auto_generated=True,
-                )
-                db.add(loop)
-        except Exception as e:
-            logger.warning(f"Auto loop detection failed for track {track.id}: {e}")
-
-        # ── Waveform extraction ──
-        try:
-            peaks, spectral = extract_waveform_peaks(file_path)
-            if peaks is not None and spectral is not None:
-                analysis.waveform_peaks = peaks
-                analysis.spectral_energy = spectral
-                logger.info(f"Waveform extracted for track {track_id}")
-        except Exception as e:
-            logger.warning(f"Waveform extraction failed for track {track_id}: {e}")
-
-        # ── Auto genre detection (ML — reste automatique) ──
-        try:
-            spectral_data = analysis.spectral_energy if hasattr(analysis, 'spectral_energy') else None
             genre_result = detect_genre_from_analysis(
-                bpm=analysis_data.get("bpm"),
-                energy=analysis_data.get("energy"),
-                key=analysis_data.get("key"),
-                spectral_data=spectral_data,
+                bpm=instant_data.get("bpm"),
+                energy=instant_data.get("energy"),
+                key=instant_data.get("key"),
+                spectral_data=instant_data.get("spectral_energy"),
             )
             if genre_result.get("best_guess") and genre_result["best_guess"] != "Unknown":
                 if not track.genre:
                     track.genre = genre_result["best_guess"]
-                    logger.info(f"Auto-detected genre for track {track_id}: {track.genre}")
+                    _log(f"[ANALYSIS] Auto-detected genre: {track.genre}")
         except Exception as e:
             logger.warning(f"Genre detection failed for track {track_id}: {e}")
 
-        # Metadata lookup — ON-DEMAND via POST /advanced/identify/{track_id}
-
-        # ── Auto remix/version detection ──
+        # ── Remix/version detection (depuis le titre) ──
         try:
             from app.services.remix_detection import detect_remix_info
             title_to_parse = track.title or track.original_filename or ""
@@ -969,21 +880,247 @@ def _run_analysis(track_id: int):
         except Exception as e:
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
-        # ══════════════════════════════════════════════════════════════════
-        #   STEMS : déclenchés APRÈS le commit de la phase primary (background)
-        #   Plus de stems dans analyze_audio() — use_stems=False force.
-        # ══════════════════════════════════════════════════════════════════
-        stem_data = {}
+        # ── Mark complete + primary_status=running (complète tourne en bg) ──
+        track.status = TrackStatus.completed
+        track.primary_status = 'running'
+        # cues_status reste 'pending' — les cues attendent primary_complete
+        # (sauf mode skipped déjà géré plus haut)
+        safe_commit(db)
+        _log(f"[ANALYSIS] ════ INSTANT COMMIT track {track_id} ════ (status=completed, primary_status=running)")
 
-        # ── Cue points (mode auto uniquement à ce stade) ──
-        # auto       : génère tout de suite, sans stems (confidence ~0.6-0.7)
-        # on_demand  : skip — utilisateur cliquera sur "Générer cue points"
-        # pro        : skip — sera déclenché après les stems (confidence ~0.9)
+        # Notification immédiate — le user voit que son track est prêt
+        notif = Notification(
+            user_id=track.user_id,
+            type="analysis_complete",
+            title="Track prêt",
+            message=f"« {track.title or track.original_filename} » est dispo dans ta library. Analyse avancée en cours…",
+            link=f"/dashboard?track={track.id}",
+        )
+        db.add(notif)
+        safe_commit(db)
+
+    except Exception as e:
+        logger.error(f"Unexpected error INSTANT commit track {track_id}: {e}\n{_tb.format_exc()}")
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if track:
+                track.status = TrackStatus.failed
+                track.error_message = str(e)
+                track.primary_status = 'failed'
+                db.commit()
+        except Exception:
+            pass
+        _release_quota(_quota_user_id)
+        return
+    finally:
+        db.close()
+
+    # ─ PHASE 4 : PRIMARY_COMPLETE + STEMS + DEEP en background ─
+    # Maintenant que le track est visible (status=completed), on spawn 2 threads :
+    #   • _run_primary_complete_background : analyze_audio(defer_deep=True)
+    #     puis merge des champs avancés (sections, drops, bpm_advanced, loudness
+    #     LUFS, groove, vocal, production, mixing_compat) + génération des cues
+    #     pour mode=auto + déclenche _run_deep_analysis_deferred à la fin.
+    #   • _run_stems_background : Demucs (60s+), inchangé. Mode=pro chaîne
+    #     les cues après stems.
+    # Les deux tournent en parallèle. On release quota seulement à la fin de
+    # primary_complete (pour éviter de saturer avec 10 primaries en même temps).
+    try:
+        import threading
+        threading.Thread(
+            target=_run_primary_complete_background,
+            args=(track_id, file_path, cue_gen_mode, _quota_user_id),
+            daemon=True,
+            name=f"primary-complete-{track_id}",
+        ).start()
+        _log(f"[PIPELINE] track {track_id}: déclenche _run_primary_complete_background")
+
+        # Stems en parallèle (mode pro chaîne les cues APRÈS stems)
+        chain_cues_after_stems = (cue_gen_mode == 'pro')
+        _log(f"[PIPELINE] track {track_id}: déclenche _run_stems_background (chain_cues={chain_cues_after_stems})")
+        threading.Thread(
+            target=_run_stems_background,
+            args=(track_id, file_path, chain_cues_after_stems),
+            daemon=True,
+            name=f"stems-{track_id}",
+        ).start()
+    except Exception as e:
+        logger.warning(f"[PIPELINE] Échec déclenchement phase 4 (primary_complete + stems) track {track_id}: {e}")
+        # Si on échoue à lancer le primary_complete, release quota ici
+        _release_quota(_quota_user_id)
+
+    # Nettoie le progress partial streaming (legacy, inoffensif si absent)
+    try:
+        from app.services.cache_service import clear_analysis_progress
+        clear_analysis_progress(track_id)
+    except Exception:
+        pass
+
+
+def _run_primary_complete_background(
+    track_id: int,
+    file_path: str,
+    cue_gen_mode: str,
+    quota_user_id,
+):
+    """
+    2026-04-23 bis — Phase PRIMARY_COMPLETE (background, ~10s).
+
+    Lance analyze_audio(defer_deep=True) pour calculer TOUS les champs
+    avancés (sections, drops, bpm_advanced, loudness LUFS, groove, vocal,
+    production, mixing_compat…) et les merge dans la TrackAnalysis déjà
+    existante (celle créée par la phase INSTANT).
+
+    À la fin :
+      • primary_status = 'ready'
+      • Si cue_gen_mode=='auto' → génère les cues (on a les sections/drops)
+      • Relance _run_deep_analysis_deferred (~120s) pour les champs deep
+      • Release quota utilisateur (ici, pas dans _run_analysis)
+
+    Le track est déjà visible dans la library (status=completed) — cette
+    phase ne bloque jamais l'UX, elle enrichit progressivement les données.
+    """
+    from app.database import SessionLocal
+    import traceback as _tb
+    import time as _time
+
+    def _log(msg):
+        logger.info(msg)
+        try:
+            import sys as _sys
+            print(msg, flush=True, file=_sys.stderr)
+        except Exception:
+            pass
+
+    def _release_quota():
+        if quota_user_id is None:
+            return
+        try:
+            from app.services.quota_service import get_quota_service
+            qs = get_quota_service()
+            qs.record_analysis_complete(quota_user_id)
+        except Exception as qe:
+            logger.warning(f"[PRIMARY-COMPLETE] Failed to decrement quota: {qe}")
+
+    t0 = _time.time()
+    _log(f"[PRIMARY-COMPLETE] ── START track {track_id} (cue_mode={cue_gen_mode}) ──")
+
+    analysis_data = None
+    try:
+        # analyze_audio full avec defer_deep=True (deep phase ensuite en bg)
+        analysis_data = analysis_svc.analyze_audio(
+            file_path,
+            use_stem_separation=False,
+            track_id=track_id,
+            defer_deep=True,
+        )
+        _log(f"[PRIMARY-COMPLETE] analyze_audio done in {_time.time()-t0:.1f}s — {len(analysis_data) if analysis_data else 0} keys")
+    except Exception as e:
+        _log(f"[PRIMARY-COMPLETE] analyze_audio CRASHED track {track_id}: {e}\n{_tb.format_exc()}")
+        db = SessionLocal()
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if track:
+                track.primary_status = 'failed'
+                db.commit()
+        finally:
+            db.close()
+        _release_quota()
+        return
+
+    # ─ Merge dans TrackAnalysis existant ─
+    db = SessionLocal()
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+        analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        if not track or not analysis:
+            _log(f"[PRIMARY-COMPLETE] track/analysis missing for track {track_id}")
+            _release_quota()
+            return
+
+        # Champs à merger depuis analyze_audio — override TOUS les champs basiques
+        # (bpm, key, energy peuvent être plus précis via madmom/beat_this/hybrid key)
+        _fields_to_merge = [
+            "bpm", "bpm_confidence", "key", "key_confidence", "key_secondary",
+            "energy", "duration_ms", "drop_positions", "phrase_positions",
+            "beat_positions", "section_labels", "loudness_lufs",
+            "loudness_range_lu", "replay_gain_db", "bpm_map", "bpm_stable",
+            "mood", "danceability", "stereo_width", "mono_compatibility",
+            "stereo_balance", "stereo_width_label", "spectral_centroid_mean",
+            "brightness_label", "bpm_advanced", "has_clipping", "clipping_ratio",
+            "has_dc_offset", "dc_offset_mean", "true_peak_db", "true_peak_value",
+            "structural_summary", "encoding_quality", "estimated_bitrate_kbps",
+            "is_upscaled", "spectral_rolloff_hz", "spectral_contrast_mean",
+            "audio_quality_score", "audio_quality_grade", "audio_quality_breakdown",
+            "accent_points", "downbeat_ms", "rhythm_summary", "spectral_summary",
+            "dj_mix_recommendations", "quality_extended", "sub_bass_quality",
+            "sub_bass_clarity", "loudness_war_detected", "loudness_war_severity",
+            "compression_score", "groove_swing", "syncopation_index",
+            "rhythmic_complexity", "offbeat_energy_ratio", "beat_strength_mean",
+            "harmonic_summary", "vocal_analysis", "production_analysis",
+            "mixing_compatibility", "section_deep_analysis",
+            "loudness_deep_analysis", "key_deep_analysis",
+        ]
+        applied = 0
+        for k in _fields_to_merge:
+            if k in analysis_data and analysis_data[k] is not None and hasattr(analysis, k):
+                setattr(analysis, k, analysis_data[k])
+                applied += 1
+
+        # Auto loop markers
+        try:
+            auto_loops = analysis_data.get("auto_loops", [])
+            for i, loop_data in enumerate(auto_loops):
+                loop = LoopMarker(
+                    track_id=track.id,
+                    start_ms=loop_data["start_ms"],
+                    end_ms=loop_data["end_ms"],
+                    name=loop_data.get("name", f"Loop {i+1}"),
+                    color=loop_data.get("color", "green"),
+                    number=i + 1,
+                    length_beats=loop_data.get("length_beats"),
+                    auto_generated=True,
+                )
+                db.add(loop)
+        except Exception as e:
+            logger.warning(f"[PRIMARY-COMPLETE] auto_loops failed track {track_id}: {e}")
+
+        # Re-run waveform extraction avec extract_waveform_peaks (plus précis que INSTANT)
+        try:
+            peaks, spectral = extract_waveform_peaks(file_path)
+            if peaks is not None:
+                analysis.waveform_peaks = peaks
+            if spectral is not None:
+                analysis.spectral_energy = spectral
+        except Exception as e:
+            logger.warning(f"[PRIMARY-COMPLETE] waveform re-extract failed: {e}")
+
+        # Re-detect genre avec plus de contexte
+        try:
+            genre_result = detect_genre_from_analysis(
+                bpm=analysis_data.get("bpm"),
+                energy=analysis_data.get("energy"),
+                key=analysis_data.get("key"),
+                spectral_data=analysis.spectral_energy if hasattr(analysis, "spectral_energy") else None,
+            )
+            if genre_result.get("best_guess") and genre_result["best_guess"] != "Unknown":
+                if not track.genre:
+                    track.genre = genre_result["best_guess"]
+        except Exception as e:
+            logger.warning(f"[PRIMARY-COMPLETE] genre re-detect failed: {e}")
+
+        # ── Cue points (mode auto) ──
+        # mode=auto → on génère maintenant (sections/drops disponibles)
+        # mode=on_demand → skip (user cliquera sur "Générer cue points")
+        # mode=pro → skip (générés après stems avec confidence plus haute)
         if cue_gen_mode == 'auto':
             try:
                 track.cues_status = 'processing'
-                cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
-                logger.info(f"[CUES][auto] {cue_stats.total_cues} cues en {cue_stats.generation_time_ms:.0f}ms (sans stems)")
+                db.flush()
+                # Build payload depuis TrackAnalysis pour avoir tous les champs
+                analysis_data_full = dict(analysis_data)  # copy
+                cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data_full)
+                _log(f"[PRIMARY-COMPLETE][CUES][auto] {cue_stats.total_cues} cues en {cue_stats.generation_time_ms:.0f}ms")
                 for cp in cue_points_data:
                     cue = CuePoint(
                         track_id=track.id,
@@ -998,89 +1135,33 @@ def _run_analysis(track_id: int):
                     db.add(cue)
                 track.cues_status = 'ready'
             except Exception as e:
-                logger.warning(f"[CUES][auto] génération échouée track {track_id}: {e}")
+                logger.warning(f"[PRIMARY-COMPLETE][CUES][auto] failed track {track_id}: {e}")
                 track.cues_status = 'failed'
-        else:
-            _log(f"[CUES] track {track_id}: mode={cue_gen_mode} → cues différés (pas de génération en phase primary)")
 
-        # ── Mark complete and commit ──
-        track.status = TrackStatus.completed
+        track.primary_status = 'ready'
         safe_commit(db)
-        _log(f"[ANALYSIS] ════ PRIMARY COMPLETE track {track_id} ════ (cue_mode={cue_gen_mode}, defer_deep={_defer_deep})")
-
-        # Create notification
-        notif = Notification(
-            user_id=track.user_id,
-            type="analysis_complete",
-            title="Analyse terminée",
-            message=f"L'analyse de « {track.title or track.original_filename} » est terminée.",
-            link=f"/dashboard?track={track.id}",
-        )
-        db.add(notif)
-        safe_commit(db)
-
+        _log(f"[PRIMARY-COMPLETE] ════ DONE track {track_id} ════ ({applied} fields merged, total {_time.time()-t0:.1f}s)")
     except Exception as e:
-        logger.error(f"Unexpected error analyzing track {track_id}: {e}")
+        logger.error(f"[PRIMARY-COMPLETE] merge crashed track {track_id}: {e}\n{_tb.format_exc()}")
         try:
             track = db.query(Track).filter(Track.id == track_id).first()
             if track:
-                track.status = TrackStatus.failed
-                track.error_message = str(e)
+                track.primary_status = 'failed'
                 db.commit()
         except Exception:
             pass
     finally:
         db.close()
-        _release_quota(_quota_user_id)
-        # Nettoie le progress partial streaming (Étape 5 speedup)
-        # Évite que des vieilles clés traînent 15min dans Redis après succès/échec
-        try:
-            from app.services.cache_service import clear_analysis_progress
-            clear_analysis_progress(track_id)
-        except Exception:
-            pass
 
-    # ─ PHASE 4 (piste 2) : deep analysis en différé ─
-    # Maintenant que status=completed est commité, l'UI voit les résultats
-    # primaires. On relance la phase deep (~120s) et on met à jour la DB
-    # au fur et à mesure. Si ça échoue, pas grave : les champs deep
-    # restent à leur valeur placeholder "available: false".
-    if _defer_deep and analysis_data:
-        try:
-            _run_deep_analysis_deferred(track_id, file_path, analysis_data)
-        except Exception as e:
-            logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
-
-    # ─ PHASE 5 (2026-04-23) : stems en background + cues pro/on_demand ─
-    # Les stems restent obligatoires (feature non-négociable) MAIS tournent
-    # maintenant APRÈS status=completed, en tâche indépendante, pour que le
-    # track soit déjà visible dans la library + /analyze pendant que Demucs
-    # tourne. Le mode "pro" attend la fin des stems avant de générer les cues.
+    # ─ PHASE DEEP en différé (~120s) ─
     try:
-        import threading
-        # cue_gen_mode a été lu dans la phase 1 — on refetch au cas où
-        _mode = 'auto'
-        db2 = SessionLocal()
-        try:
-            t_mode = db2.query(Track).filter(Track.id == track_id).first()
-            if t_mode:
-                _mode = getattr(t_mode, 'cue_generation_mode', 'auto') or 'auto'
-        finally:
-            db2.close()
-
-        # Stems toujours lancés en background (obligatoire). Si mode=pro,
-        # la chaîne stems→cues est activée pour que les cues soient re-générés
-        # avec la confidence améliorée une fois les stems prêts.
-        chain_cues_after_stems = (_mode == 'pro')
-        _log(f"[PIPELINE] track {track_id}: déclenche _run_stems_background (chain_cues={chain_cues_after_stems})")
-        threading.Thread(
-            target=_run_stems_background,
-            args=(track_id, file_path, chain_cues_after_stems),
-            daemon=True,
-            name=f"stems-{track_id}",
-        ).start()
+        if analysis_data:
+            _run_deep_analysis_deferred(track_id, file_path, analysis_data)
     except Exception as e:
-        logger.warning(f"[PIPELINE] Échec déclenchement phase 5 (stems) track {track_id}: {e}")
+        logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
+
+    # Release quota seulement à la fin du primary_complete (stems continue)
+    _release_quota()
 
 
 def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
@@ -1362,6 +1443,11 @@ def get_pipeline_status(
     return {
         "track_id": track.id,
         "status": track.status.value if hasattr(track.status, 'value') else str(track.status),
+        # 2026-04-23 bis : primary_status expose l'état de la phase complète
+        # (sections, drops, bpm_advanced…). INSTANT = status=completed + primary_status=running.
+        # Utilisé par /analyze pour gating du bouton "Générer cue points" (mode on_demand)
+        # + feedback visuel "Analyse avancée en cours…"
+        "primary_status": getattr(track, 'primary_status', 'pending') or 'pending',
         "stems_status": getattr(track, 'stems_status', 'pending') or 'pending',
         "stems_progress": int(getattr(track, 'stems_progress', 0) or 0),
         "cues_status": getattr(track, 'cues_status', 'pending') or 'pending',
@@ -1395,6 +1481,21 @@ def generate_cues_on_demand(
         raise HTTPException(
             status_code=400,
             detail=f"L'analyse primary n'est pas terminée (status={track.status.value if hasattr(track.status, 'value') else track.status})",
+        )
+
+    # 2026-04-23 bis : gate sur primary_status — on a besoin des sections/drops
+    # pour générer des cues pertinents. Si primary_complete tourne encore,
+    # on renvoie 425 (Too Early) pour que le frontend réessaie plus tard.
+    _primary_status = getattr(track, 'primary_status', None) or 'pending'
+    if _primary_status in ('pending', 'running'):
+        raise HTTPException(
+            status_code=425,
+            detail="Analyse avancée en cours — réessaie dans quelques secondes",
+        )
+    if _primary_status == 'failed':
+        raise HTTPException(
+            status_code=422,
+            detail="L'analyse avancée a échoué — impossible de générer des cues",
         )
 
     # Rate limit : max 10 générations/minute

@@ -96,12 +96,20 @@ class Track(Base):
     audio_fingerprint = Column(String(64), nullable=True, index=True)
 
     # ── 2026-04-23 : pipeline d'analyse découpé (primary / stems / cues) ──
+    # primary_status : pending | running | ready | failed
+    #                  → INSTANT = status=completed après ~3-5s (champs basiques),
+    #                    primary_status=running pendant que la phase complète tourne
+    #                    en bg, puis primary_status=ready quand tous les champs
+    #                    avancés (sections, drops, bpm_advanced, loudness…) sont
+    #                    remplis. Utilisé par le frontend pour savoir si le bouton
+    #                    "Générer cue points" (mode on_demand) peut être activé.
     # stems_status   : pending | processing | ready | failed | skipped
     # stems_progress : 0-100 (pour la barre de progression dans /analyze)
     # cues_status    : pending | processing | ready | failed | skipped
     # cue_generation_mode : auto (cues dès primary sans stems)
     #                     | on_demand (bouton utilisateur)
     #                     | pro (cues attendent les stems — meilleure confidence)
+    primary_status = Column(String(20), default="pending", nullable=True)
     stems_status = Column(String(20), default="pending", nullable=True)
     stems_progress = Column(Integer, default=0, nullable=True)
     cues_status = Column(String(20), default="pending", nullable=True)

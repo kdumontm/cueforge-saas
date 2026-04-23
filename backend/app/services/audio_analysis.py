@@ -5127,6 +5127,179 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
     return results
 
 
+def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dict:
+    """
+    2026-04-23 — Phase INSTANT (~3-5s).
+
+    Objectif : rendre le track visible dans la library le plus vite possible
+    en calculant uniquement les champs basiques. La phase complète
+    (sections, drops, bpm_advanced, loudness LUFS, groove, vocal, production,
+    mixing_compat…) tourne ensuite en background via _run_primary_complete_background
+    qui appellera analyze_audio(defer_deep=True) et mergera dans TrackAnalysis.
+
+    Champs renvoyés (tous dans TrackAnalysis) :
+        bpm, bpm_confidence        — librosa.beat.beat_track rapide
+        key, key_confidence        — KS chroma simple
+        energy                     — RMS → 0-100
+        duration_ms                — depuis mutagen ou len(y)/sr
+        beat_positions             — temps des beats (pour Mix Studio basique)
+        waveform_peaks             — 500 peaks via RMS sur windows (pour la waveform UI)
+        spectral_energy            — bands {bass,mid,high} simplifié
+        loudness_lufs (optionnel)  — -14 si dispo via peak→approx
+
+    On charge l'audio UNE seule fois (22050Hz mono, max 180s suffit pour BPM/key),
+    puis on passe le array y aux fonctions rapides. Pas de madmom, pas de beat_this,
+    pas de allin1, pas de pyloudnorm. Si un champ crash on met None (pas fatal).
+    """
+    import time as _time_instant
+    t0 = _time_instant.time()
+    _log = lambda msg: logger.info(f"[INSTANT] track={track_id} {msg}")
+
+    result: Dict = {"instant_mode": True}
+
+    # ── 1) Load audio rapide (180s max suffit pour BPM/key stable) ───────────
+    try:
+        # Duration réelle du fichier (sans décoder tout)
+        try:
+            full_duration = float(librosa.get_duration(path=file_path))
+        except Exception:
+            full_duration = None
+
+        # On charge au max 180s pour le calcul (suffisant pour BPM/key)
+        analyze_duration = 180.0
+        y, sr = librosa.load(
+            file_path,
+            sr=SR,
+            mono=True,
+            dtype=np.float32,
+            duration=analyze_duration,
+        )
+        load_t = _time_instant.time() - t0
+        _log(f"load {load_t:.2f}s (loaded {len(y)/sr:.1f}s @ {sr}Hz)")
+
+        # duration_ms : priorité à la durée totale du fichier (pas juste ce qu'on a chargé)
+        if full_duration:
+            result["duration_ms"] = int(full_duration * 1000)
+        else:
+            result["duration_ms"] = int((len(y) / sr) * 1000)
+    except Exception as e:
+        logger.error(f"[INSTANT] load failed track={track_id}: {e}")
+        return {"error": f"load failed: {e}", "instant_mode": True}
+
+    # ── 2) BPM rapide via librosa.beat.beat_track ────────────────────────────
+    try:
+        _t = _time_instant.time()
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
+        tempo, beat_frames = librosa.beat.beat_track(
+            onset_envelope=onset_env, sr=sr, hop_length=HOP_LENGTH, units="frames",
+        )
+        bpm_val = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
+        # Fold into DJ range (60-180)
+        if bpm_val < 60:
+            bpm_val *= 2
+        elif bpm_val > 180:
+            bpm_val /= 2
+        result["bpm"] = round(bpm_val, 1)
+        result["bpm_confidence"] = 0.7  # approx librosa — sera corrigé par madmom/beat_this en primary_complete
+
+        # beat_positions en secondes (utile pour le player dès l'instant)
+        beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP_LENGTH)
+        result["beat_positions"] = [float(round(t, 3)) for t in beat_times[:512]]  # cap 512 (5-8min à 128 BPM)
+        _log(f"bpm {_time_instant.time()-_t:.2f}s → {result['bpm']}")
+    except Exception as e:
+        logger.warning(f"[INSTANT] bpm failed track={track_id}: {e}")
+        result["bpm"] = None
+        result["bpm_confidence"] = None
+        result["beat_positions"] = []
+
+    # ── 3) Key via Krumhansl-Schmuckler simple ───────────────────────────────
+    try:
+        _t = _time_instant.time()
+        key, key_conf = detect_key_ks(y, sr)
+        result["key"] = key
+        result["key_confidence"] = key_conf
+        _log(f"key {_time_instant.time()-_t:.2f}s → {key} ({key_conf})")
+    except Exception as e:
+        logger.warning(f"[INSTANT] key failed track={track_id}: {e}")
+        result["key"] = None
+        result["key_confidence"] = None
+
+    # ── 4) Energy RMS ────────────────────────────────────────────────────────
+    try:
+        _t = _time_instant.time()
+        rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
+        rms_mean = float(np.mean(rms))
+        # Normalise à 0-100 (0.3 RMS = ~100% en musique électronique loudness-war)
+        energy_pct = min(100.0, max(0.0, (rms_mean / 0.3) * 100))
+        result["energy"] = round(energy_pct, 1)
+        _log(f"energy {_time_instant.time()-_t:.2f}s → {result['energy']}")
+    except Exception as e:
+        logger.warning(f"[INSTANT] energy failed track={track_id}: {e}")
+        result["energy"] = None
+
+    # ── 5) Waveform peaks (500 peaks, à partir du y déjà chargé) ─────────────
+    # Pas besoin de re-lire le fichier — on calcule 500 RMS windows sur y
+    try:
+        _t = _time_instant.time()
+        n_peaks = 500
+        window = max(1, len(y) // n_peaks)
+        peaks = []
+        for i in range(n_peaks):
+            start = i * window
+            end = min(start + window, len(y))
+            if end > start:
+                peaks.append(float(np.sqrt(np.mean(y[start:end] ** 2))))
+            else:
+                peaks.append(0.0)
+        # Normalise 0-1
+        max_peak = max(peaks) if peaks else 1.0
+        if max_peak > 0:
+            peaks = [round(p / max_peak, 4) for p in peaks]
+        result["waveform_peaks"] = peaks
+        _log(f"waveform {_time_instant.time()-_t:.2f}s ({len(peaks)} peaks)")
+    except Exception as e:
+        logger.warning(f"[INSTANT] waveform failed track={track_id}: {e}")
+        result["waveform_peaks"] = None
+
+    # ── 6) Spectral energy simple (bass/mid/high) ────────────────────────────
+    try:
+        _t = _time_instant.time()
+        S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
+        freqs = librosa.fft_frequencies(sr=sr, n_fft=N_FFT)
+        bass_mask = freqs < 250
+        mid_mask = (freqs >= 250) & (freqs < 4000)
+        high_mask = freqs >= 4000
+        spec_energy = {
+            "bass": float(np.mean(S[bass_mask])) if bass_mask.any() else 0.0,
+            "mid": float(np.mean(S[mid_mask])) if mid_mask.any() else 0.0,
+            "high": float(np.mean(S[high_mask])) if high_mask.any() else 0.0,
+        }
+        # Normalise
+        total = sum(spec_energy.values()) or 1.0
+        spec_energy = {k: round(v / total, 3) for k, v in spec_energy.items()}
+        result["spectral_energy"] = spec_energy
+        _log(f"spectral {_time_instant.time()-_t:.2f}s")
+    except Exception as e:
+        logger.warning(f"[INSTANT] spectral failed track={track_id}: {e}")
+        result["spectral_energy"] = None
+
+    # ── 7) Loudness approximation (peak-based, pas de LUFS précis) ──────────
+    # La vraie LUFS (pyloudnorm, -14 EBU R128) sera calculée en primary_complete
+    try:
+        peak = float(np.max(np.abs(y)))
+        if peak > 0:
+            result["loudness_peak_db"] = round(20 * np.log10(peak), 1)
+        else:
+            result["loudness_peak_db"] = -70.0
+    except Exception:
+        result["loudness_peak_db"] = None
+
+    total_t = _time_instant.time() - t0
+    _log(f"════ DONE in {total_t:.2f}s (bpm={result.get('bpm')}, key={result.get('key')}, energy={result.get('energy')})")
+    result["_instant_elapsed_s"] = round(total_t, 2)
+    return result
+
+
 def analyze_audio(
     file_path: str,
     use_stem_separation: bool = False,
