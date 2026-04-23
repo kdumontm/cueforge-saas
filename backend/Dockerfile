@@ -44,8 +44,11 @@ ENV SKIP_DEEP_ANALYSIS=1
 
 EXPOSE 8000
 
-# ⚡ 2 workers : double la capacité pour éviter les 502 "Application failed to respond"
-# quand plusieurs requêtes tombent en même temps (ex : /analyze qui charge 3 endpoints).
-# Les imports ML (torch/demucs/beat_this) sont lazy → RAM au boot ≈ 200-300MB/worker.
+# ⚡ 1 worker : après passage à 2 workers (c6f5c2b) on a eu un crash loop épisodique
+# (OOM Railway). Le pipeline analyse a été découpé en INSTANT (3-5s) + PRIMARY_COMPLETE
+# + stems background (commits 2e6a90c + 01a695f) donc les handlers HTTP sont plus
+# rapides, 1 worker suffit. Demucs (~800MB RAM) + torch en background peuvent OOM
+# si 2 workers + 2 Demucs parallèles en même temps.
+# limit-concurrency 100 par worker + timeout-keep-alive court.
 # Shell form (pas de []) pour que $PORT soit résolu par /bin/sh
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2 --limit-concurrency 200 --timeout-keep-alive 30 --proxy-headers --forwarded-allow-ips="*"
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency 100 --timeout-keep-alive 20 --proxy-headers --forwarded-allow-ips="*"
