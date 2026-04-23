@@ -6,7 +6,7 @@
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260423f" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-feedback2" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-feedbackdel" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -739,6 +739,7 @@
               </select>
               <div style="flex:1"></div>
               <button type="button" id="fb-m-promote" class="plan-pill" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:8px 14px">🛠️ Transformer en note admin</button>
+              <button type="button" id="fb-m-user-delete" class="plan-pill" style="cursor:pointer;border:none;background:rgba(239,68,68,.15);color:#fca5a5;padding:8px 14px">🗑️ Supprimer</button>
               <button type="button" id="fb-m-send" class="plan-pill" style="cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#a855f7);color:#fff;padding:8px 16px;font-weight:600">Envoyer</button>
             </div>
           </div>
@@ -775,7 +776,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423f"></script>
-<script src="/v4/shared.js?v=20260423-feedback2"></script>
+<script src="/v4/shared.js?v=20260423-feedbackdel"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1930,6 +1931,18 @@
 
     // Admin delete
     document.getElementById('fb-m-admin-delete')?.addEventListener('click', async () => {
+      if(!fbCurrent) return;
+      if(!confirm(`Supprimer définitivement le feedback #${fbCurrent.id} ?`)) return;
+      try {
+        await api.del(`/admin/feedbacks/${fbCurrent.id}`);
+        toast('✅ Supprimé', 'success');
+        fbCloseModal();
+        await loadFeedback();
+      } catch(err){ toast(`Erreur : ${err.message}`, 'error'); }
+    });
+
+    // User feedback delete
+    document.getElementById('fb-m-user-delete')?.addEventListener('click', async () => {
       if(!fbCurrent) return;
       if(!confirm(`Supprimer définitivement le feedback #${fbCurrent.id} ?`)) return;
       try {
