@@ -822,6 +822,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       b.addEventListener('click', () => {
         type = b.dataset.t;
         $('#tcfb-types').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        saveDraft();
       });
     });
 
@@ -830,6 +831,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       b.addEventListener('click', () => {
         rating = (rating === b.dataset.r) ? null : b.dataset.r;
         ratingEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', rating && x.dataset.r === rating));
+        saveDraft();
       });
     });
 
@@ -839,6 +841,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
         scope = b.dataset.scope;
         tabsEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
         applyScope();
+        saveDraft();
       });
     });
 
@@ -871,6 +874,9 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       capturedShot = null;
       shotPreview.classList.remove('ready');
       shotImg.src = '';
+
+      // Restaurer le brouillon depuis localStorage
+      loadDraft();
 
       // Capture AVANT d'afficher le panel (hide bubble + capture + show panel)
       if(shotChk.checked){
@@ -914,10 +920,71 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       }
     }, true);
 
-    // Submit — async non-blocking (close panel immediately, send in background)
+    // Retry avec backoff exponentiel (2s, 5s)
+    async function retryWithBackoff(fn, maxRetries = 2) {
+      let lastErr;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          if (attempt < maxRetries) {
+            const delay = attempt === 0 ? 2000 : 5000;
+            await new Promise(r => setTimeout(r, delay));
+          }
+        }
+      }
+      throw lastErr;
+    }
+
+    // Brouillon localStorage
+    const DRAFT_KEY = 'tcfb_draft_v1';
+    function saveDraft() {
+      try {
+        const draft = {
+          message: msgEl.value,
+          subject: subjEl.value,
+          type: type,
+          rating: rating,
+          scope: scope,
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch(_) { /* localStorage indispo → no-op */ }
+    }
+    function loadDraft() {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if(!raw) return;
+        const draft = JSON.parse(raw);
+        if(draft.message) msgEl.value = draft.message;
+        if(draft.subject) subjEl.value = draft.subject;
+        if(draft.type) {
+          type = draft.type;
+          $('#tcfb-types').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === type));
+        }
+        if(draft.rating) {
+          rating = draft.rating;
+          ratingEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', rating && x.dataset.r === rating));
+        }
+        updateSubmit();
+      } catch(_) { /* JSON parse error → no-op */ }
+    }
+    function clearDraft() {
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch(_) {}
+    }
+
+    // Auto-save brouillon lors de chaque modification
+    msgEl.addEventListener('input', saveDraft);
+    subjEl.addEventListener('input', saveDraft);
+
+    // Submit — pessimiste : attendre le succès avant de clear/close
     submitBtn.addEventListener('click', async () => {
       const message = msgEl.value.trim();
       if(!message) return;
+      if(sending) return; // Évite les double-clics
+
       sending = true;
       updateSubmit();
       submitBtn.textContent = 'Envoi…';
@@ -925,53 +992,62 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       const page_url = (location.pathname + location.search).slice(0, 500);
       const screenshot = (shotChk.checked && capturedShot) ? capturedShot : null;
 
-      // Fermer immédiatement la modale et afficher toast "Envoi en cours"
-      formEl.style.display = 'none';
-      doneEl.style.display = 'block';
-      msgEl.value = '';
-      subjEl.value = '';
-      rating = null;
-      ratingEl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
-      capturedShot = null;
-      shotPreview.classList.remove('ready');
-      shotImg.src = '';
-      if(typeof toast === 'function') toast('Envoi en cours…', 'info');
-
-      // Envoyer en background — pas de await au niveau UI
-      const sendFeedback = async () => {
-        try {
-          if(scope === 'admin'){
-            const body = { type, subject, message };
-            if(screenshot) body.screenshot = screenshot;
-            if(page_url) body.page_url = page_url;
-            await window.api.post('/feedback/admin-note', body);
-            if(typeof toast === 'function') toast('Note admin enregistrée ✓', 'info');
-          } else {
-            const body = { type, message };
-            if(rating) body.rating = rating;
-            if(subject) body.subject = subject;
-            if(screenshot) body.screenshot = screenshot;
-            if(page_url) body.page_url = page_url;
-            await window.api.post('/feedback', body);
-            if(typeof toast === 'function') toast('Feedback reçu, merci ✓', 'info');
-          }
-        } catch(err){
-          if(typeof toast === 'function') toast(`Envoi échoué : ${err.message || err}`, 'error');
-          console.warn('[feedback] send failed', err);
-        } finally {
-          sending = false;
-          submitBtn.textContent = 'Envoyer';
-          updateSubmit();
+      try {
+        // Construire le body
+        let body = { type, message };
+        if(scope === 'admin'){
+          body.subject = subject;
+        } else {
+          if(rating) body.rating = rating;
+          if(subject) body.subject = subject;
         }
-      };
+        if(screenshot) body.screenshot = screenshot;
+        if(page_url) body.page_url = page_url;
 
-      // Lancer l'envoi asynchrone + fermer le panel dans 1.2s
-      sendFeedback();
-      setTimeout(() => {
-        formEl.style.display = '';
-        doneEl.style.display = 'none';
-        panel.classList.remove('open');
-      }, 1200);
+        // Envoyer avec retry auto (2s, 5s) — transparent pour l'user
+        const endpoint = scope === 'admin' ? '/feedback/admin-note' : '/feedback';
+        await retryWithBackoff(async () => {
+          if(scope === 'admin'){
+            await window.api.post(endpoint, body);
+          } else {
+            await window.api.post(endpoint, body);
+          }
+        });
+
+        // Succès HTTP 200 : clear + close + toast vert
+        msgEl.value = '';
+        subjEl.value = '';
+        rating = null;
+        ratingEl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        capturedShot = null;
+        shotPreview.classList.remove('ready');
+        shotImg.src = '';
+        clearDraft();
+
+        const successMsg = scope === 'admin' ? 'Note admin enregistrée ✓' : 'Feedback reçu, merci ✓';
+        if(typeof toast === 'function') toast(successMsg, 'info');
+
+        // Afficher "done" puis fermer après 1.2s
+        formEl.style.display = 'none';
+        doneEl.style.display = 'block';
+        setTimeout(() => {
+          formEl.style.display = '';
+          doneEl.style.display = 'none';
+          panel.classList.remove('open');
+        }, 1200);
+      } catch(err){
+        // Erreur HTTP ou timeout : garder le texte, modale ouverte, button redevient cliquable
+        const errMsg = err.message || String(err);
+        const statusCode = err.status || err.statusCode || '';
+        const displayMsg = statusCode ? `Erreur (${statusCode}), ton message est conservé` : `Erreur : ${errMsg}`;
+        if(typeof toast === 'function') toast(displayMsg, 'error');
+        console.warn('[feedback] send failed', err);
+        // Message + screenshot + modale restent ouverts pour retry
+      } finally {
+        sending = false;
+        submitBtn.textContent = 'Envoyer';
+        updateSubmit();
+      }
     });
 
     applyScope();
