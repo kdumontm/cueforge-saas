@@ -498,7 +498,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
     panel.id = 'tc-fb-panel';
     panel.innerHTML = `
       <div class="hd">
-        <b>💬 Ton avis <span style="font-size:10px;color:#7a7886;font-weight:400;margin-left:4px">⌘⇧F</span></b>
+        <b>💬 Ton avis <span style="font-size:10px;color:#7a7886;font-weight:400;margin-left:4px">⌘&lt;</span></b>
         <button type="button" class="x" aria-label="Fermer">×</button>
       </div>
       <div class="tabs" id="tcfb-tabs" style="display:none">
@@ -891,15 +891,17 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       if(e.key === 'Escape' && panel.classList.contains('open')) panel.classList.remove('open');
     });
 
-    // Raccourci clavier : Ctrl/Cmd + Shift + F → ouvrir le widget
-    // (ne déclenche PAS si on est en train de taper dans un input/textarea sauf cmd+shift+f qui override)
+    // Raccourci clavier : Cmd/Ctrl + <  → ouvrir le widget
+    // Sur AZERTY-FR la touche "<" est à gauche du Z (pas de Shift requis).
+    // e.key vaut "<" quand la touche produit "<", on match donc sur la valeur.
     document.addEventListener('keydown', e => {
       const isMac = /Mac/i.test(navigator.platform || navigator.userAgent);
       const mod = isMac ? e.metaKey : e.ctrlKey;
-      if(mod && e.shiftKey && (e.key === 'F' || e.key === 'f')){
+      if(!mod) return;
+      // Match "<" ou ">" (au cas où layout différent) — e.key est la valeur finale
+      if(e.key === '<' || e.key === '>'){
         e.preventDefault();
         e.stopPropagation();
-        // Déclenche comme si on avait cliqué sur la bulle
         btn.click();
       }
     }, true);
