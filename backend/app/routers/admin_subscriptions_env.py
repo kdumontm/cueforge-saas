@@ -1398,20 +1398,22 @@ async def get_webhook_events(
 @router.get("/preferences")
 async def get_admin_preferences(
     db: Session = Depends(get_db),
-    admin: str = Depends(require_admin),
+    admin = Depends(require_admin),
 ):
     """
     Récupère les préférences de l'administrateur actuel.
     """
+    admin_email = admin.email if hasattr(admin, 'email') else admin
+
     try:
         prefs = db.query(AdminPreference).filter(
-            AdminPreference.admin_email == admin
+            AdminPreference.admin_email == admin_email
         ).first()
 
         if not prefs:
             # Crée les préférences par défaut
             prefs = AdminPreference(
-                admin_email=admin,
+                admin_email=admin_email,
                 language="fr",
                 timezone="UTC",
                 theme="light",
@@ -1425,7 +1427,7 @@ async def get_admin_preferences(
         logger.warning(f"admin_preferences table query failed: {e}")
         return {
             "id": None,
-            "admin_email": admin,
+            "admin_email": admin_email,
             "language": "fr",
             "timezone": "UTC",
             "theme": "light",
@@ -1444,18 +1446,20 @@ async def update_admin_preferences(
     theme: Optional[str] = Query(None),
     notifications_enabled: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    admin: str = Depends(require_admin),
+    admin = Depends(require_admin),
 ):
     """
     Met à jour les préférences de l'administrateur.
     """
+    admin_email = admin.email if hasattr(admin, 'email') else admin
+
     try:
         prefs = db.query(AdminPreference).filter(
-            AdminPreference.admin_email == admin
+            AdminPreference.admin_email == admin_email
         ).first()
 
         if not prefs:
-            prefs = AdminPreference(admin_email=admin)
+            prefs = AdminPreference(admin_email=admin_email)
             db.add(prefs)
 
         if language:
@@ -1476,7 +1480,7 @@ async def update_admin_preferences(
         logger.warning(f"admin_preferences table update failed: {e}")
         return {
             "id": None,
-            "admin_email": admin,
+            "admin_email": admin_email,
             "language": language or "fr",
             "timezone": timezone or "UTC",
             "theme": theme or "light",
@@ -1491,11 +1495,13 @@ async def update_admin_preferences(
 @router.get("/preferences/shortcuts")
 async def get_keyboard_shortcuts(
     db: Session = Depends(get_db),
-    admin: str = Depends(require_admin),
+    admin = Depends(require_admin),
 ):
     """
     Récupère la configuration des raccourcis clavier.
     """
+    admin_email = admin.email if hasattr(admin, 'email') else admin
+
     default_shortcuts = {
         "search_users": "cmd+k",
         "new_note": "cmd+n",
@@ -1506,18 +1512,18 @@ async def get_keyboard_shortcuts(
 
     try:
         prefs = db.query(AdminPreference).filter(
-            AdminPreference.admin_email == admin
+            AdminPreference.admin_email == admin_email
         ).first()
 
         return {
-            "admin_email": admin,
+            "admin_email": admin_email,
             "shortcuts": prefs.keyboard_shortcuts if prefs else default_shortcuts,
         }
     except Exception as e:
         # Table may not exist; return defaults
         logger.warning(f"admin_preferences shortcuts query failed: {e}")
         return {
-            "admin_email": admin,
+            "admin_email": admin_email,
             "shortcuts": default_shortcuts,
         }
 
@@ -1526,20 +1532,21 @@ async def get_keyboard_shortcuts(
 async def update_keyboard_shortcuts(
     body: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
-    admin: str = Depends(require_admin),
+    admin = Depends(require_admin),
 ):
     """
     Met à jour la configuration des raccourcis clavier (body: {shortcuts: {...}}).
     """
+    admin_email = admin.email if hasattr(admin, 'email') else admin
     shortcuts: Dict[str, str] = body.get("shortcuts") or {}
 
     try:
         prefs = db.query(AdminPreference).filter(
-            AdminPreference.admin_email == admin
+            AdminPreference.admin_email == admin_email
         ).first()
 
         if not prefs:
-            prefs = AdminPreference(admin_email=admin)
+            prefs = AdminPreference(admin_email=admin_email)
             db.add(prefs)
 
         prefs.keyboard_shortcuts = shortcuts
@@ -1548,7 +1555,7 @@ async def update_keyboard_shortcuts(
 
         return {
             "success": True,
-            "admin_email": admin,
+            "admin_email": admin_email,
             "shortcuts": shortcuts,
         }
     except Exception as e:
@@ -1556,6 +1563,6 @@ async def update_keyboard_shortcuts(
         logger.warning(f"admin_preferences shortcuts update failed: {e}")
         return {
             "success": True,
-            "admin_email": admin,
+            "admin_email": admin_email,
             "shortcuts": shortcuts,
         }
