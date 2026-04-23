@@ -6,7 +6,7 @@
 <title>TrackCue — Library</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422d" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-feedback-pagepath" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-feedback-pagepath" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   .filter-bar{
@@ -392,7 +392,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-feedback-pagepath"></script>
+<script src="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-feedback-pagepath"></script>
 <script>
 // ---- Auth guard ----
 if(!api.requireAuth()) { /* redirected */ }
@@ -708,7 +708,7 @@ if(searchInput){
   });
 }
 
-// ---- Top-right buttons (override shared.js for this page) ----
+// ---- Top-right buttons (override shared.js?v=20260423-fbkeeptext for this page) ----
 document.getElementById('btn-new-upload').addEventListener('click', ()=> location.href='/upload');
 document.getElementById('btn-export-csv').addEventListener('click', ()=> exportCsv());
 
