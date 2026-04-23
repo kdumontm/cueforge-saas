@@ -42,15 +42,25 @@ from scripts.e2e.lib import (  # noqa: E402
 
 
 SUITES_ORDER = [
-    ("health",   "scripts.e2e.test_health"),
-    ("frontend", "scripts.e2e.test_frontend"),
-    ("auth",     "scripts.e2e.test_auth"),
-    ("tracks",   "scripts.e2e.test_tracks"),
-    ("analyze",  "scripts.e2e.test_analyze"),
-    ("library",  "scripts.e2e.test_library"),
-    ("sets",     "scripts.e2e.test_sets"),
-    ("mashup",   "scripts.e2e.test_mashup"),
-    ("admin",    "scripts.e2e.test_admin"),
+    # Core
+    ("health",    "scripts.e2e.test_health"),
+    ("frontend",  "scripts.e2e.test_frontend"),
+    ("auth",      "scripts.e2e.test_auth"),
+    ("tracks",    "scripts.e2e.test_tracks"),
+    ("analyze",   "scripts.e2e.test_analyze"),
+    ("library",   "scripts.e2e.test_library"),
+    ("sets",      "scripts.e2e.test_sets"),
+    ("mashup",    "scripts.e2e.test_mashup"),
+    # P1 — core features
+    ("playlists", "scripts.e2e.test_playlists"),
+    ("crates",    "scripts.e2e.test_crates"),
+    ("exports",   "scripts.e2e.test_exports"),
+    ("waveforms", "scripts.e2e.test_waveforms"),
+    ("hot_cues",  "scripts.e2e.test_hot_cues"),
+    ("sharing",   "scripts.e2e.test_sharing"),
+    ("compare",   "scripts.e2e.test_compare"),
+    # Admin last
+    ("admin",     "scripts.e2e.test_admin"),
 ]
 
 

@@ -64,6 +64,7 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
 
     # Tracks
     for track in tracks:
+        a = getattr(track, "analysis", None)  # TrackAnalysis or None
         story.append(Paragraph(f"{track.title} — {track.artist}", heading_style))
 
         # Track info table
@@ -138,6 +139,7 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
     pdf.ln(5)
 
     for track in tracks:
+        a = getattr(track, "analysis", None)  # TrackAnalysis or None
         pdf.set_font("Helvetica", "B", 12)
         pdf.set_text_color(168, 85, 247)
         pdf.cell(0, 8, f"{track.title} — {track.artist}", ln=True)

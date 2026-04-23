@@ -204,6 +204,8 @@ async def export_virtualdj(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    a = track.analysis  # BPM/key live on TrackAnalysis, not Track
+
     try:
         track_data = {
             "title": track.title or "",
@@ -295,6 +297,8 @@ async def export_stems(
 
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
+
+    a = track.analysis  # BPM/key live on TrackAnalysis, not Track
 
     try:
         track_data = {
