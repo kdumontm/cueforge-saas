@@ -6,7 +6,7 @@
 <title>TrackCue — Mix Studio</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422d" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-feedback-pagepath" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-settings-admin-removed" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:
@@ -320,8 +320,6 @@
     <a href="/mix-studio">Mix Studio</a>
     <a href="/stats">Stats</a>
     <a href="/upload">Upload</a>
-    <a href="/settings">Settings</a>
-    <a href="/admin">Admin</a>
   </nav>
   <div class="topnav-actions">
     <button class="btn btn-ghost btn-sm">Find<span class="kbd">⌘K</span></button>
@@ -552,7 +550,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-feedback-pagepath"></script>
+<script src="/v4/shared.js?v=20260423-settings-admin-removed"></script>
 <script>
 (async function(){
   if(!api.requireAuth()) return;

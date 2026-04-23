@@ -2477,6 +2477,42 @@ def get_track(
     return TrackResponse.model_validate(track)
 
 
+# PERF #23 (2026-04-23): Lightweight endpoint to fetch waveform peaks only
+# Allows frontend to load track metadata fast, then load peaks async
+@router.get("/{track_id}/waveform-peaks", response_model=Dict)
+def get_track_waveform_peaks(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch waveform peaks and spectral energy only (lightweight, ~7KB gzipped).
+    Useful for lazy-loading waveform after initial page load.
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).options(
+        selectinload(Track.analysis),
+    ).first()
+
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if not track.analysis or track.analysis.waveform_peaks is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Waveform peaks not available",
+        )
+
+    return {
+        "track_id": track_id,
+        "waveform_peaks": track.analysis.waveform_peaks,
+        "spectral_energy": track.analysis.spectral_energy or {},
+        "analyzed_at": track.analysis.analyzed_at.isoformat() if track.analysis.analyzed_at else None,
+    }
+
+
 @router.delete("/{track_id}")
 def delete_track(
     track_id: int,

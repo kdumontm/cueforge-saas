@@ -6,7 +6,7 @@
 <title>TrackCue — Analyze</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422b" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-feedback-pagepath" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-settings-admin-removed" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -404,8 +404,6 @@
     <a href="/mix-studio">Mix Studio</a>
     <a href="/stats">Stats</a>
     <a href="/upload">Upload</a>
-    <a href="/settings">Settings</a>
-    <a href="/admin">Admin</a>
   </nav>
   <div class="topnav-actions">
     <button class="btn btn-ghost btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Find<span class="kbd">⌘K</span></button>
@@ -553,6 +551,54 @@
             <button id="btn-generate-cues" class="btn btn-sm btn-violet" style="white-space:nowrap">Générer cue points</button>
           </div>
         </div>
+
+        <!-- 🔴 2026-04-23 : Mode "ready" (boutons stems avec solo/mute) -->
+        <div class="stems" id="stems-buttons-block" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--b-subtle);display:none;flex-direction:column;gap:6px">
+          <div class="stem-row" data-stem="drums" style="display:grid;grid-template-columns:88px 1fr 64px;gap:10px;align-items:center;height:42px;color:var(--stem-drums)">
+            <div class="stem-meta" style="display:flex;align-items:center;gap:6px">
+              <span class="stem-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></span>
+              <span class="stem-name" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);text-transform:uppercase;letter-spacing:.08em">Drums</span>
+            </div>
+            <div style="height:36px;display:flex;align-items:center;gap:1px;position:relative"></div>
+            <div class="stem-ctls" style="display:flex;gap:4px;justify-content:flex-end">
+              <button class="stem-solo" data-stem="drums" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Solo">S</button>
+              <button class="stem-mute" data-stem="drums" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Mute">M</button>
+            </div>
+          </div>
+          <div class="stem-row" data-stem="bass" style="display:grid;grid-template-columns:88px 1fr 64px;gap:10px;align-items:center;height:42px;color:var(--stem-bass)">
+            <div class="stem-meta" style="display:flex;align-items:center;gap:6px">
+              <span class="stem-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></span>
+              <span class="stem-name" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);text-transform:uppercase;letter-spacing:.08em">Bass</span>
+            </div>
+            <div style="height:36px;display:flex;align-items:center;gap:1px;position:relative"></div>
+            <div class="stem-ctls" style="display:flex;gap:4px;justify-content:flex-end">
+              <button class="stem-solo" data-stem="bass" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Solo">S</button>
+              <button class="stem-mute" data-stem="bass" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Mute">M</button>
+            </div>
+          </div>
+          <div class="stem-row" data-stem="vocals" style="display:grid;grid-template-columns:88px 1fr 64px;gap:10px;align-items:center;height:42px;color:var(--stem-vocals)">
+            <div class="stem-meta" style="display:flex;align-items:center;gap:6px">
+              <span class="stem-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></span>
+              <span class="stem-name" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);text-transform:uppercase;letter-spacing:.08em">Vocals</span>
+            </div>
+            <div style="height:36px;display:flex;align-items:center;gap:1px;position:relative"></div>
+            <div class="stem-ctls" style="display:flex;gap:4px;justify-content:flex-end">
+              <button class="stem-solo" data-stem="vocals" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Solo">S</button>
+              <button class="stem-mute" data-stem="vocals" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Mute">M</button>
+            </div>
+          </div>
+          <div class="stem-row" data-stem="other" style="display:grid;grid-template-columns:88px 1fr 64px;gap:10px;align-items:center;height:42px;color:var(--stem-other)">
+            <div class="stem-meta" style="display:flex;align-items:center;gap:6px">
+              <span class="stem-dot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0"></span>
+              <span class="stem-name" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);text-transform:uppercase;letter-spacing:.08em">Other</span>
+            </div>
+            <div style="height:36px;display:flex;align-items:center;gap:1px;position:relative"></div>
+            <div class="stem-ctls" style="display:flex;gap:4px;justify-content:flex-end">
+              <button class="stem-solo" data-stem="other" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Solo">S</button>
+              <button class="stem-mute" data-stem="other" style="width:24px;height:24px;border-radius:5px;background:var(--s-2);border:1px solid var(--b-subtle);font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary);cursor:pointer;transition:all var(--t-fast)" title="Mute">M</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- TRANSPORT -->
@@ -631,7 +677,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423c"></script>
-<script src="/v4/shared.js?v=20260423-fbkeeptext?v=20260423-search"></script>
+<script src="/v4/shared.js?v=20260423-settings-admin-removed"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1268,37 +1314,49 @@ function updatePrimaryCompleteUI(state){
 }
 
 function updateStemsUI(state){
-  const bar = document.getElementById('stems-progress-bar');
+  const progressBlock = document.getElementById('stems-progress-block');
+  const stemsButtonsBlock = document.getElementById('stems-buttons-block');
   const badge = document.getElementById('stems-badge');
   const hint = document.getElementById('stems-hint');
-  if(!bar || !badge || !hint) return;
+  if(!badge || !hint) return;
 
   const status = state.stems_status || 'pending';
   const progress = Number(state.stems_progress || 0);
 
-  bar.style.width = Math.max(0, Math.min(100, progress)) + '%';
-
+  // 🔴 2026-04-23 : affichage conditionnel — si ready, afficher les boutons stems
   if(status === 'ready'){
+    // Masquer la barre de chargement, afficher les boutons stems
+    if(progressBlock) progressBlock.style.display = 'none';
+    if(stemsButtonsBlock) stemsButtonsBlock.style.display = 'flex';
     badge.textContent = 'Ready';
     badge.style.background = 'rgba(64,200,120,.12)';
     badge.style.color = '#5fd38a';
     badge.style.border = '1px solid rgba(64,200,120,.3)';
     hint.textContent = 'Séparation Demucs terminée — 4 pistes disponibles.';
-  } else if(status === 'running' || status === 'analyzing'){
-    badge.textContent = `Running · ${progress}%`;
-    badge.style.background = 'rgba(122,162,255,.12)';
-    badge.style.color = '#7aa2ff';
-    badge.style.border = '1px solid rgba(122,162,255,.3)';
-    hint.textContent = 'Séparation Demucs en cours en arrière-plan…';
-  } else if(status === 'failed'){
-    badge.textContent = 'Failed';
-    badge.style.background = 'rgba(255,100,100,.12)';
-    badge.style.color = '#ff7a7a';
-    badge.style.border = '1px solid rgba(255,100,100,.3)';
-    hint.textContent = 'La séparation a échoué — on relancera automatiquement.';
   } else {
-    badge.textContent = 'Pending';
-    hint.textContent = 'Séparation planifiée — démarrera juste après la primary.';
+    // Afficher la barre de chargement, masquer les boutons stems
+    if(progressBlock) progressBlock.style.display = 'flex';
+    if(stemsButtonsBlock) stemsButtonsBlock.style.display = 'none';
+
+    const bar = document.getElementById('stems-progress-bar');
+    if(bar) bar.style.width = Math.max(0, Math.min(100, progress)) + '%';
+
+    if(status === 'running' || status === 'analyzing'){
+      badge.textContent = `Running · ${progress}%`;
+      badge.style.background = 'rgba(122,162,255,.12)';
+      badge.style.color = '#7aa2ff';
+      badge.style.border = '1px solid rgba(122,162,255,.3)';
+      hint.textContent = 'Séparation Demucs en cours en arrière-plan…';
+    } else if(status === 'failed'){
+      badge.textContent = 'Failed';
+      badge.style.background = 'rgba(255,100,100,.12)';
+      badge.style.color = '#ff7a7a';
+      badge.style.border = '1px solid rgba(255,100,100,.3)';
+      hint.textContent = 'La séparation a échoué — on relancera automatiquement.';
+    } else {
+      badge.textContent = 'Pending';
+      hint.textContent = 'Séparation planifiée — démarrera juste après la primary.';
+    }
   }
 }
 
