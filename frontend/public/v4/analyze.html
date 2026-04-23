@@ -1520,7 +1520,16 @@ async function ensureAudio(){
         headers: tok2 ? { 'Authorization': 'Bearer ' + tok2 } : {}
       });
     }
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    if(!resp.ok){
+      // 404 = fichier binaire perdu côté serveur (R2/disque effacé).
+      // Message clair + call-to-action vers re-upload.
+      if(resp.status === 404){
+        toast('Fichier audio introuvable — re-upload nécessaire. Redirection…', 'warn');
+        setTimeout(() => { location.href = `/upload?re=${trackId}`; }, 1400);
+        return null;
+      }
+      throw new Error('HTTP '+resp.status);
+    }
 
     // 2. Decode via WebAudio (fonctionne là où <audio> stalle)
     const arrayBuf = await resp.arrayBuffer();
