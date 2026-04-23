@@ -6,8 +6,8 @@
 <title>TrackCue — Analyze</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422b" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260424-rkbox" as="script">
-<link rel="stylesheet" href="/v4/shared.css?v=20260424-rkbox-modes">
+<link rel="preload" href="/v4/shared.js?v=20260424-cueredesign" as="script">
+<link rel="stylesheet" href="/v4/shared.css?v=20260424-cueredesign">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -185,33 +185,52 @@
     content:"";position:absolute;top:-4px;left:-5px;width:12px;height:8px;
     background:var(--amber);clip-path:polygon(50% 100%,0 0,100% 0);
   }
-  /* Cue markers — Rekordbox style (triangle + 8 color palette) */
+  /* Cue markers — chip numéroté + ligne fine dégradée */
   .cue-marker{
     position:absolute;top:0;bottom:0;z-index:5;cursor:pointer;
-    transition:all var(--t-fast) var(--ease);
+    transition:transform var(--t-fast) var(--ease), filter var(--t-fast) var(--ease);
+    will-change:transform;
   }
-  .cue-marker:hover{z-index:20;transform:scaleY(1.15)}
-  .cue-line{position:absolute;top:26px;bottom:10px;left:50%;transform:translateX(-50%);width:2px;background:currentColor;opacity:.6}
+  .cue-marker:hover{z-index:20}
+  .cue-marker:hover .cue-tip{transform:translateX(-50%) translateY(-1px) scale(1.08)}
+  .cue-marker:hover .cue-line{opacity:.9}
+  /* Ligne verticale : fine, dégradée (forte en haut, plus douce en bas) */
+  .cue-line{
+    position:absolute;top:22px;bottom:8px;left:50%;transform:translateX(-50%);
+    width:1.5px;
+    background:linear-gradient(180deg,currentColor 0%,currentColor 55%,rgba(255,255,255,0) 100%);
+    opacity:.55;
+    transition:opacity var(--t-fast) var(--ease);
+    pointer-events:none;
+  }
+  /* Chip numéroté posé au-dessus de la waveform (style CDJ/Rekordbox modernisé) */
   .cue-tip{
-    position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+    position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+    min-width:20px;height:20px;padding:0 5px;border-radius:5px;
+    background:currentColor;
+    color:#0a0a0a;
+    font-family:var(--font-mono);font-size:11px;font-weight:700;
+    letter-spacing:.02em;line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.08) inset;
+    text-shadow:0 1px 0 rgba(255,255,255,.15);
+    transition:transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+  }
+  /* Petite pointe sous le chip pour connecter visuellement à la ligne */
+  .cue-tip::after{
+    content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
     width:0;height:0;
-    /* Triangle pointant vers le bas (Rekordbox style) */
-    border-left:12px solid transparent;
-    border-right:12px solid transparent;
-    border-top:14px solid currentColor;
-    box-shadow:0 2px 8px rgba(0,0,0,.35);
+    border-left:4px solid transparent;border-right:4px solid transparent;
+    border-top:4px solid currentColor;
   }
-  .cue-label{
-    position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);
-    font-family:var(--font-mono);font-size:10px;color:currentColor;white-space:nowrap;
-    font-weight:500;
-  }
+  .cue-label{display:none}
+  /* État sélectionné : chip légèrement surélevé + halo coloré + ligne pleine */
+  .cue-marker.selected{z-index:15}
   .cue-marker.selected .cue-tip{
-    filter:drop-shadow(0 0 4px var(--c-primary));
+    box-shadow:0 3px 10px rgba(0,0,0,.5),0 0 0 2px var(--s-0),0 0 0 3px currentColor,0 0 12px currentColor;
+    transform:translateX(-50%) translateY(-1px);
   }
-  .cue-marker.selected .cue-line{
-    opacity:1;
-  }
+  .cue-marker.selected .cue-line{opacity:1;width:2px}
   /* Rekordbox 8-color palette (assigned by cue index) */
   .cue-marker[data-cue-index="0"]{color:#FF5777}
   .cue-marker[data-cue-index="1"]{color:#FF8F43}
@@ -705,7 +724,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260424-rkbox"></script>
+<script src="/v4/shared.js?v=20260424-cueredesign"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -986,13 +1005,15 @@ function renderCueMarkers(cues, durationMs){
     // 🔴 2026-04-24 (Bug #30 — Rekordbox UX) : palette Rekordbox 8 couleurs par index
     el.dataset.cueIndex = i % 8;
     el.style.left = pct+'%';
-    const tipLabel = name
-      ? name.substring(0,1).toUpperCase()
-      : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
-    const caption = name || type;
-    el.innerHTML = `<div class="cue-tip"></div><div class="cue-line"></div><div class="cue-label"></div>`;
+    // 🔴 2026-04-23 : chip affiche le numéro du cue (style Rekordbox/CDJ), nom → tooltip
+    const tipLabel = String(i+1);
+    const posSec = Math.max(0, posMs/1000);
+    const mm = Math.floor(posSec/60);
+    const ss = Math.floor(posSec%60).toString().padStart(2,'0');
+    const caption = name ? `${name} · ${mm}:${ss}` : `Cue ${i+1} · ${mm}:${ss}`;
+    el.title = caption;
+    el.innerHTML = `<div class="cue-tip"></div><div class="cue-line"></div>`;
     el.querySelector('.cue-tip').textContent = tipLabel;
-    el.querySelector('.cue-label').textContent = caption;
     waveEl.appendChild(el);
   });
 }
@@ -1044,9 +1065,8 @@ function renderCueList(cues){
     const posMs = c.position_ms ?? c.time_ms ?? 0;
     const name = c.name || c.label || '';
     const type = (c.cue_type || c.type || 'hot').toLowerCase();
-    const tipLabel = name
-      ? name.substring(0,1).toUpperCase()
-      : (type==='loop'?'⟲':type==='fade'?'F':type==='phrase'?'P':type==='beat'?'B':type==='load'?'L':String(i+1));
+    // 🔴 2026-04-23 : sidebar cohérent avec waveform — chip montre le numéro (1..N)
+    const tipLabel = String(i+1);
     const item = document.createElement('div');
     item.className = 'cue-item'+(i===0?' selected':'');
     item.dataset.type = type;
