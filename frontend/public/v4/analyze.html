@@ -503,17 +503,27 @@
           <div class="playhead" style="left:38%"></div>
         </div>
 
-        <!-- 🔴 2026-04-22 : les stems n'étaient QUE décoratifs (waves générés
-             à partir de seeds, aucune séparation audio). Kevin voyait les waves
-             + boutons S/M et croyait que ça marchait. Remplacé par un vrai
-             placeholder "Coming soon" jusqu'à ce que la séparation (Demucs/
-             Spleeter) soit branchée côté backend. -->
-        <div class="stems-placeholder" style="margin-top:12px;padding:18px 16px;border:1px dashed var(--b-default);border-radius:10px;background:var(--s-1);display:flex;align-items:center;justify-content:space-between;gap:16px">
-          <div>
-            <div style="font-family:var(--font-display);font-size:13px;color:var(--c-primary);margin-bottom:4px">Stems · Drums / Bass / Vocals / Other</div>
-            <div style="font-size:12px;color:var(--c-tertiary)">Séparation audio en cours de développement — sera branchée sur le player une fois le GPU dispo.</div>
+        <!-- 🔴 2026-04-23 : pipeline d'analyse découpé (primary / stems / cues).
+             Le track est visible dès que la primary est finie. Les stems tournent
+             en background (Demucs) et on affiche ici une vraie barre de progression
+             polling /pipeline-status. Le bouton "Générer cue points" apparaît si
+             le mode de génération est on_demand ou pro. -->
+        <div class="stems-progress-block" id="stems-progress-block" style="margin-top:12px;padding:14px 16px;border:1px solid var(--b-default);border-radius:10px;background:var(--s-1);display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+            <div>
+              <div style="font-family:var(--font-display);font-size:13px;color:var(--c-primary);margin-bottom:4px">Stems · Drums / Bass / Vocals / Other</div>
+              <div id="stems-hint" style="font-size:12px;color:var(--c-tertiary)">Séparation en cours en arrière-plan…</div>
+            </div>
+            <span id="stems-badge" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:var(--r-pill);background:var(--amber-soft);color:#ffba7a;border:1px solid rgba(255,122,24,.3);white-space:nowrap">Pending</span>
           </div>
-          <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:var(--r-pill);background:var(--amber-soft);color:#ffba7a;border:1px solid rgba(255,122,24,.3);white-space:nowrap">Coming soon</span>
+          <div style="height:6px;border-radius:3px;background:var(--s-2);overflow:hidden">
+            <div id="stems-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#7aa2ff,#b892ff);transition:width .4s ease"></div>
+          </div>
+          <!-- Bouton Générer cue points (on_demand) ou Regénérer avec stems (pro/auto) -->
+          <div id="cues-action-row" style="display:none;align-items:center;justify-content:space-between;gap:12px;padding-top:4px">
+            <div id="cues-action-hint" style="font-size:12px;color:var(--c-tertiary)">—</div>
+            <button id="btn-generate-cues" class="btn btn-sm btn-violet" style="white-space:nowrap">Générer cue points</button>
+          </div>
         </div>
       </div>
 
@@ -592,8 +602,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422b"></script>
-<script src="/v4/shared.js?v=20260422d"></script>
+<script src="/v4/api.js?v=20260423b"></script>
+<script src="/v4/shared.js?v=20260423d"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1082,9 +1092,195 @@ function attachCueHandlers(){
   });
 }
 
+// ========== Pipeline poller (stems + cues en background) ==========
+// 🔴 2026-04-23 : polling de /tracks/{id}/pipeline-status pour refléter en
+// temps réel l'avancement des stems (Demucs CPU, ~20-60s) et l'état des cues.
+// Les stems tournent en arrière-plan côté backend — ici on met juste à jour la
+// barre de progression et le bouton "Générer cue points" selon le mode.
+let __pipelinePollTimer = null;
+let __pipelineLastStemsStatus = null;
+let __pipelineLastCuesStatus = null;
+
+function updateStemsUI(state){
+  const bar = document.getElementById('stems-progress-bar');
+  const badge = document.getElementById('stems-badge');
+  const hint = document.getElementById('stems-hint');
+  if(!bar || !badge || !hint) return;
+
+  const status = state.stems_status || 'pending';
+  const progress = Number(state.stems_progress || 0);
+
+  bar.style.width = Math.max(0, Math.min(100, progress)) + '%';
+
+  if(status === 'ready'){
+    badge.textContent = 'Ready';
+    badge.style.background = 'rgba(64,200,120,.12)';
+    badge.style.color = '#5fd38a';
+    badge.style.border = '1px solid rgba(64,200,120,.3)';
+    hint.textContent = 'Séparation Demucs terminée — 4 pistes disponibles.';
+  } else if(status === 'running' || status === 'analyzing'){
+    badge.textContent = `Running · ${progress}%`;
+    badge.style.background = 'rgba(122,162,255,.12)';
+    badge.style.color = '#7aa2ff';
+    badge.style.border = '1px solid rgba(122,162,255,.3)';
+    hint.textContent = 'Séparation Demucs en cours en arrière-plan…';
+  } else if(status === 'failed'){
+    badge.textContent = 'Failed';
+    badge.style.background = 'rgba(255,100,100,.12)';
+    badge.style.color = '#ff7a7a';
+    badge.style.border = '1px solid rgba(255,100,100,.3)';
+    hint.textContent = 'La séparation a échoué — on relancera automatiquement.';
+  } else {
+    badge.textContent = 'Pending';
+    hint.textContent = 'Séparation planifiée — démarrera juste après la primary.';
+  }
+}
+
+function updateCuesActionRow(state, track){
+  const row = document.getElementById('cues-action-row');
+  const hint = document.getElementById('cues-action-hint');
+  const btn = document.getElementById('btn-generate-cues');
+  if(!row || !hint || !btn) return;
+
+  const mode = (track && track.cue_generation_mode) || state.cue_generation_mode || 'auto';
+  const cuesStatus = state.cues_status || 'pending';
+  const stemsStatus = state.stems_status || 'pending';
+
+  if(mode === 'auto'){
+    // Auto → cues générés pendant la primary. On n'affiche le bouton que si
+    // les cues ne sont pas encore là (fallback de secours).
+    if(cuesStatus === 'ready'){
+      row.style.display = 'none';
+    } else {
+      row.style.display = 'flex';
+      hint.textContent = 'Les cues s\'ajoutent automatiquement — relancer si besoin.';
+      btn.textContent = 'Regénérer cue points';
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  if(mode === 'on_demand'){
+    row.style.display = 'flex';
+    if(cuesStatus === 'ready'){
+      hint.textContent = 'Cue points générés. Relance pour écraser les existants.';
+      btn.textContent = 'Regénérer cue points';
+    } else if(cuesStatus === 'running'){
+      hint.textContent = 'Génération des cues en cours…';
+      btn.textContent = 'Génération…';
+      btn.disabled = true;
+      return;
+    } else {
+      hint.textContent = 'Cue points non générés — cliquez pour les créer.';
+      btn.textContent = 'Générer cue points';
+    }
+    btn.disabled = false;
+    return;
+  }
+
+  if(mode === 'pro'){
+    row.style.display = 'flex';
+    if(cuesStatus === 'ready'){
+      hint.textContent = 'Cue points pro (confiance élevée avec stems) générés.';
+      btn.textContent = 'Regénérer cue points';
+      btn.disabled = false;
+    } else if(stemsStatus !== 'ready'){
+      hint.textContent = 'Mode pro : cues générés dès que les stems sont prêts.';
+      btn.textContent = 'En attente des stems';
+      btn.disabled = true;
+    } else if(cuesStatus === 'running'){
+      hint.textContent = 'Génération pro (basée sur stems) en cours…';
+      btn.textContent = 'Génération…';
+      btn.disabled = true;
+    } else {
+      hint.textContent = 'Stems prêts — lancer la génération pro.';
+      btn.textContent = 'Générer cue points (pro)';
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  row.style.display = 'none';
+}
+
+async function pollPipelineOnce(){
+  if(!trackId) return;
+  try {
+    const state = await api.get(`/tracks/${trackId}/pipeline-status`);
+    if(!state) return;
+
+    updateStemsUI(state);
+    updateCuesActionRow(state, currentTrack);
+
+    // Si les stems viennent de finir et qu'on n'a encore jamais vu "ready",
+    // on rafraîchit le track pour récupérer stem_data côté analysis.
+    const stemsJustReady = state.stems_status === 'ready' && __pipelineLastStemsStatus !== 'ready';
+    const cuesJustReady = state.cues_status === 'ready' && __pipelineLastCuesStatus !== 'ready';
+    __pipelineLastStemsStatus = state.stems_status;
+    __pipelineLastCuesStatus = state.cues_status;
+
+    if(cuesJustReady){
+      window.__forceTrackRefresh = true;
+      await loadTrack();
+      toast('Cue points générés', 'success');
+    } else if(stemsJustReady){
+      window.__forceTrackRefresh = true;
+      await loadTrack();
+    }
+
+    // Stop polling quand stems ET cues sont dans un état final
+    const stemsFinal = state.stems_status === 'ready' || state.stems_status === 'failed';
+    const cuesFinal = state.cues_status === 'ready' || state.cues_status === 'failed' || state.cues_status === 'pending';
+    if(stemsFinal && state.cues_status !== 'running'){
+      // On s'arrête — sauf si on est en mode on_demand avant clic (cues pending).
+      // Le handler du bouton redémarrera le polling si besoin.
+      stopPipelinePolling();
+    }
+  } catch(err){
+    console.warn('[pipeline-status] polling error:', err);
+  }
+}
+
+function startPipelinePolling(){
+  stopPipelinePolling();
+  pollPipelineOnce();
+  __pipelinePollTimer = setInterval(pollPipelineOnce, 3000);
+}
+
+function stopPipelinePolling(){
+  if(__pipelinePollTimer){
+    clearInterval(__pipelinePollTimer);
+    __pipelinePollTimer = null;
+  }
+}
+
+// Handler du bouton "Générer cue points"
+document.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('#btn-generate-cues');
+  if(!btn) return;
+  if(!trackId){ toast('Aucune piste sélectionnée', 'warn'); return; }
+  if(btn.disabled) return;
+
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Lancement…';
+
+  try {
+    const res = await api.post(`/tracks/${trackId}/cues/generate`, {});
+    toast(res.message || 'Génération des cues lancée', 'info');
+    // Redémarre le polling pour suivre cues_status → ready
+    startPipelinePolling();
+  } catch(err){
+    console.error('[generate-cues]', err);
+    toast(err.message || 'Échec de la génération des cues', 'error');
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
 // Kick off
 loadRail();
-loadTrack();
+loadTrack().then(()=> startPipelinePolling());
 
 // Tool buttons toggle
 document.querySelectorAll('.tool-btn').forEach(b=>{

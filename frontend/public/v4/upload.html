@@ -317,13 +317,13 @@
           </div>
           <div class="opt">
             <div class="opt-info">
-              <div class="opt-label">Cues par défaut</div>
-              <div class="opt-hint">Load (start) · Drop · Break · Outro + pads selon genre</div>
+              <div class="opt-label">Cue points</div>
+              <div class="opt-hint">Auto = pendant analyse · Manuel = bouton dans /analyze · Pro = attend les stems (confiance ↑)</div>
             </div>
-            <div class="segment" style="padding:2px">
-              <button>Aucun</button>
-              <button class="active">Auto</button>
-              <button>Manuel</button>
+            <div class="segment" id="cue-mode-segment" style="padding:2px">
+              <button data-cue-mode="auto" class="active">Auto</button>
+              <button data-cue-mode="on_demand">Manuel</button>
+              <button data-cue-mode="pro">Pro</button>
             </div>
           </div>
           <div class="opt">
@@ -593,8 +593,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260422d"></script>
-<script src="/v4/shared.js?v=20260422d"></script>
+<script src="/v4/api.js?v=20260423d"></script>
+<script src="/v4/shared.js?v=20260423d"></script>
 <script>
   // ---- Auth guard ----
   if(!api.requireAuth()) { /* redirected */ }
@@ -736,7 +736,16 @@
     `;
   }
 
+  // 🔴 2026-04-23 : récupère le mode cue sélectionné (auto/on_demand/pro)
+  function getSelectedCueMode(){
+    const seg = document.getElementById('cue-mode-segment');
+    if(!seg) return 'auto';
+    const active = seg.querySelector('button.active');
+    return (active && active.dataset.cueMode) || 'auto';
+  }
+
   async function uploadFiles(files){
+    const cueMode = getSelectedCueMode();
     toast(`${files.length} fichier${files.length>1?'s':''} en upload…`,'info');
     for(const f of files){
       const row = addUploadRow(f);
@@ -745,7 +754,7 @@
         const t = await api.uploadTrack(f, (p)=>{
           const pct = Math.round(p*100);
           progressEl.textContent = `Upload · ${pct}%`;
-        });
+        }, { cue_mode: cueMode });
         markUploadComplete(row, t);
         toast(`${f.name} uploadé — analyse en cours`,'success');
       } catch(err){

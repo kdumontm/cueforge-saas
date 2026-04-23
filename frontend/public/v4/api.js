@@ -147,10 +147,14 @@
     playlists(p={}) { return api.get('/playlists', p); },
     compare(a,b)    { return api.get('/tracks/compare', { track_a: a, track_b: b }); },
     recoSimilar(id) { return api.post(`/recommendation/similar/${id}`, { limit: 20 }); },
-    uploadTrack(file, onProgress){
+    uploadTrack(file, onProgress, opts={}){
       return new Promise((resolve, reject)=>{
         const fd = new FormData();
         fd.append('file', file);
+        // 🔴 2026-04-23 : cue_mode = auto | on_demand | pro (pipeline découpé)
+        if(opts && opts.cue_mode){
+          fd.append('cue_mode', opts.cue_mode);
+        }
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${BASE}/tracks/upload`);
         const tok = getToken();

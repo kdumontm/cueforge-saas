@@ -8,7 +8,7 @@ import aiofiles
 import asyncio
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -68,10 +68,17 @@ MIME_TYPES = {
 @router.post("/upload", response_model=TrackUploadResponse)
 async def upload_track(
     file: UploadFile = File(...),
+    cue_mode: str = Form("auto"),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # cue_mode validation — contrôle ce que le pipeline fait avec les cues
+    #   auto      → cues générés tout de suite après primary (sans stems)
+    #   on_demand → cues pas générés, user cliquera sur "Générer cue points"
+    #   pro       → cues attendent que les stems soient prêts (confidence ~0.9)
+    if cue_mode not in ("auto", "on_demand", "pro"):
+        cue_mode = "auto"
     # ── Daily limit (free=5/day, pro=20/day, unlimited/app/admin=no limit) ──
     from datetime import date, datetime as dt
     FREE_DAILY_LIMIT = 5
@@ -180,6 +187,10 @@ async def upload_track(
         file_path=file_path,
         file_size=total_size,
         status=TrackStatus.pending,
+        cue_generation_mode=cue_mode,
+        stems_status='pending',
+        stems_progress=0,
+        cues_status='pending',
     )
     db.add(track)
     safe_commit(db)
@@ -730,15 +741,20 @@ def _run_analysis(track_id: int):
                 # Re-fetch track (rollback vient de l'invalider)
                 track = db.query(Track).filter(Track.id == track_id).first()
 
-        # Check stem separation preference
+        # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
+        # les stems. Les stems tournent toujours en background APRÈS que le
+        # track soit marqué completed, pour que la library affiche le son ASAP.
+        # use_stems=False ici — Demucs sera lancé dans _run_stems_background.
         use_stems = False
-        try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user and getattr(user, 'use_stem_separation', False):
-                use_stems = True
-                _log(f"[STEM] Mode pro activé pour user {user_id} — Demucs sera utilisé")
-        except Exception as stem_err:
-            logger.warning(f"[STEM] Check stem preference failed: {stem_err}")
+
+        # Lire le mode de génération des cues depuis le track (défaut: auto)
+        cue_gen_mode = getattr(track, 'cue_generation_mode', 'auto') or 'auto'
+        _log(f"[PIPELINE] track {track_id}: cue_generation_mode={cue_gen_mode}")
+
+        # Reset pipeline states au début de chaque analyse
+        track.stems_status = 'pending'
+        track.stems_progress = 0
+        track.cues_status = 'pending' if cue_gen_mode != 'skipped' else 'skipped'
     except Exception as e:
         _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
         try:
@@ -947,38 +963,43 @@ def _run_analysis(track_id: int):
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
 
         # ══════════════════════════════════════════════════════════════════
-        #   STEMS → déjà fait dans analyze_audio() via Modal GPU / CPU
-        #   Les stem_data sont dans analysis_data (mergé par analyze_audio)
+        #   STEMS : déclenchés APRÈS le commit de la phase primary (background)
+        #   Plus de stems dans analyze_audio() — use_stems=False force.
         # ══════════════════════════════════════════════════════════════════
-        stem_data = {k: v for k, v in analysis_data.items() if 'stem' in k.lower() or 'vocal' in k.lower() or 'drum_enter' in k.lower()}
-        if stem_data:
-            logger.info(f"[STEM] Stem data from analyze_audio: {len(stem_data)} keys")
+        stem_data = {}
 
-        # ── Cue points (avec stems si disponibles → confidence ~0.9) ──
-        try:
-            cue_analysis = {**analysis_data, **stem_data}
-            cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(cue_analysis)
-            has_stems = bool(stem_data)
-            logger.info(f"Cue generation: {cue_stats.total_cues} cues in {cue_stats.generation_time_ms:.0f}ms (stems={has_stems}, drop_conf={cue_stats.drop_avg_confidence})")
-            for cp in cue_points_data:
-                cue = CuePoint(
-                    track_id=track.id,
-                    position_ms=cp["position_ms"],
-                    end_position_ms=cp.get("end_position_ms"),
-                    cue_type=cp["cue_type"],
-                    name=cp["name"],
-                    color=cp.get("color", "red"),
-                    number=cp.get("number"),
-                    confidence=cp.get("confidence"),
-                )
-                db.add(cue)
-        except Exception as e:
-            logger.warning(f"Cue generation failed for track {track_id}: {e}")
+        # ── Cue points (mode auto uniquement à ce stade) ──
+        # auto       : génère tout de suite, sans stems (confidence ~0.6-0.7)
+        # on_demand  : skip — utilisateur cliquera sur "Générer cue points"
+        # pro        : skip — sera déclenché après les stems (confidence ~0.9)
+        if cue_gen_mode == 'auto':
+            try:
+                track.cues_status = 'processing'
+                cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
+                logger.info(f"[CUES][auto] {cue_stats.total_cues} cues en {cue_stats.generation_time_ms:.0f}ms (sans stems)")
+                for cp in cue_points_data:
+                    cue = CuePoint(
+                        track_id=track.id,
+                        position_ms=cp["position_ms"],
+                        end_position_ms=cp.get("end_position_ms"),
+                        cue_type=cp["cue_type"],
+                        name=cp["name"],
+                        color=cp.get("color", "red"),
+                        number=cp.get("number"),
+                        confidence=cp.get("confidence"),
+                    )
+                    db.add(cue)
+                track.cues_status = 'ready'
+            except Exception as e:
+                logger.warning(f"[CUES][auto] génération échouée track {track_id}: {e}")
+                track.cues_status = 'failed'
+        else:
+            _log(f"[CUES] track {track_id}: mode={cue_gen_mode} → cues différés (pas de génération en phase primary)")
 
         # ── Mark complete and commit ──
         track.status = TrackStatus.completed
         safe_commit(db)
-        _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (stems={'oui' if stem_data else 'non'}, defer_deep={_defer_deep})")
+        _log(f"[ANALYSIS] ════ PRIMARY COMPLETE track {track_id} ════ (cue_mode={cue_gen_mode}, defer_deep={_defer_deep})")
 
         # Create notification
         notif = Notification(
@@ -1022,6 +1043,220 @@ def _run_analysis(track_id: int):
             _run_deep_analysis_deferred(track_id, file_path, analysis_data)
         except Exception as e:
             logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
+
+    # ─ PHASE 5 (2026-04-23) : stems en background + cues pro/on_demand ─
+    # Les stems restent obligatoires (feature non-négociable) MAIS tournent
+    # maintenant APRÈS status=completed, en tâche indépendante, pour que le
+    # track soit déjà visible dans la library + /analyze pendant que Demucs
+    # tourne. Le mode "pro" attend la fin des stems avant de générer les cues.
+    try:
+        import threading
+        # cue_gen_mode a été lu dans la phase 1 — on refetch au cas où
+        _mode = 'auto'
+        db2 = SessionLocal()
+        try:
+            t_mode = db2.query(Track).filter(Track.id == track_id).first()
+            if t_mode:
+                _mode = getattr(t_mode, 'cue_generation_mode', 'auto') or 'auto'
+        finally:
+            db2.close()
+
+        # Stems toujours lancés en background (obligatoire). Si mode=pro,
+        # la chaîne stems→cues est activée pour que les cues soient re-générés
+        # avec la confidence améliorée une fois les stems prêts.
+        chain_cues_after_stems = (_mode == 'pro')
+        _log(f"[PIPELINE] track {track_id}: déclenche _run_stems_background (chain_cues={chain_cues_after_stems})")
+        threading.Thread(
+            target=_run_stems_background,
+            args=(track_id, file_path, chain_cues_after_stems),
+            daemon=True,
+            name=f"stems-{track_id}",
+        ).start()
+    except Exception as e:
+        logger.warning(f"[PIPELINE] Échec déclenchement phase 5 (stems) track {track_id}: {e}")
+
+
+def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
+    """
+    Phase stems : Demucs en arrière-plan, après que primary soit completed.
+
+    Met à jour track.stems_progress (0-100) pour la barre de progression
+    dans /analyze. Ne bloque jamais l'utilisateur — le track est déjà
+    visible dans la library à ce stade.
+
+    Si chain_cues=True (mode pro), déclenche _run_cues_with_stems à la fin
+    pour générer des cues à confidence ~0.9 (vs ~0.6-0.7 sans stems).
+    """
+    from app.database import SessionLocal
+    import traceback as _tb
+    logger.info(f"[STEMS] ── START track {track_id} (chain_cues={chain_cues}) ──")
+
+    def _update(progress: int, status: str = None):
+        db = SessionLocal()
+        try:
+            t = db.query(Track).filter(Track.id == track_id).first()
+            if t:
+                t.stems_progress = max(0, min(100, int(progress)))
+                if status:
+                    t.stems_status = status
+                db.commit()
+        except Exception as e:
+            logger.warning(f"[STEMS] update progress failed: {e}")
+        finally:
+            db.close()
+
+    _update(5, 'processing')
+
+    try:
+        # 1) Séparation Demucs (Modal GPU si dispo, sinon CPU local)
+        from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
+        from app.services.stem_analysis import analyze_stems_from_arrays
+
+        _api_url = os.environ.get("API_PUBLIC_URL", "")
+        _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
+        _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio?token={_modal_token}" if (_api_url and _modal_token) else ""
+
+        mode = "Modal GPU" if is_modal_available() else "CPU local"
+        logger.info(f"[STEMS] Séparation via {mode} pour track {track_id}...")
+        _update(20)
+
+        stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url)
+        _update(75)
+
+        # 2) Analyse des stems (drum_enter, vocal_sections, drop refinement…)
+        db = SessionLocal()
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if not track:
+                logger.warning(f"[STEMS] track {track_id} disparu pendant stems")
+                return
+            analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+            beats = analysis.beat_positions if analysis else None
+        finally:
+            db.close()
+
+        try:
+            stem_data = analyze_stems_from_arrays(stem_arrays, beats, track_id=track_id)
+            logger.info(f"[STEMS] features extraites — {len(stem_data)} keys")
+        except Exception as e:
+            logger.warning(f"[STEMS] analyse stem features échouée (non-fatal): {e}")
+            stem_data = {}
+
+        _update(90)
+
+        # 3) Persister les stem_data dans TrackAnalysis (pour le Mix Studio)
+        db = SessionLocal()
+        try:
+            analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+            if analysis and stem_data:
+                for k, v in stem_data.items():
+                    if hasattr(analysis, k):
+                        setattr(analysis, k, v)
+                db.commit()
+        except Exception as e:
+            logger.warning(f"[STEMS] persistance stem_data échouée: {e}")
+        finally:
+            db.close()
+
+        _update(100, 'ready')
+        logger.info(f"[STEMS] ════ COMPLETE track {track_id} ════")
+
+        # 4) Si mode pro : chaîner vers _run_cues_with_stems pour re-générer
+        #    les cues avec les stems (meilleure confidence).
+        if chain_cues:
+            logger.info(f"[PIPELINE] mode=pro → génération cues avec stems pour track {track_id}")
+            _run_cues_generation(track_id, use_stems_data=True, replace_existing=True)
+
+    except MemoryError as e:
+        logger.error(f"[STEMS] OOM track {track_id}: {e}")
+        _update(0, 'failed')
+    except Exception as e:
+        logger.error(f"[STEMS] échec track {track_id}: {e}\n{_tb.format_exc()}")
+        _update(0, 'failed')
+
+
+def _run_cues_generation(track_id: int, use_stems_data: bool = False, replace_existing: bool = False):
+    """
+    Génère les cue_points pour un track déjà analysé (status=completed).
+
+    Appelée dans deux contextes :
+    - Bouton "Générer cue points" (mode on_demand) → use_stems_data=False ou True selon dispo
+    - Fin des stems en mode pro → use_stems_data=True, replace_existing=True
+
+    Si replace_existing=True, supprime les cues existants (et leur history) avant
+    de générer. Sinon, skip si des cues existent déjà.
+    """
+    from app.database import SessionLocal
+    from app.models.track import CueHistory
+    logger.info(f"[CUES] ── START track {track_id} (use_stems={use_stems_data}, replace={replace_existing}) ──")
+
+    db = SessionLocal()
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if not track:
+            logger.warning(f"[CUES] track {track_id} introuvable")
+            return
+        analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        if not analysis:
+            logger.warning(f"[CUES] pas d'analyse pour track {track_id} — skip")
+            track.cues_status = 'failed'
+            db.commit()
+            return
+
+        # Clear existing cues si demandé
+        existing_cues = db.query(CuePoint).filter(CuePoint.track_id == track_id).all()
+        if existing_cues and replace_existing:
+            cue_ids = [c.id for c in existing_cues]
+            db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session='fetch')
+            db.query(CuePoint).filter(CuePoint.track_id == track_id).delete(synchronize_session='fetch')
+            logger.info(f"[CUES] {len(cue_ids)} cues existants supprimés (mode pro override)")
+            db.flush()
+        elif existing_cues and not replace_existing:
+            logger.info(f"[CUES] track {track_id} a déjà {len(existing_cues)} cues — skip (replace_existing=False)")
+            track.cues_status = 'ready'
+            db.commit()
+            return
+
+        track.cues_status = 'processing'
+        db.commit()
+
+        # Construire le payload pour generate_cue_points_v2 à partir de TrackAnalysis
+        analysis_data = {c.name: getattr(analysis, c.name) for c in analysis.__table__.columns}
+
+        # Si stems demandés, les champs stem_* sont déjà dans analysis_data
+        # (persistés par _run_stems_background). On check juste pour log.
+        has_stems = any(k.startswith('stem_') or k in ('drum_enter_ms', 'vocal_sections') for k in analysis_data if analysis_data.get(k) is not None)
+
+        cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
+        logger.info(f"[CUES] {cue_stats.total_cues} cues en {cue_stats.generation_time_ms:.0f}ms (stems_data={has_stems})")
+
+        for cp in cue_points_data:
+            cue = CuePoint(
+                track_id=track_id,
+                position_ms=cp["position_ms"],
+                end_position_ms=cp.get("end_position_ms"),
+                cue_type=cp["cue_type"],
+                name=cp["name"],
+                color=cp.get("color", "red"),
+                number=cp.get("number"),
+                confidence=cp.get("confidence"),
+            )
+            db.add(cue)
+
+        track.cues_status = 'ready'
+        db.commit()
+        logger.info(f"[CUES] ════ COMPLETE track {track_id} ════")
+    except Exception as e:
+        logger.error(f"[CUES] échec track {track_id}: {e}")
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if track:
+                track.cues_status = 'failed'
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 def _run_deep_analysis_deferred(track_id: int, file_path: str, main_result: Dict):
@@ -1097,6 +1332,83 @@ def _run_deep_analysis_deferred(track_id: int, file_path: str, main_result: Dict
             pass
     finally:
         db.close()
+
+
+@router.get("/{track_id}/pipeline-status")
+def get_pipeline_status(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Retourne l'état du pipeline d'analyse découpé (primary/stems/cues).
+    Utilisé par /analyze côté frontend pour la barre de progression stems +
+    affichage conditionnel du bouton "Générer cue points".
+    """
+    validate_track_id(track_id)
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return {
+        "track_id": track.id,
+        "status": track.status.value if hasattr(track.status, 'value') else str(track.status),
+        "stems_status": getattr(track, 'stems_status', 'pending') or 'pending',
+        "stems_progress": int(getattr(track, 'stems_progress', 0) or 0),
+        "cues_status": getattr(track, 'cues_status', 'pending') or 'pending',
+        "cue_generation_mode": getattr(track, 'cue_generation_mode', 'auto') or 'auto',
+    }
+
+
+@router.post("/{track_id}/cues/generate")
+def generate_cues_on_demand(
+    track_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Génère les cue points à la demande (bouton dans /analyze).
+    Utilisé quand cue_generation_mode='on_demand' ou quand l'utilisateur
+    veut (re-)générer les cues manuellement.
+
+    Utilise les stems s'ils sont déjà ready, sinon génère avec l'analyse primary.
+    """
+    validate_track_id(track_id)
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    if track.status != TrackStatus.completed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"L'analyse primary n'est pas terminée (status={track.status.value if hasattr(track.status, 'value') else track.status})",
+        )
+
+    # Rate limit : max 10 générations/minute
+    analysis_limiter.check(current_user.id, limit=10, window_seconds=60)
+
+    use_stems = getattr(track, 'stems_status', None) == 'ready'
+    track.cues_status = 'processing'
+    safe_commit(db)
+
+    # Lance en background pour ne pas bloquer la requête
+    background_tasks.add_task(
+        _run_cues_generation,
+        track_id,
+        use_stems,
+        True,  # replace_existing — l'user a explicitement demandé de regénérer
+    )
+    return {
+        "track_id": track_id,
+        "status": "queued",
+        "will_use_stems": use_stems,
+    }
 
 
 @router.post("/{track_id}/analyze", response_model=AnalyzeResponse)

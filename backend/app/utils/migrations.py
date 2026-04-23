@@ -94,6 +94,11 @@ PENDING_MIGRATIONS = {
         "org_id": "INTEGER",
         # Piste 3 — fingerprint audio pour skip intelligent des doublons
         "audio_fingerprint": "VARCHAR(64)",
+        # 2026-04-23 — pipeline d'analyse découpé (primary/stems/cues)
+        "stems_status": "VARCHAR(20) DEFAULT 'pending'",
+        "stems_progress": "INTEGER DEFAULT 0",
+        "cues_status": "VARCHAR(20) DEFAULT 'pending'",
+        "cue_generation_mode": "VARCHAR(20) DEFAULT 'auto'",
     },
     "track_analyses": {
         # Waveform and spectral data columns

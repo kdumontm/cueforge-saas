@@ -95,6 +95,18 @@ class Track(Base):
     # premières secondes décodées à 11kHz mono → même hash pour un même audio.
     audio_fingerprint = Column(String(64), nullable=True, index=True)
 
+    # ── 2026-04-23 : pipeline d'analyse découpé (primary / stems / cues) ──
+    # stems_status   : pending | processing | ready | failed | skipped
+    # stems_progress : 0-100 (pour la barre de progression dans /analyze)
+    # cues_status    : pending | processing | ready | failed | skipped
+    # cue_generation_mode : auto (cues dès primary sans stems)
+    #                     | on_demand (bouton utilisateur)
+    #                     | pro (cues attendent les stems — meilleure confidence)
+    stems_status = Column(String(20), default="pending", nullable=True)
+    stems_progress = Column(Integer, default=0, nullable=True)
+    cues_status = Column(String(20), default="pending", nullable=True)
+    cue_generation_mode = Column(String(20), default="auto", nullable=True)
+
     # Relationships
     user = relationship("User", back_populates="tracks")
     organization = relationship("Organization", back_populates="tracks", foreign_keys=[org_id])
