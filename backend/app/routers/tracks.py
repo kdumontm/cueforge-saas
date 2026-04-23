@@ -2536,6 +2536,83 @@ def batch_delete_tracks(
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
 
 
+@router.post("/purge-all-mine")
+def purge_all_my_tracks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    🔴 ADMIN UNIQUEMENT : supprime TOUS les tracks du user courant en une fois.
+    Fait un batch-delete interne sur tous les Track.user_id == current_user.id.
+    Check R2 partagé avant d'effacer les binaires.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Réservé aux administrateurs.")
+
+    tracks = db.query(Track).filter(Track.user_id == current_user.id).all()
+    if not tracks:
+        return {"status": "ok", "deleted_count": 0, "deleted_ids": []}
+
+    deleted_ids = [t.id for t in tracks]
+    batch_ids = set(deleted_ids)
+
+    # Suppression physique (R2 + disque) avec safety check partage
+    try:
+        from app.services import r2_service
+        r2_on = r2_service.enabled()
+    except Exception:
+        r2_service = None  # type: ignore
+        r2_on = False
+
+    paths_to_check = {t.file_path for t in tracks if t.file_path}
+    keys_to_check = {t.r2_key for t in tracks if t.r2_key}
+    shared_paths: set[str] = set()
+    shared_keys: set[str] = set()
+    if paths_to_check:
+        rows = db.query(Track.file_path).filter(
+            Track.file_path.in_(paths_to_check),
+            Track.id.notin_(batch_ids),
+        ).all()
+        shared_paths = {r[0] for r in rows if r[0]}
+    if keys_to_check:
+        rows = db.query(Track.r2_key).filter(
+            Track.r2_key.in_(keys_to_check),
+            Track.id.notin_(batch_ids),
+        ).all()
+        shared_keys = {r[0] for r in rows if r[0]}
+
+    for track in tracks:
+        if track.file_path and track.file_path not in shared_paths and os.path.exists(track.file_path):
+            try:
+                os.remove(track.file_path)
+            except OSError:
+                pass
+        if r2_on and track.r2_key and track.r2_key not in shared_keys:
+            try:
+                r2_service.delete_object(track.r2_key)
+            except Exception:
+                pass
+
+    # Bulk delete DB (dependencies + tracks)
+    _bulk_delete_track_dependencies(db, deleted_ids)
+    db.query(Track).filter(Track.id.in_(deleted_ids)).delete(synchronize_session=False)
+    safe_commit(db)
+
+    # Invalidation cache
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
+
+    import logging
+    logging.getLogger(__name__).warning(
+        f"[ADMIN-PURGE] user={current_user.id} admin={current_user.is_admin} "
+        f"deleted={len(deleted_ids)} tracks"
+    )
+    return {"status": "purged", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
+
+
 # ── Metadata Editing ─────────────────────────────────────────────────────
 
 class TrackMetadataUpdate(BaseModel):

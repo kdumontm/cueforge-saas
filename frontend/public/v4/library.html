@@ -241,6 +241,10 @@
     </div>
     <div style="display:flex;gap:10px;align-items:center">
       <button class="btn btn-ghost" id="btn-export-csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export CSV</button>
+      <button class="btn btn-ghost" id="btn-admin-purge" title="Admin : supprimer tous mes tracks" style="display:none;color:#f87171;border-color:#dc262644">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/></svg>
+        Tout supprimer
+      </button>
       <button class="btn btn-primary" id="btn-new-upload">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>
         Nouvel upload
@@ -707,6 +711,45 @@ if(searchInput){
 // ---- Top-right buttons (override shared.js for this page) ----
 document.getElementById('btn-new-upload').addEventListener('click', ()=> location.href='/upload');
 document.getElementById('btn-export-csv').addEventListener('click', ()=> exportCsv());
+
+// ---- Admin-only : Tout supprimer ----
+(async () => {
+  try {
+    const me = await api.me().catch(() => null);
+    const purgeBtn = document.getElementById('btn-admin-purge');
+    if(!me || !me.is_admin || !purgeBtn) return;
+    purgeBtn.style.display = '';
+
+    purgeBtn.addEventListener('click', async () => {
+      const total = state?.tracks?.length || '?';
+      const confirm1 = prompt(
+        `⚠️ Supprimer TOUS tes tracks (pas seulement ceux affichés) ?\n\n` +
+        `Cette action est IRRÉVERSIBLE. Elle efface aussi les cues, loops, analyses, favoris et historique.\n\n` +
+        `Tape SUPPRIMER pour confirmer.`
+      );
+      if(confirm1 !== 'SUPPRIMER') {
+        if(confirm1 !== null) toast('Annulé (mauvaise saisie)', 'info');
+        return;
+      }
+      purgeBtn.disabled = true;
+      const oldText = purgeBtn.innerHTML;
+      purgeBtn.innerHTML = '⏳ Suppression…';
+      try {
+        const res = await api.post('/tracks/purge-all-mine', {});
+        const n = res?.deleted_count ?? 0;
+        toast(`${n} track${n>1?'s':''} supprimé${n>1?'s':''}`, 'info');
+        selectAll(false);
+        loadCounts();
+        load();
+      } catch(err){
+        toast('Erreur: '+(err?.message || err), 'warn');
+      } finally {
+        purgeBtn.disabled = false;
+        purgeBtn.innerHTML = oldText;
+      }
+    });
+  } catch(e){ /* silent */ }
+})();
 
 // ---- Bulk selection ----
 function selected(){
