@@ -664,6 +664,7 @@ function parseKeyToCamelot(k){
 // Main wave — buildWave wipe innerHTML, donc on ré-ajoute le playhead APRES
 const wave = document.getElementById('wave');
 function rebuildWaveFromPeaks(peaks){
+  if(!wave) return; // 🔴 Fix #21/#22 : défend contre wave null (si HTML ne l'a pas)
   wave.innerHTML = '';
   // 🔴 2026-04-22 : si pas de peaks réelles, on montre un skeleton plat (pas
   // des barres décoratives type "8 phrases lissées" qui laissaient croire que
@@ -1705,7 +1706,7 @@ function fmtTimeCurrent(sec){
 }
 
 function updatePlayheadUI(){
-  if(!audioEl || !currentDurMs) return;
+  if(!audioEl || !currentDurMs || !wave) return; // 🔴 Fix #21/#22 : aussi check wave null
   const t = audioEl.currentTime;
   document.getElementById('time-current').textContent = fmtTimeCurrent(t);
   // Playhead
@@ -2025,6 +2026,7 @@ document.querySelector('[data-tt="Zoom out"]')?.addEventListener('click', () => 
 (() => { const l = document.querySelector('.zoom-label'); if(l) l.textContent = '1×'; })();
 
 // ========== Waveform click — V=seek, C=insert cue, L/S/F=toast ==========
+if(wave){ // 🔴 Fix #21/#22 : défend contre wave null
 wave.addEventListener('click', async (e) => {
   // Ignorer les clicks sur les markers existants (ils ont leurs propres handlers)
   if(e.target.closest('.wmark')) return;
@@ -2091,6 +2093,7 @@ wave.addEventListener('click', async (e) => {
     updatePlayheadUI();
   }
 });
+} // 🔴 Fix #21/#22 : fermeture du if(wave)
 
 // Keyboard shortcuts
 document.addEventListener('keydown',(e)=>{
