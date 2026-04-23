@@ -144,6 +144,24 @@
   }
   .tbl .act button:hover{background:var(--s-3);color:var(--c-primary)}
   .tbl .act button.danger:hover{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+  /* Checkboxes + bulk actions */
+  .tbl-chk{width:16px;height:16px;cursor:pointer;accent-color:var(--amber);margin:0}
+  .bulk-bar{
+    display:none;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 16px;background:var(--amber-soft);border-bottom:1px solid var(--amber);
+    font-family:var(--font-mono);font-size:12px;color:var(--amber);
+  }
+  .bulk-bar.visible{display:flex}
+  .bulk-bar .bulk-info{display:flex;align-items:center;gap:10px}
+  .bulk-bar .bulk-actions{display:flex;gap:8px}
+  .btn-danger{
+    background:var(--red);color:#fff;border:1px solid var(--red);
+    padding:6px 12px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;
+    transition:all var(--t-fast);
+  }
+  .btn-danger:hover{filter:brightness(1.1)}
+  .btn-danger:disabled{opacity:.5;cursor:not-allowed}
+  .tbl .act button.act-del:hover{background:var(--red-soft);border-color:var(--red);color:var(--red)}
 
   /* Health dashboard */
   .health-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}
@@ -342,15 +360,15 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Users <span class="count" id="nav-users-count">—</span>
       </a>
-      <a href="#orgs" data-sec="orgs">
+      <a href="/admin/organizations" data-sec="orgs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         Organisations <span class="count" id="nav-orgs-count">—</span>
       </a>
-      <a href="#tracks" data-sec="tracks">
+      <a href="/admin/tracks" data-sec="tracks">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         Tracks <span class="count" id="nav-tracks-count">—</span>
       </a>
-      <a href="#subscriptions" data-sec="subs">
+      <a href="/admin/subscriptions" data-sec="subs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
         Subscriptions <span class="count" id="nav-subs-count">—</span>
       </a>
@@ -368,11 +386,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
         Intégrations
       </a>
-      <a href="#feature-flags" data-sec="flags">
+      <a href="/admin/feature-flags" data-sec="flags">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg>
         Feature flags
       </a>
-      <a href="#webhooks" data-sec="wh">
+      <a href="/admin/webhooks" data-sec="wh">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 17l-3-3m0 0 3-3m-3 3h6M6 17l-3-3m0 0 3-3m-3 3h6M9 3v18"/></svg>
         Webhooks
       </a>
@@ -382,21 +400,21 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
         Audit log
       </a>
-      <a href="#impersonate" data-sec="imp">
+      <a href="/admin/impersonation" data-sec="imp">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Impersonation
       </a>
-      <a href="#dsr" data-sec="dsr">
+      <a href="/admin/data-cleanup" data-sec="dsr">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         DSR · RGPD
       </a>
 
       <div class="grp">Support</div>
-      <a href="#feedback" data-sec="fb">
+      <a href="/admin/feedbacks" data-sec="fb">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Feedback <span class="count" id="nav-feedback-count">—</span>
       </a>
-      <a href="#changelog" data-sec="cl">
+      <a href="/admin/changelog" data-sec="cl">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
         Changelog
       </a>
@@ -429,10 +447,20 @@
           <span class="tb-chip" data-filter="flagged">Flagged</span>
           <span class="tb-chip" data-filter="churned">Churned</span>
         </div>
+        <div class="bulk-bar" id="users-bulk-bar">
+          <div class="bulk-info">
+            <span id="bulk-count">0</span> sélectionné(s)
+            <button class="btn btn-ghost btn-sm" id="bulk-clear">Désélectionner</button>
+          </div>
+          <div class="bulk-actions">
+            <button class="btn-danger" id="bulk-delete-btn">🗑 Supprimer les comptes + sons</button>
+          </div>
+        </div>
         <div style="max-height:420px;overflow:auto">
         <table class="tbl">
           <thead>
             <tr>
+              <th style="width:32px"><input type="checkbox" class="tbl-chk" id="users-chk-all" title="Tout sélectionner"></th>
               <th>User</th>
               <th>Plan</th>
               <th>Storage</th>
@@ -830,7 +858,7 @@
   async function loadUsers(){
     const body = document.getElementById('users-body');
     if(!body) return;
-    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Chargement…</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:24px">Chargement…</td></tr>`;
     try {
       const payload = { skip: 0, limit: 50, sort_by: 'created_at', sort_dir: 'desc' };
       if(currentSearch) payload.search = currentSearch;
@@ -840,7 +868,8 @@
       const res = await api.post('/admin/users/advanced', payload);
       const items = res.items || [];
       if(items.length === 0){
-        body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun utilisateur</td></tr>`;
+        body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun utilisateur</td></tr>`;
+        updateBulkBar();
         return;
       }
       body.innerHTML = items.map(u => {
@@ -849,7 +878,8 @@
         const plan = u.subscription_plan || 'free';
         const cls = isAdmin ? 'violet' : (plan === 'pro' ? '' : (plan === 'unlimited' ? 'green' : ''));
         return `
-          <tr data-id="${u.id}">
+          <tr data-id="${u.id}" data-email="${(u.email||'').replace(/"/g,'&quot;')}">
+            <td><input type="checkbox" class="tbl-chk row-chk" data-id="${u.id}" ${isAdmin ? 'disabled title="Compte admin — protégé"' : ''}></td>
             <td>
               <div class="usr">
                 <div class="usr-av ${cls}"></div>
@@ -868,6 +898,7 @@
             <td>
               <div class="act">
                 <button data-tt="Voir profil" data-act="view"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                <button data-tt="Supprimer (compte + sons)" data-act="delete" class="act-del" ${isAdmin ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''}><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></button>
               </div>
             </td>
           </tr>
@@ -889,9 +920,151 @@
         if(tds[5]) tds[5].textContent = fmtSignup(u.created_at);
       });
     } catch(err){
-      body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
+    }
+    updateBulkBar();
+  }
+
+  // ===== Bulk selection + delete =====
+  function getSelectedIds(){
+    return Array.from(document.querySelectorAll('#users-body .row-chk:checked')).map(c => parseInt(c.dataset.id, 10)).filter(Boolean);
+  }
+  function updateBulkBar(){
+    const bar = document.getElementById('users-bulk-bar');
+    const countEl = document.getElementById('bulk-count');
+    const ids = getSelectedIds();
+    if(bar){ bar.classList.toggle('visible', ids.length > 0); }
+    if(countEl){ countEl.textContent = String(ids.length); }
+    // Sync "select all" checkbox state
+    const master = document.getElementById('users-chk-all');
+    if(master){
+      const rows = document.querySelectorAll('#users-body .row-chk:not(:disabled)');
+      const checked = document.querySelectorAll('#users-body .row-chk:not(:disabled):checked');
+      if(rows.length === 0){ master.checked = false; master.indeterminate = false; }
+      else if(checked.length === rows.length){ master.checked = true; master.indeterminate = false; }
+      else if(checked.length === 0){ master.checked = false; master.indeterminate = false; }
+      else { master.checked = false; master.indeterminate = true; }
     }
   }
+  // Row checkbox change → update bulk bar
+  document.addEventListener('change', e => {
+    if(e.target.classList && e.target.classList.contains('row-chk')){
+      updateBulkBar();
+    }
+  });
+  // Select-all header checkbox
+  const masterChk = document.getElementById('users-chk-all');
+  if(masterChk){
+    masterChk.addEventListener('change', () => {
+      const rows = document.querySelectorAll('#users-body .row-chk:not(:disabled)');
+      rows.forEach(r => { r.checked = masterChk.checked; });
+      updateBulkBar();
+    });
+  }
+  // Clear selection button
+  const bulkClearBtn = document.getElementById('bulk-clear');
+  if(bulkClearBtn){
+    bulkClearBtn.addEventListener('click', () => {
+      document.querySelectorAll('#users-body .row-chk').forEach(c => { c.checked = false; });
+      updateBulkBar();
+    });
+  }
+
+  // Generic confirm modal (Promise-based)
+  function confirmModal(opts){
+    return new Promise(resolve => {
+      const m = document.createElement('div');
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(10,8,14,.72);backdrop-filter:blur(8px);display:flex;align-items:flex-start;justify-content:center;z-index:10000;padding-top:18vh';
+      m.innerHTML = `
+        <div style="width:min(480px,92vw);background:linear-gradient(180deg,#1a1822,#12111a);border:1px solid rgba(255,255,255,.08);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);padding:22px 24px">
+          <div style="font-size:16px;font-weight:600;margin-bottom:6px;color:#ff6b6b">⚠ ${opts.title || 'Confirmer'}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:14px;line-height:1.5">${opts.body || ''}</div>
+          ${opts.requireType ? `<input type="text" id="cm-type" placeholder="Tape ${opts.requireType} pour confirmer" style="width:100%;background:var(--s-2);border:1px solid var(--b-default);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;margin-bottom:14px" autocomplete="off" spellcheck="false" />` : ''}
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button id="cm-cancel" class="btn btn-ghost btn-sm">Annuler</button>
+            <button id="cm-ok" class="btn-danger" ${opts.requireType ? 'disabled style="opacity:.4;cursor:not-allowed"' : ''}>${opts.okLabel || 'Supprimer'}</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(m);
+      const close = v => { document.body.removeChild(m); resolve(v); };
+      m.addEventListener('click', e => { if(e.target === m) close(false); });
+      m.querySelector('#cm-cancel').addEventListener('click', () => close(false));
+      const okBtn = m.querySelector('#cm-ok');
+      okBtn.addEventListener('click', () => close(true));
+      if(opts.requireType){
+        const input = m.querySelector('#cm-type');
+        input.addEventListener('input', () => {
+          const ok = input.value.trim() === opts.requireType;
+          okBtn.disabled = !ok;
+          okBtn.style.opacity = ok ? '1' : '.4';
+          okBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
+        });
+        setTimeout(() => input.focus(), 50);
+      }
+      document.addEventListener('keydown', function esc(e){
+        if(e.key === 'Escape'){ document.removeEventListener('keydown', esc); close(false); }
+      });
+    });
+  }
+
+  // Bulk delete button
+  const bulkDelBtn = document.getElementById('bulk-delete-btn');
+  if(bulkDelBtn){
+    bulkDelBtn.addEventListener('click', async () => {
+      const ids = getSelectedIds();
+      if(ids.length === 0){ toast('Aucun user sélectionné', 'warn'); return; }
+      const ok = await confirmModal({
+        title: `Supprimer ${ids.length} compte${ids.length>1?'s':''} ?`,
+        body: `Cette action est <b>irréversible</b>.<br>Tous les <b>tracks, sons R2, cues, favoris et sets</b> associés seront supprimés.<br><br>Tape <code style="background:#000;padding:2px 6px;border-radius:4px;color:#ff6b6b">SUPPRIMER</code> pour confirmer.`,
+        requireType: 'SUPPRIMER',
+        okLabel: `🗑 Supprimer ${ids.length}`
+      });
+      if(!ok) return;
+      bulkDelBtn.disabled = true;
+      bulkDelBtn.textContent = '⏳ Suppression…';
+      try {
+        const res = await api.post('/admin/users/bulk-delete', { user_ids: ids });
+        toast(res.message || `${res.deleted_count || ids.length} users supprimés`, 'success');
+        if(res.errors && res.errors.length) toast(`${res.errors.length} erreur(s) — voir console`, 'warn');
+        if(res.errors) console.warn('[bulk-delete errors]', res.errors);
+        await loadUsers();
+        await loadKpis();
+      } catch(err){
+        toast(`Suppression : ${err.message}`, 'warn');
+      } finally {
+        bulkDelBtn.disabled = false;
+        bulkDelBtn.innerHTML = '🗑 Supprimer les comptes + sons';
+      }
+    });
+  }
+
+  // Row delete button (event delegation)
+  document.addEventListener('click', async e => {
+    const btn = e.target.closest('#users-body button[data-act="delete"]');
+    if(!btn || btn.disabled) return;
+    e.stopPropagation();
+    const row = btn.closest('tr[data-id]');
+    if(!row) return;
+    const id = parseInt(row.dataset.id, 10);
+    const email = row.dataset.email || `user #${id}`;
+    const ok = await confirmModal({
+      title: `Supprimer ${email} ?`,
+      body: `Cette action est <b>irréversible</b>.<br>Le compte sera supprimé ainsi que <b>tous les tracks, sons R2, cues, favoris et sets</b> associés.`,
+      okLabel: '🗑 Supprimer'
+    });
+    if(!ok) return;
+    btn.disabled = true;
+    try {
+      const res = await api.del('/admin/users/' + id);
+      toast(res.message || `User supprimé`, 'success');
+      await loadUsers();
+      await loadKpis();
+    } catch(err){
+      toast(`Suppression : ${err.message}`, 'warn');
+      btn.disabled = false;
+    }
+  });
 
   loadKpis();
   loadUsers();

@@ -1,18 +1,76 @@
 """Router admin — Gestion des utilisateurs."""
 import csv
 import io
-from typing import Optional
+import logging
+import os
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.models.track import Track
 from app.middleware.admin import require_admin
 from app.routers.admin.schemas import UserUpdate
+from app.services import r2_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
+
+
+class BulkDeleteRequest(BaseModel):
+    user_ids: List[int]
+
+
+def _purge_user_storage(user: User, db: Session) -> dict:
+    """
+    Supprime TOUS les fichiers audio (R2 + disque local) appartenant à un user,
+    avant de supprimer le user lui-même. Retourne un récap.
+
+    Les rows DB (tracks, cues, favoris…) seront supprimées via le CASCADE
+    SQL configuré sur les FK user_id / track_id.
+    """
+    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+    r2_deleted = 0
+    r2_errors = 0
+    local_deleted = 0
+    local_errors = 0
+
+    for t in tracks:
+        # 1. Supprimer l'objet R2 si présent
+        if t.r2_key:
+            try:
+                ok = r2_service.delete_object(t.r2_key)
+                if ok:
+                    r2_deleted += 1
+                else:
+                    # R2 désactivé ou échec soft (déjà loggé par le service)
+                    pass
+            except Exception as e:
+                logger.warning(f"[admin.delete_user] R2 delete {t.r2_key} failed: {e}")
+                r2_errors += 1
+
+        # 2. Supprimer le fichier local cache s'il existe encore
+        if t.file_path:
+            try:
+                if os.path.exists(t.file_path):
+                    os.remove(t.file_path)
+                    local_deleted += 1
+            except Exception as e:
+                logger.warning(f"[admin.delete_user] Local delete {t.file_path} failed: {e}")
+                local_errors += 1
+
+    return {
+        "tracks": len(tracks),
+        "r2_deleted": r2_deleted,
+        "r2_errors": r2_errors,
+        "local_deleted": local_deleted,
+        "local_errors": local_errors,
+    }
 
 
 @router.get("/users")
@@ -155,13 +213,78 @@ async def update_user(
     return {"message": f"Utilisateur {user.email} mis à jour"}
 
 
+# IMPORTANT: Cette route DOIT être déclarée avant /users/{user_id} (DELETE)
+# sinon FastAPI essaie de parser "bulk-delete" comme un int et renvoie 422.
+@router.post("/users/bulk-delete")
+async def bulk_delete_users(
+    payload: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Supprime plusieurs utilisateurs d'un coup.
+    Pour chaque user: supprime tous ses tracks + fichiers R2 + fichiers locaux,
+    puis supprime le user (les rows DB liées sont nettoyées par CASCADE SQL).
+    """
+    ids = list({int(i) for i in payload.user_ids if i})
+    if not ids:
+        raise HTTPException(status_code=400, detail="Aucun user_id fourni")
+
+    if admin.id in ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Impossible de supprimer votre propre compte",
+        )
+
+    users = db.query(User).filter(User.id.in_(ids)).all()
+    found_ids = {u.id for u in users}
+    missing = [i for i in ids if i not in found_ids]
+
+    deleted = []
+    errors = []
+    total_tracks = 0
+    total_r2 = 0
+    total_local = 0
+
+    for user in users:
+        try:
+            stats = _purge_user_storage(user, db)
+            total_tracks += stats["tracks"]
+            total_r2 += stats["r2_deleted"]
+            total_local += stats["local_deleted"]
+            email = user.email
+            uid = user.id
+            db.delete(user)
+            db.commit()
+            deleted.append({"id": uid, "email": email, **stats})
+        except Exception as e:
+            db.rollback()
+            logger.exception(f"[admin.bulk_delete] user={user.id} failed")
+            errors.append({"id": user.id, "email": user.email, "error": str(e)})
+
+    return {
+        "requested": len(ids),
+        "deleted_count": len(deleted),
+        "deleted": deleted,
+        "tracks_deleted": total_tracks,
+        "r2_deleted": total_r2,
+        "local_deleted": total_local,
+        "not_found": missing,
+        "errors": errors,
+        "message": f"{len(deleted)}/{len(ids)} utilisateurs supprimés · {total_tracks} tracks · {total_r2} fichiers R2",
+    }
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Supprime un utilisateur."""
+    """
+    Supprime un utilisateur + TOUS ses tracks/sons (R2 + disque local)
+    + toutes les rows liées (cues, sets, favoris, tags…) via CASCADE SQL.
+    """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
@@ -169,6 +292,13 @@ async def delete_user(
     if user.id == admin.id:
         raise HTTPException(status_code=400, detail="Impossible de supprimer votre propre compte")
 
+    email = user.email
+    stats = _purge_user_storage(user, db)
+
     db.delete(user)
     db.commit()
-    return {"message": f"Utilisateur {user.email} supprimé"}
+
+    return {
+        "message": f"Utilisateur {email} supprimé · {stats['tracks']} tracks · {stats['r2_deleted']} fichiers R2",
+        **stats,
+    }
