@@ -195,6 +195,48 @@ async def upload_track(
 
         # Move temp file to permanent storage
         file_path = storage_svc.save_upload_from_path(temp_path, filename)
+
+        # ✅ FIX ATOMIQUE (Dev BB, 2026-04-24) :
+        # 1. Vérifier que le fichier local existe
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=500, detail="Erreur création fichier local — merci de réessayer")
+
+        # 2. AVANT de créer la row DB, uploader vers R2 si activé
+        r2_key_final = None
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                # Retry logic : 3 tentatives avec backoff exponential
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        logger.info(f"[UPLOAD] Attempting R2 upload (attempt {attempt + 1}/{max_retries}): {filename}")
+                        r2_service.upload_file(file_path, filename)
+
+                        # Verify R2 upload with HEAD
+                        if r2_service.object_exists(filename):
+                            r2_key_final = filename
+                            logger.info(f"[UPLOAD] R2 upload verified: {filename}")
+                            break
+                        else:
+                            logger.warning(f"[UPLOAD] R2 verification failed, retrying...")
+                    except Exception as e:
+                        logger.warning(f"[UPLOAD] R2 upload failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(2 ** attempt)  # backoff: 1s, 2s, 4s
+                        elif attempt == max_retries - 1:
+                            # Dernière tentative échouée
+                            logger.error(f"[UPLOAD] R2 upload failed after {max_retries} attempts for {filename}")
+                            raise HTTPException(
+                                status_code=500,
+                                detail="Impossible d'uploader le fichier — merci de réessayer"
+                            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"[UPLOAD] Unexpected error during R2 upload: {e}")
+            raise HTTPException(status_code=500, detail="Erreur serveur lors de l'upload")
     finally:
         if temp_path and os.path.exists(temp_path):
             try:
@@ -202,47 +244,39 @@ async def upload_track(
             except Exception:
                 pass
 
-    # Create track record
-    track = Track(
-        user_id=current_user.id,
-        filename=filename,
-        original_filename=sanitize_filename(file.filename or filename),
-        file_path=file_path,
-        file_size=total_size,
-        status=TrackStatus.pending,
-        cue_generation_mode=cue_mode,
-        stems_status='pending',
-        stems_progress=0,
-        cues_status='pending',
-    )
-    db.add(track)
-    safe_commit(db)
-    db.refresh(track)
 
-    # Push async vers Cloudflare R2 si activé — non bloquant pour la réponse user.
-    # Si R2 non configuré ou upload échoue, on garde juste le fichier local (comportement legacy).
+    # 3. SEULEMENT SI R2 confirmé (ou si R2 non configuré et fallback local OK) :
+    # Créer la row DB avec r2_key set
     try:
-        from app.services import r2_service
-        if r2_service.enabled() and file_path:
-            def _push_to_r2(tid: int, lpath: str, key: str):
-                from app.database import SessionLocal
-                try:
-                    r2_service.upload_file(lpath, key)
-                    db2 = SessionLocal()
-                    try:
-                        t = db2.query(Track).filter(Track.id == tid).first()
-                        if t:
-                            t.r2_key = key
-                            db2.commit()
-                    finally:
-                        db2.close()
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(f"[R2] upload background failed for track {tid}: {e}")
-            background_tasks.add_task(_push_to_r2, track.id, file_path, filename)
-    except Exception:
-        # Module import ou toute erreur imprévue : on ignore (fallback local)
-        pass
+        track = Track(
+            user_id=current_user.id,
+            filename=filename,
+            original_filename=sanitize_filename(file.filename or filename),
+            file_path=file_path if not r2_key_final else None,  # Vider file_path si R2 est la source de vérité
+            file_size=total_size,
+            status=TrackStatus.pending,
+            cue_generation_mode=cue_mode,
+            stems_status='pending',
+            stems_progress=0,
+            cues_status='pending',
+            r2_key=r2_key_final,  # TOUJOURS set si R2 activé
+        )
+        db.add(track)
+        safe_commit(db, "post-upload track creation")
+        db.refresh(track)
+        logger.info(f"[UPLOAD] Track {track.id} created with r2_key={r2_key_final}")
+    except Exception as e:
+        logger.error(f"[UPLOAD] DB creation failed after R2 upload confirmed: {e}")
+        # Compensating action : supprimer l'objet R2 qu'on vient d'uploader
+        if r2_key_final:
+            try:
+                from app.services import r2_service
+                r2_service.delete_object(r2_key_final)
+                logger.info(f"[UPLOAD] Deleted R2 object {r2_key_final} (compensating action)")
+            except Exception as cleanup_err:
+                logger.warning(f"[UPLOAD] Failed to clean up R2 object {r2_key_final}: {cleanup_err}")
+        raise HTTPException(status_code=500, detail="Erreur création base de données — fichier non assuré")
+
 
     # 🎯 2026-04-21 QA : déclenche l'analyse auto en background après l'upload.
     # Avant : le track restait "pending" ad vitam, Kevin devait cliquer "Analyser"
@@ -4816,3 +4850,113 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
             await websocket.close(code=1011)
         except Exception:
             pass
+
+
+# ── Admin Healing Endpoint (Dev BB, 2026-04-24) ───────────────────────────────
+
+@router.post("/admin/tracks/heal-orphans")
+async def heal_orphan_tracks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Scan for orphaned tracks (r2_key=NULL with local file missing or failing analysis)
+    and attempt to recover them by uploading to R2.
+    Admin-only endpoint.
+    """
+    if not getattr(current_user, 'is_admin', False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    healed = []
+    lost = []
+    errors = []
+
+    try:
+        from app.services import storage as storage_svc
+        from app.services import r2_service
+
+        # Query tracks with r2_key=NULL that have failed analysis or are stuck
+        orphans = db.query(Track).filter(
+            Track.r2_key.is_(None)
+        ).all()
+
+        logger.info(f"[HEAL] Found {len(orphans)} tracks with r2_key=NULL")
+
+        for track in orphans:
+            try:
+                # Try to find the file locally
+                file_path = track.file_path
+                found_locally = file_path and os.path.exists(file_path)
+
+                if not found_locally:
+                    # Try to reconstruct path from filename
+                    from app.services.storage import UPLOAD_DIR
+                    reconstructed = os.path.join(UPLOAD_DIR, track.filename) if track.filename else None
+                    found_locally = reconstructed and os.path.exists(reconstructed)
+                    if found_locally:
+                        file_path = reconstructed
+
+                if found_locally and file_path:
+                    # Attempt R2 upload with retry
+                    max_retries = 2
+                    for attempt in range(max_retries):
+                        try:
+                            logger.info(f"[HEAL] Uploading {track.id} ({track.filename}) to R2, attempt {attempt + 1}")
+                            r2_service.upload_file(file_path, track.filename)
+
+                            # Verify
+                            if r2_service.object_exists(track.filename):
+                                track.r2_key = track.filename
+                                safe_commit(db, f"heal-orphan track {track.id}")
+                                healed.append({
+                                    "track_id": track.id,
+                                    "filename": track.filename,
+                                    "status": "recovered_to_r2"
+                                })
+                                logger.info(f"[HEAL] Track {track.id} recovered to R2")
+                                break
+                        except Exception as e:
+                            if attempt == max_retries - 1:
+                                errors.append({
+                                    "track_id": track.id,
+                                    "error": f"R2 upload failed: {str(e)}"
+                                })
+                                logger.warning(f"[HEAL] Failed to upload {track.id} after {max_retries} attempts: {e}")
+                            else:
+                                import time
+                                time.sleep(1)
+                else:
+                    # File not found locally and not in standard location
+                    lost.append({
+                        "track_id": track.id,
+                        "filename": track.filename,
+                        "status": "file_lost"
+                    })
+                    # Mark track as failed
+                    track.status = TrackStatus.failed
+                    track.error_message = "Fichier audio perdu — merci de re-uploader"
+                    safe_commit(db, f"mark-lost track {track.id}")
+                    logger.info(f"[HEAL] Track {track.id} marked as lost")
+
+            except Exception as e:
+                logger.error(f"[HEAL] Error processing track {track.id}: {e}")
+                errors.append({
+                    "track_id": track.id,
+                    "error": str(e)
+                })
+
+    except Exception as e:
+        logger.error(f"[HEAL] Healing operation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Healing operation failed: {e}")
+
+    result = {
+        "healed_count": len(healed),
+        "lost_count": len(lost),
+        "error_count": len(errors),
+        "healed": healed,
+        "lost": lost,
+        "errors": errors[:10]  # Limit error details to first 10
+    }
+
+    logger.info(f"[HEAL] Operation complete: {len(healed)} recovered, {len(lost)} lost, {len(errors)} errors")
+    return result
