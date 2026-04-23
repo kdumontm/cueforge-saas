@@ -37,6 +37,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def mark_track_as_failed(db: Session, track_id: int, error_message: str, job_type: str = "analysis"):
+    """
+    Marque une track comme failed et crée automatiquement un feedback admin.
+    job_type: 'analysis', 'stems', 'cues', etc.
+    """
+    try:
+        track = db.query(Track).filter(Track.id == track_id).first()
+        if not track:
+            logger.warning(f"Track #{track_id} not found for failure marking")
+            return
+
+        track.status = TrackStatus.failed
+        track.error_message = error_message
+        db.commit()
+
+        # Auto-crée un feedback admin pour notification
+        from app.routers.admin.jobs import auto_create_job_failure_feedback
+        auto_create_job_failure_feedback(track_id, job_type, db)
+    except Exception as e:
+        logger.error(f"Error marking track {track_id} as failed: {e}")
+        db.rollback()
+
+
 def safe_commit(db: Session, context: str = ""):
     """Commit avec rollback automatique en cas d'erreur."""
     try:
@@ -678,9 +701,7 @@ def _run_analysis(track_id: int):
 
         if not file_path or not os.path.exists(file_path):
             _log(f"[ANALYSIS] File missing: {file_path} (exists={os.path.exists(file_path) if file_path else 'N/A'})")
-            track.status = TrackStatus.failed
-            track.error_message = "Audio file not found on disk"
-            safe_commit(db)
+            mark_track_as_failed(db, track_id, "Audio file not found on disk", "analysis")
             _release_quota(_quota_user_id)
             return
 
@@ -769,11 +790,7 @@ def _run_analysis(track_id: int):
     except Exception as e:
         _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
         try:
-            track = db.query(Track).filter(Track.id == track_id).first()
-            if track:
-                track.status = TrackStatus.failed
-                track.error_message = f"Phase 1 error: {e}"
-                db.commit()
+            mark_track_as_failed(db, track_id, f"Phase 1 error: {e}", "primary")
         except Exception:
             pass
         _release_quota(_quota_user_id)
@@ -809,10 +826,9 @@ def _run_analysis(track_id: int):
         _log(f"[ANALYSIS] Phase 2 INSTANT CRASHED: {e}\n{_tb.format_exc()}")
         db = SessionLocal()
         try:
+            mark_track_as_failed(db, track_id, f"Instant phase: {e}", "primary")
             track = db.query(Track).filter(Track.id == track_id).first()
             if track:
-                track.status = TrackStatus.failed
-                track.error_message = f"Instant phase: {e}"
                 track.primary_status = 'failed'
                 db.commit()
         finally:

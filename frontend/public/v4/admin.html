@@ -6,7 +6,7 @@
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260423f" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-feedback-pagepath" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-resolutions" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -791,6 +791,7 @@
                 <option value="rejected">Status → rejected</option>
               </select>
               <div style="flex:1"></div>
+              <button type="button" id="fb-m-see-resolutions" class="plan-pill" style="cursor:pointer;border:none;background:rgba(34,197,94,.15);color:#6ee7b7;padding:8px 14px">✓ Voir résolutions similaires</button>
               <button type="button" id="fb-m-promote" class="plan-pill" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:8px 14px">🛠️ Transformer en note admin</button>
               <button type="button" id="fb-m-user-delete" class="plan-pill" style="cursor:pointer;border:none;background:rgba(239,68,68,.15);color:#fca5a5;padding:8px 14px">🗑️ Supprimer</button>
               <button type="button" id="fb-m-send" class="plan-pill" style="cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#a855f7);color:#fff;padding:8px 16px;font-weight:600">Envoyer</button>
@@ -850,7 +851,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423g"></script>
-<script src="/v4/shared.js?v=20260423-feedback-pagepath"></script>
+<script src="/v4/shared.js?v=20260423-resolutions"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1648,6 +1649,7 @@
     imp:    'imp',
     dsr:    'dsr',
     fb:     'fb',
+    resolutions: 'resolutions',
     cl:     'cl',
   };
   // Cards qui composent la vue "overview" (ordre d'affichage = ordre DOM).
@@ -1713,6 +1715,7 @@
       else if(sec === 'wh')     await loadWebhooks();
       else if(sec === 'imp')    await loadImpersonation();
       else if(sec === 'fb')     await loadFeedback();
+      else if(sec === 'resolutions') await loadResolutions();
       else if(sec === 'cl')     await loadChangelog();
       // 'dsr' = contenu statique, pas de chargement
     } catch(err){
@@ -2033,6 +2036,20 @@
     document.getElementById('fb-tab-user')?.addEventListener('click', () => loadFeedback('user'));
     document.getElementById('fb-tab-admin')?.addEventListener('click', () => loadFeedback('admin'));
 
+    // "Voir résolutions similaires"
+    document.getElementById('fb-m-see-resolutions')?.addEventListener('click', () => {
+      if(!fbCurrent) return;
+      fbCloseModal();
+      // Pré-remplir la recherche avec le sujet du feedback
+      const searchInput = document.getElementById('resolutions-search');
+      if(searchInput) searchInput.value = fbCurrent.subject || '';
+      resCurrentSearch = fbCurrent.subject || '';
+      applyResolutionsFilters();
+      // Naviguer vers la section résolutions
+      showSection('resolutions');
+      toast('Affichage des résolutions similaires', 'success');
+    });
+
     // Envoyer la réponse user
     document.getElementById('fb-m-send')?.addEventListener('click', async () => {
       if(!fbCurrent) return;
@@ -2112,6 +2129,153 @@
     });
   }
   fbBindModalOnce();
+
+  // ===== RÉSOLUTIONS — historique tickets done/rejected =====
+  let resCurrentSearch = '';
+  let resCurrentMonth = '';
+  let resCurrentScope = '';
+  let resCurrentType = '';
+  let resAllFeedbacks = []; // Cache local de tous les feedbacks done pour filtrer client-side
+
+  async function loadResolutions(){
+    const body = document.getElementById('resolutions-body');
+    const sub = document.getElementById('resolutions-card-sub');
+    if(!body) return;
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr>`;
+    try {
+      // Récupère tous les feedbacks avec status=done (on peut aussi inclure rejected)
+      const r = await api.get('/admin/feedbacks?status=done&limit=500');
+      resAllFeedbacks = r.feedbacks || r.items || [];
+      applyResolutionsFilters();
+      // Compte total dans la nav
+      setText('nav-resolutions-count', fmt.num(resAllFeedbacks.length));
+      if(sub) sub.textContent = `${resAllFeedbacks.length} ticket(s) résolus`;
+      // Populate month filter
+      const months = new Set();
+      resAllFeedbacks.forEach(f => {
+        if(f.responded_at){
+          const d = new Date(f.responded_at);
+          const month = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          months.add(month);
+        }
+      });
+      const monthSel = document.getElementById('resolutions-filter-month');
+      if(monthSel){
+        monthSel.innerHTML = '<option value="">Tous les mois</option>';
+        Array.from(months).sort().reverse().forEach(m => {
+          const [y, mon] = m.split('-');
+          const label = new Date(y, parseInt(mon)-1).toLocaleDateString('fr-FR', {year:'numeric', month:'long'});
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = label;
+          monthSel.appendChild(opt);
+        });
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function applyResolutionsFilters(){
+    const body = document.getElementById('resolutions-body');
+    if(!body) return;
+    // Filtre local client-side
+    const filtered = resAllFeedbacks.filter(f => {
+      const search = resCurrentSearch.toLowerCase();
+      const subject = (f.subject || '').toLowerCase();
+      const message = (f.message || '').toLowerCase();
+      const response = (f.admin_response || '').toLowerCase();
+      const matchSearch = !search || subject.includes(search) || message.includes(search) || response.includes(search);
+      const matchMonth = !resCurrentMonth || (f.responded_at && f.responded_at.startsWith(resCurrentMonth));
+      const matchScope = !resCurrentScope || (f.scope || 'user') === resCurrentScope;
+      const matchType = !resCurrentType || (f.type || '') === resCurrentType;
+      return matchSearch && matchMonth && matchScope && matchType;
+    }).sort((a, b) => new Date(b.responded_at || b.created_at) - new Date(a.responded_at || a.created_at));
+
+    if(filtered.length === 0){
+      body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucune résolution trouvée</td></tr>`;
+      return;
+    }
+    body.innerHTML = filtered.map(f => {
+      const subject = f.subject || (f.message || '').split('\n')[0].slice(0, 80);
+      const scope = f.scope === 'admin' ? '🛠️ Admin' : '💬 User';
+      const type = f.type || 'other';
+      return `
+        <tr class="res-row" data-id="${f.id}" style="cursor:pointer">
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${f.id}</td>
+          <td><span class="plan-pill">${escapeHtml(type)}</span></td>
+          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(f.message || '')}">${escapeHtml(subject || '—')}</td>
+          <td style="font-size:12px">${scope}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(f.responded_at || f.created_at)}</td>
+        </tr>
+      `;
+    }).join('');
+    // Bind row clicks
+    body.querySelectorAll('.res-row').forEach(tr => {
+      tr.addEventListener('click', () => resOpenModal(parseInt(tr.dataset.id, 10)));
+    });
+  }
+
+  async function resOpenModal(id){
+    const modal = document.getElementById('fb-modal');
+    if(!modal) return;
+    // Réutilise la modale Feedback mais en read-only
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('fb-m-body').textContent = 'Chargement…';
+    document.getElementById('fb-m-shot-wrap').style.display = 'none';
+    document.getElementById('fb-m-page').style.display = 'none';
+    document.getElementById('fb-m-already').style.display = 'none';
+    document.getElementById('fb-m-actions-user').style.display = 'none';
+    document.getElementById('fb-m-actions-admin').style.display = 'none';
+    try {
+      const f = await api.get(`/admin/feedbacks/${id}`);
+      fbCurrent = f;
+      document.getElementById('fb-m-title').textContent = `#${f.id} · ${f.type || '—'} · ${f.subject || '(sans sujet)'}`;
+      const meta = [
+        f.user_email || (f.user_id ? '#'+f.user_id : 'anon'),
+        fmtSignup(f.created_at),
+        `status: ${f.status || '—'}`,
+        f.rating ? `rating: ${f.rating}` : null,
+      ].filter(Boolean).join(' · ');
+      document.getElementById('fb-m-meta').textContent = meta;
+      document.getElementById('fb-m-body').textContent = f.message || '';
+      if(f.page_url){
+        const pageEl = document.getElementById('fb-m-page');
+        pageEl.style.display = 'block';
+        pageEl.innerHTML = `🔗 Page : <code style="color:#c9bff5">${escapeHtml(f.page_url)}</code>`;
+      }
+      if(f.screenshot){
+        document.getElementById('fb-m-shot-wrap').style.display = 'block';
+        document.getElementById('fb-m-shot').src = f.screenshot;
+      }
+      if(f.admin_response){
+        const already = document.getElementById('fb-m-already');
+        already.style.display = 'block';
+        already.innerHTML = `<b>✓ Résolu</b> (${fmtSignup(f.responded_at)}) : ${escapeHtml(f.admin_response)}`;
+      }
+    } catch(err){
+      document.getElementById('fb-m-body').textContent = `Erreur: ${err.message}`;
+    }
+  }
+
+  // Bind filters
+  document.getElementById('resolutions-search')?.addEventListener('input', (e) => {
+    resCurrentSearch = e.target.value;
+    applyResolutionsFilters();
+  });
+  document.getElementById('resolutions-filter-month')?.addEventListener('change', (e) => {
+    resCurrentMonth = e.target.value;
+    applyResolutionsFilters();
+  });
+  document.getElementById('resolutions-filter-scope')?.addEventListener('change', (e) => {
+    resCurrentScope = e.target.value;
+    applyResolutionsFilters();
+  });
+  document.getElementById('resolutions-filter-type')?.addEventListener('change', (e) => {
+    resCurrentType = e.target.value;
+    applyResolutionsFilters();
+  });
 
   async function loadChangelog(){
     const list = document.getElementById('cl-list');
