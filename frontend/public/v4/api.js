@@ -139,7 +139,7 @@
     //    (cues ajoutés, status changé, apply-suggested, etc.) sinon le GET
     //    suivant servirait une version stale. Pattern Bug #5/#13/#15.
     trackFresh(id)  { return api.get(`/tracks/${id}`, { _t: Date.now() }); },
-    stats()         { return api.get('/stats/overview'); },
+    stats(p={})     { return api.get('/stats/overview', p); },
     adminOverview() { return api.get('/admin/stats/overview'); },
     adminFullDashboard() { return api.get('/admin/stats/full-dashboard'); },
     adminUsers(p={}){ return api.get('/admin/stats/users-activity', p); },

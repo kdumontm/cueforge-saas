@@ -84,12 +84,18 @@ def get_db():
 
 @router.get("/stats/overview", response_model=StatsOverview)
 def get_stats_overview(
+    period: Optional[str] = "all",  # 7d, 30d, 90d, 1y, all
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get user statistics overview (cached 2min)."""
-    # Check cache first
-    cached = _get_cached_user_stats(current_user.id, "overview")
+    """Get user statistics overview (cached 60s).
+
+    Args:
+        period: Filter by period ('7d', '30d', '90d', '1y', 'all'). Default: 'all'.
+    """
+    # Check cache first (include period in cache key)
+    cache_key = f"overview:{period or 'all'}"
+    cached = _get_cached_user_stats(current_user.id, cache_key)
     if cached:
         return StatsOverview(**cached)
 
@@ -97,11 +103,30 @@ def get_stats_overview(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    # Calculate date filter based on period
+    now = datetime.utcnow()
+    period_start = None
+
+    if period == "7d":
+        period_start = now - timedelta(days=7)
+    elif period == "30d":
+        period_start = now - timedelta(days=30)
+    elif period == "90d":
+        period_start = now - timedelta(days=90)
+    elif period == "1y":
+        period_start = now - timedelta(days=365)
+    # else: "all" or None → no filter (all data)
+
+    # Build base filter
+    base_filter = [Track.user_id == user.id]
+    if period_start:
+        base_filter.append(Track.created_at >= period_start)
+
     # PERF #1.2: agrégation en 1 query au lieu de 2 COUNT séquentiels
     track_counts = db.query(
         func.count(Track.id).label("total"),
         func.sum(case((Track.status == TrackStatus.completed, 1), else_=0)).label("analyses"),
-    ).filter(Track.user_id == user.id).one()
+    ).filter(*base_filter).one()
     total_tracks = track_counts.total or 0
     total_analyses = int(track_counts.analyses or 0)
 
@@ -115,7 +140,7 @@ def get_stats_overview(
     # Genre breakdown (top 5)
     genres_breakdown = []
     genre_query = db.query(Track.genre, func.count(Track.id).label("count")).filter(
-        Track.user_id == user.id,
+        *base_filter,
         Track.genre != None,
         Track.genre != '',
     ).group_by(Track.genre).order_by(func.count(Track.id).desc()).limit(5).all()
@@ -130,7 +155,7 @@ def get_stats_overview(
         func.max(TrackAnalysis.bpm).label("max_bpm"),
         func.avg(TrackAnalysis.bpm).label("avg_bpm"),
     ).join(Track, Track.id == TrackAnalysis.track_id).filter(
-        Track.user_id == user.id,
+        *base_filter,
         TrackAnalysis.bpm.isnot(None),
     ).first()
 
@@ -146,7 +171,7 @@ def get_stats_overview(
     key_query = db.query(
         TrackAnalysis.key, func.count(TrackAnalysis.id).label("count"),
     ).join(Track, Track.id == TrackAnalysis.track_id).filter(
-        Track.user_id == user.id,
+        *base_filter,
         TrackAnalysis.key.isnot(None),
     ).group_by(TrackAnalysis.key).order_by(func.count(TrackAnalysis.id).desc()).limit(5).all()
 
@@ -154,20 +179,27 @@ def get_stats_overview(
         if key:
             key_distribution.append({"key": key, "count": count})
 
-    # Activity last 30 days (uploads by day)
+    # Activity: show only last N days based on period (7d show 7 rows, 30d show 30, etc)
     activity_last_30_days = []
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    # Determine how many days to show
+    days_to_show = 30
+    if period == "7d":
+        days_to_show = 7
+    elif period == "90d":
+        days_to_show = 90
+    elif period == "1y":
+        days_to_show = 365
+
+    # Query activity for the period
     activity_query = db.query(
         func.date(Track.created_at).label("day"),
         func.count(Track.id).label("uploads"),
-    ).filter(
-        Track.user_id == user.id,
-        Track.created_at >= thirty_days_ago,
-    ).group_by(func.date(Track.created_at)).all()
+    ).filter(*base_filter).group_by(func.date(Track.created_at)).all()
 
     activity_map = {str(row.day): row.uploads for row in activity_query}
-    for i in range(30):
-        date = (datetime.utcnow() - timedelta(days=i)).date()
+    for i in range(days_to_show):
+        date = (now - timedelta(days=i)).date()
         date_str = str(date)
         uploads = activity_map.get(date_str, 0)
         activity_last_30_days.append({
@@ -179,7 +211,7 @@ def get_stats_overview(
     # Member since
     member_since = user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat()
 
-    # Storage used (rough estimate: 5MB per track)
+    # Storage used (rough estimate: 5MB per track, based on period)
     storage_used_mb = float(total_tracks * 5)
 
     result = {
@@ -195,6 +227,6 @@ def get_stats_overview(
         "storage_used_mb": storage_used_mb,
     }
 
-    # Cache result for 2 minutes
-    _set_cached_user_stats(current_user.id, "overview", result)
+    # Cache result for 60s
+    _set_cached_user_stats(current_user.id, cache_key, result)
     return StatsOverview(**result)

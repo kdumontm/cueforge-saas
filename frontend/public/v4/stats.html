@@ -892,24 +892,114 @@
   style.textContent = `@keyframes pulseCell{0%,100%{box-shadow:0 0 0 0 rgba(255,46,107,.4)}50%{box-shadow:0 0 0 4px rgba(255,46,107,0)}}`;
   document.head.appendChild(style);
 
-  // Range segment toggle + toast
-  // 🔴 2026-04-22 QA : les chips togglent visuellement mais /stats/overview
-  //   ne supporte pas encore de paramètre période (ni les panels de charts
-  //   "Moyenne / Tous sets / Par club"). On garde le toggle CSS pour le feedback
-  //   visuel mais on remplace le toast trompeur "Période : 7j" (qui laisse
-  //   croire que les KPI ont été filtrés) par un toast honnête "bientôt dispo".
-  //   Pattern identique à Stems S/M (Bug #16) et V/C/L/S/F toolbar (commit af16b3d).
-  const __segWarnedGroups = new WeakSet();
+  // Range segment toggle — reload stats with period filter
+  // 2026-04-23 Dev K : implémenter le filtre de période (7d, 30d, 90d, 1y, all)
+  // Le backend /api/v1/stats/overview accepte maintenant ?period=7d etc.
+  let currentPeriod = 'all';  // default = all time
+
+  async function reloadStatsData(period){
+    try {
+      const s = await api.stats({period});
+      // Re-render avec les nouvelles données — réutilise la logique de loadStats()
+      // KPIs
+      document.getElementById('kpi-tracks').textContent = fmt.num(s.total_tracks);
+      document.getElementById('kpi-tracks-delta').textContent =
+        `${fmt.num(Math.round(s.storage_used_mb))} MB stockage`;
+      document.getElementById('kpi-analyses').textContent = fmt.num(s.total_analyses);
+      const analyzedPct = s.total_tracks ? Math.round(s.total_analyses/s.total_tracks*100) : 0;
+      document.getElementById('kpi-analyses-delta').textContent = `${analyzedPct}% de la bibliothèque`;
+      document.getElementById('kpi-sets').textContent = fmt.num(s.total_sets);
+      document.getElementById('kpi-sets-delta').textContent = s.total_sets > 0 ? 'actifs' : 'aucun set encore';
+      document.getElementById('kpi-playlists').textContent = fmt.num(s.total_playlists);
+      document.getElementById('kpi-playlists-delta').textContent = s.total_playlists > 0 ? 'actives' : 'aucune encore';
+
+      // Page sub
+      const sub = document.querySelector('.page-sub');
+      if(sub){
+        sub.textContent = `${fmt.num(s.total_tracks)} track${s.total_tracks>1?'s':''}, ${fmt.num(s.total_analyses)} analyse${s.total_analyses>1?'s':''}, ${fmt.num(s.total_sets)} set${s.total_sets>1?'s':''}. Membre depuis ${fmt.date(s.member_since)}.`;
+      }
+
+      // Genre legend
+      const genres = (s.genres_breakdown || []);
+      const totalGenreCount = genres.reduce((sum,g)=>sum+g.count, 0);
+      const colors = ['#ff7a18','#ff2e6b','#8b5cf6','#1fd4d4','#d4ff2a'];
+      const legendEl = document.getElementById('genre-legend');
+      if(legendEl){
+        legendEl.innerHTML = totalGenreCount > 0 ? genres.slice(0,5).map((g,i)=>{
+          const pct = Math.round(g.count/totalGenreCount*100);
+          const name = (g.genre||'—').replace(/</g,'&lt;');
+          return `<div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]||'#6b6780'}"></span><span style="flex:1">${name}</span><span class="mono muted">${pct}%</span></div>`;
+        }).join('')
+          : '<div style="padding:8px 0;text-align:center;color:var(--c-tertiary);font-size:11px">Ajoute des tracks avec un genre</div>';
+      }
+
+      // Activity heatmap
+      const activityByDate = {};
+      (s.activity_last_30_days || []).forEach(a => { activityByDate[a.date] = Number(a.uploads||0); });
+      const _maxDaily = Math.max(1, ...Object.values(activityByDate), 1);
+      const el = document.getElementById('heatmap');
+      if(el){
+        el.innerHTML = '';
+        el.style.gridTemplateColumns = 'repeat(52,1fr)';
+        el.style.gridTemplateRows = 'repeat(7,14px)';
+        const today = new Date();
+        let bestCount = 0; let bestDate = null;
+        for(let r=0;r<7;r++){
+          for(let c=0;c<52;c++){
+            const cell = document.createElement('div');
+            cell.className = 'heat-cell';
+            const daysAgo = (51-c)*7 + (6-r);
+            const d = new Date(today); d.setDate(today.getDate() - daysAgo);
+            const iso = d.toISOString().slice(0,10);
+            const count = activityByDate[iso] || 0;
+            let lvl = 0;
+            if(count > 0){
+              const ratio = count / _maxDaily;
+              if(ratio >= 0.85) lvl = 4;
+              else if(ratio >= 0.6) lvl = 3;
+              else if(ratio >= 0.35) lvl = 2;
+              else lvl = 1;
+            }
+            cell.setAttribute('data-l', lvl);
+            cell.setAttribute('data-tt', `${iso} · ${count} track${count>1?'s':''}`);
+            if(count > bestCount){ bestCount = count; bestDate = iso; }
+            el.appendChild(cell);
+          }
+        }
+        const bestDayEl = document.getElementById('best-day');
+        if(bestDayEl && bestDate && bestCount > 0){
+          bestDayEl.textContent = `${fmt.date(bestDate)} — ${bestCount} track${bestCount>1?'s':''}`;
+        } else if(bestDayEl){
+          bestDayEl.textContent = '—';
+        }
+      }
+
+      toast(`Periode ${period === '7d' ? '7j' : period === '30d' ? '30j' : period === '90d' ? '90j' : period === '1y' ? 'Année' : 'All time'} chargée`, 'success');
+    } catch(err){
+      console.error('Period reload error:', err);
+      toast(`Erreur : ${err.message}`, 'error');
+    }
+  }
+
   document.querySelectorAll('.segment').forEach(seg=>{
+    const isBudgetSeg = seg.closest('.range-seg');  // only the top range-seg
+    if(!isBudgetSeg) return;
     seg.querySelectorAll('button').forEach(b=>{
-      b.addEventListener('click', ()=>{
+      b.addEventListener('click', async ()=>{
         seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
-        // Toast une seule fois par groupe (évite spam si user clique 5x)
-        if(!__segWarnedGroups.has(seg)){
-          __segWarnedGroups.add(seg);
-          toast(`${b.textContent.trim()} · filtre à venir — données actuelles = all time`, 'info');
-        }
+
+        // Map button text to period param
+        const text = b.textContent.trim();
+        let period = 'all';
+        if(text === '7j') period = '7d';
+        else if(text === '30j') period = '30d';
+        else if(text === '90j') period = '90d';
+        else if(text === 'Année') period = '1y';
+        else if(text === 'All time') period = 'all';
+
+        currentPeriod = period;
+        await reloadStatsData(period);
       });
     });
   });
