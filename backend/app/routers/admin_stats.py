@@ -509,13 +509,16 @@ async def get_admin_full_dashboard(
     # Postgres: SELECT 1
     # Redis: tentative ping
     # R2/Stripe/AcoustID/Spotify: config présente
+    pg_error = None
     try:
         db.execute(text("SELECT 1"))
         pg_ok = True
-    except Exception:
+    except Exception as e:
         pg_ok = False
+        pg_error = str(e)[:200]
 
     redis_ok = False
+    redis_error = None
     redis_configured = _env_configured("REDIS_URL")
     if redis_configured:
         try:
@@ -525,8 +528,9 @@ async def get_admin_full_dashboard(
                 client = _redis.from_url(url, socket_connect_timeout=1, socket_timeout=1)
                 client.ping()
                 redis_ok = True
-        except Exception:
+        except Exception as e:
             redis_ok = False
+            redis_error = str(e)[:200]
 
     system_health = [
         {
@@ -535,6 +539,8 @@ async def get_admin_full_dashboard(
             "label": "OK",
             "met_left": f"Users {total_users}",
             "met_right": f"Tracks {total_tracks}",
+            "error": None,
+            "hint": None,
         },
         {
             "name": "Postgres · primary",
@@ -542,6 +548,8 @@ async def get_admin_full_dashboard(
             "label": "OK" if pg_ok else "DOWN",
             "met_left": f"Tables · {total_users + total_tracks} rows (u+t)",
             "met_right": "SELECT 1" if pg_ok else "erreur",
+            "error": pg_error,
+            "hint": "Vérifier la variable d'env DATABASE_URL sur Railway. Si OK, vérifier l'état de la DB PostgreSQL dans le dashboard Railway (connectivité, CPU, RAM). Consulter les logs Railway pour les détails." if not pg_ok else None,
         },
         {
             "name": "Redis · queue",
@@ -549,6 +557,11 @@ async def get_admin_full_dashboard(
             "label": "OK" if redis_ok else ("Config absente" if not redis_configured else "Unreachable"),
             "met_left": f"Jobs running · {jobs_running}",
             "met_right": f"Queued · {jobs_queued}",
+            "error": redis_error if not redis_ok else None,
+            "hint": (
+                "REDIS_URL non défini en env var — lancer les jobs en local via Memory cache." if not redis_configured
+                else "Vérifier REDIS_URL env var (scheme, host, port, password). Attention piège SSL : si 'ssl_cert_reqs=none' manque, ajouter en env var REDIS_URL. Exemple: redis://:password@host:6379?ssl_cert_reqs=none"
+            ) if not redis_ok else None,
         },
         {
             "name": "R2 · Cloudflare",
@@ -556,6 +569,8 @@ async def get_admin_full_dashboard(
             "label": "OK" if _env_configured("R2_BUCKET") else "Non configuré",
             "met_left": f"Storage · {storage_gb} Go",
             "met_right": f"Tracks · {total_tracks}",
+            "error": None,
+            "hint": "Vérifier les env vars R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET sur Railway. Générer une nouvelle Application API token dans le dashboard Cloudflare si expirée." if not _env_configured("R2_BUCKET") else None,
         },
         {
             "name": "AcoustID",
@@ -563,6 +578,8 @@ async def get_admin_full_dashboard(
             "label": "OK" if _env_configured("ACOUSTID_API_KEY") else "Pas de clé",
             "met_left": "API · config",
             "met_right": "public",
+            "error": None,
+            "hint": "Obtenir une clé AcoustID (gratuite) sur https://acoustid.org/api-key. Ajouter ACOUSTID_API_KEY en env var sur Railway." if not _env_configured("ACOUSTID_API_KEY") else None,
         },
         {
             "name": "Spotify API",
@@ -570,6 +587,8 @@ async def get_admin_full_dashboard(
             "label": "OK" if _env_configured("SPOTIFY_CLIENT_ID") else "Désactivé",
             "met_left": "OAuth app",
             "met_right": "client creds",
+            "error": None,
+            "hint": "Créer une app Spotify sur https://developer.spotify.com/dashboard. Ajouter SPOTIFY_CLIENT_ID et SPOTIFY_CLIENT_SECRET en env var sur Railway." if not _env_configured("SPOTIFY_CLIENT_ID") else None,
         },
     ]
 
