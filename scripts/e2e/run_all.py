@@ -143,8 +143,10 @@ def main() -> int:
     t_start = time.time()
 
     # Space out suites so Railway's 1-2 workers don't saturate.
-    # Tunable via CUEFORGE_SUITE_DELAY_MS (default: 1500ms).
-    suite_delay_ms = int(os.environ.get("CUEFORGE_SUITE_DELAY_MS", "1500"))
+    # Tunable via CUEFORGE_SUITE_DELAY_MS (default: 5000ms).
+    # Railway budget 0€ = ~1 worker, a full sequential run of ~350 tests
+    # can otherwise hammer DB connections / sqlalchemy sessions.
+    suite_delay_ms = int(os.environ.get("CUEFORGE_SUITE_DELAY_MS", "5000"))
 
     for i, (name, mod_path) in enumerate(suites):
         if i > 0 and suite_delay_ms > 0:
