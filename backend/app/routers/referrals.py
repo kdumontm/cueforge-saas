@@ -74,8 +74,8 @@ def _generate_referral_code() -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
-def _get_or_create_referral_code(db: Session, user_id: int) -> str:
-    """Génère un code de parrainage unique pour un user."""
+def _get_user_referral_code(db: Session, user_id: int) -> str:
+    """Récupère ou génère le code de parrainage d'un user (sans créer de Referral)."""
     # Chercher si ce user a déjà des invitations (le code est le même pour tous ses invités)
     existing_referral = db.query(Referral).filter(
         Referral.referrer_id == user_id
@@ -84,7 +84,7 @@ def _get_or_create_referral_code(db: Session, user_id: int) -> str:
     if existing_referral:
         return existing_referral.referral_code
 
-    # Générer un nouveau code unique
+    # Générer un nouveau code unique (sans créer de DB entry)
     while True:
         code = _generate_referral_code()
         if not db.query(Referral).filter(Referral.referral_code == code).first():
@@ -103,7 +103,7 @@ async def get_my_referral_code(
     db: Session = Depends(get_db),
 ):
     """GET /api/v1/referrals/my-code — Retourne le code de parrainage."""
-    code = _get_or_create_referral_code(db, user.id)
+    code = _get_user_referral_code(db, user.id)
     return {
         "referral_code": code,
         "referral_link": f"{FRONTEND_URL}/register?ref={code}",
@@ -162,8 +162,8 @@ async def invite_by_email(
     if not EMAIL_REGEX.match(body.email):
         raise HTTPException(status_code=400, detail="Invalid email format")
 
-    # Récupérer ou créer le code de parrainage
-    code = _get_or_create_referral_code(db, user.id)
+    # Récupérer ou générer le code de parrainage
+    code = _get_user_referral_code(db, user.id)
 
     # Vérifier si une invitation pour cet email existe déjà
     existing = db.query(Referral).filter(
