@@ -249,10 +249,18 @@ async def upload_track(
     # manuellement — cassait tout le flow suggest-cues / Mix Studio / Compatible.
     # Maintenant : l'utilisateur upload, l'analyse démarre immédiatement, l'UI peut
     # poller /tracks/{id} pour suivre la progression.
+    #
+    # 🔴 FIX #39 (2026-04-23): Délai de 3s avant l'analyse pour éviter la race
+    # condition avec l'upload R2 en background. Si R2 upload est retardé, cela
+    # donne du temps pour que le fichier soit disponible avant l'analyse.
     if background_tasks:
         try:
-            background_tasks.add_task(_run_analysis, track.id)
-            logger.info(f"[UPLOAD] Auto-trigger _run_analysis for track {track.id}")
+            def _delayed_analysis(tid: int):
+                import time
+                time.sleep(3)
+                _run_analysis(tid)
+            background_tasks.add_task(_delayed_analysis, track.id)
+            logger.info(f"[UPLOAD] Auto-trigger _run_analysis for track {track.id} (delayed 3s)")
         except Exception as e:
             logger.warning(f"[UPLOAD] Failed to enqueue analysis for track {track.id}: {e}")
 
