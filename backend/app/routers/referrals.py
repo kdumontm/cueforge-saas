@@ -75,15 +75,14 @@ def _generate_referral_code() -> str:
 
 
 def _get_or_create_referral_code(db: Session, user_id: int) -> str:
-    """Récupère ou crée le code de parrainage d'un user."""
-    existing = db.query(Referral).filter(
+    """Génère un code de parrainage unique pour un user."""
+    # Chercher si ce user a déjà des invitations (le code est le même pour tous ses invités)
+    existing_referral = db.query(Referral).filter(
         Referral.referrer_id == user_id
-    ).filter(
-        Referral.referred_user_id.is_(None)  # Placeholder pour son code personnel
     ).first()
 
-    if existing:
-        return existing.referral_code
+    if existing_referral:
+        return existing_referral.referral_code
 
     # Générer un nouveau code unique
     while True:
@@ -91,16 +90,6 @@ def _get_or_create_referral_code(db: Session, user_id: int) -> str:
         if not db.query(Referral).filter(Referral.referral_code == code).first():
             break
 
-    # Créer une entrée "placeholder" pour le code personnel
-    referral = Referral(
-        referrer_id=user_id,
-        referral_code=code,
-        referred_email=None,
-        referred_user_id=None,
-        status=ReferralStatus.pending,
-    )
-    db.add(referral)
-    db.commit()
     return code
 
 

@@ -92,8 +92,8 @@ async def find_duplicates(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error finding duplicates: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to find duplicates")
+        logger.error(f"Error finding duplicates: {exc}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"Duplicate detection unavailable: {str(exc)}")
 
 
 @router.post("/fingerprint/find-similar/{track_id}", response_model=SimilarTracksResponse)
@@ -135,8 +135,8 @@ async def find_similar(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error finding similar tracks: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to find similar tracks")
+        logger.error(f"Error finding similar tracks: {exc}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"Similar tracks search unavailable: {str(exc)}")
 
 
 @router.get("/fingerprint/versions/{track_id}", response_model=VersionDetectionResponse)
@@ -192,8 +192,8 @@ async def detect_versions(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"Error detecting versions: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to detect versions")
+        logger.error(f"Error detecting versions: {exc}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"Version detection unavailable: {str(exc)}")
 
 
 @router.post("/fingerprint/{track_id}", response_model=FingerprintGenerateResponse)
@@ -217,8 +217,8 @@ async def generate_fingerprint(
         fingerprint_data = "AQAA" + track_id[:16]  # Base64-like mock
 
         # Store in track if not already present
-        if not track.fingerprint:
-            track.fingerprint = fingerprint_data
+        if not track.audio_fingerprint:
+            track.audio_fingerprint = fingerprint_data
             db.commit()
 
         return FingerprintGenerateResponse(
