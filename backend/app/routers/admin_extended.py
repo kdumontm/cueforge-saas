@@ -1067,9 +1067,11 @@ def list_webhooks(
         data["user_email"] = hook.user.email if hook.user else None
         result.append(data)
 
+    # `webhooks` alias attendu par la page admin Next.js
     return {
         "total": total,
         "items": result,
+        "webhooks": result,
     }
 
 

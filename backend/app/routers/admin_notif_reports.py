@@ -345,16 +345,36 @@ def report_types(_=Depends(require_admin)):
 # ═══════════════════════════════════════════════════════
 # USER IMPERSONATION
 # ═══════════════════════════════════════════════════════
+def _serialize_impersonation(i: "ImpersonationLog") -> dict:
+    """Shape normalisée pour la page admin Next.js (attend admin_id/user_id/is_active)."""
+    return {
+        "id": i.id,
+        # Aliases pour le frontend v4 (/admin/impersonation)
+        "admin_id": i.admin_user_id,
+        "user_id": i.target_user_id,
+        # Champs backend d'origine (legacy — on garde pour compat)
+        "admin_user_id": i.admin_user_id,
+        "target_user_id": i.target_user_id,
+        "target_email": i.target_email,
+        "reason": i.reason,
+        "started_at": i.started_at.isoformat() if i.started_at else None,
+        "ended_at": i.ended_at.isoformat() if i.ended_at else None,
+        "is_active": i.ended_at is None,
+        "actions_taken": i.actions_taken or [],
+    }
+
+
 @router.post("/admin/impersonate/{user_id}")
-def start_impersonation(user_id: int, data: dict = None, db: Session = Depends(get_db), _=Depends(require_admin)):
+def start_impersonation(user_id: int, data: dict = None, db: Session = Depends(get_db), admin=Depends(require_admin)):
     log = ImpersonationLog(
-        admin_user_id=0,  # would be set from actual auth
+        admin_user_id=getattr(admin, "id", 0) or 0,
         target_user_id=user_id,
         reason=(data or {}).get("reason", ""),
     )
     db.add(log)
     db.commit()
-    return {"ok": True, "impersonation_id": log.id, "message": f"Impersonation de l'utilisateur {user_id} commencée"}
+    db.refresh(log)
+    return {"ok": True, "impersonation_id": log.id, "log": _serialize_impersonation(log), "message": f"Impersonation de l'utilisateur {user_id} commencée"}
 
 @router.post("/admin/impersonate/{impersonation_id}/end")
 def end_impersonation(impersonation_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
@@ -367,16 +387,13 @@ def end_impersonation(impersonation_id: int, db: Session = Depends(get_db), _=De
 
 @router.get("/admin/impersonation-logs")
 def list_impersonations(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), _=Depends(require_admin)):
+    """
+    Retourne un ARRAY directement (et non `{items:[...]}`) car la page
+    /admin/impersonation fait `setLogs(data)` puis `data.find(...)`.
+    """
     q = db.query(ImpersonationLog)
-    total = q.count()
     items = q.order_by(ImpersonationLog.started_at.desc()).offset(skip).limit(limit).all()
-    return {"total": total, "items": [{
-        "id": i.id, "admin_user_id": i.admin_user_id, "target_user_id": i.target_user_id,
-        "target_email": i.target_email, "reason": i.reason,
-        "started_at": i.started_at.isoformat() if i.started_at else None,
-        "ended_at": i.ended_at.isoformat() if i.ended_at else None,
-        "actions_taken": i.actions_taken or [],
-    } for i in items]}
+    return [_serialize_impersonation(i) for i in items]
 
 # ═══════════════════════════════════════════════════════
 # API USAGE MONITORING

@@ -264,12 +264,25 @@ async def list_tracks(
     date_to: Optional[str] = None,
     sort_by: str = "created_at",
     sort_dir: str = "desc",
+    sort: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     """List all tracks with advanced filtering."""
+    # FE may pass `sort=date|title|artist|bpm|status|rating` – map vers sort_by
+    if sort:
+        sort_map = {
+            "date": "created_at",
+            "title": "title",
+            "artist": "artist",
+            "bpm": "bpm",  # pas dispo sur Track lui-même, fallback created_at
+            "status": "status",
+            "rating": "rating",
+        }
+        sort_by = sort_map.get(sort, "created_at")
+
     query = db.query(Track)
 
     # Apply filters
@@ -331,10 +344,14 @@ async def list_tracks(
 
     # Pagination
     tracks = query.offset(skip).limit(limit).all()
+    serialized = [_serialize_track(t) for t in tracks]
 
+    # NOTE: on expose à la fois `items` (convention API) et `tracks`
+    # (attendu par la page admin Next.js — voir frontend/app/admin/tracks/page.tsx).
     return {
         "total": total,
-        "items": [_serialize_track(t) for t in tracks],
+        "items": serialized,
+        "tracks": serialized,
     }
 
 
@@ -571,10 +588,13 @@ async def list_subscriptions(
 
     total = query.count()
     subs = query.order_by(Subscription.created_at.desc()).offset(skip).limit(limit).all()
+    serialized = [_serialize_subscription(s) for s in subs]
 
+    # `subscriptions` alias pour la page admin Next.js
     return {
         "total": total,
-        "items": [_serialize_subscription(s) for s in subs],
+        "items": serialized,
+        "subscriptions": serialized,
     }
 
 
@@ -658,9 +678,9 @@ async def health_check(
     admin: User = Depends(require_admin),
 ):
     """Check health of all services."""
-    # Database check
+    # Database check — SQLAlchemy 2.x requiert text() pour les expressions SQL littérales
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
         db_status = f"error: {str(e)}"
@@ -923,10 +943,13 @@ async def list_organizations(
 
     total = query.count()
     orgs = query.order_by(Organization.created_at.desc()).offset(skip).limit(limit).all()
+    serialized = [_serialize_organization(o) for o in orgs]
 
+    # `organizations` alias pour la page admin Next.js
     return {
         "total": total,
-        "items": [_serialize_organization(o) for o in orgs],
+        "items": serialized,
+        "organizations": serialized,
     }
 
 
