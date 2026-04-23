@@ -7,7 +7,7 @@
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422b" as="script">
 <link rel="preload" href="/v4/shared.js?v=20260424-cueredesign" as="script">
-<link rel="stylesheet" href="/v4/shared.css?v=20260424-cueredesign">
+<link rel="stylesheet" href="/v4/shared.css?v=20260424-feat35-36">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -176,6 +176,19 @@
   }
   .wave .wbar.played{background:linear-gradient(180deg,var(--amber),var(--pink))}
   .wave .wbar.active{background:var(--c-primary)}
+  /* Grid overlay (Feature #36) */
+  .wave-grid{
+    position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;
+  }
+  .wave-grid-lines{
+    position:absolute;top:0;left:0;width:100%;height:100%;
+  }
+  .wave-grid-labels{
+    position:absolute;top:-24px;left:0;height:24px;font-family:var(--font-mono);font-size:10px;color:#FF5050;
+  }
+  .wave-grid-label{
+    position:absolute;white-space:nowrap;transform:translateX(-50%);padding-top:2px;
+  }
   /* Playhead */
   .playhead{
     position:absolute;top:0;bottom:0;width:2px;background:var(--amber);
@@ -557,6 +570,8 @@
       <div class="wave-block">
         <div class="ruler" id="phrase-ruler"></div>
         <div class="wave" id="wave">
+          <!-- Grid overlay (Feature #36 — grille temporelle pro) -->
+          <svg class="wave-grid" id="wave-grid" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
           <!-- bars + cue markers via JS -->
           <div class="playhead" style="left:38%"></div>
         </div>
@@ -2266,6 +2281,152 @@ wave.addEventListener('click', async (e) => {
   }
 });
 } // 🔴 Fix #21/#22 : fermeture du if(wave)
+
+// ========== Feature #35 — Zoom à la molette souris ==========
+(() => {
+  const waveBlock = document.querySelector('.wave-block');
+  if(!waveBlock) return;
+
+  waveBlock.addEventListener('wheel', (e) => {
+    // Ne zoomer que si Ctrl (ou Cmd sur Mac) n'est pas enfoncé
+    // (Ctrl+wheel = scroll zoom du navigateur, qu'on respecte)
+    if(e.ctrlKey || e.metaKey) return;
+
+    e.preventDefault();
+
+    // Déterminer la direction et le facteur de zoom
+    const direction = e.deltaY < 0 ? 'in' : 'out';
+    const factor = direction === 'in' ? 1.2 : 1 / 1.2;
+    const newLevel = zoomLevel * factor;
+
+    // Clamp et appliquer
+    setZoom(newLevel);
+  }, { passive: false });
+})();
+
+// ========== Feature #36 — Grille temporelle pro (minor + major) + labels rouges ==========
+function renderWaveformGrid(){
+  const gridSvg = document.getElementById('wave-grid');
+  if(!gridSvg) return;
+
+  const waveEl = document.getElementById('wave');
+  if(!waveEl) return;
+
+  // Effacer le contenu précédent
+  gridSvg.innerHTML = '';
+
+  // Durée totale du track en secondes
+  const durMs = currentDurMs || (currentTrack?.analysis?.duration_ms) || (currentTrack?.duration_ms) || 0;
+  if(!durMs) return;
+
+  const durSec = durMs / 1000;
+
+  // Déterminer l'espacement des gridlines en fonction du zoom
+  // Objectif : avoir une bonne lisibilité, ni trop dense ni trop sparse
+  let minorIntervalSec = 1; // grille minor par défaut (chaque 1s)
+  let majorIntervalSec = 15; // grille major par défaut (chaque 15s)
+  let labelIntervalSec = 30; // labels par défaut (chaque 30s)
+
+  if(zoomLevel <= 2){
+    // Zoom faible : espacement plus grand
+    minorIntervalSec = 5;
+    majorIntervalSec = 30;
+    labelIntervalSec = 60;
+  } else if(zoomLevel <= 4){
+    minorIntervalSec = 1;
+    majorIntervalSec = 15;
+    labelIntervalSec = 30;
+  } else {
+    // Zoom fort : espacement plus fin
+    minorIntervalSec = 0.5;
+    majorIntervalSec = 5;
+    labelIntervalSec = 10;
+  }
+
+  // Créer les lignes minor et major
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  gridSvg.appendChild(defs);
+
+  const lineGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  lineGroup.setAttribute('class', 'wave-grid-lines');
+  gridSvg.appendChild(lineGroup);
+
+  const labelGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  labelGroup.setAttribute('class', 'wave-grid-labels');
+  gridSvg.appendChild(labelGroup);
+
+  // Boucler sur les gridlines
+  for(let t = 0; t <= durSec; t += minorIntervalSec){
+    const pct = (t / durSec) * 100;
+    const isMajor = Math.abs((t % majorIntervalSec)) < 0.01;
+    const isLabel = Math.abs((t % labelIntervalSec)) < 0.01;
+
+    // Ligne
+    if(isMajor){
+      // Major line : plus épaisse, en rouge discret
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', pct);
+      line.setAttribute('y1', '0');
+      line.setAttribute('x2', pct);
+      line.setAttribute('y2', '100');
+      line.setAttribute('stroke', 'rgba(255, 80, 80, 0.35)');
+      line.setAttribute('stroke-width', '0.3');
+      lineGroup.appendChild(line);
+    } else {
+      // Minor line : fine, grise clair
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', pct);
+      line.setAttribute('y1', '0');
+      line.setAttribute('x2', pct);
+      line.setAttribute('y2', '100');
+      line.setAttribute('stroke', 'rgba(255, 255, 255, 0.08)');
+      line.setAttribute('stroke-width', '0.15');
+      lineGroup.appendChild(line);
+    }
+
+    // Label (sur les major + label intervals)
+    if(isLabel){
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', pct);
+      text.setAttribute('y', '12');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('class', 'wave-grid-label');
+      text.setAttribute('fill', '#FF5050');
+      text.setAttribute('font-family', 'var(--font-mono), monospace');
+      text.setAttribute('font-size', '9');
+      text.setAttribute('letter-spacing', '0.05em');
+
+      // Formater le temps (M:SS ou MM:SS)
+      const minutes = Math.floor(t / 60);
+      const seconds = Math.floor(t % 60);
+      const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      text.textContent = timeStr;
+
+      labelGroup.appendChild(text);
+    }
+  }
+}
+
+// Re-render la grille quand le zoom change ou le track charge
+const originalSetZoom = window.setZoom;
+window.setZoom = function(newLevel){
+  originalSetZoom.call(this, newLevel);
+  renderWaveformGrid();
+};
+
+// Render initial après que le track soit chargé
+document.addEventListener('trackLoaded', () => {
+  setTimeout(() => renderWaveformGrid(), 100);
+});
+
+// Aussi re-render quand la durée change
+const originalRenderCueMarkers = window.renderCueMarkers;
+if(originalRenderCueMarkers){
+  window.renderCueMarkers = function(cues, durMs){
+    originalRenderCueMarkers.call(this, cues, durMs);
+    renderWaveformGrid();
+  };
+}
 
 // Keyboard shortcuts
 document.addEventListener('keydown',(e)=>{
