@@ -311,6 +311,104 @@ class TrackAnalysisResponseLite(BaseModel):
     loudness_deep_analysis: Optional[Dict[str, Any]] = None
     key_deep_analysis: Optional[Dict[str, Any]] = None
     analyzed_at: Optional[datetime] = None
+    # NOTE: waveform_peaks excluded for performance
+    spectral_energy: Optional[Dict[str, float]] = None
+
+    @field_validator('drop_positions', 'phrase_positions', 'beat_positions', mode='before')
+    @classmethod
+    def coerce_int_list(cls, v):
+        if v is None:
+            return []
+        return v
+
+    @field_validator('section_labels', mode='before')
+    @classmethod
+    def coerce_dict_list(cls, v):
+        if v is None:
+            return []
+        return v
+
+
+
+class TrackAnalysisResponseLite(BaseModel):
+    """Lightweight analysis response (excludes waveform_peaks for faster serialization)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    bpm: Optional[float] = None
+    bpm_confidence: Optional[float] = None
+    key: Optional[str] = None
+    energy: Optional[float] = None
+    duration_ms: Optional[int] = None
+    drop_positions: Optional[List[int]] = None
+    phrase_positions: Optional[List[int]] = None
+    beat_positions: Optional[List[int]] = None
+    section_labels: Optional[List[Dict[str, int | str | float]]] = None
+    # v3 fields
+    loudness_lufs: Optional[float] = None
+    loudness_range_lu: Optional[float] = None
+    replay_gain_db: Optional[float] = None
+    bpm_map: Optional[List[Dict[str, int | str | float]]] = None
+    bpm_stable: Optional[bool] = True
+    key_secondary: Optional[str] = None
+    key_confidence: Optional[float] = None
+    loudness_db: Optional[float] = None
+    vocal_percentage: Optional[float] = None
+    mood: Optional[str] = None
+    danceability: Optional[float] = None
+    # v6.3 fields
+    stereo_width: Optional[float] = None
+    mono_compatibility: Optional[float] = None
+    stereo_balance: Optional[float] = None
+    stereo_width_label: Optional[str] = None
+    spectral_centroid_mean: Optional[float] = None
+    brightness_label: Optional[str] = None
+    bpm_advanced: Optional[Dict[str, Any]] = None
+    # v6.4: Audio quality metrics
+    has_clipping: Optional[bool] = None
+    clipping_ratio: Optional[float] = None
+    has_dc_offset: Optional[bool] = None
+    dc_offset_mean: Optional[float] = None
+    true_peak_db: Optional[float] = None
+    true_peak_value: Optional[float] = None
+    # v6.5: Structural summary
+    structural_summary: Optional[Dict[str, Any]] = None
+    # v6.5: Encoding quality & audio quality score
+    encoding_quality: Optional[str] = None
+    estimated_bitrate_kbps: Optional[int] = None
+    is_upscaled: Optional[bool] = None
+    spectral_rolloff_hz: Optional[int] = None
+    spectral_contrast_mean: Optional[float] = None
+    audio_quality_score: Optional[float] = None
+    audio_quality_grade: Optional[str] = None
+    audio_quality_breakdown: Optional[Dict[str, Any]] = None
+    accent_points: Optional[List[Dict[str, Any]]] = None
+    # v6.6: JSON summary blobs
+    rhythm_summary: Optional[Dict[str, Any]] = None
+    spectral_summary: Optional[Dict[str, Any]] = None
+    dj_mix_recommendations: Optional[Dict[str, Any]] = None
+    quality_extended: Optional[Dict[str, Any]] = None
+    # v6.5: Sub-bass, loudness war
+    sub_bass_quality: Optional[str] = None
+    sub_bass_clarity: Optional[float] = None
+    loudness_war_detected: Optional[bool] = None
+    loudness_war_severity: Optional[str] = None
+    compression_score: Optional[float] = None
+    # v6.5: Rhythm & groove
+    groove_swing: Optional[float] = None
+    syncopation_index: Optional[float] = None
+    rhythmic_complexity: Optional[float] = None
+    offbeat_energy_ratio: Optional[float] = None
+    beat_strength_mean: Optional[float] = None
+    # v6.7: Harmonic, vocal, production, mixing compatibility
+    harmonic_summary: Optional[Dict[str, Any]] = None
+    vocal_analysis: Optional[Dict[str, Any]] = None
+    production_analysis: Optional[Dict[str, Any]] = None
+    mixing_compatibility: Optional[Dict[str, Any]] = None
+    # v6.9: Deep analysis blobs
+    section_deep_analysis: Optional[Dict[str, Any]] = None
+    loudness_deep_analysis: Optional[Dict[str, Any]] = None
+    key_deep_analysis: Optional[Dict[str, Any]] = None
+    analyzed_at: Optional[datetime] = None
     # NOTE: waveform_peaks and spectral_energy excluded for performance
     spectral_energy: Optional[Dict[str, float]] = None
 
@@ -479,6 +577,15 @@ class TrackListResponse(BaseModel):
     total: int
     page: int
     pages: int
+
+
+class WaveformPeaksResponse(BaseModel):
+    """Lightweight response for waveform peaks only."""
+    model_config = ConfigDict(from_attributes=True)
+    track_id: int
+    waveform_peaks: Optional[List[float]] = None
+    spectral_energy: Optional[Dict[str, float]] = None
+    analyzed_at: Optional[datetime] = None
 
 
 class WaveformPeaksResponse(BaseModel):
