@@ -457,20 +457,32 @@ async def lifespan(app: FastAPI):
     # Start queue listener for async logging
     queue_listener.start()
 
+    # LEAN_BOOT=1 (default sur Railway) : skip les init ML au boot pour réduire
+    # la RAM pic (Railway ~1GB). Ces modules seront lazy-importés à la 1ère
+    # requête qui en a besoin. Compromis : 1er /analyze légèrement plus lent
+    # (cold JIT ~3s) mais le worker ne se fait plus OOM-kill en boucle.
+    LEAN_BOOT = os.getenv("LEAN_BOOT", "1") == "1"
+
     # 0. Configure hardware (CPU threads, GPU detection)
-    try:
-        from app.services.hardware_config import configure_all
-        hw_info = configure_all()
-        logger.info(f"Hardware configured: {hw_info}")
-    except Exception as exc:
-        logger.warning(f"Hardware configuration failed (non-blocking): {exc}")
+    if not LEAN_BOOT:
+        try:
+            from app.services.hardware_config import configure_all
+            hw_info = configure_all()
+            logger.info(f"Hardware configured: {hw_info}")
+        except Exception as exc:
+            logger.warning(f"Hardware configuration failed (non-blocking): {exc}")
+    else:
+        logger.info("⚡ LEAN_BOOT : skip hardware_config (lazy init)")
 
     # 0b. Warm up Numba JIT for DSP hot paths
-    try:
-        from app.services.dsp_optimized import warm_up_jit
-        warm_up_jit()
-    except Exception as exc:
-        logger.warning(f"Numba JIT warmup failed (non-blocking): {exc}")
+    if not LEAN_BOOT:
+        try:
+            from app.services.dsp_optimized import warm_up_jit
+            warm_up_jit()
+        except Exception as exc:
+            logger.warning(f"Numba JIT warmup failed (non-blocking): {exc}")
+    else:
+        logger.info("⚡ LEAN_BOOT : skip Numba JIT warmup (1er /analyze sera cold)")
 
     # 1. Créer les tables manquantes — non bloquant si ça échoue
     try:
@@ -533,23 +545,29 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Feature cache cleanup failed (non-blocking): {e}")
 
     # 9. Initialize inference optimizer (torch.compile, mixed precision)
-    try:
-        from app.services.inference_optimizer import InferenceOptimizer
-        inference_opt = InferenceOptimizer()
-        inference_opt.configure_mixed_precision()
-        app.state.inference_optimizer = inference_opt
-        logger.info("✅ Inference optimizer initialized")
-    except Exception as e:
-        logger.warning(f"Inference optimizer init failed (non-blocking): {e}")
+    if not LEAN_BOOT:
+        try:
+            from app.services.inference_optimizer import InferenceOptimizer
+            inference_opt = InferenceOptimizer()
+            inference_opt.configure_mixed_precision()
+            app.state.inference_optimizer = inference_opt
+            logger.info("✅ Inference optimizer initialized")
+        except Exception as e:
+            logger.warning(f"Inference optimizer init failed (non-blocking): {e}")
+    else:
+        logger.info("⚡ LEAN_BOOT : skip InferenceOptimizer (lazy)")
 
     # 10. Initialize memory optimizer (buffer pools, pressure monitoring)
-    try:
-        from app.services.memory_optimizer import MemoryOptimizer
-        memory_opt = MemoryOptimizer()
-        app.state.memory_optimizer = memory_opt
-        logger.info("✅ Memory optimizer initialized")
-    except Exception as e:
-        logger.warning(f"Memory optimizer init failed (non-blocking): {e}")
+    if not LEAN_BOOT:
+        try:
+            from app.services.memory_optimizer import MemoryOptimizer
+            memory_opt = MemoryOptimizer()
+            app.state.memory_optimizer = memory_opt
+            logger.info("✅ Memory optimizer initialized")
+        except Exception as e:
+            logger.warning(f"Memory optimizer init failed (non-blocking): {e}")
+    else:
+        logger.info("⚡ LEAN_BOOT : skip MemoryOptimizer (lazy)")
 
     # 11. Initialize CPU optimizer (thread affinity, FFT plans)
     try:
