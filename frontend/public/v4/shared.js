@@ -1,5 +1,24 @@
 /* TrackCue V4 — shared interactions */
 
+// -------- Theme + accent boot (toutes les pages) --------
+// Lit trackcue_settings_v1 et applique data-theme + --amber AVANT tout render.
+// Sans ce boot, switcher de thème dans /settings ne se voyait jamais ailleurs.
+(function bootTheme(){
+  try {
+    const raw = localStorage.getItem('trackcue_settings_v1');
+    if(!raw) return;
+    const s = JSON.parse(raw) || {};
+    if(s.theme){
+      const slug = String(s.theme).toLowerCase().replace(/\s+/g,'-');
+      document.documentElement.setAttribute('data-theme', slug);
+    }
+    if(s.accent){
+      // accent peut être "#ff7a18" ou "rgb(255, 122, 24)" — les 2 marchent en CSS var
+      document.documentElement.style.setProperty('--amber', s.accent);
+    }
+  } catch(_) { /* localStorage indispo (SSR / privacy) → on ignore */ }
+})();
+
 // -------- Toast --------
 (function(){
   if(document.querySelector('.toast-wrap')) return;

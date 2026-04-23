@@ -107,6 +107,95 @@
 }
 
 /* ============================================================
+   Theme variants — overrides appliqués via [data-theme] sur <html>
+   Studio Neon = défaut (:root), on définit les 2 alternatives.
+   ============================================================ */
+
+/* Amber Noir : warm, moins de saturation, surfaces brun-noir */
+[data-theme="amber-noir"]{
+  --s-0:#0a0604;
+  --s-1:#140d08;
+  --s-2:#1d150e;
+  --s-3:#271c14;
+  --s-4:#33261b;
+  --s-overlay:rgba(10,6,4,0.78);
+
+  --c-primary:#f5ead8;
+  --c-secondary:#b8a489;
+  --c-tertiary:#7a6852;
+  --c-quaternary:#4a3e2f;
+
+  --b-subtle:rgba(255,200,150,0.05);
+  --b-default:rgba(255,200,150,0.1);
+  --b-strong:rgba(255,200,150,0.2);
+  --b-focus:rgba(255,170,80,0.55);
+
+  --amber:#ffaa50;
+  --amber-soft:rgba(255,170,80,0.18);
+  --amber-glow:rgba(255,170,80,0.32);
+  --pink:#e85a4f;
+  --pink-soft:rgba(232,90,79,0.18);
+  --lime:#c4b04c;
+  --lime-soft:rgba(196,176,76,0.18);
+  --cyan:#7da89c;
+  --cyan-soft:rgba(125,168,156,0.18);
+  --violet:#a07fb8;
+  --violet-soft:rgba(160,127,184,0.2);
+
+  --aurora-hot:radial-gradient(1200px 600px at 8% -10%, rgba(255,170,80,0.18), transparent 55%),
+               radial-gradient(900px 500px at 105% 20%, rgba(232,90,79,0.14), transparent 55%),
+               radial-gradient(900px 500px at 50% 110%, rgba(160,127,184,0.12), transparent 55%);
+  --aurora-calm:radial-gradient(1200px 600px at 8% -20%, rgba(196,176,76,0.1), transparent 55%),
+                radial-gradient(900px 500px at 105% 30%, rgba(255,170,80,0.1), transparent 55%);
+
+  --e-glow-amber:0 0 0 1px var(--amber-soft), 0 8px 32px rgba(255,170,80,.22);
+  --e-glow-pink:0 0 0 1px var(--pink-soft), 0 8px 32px rgba(232,90,79,.18);
+}
+
+/* Cyber Blue : cool, cyan + violet, surfaces bleu-nuit */
+[data-theme="cyber-blue"]{
+  --s-0:#03060c;
+  --s-1:#080d18;
+  --s-2:#0e1524;
+  --s-3:#161f33;
+  --s-4:#1f2a44;
+  --s-overlay:rgba(3,6,12,0.74);
+
+  --c-primary:#e8f1ff;
+  --c-secondary:#9cb0d4;
+  --c-tertiary:#5e7299;
+  --c-quaternary:#384566;
+
+  --b-subtle:rgba(150,200,255,0.06);
+  --b-default:rgba(150,200,255,0.11);
+  --b-strong:rgba(150,200,255,0.22);
+  --b-focus:rgba(31,212,212,0.6);
+
+  /* Le token --amber est utilisé partout comme accent primaire :
+     on le remappe sur le cyan signature de ce thème. */
+  --amber:#1fd4d4;
+  --amber-soft:rgba(31,212,212,0.18);
+  --amber-glow:rgba(31,212,212,0.4);
+  --pink:#5b8cff;
+  --pink-soft:rgba(91,140,255,0.2);
+  --lime:#7cf3ff;
+  --lime-soft:rgba(124,243,255,0.18);
+  --cyan:#1fd4d4;
+  --cyan-soft:rgba(31,212,212,0.18);
+  --violet:#8b5cf6;
+  --violet-soft:rgba(139,92,246,0.22);
+
+  --aurora-hot:radial-gradient(1200px 600px at 8% -10%, rgba(31,212,212,0.22), transparent 55%),
+               radial-gradient(900px 500px at 105% 20%, rgba(139,92,246,0.2), transparent 55%),
+               radial-gradient(900px 500px at 50% 110%, rgba(91,140,255,0.18), transparent 55%);
+  --aurora-calm:radial-gradient(1200px 600px at 8% -20%, rgba(31,212,212,0.14), transparent 55%),
+                radial-gradient(900px 500px at 105% 30%, rgba(139,92,246,0.14), transparent 55%);
+
+  --e-glow-amber:0 0 0 1px var(--amber-soft), 0 8px 32px rgba(31,212,212,.32);
+  --e-glow-pink:0 0 0 1px var(--pink-soft), 0 8px 32px rgba(91,140,255,.24);
+}
+
+/* ============================================================
    Base
    ============================================================ */
 *,*::before,*::after{box-sizing:border-box}
