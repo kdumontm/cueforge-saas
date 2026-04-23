@@ -271,6 +271,15 @@
     display:inline-flex;align-items:center;justify-content:center;font-weight:600;
   }
   .pad:hover{background:var(--s-3);color:var(--c-primary)}
+  /* 🔴 Fix 2026-04-23 (E2E report B2) : pads colorés par type de cue (hot/load/loop/fade/phrase/beat)
+     quand un cue est bindé. Cursor=not-allowed + opacity pour les pads sans cue (visuel "dead"). */
+  .pad[data-bound="0"]{opacity:.4;cursor:not-allowed}
+  .pad[data-type=hot]{color:var(--cue-hot);border-color:rgba(255,46,107,.35)}
+  .pad[data-type=load]{color:var(--cue-load);border-color:rgba(122,255,221,.35)}
+  .pad[data-type=loop]{color:var(--cue-loop);border-color:rgba(122,183,255,.35)}
+  .pad[data-type=fade]{color:var(--cue-fade);border-color:rgba(255,183,48,.35)}
+  .pad[data-type=phrase]{color:var(--cue-phrase);border-color:rgba(196,122,255,.35)}
+  .pad[data-type=beat]{color:var(--cue-beat);border-color:rgba(255,255,255,.35)}
   .pad.active{background:var(--cue-hot);color:#050406;border-color:var(--cue-hot);box-shadow:0 0 10px rgba(255,46,107,.5)}
 
   /* RIGHT INSPECTOR */
@@ -709,9 +718,19 @@ const railCountEl = document.getElementById('rail-count');
 
 let railTab = 'queue'; // queue | fav | recent
 let railEpoch = 0; // 🔴 Fix #114 : empêche les réponses stale d'écraser le panel après un switch rapide
+// 🔴 Fix 2026-04-23 (E2E report B8) : cache 30s par tab pour éviter les requêtes
+//    inutiles quand l'utilisateur re-clique sur le même tab (ou switch rapide aller-retour).
+const RAIL_CACHE_TTL_MS = 30_000;
+const railCache = {}; // { queue: {ts, items}, fav: {ts, items}, recent: {ts, items} }
 
 async function loadRail(){
   const myEpoch = ++railEpoch;
+  // Si cache frais (<30s) sur ce tab : re-render direct depuis mémoire, pas d'appel réseau.
+  const cached = railCache[railTab];
+  if(cached && (Date.now() - cached.ts) < RAIL_CACHE_TTL_MS){
+    renderRailItems(cached.items);
+    return;
+  }
   railEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Chargement…</div>';
   try {
     let items = [];
@@ -733,32 +752,9 @@ async function loadRail(){
       items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
     }
     if(myEpoch !== railEpoch) return;
-    railCountEl.textContent = `${items.length} · tracks`;
-    railEl.innerHTML = '';
-    items.forEach((t,i)=>{
-      const d = document.createElement('div');
-      const isCurrent = String(t.id) === String(trackId);
-      d.className = 'rail-item pressable'+(isCurrent?' current':'');
-      const title = t.title || t.original_filename || t.filename || 'Sans titre';
-      const artist = t.artist || '—';
-      const bpm = t.analysis && t.analysis.bpm ? Number(t.analysis.bpm).toFixed(0) : '—';
-      const key = t.camelot_code || (t.analysis && t.analysis.key) || '—';
-      d.innerHTML = `
-        <div class="cv" style="background:${covers[i%covers.length]}"></div>
-        <div class="tx"><div class="n"></div><div class="a"></div></div>
-        <div class="badge">${bpm}<br>${key}</div>
-      `;
-      d.querySelector('.n').textContent = title;
-      d.querySelector('.a').textContent = artist;
-      d.addEventListener('click',()=>{
-        location.href = `/analyze?id=${t.id}`;
-      });
-      railEl.appendChild(d);
-    });
-    if(items.length === 0){
-      const msg = railTab === 'fav' ? 'Aucun favori.' : railTab === 'recent' ? 'Aucune piste jouée récemment.' : 'Aucune piste.';
-      railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">${msg} <a href="/upload" style="color:var(--amber)">Uploader</a></div>`;
-    }
+    // Mise en cache avant render pour réutilisation rapide
+    railCache[railTab] = { ts: Date.now(), items };
+    renderRailItems(items);
   } catch(err){
     if(myEpoch !== railEpoch) return;
     railCountEl.textContent = 'err';
@@ -766,12 +762,46 @@ async function loadRail(){
   }
 }
 
+// 🔴 Fix 2026-04-23 : extrait du render pour permettre la réutilisation depuis le cache 30s.
+function renderRailItems(items){
+  railCountEl.textContent = `${items.length} · tracks`;
+  railEl.innerHTML = '';
+  items.forEach((t,i)=>{
+    const d = document.createElement('div');
+    const isCurrent = String(t.id) === String(trackId);
+    d.className = 'rail-item pressable'+(isCurrent?' current':'');
+    const title = t.title || t.original_filename || t.filename || 'Sans titre';
+    const artist = t.artist || '—';
+    const bpm = t.analysis && t.analysis.bpm ? Number(t.analysis.bpm).toFixed(0) : '—';
+    const key = t.camelot_code || (t.analysis && t.analysis.key) || '—';
+    d.innerHTML = `
+      <div class="cv" style="background:${covers[i%covers.length]}"></div>
+      <div class="tx"><div class="n"></div><div class="a"></div></div>
+      <div class="badge">${bpm}<br>${key}</div>
+    `;
+    d.querySelector('.n').textContent = title;
+    d.querySelector('.a').textContent = artist;
+    d.addEventListener('click',()=>{
+      location.href = `/analyze?id=${t.id}`;
+    });
+    railEl.appendChild(d);
+  });
+  if(items.length === 0){
+    const msg = railTab === 'fav' ? 'Aucun favori.' : railTab === 'recent' ? 'Aucune piste jouée récemment.' : 'Aucune piste.';
+    railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">${msg} <a href="/upload" style="color:var(--amber)">Uploader</a></div>`;
+  }
+}
+
 // Rail tabs
+// 🔴 Fix 2026-04-23 (E2E report B8) : guard si on re-clique sur l'onglet déjà actif
+//    (évite re-fetch + re-render inutile). Combine avec cache 30s ci-dessus.
 document.querySelectorAll('#rail-tabs button').forEach(b => {
   b.addEventListener('click', () => {
+    const tab = b.dataset.tab || 'queue';
+    if(tab === railTab) return; // déjà sur ce tab → no-op
     document.querySelectorAll('#rail-tabs button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
-    railTab = b.dataset.tab || 'queue';
+    railTab = tab;
     loadRail();
   });
 });
@@ -810,6 +840,35 @@ function renderCueMarkers(cues, durationMs){
     el.querySelector('.cue-tip').textContent = tipLabel;
     el.querySelector('.cue-label').textContent = caption;
     waveEl.appendChild(el);
+  });
+}
+
+// 🔴 Fix 2026-04-23 (E2E report B2) : render des 8 pads avec les cues de la track.
+//    Chaque pad affiche son numéro (1-8), avec :
+//    - data-type = cue_type pour coloration CSS (hot/load/loop/fade/phrase/beat)
+//    - data-bound = "1" si un cue est associé, "0" sinon (visuel dimmed)
+//    - title = tooltip natif "Cue N — {nom} @ {mm:ss}"
+function renderPads(cues){
+  const pads = document.querySelectorAll('.pad');
+  pads.forEach((p, i) => {
+    const c = cues && cues[i];
+    if(!c){
+      p.textContent = String(i+1);
+      p.removeAttribute('data-type');
+      p.setAttribute('data-bound', '0');
+      p.title = `Pad ${i+1} — aucun cue`;
+      return;
+    }
+    const posMs = c.position_ms ?? c.time_ms ?? 0;
+    const sec = Math.max(0, posMs/1000);
+    const mm = Math.floor(sec/60);
+    const ss = Math.floor(sec%60).toString().padStart(2, '0');
+    const type = (c.cue_type || c.type || 'hot').toLowerCase();
+    const name = c.name || c.label || '';
+    p.textContent = String(i+1); // garde le numéro (32px trop petit pour un vrai label)
+    p.setAttribute('data-type', type);
+    p.setAttribute('data-bound', '1');
+    p.title = name ? `Pad ${i+1} — ${name} · ${mm}:${ss}` : `Pad ${i+1} — Cue ${i+1} · ${mm}:${ss}`;
   });
 }
 
@@ -862,7 +921,8 @@ async function loadTrack(){
       const items = Array.isArray(list) ? list : (list?.items || list?.tracks || list?.results || []);
       if(items[0]){
         trackId = items[0].id;
-        history.replaceState(null, '', `/v4/analyze.html?id=${trackId}`);
+        // 🔴 Fix 2026-04-23 (E2E report B3) : utiliser l'URL publique /analyze dans la barre d'adresse
+        history.replaceState(null, '', `/analyze?id=${trackId}`);
       } else {
         document.getElementById('thero-title').textContent = 'Aucune piste disponible';
         document.getElementById('thero-genre').textContent = 'Uploadez votre première piste';
@@ -987,6 +1047,8 @@ async function loadTrack(){
     renderCueList(cues);
     renderMetaPanel(t);
     renderAudioPanel(a);
+    // 🔴 Fix 2026-04-23 (E2E report B2) : étiquette les 8 pads avec les noms de cues
+    renderPads(cues);
 
     // Réattacher les handlers de cue après re-render
     attachCueHandlers();
@@ -1283,11 +1345,17 @@ loadRail();
 loadTrack().then(()=> startPipelinePolling());
 
 // Tool buttons toggle
+// 🔴 Fix 2026-04-23 (E2E report B7) : les boutons Zoom in/out sont dans .zoom
+//    et ne doivent PAS porter .active (ce sont des actions one-shot, pas des
+//    toggles). Leur propre handler (plus bas) fait setZoom(). On skip le handler
+//    générique pour eux. Idem pour les boutons btn-* (duplicate/share/export) qui
+//    ne sont pas dans le DOM comme .tool-btn mais au cas où.
 document.querySelectorAll('.tool-btn').forEach(b=>{
+  // Skip zoom buttons (actions one-shot, pas de state visuel persistant)
+  if(b.closest('.zoom')) return;
   b.addEventListener('click',()=>{
     // Only toggle within "tool-group" first block (select/cue/loop/slice/fade)
     if(b.querySelector('.kbd-mini')){
-      document.querySelectorAll('.tool-btn .kbd-mini').forEach(k=>{});
       const group = b.parentElement;
       // only first 5 radio-like
       const radios = Array.from(group.querySelectorAll('.tool-btn')).filter(x=>x.querySelector('.kbd-mini'));
@@ -1581,11 +1649,12 @@ document.querySelectorAll('#mode-segment button').forEach(b => {
     const mode = b.dataset.mode;
     if(mode === 'mix'){
       if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
-      location.href = `/v4/mix-studio.html?deckA=${trackId}`;
+      // 🔴 Fix 2026-04-23 (E2E report B3/B4) : URLs publiques via next rewrites
+      location.href = `/mix-studio?deckA=${trackId}`;
     }
     else if(mode === 'compare'){
       if(!trackId){ toast('Sélectionnez d\'abord une piste', 'warn'); return; }
-      location.href = `/v4/compatible.html?id=${trackId}`;
+      location.href = `/compatible?id=${trackId}`;
     }
     // analyze = current page
   });
@@ -1597,16 +1666,21 @@ document.getElementById('btn-duplicate')?.addEventListener('click', async () => 
   try {
     const dup = await api.post(`/tracks/${trackId}/duplicate`, {});
     toast('Piste dupliquée', 'success');
-    setTimeout(() => location.href = `/v4/analyze.html?id=${dup.id}`, 400);
+    // 🔴 Fix 2026-04-23 (E2E report B3) : on navigue vers l'URL publique /analyze
+    //    (next.config rewrites /analyze → /v4/analyze.html). Plus propre, plus
+    //    shareable, et cohérent avec le reste des liens de l'app.
+    setTimeout(() => location.href = `/analyze?id=${dup.id}`, 400);
   } catch(err){
     toast('Duplication impossible : '+err.message, 'warn');
   }
 });
 
 document.getElementById('btn-share')?.addEventListener('click', async () => {
-  // 🔴 Fix : URL canonique = la page v4 actuelle (pas la legacy /analyze) + trackId en paramètre.
+  // 🔴 Fix 2026-04-23 (E2E report B3) : on partage l'URL publique /analyze?id=...
+  //    (next.config rewrite /analyze → /v4/analyze.html côté CDN). Le lien est
+  //    plus propre pour l'utilisateur et reste valide si l'URL interne change.
   const url = trackId
-    ? `${location.origin}/v4/analyze.html?id=${trackId}`
+    ? `${location.origin}/analyze?id=${trackId}`
     : location.href;
   // Tentative 1 : Clipboard API moderne (nécessite HTTPS + document focus)
   try {
@@ -1637,8 +1711,9 @@ document.getElementById('btn-share')?.addEventListener('click', async () => {
 
 document.getElementById('btn-export')?.addEventListener('click', () => {
   if(!trackId){ toast('Aucune piste à exporter — uploadez-en une d\'abord', 'warn'); return; }
-  // 🔴 Fix : rediriger vers /v4/set-builder.html (la page v4 actuelle) pas la legacy /set-builder.
-  location.href = `/v4/set-builder.html?track=${trackId}`;
+  // 🔴 Fix 2026-04-23 (E2E report B4) : navigation via l'URL publique /set-builder
+  //    (next.config rewrite /set-builder → /v4/set-builder.html côté CDN).
+  location.href = `/set-builder?track=${trackId}`;
 });
 
 // ========== AI suggérer ==========
