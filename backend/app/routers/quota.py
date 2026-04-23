@@ -10,6 +10,8 @@ from typing import Dict, Any, Optional
 import logging
 
 from app.services.quota_service import get_quota_service, PlanType
+from app.middleware.auth import get_current_user
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,10 @@ router = APIRouter(prefix="/api/quota", tags=["quota"])
 
 
 @router.get("", response_model=Dict[str, Any])
-async def get_user_quota(user_id: Optional[str] = Query(None, description="User ID (from auth)")):
+async def get_user_quota(
+    current_user: User = Depends(get_current_user),
+    user_id: Optional[str] = Query(None, description="Override user_id (admin only)"),
+):
     """
     Get quota usage for the authenticated user.
 
@@ -29,11 +34,11 @@ async def get_user_quota(user_id: Optional[str] = Query(None, description="User 
     - month_start: ISO timestamp of quota month start
     - upgrade_message: friendly CTA if nearing limit
     """
-    if not user_id:
-        raise HTTPException(status_code=401, detail="User not authenticated")
+    # Use JWT-authenticated user_id unless admin provides override
+    effective_user_id = user_id if (user_id and current_user.is_admin) else str(current_user.id)
 
     service = get_quota_service()
-    usage = service.get_usage(user_id)
+    usage = service.get_usage(effective_user_id)
 
     # Add upgrade message if applicable
     quota = service.get_or_create_quota(user_id)
@@ -45,8 +50,8 @@ async def get_user_quota(user_id: Optional[str] = Query(None, description="User 
 
 @router.post("/upgrade", response_model=Dict[str, Any])
 async def upgrade_plan(
-    user_id: Optional[str] = Query(None),
     new_plan: str = Query(..., description="Target plan: pro or premium"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Upgrade user to a new plan.
@@ -58,8 +63,7 @@ async def upgrade_plan(
     - Updated quota usage
     - Stripe session ID for payment (not implemented here)
     """
-    if not user_id:
-        raise HTTPException(status_code=401, detail="User not authenticated")
+    user_id = str(current_user.id)
 
     # Validate plan
     try:
