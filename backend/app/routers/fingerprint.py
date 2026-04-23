@@ -68,12 +68,18 @@ async def find_duplicates(
         if not track:
             raise HTTPException(status_code=404, detail="Track not found")
 
-        # Mock duplicate detection
-        similar_tracks = db.query(Track).filter(
-            Track.user_id == current_user.id,
-            Track.id != request.track_id,
-            Track.duration == track.duration  # Simple heuristic
-        ).limit(5).all()
+        # Mock duplicate detection: match by duration from TrackAnalysis
+        if track.analysis and track.analysis.duration_ms:
+            target_duration = track.analysis.duration_ms
+            similar_tracks = db.query(Track).join(
+                TrackAnalysis, Track.id == TrackAnalysis.track_id
+            ).filter(
+                Track.user_id == current_user.id,
+                Track.id != request.track_id,
+                TrackAnalysis.duration_ms == target_duration
+            ).limit(5).all()
+        else:
+            similar_tracks = []
 
         duplicate_ids = [t.id for t in similar_tracks]
         similarity_scores = [0.95] * len(duplicate_ids)

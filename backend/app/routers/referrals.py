@@ -79,7 +79,7 @@ def _get_or_create_referral_code(db: Session, user_id: int) -> str:
     existing = db.query(Referral).filter(
         Referral.referrer_id == user_id
     ).filter(
-        Referral.referred_user_id == None  # Placeholder pour son code personnel
+        Referral.referred_user_id.is_(None)  # Placeholder pour son code personnel
     ).first()
 
     if existing:
