@@ -81,7 +81,7 @@ async def find_duplicates(
         else:
             similar_tracks = []
 
-        duplicate_ids = [t.id for t in similar_tracks]
+        duplicate_ids = [str(t.id) for t in similar_tracks]
         similarity_scores = [0.95] * len(duplicate_ids)
 
         return DuplicateDetectionResponse(
