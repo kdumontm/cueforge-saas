@@ -3,6 +3,8 @@ import csv
 import io
 import logging
 import os
+import secrets
+import string
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +18,7 @@ from app.models.track import Track
 from app.middleware.admin import require_admin
 from app.routers.admin.schemas import UserUpdate
 from app.services import r2_service
+from app.services.auth_service import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +214,69 @@ async def update_user(
     db.commit()
     db.refresh(user)
     return {"message": f"Utilisateur {user.email} mis à jour"}
+
+
+def _generate_temp_password(length: int = 14) -> str:
+    """Génère un mdp temporaire respectant la policy auth.py :
+    1+ majuscule, 1+ minuscule, 1+ chiffre, 1+ caractère spécial.
+
+    On force au moins 1 char de chaque catégorie puis on complète avec
+    le pool complet et on shuffle — garantie de satisfaire la policy.
+    """
+    # La policy exige au moins un caractère spécial — on utilise ceux listés
+    # dans auth_service (safe pour URL / shell si l'admin doit le lire / taper).
+    specials = "!@#$%^&*-_=+?"
+    alphabet = string.ascii_letters + string.digits + specials
+    # 1 de chaque catégorie obligatoire + reste random
+    required = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice(specials),
+    ]
+    remaining = [secrets.choice(alphabet) for _ in range(length - len(required))]
+    pw_chars = required + remaining
+    # Shuffle cryptographique (SystemRandom = os.urandom derrière)
+    import random as _r
+    _r.SystemRandom().shuffle(pw_chars)
+    return "".join(pw_chars)
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Génère un mot de passe temporaire pour le user ciblé et le hash en DB.
+    Retourne le mdp en clair à l'admin UNE SEULE FOIS — il ne sera plus
+    jamais affiché ensuite. L'admin doit le transmettre au user (email
+    privé, autre canal sécurisé…).
+
+    Side-effects :
+    - user.password_hash = hash(nouveau_mdp)
+    - commit DB
+    - log informatif (sans le mdp)
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    # Garde-fou : on autorise à reset son propre mdp (utile en cas de
+    # compromission), mais on log spécifiquement.
+    if user.id == admin.id:
+        logger.warning(f"[admin.reset_password] admin {admin.email} reset son propre mdp")
+
+    new_password = _generate_temp_password()
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    logger.info(f"[admin.reset_password] admin={admin.email} → user={user.email} mdp reset OK")
+
+    return {
+        "new_password": new_password,
+        "message": f"Mot de passe réinitialisé pour {user.email}. Transmets-le au user en privé — il ne sera plus affiché.",
+    }
 
 
 # IMPORTANT: Cette route DOIT être déclarée avant /users/{user_id} (DELETE)

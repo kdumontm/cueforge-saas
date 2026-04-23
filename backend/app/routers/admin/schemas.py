@@ -146,4 +146,12 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     subscription_plan: Optional[str] = None
     is_admin: Optional[bool] = None
+    email_verified: Optional[bool] = None
     use_stem_separation: Optional[bool] = None
+
+
+class PasswordResetResponse(BaseModel):
+    """Réponse du reset password admin : contient le mdp temporaire en clair
+    (à transmettre au user manuellement — il ne sera plus jamais visible)."""
+    new_password: str
+    message: str
