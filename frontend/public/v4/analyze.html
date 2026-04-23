@@ -442,6 +442,7 @@
         <span class="rail-title">Library</span>
         <span class="rail-count" id="rail-count">— · tracks</span>
       </div>
+      <input type="search" id="rail-search" placeholder="Rechercher..." style="width:100%;padding:6px 8px;margin:6px 0;border:1px solid var(--b-default);border-radius:6px;font-size:12px;background:var(--s-0);color:var(--c-primary);font-family:inherit">
       <div class="rail-tabs" id="rail-tabs">
         <button class="active" data-tab="queue">Queue</button>
         <button data-tab="fav">Fav</button>
@@ -629,8 +630,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260423b"></script>
-<script src="/v4/shared.js?v=20260423-feedback-pagepath"></script>
+<script src="/v4/api.js?v=20260423c"></script>
+<script src="/v4/shared.js?v=20260423-search"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -808,6 +809,62 @@ function renderRailItems(items){
     const msg = railTab === 'fav' ? 'Aucun favori.' : railTab === 'recent' ? 'Aucune piste jouée récemment.' : 'Aucune piste.';
     railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">${msg} <a href="/upload" style="color:var(--amber)">Uploader</a></div>`;
   }
+  // Stocker les items complets pour filtrage
+  railCurrentItems = items;
+}
+
+// 🔴 2026-04-23 : Barre de recherche pour filtrer les tracks en temps réel
+let railCurrentItems = [];
+
+function filterRailItems(searchQuery) {
+  if (!searchQuery.trim()) {
+    // Si la recherche est vide, afficher tous les items
+    renderRailItems(railCurrentItems);
+    return;
+  }
+
+  const query = searchQuery.toLowerCase();
+  const filtered = railCurrentItems.filter(t => {
+    const title = (t.title || t.original_filename || t.filename || '').toLowerCase();
+    const artist = (t.artist || '').toLowerCase();
+    return title.includes(query) || artist.includes(query);
+  });
+
+  // Render les items filtrés
+  railCountEl.textContent = `${filtered.length} · tracks`;
+  railEl.innerHTML = '';
+  filtered.forEach((t, i) => {
+    const d = document.createElement('div');
+    const isCurrent = String(t.id) === String(trackId);
+    d.className = 'rail-item pressable' + (isCurrent ? ' current' : '');
+    const title = t.title || t.original_filename || t.filename || 'Sans titre';
+    const artist = t.artist || '—';
+    const bpm = t.analysis && t.analysis.bpm ? Number(t.analysis.bpm).toFixed(0) : '—';
+    const key = t.camelot_code || (t.analysis && t.analysis.key) || '—';
+    d.innerHTML = `
+      <div class="cv" style="background:${covers[i % covers.length]}"></div>
+      <div class="tx"><div class="n"></div><div class="a"></div></div>
+      <div class="badge">${bpm}<br>${key}</div>
+    `;
+    d.querySelector('.n').textContent = title;
+    d.querySelector('.a').textContent = artist;
+    d.addEventListener('click', () => {
+      location.href = `/analyze?id=${t.id}`;
+    });
+    railEl.appendChild(d);
+  });
+
+  if (filtered.length === 0) {
+    railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucun résultat pour "<strong>${searchQuery}</strong>"</div>`;
+  }
+}
+
+// Handler pour la barre de recherche
+const railSearchEl = document.getElementById('rail-search');
+if (railSearchEl) {
+  railSearchEl.addEventListener('input', (e) => {
+    filterRailItems(e.target.value);
+  });
 }
 
 // Rail tabs
@@ -820,6 +877,8 @@ document.querySelectorAll('#rail-tabs button').forEach(b => {
     document.querySelectorAll('#rail-tabs button').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
     railTab = tab;
+    // Réinitialiser la barre de recherche quand on change de tab
+    if (railSearchEl) railSearchEl.value = '';
     loadRail();
   });
 });
