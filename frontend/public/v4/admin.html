@@ -466,10 +466,11 @@
               <th style="width:32px"><input type="checkbox" class="tbl-chk" id="users-chk-all" title="Tout sélectionner"></th>
               <th>User</th>
               <th>Plan</th>
-              <th>Storage</th>
-              <th>Tracks</th>
-              <th>Dernière connexion</th>
-              <th>Inscrit le</th>
+              <th>Status</th>
+              <th>OAuth</th>
+              <th>Dernier login</th>
+              <th>Inscrit</th>
+              <th title="Offert">🎁</th>
               <th></th>
             </tr>
           </thead>
@@ -823,15 +824,21 @@
     setHTML('kpi-tracks-trend',
       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 14 6-6 6 6"/></svg>${fmt.num(kpis.tracks?.analyzed || 0)} analysés · +${fmt.num(kpis.tracks?.uploaded_7d || 0)} · 7j`);
     setText('kpi-mrr', fmt.money((kpis.mrr?.estimate_eur || 0) * 100, 'EUR'));
+    const compInfo = (kpis.mrr?.comp_pro_users || 0) + (kpis.mrr?.comp_unlimited_users || 0) > 0
+      ? ` · ${kpis.mrr?.comp_pro_users || 0} Pro offert${(kpis.mrr?.comp_pro_users || 0) > 1 ? 's' : ''} · ${kpis.mrr?.comp_unlimited_users || 0} Unlimited offert${(kpis.mrr?.comp_unlimited_users || 0) > 1 ? 's' : ''}`
+      : '';
     setHTML('kpi-mrr-trend',
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited`);
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg>${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited${compInfo}`);
     setText('kpi-storage', `${kpis.storage?.estimate_gb ?? 0} Go`);
     setHTML('kpi-storage-trend',
       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12h18"/></svg>${kpis.storage?.active_users_7d || 0} actifs · 7j`);
 
     // ── Users card sub ──
+    const compSuffix = (kpis.mrr?.comp_pro_users || 0) + (kpis.mrr?.comp_unlimited_users || 0) > 0
+      ? ` (dont ${(kpis.mrr?.comp_pro_users || 0) + (kpis.mrr?.comp_unlimited_users || 0)} offert${((kpis.mrr?.comp_pro_users || 0) + (kpis.mrr?.comp_unlimited_users || 0)) > 1 ? 's' : ''})`
+      : '';
     setText('users-card-sub',
-      `${fmt.num(kpis.users?.total || 0)} total · ${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited`);
+      `${fmt.num(kpis.users?.total || 0)} total · ${kpis.mrr?.pro_users || 0} Pro · ${kpis.mrr?.unlimited_users || 0} Unlimited${compSuffix}`);
 
     // ── Nav counts ──
     const nav = d.nav_counts || {};
@@ -1070,6 +1077,7 @@
         const name = u.name || u.email?.split('@')[0] || 'Sans nom';
         const isAdmin = u.is_admin;
         const plan = u.subscription_plan || 'free';
+        const isComp = u.is_comp || false;
         const cls = isAdmin ? 'violet' : (plan === 'pro' ? '' : (plan === 'unlimited' ? 'green' : ''));
         return `
           <tr data-id="${u.id}" data-email="${(u.email||'').replace(/"/g,'&quot;')}">
@@ -1089,6 +1097,9 @@
             <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary)">${u.oauth_provider || '—'}</td>
             <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
             <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
+            <td>
+              <button class="comp-toggle" data-id="${u.id}" data-is-comp="${isComp ? '1' : '0'}" title="${isComp ? 'Retirer du tag offert' : 'Marquer comme offert'}" style="border:none;background:none;cursor:pointer;font-size:16px;opacity:${isComp ? '1' : '0.3'};transition:opacity 0.2s">🎁</button>
+            </td>
             <td>
               <div class="act">
                 <button data-tt="Voir profil" data-act="view"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -1443,6 +1454,34 @@
     const user = usersCache[id];
     if(!user){ toast(`User #${id} introuvable en cache — recharge la liste`, 'warn'); return; }
     openEditUserModal(user);
+  });
+
+  // Comp toggle button (event delegation)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('#users-body button.comp-toggle');
+    if(!btn) return;
+    e.stopPropagation();
+    const row = btn.closest('tr[data-id]');
+    if(!row) return;
+    const id = parseInt(row.dataset.id, 10);
+    const isComp = btn.dataset.isComp === '1';
+    const newState = !isComp;
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    api.patch(`/admin/${id}/comp?is_comp=${newState}`)
+      .then(res => {
+        btn.dataset.isComp = newState ? '1' : '0';
+        btn.style.opacity = newState ? '1' : '0.3';
+        btn.title = newState ? 'Retirer du tag offert' : 'Marquer comme offert';
+        if(usersCache[id]) usersCache[id].is_comp = newState;
+        toast(`User ${newState ? 'marqué comme offert' : 'retiré de la liste des offerts'}`, 'success');
+        loadKpis(); // Refresh KPIs for updated MRR
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.style.opacity = isComp ? '1' : '0.3';
+        toast(`Erreur: ${err.message}`, 'error');
+      });
   });
 
   loadKpis();

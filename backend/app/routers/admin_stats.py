@@ -66,10 +66,12 @@ class SignupTrendItem(BaseModel):
 
 
 class RevenueMetrics(BaseModel):
-    """Métriques de revenus."""
+    """Métriques de revenus (excluant les subscriptions complimentaires)."""
     total_pro_users: int
     total_unlimited_users: int
     mrr_estimate: float  # Monthly Recurring Revenue
+    comp_pro_users: int = 0
+    comp_unlimited_users: int = 0
 
 
 class OverviewResponse(BaseModel):
@@ -140,6 +142,8 @@ async def get_admin_stats_overview(
     # ── Revenue metrics (excluding comp subscriptions) ──
     pro_users = db.query(User).filter(User.subscription_plan == "pro", User.is_comp == False).count()
     unlimited_users = db.query(User).filter(User.subscription_plan == "unlimited", User.is_comp == False).count()
+    comp_pro_users = db.query(User).filter(User.subscription_plan == "pro", User.is_comp == True).count()
+    comp_unlimited_users = db.query(User).filter(User.subscription_plan == "unlimited", User.is_comp == True).count()
     mrr_estimate = (pro_users * 9.99) + (unlimited_users * 19.99)
 
     # ── Top 10 genres ──
@@ -186,6 +190,8 @@ async def get_admin_stats_overview(
             "total_pro_users": pro_users,
             "total_unlimited_users": unlimited_users,
             "mrr_estimate": round(mrr_estimate, 2),
+            "comp_pro_users": comp_pro_users,
+            "comp_unlimited_users": comp_unlimited_users,
         },
         "top_genres": top_genres,
         "signup_trend": signup_trend,
@@ -324,11 +330,15 @@ async def get_admin_full_dashboard(
         func.sum(case((User.created_at >= seven_days_ago, 1), else_=0)).label("new_7d"),
         func.sum(case(((User.subscription_plan == "pro") & (User.is_comp == False), 1), else_=0)).label("pro"),
         func.sum(case(((User.subscription_plan == "unlimited") & (User.is_comp == False), 1), else_=0)).label("unlimited"),
+        func.sum(case(((User.subscription_plan == "pro") & (User.is_comp == True), 1), else_=0)).label("comp_pro"),
+        func.sum(case(((User.subscription_plan == "unlimited") & (User.is_comp == True), 1), else_=0)).label("comp_unlimited"),
     ).one()
     total_users = int(user_stats.total or 0)
     new_users_7d = int(user_stats.new_7d or 0)
     pro_users = int(user_stats.pro or 0)
     unlimited_users = int(user_stats.unlimited or 0)
+    comp_pro_users = int(user_stats.comp_pro or 0)
+    comp_unlimited_users = int(user_stats.comp_unlimited or 0)
     mrr_estimate = round(pro_users * 9.99 + unlimited_users * 19.99, 2)
 
     # ─── KPIs tracks + jobs (agrégation en 1 requête au lieu de 9) ───
@@ -642,6 +652,8 @@ async def get_admin_full_dashboard(
                 "estimate_eur": mrr_estimate,
                 "pro_users": pro_users,
                 "unlimited_users": unlimited_users,
+                "comp_pro_users": comp_pro_users,
+                "comp_unlimited_users": comp_unlimited_users,
             },
             "storage": {
                 "estimate_gb": storage_gb,

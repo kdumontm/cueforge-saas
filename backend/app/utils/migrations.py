@@ -39,6 +39,8 @@ PENDING_MIGRATIONS = {
         "dj_style": "VARCHAR(100)",
         "dj_software": "VARCHAR(100)",
         "onboarding_completed": "BOOLEAN NOT NULL DEFAULT FALSE",
+        # Complimentary / Gifted subscriptions (excluded from revenue estimation)
+        "is_comp": "BOOLEAN NOT NULL DEFAULT FALSE",
     },
     "cue_points": {
         # Cue customization columns
