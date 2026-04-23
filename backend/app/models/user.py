@@ -75,6 +75,9 @@ class User(Base):
     dj_software = Column(String, nullable=True)  # Rekordbox, Serato, Traktor, VirtualDJ, Autre
     onboarding_completed = Column(Boolean, default=False, nullable=False)
 
+    # ── Complimentary / Gifted subscriptions (excluded from revenue estimation) ──
+    is_comp = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

@@ -148,6 +148,7 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     email_verified: Optional[bool] = None
     use_stem_separation: Optional[bool] = None
+    is_comp: Optional[bool] = None
 
 
 class PasswordResetResponse(BaseModel):

@@ -137,9 +137,9 @@ async def get_admin_stats_overview(
         Track.created_at >= seven_days_ago
     ).scalar() or 0
 
-    # ── Revenue metrics ──
-    pro_users = db.query(User).filter(User.subscription_plan == "pro").count()
-    unlimited_users = db.query(User).filter(User.subscription_plan == "unlimited").count()
+    # ── Revenue metrics (excluding comp subscriptions) ──
+    pro_users = db.query(User).filter(User.subscription_plan == "pro", User.is_comp == False).count()
+    unlimited_users = db.query(User).filter(User.subscription_plan == "unlimited", User.is_comp == False).count()
     mrr_estimate = (pro_users * 9.99) + (unlimited_users * 19.99)
 
     # ── Top 10 genres ──
@@ -318,12 +318,12 @@ async def get_admin_full_dashboard(
     seven_days_ago = now - timedelta(days=7)
     twenty_four_hours_ago = now - timedelta(hours=24)
 
-    # ─── KPIs users (agrégation en 1 requête au lieu de 4) ───
+    # ─── KPIs users (agrégation en 1 requête au lieu de 4, excluant les comps) ───
     user_stats = db.query(
         func.count(User.id).label("total"),
         func.sum(case((User.created_at >= seven_days_ago, 1), else_=0)).label("new_7d"),
-        func.sum(case((User.subscription_plan == "pro", 1), else_=0)).label("pro"),
-        func.sum(case((User.subscription_plan == "unlimited", 1), else_=0)).label("unlimited"),
+        func.sum(case(((User.subscription_plan == "pro") & (User.is_comp == False), 1), else_=0)).label("pro"),
+        func.sum(case(((User.subscription_plan == "unlimited") & (User.is_comp == False), 1), else_=0)).label("unlimited"),
     ).one()
     total_users = int(user_stats.total or 0)
     new_users_7d = int(user_stats.new_7d or 0)
@@ -376,11 +376,11 @@ async def get_admin_full_dashboard(
         Feedback.status == "new"
     ).scalar() or 0
 
-    # ─── Revenue 12 mois (1 seule requête agrégée au lieu de 24 COUNT) ───
-    # Principe : pour chaque user avec un plan payant, il compte dans tous les mois
-    # postérieurs ou égaux à son created_at. On récupère la liste (plan, created_at)
+    # ─── Revenue 12 mois (1 seule requête agrégée au lieu de 24 COUNT, excluant les comps) ───
+    # Principe : pour chaque user avec un plan payant NON-COMP, il compte dans tous les mois
+    # postérieurs ou égaux à son created_at. On récupère la liste (plan, created_at, is_comp)
     # en 1 query et on aggrège en Python → négligeable vs. 24 round trips SQL.
-    paid_users = db.query(User.subscription_plan, User.created_at).filter(
+    paid_users = db.query(User.subscription_plan, User.created_at, User.is_comp).filter(
         User.subscription_plan.in_(["pro", "unlimited"])
     ).all()
 
@@ -399,8 +399,8 @@ async def get_admin_full_dashboard(
         month_start = datetime(year, month, 1)
         month_end = datetime(next_year, next_month, 1)
 
-        subs_pro = sum(1 for plan, ca in paid_users if plan == "pro" and ca and ca < month_end)
-        subs_unl = sum(1 for plan, ca in paid_users if plan == "unlimited" and ca and ca < month_end)
+        subs_pro = sum(1 for plan, ca, is_c in paid_users if plan == "pro" and ca and ca < month_end and not is_c)
+        subs_unl = sum(1 for plan, ca, is_c in paid_users if plan == "unlimited" and ca and ca < month_end and not is_c)
         mrr_month = round(subs_pro * 9.99 + subs_unl * 19.99, 2)
         revenue_12m.append({
             "month": month_start.strftime("%Y-%m"),

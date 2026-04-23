@@ -611,7 +611,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
         btn.style.visibility = '';
         panel.style.visibility = '';
 
-        // Rescale si trop grand (cap ~1280px de large) et encode en JPEG 0.72
+        // Rescale si trop grand (cap ~1280px de large) et encode en JPEG 0.55 (compression agressive)
         const MAX_W = 1280;
         let outCanvas = canvas;
         if(canvas.width > MAX_W){
@@ -623,11 +623,11 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
           ctx.drawImage(canvas, 0, 0, c2.width, c2.height);
           outCanvas = c2;
         }
-        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.72);
-        // Garde-fou taille (~700KB base64 max, sinon on drop)
-        if(dataUrl.length > 900_000){
+        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.55);
+        // Garde-fou taille: frontend refuse > 400KB, backend refuse > 900KB
+        if(dataUrl.length > 400_000){
           capturedShot = null;
-          shotStatus.textContent = '⚠️ trop lourd';
+          shotStatus.textContent = '⚠️ image trop lourd';
         } else {
           capturedShot = dataUrl;
           shotImg.src = dataUrl;
@@ -710,10 +710,10 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
           c2.getContext('2d').drawImage(canvas, 0, 0, c2.width, c2.height);
           outCanvas = c2;
         }
-        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.8);
-        if(dataUrl.length > 900_000){
+        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.55);
+        if(dataUrl.length > 400_000){
           capturedShot = null;
-          shotStatus.textContent = '⚠️ trop lourd';
+          shotStatus.textContent = '⚠️ image trop lourd';
         } else {
           capturedShot = dataUrl;
           shotImg.src = dataUrl;
@@ -906,7 +906,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       }
     }, true);
 
-    // Submit
+    // Submit — async non-blocking (close panel immediately, send in background)
     submitBtn.addEventListener('click', async () => {
       const message = msgEl.value.trim();
       if(!message) return;
@@ -916,43 +916,54 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       const subject = subjEl.value.trim();
       const page_url = (location.pathname + location.search).slice(0, 500);
       const screenshot = (shotChk.checked && capturedShot) ? capturedShot : null;
-      try {
-        if(scope === 'admin'){
-          const body = { type, subject, message };
-          if(screenshot) body.screenshot = screenshot;
-          if(page_url) body.page_url = page_url;
-          await window.api.post('/feedback/admin-note', body);
-          $('#tcfb-done-msg').textContent = "Note enregistrée dans /admin#fb onglet Notes admin.";
-        } else {
-          const body = { type, message };
-          if(rating) body.rating = rating;
-          if(subject) body.subject = subject;
-          if(screenshot) body.screenshot = screenshot;
-          if(page_url) body.page_url = page_url;
-          await window.api.post('/feedback', body);
-          $('#tcfb-done-msg').textContent = "On prend en compte chaque feedback.";
+
+      // Fermer immédiatement la modale et afficher toast "Envoi en cours"
+      formEl.style.display = 'none';
+      doneEl.style.display = 'block';
+      msgEl.value = '';
+      subjEl.value = '';
+      rating = null;
+      ratingEl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      capturedShot = null;
+      shotPreview.classList.remove('ready');
+      shotImg.src = '';
+      if(typeof toast === 'function') toast('Envoi en cours…', 'info');
+
+      // Envoyer en background — pas de await au niveau UI
+      const sendFeedback = async () => {
+        try {
+          if(scope === 'admin'){
+            const body = { type, subject, message };
+            if(screenshot) body.screenshot = screenshot;
+            if(page_url) body.page_url = page_url;
+            await window.api.post('/feedback/admin-note', body);
+            if(typeof toast === 'function') toast('Note admin enregistrée ✓', 'info');
+          } else {
+            const body = { type, message };
+            if(rating) body.rating = rating;
+            if(subject) body.subject = subject;
+            if(screenshot) body.screenshot = screenshot;
+            if(page_url) body.page_url = page_url;
+            await window.api.post('/feedback', body);
+            if(typeof toast === 'function') toast('Feedback reçu, merci ✓', 'info');
+          }
+        } catch(err){
+          if(typeof toast === 'function') toast(`Envoi échoué : ${err.message || err}`, 'error');
+          console.warn('[feedback] send failed', err);
+        } finally {
+          sending = false;
+          submitBtn.textContent = 'Envoyer';
+          updateSubmit();
         }
-        formEl.style.display = 'none';
-        doneEl.style.display = 'block';
-        msgEl.value = '';
-        subjEl.value = '';
-        rating = null;
-        ratingEl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
-        capturedShot = null;
-        shotPreview.classList.remove('ready');
-        shotImg.src = '';
-        setTimeout(() => {
-          formEl.style.display = '';
-          doneEl.style.display = 'none';
-          panel.classList.remove('open');
-        }, 2200);
-      } catch(err){
-        if(typeof toast === 'function') toast(`Envoi échoué : ${err.message || err}`, 'error');
-      } finally {
-        sending = false;
-        submitBtn.textContent = 'Envoyer';
-        updateSubmit();
-      }
+      };
+
+      // Lancer l'envoi asynchrone + fermer le panel dans 1.2s
+      sendFeedback();
+      setTimeout(() => {
+        formEl.style.display = '';
+        doneEl.style.display = 'none';
+        panel.classList.remove('open');
+      }, 1200);
     });
 
     applyScope();

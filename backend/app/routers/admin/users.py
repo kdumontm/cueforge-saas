@@ -592,3 +592,36 @@ async def delete_user(
         "message": f"Utilisateur {email} supprimé · {stats['tracks']} tracks · {stats['r2_deleted']} fichiers R2",
         **stats,
     }
+
+
+@router.patch("/{user_id}/comp")
+async def toggle_user_comp(
+    user_id: int,
+    is_comp: bool,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Marque un user comme ayant une subscription complimentaire (offerte).
+
+    Les users marqués is_comp=true sont exclus de l'estimation MRR/revenue
+    dans le dashboard admin.
+
+    PATCH /admin/{user_id}/comp?is_comp=true|false
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    user.is_comp = is_comp
+    db.commit()
+    db.refresh(user)
+
+    status_text = "marqué comme offert" if is_comp else "retiré de la liste des offerts"
+    return {
+        "message": f"Utilisateur {user.email} {status_text}",
+        "user_id": user.id,
+        "email": user.email,
+        "is_comp": user.is_comp,
+        "subscription_plan": user.subscription_plan,
+    }
