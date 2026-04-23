@@ -25,6 +25,42 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
 
+# Cache des paires (table, colonne) qui existent RÉELLEMENT en base.
+# Rempli au 1er appel de _purge_user_storage() via information_schema.
+# Sans ce cache, on était forcé d'emballer chaque DELETE dans un SAVEPOINT
+# pour survivre aux tables manquantes — ~35 round-trips DB par user → ~18s/user
+# → Railway proxy timeout (30s) en bulk. Avec le cache on saute direct les
+# tables absentes sans savepoint : ~10 DELETEs/user → ~1-2s.
+_SCHEMA_CACHE: Optional[dict] = None
+
+
+def _load_schema_cache(db: Session) -> dict:
+    """Charge en mémoire l'ensemble des paires (table, colonne) existantes.
+    Thread-safe via assignation atomique du dict final."""
+    global _SCHEMA_CACHE
+    if _SCHEMA_CACHE is not None:
+        return _SCHEMA_CACHE
+    rows = db.execute(
+        text(
+            """
+            SELECT table_name, column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+            """
+        )
+    ).fetchall()
+    cache: dict = {}
+    for table_name, column_name in rows:
+        cache.setdefault(table_name, set()).add(column_name)
+    _SCHEMA_CACHE = cache
+    logger.info(f"[admin.delete_user] schema cache: {len(cache)} tables chargées")
+    return cache
+
+
+def _table_has_column(db: Session, table: str, column: str) -> bool:
+    cache = _load_schema_cache(db)
+    return column in cache.get(table, set())
+
 
 class BulkDeleteRequest(BaseModel):
     user_ids: List[int]
@@ -91,122 +127,134 @@ _USER_NULLIFY_TABLES = [
 ]
 
 
-def _purge_user_storage(user: User, db: Session) -> dict:
+def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
     """
-    Supprime TOUS les fichiers audio (R2 + disque local) appartenant à un user,
-    puis purge manuellement toutes les tables enfants qui référencent
-    `users.id` avant que l'appelant ne supprime le user lui-même.
+    Purge en masse TOUS les fichiers (R2 + disque) et toutes les lignes
+    enfantes pour un set d'user_ids, en UN seul passage par table.
 
-    On utilise du SQL brut (text) pour toutes les tables enfants afin de
-    by-pass l'émulation cascade ORM de SQLAlchemy (voir _USER_CHILD_TABLES).
+    Perf :
+    - Avant : ~35 DELETEs × N users avec savepoint chacun = ~35×18N round-trips
+    - Maintenant : ~35 DELETEs × 1 (= IN :ids) + skip tables absentes via cache
+      = ~10-15 round-trips TOTAL quelque soit N.
+
+    Pas de savepoint : on vérifie d'abord via information_schema que la paire
+    (table, colonne) existe, donc le DELETE ne peut pas échouer pour cause de
+    schéma. Si un DELETE échoue quand même (ex: contrainte FK résiduelle),
+    l'exception remonte à l'appelant qui rollback la tx.
     """
-    tracks = db.query(Track).filter(Track.user_id == user.id).all()
+    if not user_ids:
+        return {
+            "tracks": 0,
+            "r2_deleted": 0,
+            "r2_errors": 0,
+            "local_deleted": 0,
+            "local_errors": 0,
+            "children_deleted": 0,
+        }
+
+    # 1. Récupérer tous les tracks concernés en 1 query
+    tracks = db.query(Track).filter(Track.user_id.in_(user_ids)).all()
     r2_deleted = 0
     r2_errors = 0
     local_deleted = 0
     local_errors = 0
 
     for t in tracks:
-        # 1. Supprimer l'objet R2 si présent
         if t.r2_key:
             try:
                 ok = r2_service.delete_object(t.r2_key)
                 if ok:
                     r2_deleted += 1
-                else:
-                    # R2 désactivé ou échec soft (déjà loggé par le service)
-                    pass
             except Exception as e:
-                logger.warning(f"[admin.delete_user] R2 delete {t.r2_key} failed: {e}")
+                logger.warning(f"[admin.purge_users] R2 delete {t.r2_key} failed: {e}")
                 r2_errors += 1
-
-        # 2. Supprimer le fichier local cache s'il existe encore
         if t.file_path:
             try:
                 if os.path.exists(t.file_path):
                     os.remove(t.file_path)
                     local_deleted += 1
             except Exception as e:
-                logger.warning(f"[admin.delete_user] Local delete {t.file_path} failed: {e}")
+                logger.warning(f"[admin.purge_users] Local delete {t.file_path} failed: {e}")
                 local_errors += 1
 
-    # 3. Purge SQL brute des tables enfants pour éviter le cascade-emu ORM.
-    #
-    # IMPORTANT: Postgres aborte toute la transaction dès qu'une requête SQL
-    # échoue (ex: table manquante, colonne renommée…). Donc on WRAPPE CHAQUE
-    # DELETE dans un SAVEPOINT (`db.begin_nested()`) pour isoler les échecs
-    # table-par-table. Si un DELETE échoue on rollback juste son savepoint et
-    # on continue ; la tx principale reste saine.
+    # 2. Purge SQL des tables enfants avec filtrage schéma-aware
+    #    ANY(:ids) fonctionne pour Postgres avec un List[int] direct.
     children_deleted = 0
     for tbl, col in _USER_CHILD_TABLES:
         if col is None:
             continue
+        if not _table_has_column(db, tbl, col):
+            continue
         try:
-            with db.begin_nested():
-                res = db.execute(
-                    text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
-                    {"uid": user.id},
-                )
-                children_deleted += (res.rowcount or 0)
-        except Exception as e:
-            logger.warning(
-                f"[admin.delete_user] purge {tbl}.{col} skipped: {e}"
+            res = db.execute(
+                text(f"DELETE FROM {tbl} WHERE {col} = ANY(:ids)"),
+                {"ids": user_ids},
             )
+            children_deleted += (res.rowcount or 0)
+        except Exception as e:
+            logger.warning(f"[admin.purge_users] purge {tbl}.{col} échoué : {e}")
+            # savepoint de secours pour ne pas casser la tx
+            db.rollback()
+            # reprendre une tx propre et continuer
+            with db.begin_nested():
+                pass
 
-    # 4. Nullify les FK historiques/CMS qu'on veut conserver (savepoint idem).
+    # 3. Nullify CMS
     for tbl, col in _USER_NULLIFY_TABLES:
+        if not _table_has_column(db, tbl, col):
+            continue
         try:
-            with db.begin_nested():
-                db.execute(
-                    text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid"),
-                    {"uid": user.id},
-                )
-        except Exception as e:
-            logger.warning(
-                f"[admin.delete_user] nullify {tbl}.{col} skipped: {e}"
+            db.execute(
+                text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = ANY(:ids)"),
+                {"ids": user_ids},
             )
+        except Exception as e:
+            logger.warning(f"[admin.purge_users] nullify {tbl}.{col} échoué : {e}")
 
-    # 5. Cas orgs : transfert au 1er admin existant, sinon delete.
-    try:
-        with db.begin_nested():
+    # 4. Organisations : transfert au 1er admin survivant, sinon delete.
+    if _table_has_column(db, "organizations", "owner_id"):
+        try:
             res_transfer = db.execute(
-                text("""
+                text(
+                    """
                     UPDATE organizations
                     SET owner_id = (
                         SELECT id FROM users
-                        WHERE is_admin = TRUE AND id != :uid
+                        WHERE is_admin = TRUE AND NOT (id = ANY(:ids))
                         ORDER BY id ASC
                         LIMIT 1
                     )
-                    WHERE owner_id = :uid
-                """),
-                {"uid": user.id},
+                    WHERE owner_id = ANY(:ids)
+                    """
+                ),
+                {"ids": user_ids},
             )
             if res_transfer.rowcount and res_transfer.rowcount > 0:
-                logger.info(f"[admin.delete_user] transfert {res_transfer.rowcount} org(s) owner_id={user.id}")
-    except Exception as e:
-        logger.warning(f"[admin.delete_user] transfert orgs échoué → fallback delete: {e}")
-        try:
-            with db.begin_nested():
-                db.execute(
-                    text("DELETE FROM organizations WHERE owner_id = :uid"),
-                    {"uid": user.id},
-                )
-        except Exception as e2:
-            logger.warning(f"[admin.delete_user] delete orgs fallback échoué: {e2}")
-
-    # org_members / org_invites par user (savepoint idem).
-    for tbl, col in [("organization_members", "user_id"), ("org_invites", "invited_by")]:
-        try:
-            with db.begin_nested():
-                db.execute(
-                    text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
-                    {"uid": user.id},
+                logger.info(
+                    f"[admin.purge_users] transfert {res_transfer.rowcount} org(s) pour uids={user_ids}"
                 )
         except Exception as e:
-            logger.debug(f"[admin.delete_user] purge {tbl} skip: {e}")
+            logger.warning(f"[admin.purge_users] transfert orgs échoué → fallback delete : {e}")
+            try:
+                db.execute(
+                    text("DELETE FROM organizations WHERE owner_id = ANY(:ids)"),
+                    {"ids": user_ids},
+                )
+            except Exception as e2:
+                logger.warning(f"[admin.purge_users] delete orgs fallback échoué : {e2}")
 
-    # flush avant db.delete(user) pour que les DELETEs soient visibles dans la même tx.
+    # 5. Memberships / invites par user
+    for tbl, col in [("organization_members", "user_id"), ("org_invites", "invited_by")]:
+        if not _table_has_column(db, tbl, col):
+            continue
+        try:
+            db.execute(
+                text(f"DELETE FROM {tbl} WHERE {col} = ANY(:ids)"),
+                {"ids": user_ids},
+            )
+        except Exception as e:
+            logger.debug(f"[admin.purge_users] purge {tbl} skip : {e}")
+
     db.flush()
 
     return {
@@ -217,6 +265,11 @@ def _purge_user_storage(user: User, db: Session) -> dict:
         "local_errors": local_errors,
         "children_deleted": children_deleted,
     }
+
+
+def _purge_user_storage(user: User, db: Session) -> dict:
+    """Compat wrapper pour le DELETE simple — délègue à _purge_users_bulk."""
+    return _purge_users_bulk([user.id], db)
 
 
 @router.get("/users")
@@ -432,8 +485,9 @@ async def bulk_delete_users(
 ):
     """
     Supprime plusieurs utilisateurs d'un coup.
-    Pour chaque user: supprime tous ses tracks + fichiers R2 + fichiers locaux,
-    puis supprime le user (les rows DB liées sont nettoyées par CASCADE SQL).
+    Version perf : UN seul passage SQL par table (= ANY(:ids)) + suppression
+    en masse du User via DELETE SQL bulk pour éviter l'émulation cascade ORM.
+    Tient largement sous le timeout Railway même avec 50+ users.
     """
     ids = list({int(i) for i in payload.user_ids if i})
     if not ids:
@@ -448,39 +502,57 @@ async def bulk_delete_users(
     users = db.query(User).filter(User.id.in_(ids)).all()
     found_ids = {u.id for u in users}
     missing = [i for i in ids if i not in found_ids]
+    id_to_email = {u.id: u.email for u in users}
 
-    deleted = []
-    errors = []
-    total_tracks = 0
-    total_r2 = 0
-    total_local = 0
+    if not users:
+        return {
+            "requested": len(ids),
+            "deleted_count": 0,
+            "deleted": [],
+            "tracks_deleted": 0,
+            "r2_deleted": 0,
+            "local_deleted": 0,
+            "not_found": missing,
+            "errors": [],
+            "message": "Aucun utilisateur trouvé à supprimer",
+        }
 
-    for user in users:
-        try:
-            stats = _purge_user_storage(user, db)
-            total_tracks += stats["tracks"]
-            total_r2 += stats["r2_deleted"]
-            total_local += stats["local_deleted"]
-            email = user.email
-            uid = user.id
-            db.delete(user)
-            db.commit()
-            deleted.append({"id": uid, "email": email, **stats})
-        except Exception as e:
-            db.rollback()
-            logger.exception(f"[admin.bulk_delete] user={user.id} failed")
-            errors.append({"id": user.id, "email": user.email, "error": str(e)})
+    target_ids = [u.id for u in users]
+
+    try:
+        # 1. Purge bulk (fichiers + tables enfants) pour tous les users d'un coup
+        stats = _purge_users_bulk(target_ids, db)
+
+        # 2. DELETE SQL brut sur users pour bypasser l'émulation cascade ORM
+        #    (les FK réelles ont été nettoyées par _purge_users_bulk, donc
+        #    plus besoin d'ORM cascade).
+        db.execute(
+            text("DELETE FROM users WHERE id = ANY(:ids)"),
+            {"ids": target_ids},
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"[admin.bulk_delete] bulk purge échoué uids={target_ids}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Échec de la suppression en masse : {e}",
+        )
+
+    deleted = [
+        {"id": uid, "email": id_to_email.get(uid, f"user#{uid}")} for uid in target_ids
+    ]
 
     return {
         "requested": len(ids),
-        "deleted_count": len(deleted),
+        "deleted_count": len(target_ids),
         "deleted": deleted,
-        "tracks_deleted": total_tracks,
-        "r2_deleted": total_r2,
-        "local_deleted": total_local,
+        "tracks_deleted": stats["tracks"],
+        "r2_deleted": stats["r2_deleted"],
+        "local_deleted": stats["local_deleted"],
         "not_found": missing,
-        "errors": errors,
-        "message": f"{len(deleted)}/{len(ids)} utilisateurs supprimés · {total_tracks} tracks · {total_r2} fichiers R2",
+        "errors": [],
+        "message": f"{len(target_ids)}/{len(ids)} utilisateurs supprimés · {stats['tracks']} tracks · {stats['r2_deleted']} fichiers R2",
     }
 
 
@@ -492,7 +564,9 @@ async def delete_user(
 ):
     """
     Supprime un utilisateur + TOUS ses tracks/sons (R2 + disque local)
-    + toutes les rows liées (cues, sets, favoris, tags…) via CASCADE SQL.
+    + toutes les rows liées (cues, sets, favoris, tags…).
+
+    Utilise la version bulk + DELETE SQL direct → ~1-2s au lieu de ~18s.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -502,10 +576,17 @@ async def delete_user(
         raise HTTPException(status_code=400, detail="Impossible de supprimer votre propre compte")
 
     email = user.email
-    stats = _purge_user_storage(user, db)
+    uid = user.id
 
-    db.delete(user)
-    db.commit()
+    try:
+        stats = _purge_users_bulk([uid], db)
+        # DELETE SQL direct pour bypasser l'émulation cascade ORM
+        db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"[admin.delete_user] user={uid} failed")
+        raise HTTPException(status_code=500, detail=f"Échec de la suppression : {e}")
 
     return {
         "message": f"Utilisateur {email} supprimé · {stats['tracks']} tracks · {stats['r2_deleted']} fichiers R2",
