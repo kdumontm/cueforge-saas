@@ -737,13 +737,27 @@ document.getElementById('btn-export-csv').addEventListener('click', ()=> exportC
       try {
         const res = await api.post('/tracks/purge-all-mine', {});
         const n = res?.deleted_count ?? 0;
-        toast(`${n} track${n>1?'s':''} supprimé${n>1?'s':''}`, 'info');
-        selectAll(false);
-        loadCounts();
-        load();
+        if(n === 0){
+          toast('Aucun track à supprimer', 'info');
+          purgeBtn.disabled = false;
+          purgeBtn.innerHTML = oldText;
+          return;
+        }
+        toast(`${n} track${n>1?'s':''} supprimé${n>1?'s':''} — rechargement…`, 'info');
+        // 🔴 Purge TOUS les caches navigateur (SW + HTTP) pour éviter que
+        // l'utilisateur voie encore les anciens tracks affichés en cache.
+        try {
+          if('caches' in window){
+            const names = await caches.keys();
+            await Promise.all(names.map(n => caches.delete(n)));
+          }
+        } catch(_){}
+        // Hard reload — bypass le cache HTTP aussi
+        setTimeout(() => {
+          location.href = '/library?_purged=' + Date.now();
+        }, 700);
       } catch(err){
         toast('Erreur: '+(err?.message || err), 'warn');
-      } finally {
         purgeBtn.disabled = false;
         purgeBtn.innerHTML = oldText;
       }
