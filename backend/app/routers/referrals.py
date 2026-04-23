@@ -176,17 +176,27 @@ async def invite_by_email(
     # Récupérer ou créer le code de parrainage
     code = _get_or_create_referral_code(db, user.id)
 
-    # Créer une nouvelle entrée Referral pour cette invitation
-    referral = Referral(
-        referrer_id=user.id,
-        referral_code=code,
-        referred_email=body.email,
-        status=ReferralStatus.pending,
-    )
-    db.add(referral)
-    db.commit()
+    # Vérifier si une invitation pour cet email existe déjà
+    existing = db.query(Referral).filter(
+        Referral.referrer_id == user.id,
+        Referral.referred_email == body.email,
+    ).first()
 
-    # Envoyer l'email
+    if existing:
+        # Réinviter : mettre à jour le status si needed
+        referral = existing
+    else:
+        # Créer une nouvelle entrée Referral pour cette invitation
+        referral = Referral(
+            referrer_id=user.id,
+            referral_code=code,
+            referred_email=body.email,
+            status=ReferralStatus.pending,
+        )
+        db.add(referral)
+        db.commit()
+
+    # Envoyer l'email (défensif : tolère les erreurs SMTP)
     referral_link = f"{FRONTEND_URL}/register?ref={code}"
     html = f"""
     <p>Salut ! 👋</p>
@@ -201,16 +211,24 @@ async def invite_by_email(
         Lien d'invitation : {referral_link}
     </p>
     """
-    _send_email(
-        body.email,
-        "Vous êtes invité à rejoindre TrackCue",
-        html
-    )
+    try:
+        _send_email(
+            body.email,
+            "Vous êtes invité à rejoindre TrackCue",
+            html
+        )
+        email_sent = True
+    except Exception as e:
+        # Si le service SMTP n'est pas configuré, on continue quand même
+        # L'invitation est enregistrée en DB, l'user peut partager le lien manuellement
+        email_sent = False
 
     return {
         "success": True,
-        "message": f"Invitation envoyée à {body.email}",
+        "message": f"Invitation {'envoyée' if email_sent else 'créée'} pour {body.email}",
         "referral_code": code,
+        "referral_link": referral_link,
+        "email_sent": email_sent,
     }
 
 
