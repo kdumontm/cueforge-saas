@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
-<link rel="preload" href="/v4/api.js?v=20260422e" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260422e" as="script">
+<link rel="preload" href="/v4/api.js?v=20260423f" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423f" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -363,15 +363,15 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Users <span class="count" id="nav-users-count">—</span>
       </a>
-      <a href="/admin/organizations" data-sec="orgs">
+      <a href="#orgs" data-sec="orgs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         Organisations <span class="count" id="nav-orgs-count">—</span>
       </a>
-      <a href="/admin/tracks" data-sec="tracks">
+      <a href="#tracks" data-sec="tracks">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         Tracks <span class="count" id="nav-tracks-count">—</span>
       </a>
-      <a href="/admin/subscriptions" data-sec="subs">
+      <a href="#subs" data-sec="subs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
         Subscriptions <span class="count" id="nav-subs-count">—</span>
       </a>
@@ -389,11 +389,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
         Intégrations
       </a>
-      <a href="/admin/feature-flags" data-sec="flags">
+      <a href="#flags" data-sec="flags">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg>
         Feature flags
       </a>
-      <a href="/admin/webhooks" data-sec="wh">
+      <a href="#wh" data-sec="wh">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 17l-3-3m0 0 3-3m-3 3h6M6 17l-3-3m0 0 3-3m-3 3h6M9 3v18"/></svg>
         Webhooks
       </a>
@@ -403,21 +403,21 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
         Audit log
       </a>
-      <a href="/admin/impersonation" data-sec="imp">
+      <a href="#imp" data-sec="imp">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Impersonation
       </a>
-      <a href="/admin/data-cleanup" data-sec="dsr">
+      <a href="#dsr" data-sec="dsr">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         DSR · RGPD
       </a>
 
       <div class="grp">Support</div>
-      <a href="/admin/feedbacks" data-sec="fb">
+      <a href="#fb" data-sec="fb">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Feedback <span class="count" id="nav-feedback-count">—</span>
       </a>
-      <a href="/admin/changelog" data-sec="cl">
+      <a href="#cl" data-sec="cl">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
         Changelog
       </a>
@@ -585,13 +585,138 @@
         </table>
       </div>
 
+      <!-- ORGS -->
+      <div id="orgs" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Organisations</div>
+            <div class="card-sub" id="orgs-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>Nom</th><th>Plan</th><th>Owner</th><th>Membres</th><th>Créée</th></tr></thead>
+          <tbody id="orgs-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- TRACKS -->
+      <div id="tracks" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Tracks · catalogue global</div>
+            <div class="card-sub" id="tracks-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>Titre</th><th>Artiste</th><th>User</th><th>Status</th><th>BPM</th><th>Uploadé</th></tr></thead>
+          <tbody id="tracks-body"><tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- SUBSCRIPTIONS -->
+      <div id="subs" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Subscriptions · abonnements actifs</div>
+            <div class="card-sub" id="subs-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>User</th><th>Plan</th><th>Status</th><th>Stripe sub</th><th>Créé</th></tr></thead>
+          <tbody id="subs-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- FEATURE FLAGS -->
+      <div id="flags" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Feature flags</div>
+            <div class="card-sub" id="flags-card-sub">Bascule des features globales</div>
+          </div>
+        </div>
+        <div id="flags-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;padding:4px"></div>
+      </div>
+
+      <!-- WEBHOOKS -->
+      <div id="wh" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Webhooks · endpoints enregistrés</div>
+            <div class="card-sub" id="wh-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>URL</th><th>Events</th><th>Status</th><th>User</th><th>Créé</th></tr></thead>
+          <tbody id="wh-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- IMPERSONATION -->
+      <div id="imp" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Impersonation · historique</div>
+            <div class="card-sub" id="imp-card-sub">Sessions d'emprunt d'identité</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Admin</th><th>User cible</th><th>Raison</th><th>Début</th><th>Fin</th><th>Status</th></tr></thead>
+          <tbody id="imp-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- DSR -->
+      <div id="dsr" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">DSR · RGPD</div>
+            <div class="card-sub">Data Subject Requests (export, rectification, suppression)</div>
+          </div>
+        </div>
+        <div style="padding:20px;color:var(--c-tertiary);font-size:13px;line-height:1.6">
+          <p>Pour traiter une demande RGPD :</p>
+          <ol style="margin:12px 0 12px 20px">
+            <li>Export des données d'un user → <code>GET /api/v1/admin/data-cleanup/export/{user_id}</code></li>
+            <li>Suppression complète du compte → <code>DELETE /api/v1/admin/users/{user_id}</code> (purge sons R2 + DB)</li>
+            <li>Rectification → via édition user dans la section <a href="#users" style="color:var(--a-cyan)">Users</a></li>
+          </ol>
+          <p style="margin-top:16px">Les actions RGPD sont tracées dans l'<a href="#audit" style="color:var(--a-cyan)">audit log</a>.</p>
+        </div>
+      </div>
+
+      <!-- FEEDBACK -->
+      <div id="fb" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Feedback utilisateurs</div>
+            <div class="card-sub" id="fb-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>User</th><th>Type</th><th>Message</th><th>Status</th><th>Reçu</th></tr></thead>
+          <tbody id="fb-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- CHANGELOG -->
+      <div id="cl" class="card reveal" style="display:none">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Changelog</div>
+            <div class="card-sub" id="cl-card-sub">Chargement…</div>
+          </div>
+        </div>
+        <div id="cl-list" style="padding:4px"></div>
+      </div>
+
     </section>
   </div>
 
 </main>
 
-<script src="/v4/api.js?v=20260423e"></script>
-<script src="/v4/shared.js?v=20260423e"></script>
+<script src="/v4/api.js?v=20260423f"></script>
+<script src="/v4/shared.js?v=20260423f"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1282,13 +1407,333 @@
     }
   });
 
-  // Admin nav active
+  // ═══════════════════════════════════════════════════════════════════
+  // Admin nav — tabs system (2026-04-23)
+  //
+  // La sidebar pilote désormais l'affichage des sections. Avant,
+  // certains liens (orgs, tracks, subs, flags, wh, imp, dsr, fb, cl)
+  // partaient vers des pages Next.js /admin/* à l'ancien design.
+  // Maintenant on reste dans /v4/admin.html et on bascule les cards.
+  //
+  // Sections "overview" (users/health/jobs/int/audit + KPIs) =
+  //   toujours visibles ensemble (vue dashboard classique).
+  // Sections "solo" (orgs/tracks/subs/flags/wh/imp/dsr/fb/cl) =
+  //   une à la fois, overview cachée.
+  // ═══════════════════════════════════════════════════════════════════
+  const OVERVIEW_SECS = new Set(['users', 'health', 'jobs', 'int', 'audit']);
+  const SOLO_SEC_IDS = {
+    orgs:   'orgs',
+    tracks: 'tracks',
+    subs:   'subs',
+    flags:  'flags',
+    wh:     'wh',
+    imp:    'imp',
+    dsr:    'dsr',
+    fb:     'fb',
+    cl:     'cl',
+  };
+  // Cards qui composent la vue "overview" (ordre d'affichage = ordre DOM).
+  const OVERVIEW_CARD_IDS = ['users', 'health', 'alerts', 'jobs', 'revenue', 'integrations', 'audit'];
+  // Toutes les cards de admin-main (pour hide/show global)
+  const ALL_MAIN_CARDS = [...OVERVIEW_CARD_IDS, ...Object.values(SOLO_SEC_IDS)];
+
+  // KPI row (4 tuiles en haut) — visible sur overview, caché sur solo.
+  const kpiRowEl = document.querySelector('.kpi-row');
+  // Page head (titre + actions) — visible partout pour rester cohérent.
+
+  function showSection(sec){
+    // Toggle active dans la sidebar
+    document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
+    const a = document.querySelector(`.admin-nav a[data-sec="${sec}"]`);
+    if(a) a.classList.add('active');
+
+    const isOverview = OVERVIEW_SECS.has(sec);
+
+    // KPI row — affichée seulement en overview
+    if(kpiRowEl) kpiRowEl.style.display = isOverview ? '' : 'none';
+
+    // Hide all cards
+    ALL_MAIN_CARDS.forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+
+    if(isOverview){
+      // Affiche toutes les cards overview
+      OVERVIEW_CARD_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = '';
+      });
+      // Scroll vers la section spécifique dans l'overview
+      const target = document.getElementById(sec === 'int' ? 'integrations' : sec);
+      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    } else {
+      // Affiche juste la card solo
+      const soloId = SOLO_SEC_IDS[sec];
+      if(soloId){
+        const el = document.getElementById(soloId);
+        if(el){
+          el.style.display = '';
+          el.scrollIntoView({behavior:'smooth', block:'start'});
+        }
+        // Lazy load des données
+        lazyLoadSolo(sec);
+      }
+    }
+  }
+
+  // Cache les sections déjà chargées pour éviter de refetch à chaque clic.
+  const _loadedSolos = new Set();
+  async function lazyLoadSolo(sec){
+    if(_loadedSolos.has(sec)) return;
+    _loadedSolos.add(sec);
+    try {
+      if(sec === 'orgs')   await loadOrgs();
+      else if(sec === 'tracks') await loadTracks();
+      else if(sec === 'subs')   await loadSubs();
+      else if(sec === 'flags')  await loadFlags();
+      else if(sec === 'wh')     await loadWebhooks();
+      else if(sec === 'imp')    await loadImpersonation();
+      else if(sec === 'fb')     await loadFeedback();
+      else if(sec === 'cl')     await loadChangelog();
+      // 'dsr' = contenu statique, pas de chargement
+    } catch(err){
+      // Force re-load au prochain clic
+      _loadedSolos.delete(sec);
+      if(typeof toast === 'function') toast(`Chargement ${sec} échoué : ${err.message}`, 'error');
+    }
+  }
+
+  // ===== Loaders par section =====
+  async function loadOrgs(){
+    const body = document.getElementById('orgs-body');
+    const sub = document.getElementById('orgs-card-sub');
+    try {
+      const r = await api.get('/admin/organizations?limit=100');
+      const items = r.organizations || r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} organisation(s)`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucune organisation</td></tr>`
+          : items.map(o => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${o.id}</td>
+                <td><b>${escapeHtml(o.name || '—')}</b></td>
+                <td>${planPill(o.plan || 'free')}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${o.owner_id ?? '—'}</td>
+                <td>${o.member_count ?? '—'}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(o.created_at)}</td>
+              </tr>
+            `).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadTracks(){
+    const body = document.getElementById('tracks-body');
+    const sub = document.getElementById('tracks-card-sub');
+    try {
+      const r = await api.get('/admin/tracks?limit=100&sort=date');
+      const items = r.tracks || r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} track(s) · 100 plus récents`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun track</td></tr>`
+          : items.map(t => {
+              const statusCls = t.status === 'completed' || t.status === 'analyzed' ? 'green'
+                             : t.status === 'failed' ? '' : 'trial';
+              return `
+                <tr>
+                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${t.id}</td>
+                  <td><b>${escapeHtml(t.title || t.filename || '—')}</b></td>
+                  <td>${escapeHtml(t.artist || '—')}</td>
+                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${t.user_id ?? '—'}</td>
+                  <td><span class="plan-pill ${statusCls}">${escapeHtml(t.status || '—')}</span></td>
+                  <td style="font-family:var(--font-mono);font-size:12px">${t.bpm ? Math.round(t.bpm) : '—'}</td>
+                  <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(t.created_at)}</td>
+                </tr>
+              `;
+            }).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadSubs(){
+    const body = document.getElementById('subs-body');
+    const sub = document.getElementById('subs-card-sub');
+    try {
+      const r = await api.get('/admin/subscriptions?limit=100');
+      const items = r.subscriptions || r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} abonnement(s)`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun abonnement</td></tr>`
+          : items.map(s => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${s.id}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${s.user_id ?? '—'}</td>
+                <td>${planPill(s.plan || 'free')}</td>
+                <td><span class="plan-pill ${s.status === 'active' ? 'green' : 'trial'}">${escapeHtml(s.status || '—')}</span></td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--c-tertiary)">${escapeHtml(s.stripe_subscription_id || '—')}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(s.created_at)}</td>
+              </tr>
+            `).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadFlags(){
+    const grid = document.getElementById('flags-grid');
+    const sub = document.getElementById('flags-card-sub');
+    try {
+      const r = await api.get('/admin/feature-flags');
+      // r est un dict plat : { flag_name: bool, ... }
+      const entries = Object.entries(r).filter(([k,v]) => typeof v === 'boolean');
+      if(sub) sub.textContent = `${entries.length} flag(s)`;
+      if(grid){
+        grid.innerHTML = entries.length === 0
+          ? `<div style="grid-column:1/-1;padding:20px;color:var(--c-tertiary);text-align:center">Aucun flag</div>`
+          : entries.map(([k,v]) => `
+              <div class="int-cell ${v ? 'on' : 'off'}">
+                <div class="hd"><span class="nm" style="font-family:var(--font-mono);font-size:12px">${escapeHtml(k)}</span><span class="dot"></span></div>
+                <div class="sub">${v ? 'Activé' : 'Désactivé'}</div>
+              </div>
+            `).join('');
+      }
+    } catch(err){
+      if(grid) grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;color:var(--pink);text-align:center">Erreur : ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadWebhooks(){
+    const body = document.getElementById('wh-body');
+    const sub = document.getElementById('wh-card-sub');
+    try {
+      const r = await api.get('/admin/webhooks?limit=100');
+      const items = r.webhooks || r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} webhook(s)`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun webhook</td></tr>`
+          : items.map(w => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${w.id}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(w.url || '')}">${escapeHtml(w.url || '—')}</td>
+                <td style="font-family:var(--font-mono);font-size:10px">${escapeHtml(Array.isArray(w.events) ? w.events.join(', ') : (w.events || '—'))}</td>
+                <td><span class="plan-pill ${w.is_active ? 'green' : ''}">${w.is_active ? 'Actif' : 'Inactif'}</span></td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${w.user_id ?? '—'}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(w.created_at)}</td>
+              </tr>
+            `).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadImpersonation(){
+    const body = document.getElementById('imp-body');
+    const sub = document.getElementById('imp-card-sub');
+    try {
+      const r = await api.get('/admin/impersonation-logs?limit=100');
+      // /admin/impersonation-logs retourne un ARRAY brut (pas un dict)
+      const items = Array.isArray(r) ? r : (r.items || []);
+      if(sub) sub.textContent = `${items.length} session(s) · ${items.filter(i => i.is_active).length} active(s)`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucune session</td></tr>`
+          : items.map(i => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${i.admin_id ?? '—'}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${i.user_id ?? '—'}</td>
+                <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(i.reason || '')}">${escapeHtml(i.reason || '—')}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(i.started_at)}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${i.ended_at ? fmtSignup(i.ended_at) : '—'}</td>
+                <td><span class="plan-pill ${i.is_active ? 'trial' : ''}">${i.is_active ? 'Actif' : 'Terminé'}</span></td>
+              </tr>
+            `).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadFeedback(){
+    const body = document.getElementById('fb-body');
+    const sub = document.getElementById('fb-card-sub');
+    try {
+      const r = await api.get('/admin/feedbacks?limit=100');
+      const items = r.feedbacks || r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} feedback(s)`;
+      if(body){
+        body.innerHTML = items.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun feedback</td></tr>`
+          : items.map(f => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${f.id}</td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${f.user_id ? '#'+f.user_id : 'anon'}</td>
+                <td>${escapeHtml(f.type || f.category || '—')}</td>
+                <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(f.message || '')}">${escapeHtml(f.message || '—')}</td>
+                <td><span class="plan-pill ${f.status === 'new' ? 'trial' : ''}">${escapeHtml(f.status || '—')}</span></td>
+                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(f.created_at)}</td>
+              </tr>
+            `).join('');
+      }
+    } catch(err){
+      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  async function loadChangelog(){
+    const list = document.getElementById('cl-list');
+    const sub = document.getElementById('cl-card-sub');
+    try {
+      const r = await api.get('/admin/changelog?limit=50');
+      const items = r.items || [];
+      if(sub) sub.textContent = `${r.total ?? items.length} entrée(s)`;
+      if(list){
+        list.innerHTML = items.length === 0
+          ? `<div style="padding:20px;color:var(--c-tertiary);text-align:center">Aucune entrée</div>`
+          : items.map(e => `
+              <div style="padding:14px 16px;border-bottom:1px solid var(--b-default);display:flex;gap:16px;align-items:flex-start">
+                <span class="plan-pill" style="flex-shrink:0;min-width:60px;text-align:center">${escapeHtml(e.version || '—')}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:13px;color:var(--c-primary);margin-bottom:4px">${escapeHtml(e.title || '—')}</div>
+                  <div style="font-size:12px;color:var(--c-secondary);white-space:pre-wrap">${escapeHtml(e.description || e.body || '')}</div>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);flex-shrink:0">${fmtSignup(e.released_at || e.created_at)}</span>
+              </div>
+            `).join('');
+      }
+    } catch(err){
+      if(list) list.innerHTML = `<div style="padding:20px;color:var(--pink);text-align:center">Erreur : ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // Click handler sidebar
   document.querySelectorAll('.admin-nav a').forEach(a => {
     a.addEventListener('click', e => {
-      document.querySelectorAll('.admin-nav a').forEach(x => x.classList.remove('active'));
-      a.classList.add('active');
+      const sec = a.dataset.sec;
+      if(!sec) return;
+      e.preventDefault();
+      showSection(sec);
+      // Met à jour la URL avec le hash sans recharger
+      history.replaceState(null, '', '#' + sec);
     });
   });
+
+  // Au chargement : si un hash est présent dans la URL, l'ouvrir directement.
+  const initialHash = (location.hash || '').replace(/^#/, '');
+  const initialSec = Object.keys(SOLO_SEC_IDS).includes(initialHash) || OVERVIEW_SECS.has(initialHash)
+    ? initialHash
+    : 'users';
+  showSection(initialSec);
 
   // Search (debounced)
   const searchInput = document.querySelector('.tb-search input');
