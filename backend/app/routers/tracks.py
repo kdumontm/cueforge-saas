@@ -2373,15 +2373,31 @@ def delete_track(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Delete file from disk
-    if track.file_path and os.path.exists(track.file_path):
+    # 🔴 Fix #139 : duplicate_track partage file_path et r2_key avec l'original.
+    # Avant d'effacer le binaire, vérifier qu'AUCUN autre Track (même user ou non)
+    # ne référence le même fichier — sinon on casserait le track original.
+    shared_local = False
+    shared_r2 = False
+    if track.file_path:
+        shared_local = db.query(Track.id).filter(
+            Track.file_path == track.file_path,
+            Track.id != track.id,
+        ).first() is not None
+    if track.r2_key:
+        shared_r2 = db.query(Track.id).filter(
+            Track.r2_key == track.r2_key,
+            Track.id != track.id,
+        ).first() is not None
+
+    # Delete file from disk (seulement si pas partagé par un duplicate)
+    if track.file_path and not shared_local and os.path.exists(track.file_path):
         try:
             os.remove(track.file_path)
         except OSError:
             pass
 
-    # Delete from R2 si le track y est copié
-    if track.r2_key:
+    # Delete from R2 si le track y est copié (seulement si pas partagé)
+    if track.r2_key and not shared_r2:
         try:
             from app.services import r2_service
             if r2_service.enabled():
@@ -2470,13 +2486,36 @@ def batch_delete_tracks(
     except Exception:
         r2_service = None  # type: ignore
         r2_on = False
+
+    # 🔴 Fix #139 : même logique anti-partage que DELETE /{track_id}.
+    # On doit vérifier globalement si d'autres tracks (hors le batch) partagent
+    # le file_path / r2_key. On fait un seul query grouped pour éviter N requêtes.
+    batch_ids = set(deleted_ids)
+    paths_to_check = {t.file_path for t in tracks if t.file_path}
+    keys_to_check = {t.r2_key for t in tracks if t.r2_key}
+
+    shared_paths: set[str] = set()
+    shared_keys: set[str] = set()
+    if paths_to_check:
+        rows = db.query(Track.file_path).filter(
+            Track.file_path.in_(paths_to_check),
+            Track.id.notin_(batch_ids),
+        ).all()
+        shared_paths = {r[0] for r in rows if r[0]}
+    if keys_to_check:
+        rows = db.query(Track.r2_key).filter(
+            Track.r2_key.in_(keys_to_check),
+            Track.id.notin_(batch_ids),
+        ).all()
+        shared_keys = {r[0] for r in rows if r[0]}
+
     for track in tracks:
-        if track.file_path and os.path.exists(track.file_path):
+        if track.file_path and track.file_path not in shared_paths and os.path.exists(track.file_path):
             try:
                 os.remove(track.file_path)
             except OSError:
                 pass
-        if r2_on and track.r2_key:
+        if r2_on and track.r2_key and track.r2_key not in shared_keys:
             try:
                 r2_service.delete_object(track.r2_key)
             except Exception:
