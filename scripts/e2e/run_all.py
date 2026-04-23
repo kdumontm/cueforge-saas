@@ -59,8 +59,22 @@ SUITES_ORDER = [
     ("hot_cues",  "scripts.e2e.test_hot_cues"),
     ("sharing",   "scripts.e2e.test_sharing"),
     ("compare",   "scripts.e2e.test_compare"),
-    # Admin last
-    ("admin",     "scripts.e2e.test_admin"),
+    # P2 — security
+    ("negative",    "scripts.e2e.test_negative"),
+    ("permissions", "scripts.e2e.test_permissions"),
+    ("quota",       "scripts.e2e.test_quota"),
+    ("rate_limit",  "scripts.e2e.test_rate_limit"),
+    # P3 — audio avancé
+    ("audio_advanced", "scripts.e2e.test_audio_advanced"),
+    ("fingerprint",    "scripts.e2e.test_fingerprint"),
+    ("recommendation", "scripts.e2e.test_recommendation"),
+    # P4 — account
+    ("account",     "scripts.e2e.test_account"),
+    # P6 — flows bout-en-bout
+    ("flows",       "scripts.e2e.test_flows"),
+    # Admin (core + extended)
+    ("admin",           "scripts.e2e.test_admin"),
+    ("admin_extended",  "scripts.e2e.test_admin_extended"),
 ]
 
 
