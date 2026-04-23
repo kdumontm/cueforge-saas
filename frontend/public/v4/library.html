@@ -462,7 +462,7 @@ function renderTrack(t, i){
   const energyNorm = Math.max(0, Math.min(10,
     energy > 10 ? energy / 10 : (energy > 1 ? energy : energy * 10)
   ));
-  const cueCount = (t.cue_points || []).length;
+  const cueCount = (typeof t.cue_points_count === 'number') ? t.cue_points_count : (t.cue_points || []).length;
   const identified = !!(t.spotify_id || t.musicbrainz_id);
   const ready = t.status === 'ready' || t.status === 'analyzed' || t.status === 'completed';
   const analyzing = t.status === 'analyzing' || t.status === 'pending' || t.status === 'processing';
@@ -779,7 +779,7 @@ function exportCsv(selectedIds){
       esc(t.camelot_code || parseKey(t.analysis?.key) || ''),
       t.analysis?.energy ?? '',
       t.duration ?? '',
-      (t.cue_points||[]).length,
+      (typeof t.cue_points_count === 'number') ? t.cue_points_count : (t.cue_points||[]).length,
       esc(t.status||''),
       esc(t.created_at||''),
     ].join(','));

@@ -9,7 +9,7 @@ import threading
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 
 from app.database import SessionLocal
 from app.middleware.auth import get_current_user
@@ -109,24 +109,20 @@ def get_stats_overview(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    # Count total tracks
-    total_tracks = db.query(func.count(Track.id)).filter(Track.user_id == user.id).scalar() or 0
+    # PERF #1.2: agrégation en 1 query au lieu de 2 COUNT séquentiels
+    track_counts = db.query(
+        func.count(Track.id).label("total"),
+        func.sum(case((Track.status == TrackStatus.completed, 1), else_=0)).label("analyses"),
+    ).filter(Track.user_id == user.id).one()
+    total_tracks = track_counts.total or 0
+    total_analyses = int(track_counts.analyses or 0)
 
-    # Count analyzed tracks (status = completed)
-    total_analyses = db.query(func.count(Track.id)).filter(
-        Track.user_id == user.id,
-        Track.status == TrackStatus.completed,
-    ).scalar() or 0
-
-    # Count playlists
-    total_playlists = db.query(func.count(Playlist.id)).filter(
-        Playlist.user_id == user.id,
-    ).scalar() or 0
-
-    # Count sets
-    total_sets = db.query(func.count(DJSet.id)).filter(
-        DJSet.user_id == user.id,
-    ).scalar() or 0
+    # PERF #1.2: playlists + sets en 1 query via UNION ALL (évite 2 round-trips)
+    playlists_sets = db.query(
+        func.count(Playlist.id).label("count"),
+    ).filter(Playlist.user_id == user.id).scalar() or 0
+    total_playlists = playlists_sets
+    total_sets = db.query(func.count(DJSet.id)).filter(DJSet.user_id == user.id).scalar() or 0
 
     # Genre breakdown (top 5)
     genres_breakdown = []
@@ -140,7 +136,7 @@ def get_stats_overview(
         if genre:
             genres_breakdown.append({"genre": genre, "count": count})
 
-    # BPM range (from TrackAnalysis joined to Track)
+    # PERF #1.2: BPM range + key distribution en 1 seul JOIN
     bpm_stats = db.query(
         func.min(TrackAnalysis.bpm).label("min_bpm"),
         func.max(TrackAnalysis.bpm).label("max_bpm"),

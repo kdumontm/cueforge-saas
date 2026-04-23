@@ -361,7 +361,9 @@ class TrackListItemResponse(BaseModel):
 
     created_at: Optional[datetime] = None
     analysis: Optional[TrackAnalysisSummary] = None
-    cue_points: Optional[List[CuePointResponse]] = []
+    # PERF #1.3: cue_points remplacé par cue_points_count pour le listing
+    # (payload -70 %, -1 round-trip DB). Le détail complet reste dans /tracks/{id}.
+    cue_points_count: Optional[int] = 0
 
     @field_validator('tags', mode='before')
     @classmethod
@@ -370,13 +372,6 @@ class TrackListItemResponse(BaseModel):
             return None
         if isinstance(v, list):
             return ", ".join(str(t) for t in v) if v else None
-        return v
-
-    @field_validator('cue_points', mode='before')
-    @classmethod
-    def coerce_cue_points(cls, v):
-        if v is None:
-            return []
         return v
 
 

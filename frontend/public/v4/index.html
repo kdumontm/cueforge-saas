@@ -429,7 +429,8 @@ function relTime(iso){
   let totalCues = 0;
   if(tracks && Array.isArray(tracks.tracks)){
     tracks.tracks.forEach(t => {
-      if(Array.isArray(t.cue_points)) totalCues += t.cue_points.length;
+      if(typeof t.cue_points_count === 'number') totalCues += t.cue_points_count;
+      else if(Array.isArray(t.cue_points)) totalCues += t.cue_points.length;
     });
   }
   document.getElementById('kpi-tracks').textContent = total.toLocaleString('fr-FR');

@@ -1920,9 +1920,9 @@ def list_tracks(
     total = q.with_entities(func.count(func.distinct(Track.id))).scalar() or 0
 
     # ⚡ NOW add eager loading to the same filtered query
+    # PERF #1.3: plus de selectinload(Track.cue_points) — on compte via une agrégation.
     q = q.options(
         selectinload(Track.analysis),
-        selectinload(Track.cue_points),
         selectinload(Track.track_tags),
     )
 
@@ -1952,6 +1952,21 @@ def list_tracks(
 
     offset = (page - 1) * limit
     tracks = q.offset(offset).limit(limit).all()
+
+    # PERF #1.3: cue_points_count via agrégation (1 query groupée au lieu de selectinload)
+    from app.models.track import CuePoint
+    cue_counts_map = {}
+    if tracks:
+        track_ids = [t.id for t in tracks]
+        cue_rows = (
+            db.query(CuePoint.track_id, func.count(CuePoint.id))
+            .filter(CuePoint.track_id.in_(track_ids))
+            .group_by(CuePoint.track_id)
+            .all()
+        )
+        cue_counts_map = {tid: cnt for tid, cnt in cue_rows}
+    for t in tracks:
+        t.cue_points_count = cue_counts_map.get(t.id, 0)
 
     # ⚡ Utilise TrackListItemResponse (sans waveform/spectral/beats/loop_markers)
     from app.schemas.track import TrackListItemResponse

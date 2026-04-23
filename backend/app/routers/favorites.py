@@ -62,8 +62,11 @@ async def get_favorites(
     le POST/check voyaient bien la row.
     """
     from sqlalchemy.orm import selectinload
+    from sqlalchemy import func
+    from app.models.track import CuePoint
 
     # JOIN direct entre Favorite et Track pour garantir cohérence
+    # PERF #1.3: plus de selectinload(cue_points) — on compte via un GROUP BY.
     rows = (
         db.query(Track, Favorite.created_at)
         .join(Favorite, Favorite.track_id == Track.id)
@@ -73,24 +76,29 @@ async def get_favorites(
         )
         .options(
             selectinload(Track.analysis),
-            selectinload(Track.cue_points),
             selectinload(Track.track_tags),
         )
         .order_by(Favorite.created_at.desc())
         .all()
     )
 
+    # Count cue_points en 1 query agrégée (au lieu de N selectinload)
+    track_ids = [t.id for t, _ in rows]
+    cue_counts_map = {}
+    if track_ids:
+        cue_rows = (
+            db.query(CuePoint.track_id, func.count(CuePoint.id))
+            .filter(CuePoint.track_id.in_(track_ids))
+            .group_by(CuePoint.track_id)
+            .all()
+        )
+        cue_counts_map = {tid: cnt for tid, cnt in cue_rows}
+
     # Utilise TrackListItemResponse pour garantir la même shape que /tracks
-    # (analysis nested, status, cue_points count, etc.) → évite le bug "—" partout
-    # dans /v4/library sur la vue Favoris (le front lit t.analysis.bpm/key/energy).
     tracks_data = []
     for track, favorited_at in rows:
+        track.cue_points_count = cue_counts_map.get(track.id, 0)
         item = TrackListItemResponse.model_validate(track).model_dump(mode='json')
-        # Le front compte (t.cue_points || []).length pour la barre des cues → fournir la liste
-        item['cue_points'] = [
-            {'id': cp.id, 'position_ms': cp.position_ms}
-            for cp in (track.cue_points or [])
-        ]
         item['favorited_at'] = favorited_at.isoformat() if favorited_at else None
         tracks_data.append(item)
 

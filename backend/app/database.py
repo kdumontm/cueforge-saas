@@ -43,9 +43,11 @@ def _create_engine_with_retry(url: str, max_retries: int = 5, delay: float = 3.0
         engine = create_engine(url, connect_args={"check_same_thread": False}, **common_kwargs)
     else:
         # OPT #31: Optimized pool settings
+        # PERF #1.1: pool_pre_ping désactivé — économise ~100-200ms par request sur Railway.
+        # pool_recycle=1800 (30min) suffit à éviter les connexions mortes côté Railway.
         engine = create_engine(
             url,
-            pool_pre_ping=True,       # teste la connexion avant chaque utilisation
+            pool_pre_ping=False,      # désactivé pour économiser le SELECT 1 avant chaque query
             pool_recycle=1800,         # 30 min: recycle les connexions toutes les 30 min
             pool_size=15,             # Base size for connection pool
             max_overflow=30,          # Headroom for connection spikes
