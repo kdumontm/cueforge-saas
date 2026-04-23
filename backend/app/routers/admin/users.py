@@ -372,6 +372,7 @@ async def get_user(
         "name": user.name,
         "subscription_plan": user.subscription_plan,
         "is_admin": user.is_admin,
+        "is_comp": user.is_comp,
         "email_verified": user.email_verified,
         "oauth_provider": user.oauth_provider,
         "organization_id": user.organization_id,
