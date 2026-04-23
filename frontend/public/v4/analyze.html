@@ -676,8 +676,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260423c"></script>
-<script src="/v4/shared.js?v=20260423-settings-admin-removed"></script>
+<script src="/v4/api.js?v=20260423d"></script>
+<script src="/v4/shared.js?v=20260423-stems-fix"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1148,13 +1148,18 @@ async function loadTrack(){
       qBadge.style.display = 'none';
     }
 
-    // Waveform réelle — utiliser analysis.waveform_peaks si dispo
+    // Waveform réelle — PERF #23 2026-04-23: load peaks async (lazy)
+    // Par défaut, on montre un skeleton plat. Les peaks vrais arrivent via /waveform-peaks
+    // en arrière-plan (non-bloquant).
     if(a.waveform_peaks && Array.isArray(a.waveform_peaks) && a.waveform_peaks.length > 0){
+      // Peaks déjà inclus (fallback ancien comportement, peu probable après fix)
       rebuildWaveFromPeaks(a.waveform_peaks);
     } else {
-      // Reset le playhead au moins, au cas où on a changé de piste
+      // Reset le playhead, montre skeleton plat
       const ph = wave.querySelector('.playhead');
       if(ph) ph.style.left = '0%';
+      // Load peaks async en arrière-plan — pas de await, non-bloquant
+      loadWaveformPeaksAsync(trackId);
     }
 
     // Phrase ruler — réel, à partir de section_labels + structural_summary
@@ -1179,6 +1184,22 @@ async function loadTrack(){
   } catch(err){
     document.getElementById('thero-title').textContent = 'Erreur : '+err.message;
     toast(`Chargement impossible : ${err.message}`, 'error');
+  }
+}
+
+// PERF #23 2026-04-23: Load waveform peaks async (lazy)
+// Called after loadTrack() completes without peaks. Fetches peaks
+// from /waveform-peaks endpoint in background, then updates the waveform.
+async function loadWaveformPeaksAsync(trackId){
+  if(!trackId) return;
+  try {
+    const peaksData = await api.get(`/tracks/${trackId}/waveform-peaks`);
+    if(peaksData && peaksData.waveform_peaks && Array.isArray(peaksData.waveform_peaks)){
+      rebuildWaveFromPeaks(peaksData.waveform_peaks);
+    }
+  } catch(err){
+    // Silently fail — waveform peaks are optional (skeleton is acceptable)
+    console.debug(`Failed to load waveform peaks for track ${trackId}: ${err.message}`);
   }
 }
 
