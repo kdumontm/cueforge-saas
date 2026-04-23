@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Se connecter — TrackCue</title>
+<meta name="description" content="Connecte-toi à TrackCue et reprends tes sets là où tu les as laissés.">
+<link rel="preload" href="/v4/api.js?v=20260423-migr" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-migr" as="script">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423-migr">
+<style>
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px}
+  .auth-brand{display:inline-flex;align-items:center;gap:12px;margin-bottom:32px;text-decoration:none}
+  .auth-brand .mark{
+    width:36px;height:36px;border-radius:10px;
+    background:#0a0a0b url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%238b5cf6'/><stop offset='55%25' stop-color='%23c026d3'/><stop offset='100%25' stop-color='%23ec4899'/></linearGradient></defs><g transform='translate(50,50)' fill='url(%23g)'><rect x='-2' y='-38' width='4' height='14' rx='1.5' transform='rotate(0)'/><rect x='-2' y='-38' width='4' height='20' rx='1.5' transform='rotate(30)'/><rect x='-2' y='-38' width='4' height='10' rx='1.5' transform='rotate(60)'/><rect x='-2' y='-38' width='4' height='24' rx='1.5' transform='rotate(90)'/><rect x='-2' y='-38' width='4' height='16' rx='1.5' transform='rotate(120)'/><rect x='-2' y='-38' width='4' height='20' rx='1.5' transform='rotate(150)'/><rect x='-2' y='-38' width='4' height='14' rx='1.5' transform='rotate(180)'/><rect x='-2' y='-38' width='4' height='22' rx='1.5' transform='rotate(210)'/><rect x='-2' y='-38' width='4' height='12' rx='1.5' transform='rotate(240)'/><rect x='-2' y='-38' width='4' height='26' rx='1.5' transform='rotate(270)'/><rect x='-2' y='-38' width='4' height='16' rx='1.5' transform='rotate(300)'/><rect x='-2' y='-38' width='4' height='20' rx='1.5' transform='rotate(330)'/></g><circle cx='50' cy='50' r='10' fill='%23ffffff'/></svg>") center/100% 100% no-repeat;
+    box-shadow:0 0 0 1px rgba(139,92,246,.25) inset, 0 4px 14px rgba(192,38,211,.35);
+  }
+  .auth-brand .wordmark{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-0.01em}
+  .auth-card{
+    width:100%;max-width:440px;
+    background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
+    border:1px solid var(--b-default);border-radius:18px;padding:32px 28px;
+    box-shadow:var(--e-4);
+    position:relative;
+  }
+  .auth-title{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-0.02em;margin:0 0 6px}
+  .auth-sub{color:var(--c-secondary);font-size:14px;margin:0 0 24px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+  .field .pwd-wrap{position:relative}
+  .field .pwd-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;font-size:12px;color:var(--c-secondary);cursor:pointer;padding:4px 8px;border-radius:6px}
+  .field .pwd-toggle:hover{color:var(--amber);background:var(--s-3)}
+  .forgot{text-align:right;margin-bottom:16px;font-size:13px}
+  .forgot a{color:var(--amber);font-weight:500}
+  .forgot a:hover{color:var(--pink)}
+  .btn-submit{width:100%;justify-content:center;margin-top:4px}
+  .alert{padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:14px;border:1px solid}
+  .alert-error{background:var(--red-soft);border-color:rgba(239,68,68,.3);color:#fecaca}
+  .alert-success{background:var(--green-soft);border-color:rgba(74,222,128,.3);color:#8ef0aa}
+  .divider{text-align:center;color:var(--c-tertiary);font-size:12px;margin:20px 0 14px;position:relative;font-family:var(--font-mono)}
+  .divider::before,.divider::after{content:"";position:absolute;top:50%;width:38%;height:1px;background:var(--b-default)}
+  .divider::before{left:0}.divider::after{right:0}
+  .oauth-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .oauth-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;background:var(--s-3);border:1px solid var(--b-default);border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s ease;color:var(--c-primary)}
+  .oauth-btn:hover{background:var(--s-4);border-color:var(--b-strong)}
+  .auth-footer{text-align:center;color:var(--c-secondary);font-size:13px;margin-top:22px}
+  .auth-footer a{color:var(--amber);font-weight:500}
+  .auth-footer a:hover{color:var(--pink)}
+  .resend-box{background:var(--amber-soft);border:1px solid rgba(255,122,24,.25);border-radius:10px;padding:14px;margin-bottom:14px}
+  .resend-box .label{font-size:12px;color:var(--c-secondary);margin-bottom:8px;font-family:var(--font-mono)}
+  .resend-box .input{margin-bottom:8px}
+  .resend-box .btn{width:100%;justify-content:center}
+  .spinner-inline{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.25);border-top-color:currentColor;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<a href="/" class="auth-brand">
+  <span class="mark"></span>
+  <span class="wordmark">TrackCue</span>
+</a>
+
+<div class="auth-card reveal">
+  <h1 class="auth-title">Se connecter</h1>
+  <p class="auth-sub">Bienvenue. Entre tes identifiants pour continuer.</p>
+
+  <div id="alert" style="display:none"></div>
+
+  <div id="resend-box" class="resend-box" style="display:none">
+    <div class="label">Renvoyer le lien de vérification</div>
+    <input id="resend-email" type="email" class="input" placeholder="ton@email.com">
+    <button id="resend-btn" type="button" class="btn btn-ghost">Envoyer le lien</button>
+  </div>
+
+  <form id="login-form" novalidate>
+    <div class="field">
+      <label for="username">Email ou pseudo</label>
+      <input id="username" class="input" type="text" placeholder="ton@email.com ou ton_pseudo" required autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Mot de passe</label>
+      <div class="pwd-wrap">
+        <input id="password" class="input" type="password" placeholder="••••••••" required autocomplete="current-password" style="padding-right:64px">
+        <button type="button" class="pwd-toggle" id="pwd-toggle" aria-label="Afficher le mot de passe">Voir</button>
+      </div>
+    </div>
+    <div class="forgot"><a href="/forgot-password">Mot de passe oublié ?</a></div>
+    <button type="submit" class="btn btn-primary btn-lg btn-submit" id="submit-btn">Se connecter</button>
+  </form>
+
+  <div class="divider">ou continuer avec</div>
+  <div class="oauth-grid">
+    <button type="button" class="oauth-btn" id="oauth-google">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Google
+    </button>
+    <button type="button" class="oauth-btn" id="oauth-spotify">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+      Spotify
+    </button>
+  </div>
+</div>
+
+<p class="auth-footer">Pas encore de compte ? <a href="/register">S'inscrire gratuitement</a></p>
+
+<script src="/v4/api.js?v=20260423-migr"></script>
+<script src="/v4/shared.js?v=20260423-migr"></script>
+<script>
+// Redirige si déjà connecté
+if(api.isAuthed()){
+  const next = new URLSearchParams(location.search).get('next') || '/dashboard';
+  location.replace(next);
+}
+
+const $ = (id) => document.getElementById(id);
+
+function showAlert(msg, type='error'){
+  const a = $('alert');
+  a.className = 'alert alert-'+type;
+  a.textContent = msg;
+  a.style.display = '';
+}
+function hideAlert(){ $('alert').style.display='none'; }
+
+// Toggle password
+$('pwd-toggle').addEventListener('click', () => {
+  const p = $('password');
+  const show = p.type === 'password';
+  p.type = show ? 'text' : 'password';
+  $('pwd-toggle').textContent = show ? 'Masquer' : 'Voir';
+});
+
+// OAuth callback handling
+(function handleOAuthCallback(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if(!code) return;
+  const provider = params.has('state') ? 'spotify' : 'google';
+  $('submit-btn').disabled = true;
+  $('submit-btn').innerHTML = '<span class="spinner-inline"></span>Connexion OAuth…';
+  fetch(`/api/v1/auth/oauth/${provider}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ code, redirect_uri: location.origin+'/login' })
+  }).then(r => r.json()).then(d => {
+    if(d.access_token){
+      localStorage.setItem('trackcue_token', d.access_token);
+      if(d.refresh_token) localStorage.setItem('trackcue_refresh', d.refresh_token);
+      location.replace('/dashboard');
+    } else {
+      showAlert(d.detail || 'OAuth échoué');
+      $('submit-btn').disabled = false;
+      $('submit-btn').textContent = 'Se connecter';
+    }
+  }).catch(() => {
+    showAlert('Erreur OAuth');
+    $('submit-btn').disabled = false;
+    $('submit-btn').textContent = 'Se connecter';
+  });
+  history.replaceState({}, '', '/login');
+})();
+
+// Login submit
+$('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideAlert();
+  $('resend-box').style.display = 'none';
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  const btn = $('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span>Connexion…';
+  try {
+    const res = await fetch('/api/v1/auth/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ identifier: username, password })
+    });
+    const d = await res.json().catch(() => ({}));
+    if(res.ok && d.access_token){
+      localStorage.setItem('trackcue_token', d.access_token);
+      if(d.refresh_token) localStorage.setItem('trackcue_refresh', d.refresh_token);
+      const next = new URLSearchParams(location.search).get('next') || '/dashboard';
+      location.replace(next);
+      return;
+    }
+    if(res.status === 403){
+      showAlert('Email non vérifié. Entre ton email ci-dessous pour recevoir un nouveau lien.');
+      $('resend-box').style.display = '';
+      if(username.includes('@')) $('resend-email').value = username;
+    } else {
+      const msg = d.detail || d.message || '';
+      showAlert(msg && !/invalid/i.test(msg) ? msg : 'Identifiant ou mot de passe incorrect');
+    }
+  } catch {
+    showAlert('Erreur réseau. Réessaie.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Se connecter';
+  }
+});
+
+// Resend verification
+$('resend-btn').addEventListener('click', async () => {
+  const email = $('resend-email').value.trim();
+  if(!email) return;
+  $('resend-btn').disabled = true;
+  $('resend-btn').innerHTML = '<span class="spinner-inline"></span>Envoi…';
+  try {
+    await fetch('/api/v1/auth/resend-verify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email })
+    });
+    showAlert('Lien envoyé ! Vérifie ta boîte de réception (et les spams).', 'success');
+    $('resend-box').style.display = 'none';
+  } catch {} finally {
+    $('resend-btn').disabled = false;
+    $('resend-btn').textContent = 'Envoyer le lien';
+  }
+});
+
+// OAuth triggers
+$('oauth-google').addEventListener('click', () => {
+  const clientId = window.__GOOGLE_CLIENT_ID || '';
+  if(!clientId){ showAlert('Google OAuth non configuré. Contacte le support.'); return; }
+  const redirect = location.origin + '/login';
+  location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}&response_type=code&scope=openid%20email%20profile&access_type=offline`;
+});
+$('oauth-spotify').addEventListener('click', () => {
+  const clientId = window.__SPOTIFY_CLIENT_ID || '';
+  if(!clientId){ showAlert('Spotify OAuth non configuré. Contacte le support.'); return; }
+  const redirect = location.origin + '/login';
+  location.href = `https://accounts.spotify.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirect)}&response_type=code&scope=user-read-email%20user-read-private&state=spotify`;
+});
+</script>
+</body>
+</html>

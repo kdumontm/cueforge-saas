@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Créer un compte — TrackCue</title>
+<link rel="stylesheet" href="/v4/shared.css?v=20260423b">
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 50% -8%, rgba(255,46,107,.18), transparent 60%),
+      radial-gradient(700px 400px at 85% 110%, rgba(255,122,24,.14), transparent 60%),
+      var(--s-0);
+  }
+  .auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+  }
+  .auth-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    margin-bottom: 28px;
+  }
+  .auth-brand .logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    box-shadow: 0 8px 24px rgba(255,46,107,.35);
+    display: grid; place-items: center;
+    color: #0a0508;
+    font-weight: 800;
+    font-family: var(--font-display);
+    font-size: 18px;
+  }
+  .auth-brand .wordmark {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--c-primary);
+    letter-spacing: -0.01em;
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 18px;
+    padding: 32px 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .auth-title {
+    font-family: var(--font-display);
+    font-size: 26px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  .auth-sub {
+    color: var(--c-tertiary);
+    font-size: 14px;
+    margin: 0 0 18px;
+  }
+  .trust-row {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: rgba(255,122,24,.06);
+    border: 1px solid rgba(255,122,24,.18);
+    border-radius: 10px;
+  }
+  .trust-row .trust {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--c-primary);
+    font-size: 12px; font-weight: 500;
+  }
+  .trust-row .tick { color: var(--amber); font-weight: 700; }
+  .field { display: block; margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 13px; font-weight: 500;
+    color: var(--c-primary);
+    margin-bottom: 6px;
+  }
+  .field .hint {
+    color: var(--c-tertiary);
+    font-weight: 400;
+    font-size: 12px;
+  }
+  .pwd-wrap { position: relative; }
+  .pwd-toggle {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: transparent; border: 0;
+    color: var(--c-tertiary);
+    cursor: pointer;
+    padding: 6px 8px;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .pwd-toggle:hover { color: var(--c-primary); }
+  .field-hint {
+    margin-top: 4px;
+    font-size: 12px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .field-hint.ok { color: #86efac; }
+  .field-hint.warn { color: #fbbf24; }
+  .field-hint.err { color: #fca5a5; }
+  .alert {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 13px; line-height: 1.4;
+  }
+  .alert-error {
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.3);
+    color: #fca5a5;
+  }
+  .btn-submit {
+    width: 100%; margin-top: 10px;
+    padding: 14px;
+    font-size: 14px; font-weight: 600;
+    min-height: 48px;
+  }
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 22px 0;
+    color: var(--c-tertiary);
+    font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--b-subtle);
+  }
+  .oauth-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .oauth-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 12px;
+    background: rgba(0,0,0,.28);
+    border: 1px solid var(--b-default);
+    border-radius: 12px;
+    color: var(--c-primary);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all .15s ease;
+    min-height: 44px;
+    font-family: inherit;
+  }
+  .oauth-btn:hover {
+    background: rgba(255,255,255,.04);
+    border-color: var(--b-strong);
+  }
+  .auth-footer {
+    text-align: center;
+    color: var(--c-tertiary);
+    font-size: 13px;
+    margin-top: 22px;
+  }
+  .auth-footer a {
+    color: var(--amber);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .auth-footer a:hover { color: var(--pink); }
+  .spinner-inline {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-top-color: var(--c-primary);
+    border-radius: 50%;
+    animation: tc-spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+
+  /* Password strength meter */
+  .pwd-meter { margin-top: 6px; }
+  .pwd-meter-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    height: 4px;
+  }
+  .pwd-meter-bars span {
+    background: var(--b-subtle);
+    border-radius: 2px;
+    transition: background .15s ease;
+  }
+  .pwd-meter-bars.s1 span:nth-child(1) { background: #f87171; }
+  .pwd-meter-bars.s2 span:nth-child(-n+2) { background: #fbbf24; }
+  .pwd-meter-bars.s3 span:nth-child(-n+3) { background: #a3e635; }
+  .pwd-meter-bars.s4 span { background: #4ade80; }
+  .pwd-meter-label {
+    font-size: 11px;
+    margin-top: 4px;
+    color: var(--c-tertiary);
+  }
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <a href="/" class="auth-brand">
+    <span class="logo">T</span>
+    <span class="wordmark">TrackCue</span>
+  </a>
+
+  <div class="auth-card reveal">
+    <h1 class="auth-title">Créer un compte</h1>
+    <p class="auth-sub">Gratuit. 30 secondes. Pas de carte bancaire.</p>
+
+    <div class="trust-row">
+      <span class="trust"><span class="tick">✓</span> BPM auto</span>
+      <span class="trust"><span class="tick">✓</span> Cue points</span>
+      <span class="trust"><span class="tick">✓</span> Export XML</span>
+    </div>
+
+    <div id="alert" class="alert alert-error" style="display:none" role="alert"></div>
+
+    <form id="register-form" autocomplete="on">
+      <div class="field">
+        <label for="username">Nom d'utilisateur <span class="hint">(utilisé pour te connecter)</span></label>
+        <input id="username" class="input" type="text" placeholder="ton_pseudo" required autocomplete="username" autofocus>
+      </div>
+
+      <div class="field">
+        <label for="email">Email <span class="hint">(pour récupérer ton compte)</span></label>
+        <input id="email" class="input" type="email" placeholder="ton@email.com" required autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <div class="pwd-wrap">
+          <input id="password" class="input" type="password" placeholder="Minimum 8 caractères" required autocomplete="new-password" style="padding-right:64px" aria-describedby="pwdHelp">
+          <button type="button" class="pwd-toggle" id="pwd-toggle" aria-label="Afficher le mot de passe">Voir</button>
+        </div>
+        <div class="pwd-meter" aria-hidden="true">
+          <div id="pwd-bars" class="pwd-meter-bars"><span></span><span></span><span></span><span></span></div>
+          <div id="pwd-label" class="pwd-meter-label"></div>
+        </div>
+        <div id="pwdHelp" class="field-hint" style="display:none"></div>
+      </div>
+
+      <div class="field">
+        <label for="confirm">Confirmer le mot de passe</label>
+        <input id="confirm" class="input" type="password" placeholder="••••••••" required autocomplete="new-password" aria-describedby="matchHelp">
+        <div id="matchHelp" class="field-hint" style="display:none"></div>
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn btn-primary btn-submit">Créer mon compte</button>
+    </form>
+
+    <div class="divider">ou continuer avec</div>
+
+    <div class="oauth-grid">
+      <button type="button" id="oauth-google" class="oauth-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Google
+      </button>
+      <button type="button" id="oauth-spotify" class="oauth-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        Spotify
+      </button>
+    </div>
+  </div>
+
+  <p class="auth-footer">
+    Déjà un compte ? <a href="/login">Se connecter</a>
+  </p>
+</div>
+
+<script src="/v4/api.js?v=20260423b"></script>
+<script src="/v4/shared.js?v=20260423b"></script>
+<script>
+(function(){
+  // Already logged in → redirect
+  if (api.isAuthed()) { location.replace('/dashboard'); return; }
+
+  var alertBox = document.getElementById('alert');
+  var form = document.getElementById('register-form');
+  var btn = document.getElementById('submit-btn');
+  var usernameEl = document.getElementById('username');
+  var emailEl = document.getElementById('email');
+  var pwdEl = document.getElementById('password');
+  var confEl = document.getElementById('confirm');
+  var pwdToggle = document.getElementById('pwd-toggle');
+  var bars = document.getElementById('pwd-bars');
+  var pwdLabel = document.getElementById('pwd-label');
+  var pwdHelp = document.getElementById('pwdHelp');
+  var matchHelp = document.getElementById('matchHelp');
+
+  function showError(msg){
+    alertBox.textContent = msg;
+    alertBox.style.display = 'block';
+  }
+  function clearError(){ alertBox.style.display = 'none'; alertBox.textContent = ''; }
+
+  // Password visibility toggle
+  pwdToggle.addEventListener('click', function(){
+    var show = pwdEl.type === 'password';
+    pwdEl.type = show ? 'text' : 'password';
+    confEl.type = show ? 'text' : 'password';
+    pwdToggle.textContent = show ? 'Masquer' : 'Voir';
+    pwdToggle.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+  });
+
+  // Password strength meter
+  function strength(p){
+    if (!p) return 0;
+    var s = 0;
+    if (p.length >= 8) s++;
+    if (p.length >= 12) s++;
+    if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++;
+    if (/\d/.test(p) && /[^A-Za-z0-9]/.test(p)) s++;
+    return s;
+  }
+  var labels = ['', 'Faible', 'Moyen', 'Bon', 'Excellent'];
+  pwdEl.addEventListener('input', function(){
+    var p = pwdEl.value;
+    var s = strength(p);
+    bars.className = 'pwd-meter-bars s' + s;
+    pwdLabel.textContent = labels[s];
+    if (p.length > 0){
+      pwdHelp.style.display = 'flex';
+      if (p.length >= 8){
+        pwdHelp.className = 'field-hint ok';
+        pwdHelp.textContent = '✓ Mot de passe valide';
+      } else {
+        pwdHelp.className = 'field-hint warn';
+        pwdHelp.textContent = '⚠ Trop court (min. 8 caractères)';
+      }
+    } else {
+      pwdHelp.style.display = 'none';
+    }
+    checkMatch();
+  });
+  function checkMatch(){
+    var p = pwdEl.value, c = confEl.value;
+    if (c.length > 0){
+      matchHelp.style.display = 'flex';
+      if (p === c){
+        matchHelp.className = 'field-hint ok';
+        matchHelp.textContent = '✓ Les mots de passe correspondent';
+      } else {
+        matchHelp.className = 'field-hint err';
+        matchHelp.textContent = '✗ Ne correspondent pas';
+      }
+    } else {
+      matchHelp.style.display = 'none';
+    }
+  }
+  confEl.addEventListener('input', checkMatch);
+
+  // OAuth callback
+  (function(){
+    var p = new URLSearchParams(location.search);
+    var code = p.get('code');
+    if (!code) return;
+    var provider = p.get('state') === 'spotify' ? 'spotify' : 'google';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-inline"></span>Connexion ' + provider + '…';
+    fetch('/api/v1/auth/oauth/' + provider, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, redirect_uri: location.origin + '/register' })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        if (res.ok && res.data.access_token){
+          localStorage.setItem('trackcue_token', res.data.access_token);
+          if (res.data.refresh_token) localStorage.setItem('trackcue_refresh', res.data.refresh_token);
+          location.replace('/dashboard');
+        } else {
+          showError(res.data && res.data.detail || 'OAuth échoué');
+          btn.disabled = false; btn.textContent = 'Créer mon compte';
+        }
+      })
+      .catch(function(){ showError('Erreur OAuth'); btn.disabled = false; btn.textContent = 'Créer mon compte'; });
+    history.replaceState({}, '', '/register');
+  })();
+
+  // Submit
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    clearError();
+    var username = usernameEl.value.trim();
+    var email = emailEl.value.trim();
+    var pwd = pwdEl.value;
+    var conf = confEl.value;
+    if (!username) { showError("Le nom d'utilisateur est requis"); return; }
+    if (pwd.length < 8) { showError('Mot de passe trop court (min. 8 caractères)'); return; }
+    if (pwd !== conf) { showError('Les mots de passe ne correspondent pas'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-inline"></span>Création…';
+
+    fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pwd, name: username })
+    })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function(res){
+        if (!res.ok) throw new Error(res.data && res.data.detail || 'Inscription échouée');
+        // Auto-login after register
+        return fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: username, password: pwd })
+        }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); });
+      })
+      .then(function(res){
+        if (!res.ok || !res.data.access_token) throw new Error('Connexion auto échouée');
+        localStorage.setItem('trackcue_token', res.data.access_token);
+        if (res.data.refresh_token) localStorage.setItem('trackcue_refresh', res.data.refresh_token);
+        location.replace('/dashboard');
+      })
+      .catch(function(err){
+        showError(err.message || 'Inscription échouée');
+        btn.disabled = false;
+        btn.textContent = 'Créer mon compte';
+      });
+  });
+
+  // OAuth buttons
+  document.getElementById('oauth-google').addEventListener('click', function(){
+    var clientId = window.__GOOGLE_CLIENT_ID;
+    if (!clientId) { showError('Google OAuth non configuré'); return; }
+    var redirect = location.origin + '/register';
+    location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=' + clientId +
+      '&redirect_uri=' + encodeURIComponent(redirect) +
+      '&response_type=code&scope=openid%20email%20profile&access_type=offline';
+  });
+  document.getElementById('oauth-spotify').addEventListener('click', function(){
+    var clientId = window.__SPOTIFY_CLIENT_ID;
+    if (!clientId) { showError('Spotify OAuth non configuré'); return; }
+    var redirect = location.origin + '/register';
+    location.href = 'https://accounts.spotify.com/authorize?client_id=' + clientId +
+      '&redirect_uri=' + encodeURIComponent(redirect) +
+      '&response_type=code&state=spotify&scope=user-read-email%20user-read-private';
+  });
+})();
+</script>
+</body>
+</html>

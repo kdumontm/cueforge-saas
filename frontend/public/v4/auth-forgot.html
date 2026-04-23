@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Mot de passe oublié — TrackCue</title>
+<link rel="stylesheet" href="/v4/shared.css?v=20260423b">
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 50% -8%, rgba(255,46,107,.18), transparent 60%),
+      radial-gradient(700px 400px at 85% 110%, rgba(255,122,24,.14), transparent 60%),
+      var(--s-0);
+  }
+  .auth-wrap {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 20px 60px;
+  }
+  .auth-brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    text-decoration: none; margin-bottom: 28px;
+  }
+  .auth-brand .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    box-shadow: 0 8px 24px rgba(255,46,107,.35);
+    display: grid; place-items: center;
+    color: #0a0508; font-weight: 800;
+    font-family: var(--font-display); font-size: 18px;
+  }
+  .auth-brand .wordmark {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    color: var(--c-primary);
+    letter-spacing: -0.01em;
+  }
+  .auth-card {
+    width: 100%; max-width: 420px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 18px;
+    padding: 32px 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .auth-title {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .head-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 18px;
+  }
+  .back-link {
+    color: var(--c-tertiary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: 8px;
+    transition: color .15s ease;
+  }
+  .back-link:hover { color: var(--c-primary); }
+  .auth-sub {
+    color: var(--c-tertiary);
+    font-size: 14px; line-height: 1.5;
+    margin: 0 0 18px;
+  }
+  .field { display: block; margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 13px; font-weight: 500;
+    color: var(--c-primary);
+    margin-bottom: 6px;
+  }
+  .alert {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 13px; line-height: 1.4;
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.3);
+    color: #fca5a5;
+  }
+  .btn-submit {
+    width: 100%; margin-top: 10px;
+    padding: 14px;
+    font-size: 14px; font-weight: 600;
+    min-height: 48px;
+  }
+  .success {
+    text-align: center;
+    padding: 10px 0;
+  }
+  .success .icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: rgba(74,222,128,.12);
+    color: #86efac;
+    display: grid; place-items: center;
+    margin: 0 auto 16px;
+    font-size: 28px;
+  }
+  .success h2 {
+    font-family: var(--font-display);
+    font-size: 20px; font-weight: 700;
+    margin: 0 0 10px;
+  }
+  .success p {
+    color: var(--c-tertiary);
+    font-size: 14px; line-height: 1.5;
+    margin: 0 0 18px;
+  }
+  .success .back-cta {
+    color: var(--amber);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 13px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .spinner-inline {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-top-color: var(--c-primary);
+    border-radius: 50%;
+    animation: tc-spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <a href="/" class="auth-brand">
+    <span class="logo">T</span>
+    <span class="wordmark">TrackCue</span>
+  </a>
+
+  <div class="auth-card reveal">
+    <div id="form-view">
+      <div class="head-row">
+        <a href="/login" class="back-link" aria-label="Retour">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </a>
+        <h1 class="auth-title">Mot de passe oublié</h1>
+      </div>
+      <p class="auth-sub">Entre ton email et on t'envoie un lien pour réinitialiser ton mot de passe.</p>
+
+      <div id="alert" class="alert" style="display:none" role="alert"></div>
+
+      <form id="forgot-form">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" class="input" type="email" placeholder="ton@email.com" required autocomplete="email" autofocus>
+        </div>
+        <button type="submit" id="submit-btn" class="btn btn-primary btn-submit">Envoyer le lien</button>
+      </form>
+    </div>
+
+    <div id="done-view" class="success" style="display:none">
+      <div class="icon">✓</div>
+      <h2>Email envoyé !</h2>
+      <p>Si un compte existe pour <strong id="sent-email" style="color:var(--c-primary)"></strong>, tu recevras un lien de réinitialisation dans quelques minutes.</p>
+      <a href="/login" class="back-cta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Retour à la connexion
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="/v4/api.js?v=20260423b"></script>
+<script src="/v4/shared.js?v=20260423b"></script>
+<script>
+(function(){
+  var alertBox = document.getElementById('alert');
+  var btn = document.getElementById('submit-btn');
+  var emailEl = document.getElementById('email');
+
+  function showError(msg){ alertBox.textContent = msg; alertBox.style.display = 'block'; }
+  function clearError(){ alertBox.style.display = 'none'; }
+
+  document.getElementById('forgot-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    clearError();
+    var email = emailEl.value.trim();
+    if (!email) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-inline"></span>Envoi…';
+
+    fetch('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    })
+      .then(function(r){ if (!r.ok) throw new Error('Erreur'); return r.json(); })
+      .then(function(){
+        document.getElementById('sent-email').textContent = email;
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('done-view').style.display = 'block';
+      })
+      .catch(function(){
+        // Toujours afficher comme succès pour ne pas révéler l'existence d'un compte
+        document.getElementById('sent-email').textContent = email;
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('done-view').style.display = 'block';
+      });
+  });
+})();
+</script>
+</body>
+</html>

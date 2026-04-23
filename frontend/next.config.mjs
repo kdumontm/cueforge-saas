@@ -46,10 +46,17 @@ const nextConfig = {
   async rewrites() {
     return {
       // beforeFiles : sert le nouveau design v4 Studio Neon sur les URLs in-app.
-      // / est servi par app/page.tsx (landing marketing v4).
-      // /login, /register, /pricing sont servis par app/*/page.tsx (v4 React).
+      // Toutes les pages publiques + app sont désormais en HTML statique v4.
       // Les sous-routes /dashboard/xxx, /admin/xxx, etc. continuent via app router.
       beforeFiles: [
+        // Public / marketing
+        { source: '/',                 destination: '/v4/landing.html'       },
+        { source: '/login',            destination: '/v4/auth-login.html'    },
+        { source: '/register',         destination: '/v4/auth-register.html' },
+        { source: '/forgot-password',  destination: '/v4/auth-forgot.html'   },
+        { source: '/reset-password',   destination: '/v4/auth-reset.html'    },
+        { source: '/pricing',          destination: '/v4/pricing.html'       },
+        // App
         { source: '/dashboard',    destination: '/v4/stats.html'       },
         { source: '/analyze',      destination: '/v4/analyze.html'     },
         { source: '/library',      destination: '/v4/library.html'     },

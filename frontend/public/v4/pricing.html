@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tarifs — TrackCue</title>
+<meta name="description" content="TrackCue — des outils de pro pour DJs, à un prix raisonnable. 14 jours d'essai gratuit, sans engagement.">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423b">
+<style>
+  body {
+    background: var(--s-0);
+    background-image: var(--aurora-hot);
+    background-attachment: fixed;
+  }
+  .pricing-topnav {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px) saturate(1.2);
+    background: rgba(10,8,14,.72);
+    border-bottom: 1px solid var(--b-subtle);
+    display: flex; align-items: center;
+    padding: 14px 28px;
+    gap: 16px;
+  }
+  .pricing-topnav .brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    text-decoration: none;
+    color: var(--c-primary);
+    font-family: var(--font-display);
+    font-size: 17px; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .pricing-topnav .brand .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    box-shadow: 0 6px 18px rgba(255,46,107,.3);
+    display: grid; place-items: center;
+    color: #0a0508; font-weight: 800; font-size: 14px;
+  }
+  .pricing-topnav .brand .mark::after { content: "T"; }
+  .pricing-topnav .sep { flex: 1; }
+  .pricing-topnav nav {
+    display: flex; align-items: center; gap: 22px;
+  }
+  .pricing-topnav nav a {
+    color: var(--c-tertiary);
+    text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+    transition: color .15s ease;
+  }
+  .pricing-topnav nav a:hover,
+  .pricing-topnav nav a.active { color: var(--c-primary); }
+  .pricing-topnav .actions { display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 860px){
+    .pricing-topnav nav { display: none; }
+  }
+
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  .pricing-hero {
+    text-align: center;
+    padding: 24px 0 48px;
+  }
+  .pricing-title {
+    font-family: var(--font-display);
+    font-size: clamp(34px, 4.5vw, 54px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 16px 0 18px;
+  }
+  .pricing-title .editorial {
+    color: var(--c-secondary);
+    font-weight: 400;
+    font-size: 0.9em;
+    font-family: var(--font-editorial);
+    font-style: italic;
+  }
+  .pricing-lead {
+    color: var(--c-secondary);
+    font-size: 16px; line-height: 1.55;
+    max-width: 620px; margin: 0 auto 28px;
+  }
+  .billing-toggle { display: flex; justify-content: center; }
+
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 72px;
+    align-items: stretch;
+  }
+  @media (max-width: 900px) { .plans-grid { grid-template-columns: 1fr; } }
+
+  .plan {
+    padding: 32px 28px;
+    display: flex; flex-direction: column; gap: 20px;
+    position: relative;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 20px;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .plan:hover { transform: translateY(-2px); border-color: var(--b-strong); }
+  .plan-highlighted {
+    border-color: rgba(255,122,24,.45);
+    background:
+      radial-gradient(600px 300px at 50% -40%, rgba(255,122,24,.12), transparent 60%),
+      linear-gradient(180deg, var(--s-3) 0%, var(--s-2) 100%);
+    box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(255,122,24,.2);
+    transform: translateY(-8px);
+  }
+  .plan-highlighted:hover { transform: translateY(-10px); }
+
+  .plan-badge {
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #ff8a2e 0%, var(--amber) 100%);
+    color: #1a0b00;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .plan-head .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .plan-tagline {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .plan-tagline .editorial {
+    font-family: var(--font-editorial);
+    font-style: italic;
+    color: var(--c-tertiary);
+    font-weight: 400;
+    font-size: 0.86em;
+  }
+
+  .plan-price { display: flex; flex-direction: column; gap: 4px; }
+  .plan-price-val {
+    font-family: var(--font-display);
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .plan-price-suffix {
+    color: var(--c-tertiary);
+    font-size: 13px;
+  }
+  .plan-price-yearly {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--c-tertiary);
+    margin-top: 2px;
+  }
+
+  .plan-features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .plan-features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .plan-features li.excl { color: var(--c-tertiary); text-decoration: line-through; }
+  .plan-check {
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    display: inline-grid; place-items: center;
+  }
+  .plan-features li.incl .plan-check { color: #4ade80; }
+  .plan-features li.excl .plan-check { color: var(--c-tertiary); }
+  .plan-check svg { width: 16px; height: 16px; }
+
+  .reassure {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 72px;
+  }
+  @media (max-width: 860px) { .reassure { grid-template-columns: 1fr; } }
+  .reassure-item {
+    background: var(--s-1);
+    border: 1px solid var(--b-subtle);
+    border-radius: 16px;
+    padding: 20px 22px;
+  }
+  .reassure-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .reassure-icon {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+  }
+  .reassure-icon svg { width: 22px; height: 22px; }
+  .reassure-title {
+    font-family: var(--font-display);
+    font-size: 14.5px;
+    font-weight: 600;
+  }
+  .reassure-body {
+    color: var(--c-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .faq-section { margin-bottom: 56px; }
+  .section-head-lg {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  .section-head-lg .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-head-lg h2 {
+    font-family: var(--font-display);
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0;
+  }
+  .section-head-lg h2 .editorial {
+    font-family: var(--font-editorial);
+    font-style: italic;
+    color: var(--c-secondary);
+    font-weight: 400;
+  }
+  .faq-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .faq-item {
+    background: var(--s-1);
+    border: 1px solid var(--b-subtle);
+    border-radius: 14px;
+    padding: 16px 20px;
+    transition: border-color .15s ease;
+  }
+  .faq-item[open] { border-color: var(--b-default); }
+  .faq-item summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-chev {
+    width: 18px; height: 18px;
+    color: var(--c-tertiary);
+    transition: transform .2s ease;
+  }
+  .faq-item[open] .faq-chev { transform: rotate(180deg); }
+  .faq-body {
+    margin-top: 12px;
+    color: var(--c-secondary);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .v4-footer-mini {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 24px 0 0;
+    border-top: 1px solid var(--b-subtle);
+    color: var(--c-tertiary);
+    font-size: 13px;
+  }
+  .v4-footer-mini-links { display: flex; gap: 16px; flex-wrap: wrap; }
+  .v4-footer-mini-links a {
+    color: var(--c-tertiary);
+    text-decoration: none;
+    transition: color .15s ease;
+  }
+  .v4-footer-mini-links a:hover { color: var(--c-primary); }
+  .v4-footer-mini .mono { font-family: var(--font-mono); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<header class="pricing-topnav">
+  <a href="/" class="brand">
+    <span class="mark"></span>
+    <span>TrackCue</span>
+  </a>
+  <div class="sep"></div>
+  <nav>
+    <a href="/#features">Features</a>
+    <a href="/#workflow">Workflow</a>
+    <a href="/pricing" class="active">Tarifs</a>
+    <a href="/docs">Docs</a>
+    <a href="/changelog">Changelog</a>
+  </nav>
+  <div class="actions">
+    <a href="/login" class="btn btn-ghost btn-sm">Connexion</a>
+    <a href="/register" class="btn btn-primary btn-sm">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Commencer
+    </a>
+  </div>
+</header>
+
+<main class="page">
+  <section class="pricing-hero reveal">
+    <span class="chip chip-amber" style="margin-bottom:18px">
+      <span class="chip-dot"></span>
+      14 jours d'essai gratuit sur tous les plans payants
+    </span>
+    <h1 class="pricing-title">
+      Des outils de pro.<br>
+      <span class="editorial">Un prix qui reste raisonnable.</span>
+    </h1>
+    <p class="pricing-lead">
+      Analyse audio précise, hot cues intelligents, export universel vers Rekordbox, Serato, Traktor.
+      Sans engagement, sans carte demandée, sans surprise en fin de mois.
+    </p>
+
+    <div class="billing-toggle">
+      <div class="segment" role="tablist">
+        <button type="button" id="bm" class="active" role="tab" aria-selected="true">Mensuel</button>
+        <button type="button" id="by" role="tab" aria-selected="false">
+          Annuel <span class="chip chip-green" style="margin-left:6px;padding:2px 6px;font-size:10px">−20%</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="plans-grid" id="plans"></section>
+
+  <section class="reassure">
+    <div class="reassure-item">
+      <div class="reassure-head">
+        <div class="reassure-icon" style="color:var(--green)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <div class="reassure-title">Aucun engagement</div>
+      </div>
+      <div class="reassure-body">Annule à tout moment depuis tes settings. Aucun frais caché.</div>
+    </div>
+    <div class="reassure-item">
+      <div class="reassure-head">
+        <div class="reassure-icon" style="color:var(--cyan)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="reassure-title">Paiement sécurisé</div>
+      </div>
+      <div class="reassure-body">Stripe. Aucune donnée bancaire stockée sur nos serveurs.</div>
+    </div>
+    <div class="reassure-item">
+      <div class="reassure-head">
+        <div class="reassure-icon" style="color:var(--pink)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12c0 5-4 9-9 9s-9-4-9-9 4-9 9-9c2.3 0 4.4.9 6 2.3"/><path d="m9 11 3 3L22 4"/></svg>
+        </div>
+        <div class="reassure-title">Remboursement</div>
+      </div>
+      <div class="reassure-body">Pas satisfait dans les 14 jours ? On te rembourse, sans poser de question.</div>
+    </div>
+  </section>
+
+  <section class="faq-section">
+    <div class="section-head-lg">
+      <div class="eyebrow" style="color:var(--pink)">FAQ</div>
+      <h2>Les questions qu'on nous pose. <span class="editorial">Les vraies.</span></h2>
+    </div>
+    <div class="faq-list" id="faq"></div>
+  </section>
+
+  <footer class="v4-footer-mini">
+    <div class="brand" style="display:inline-flex;align-items:center;gap:10px;color:var(--c-primary);font-family:var(--font-display);font-size:15px;font-weight:700">
+      <span class="mark" style="width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--amber),var(--pink));display:grid;place-items:center;color:#0a0508;font-weight:800;font-size:12px">T</span>
+      <span>TrackCue</span>
+    </div>
+    <div class="v4-footer-mini-links">
+      <a href="/">Accueil</a>
+      <a href="/pricing">Tarifs</a>
+      <a href="/cgu">CGU</a>
+      <a href="mailto:hello@trackcue.com">Contact</a>
+    </div>
+    <div class="mono">© 2026 TrackCue</div>
+  </footer>
+</main>
+
+<script src="/v4/shared.js?v=20260423b"></script>
+<script>
+(function(){
+  var PLANS = [
+    {
+      name: 'Free', monthly: 0, yearly: 0,
+      tagline: 'Pour découvrir.', editorial: 'Sans surprise.',
+      accent: 'cyan', highlighted: false,
+      cta: 'Commencer gratuitement', link: '/register',
+      features: [
+        ['5 analyses par jour', 1], ['BPM · Key · Energy', 1], ['Hot Cues automatiques', 1],
+        ['Export Rekordbox XML', 1], ['Détection de genre', 1], ['Set Builder basique', 1],
+        ['Recherche Spotify enrichie', 0], ['Fix ID3 tags', 0],
+        ['Export Serato / Traktor', 0], ['Support prioritaire', 0]
+      ]
+    },
+    {
+      name: 'Pro', monthly: 9.99, yearly: 7.99,
+      tagline: 'Pour les DJs sérieux.', editorial: 'Le plus populaire.',
+      badge: 'Le plus choisi',
+      accent: 'amber', highlighted: true,
+      cta: 'Passer Pro', link: '/register',
+      features: [
+        ['50 analyses par jour', 1], ['BPM · Key · Energy avancés', 1],
+        ['Hot Cues professionnels', 1], ['Export tous formats', 1],
+        ['Genre + sous-genre', 1], ['Set Builder + suggestions IA', 1],
+        ['Recherche Spotify + metadata', 1], ['Fix ID3 tags', 1],
+        ['Export Serato + Traktor', 1], ['Support prioritaire', 1]
+      ]
+    },
+    {
+      name: 'Unlimited', monthly: 19.99, yearly: 14.99,
+      tagline: 'Pour les labels et pros.', editorial: 'Sans limite.',
+      accent: 'pink', highlighted: false,
+      cta: 'Essai 14 jours', link: '/register',
+      features: [
+        ['Analyses illimitées', 1], ['Toutes les features Pro', 1],
+        ['Desktop app (bientôt)', 1], ['Analyse offline', 1],
+        ['Batch processing', 1], ['Intégration DJ software', 1],
+        ['Waveform haute résolution', 1], ['API access', 1],
+        ['Raccourcis personnalisés', 1], ['Mises à jour prioritaires', 1]
+      ]
+    }
+  ];
+
+  var FAQ = [
+    { q: 'Puis-je changer de plan à tout moment ?', a: 'Oui, tu peux upgrader ou downgrader à tout moment. Les changements prennent effet immédiatement avec un prorata au cent près.' },
+    { q: 'Les exports sont-ils 100% compatibles Rekordbox ?', a: 'Oui, TrackCue exporte des fichiers XML natifs compatibles Rekordbox 6 et 7 — cues, grille, métadonnées, tout passe. Serato et Traktor sont inclus dans Pro et Unlimited.' },
+    { q: 'Comment fonctionne la limite quotidienne ?', a: 'La limite se réinitialise chaque jour à minuit UTC. Les morceaux déjà analysés ne sont jamais recomptés — tu réanalyses gratuitement tes tracks existantes.' },
+    { q: 'Y a-t-il un engagement ?', a: 'Aucun engagement. Tu peux annuler à tout moment depuis Settings. Avec le plan annuel, tu bénéficies de 20% de réduction (facturé une fois par an).' },
+    { q: 'La desktop app est-elle incluse ?', a: 'Oui, dans tous les plans payants. Elle tourne en local sur macOS, Windows et Linux — l\'analyse peut aussi se faire hors-ligne avec Unlimited.' }
+  ];
+
+  var isYearly = false;
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function renderPlans(){
+    var plansEl = document.getElementById('plans');
+    plansEl.innerHTML = '';
+    PLANS.forEach(function(plan){
+      var price = isYearly ? plan.yearly : plan.monthly;
+      var accent = 'var(--' + plan.accent + ')';
+      var art = document.createElement('article');
+      art.className = 'plan' + (plan.highlighted ? ' plan-highlighted' : '');
+
+      var priceHtml = price === 0
+        ? '<span class="plan-price-val">Gratuit</span>'
+        : '<span class="plan-price-val">' + price.toFixed(2).replace('.', ',') + '€</span>' +
+          '<span class="plan-price-suffix">/ mois</span>';
+
+      if (isYearly && price > 0){
+        var yearly = (price * 12).toFixed(0);
+        var saved = ((plan.monthly - price) * 12).toFixed(0);
+        priceHtml += '<div class="plan-price-yearly">soit ' + yearly + '€/an — <span style="color:var(--green)">économise ' + saved + '€</span></div>';
+      }
+
+      var featuresHtml = plan.features.map(function(f){
+        var icon = f[1]
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        return '<li class="' + (f[1] ? 'incl' : 'excl') + '"><span class="plan-check" aria-hidden="true">' + icon + '</span><span>' + escapeHtml(f[0]) + '</span></li>';
+      }).join('');
+
+      art.innerHTML =
+        (plan.badge ? '<span class="plan-badge"><span class="chip-dot"></span>' + escapeHtml(plan.badge) + '</span>' : '') +
+        '<div class="plan-head">' +
+          '<div class="eyebrow" style="color:' + accent + '">' + escapeHtml(plan.name) + '</div>' +
+          '<h3 class="plan-tagline">' + escapeHtml(plan.tagline) + '<br><span class="editorial">' + escapeHtml(plan.editorial) + '</span></h3>' +
+        '</div>' +
+        '<div class="plan-price">' + priceHtml + '</div>' +
+        '<a href="' + plan.link + '" class="btn btn-lg' + (plan.highlighted ? ' btn-primary' : '') + '" style="width:100%;justify-content:center">' +
+          escapeHtml(plan.cta) +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>' +
+        '</a>' +
+        '<ul class="plan-features">' + featuresHtml + '</ul>';
+      plansEl.appendChild(art);
+    });
+  }
+
+  function renderFaq(){
+    var faqEl = document.getElementById('faq');
+    faqEl.innerHTML = FAQ.map(function(f){
+      return '<details class="faq-item"><summary><span>' + escapeHtml(f.q) + '</span>' +
+        '<svg class="faq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>' +
+        '</summary><div class="faq-body">' + escapeHtml(f.a) + '</div></details>';
+    }).join('');
+  }
+
+  document.getElementById('bm').addEventListener('click', function(){
+    isYearly = false;
+    this.classList.add('active'); this.setAttribute('aria-selected','true');
+    var by = document.getElementById('by');
+    by.classList.remove('active'); by.setAttribute('aria-selected','false');
+    renderPlans();
+  });
+  document.getElementById('by').addEventListener('click', function(){
+    isYearly = true;
+    this.classList.add('active'); this.setAttribute('aria-selected','true');
+    var bm = document.getElementById('bm');
+    bm.classList.remove('active'); bm.setAttribute('aria-selected','false');
+    renderPlans();
+  });
+
+  renderPlans();
+  renderFaq();
+})();
+</script>
+</body>
+</html>

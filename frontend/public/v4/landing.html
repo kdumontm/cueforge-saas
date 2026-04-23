@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TrackCue — Prépare tes sets 10× plus vite</title>
+<meta name="description" content="Analyse automatique BPM, Camelot key, cue points & énergie. Export Rekordbox, Serato, Traktor. L'outil des DJs qui préparent sérieusement.">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423b">
+<style>
+  body {
+    position: relative;
+    background: var(--s-0);
+    background-image: var(--aurora-hot);
+    background-attachment: fixed;
+    color: var(--c-primary);
+    font-family: var(--font-body);
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    opacity: .55;
+    mix-blend-mode: overlay;
+  }
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(20px) saturate(1.2);
+    background: rgba(10,8,14,.72);
+    border-bottom: 1px solid var(--b-subtle);
+    display: flex; align-items: center;
+    padding: 14px 28px;
+    gap: 16px;
+  }
+  .topnav-brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    text-decoration: none;
+    color: var(--c-primary);
+    font-family: var(--font-display);
+    font-size: 17px; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .topnav-brand .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    box-shadow: 0 6px 18px rgba(255,46,107,.3);
+    display: grid; place-items: center;
+    color: #0a0508; font-weight: 800; font-size: 14px;
+  }
+  .topnav-brand .mark::after { content: "T"; }
+  .topnav-sep { flex: 1; }
+  .topnav-links { display: flex; align-items: center; gap: 22px; }
+  .topnav-links a {
+    color: var(--c-tertiary);
+    text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+    transition: color .15s ease;
+  }
+  .topnav-links a:hover { color: var(--c-primary); }
+  .topnav-actions { display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 860px){ .topnav-links { display: none; } }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    border: 1px solid var(--b-default);
+    border-radius: 24px;
+    padding: 56px;
+    margin-bottom: 48px;
+    background:
+      radial-gradient(900px 500px at 90% 0%, rgba(255,46,107,.2), transparent 55%),
+      radial-gradient(700px 400px at 0% 100%, rgba(139,92,246,.2), transparent 55%),
+      linear-gradient(180deg, var(--s-2) 0%, var(--s-1) 100%);
+    overflow: hidden;
+    box-shadow: 0 14px 48px rgba(0,0,0,.5);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .hero .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(38px, 5vw, 62px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    margin: 0 0 20px;
+  }
+  .hero-title .editorial {
+    color: var(--c-secondary);
+    font-weight: 400;
+    font-size: 0.88em;
+    font-family: var(--font-editorial);
+    font-style: italic;
+  }
+  .hero-lead {
+    color: var(--c-secondary);
+    font-size: 16px; line-height: 1.55;
+    margin: 0 0 32px;
+    max-width: 520px;
+  }
+  .hero-actions {
+    display: flex; gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .hero-meta {
+    display: flex;
+    gap: 20px; flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--c-tertiary);
+    font-family: var(--font-mono);
+  }
+  .hero-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-meta-item svg { width: 14px; height: 14px; color: var(--green); }
+
+  /* Live preview card */
+  .live-preview {
+    background: rgba(5,4,6,.55);
+    border: 1px solid var(--b-default);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    backdrop-filter: blur(12px);
+  }
+  .live-now-head { display: flex; justify-content: space-between; align-items: center; }
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--pink);
+    box-shadow: 0 0 14px var(--pink);
+    animation: tc-livePulse 1.6s ease-in-out infinite;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  @keyframes tc-livePulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .live-track { display: flex; gap: 12px; align-items: center; }
+  .live-cover {
+    width: 52px; height: 52px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--pink), var(--amber));
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  .live-cover::after {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg, transparent 0 8px, rgba(0,0,0,.18) 8px 10px);
+  }
+  .live-info { flex: 1; min-width: 0; }
+  .live-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .live-artist {
+    color: var(--c-secondary); font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .live-progress {
+    height: 6px; border-radius: 3px; background: var(--s-3);
+    overflow: hidden; position: relative;
+  }
+  .live-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--pink), var(--amber));
+    border-radius: 3px; position: relative;
+  }
+  .live-steps {
+    display: flex; gap: 6px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--c-secondary);
+  }
+  .live-steps span {
+    flex: 1; padding: 3px 6px; border-radius: 4px;
+    background: var(--s-3); text-align: center;
+    border: 1px solid var(--b-subtle);
+  }
+  .live-steps .done { background: var(--green-soft); border-color: rgba(74,222,128,.3); color: #8ef0aa; }
+  .live-steps .doing { background: var(--amber-soft); border-color: rgba(255,122,24,.3); color: #ffba7a; }
+  .live-kpis {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding-top: 10px; border-top: 1px solid var(--b-subtle);
+  }
+  .live-kpi-val {
+    font-family: var(--font-display); font-weight: 700; font-size: 22px;
+    letter-spacing: -0.01em; line-height: 1; margin-top: 4px;
+  }
+
+  /* TRUST */
+  .trust {
+    display: flex; flex-direction: column; gap: 14px;
+    align-items: center;
+    padding: 32px 0 48px;
+    border-bottom: 1px solid var(--b-subtle);
+    margin-bottom: 64px;
+    text-align: center;
+  }
+  .trust-label { color: var(--c-tertiary); }
+  .trust-chips { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+  /* Sections */
+  .section-head-lg { margin-bottom: 32px; max-width: 760px; }
+  .section-head-lg .eyebrow { color: var(--pink); margin-bottom: 12px; }
+  .section-head-lg h2 {
+    font-family: var(--font-display);
+    font-size: 38px; font-weight: 700;
+    letter-spacing: -0.02em; line-height: 1.1;
+    margin: 0 0 12px;
+  }
+  .section-head-lg h2 .editorial {
+    font-family: var(--font-editorial);
+    font-style: italic;
+    color: var(--c-secondary);
+    font-weight: 400;
+  }
+  .section-head-lg .muted {
+    color: var(--c-tertiary);
+    font-size: 15px;
+    max-width: 640px;
+  }
+
+  /* FEATURES */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 80px;
+  }
+  .feature {
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 14px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 18px;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .feature:hover { transform: translateY(-2px); border-color: var(--b-strong); }
+  .feature-title {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 19px; letter-spacing: -0.015em;
+    line-height: 1.2; margin: 0;
+  }
+  .feature-title .editorial {
+    color: var(--c-secondary);
+    font-weight: 400; font-size: 17px;
+    font-family: var(--font-editorial);
+    font-style: italic;
+  }
+  .feature-body {
+    color: var(--c-secondary);
+    font-size: 13.5px; line-height: 1.55; margin: 0;
+  }
+
+  /* WORKFLOW */
+  .workflow-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-bottom: 80px;
+  }
+  .workflow-step {
+    padding: 28px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 18px;
+  }
+  .workflow-num {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--amber); margin-bottom: 6px;
+  }
+  .workflow-title {
+    font-family: var(--font-display); font-weight: 700; font-size: 22px;
+    letter-spacing: -0.015em;
+  }
+  .workflow-body { color: var(--c-secondary); font-size: 14px; line-height: 1.55; }
+
+  /* CTA BAND */
+  .cta-band { margin-bottom: 80px; }
+  .cta-inner {
+    padding: 40px 44px;
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    gap: 32px; align-items: center;
+    border: 1px solid var(--b-default);
+    border-radius: 22px;
+    background:
+      radial-gradient(600px 300px at 100% 0%, rgba(255,46,107,.16), transparent 60%),
+      radial-gradient(500px 250px at 0% 100%, rgba(255,122,24,.14), transparent 60%),
+      linear-gradient(180deg, var(--s-3) 0%, var(--s-2) 100%);
+    box-shadow: 0 14px 48px rgba(0,0,0,.4);
+  }
+  .cta-inner h2 {
+    font-family: var(--font-display);
+    font-size: 32px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 8px 0 6px;
+  }
+  .cta-inner h2 .editorial {
+    font-family: var(--font-editorial);
+    font-style: italic;
+    color: var(--c-secondary);
+    font-weight: 400;
+  }
+  .cta-inner p { color: var(--c-tertiary); margin: 0; max-width: 480px; }
+  .cta-actions {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;
+  }
+
+  /* FOOTER */
+  .v4-footer {
+    border-top: 1px solid var(--b-subtle);
+    padding-top: 48px;
+    display: grid;
+    grid-template-columns: 1.2fr 2fr;
+    gap: 48px;
+  }
+  .v4-footer-brand p {
+    color: var(--c-tertiary);
+    font-size: 13px;
+    max-width: 320px;
+    margin-top: 12px;
+  }
+  .v4-footer-cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .v4-footer-cols > div { display: flex; flex-direction: column; gap: 8px; }
+  .v4-footer-cols .eyebrow {
+    color: var(--c-tertiary);
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .v4-footer-cols a {
+    color: var(--c-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: color .15s ease;
+  }
+  .v4-footer-cols a:hover { color: var(--c-primary); }
+  .v4-footer-bottom {
+    grid-column: 1 / -1;
+    padding: 32px 0 0;
+    border-top: 1px solid var(--b-subtle);
+    margin-top: 32px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--c-tertiary);
+  }
+
+  @media (max-width: 960px) {
+    .hero { padding: 36px 28px; }
+    .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+    .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    .workflow-grid { grid-template-columns: 1fr; }
+    .cta-inner { grid-template-columns: 1fr; padding: 32px 24px; }
+    .cta-actions { justify-content: flex-start; }
+    .v4-footer { grid-template-columns: 1fr; gap: 32px; }
+    .v4-footer-cols { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 32px 20px 64px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .hero-title { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<script>
+  // Redirige les utilisateurs déjà connectés vers /dashboard
+  try {
+    var t = localStorage.getItem('trackcue_token');
+    if (t) { window.location.replace('/dashboard'); }
+  } catch (e) {}
+</script>
+
+<header class="topnav">
+  <a href="/" class="topnav-brand">
+    <span class="mark"></span>
+    <span>TrackCue</span>
+  </a>
+  <span class="topnav-sep"></span>
+  <nav class="topnav-links">
+    <a href="#features">Features</a>
+    <a href="#workflow">Workflow</a>
+    <a href="/pricing">Tarifs</a>
+    <a href="/docs">Docs</a>
+    <a href="/changelog">Changelog</a>
+  </nav>
+  <div class="topnav-actions">
+    <a href="/login" class="btn btn-ghost btn-sm">Connexion</a>
+    <a href="/register" class="btn btn-primary btn-sm">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Commencer
+    </a>
+  </div>
+</header>
+
+<main class="page">
+  <!-- HERO -->
+  <section class="hero reveal">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="eyebrow" style="margin-bottom:18px;color:var(--amber)">Studio Neon</div>
+        <h1 class="hero-title">
+          Prépare tes sets <span class="editorial">comme un tailleur,</span><br>
+          pas comme un touriste.
+        </h1>
+        <p class="hero-lead">
+          TrackCue analyse ton catalogue — BPM, Camelot, énergie, cues, stems — et exporte propre vers
+          Rekordbox, Serato, Traktor. Moins de clics, plus de musique.
+        </p>
+        <div class="hero-actions">
+          <a href="/register" class="btn btn-primary btn-lg">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M5 3v18l15-9z"/></svg>
+            Commencer gratuitement
+          </a>
+          <a href="/pricing" class="btn btn-lg">
+            Voir les tarifs
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+        <div class="hero-meta">
+          <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>5 analyses/jour gratuites</div>
+          <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Aucune carte</div>
+          <div class="hero-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Desktop app incluse</div>
+        </div>
+      </div>
+
+      <div class="live-preview">
+        <div class="live-now-head">
+          <span class="eyebrow"><span class="live-dot"></span>En analyse</span>
+          <span class="mono hint" style="font-family:var(--font-mono);font-size:11.5px;color:var(--c-tertiary)">ETA 00:42</span>
+        </div>
+        <div class="live-track">
+          <div class="live-cover"></div>
+          <div class="live-info">
+            <div class="live-title">Strobe (Club Mix)</div>
+            <div class="live-artist">deadmau5 · For Lack of a Better Name</div>
+          </div>
+        </div>
+        <div class="live-progress"><div class="live-progress-fill" style="width:72%"></div></div>
+        <div class="live-steps">
+          <span class="done">BPM</span>
+          <span class="done">Key</span>
+          <span class="doing">Cues</span>
+          <span>Stems</span>
+        </div>
+        <div class="live-kpis">
+          <div>
+            <div class="eyebrow" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--c-tertiary)">BPM</div>
+            <div class="live-kpi-val">128.0</div>
+          </div>
+          <div>
+            <div class="eyebrow" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--c-tertiary)">Key</div>
+            <div class="live-kpi-val" style="color:var(--cyan)">8A</div>
+          </div>
+          <div>
+            <div class="eyebrow" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--c-tertiary)">Energy</div>
+            <div class="live-kpi-val" style="color:var(--pink)">7.2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST -->
+  <section class="trust reveal reveal-2">
+    <div class="trust-label eyebrow" style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Exports natifs</div>
+    <div class="trust-chips">
+      <span class="chip">Rekordbox XML</span>
+      <span class="chip">Serato</span>
+      <span class="chip">Traktor NML</span>
+      <span class="chip">Mixxx</span>
+      <span class="chip">Spotify playlists</span>
+      <span class="chip">Beatport crates</span>
+      <span class="chip chip-amber"><span class="chip-dot"></span>Desktop app · macOS · Windows · Linux</span>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="section-head-lg">
+      <div class="eyebrow" style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Features</div>
+      <h2>Tout ce qu'il faut. <span class="editorial">Rien de plus.</span></h2>
+      <p class="muted">Des outils pensés pour la préparation réelle d'un set, pas pour remplir une page de specs.</p>
+    </div>
+    <div class="feature-grid" id="feature-grid"></div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section id="workflow">
+    <div class="section-head-lg">
+      <div class="eyebrow" style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Workflow</div>
+      <h2>Trois étapes. <span class="editorial">Aucune friction.</span></h2>
+    </div>
+    <div class="workflow-grid" id="workflow-grid"></div>
+  </section>
+
+  <!-- CTA band -->
+  <section class="cta-band">
+    <div class="cta-inner">
+      <div>
+        <div class="eyebrow" style="color:var(--pink);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase">Tu commences quand ?</div>
+        <h2>5 analyses par jour, <span class="editorial">gratuites. Toujours.</span></h2>
+        <p>Crée ton compte en 30 secondes. Aucune carte bancaire demandée. Upgrade quand tu es prêt — jamais avant.</p>
+      </div>
+      <div class="cta-actions">
+        <a href="/register" class="btn btn-primary btn-lg">
+          Créer un compte
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </a>
+        <a href="/pricing" class="btn btn-ghost btn-lg">Comparer les plans</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="v4-footer">
+    <div class="v4-footer-brand">
+      <div class="topnav-brand" style="font-size:18px">
+        <span class="mark"></span>
+        <span>TrackCue</span>
+      </div>
+      <p>L'outil d'analyse et de préparation pour DJs qui prennent leurs sets au sérieux.</p>
+    </div>
+    <div class="v4-footer-cols">
+      <div>
+        <div class="eyebrow">Produit</div>
+        <a href="/pricing">Tarifs</a>
+        <a href="/download">Download</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/docs">Docs</a>
+      </div>
+      <div>
+        <div class="eyebrow">Compte</div>
+        <a href="/login">Connexion</a>
+        <a href="/register">Inscription</a>
+        <a href="/dashboard">Dashboard</a>
+      </div>
+      <div>
+        <div class="eyebrow">Legal</div>
+        <a href="/cgu">CGU</a>
+        <a href="/cgu#privacy">Confidentialité</a>
+        <a href="mailto:hello@trackcue.com">Contact</a>
+      </div>
+    </div>
+    <div class="v4-footer-bottom">© 2026 TrackCue. Tous droits réservés.</div>
+  </footer>
+</main>
+
+<script src="/v4/shared.js?v=20260423b"></script>
+<script>
+(function(){
+  var FEATURES = [
+    { title: 'Analyse IA', editorial: 'qui comprend.', chip: 'chip-amber', chipLabel: 'BPM · Key · Energy',
+      body: 'BPM, tonalité Camelot, énergie, structure phrase-par-phrase. Pas du pattern-matching naïf : un vrai modèle audio entraîné sur 2M+ de tracks.' },
+    { title: 'Hot Cues', editorial: 'posés au bon endroit.', chip: 'chip-pink', chipLabel: '8 cue points auto',
+      body: 'Intros, drops, breakdowns, outros détectés automatiquement. Prêts à charger dans tes decks — tu ajustes, tu mixes, tu joues.' },
+    { title: 'Stem separation', editorial: 'sans compromis.', chip: 'chip-violet', chipLabel: '4 stems · Demucs v4',
+      body: 'Isole drums, bass, vocals et melodic en un clic. Propulsé par Demucs v4 — qualité studio, export WAV ou MP3.' },
+    { title: 'Export universel', editorial: 'vers tous tes DAWs.', chip: 'chip-cyan', chipLabel: 'Rekordbox · Serato · Traktor',
+      body: 'Rekordbox XML natif, Serato crates, Traktor NML, Mixxx. Les cues, la grille, les métadonnées — tout passe, rien ne se perd.' },
+    { title: 'Compatibilité harmonique', editorial: 'intelligente.', chip: 'chip-lime', chipLabel: 'Harmonic mixing',
+      body: 'Le Camelot Wheel revisité. TrackCue te montre quelles tracks de ta library mixent ensemble, pas juste celles qui collent sur la roue.' },
+    { title: 'Library qui respire', editorial: "jusqu'à 50k tracks.", chip: 'chip-green', chipLabel: "Jusqu'à 50 000 tracks",
+      body: "Recherche floue, filtres BPM / key / energy / tags, tri par compatibilité avec une track de référence. Ça scrolle vite, ça retrouve tout." }
+  ];
+  var WORKFLOW = [
+    { step: '01', title: 'Tu uploades', body: 'MP3, FLAC, WAV, AIFF. En batch si besoin — on gère.' },
+    { step: '02', title: 'On analyse', body: 'BPM, key, cues, énergie, stems. 45 secondes par track.' },
+    { step: '03', title: 'Tu exportes', body: 'Rekordbox ouvre ta library, tout est prêt. Go DJ.' }
+  ];
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  document.getElementById('feature-grid').innerHTML = FEATURES.map(function(f){
+    return '<article class="feature">' +
+      '<span class="chip ' + f.chip + '" style="align-self:flex-start"><span class="chip-dot"></span>' + esc(f.chipLabel) + '</span>' +
+      '<h3 class="feature-title">' + esc(f.title) + '<br><span class="editorial">' + esc(f.editorial) + '</span></h3>' +
+      '<p class="feature-body">' + esc(f.body) + '</p>' +
+    '</article>';
+  }).join('');
+
+  document.getElementById('workflow-grid').innerHTML = WORKFLOW.map(function(w){
+    return '<div class="workflow-step">' +
+      '<div class="workflow-num">' + esc(w.step) + '</div>' +
+      '<div class="workflow-title">' + esc(w.title) + '</div>' +
+      '<div class="workflow-body">' + esc(w.body) + '</div>' +
+    '</div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>
