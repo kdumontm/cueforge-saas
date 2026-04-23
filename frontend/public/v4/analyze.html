@@ -6,8 +6,8 @@
 <title>TrackCue — Analyze</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422b" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423d" as="script">
-<link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
+<link rel="preload" href="/v4/shared.js?v=20260423-density" as="script">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -185,26 +185,43 @@
     content:"";position:absolute;top:-4px;left:-5px;width:12px;height:8px;
     background:var(--amber);clip-path:polygon(50% 100%,0 0,100% 0);
   }
-  /* Cue markers */
+  /* Cue markers — Rekordbox style (triangle + 8 color palette) */
   .cue-marker{
     position:absolute;top:0;bottom:0;z-index:5;cursor:pointer;
-    transition:transform var(--t-fast) var(--ease);
+    transition:all var(--t-fast) var(--ease);
   }
-  .cue-marker:hover{z-index:20}
-  .cue-line{position:absolute;top:24px;bottom:10px;left:50%;transform:translateX(-50%);width:2px;background:currentColor;opacity:.7}
+  .cue-marker:hover{z-index:20;transform:scaleY(1.15)}
+  .cue-line{position:absolute;top:26px;bottom:10px;left:50%;transform:translateX(-50%);width:2px;background:currentColor;opacity:.6}
   .cue-tip{
-    position:absolute;top:-3px;left:50%;transform:translateX(-50%);
-    width:22px;height:22px;border-radius:6px;
-    background:currentColor;color:#050406;font-family:var(--font-mono);font-weight:600;font-size:10px;
-    display:inline-flex;align-items:center;justify-content:center;
-    border:2px solid var(--s-1);
-    box-shadow:0 2px 10px rgba(0,0,0,.4);
+    position:absolute;top:-8px;left:50%;transform:translateX(-50%);
+    width:0;height:0;
+    /* Triangle pointant vers le bas (Rekordbox style) */
+    border-left:12px solid transparent;
+    border-right:12px solid transparent;
+    border-top:14px solid currentColor;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
   }
   .cue-label{
     position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);
     font-family:var(--font-mono);font-size:10px;color:currentColor;white-space:nowrap;
+    font-weight:500;
   }
-  .cue-marker.selected .cue-tip{outline:2px solid var(--c-primary);outline-offset:2px}
+  .cue-marker.selected .cue-tip{
+    filter:drop-shadow(0 0 4px var(--c-primary));
+  }
+  .cue-marker.selected .cue-line{
+    opacity:1;
+  }
+  /* Rekordbox 8-color palette (assigned by cue index) */
+  .cue-marker[data-cue-index="0"]{color:#FF5777}
+  .cue-marker[data-cue-index="1"]{color:#FF8F43}
+  .cue-marker[data-cue-index="2"]{color:#F8E634}
+  .cue-marker[data-cue-index="3"]{color:#7FF947}
+  .cue-marker[data-cue-index="4"]{color:#1BE4B6}
+  .cue-marker[data-cue-index="5"]{color:#40C2FF}
+  .cue-marker[data-cue-index="6"]{color:#305EFF}
+  .cue-marker[data-cue-index="7"]{color:#C643FF}
+  /* Fallback: si le cue_type est stocké, utiliser les anciennes couleurs (backward compat) */
   .cue-marker[data-type=load]{color:var(--cue-load)}
   .cue-marker[data-type=hot]{color:var(--cue-hot)}
   .cue-marker[data-type=loop]{color:var(--cue-loop)}
@@ -323,11 +340,22 @@
     background:currentColor;color:#050406;
     font-family:var(--font-mono);font-size:10px;font-weight:600;
     display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.2);
   }
   .cue-item .info{min-width:0}
   .cue-item .info .nm{font-family:var(--font-display);font-size:12.5px;font-weight:500;color:var(--c-primary)}
   .cue-item .info .mt{font-family:var(--font-mono);font-size:10.5px;color:var(--c-tertiary)}
   .cue-item .tm{font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);text-align:right}
+  /* Rekordbox 8-color palette pour les items de cue list (assigned by cue index) */
+  .cue-item[data-cue-index="0"]{color:#FF5777}
+  .cue-item[data-cue-index="1"]{color:#FF8F43}
+  .cue-item[data-cue-index="2"]{color:#F8E634}
+  .cue-item[data-cue-index="3"]{color:#7FF947}
+  .cue-item[data-cue-index="4"]{color:#1BE4B6}
+  .cue-item[data-cue-index="5"]{color:#40C2FF}
+  .cue-item[data-cue-index="6"]{color:#305EFF}
+  .cue-item[data-cue-index="7"]{color:#C643FF}
+  /* Fallback: ancien système (backward compat) */
   .cue-item[data-type=load]{color:var(--cue-load)}
   .cue-item[data-type=hot]{color:var(--cue-hot)}
   .cue-item[data-type=loop]{color:var(--cue-loop)}
@@ -677,7 +705,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-stems-fix"></script>
+<script src="/v4/shared.js?v=20260423-density"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -955,6 +983,8 @@ function renderCueMarkers(cues, durationMs){
     const el = document.createElement('div');
     el.className = 'cue-marker'+(i===0?' selected':'');
     el.dataset.type = type;
+    // 🔴 2026-04-24 (Bug #30 — Rekordbox UX) : palette Rekordbox 8 couleurs par index
+    el.dataset.cueIndex = i % 8;
     el.style.left = pct+'%';
     const tipLabel = name
       ? name.substring(0,1).toUpperCase()

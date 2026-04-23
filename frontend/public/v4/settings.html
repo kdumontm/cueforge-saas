@@ -6,8 +6,8 @@
 <title>TrackCue — Settings</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260423d" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-settings-admin-removed" as="script">
-<link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
+<link rel="preload" href="/v4/shared.js?v=20260423-density" as="script">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <style>
   /* Page-specific — Settings */
   /* NOTE: pas de scroll-behavior:smooth global — ça casse window.scrollTo dans
@@ -750,7 +750,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-settings-admin-removed"></script>
+<script src="/v4/shared.js?v=20260423-density"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -970,6 +970,12 @@
         seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
         if(segKey) saveSettings({[segKey]: b.textContent.trim()});
+        // 🎯 Densité : applique data-density immédiatement
+        if(segKey === 'seg_densite_dinterface'){
+          const slug = b.textContent.trim().toLowerCase().replace(/\s+/g,'');
+          document.documentElement.setAttribute('data-density', slug);
+          toast(`Densité : ${b.textContent.trim()} ✓`,'success');
+        }
       });
     });
   });

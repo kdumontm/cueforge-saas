@@ -19,6 +19,22 @@
   } catch(_) { /* localStorage indispo (SSR / privacy) → on ignore */ }
 })();
 
+// -------- Density boot (compacte/normale/confortable) --------
+// Lit trackcue_settings_v1 et applique data-density sur <html> AVANT tout render.
+// Sans ce boot, la densité ne persiste pas après reload ou nav vers autre page.
+(function bootDensity(){
+  try {
+    const raw = localStorage.getItem('trackcue_settings_v1');
+    if(!raw) return;
+    const s = JSON.parse(raw) || {};
+    if(s.seg_densite_dinterface){
+      // Récupère la valeur du segment densité (ex: "Compacte", "Normale", "Confortable")
+      const slug = String(s.seg_densite_dinterface).toLowerCase().replace(/\s+/g,'');
+      document.documentElement.setAttribute('data-density', slug);
+    }
+  } catch(_) { /* localStorage indispo → on ignore */ }
+})();
+
 // -------- Toast --------
 (function(){
   if(document.querySelector('.toast-wrap')) return;

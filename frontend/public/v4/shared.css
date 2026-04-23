@@ -773,6 +773,64 @@ img,video,canvas,svg{max-width:100%}
 }
 
 /* ============================================================
-   Page-specific sections will be loaded per file.
-   Keep shared core here.
+   Density modes — compacte / normale / confortable
+   Modifie le spacing, gaps, et font-size globalement via CSS vars.
+   data-density appliquée sur <html> par shared.js et settings.html.
    ============================================================ */
+
+/* Default: normale (comfortable) */
+:root {
+  --ui-pad: 14px;        /* padding standard */
+  --ui-gap: 10px;        /* gap standard */
+  --ui-font-sm: 11.5px;  /* small font */
+  --ui-font-md: 12.5px;  /* medium font (labels) */
+}
+
+/* Compacte : -40% spacing, -1px font */
+html[data-density="compacte"] {
+  --ui-pad: 8px;         /* -43% */
+  --ui-gap: 6px;         /* -40% */
+  --ui-font-sm: 10.5px;  /* -1px */
+  --ui-font-md: 11.5px;  /* -1px */
+}
+
+/* Confortable : +40% spacing, +1px font */
+html[data-density="confortable"] {
+  --ui-pad: 20px;        /* +43% */
+  --ui-gap: 14px;        /* +40% */
+  --ui-font-sm: 12.5px;  /* +1px */
+  --ui-font-md: 13.5px;  /* +1px */
+}
+
+/* Appliquer la densité aux composants clés */
+/* Fields et inputs */
+.field { gap: var(--ui-gap); margin-bottom: calc(var(--ui-pad) + 4px); }
+.field-label { font-size: var(--ui-font-md); }
+.field-hint { font-size: var(--ui-font-sm); }
+.input, .segment button { padding: var(--ui-pad) var(--ui-pad); font-size: var(--ui-font-md); }
+
+/* Rows et options */
+.option-row { padding: var(--ui-pad); gap: var(--ui-gap); }
+.option-label { font-size: var(--ui-font-md); }
+.option-hint { font-size: var(--ui-font-sm); }
+.option-trail { gap: var(--ui-gap); }
+
+/* Grids */
+.theme-grid { gap: var(--ui-gap); }
+.integ-grid { gap: var(--ui-gap); }
+.kbd-grid { gap: var(--ui-gap) 24px; }
+
+/* Spacing général dans sections */
+.sec { padding: calc(var(--ui-pad) + 10px) calc(var(--ui-pad) + 12px); }
+.sec-head { gap: var(--ui-gap); margin-bottom: calc(var(--ui-pad) + 4px); padding-bottom: var(--ui-pad); }
+
+/* Side nav */
+.side-nav { gap: 2px; padding: var(--ui-pad); }
+.side-nav a { gap: var(--ui-gap); padding: calc(var(--ui-pad) - 5px) var(--ui-pad); font-size: var(--ui-font-md); }
+
+/* Cards and elements */
+.theme-card { padding: var(--ui-pad); }
+.integ { padding: var(--ui-pad); gap: var(--ui-gap); }
+.swatch { width: calc(32px * 1); height: calc(32px * 1); } /* Optionnel : on peut aussi réduire les boutons */
+
+/* ============================================================ */
