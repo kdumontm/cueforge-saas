@@ -411,11 +411,14 @@ function relTime(iso){
 }
 
 // ---- Chargement initial ----
+// ⚡ Perf 2026-04-23 : Promise.all pour paralléliser les 3 API calls
+// Avant : séquentiel, ~4-5s. Après : max des 3, ~1-2s.
 (async function loadDashboard(){
-  let stats = null, tracks = null, sets = null;
-  try { stats = await api.stats(); } catch {}
-  try { tracks = await api.tracks({ limit: 8, sort: '-created_at' }); } catch { tracks = { tracks: [] }; }
-  try { sets = await api.sets({ limit: 1 }); } catch {}
+  const [stats, tracks, sets] = await Promise.all([
+    api.stats().catch(() => null),
+    api.tracks({ limit: 8, sort: '-created_at' }).catch(() => ({ tracks: [] })),
+    api.sets({ limit: 1 }).catch(() => null),
+  ]);
 
   // --- KPIs ---
   const total = (stats && stats.total_tracks) != null ? stats.total_tracks : (tracks && tracks.total) || 0;

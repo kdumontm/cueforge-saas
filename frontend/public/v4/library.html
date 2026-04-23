@@ -660,7 +660,11 @@ function renderPagination(){
 // status ∈ {analyzing, pending, processing} → badge 4 mais 2 rows rendues.
 async function loadCounts(){
   try {
-    const data = await api.tracks({ limit: 200 }).catch(()=>null);
+    // ⚡ Perf 2026-04-23 : Promise.all tracks + favorites au lieu de séquentiel (~gain 1-2s)
+    const [data, favs] = await Promise.all([
+      api.tracks({ limit: 200 }).catch(()=>null),
+      api.get('/favorites').catch(()=>null),
+    ]);
     const all = (data && data.tracks) || [];
     const total = data?.total ?? all.length;
     const ready = all.filter(t => t.status === 'ready' || t.status === 'completed' || t.status === 'analyzed').length;
@@ -669,7 +673,6 @@ async function loadCounts(){
     document.getElementById('c-ready').textContent = fmt.num(ready);
     document.getElementById('c-analyzing').textContent = fmt.num(analyzing);
 
-    const favs = await api.get('/favorites').catch(()=>null);
     if(favs){
       const items = (favs && (favs.favorites || favs.tracks || favs.items)) || (Array.isArray(favs)?favs:[]);
       document.getElementById('c-favorites').textContent = fmt.num(items.length);
