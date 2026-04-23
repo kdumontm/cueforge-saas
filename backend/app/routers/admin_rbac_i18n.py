@@ -240,13 +240,6 @@ def list_audit_logs(
     items = q.order_by(AuditLog.created_at.desc()).offset(skip).limit(limit).all()
     return {"total": total, "items": [_ser_audit(a) for a in items]}
 
-@router.get("/admin/audit-logs/{log_id}")
-def get_audit_log(log_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
-    log = db.query(AuditLog).filter(AuditLog.id == log_id).first()
-    if not log:
-        raise HTTPException(404)
-    return _ser_audit(log)
-
 @router.get("/admin/audit-logs/stats/overview")
 def audit_stats(db: Session = Depends(get_db), _=Depends(require_admin)):
     total = db.query(AuditLog).count()
@@ -267,13 +260,6 @@ def audit_actions(_=Depends(require_admin)):
 def audit_resource_types(_=Depends(require_admin)):
     return ["user", "track", "playlist", "djset", "subscription", "page", "setting", "role", "email_template", "workflow", "backup", "api_key", "webhook"]
 
-@router.delete("/admin/audit-logs/cleanup")
-def cleanup_audit_logs(days: int = 90, db: Session = Depends(get_db), _=Depends(require_admin)):
-    cutoff = datetime.utcnow() - __import__("datetime").timedelta(days=days)
-    count = db.query(AuditLog).filter(AuditLog.created_at < cutoff).delete()
-    db.commit()
-    return {"deleted": count}
-
 @router.get("/admin/audit-logs/export")
 def export_audit_logs(
     date_from: str = None, date_to: str = None, format: str = "json",
@@ -286,6 +272,20 @@ def export_audit_logs(
         q = q.filter(AuditLog.created_at <= date_to)
     logs = q.order_by(AuditLog.created_at.desc()).limit(10000).all()
     return {"format": format, "count": len(logs), "data": [_ser_audit(a) for a in logs]}
+
+@router.delete("/admin/audit-logs/cleanup")
+def cleanup_audit_logs(days: int = 90, db: Session = Depends(get_db), _=Depends(require_admin)):
+    cutoff = datetime.utcnow() - __import__("datetime").timedelta(days=days)
+    count = db.query(AuditLog).filter(AuditLog.created_at < cutoff).delete()
+    db.commit()
+    return {"deleted": count}
+
+@router.get("/admin/audit-logs/{log_id}")
+def get_audit_log(log_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+    log = db.query(AuditLog).filter(AuditLog.id == log_id).first()
+    if not log:
+        raise HTTPException(404)
+    return _ser_audit(log)
 
 # ═══════════════════════════════════════════════════════
 # I18N – LOCALES
@@ -373,27 +373,6 @@ def create_translation(data: dict, db: Session = Depends(get_db), _=Depends(requ
     db.refresh(t)
     return _ser_translation(t)
 
-@router.put("/admin/translations/{translation_id}")
-def update_translation(translation_id: int, data: dict, db: Session = Depends(get_db), _=Depends(require_admin)):
-    t = db.query(Translation).filter(Translation.id == translation_id).first()
-    if not t:
-        raise HTTPException(404)
-    for k in ["value", "is_reviewed"]:
-        if k in data:
-            setattr(t, k, data[k])
-    db.commit()
-    db.refresh(t)
-    return _ser_translation(t)
-
-@router.delete("/admin/translations/{translation_id}")
-def delete_translation(translation_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
-    t = db.query(Translation).filter(Translation.id == translation_id).first()
-    if not t:
-        raise HTTPException(404)
-    db.delete(t)
-    db.commit()
-    return {"ok": True}
-
 @router.post("/admin/translations/bulk")
 def bulk_update_translations(data: dict, db: Session = Depends(get_db), _=Depends(require_admin)):
     """data = {translations: [{locale, namespace, key, value}]}"""
@@ -469,3 +448,24 @@ def translation_stats(db: Session = Depends(get_db), _=Depends(require_admin)):
             "reviewed": reviewed, "completion": round(count / max(default_count, 1) * 100, 1),
         })
     return {"default_locale": default_code, "default_count": default_count, "locales": stats}
+
+@router.put("/admin/translations/{translation_id}")
+def update_translation(translation_id: int, data: dict, db: Session = Depends(get_db), _=Depends(require_admin)):
+    t = db.query(Translation).filter(Translation.id == translation_id).first()
+    if not t:
+        raise HTTPException(404)
+    for k in ["value", "is_reviewed"]:
+        if k in data:
+            setattr(t, k, data[k])
+    db.commit()
+    db.refresh(t)
+    return _ser_translation(t)
+
+@router.delete("/admin/translations/{translation_id}")
+def delete_translation(translation_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+    t = db.query(Translation).filter(Translation.id == translation_id).first()
+    if not t:
+        raise HTTPException(404)
+    db.delete(t)
+    db.commit()
+    return {"ok": True}

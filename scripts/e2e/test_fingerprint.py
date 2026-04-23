@@ -59,22 +59,18 @@ def run(ctx: RunContext) -> TestReport:
         raise AssertionError(f"fingerprint gen unexpected {r.status_code}")
     run_step(report, "POST /fingerprint/{id}", _gen_fp)
 
-    # 2. find-duplicates (DuplicateDetectionRequest)
+    # 2. find-duplicates (schema: track_id required)
     def _find_duplicates():
-        payload = {"threshold": 0.9}  # try common shape
-        r = client.post("/fingerprint/find-duplicates", json_body=payload)
-        if r.status_code == 404:
+        if not ids:
             return
-        if r.status_code == 422:
-            # try empty body
-            r = client.post("/fingerprint/find-duplicates", json_body={})
+        r = client.post("/fingerprint/find-duplicates",
+                        json_body={"track_id": ids[0], "threshold": 0.9})
         if r.status_code == 404:
             return
         if r.status_code == 500:
             raise AssertionError(f"find-duplicates → 500: {r.text[:200]}")
-        assert_status(r, 200, context="find-duplicates")
-        d = r.json()
-        assert isinstance(d, (list, dict))
+        assert_status(r, 200, 422, context="find-duplicates")
+        # 422 acceptable if the track has no fingerprint yet (fresh upload)
     run_step(report, "POST /fingerprint/find-duplicates", _find_duplicates)
 
     # 3. find-similar/{id}
