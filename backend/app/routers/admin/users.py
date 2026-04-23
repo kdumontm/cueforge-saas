@@ -617,10 +617,13 @@ async def toggle_user_comp(
     db.commit()
     db.refresh(user)
 
-    # Invalidate cache for admin stats
-    from app.routers.admin_stats import _stats_cache, _cache_lock
-    with _cache_lock:
-        _stats_cache.clear()
+    # Invalidate cache for admin stats (lazy import to avoid circular dependency)
+    try:
+        import app.routers.admin_stats as admin_stats
+        with admin_stats._cache_lock:
+            admin_stats._stats_cache.clear()
+    except Exception:
+        pass  # Cache invalidation is optional; stats will be fresh on next request
 
     status_text = "marqué comme offert" if is_comp else "retiré de la liste des offerts"
     return {
