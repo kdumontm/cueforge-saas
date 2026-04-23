@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Settings</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
-<link rel="preload" href="/v4/api.js?v=20260422d" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-feedbackperf" as="script">
+<link rel="preload" href="/v4/api.js?v=20260423d" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-feedback-pagepath" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   /* Page-specific — Settings */
@@ -302,7 +302,6 @@
             <div class="segment">
               <button class="active">Français</button>
               <button>English</button>
-              <button>Español</button>
             </div>
           </div>
           <div class="field"><label class="field-label">Fuseau horaire</label><input class="input" value="Europe/Paris — UTC+01:00" disabled></div>
@@ -753,7 +752,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-feedbackperf"></script>
+<script src="/v4/shared.js?v=20260423-feedback-pagepath"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 

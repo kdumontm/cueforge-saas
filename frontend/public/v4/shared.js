@@ -507,6 +507,9 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
       </div>
       <div class="body">
         <div id="tcfb-form">
+          <div class="field-label" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;color:#9b98a6">
+            📍 <span id="tcfb-page-path" style="font-family:var(--font-mono);font-size:11px;color:#b8b5c3"></span>
+          </div>
           <div class="admin-hint" id="tcfb-admin-hint" style="display:none">
             Note interne — visible uniquement dans /admin#fb. Pas d'email envoyé.
           </div>
@@ -858,6 +861,11 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
     btn.addEventListener('click', async () => {
       const isOpen = panel.classList.contains('open');
       if(isOpen){ panel.classList.remove('open'); return; }
+
+      // Afficher le chemin de la page courante
+      const currentPath = (location.pathname + location.search).slice(0, 100);
+      const pagePathEl = $('#tcfb-page-path');
+      if(pagePathEl) pagePathEl.textContent = currentPath || '/';
 
       // Reset état du screenshot pour cette nouvelle session
       capturedShot = null;

@@ -6,7 +6,7 @@
 <title>TrackCue — Upload</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260422d" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-feedbackperf" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-feedback-pagepath" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   /* Page-specific — Upload */
@@ -596,8 +596,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-feedbackperf"></script>
+<script src="/v4/api.js?v=20260423-fix1718"></script>
+<script src="/v4/shared.js?v=20260423-fix1718"></script>
 <script>
   // ---- Auth guard ----
   if(!api.requireAuth()) { /* redirected */ }
@@ -672,6 +672,17 @@
     return row;
   }
 
+  function attachRowClickHandler(row, trackId){
+    // 🔴 BUG #18 FIX: naviguer vers /analyze au clic sur la row (sauf boutons)
+    row.addEventListener('click', (e)=>{
+      // Ne pas rediriger si on clique sur un bouton ou lien
+      if(e.target.closest('button, a')) return;
+      if(trackId) location.href = `/v4/analyze.html?id=${trackId}`;
+    }, false);
+    // Ajouter un curseur pour indiquer que c'est cliquable
+    row.style.cursor = 'pointer';
+  }
+
   function markUploadComplete(row, track){
     // Upload OK, analyse en attente → état "pending" visible dans le filtre
     row.className = 'q-row pending';
@@ -686,8 +697,11 @@
     row.querySelector('.q-status').innerHTML = `
       <span class="q-step-chip active"><span class="spinner" style="width:9px;height:9px;border-width:1.5px;border-top-color:var(--cyan)"></span>Analyse</span>
     `;
-    // Démarre le polling backend
-    if(track?.id) pollAnalysis(row, track.id);
+    // Démarre le polling backend + attache le click handler
+    if(track?.id) {
+      attachRowClickHandler(row, track.id);
+      pollAnalysis(row, track.id);
+    }
   }
 
   async function pollAnalysis(row, trackId, attempts = 0){
@@ -717,6 +731,8 @@
           <span class="q-step-chip done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><polyline points="20 6 9 17 4 12"/></svg>Prêt</span>
           <button class="btn btn-sm btn-ghost" onclick="location.href='/v4/analyze.html?id=${trackId}'">Ouvrir</button>
         `;
+        // 🔴 BUG #18 FIX: naviguer au clic sur row done aussi
+        attachRowClickHandler(row, trackId);
         return;
       }
       if(status === 'error' || status === 'failed'){
@@ -759,6 +775,8 @@
           progressEl.textContent = `Upload · ${pct}%`;
         }, { cue_mode: cueMode });
         markUploadComplete(row, t);
+        // 🔴 BUG #17 FIX: rafraîchir les stats après upload
+        loadQueueStats();
         toast(`${f.name} uploadé — analyse en cours`,'success');
       } catch(err){
         markError(row, err.message);
