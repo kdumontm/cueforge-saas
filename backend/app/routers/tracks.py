@@ -4854,7 +4854,7 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
 
 # ── Admin Healing Endpoint (Dev BB, 2026-04-24) ───────────────────────────────
 
-@router.post("/admin/tracks/heal-orphans")
+@router.post("/admin/heal-orphans")
 async def heal_orphan_tracks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
