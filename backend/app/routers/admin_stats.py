@@ -16,7 +16,7 @@ import threading
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, text
+from sqlalchemy import func, text, case, and_
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -317,7 +317,6 @@ async def get_admin_full_dashboard(
     if _cached is not None:
         return _cached
 
-    from sqlalchemy import case
     from sqlalchemy.orm import joinedload
 
     now = datetime.utcnow()
@@ -328,10 +327,10 @@ async def get_admin_full_dashboard(
     user_stats = db.query(
         func.count(User.id).label("total"),
         func.sum(case((User.created_at >= seven_days_ago, 1), else_=0)).label("new_7d"),
-        func.sum(case(((User.subscription_plan == "pro") & (User.is_comp == False), 1), else_=0)).label("pro"),
-        func.sum(case(((User.subscription_plan == "unlimited") & (User.is_comp == False), 1), else_=0)).label("unlimited"),
-        func.sum(case(((User.subscription_plan == "pro") & (User.is_comp == True), 1), else_=0)).label("comp_pro"),
-        func.sum(case(((User.subscription_plan == "unlimited") & (User.is_comp == True), 1), else_=0)).label("comp_unlimited"),
+        func.sum(case((and_(User.subscription_plan == "pro", User.is_comp == False), 1), else_=0)).label("pro"),
+        func.sum(case((and_(User.subscription_plan == "unlimited", User.is_comp == False), 1), else_=0)).label("unlimited"),
+        func.sum(case((and_(User.subscription_plan == "pro", User.is_comp == True), 1), else_=0)).label("comp_pro"),
+        func.sum(case((and_(User.subscription_plan == "unlimited", User.is_comp == True), 1), else_=0)).label("comp_unlimited"),
     ).one()
     total_users = int(user_stats.total or 0)
     new_users_7d = int(user_stats.new_7d or 0)
