@@ -1553,8 +1553,49 @@ document.querySelectorAll('.tool-btn').forEach(b=>{
   });
 });
 
-// 🔴 2026-04-22 : handler Stem S/M supprimé — remplacé par placeholder
-// "Coming soon" (les stem-ctls n'existent plus dans le DOM).
+// 🔴 2026-04-23 : handler Stem S/M rétabli — visible quand stems_status === 'ready'
+// Gère les boutons Solo (S) et Mute (M) pour chaque stem (drums, bass, vocals, other)
+document.addEventListener('click', (e)=>{
+  const soloBtn = e.target.closest('.stem-solo');
+  const muteBtn = e.target.closest('.stem-mute');
+
+  if(soloBtn){
+    const stemName = soloBtn.dataset.stem;
+    if(!stemName) return;
+    // Toggle solo pour ce stem
+    soloBtn.classList.toggle('on');
+    if(soloBtn.classList.contains('on')){
+      soloBtn.style.background = `currentColor`;
+      soloBtn.style.color = '#050406';
+      soloBtn.style.borderColor = 'currentColor';
+    } else {
+      soloBtn.style.background = 'var(--s-2)';
+      soloBtn.style.color = 'var(--c-tertiary)';
+      soloBtn.style.borderColor = 'var(--b-subtle)';
+    }
+    console.log(`[stems] Solo ${stemName}:`, soloBtn.classList.contains('on'));
+  }
+
+  if(muteBtn){
+    const stemName = muteBtn.dataset.stem;
+    if(!stemName) return;
+    // Toggle mute pour ce stem
+    muteBtn.classList.toggle('on');
+    const stemRow = muteBtn.closest('.stem-row');
+    if(muteBtn.classList.contains('on')){
+      muteBtn.style.background = `currentColor`;
+      muteBtn.style.color = '#050406';
+      muteBtn.style.borderColor = 'currentColor';
+      if(stemRow) stemRow.classList.add('muted');
+    } else {
+      muteBtn.style.background = 'var(--s-2)';
+      muteBtn.style.color = 'var(--c-tertiary)';
+      muteBtn.style.borderColor = 'var(--b-subtle)';
+      if(stemRow) stemRow.classList.remove('muted');
+    }
+    console.log(`[stems] Mute ${stemName}:`, muteBtn.classList.contains('on'));
+  }
+});
 
 // ========== Audio engine (WebAudio API) ==========
 // Chrome's HTML5 <audio> element stalle systématiquement à ~3230ms sur notre
