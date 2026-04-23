@@ -1,0 +1,62 @@
+# Exclut tout ce qui n'est pas nécessaire au runtime du backend
+# → réduit le context Docker, évite les invalidations de cache accidentelles
+# → accélère le build (moins de fichiers à uploader au daemon)
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs (doivent jamais être copiés)
+venv/
+env/
+.venv/
+.env/
+
+# Environment locaux (pas de secrets dans l'image)
+.env
+.env.local
+.env.*.local
+
+# Tests (inutiles en prod)
+tests/
+test_*.py
+*_test.py
+pytest.ini
+conftest.py
+
+# Build artefacts
+build/
+dist/
+*.egg
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docs / dev-only
+README*.md
+docs/
+*.md
+
+# Logs
+*.log
+logs/
