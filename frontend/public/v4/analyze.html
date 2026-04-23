@@ -738,8 +738,8 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260423d"></script>
-<script src="/v4/shared.js?v=20260423-pagebuilder"></script>
+<script src="/v4/api.js?v=20260423-dev-uv"></script>
+<script src="/v4/shared.js?v=20260423-dev-uv"></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1799,8 +1799,8 @@ function createWebAudioPlayer(audioBuffer){
     get duration(){ return _duration; },
     get currentTime(){ return currentTime(); },
     set currentTime(v){ _seek(Number(v) || 0); },
-    play(){ return _play(); },
-    pause(){ _pause(); },
+    play(){ _play(); return Promise.resolve(); },
+    pause(){ _pause(); return Promise.resolve(); },
     addEventListener(ev, fn){
       if(listeners[ev]) listeners[ev].push(fn);
     },
@@ -2269,7 +2269,49 @@ wave.addEventListener('click', async (e) => {
   }
 
   if(tool === 'L' || tool === 'S' || tool === 'F'){
-    toast(`Outil ${tool} — à venir. Bascule sur V pour seek ou C pour insérer un cue.`, 'info');
+    // 🔴 Bug #34 : Implémentation des outils L/S/F
+    // L = Loop : cue de type loop_in (point de début de boucle)
+    // S = Slice : cue de type slice (point de découpe)
+    // F = Fade : cue de type fade_in (point de fade)
+    if(!trackId){ toast('Aucune piste chargée', 'warn'); return; }
+    const effectiveDurMs = currentDurMs || (currentTrack?.analysis?.duration_ms) || (currentTrack?.duration_ms) || 0;
+    if(!effectiveDurMs){ toast('Durée inconnue — attendez l\'analyse', 'warn'); return; }
+    const time_s = (pct * effectiveDurMs) / 1000;
+
+    let cueType = 'hot_cue';
+    let colorMap = { 'L': 'cyan', 'S': 'violet', 'F': 'yellow' };
+    let labelMap = { 'L': 'Loop', 'S': 'Slice', 'F': 'Fade' };
+    if(tool === 'L') cueType = 'loop_in';
+    else if(tool === 'S') cueType = 'slice';
+    else if(tool === 'F') cueType = 'fade_in';
+
+    try {
+      const created = await api.post(`/cues/${trackId}/points`, {
+        time: time_s,
+        label: labelMap[tool],
+        cue_type: cueType,
+        color: colorMap[tool],
+      });
+      let cues = Array.isArray(currentCues) ? currentCues.slice() : [];
+      if(created && created.id){
+        if(!cues.some(c => c.id === created.id)) cues.push(created);
+      }
+      cues.sort((a,b) => (a.position_ms ?? a.time_ms ?? 0) - (b.position_ms ?? b.time_ms ?? 0));
+      currentCues = cues;
+      document.getElementById('thero-cues').textContent = cues.length;
+      document.getElementById('cues-count-transport').textContent = cues.length;
+      renderCueMarkers(cues, effectiveDurMs);
+      renderCueList(cues);
+      if(typeof attachCueHandlers === 'function') attachCueHandlers();
+      toast(`${labelMap[tool]} inséré à ${time_s.toFixed(2)}s`, 'success');
+    } catch(err){
+      const msg = err.message || 'Erreur';
+      if(msg.includes('409') || /already exists/i.test(msg)){
+        toast('Un cue existe déjà à cette position', 'warn');
+      } else {
+        toast(`Impossible d'insérer ${labelMap[tool]} : ${msg}`, 'error');
+      }
+    }
     return;
   }
 
