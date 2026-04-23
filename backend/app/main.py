@@ -1330,6 +1330,7 @@ _safe_mount("app.routers.admin.media", "/api/v1", ["admin-media"])
 _safe_mount("app.routers.admin.features", "/api/v1", ["admin-features"])
 _safe_mount("app.routers.admin.users", "/api/v1", ["admin-users"])
 _safe_mount("app.routers.admin.dashboard", "/api/v1", ["admin-dashboard"])
+_safe_mount("app.routers.admin.jobs", "/api/v1", ["admin-jobs"])
 _safe_mount("app.routers.admin.public", "/api/v1", ["site"], attr="public_router")
 _safe_mount("app.routers.waveforms")
 # organization déjà monté plus haut (avant tracks) pour éviter collision /{track_id}

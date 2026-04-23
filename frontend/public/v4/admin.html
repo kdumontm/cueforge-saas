@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
-<link rel="preload" href="/v4/api.js?v=20260423f" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-settings-admin-removed" as="script">
+<link rel="preload" href="/v4/api.js?v=20260423-batchQ" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-batchQ" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -749,8 +749,8 @@
           </div>
         </div>
         <table class="tbl" id="fb-table">
-          <thead><tr><th>ID</th><th>User</th><th>Type</th><th>Sujet / Message</th><th>📸</th><th>Status</th><th>Reçu</th></tr></thead>
-          <tbody id="fb-body"><tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+          <thead><tr><th>ID</th><th>User</th><th>Type</th><th>Sujet / Message</th><th>📸</th><th>Status</th><th>Page</th><th>Reçu</th></tr></thead>
+          <tbody id="fb-body"><tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
         </table>
       </div>
 
@@ -811,6 +811,41 @@
         </div>
       </div>
 
+      <!-- MODALE détails job analyse (Bug #13) -->
+      <div id="job-modal" role="dialog" aria-modal="true" aria-hidden="true"
+           style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+                  align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+        <div style="background:linear-gradient(180deg,#1b1825,#12111a);color:#fff;border:1px solid rgba(255,255,255,.1);
+                    border-radius:16px;width:min(760px,100%);padding:20px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+            <div>
+              <div style="font-size:15px;font-weight:700" id="job-m-title">Job #—</div>
+              <div style="font-size:11.5px;color:#8a87a0" id="job-m-meta">—</div>
+            </div>
+            <button type="button" id="job-m-close" style="background:transparent;border:none;color:#8a87a0;cursor:pointer;font-size:22px;line-height:1">×</button>
+          </div>
+          <div id="job-m-body" style="margin:14px 0;padding:12px 14px;background:rgba(10,8,14,.5);border:1px solid rgba(255,255,255,.06);border-radius:10px;font-size:13px;color:#e0dfea">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-family:var(--font-mono);font-size:11px">
+              <div><span style="color:#8a87a0">Title:</span> <span id="job-m-title-val">—</span></div>
+              <div><span style="color:#8a87a0">Artist:</span> <span id="job-m-artist-val">—</span></div>
+              <div><span style="color:#8a87a0">User:</span> <span id="job-m-user-val">—</span></div>
+              <div><span style="color:#8a87a0">Plan:</span> <span id="job-m-plan-val">—</span></div>
+              <div><span style="color:#8a87a0">Status:</span> <span id="job-m-status-val">—</span></div>
+              <div><span style="color:#8a87a0">Duration:</span> <span id="job-m-duration-val">—</span></div>
+              <div><span style="color:#8a87a0">Created:</span> <span id="job-m-created-val">—</span></div>
+              <div><span style="color:#8a87a0">Updated:</span> <span id="job-m-updated-val">—</span></div>
+            </div>
+          </div>
+          <div id="job-m-error" style="display:none;margin:8px 0 12px 0;padding:12px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;font-size:12px;color:#fca5a5;font-family:var(--font-mono);white-space:pre-wrap;word-break:break-word">
+            <div style="color:#8a87a0;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-size:10px">Error Message</div>
+            <div id="job-m-error-text"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+            <button type="button" id="job-m-ok" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:10px 20px;border-radius:8px;font-weight:500">Fermer</button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODALE détails service santé -->
       <div id="health-modal" role="dialog" aria-modal="true" aria-hidden="true"
            style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
@@ -848,8 +883,8 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260423g"></script>
-<script src="/v4/shared.js?v=20260423-settings-admin-removed"></script>
+<script src="/v4/api.js?v=20260423-batchQ"></script>
+<script src="/v4/shared.js?v=20260423-batchQ"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1051,7 +1086,7 @@
           const planColor = j.plan === 'pro' ? 'var(--amber)' : (j.plan === 'unlimited' ? 'var(--violet)' : 'var(--c-tertiary)');
           const planLabel = (j.plan || 'free').charAt(0).toUpperCase() + (j.plan || 'free').slice(1);
           return `
-            <div class="job-row ${rowCls}" data-id="${j.id}">
+            <div class="job-row ${rowCls}" data-id="${j.id}" style="cursor:pointer">
               <span class="job-dot ${dotCls}"></span>
               <div class="job-title"><b>${escapeHtml(j.title || '—')}</b> <small>· ${escapeHtml(j.status || '')}</small></div>
               <div class="prog"><div class="f" style="width:${j.progress || 0}%;${progressColor}"></div></div>
@@ -1061,6 +1096,13 @@
             </div>
           `;
         }).join('');
+        // Bug #13: Add click handler to job-rows to open detail modal
+        jobsList.querySelectorAll('.job-row').forEach(row => {
+          row.addEventListener('click', async () => {
+            const jobId = parseInt(row.dataset.id, 10);
+            await jobOpenModal(jobId);
+          });
+        });
       }
     }
 
@@ -1777,7 +1819,7 @@
             }).join('');
       }
     } catch(err){
-      if(body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+      if(body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
     }
   }
 
@@ -1889,15 +1931,31 @@
   function fbRenderRows(items){
     const body = document.getElementById('fb-body');
     if(!body) return;
-    if(items.length === 0){
-      body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun feedback</td></tr>`;
+    // Bug #24+26: Filter out done/rejected feedbacks (they appear in Résolutions section)
+    const filtered = items.filter(f => f.status !== 'done' && f.status !== 'rejected');
+    if(filtered.length === 0){
+      body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun feedback</td></tr>`;
       return;
     }
-    body.innerHTML = items.map(f => {
+    body.innerHTML = filtered.map(f => {
       const subject = f.subject || (f.message || '').split('\n')[0].slice(0, 80);
       const shotBadge = f.has_screenshot ? '📸' : '';
       const userLabel = f.user_email ? escapeHtml(f.user_email) : (f.user_id ? '#'+f.user_id : 'anon');
       const statusClass = (f.status === 'new') ? 'trial' : (f.status === 'done' ? '' : 'grow');
+      // Bug #27: Format date with time (HH:MM)
+      let dateStr = '—';
+      if(f.created_at){
+        const d = new Date(f.created_at);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hour = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        dateStr = `${day}/${month}/${year} ${hour}:${min}`;
+      }
+      // Bug #28: Add page_url column
+      const pageUrl = f.page_url || '—';
+      const pageDisplay = pageUrl === '—' ? '—' : pageUrl.split('/').slice(-1)[0] || pageUrl;
       return `
         <tr class="fb-row" data-id="${f.id}" style="cursor:pointer">
           <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${f.id}</td>
@@ -1906,7 +1964,8 @@
           <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(f.message || '')}">${escapeHtml(subject || '—')}</td>
           <td style="text-align:center">${shotBadge}</td>
           <td><span class="plan-pill ${statusClass}">${escapeHtml(f.status || '—')}</span></td>
-          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(f.created_at)}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(pageUrl)}">${escapeHtml(pageDisplay)}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${escapeHtml(dateStr)}</td>
         </tr>
       `;
     }).join('');
@@ -2127,6 +2186,67 @@
     });
   }
   fbBindModalOnce();
+
+  // ===== JOBS — Modale détail analyse (Bug #13) =====
+  async function jobOpenModal(jobId){
+    const modal = document.getElementById('job-modal');
+    if(!modal) return;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    // Reset UI
+    document.getElementById('job-m-body').textContent = 'Chargement…';
+    document.getElementById('job-m-error').style.display = 'none';
+    try {
+      const j = await api.get(`/admin/jobs/${jobId}`);
+      document.getElementById('job-m-title').textContent = `Job #${j.id}`;
+      const meta = [
+        j.title || '—',
+        j.status || '—',
+        j.user_email || '—',
+      ].filter(Boolean).join(' · ');
+      document.getElementById('job-m-meta').textContent = meta;
+      document.getElementById('job-m-title-val').textContent = j.title || '—';
+      document.getElementById('job-m-artist-val').textContent = j.artist || '—';
+      document.getElementById('job-m-user-val').textContent = j.user_email || '—';
+      document.getElementById('job-m-plan-val').textContent = j.user_plan || '—';
+      document.getElementById('job-m-status-val').textContent = j.status || '—';
+      const durText = j.duration_seconds != null ? `${j.duration_seconds} s` : '—';
+      document.getElementById('job-m-duration-val').textContent = durText;
+      document.getElementById('job-m-created-val').textContent = j.created_at ? fmtSignup(j.created_at) : '—';
+      document.getElementById('job-m-updated-val').textContent = j.updated_at ? fmtSignup(j.updated_at) : '—';
+      if(j.error_message){
+        const errDiv = document.getElementById('job-m-error');
+        errDiv.style.display = 'block';
+        document.getElementById('job-m-error-text').textContent = j.error_message;
+      }
+    } catch(err){
+      document.getElementById('job-m-body').innerHTML = `<span style="color:var(--red)">Erreur : ${escapeHtml(err.message)}</span>`;
+    }
+  }
+
+  function jobCloseModal(){
+    const modal = document.getElementById('job-modal');
+    if(!modal) return;
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function jobBindModalOnce(){
+    if(window.__jobBound) return;
+    window.__jobBound = true;
+    document.getElementById('job-m-close')?.addEventListener('click', jobCloseModal);
+    document.getElementById('job-m-ok')?.addEventListener('click', jobCloseModal);
+    document.getElementById('job-modal')?.addEventListener('click', e => {
+      if(e.target.id === 'job-modal') jobCloseModal();
+    });
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape'){
+        const m = document.getElementById('job-modal');
+        if(m && m.style.display === 'flex') jobCloseModal();
+      }
+    });
+  }
+  jobBindModalOnce();
 
   // ===== RÉSOLUTIONS — historique tickets done/rejected =====
   let resCurrentSearch = '';
