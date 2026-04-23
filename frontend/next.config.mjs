@@ -56,6 +56,13 @@ const nextConfig = {
         { source: '/forgot-password',  destination: '/v4/auth-forgot.html'   },
         { source: '/reset-password',   destination: '/v4/auth-reset.html'    },
         { source: '/pricing',          destination: '/v4/pricing.html'       },
+        { source: '/onboarding',       destination: '/v4/onboarding.html'    },
+        { source: '/billing',          destination: '/v4/billing.html'       },
+        { source: '/cgu',              destination: '/v4/cgu.html'           },
+        { source: '/changelog',        destination: '/v4/changelog.html'     },
+        { source: '/blog',             destination: '/v4/blog.html'          },
+        { source: '/download',         destination: '/v4/download.html'      },
+        { source: '/docs',             destination: '/v4/docs.html'          },
         // App
         { source: '/dashboard',    destination: '/v4/stats.html'       },
         { source: '/analyze',      destination: '/v4/analyze.html'     },

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Documentation API — TrackCue</title>
+<meta name="description" content="Documentation complète de l'API TrackCue — authentification, tracks, analyse, export, playlists, webhooks, rate-limits.">
+<link rel="stylesheet" href="/v4/shared.css?v=20260423c">
+<style>
+  body { background: var(--s-0); min-height: 100vh; }
+  .topnav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,5,8,.85);
+    backdrop-filter: saturate(140%) blur(10px);
+    -webkit-backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--b-default);
+  }
+  .topnav-inner {
+    max-width: 1280px; margin: 0 auto;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand .logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    display: grid; place-items: center;
+    color: #0a0508; font-weight: 800;
+    font-family: var(--font-display); font-size: 16px;
+  }
+  .brand .wordmark { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--c-primary); letter-spacing: -0.01em; }
+  .topnav-links { display: flex; gap: 24px; align-items: center; }
+  .topnav-links a { font-size: 14px; color: var(--c-secondary); text-decoration: none; transition: color .15s ease; }
+  .topnav-links a:hover { color: var(--c-primary); }
+  .topnav-links .btn { padding: 8px 16px; font-size: 13px; }
+
+  /* Layout : sidebar + contenu */
+  .layout {
+    max-width: 1280px; margin: 0 auto;
+    padding: 32px 24px 80px;
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .sidebar {
+    position: sticky; top: 80px;
+    align-self: start;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    padding-right: 12px;
+  }
+  .sidebar-section {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--c-tertiary);
+    margin: 24px 0 8px;
+  }
+  .sidebar-section:first-child { margin-top: 0; }
+  .sidebar a {
+    display: block;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--c-secondary);
+    text-decoration: none;
+    transition: all .15s ease;
+    border-left: 2px solid transparent;
+    margin-left: -14px; padding-left: 12px;
+  }
+  .sidebar a:hover { color: var(--c-primary); background: var(--s-1); }
+  .sidebar a.active {
+    color: var(--amber);
+    border-left-color: var(--amber);
+    background: rgba(255,176,77,.06);
+  }
+
+  .content { max-width: 820px; }
+  .hero {
+    padding: 8px 0 40px;
+    border-bottom: 1px solid var(--b-default);
+    margin-bottom: 40px;
+  }
+  .hero .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 12px;
+  }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: 48px; font-weight: 700; letter-spacing: -0.03em;
+    margin: 0 0 14px; color: var(--c-primary);
+  }
+  .hero p { color: var(--c-secondary); font-size: 17px; margin: 0; line-height: 1.6; max-width: 620px; }
+
+  .section { margin-bottom: 72px; scroll-margin-top: 80px; }
+  .section h2 {
+    font-family: var(--font-display);
+    font-size: 30px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px; color: var(--c-primary);
+  }
+  .section h3 {
+    font-family: var(--font-display);
+    font-size: 18px; font-weight: 600;
+    color: var(--c-primary);
+    margin: 28px 0 10px;
+    scroll-margin-top: 80px;
+  }
+  .section p, .section li {
+    color: var(--c-secondary);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .section p { margin: 0 0 14px; }
+  .section ul { padding-left: 20px; margin: 10px 0; }
+  .section strong { color: var(--c-primary); font-weight: 600; }
+  .section a { color: var(--amber); }
+  .section a:hover { color: var(--pink); }
+
+  /* Code block avec bouton copy */
+  .codewrap {
+    position: relative;
+    margin: 16px 0;
+  }
+  .codewrap pre {
+    margin: 0;
+    background: rgba(0,0,0,.35);
+    border: 1px solid var(--b-default);
+    border-radius: 12px;
+    padding: 16px 18px;
+    padding-right: 64px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: #d7d7e0;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .codewrap pre .c-str { color: #a3e635; }
+  .codewrap pre .c-key { color: #f9a8d4; }
+  .codewrap pre .c-cmt { color: var(--c-tertiary); }
+  .codewrap pre .c-meth { color: #fcd34d; font-weight: 600; }
+  .copybtn {
+    position: absolute;
+    top: 10px; right: 10px;
+    padding: 5px 10px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    background: var(--s-2);
+    border: 1px solid var(--b-default);
+    border-radius: 7px;
+    color: var(--c-secondary);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .copybtn:hover { color: var(--c-primary); border-color: var(--b-hover); }
+  .copybtn.ok { color: #86efac; border-color: rgba(134,239,172,.4); }
+
+  /* Endpoint tag (GET/POST/...) */
+  .endpoint {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    margin: 8px 0 4px;
+  }
+  .method {
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .method.GET    { background: rgba(96,165,250,.15); color: #93c5fd; }
+  .method.POST   { background: rgba(74,222,128,.15); color: #86efac; }
+  .method.PATCH  { background: rgba(250,204,21,.15); color: #fde047; }
+  .method.PUT    { background: rgba(250,204,21,.15); color: #fde047; }
+  .method.DELETE { background: rgba(248,113,113,.15); color: #fca5a5; }
+  .path { color: var(--c-primary); }
+
+  /* Param table */
+  .params {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .params th, .params td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--b-default);
+    vertical-align: top;
+  }
+  .params th {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-tertiary);
+    font-weight: 500;
+  }
+  .params td code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    background: var(--s-2);
+    border-radius: 4px;
+    color: var(--amber);
+  }
+  .params td .type {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--c-tertiary);
+  }
+
+  /* Callout */
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: rgba(255,176,77,.05);
+    padding: 12px 16px;
+    border-radius: 0 10px 10px 0;
+    margin: 16px 0;
+    font-size: 14px;
+    color: var(--c-secondary);
+  }
+  .callout strong { color: var(--amber); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 24px; }
+    .sidebar { position: static; max-height: none; overflow: visible; border-bottom: 1px solid var(--b-default); padding-bottom: 16px; padding-right: 0; }
+    .hero h1 { font-size: 36px; }
+    .topnav-links a:not(.btn) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="topnav-inner">
+    <a href="/" class="brand">
+      <span class="logo">T</span>
+      <span class="wordmark">TrackCue</span>
+    </a>
+    <nav class="topnav-links">
+      <a href="/pricing">Tarifs</a>
+      <a href="/changelog">Nouveautés</a>
+      <a href="/blog">Blog</a>
+      <a href="/login" class="btn btn-ghost">Connexion</a>
+    </nav>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">Premiers pas</div>
+    <a href="#introduction">Introduction</a>
+    <a href="#authentication">Authentification</a>
+    <a href="#rate-limits">Rate limits</a>
+
+    <div class="sidebar-section">Ressources</div>
+    <a href="#tracks">Tracks</a>
+    <a href="#analysis">Analyse audio</a>
+    <a href="#playlists">Playlists & Sets</a>
+    <a href="#export">Export</a>
+
+    <div class="sidebar-section">Avancé</div>
+    <a href="#webhooks">Webhooks</a>
+    <a href="#sdks">SDKs</a>
+  </aside>
+
+  <main class="content">
+    <div class="hero">
+      <div class="eyebrow">API Reference · v1</div>
+      <h1>Documentation API</h1>
+      <p>L'API TrackCue est un REST API JSON. Tous les endpoints sont servis en HTTPS depuis <code>https://trackcue.app/api/v1</code>.</p>
+    </div>
+
+    <section class="section" id="introduction">
+      <h2>Introduction</h2>
+      <p>L'API TrackCue vous permet d'intégrer l'analyse audio (BPM, tonalité, cue points, stems) à vos propres workflows — scripts, apps custom, intégrations DAW/DJ.</p>
+      <p>Toutes les réponses sont au format <strong>JSON</strong>. Les timestamps sont en <strong>ISO 8601 UTC</strong>. Les durées sont en secondes (float), les fréquences en Hz.</p>
+      <div class="callout"><strong>Accès API :</strong> disponible uniquement sur le plan Unlimited. <a href="/pricing">Voir les plans</a>.</div>
+    </section>
+
+    <section class="section" id="authentication">
+      <h2>Authentification</h2>
+      <p>L'API utilise des <strong>JWT Bearer tokens</strong>. Obtenez un access token via l'endpoint <code>/auth/login</code>, puis passez-le dans le header <code>Authorization: Bearer &lt;token&gt;</code>.</p>
+
+      <h3 id="auth-login">Connexion</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/auth/login</span>
+      </div>
+      <div class="codewrap">
+        <pre><span class="c-cmt"># Body (JSON)</span>
+{
+  <span class="c-key">"identifier"</span>: <span class="c-str">"user@exemple.com"</span>,
+  <span class="c-key">"password"</span>: <span class="c-str">"votre-mot-de-passe"</span>
+}
+
+<span class="c-cmt"># Réponse</span>
+{
+  <span class="c-key">"access_token"</span>: <span class="c-str">"eyJhbGc..."</span>,
+  <span class="c-key">"refresh_token"</span>: <span class="c-str">"eyJhbGc..."</span>,
+  <span class="c-key">"token_type"</span>: <span class="c-str">"bearer"</span>,
+  <span class="c-key">"expires_in"</span>: 3600
+}</pre>
+        <button class="copybtn">Copier</button>
+      </div>
+
+      <h3 id="auth-refresh">Rafraîchir un token</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/auth/refresh</span>
+      </div>
+      <div class="codewrap">
+        <pre><span class="c-cmt"># Body (JSON)</span>
+{ <span class="c-key">"refresh_token"</span>: <span class="c-str">"eyJhbGc..."</span> }</pre>
+        <button class="copybtn">Copier</button>
+      </div>
+
+      <h3 id="auth-example">Exemple d'appel authentifié</h3>
+      <div class="codewrap">
+        <pre><span class="c-meth">curl</span> https://trackcue.app/api/v1/tracks \
+  -H <span class="c-str">"Authorization: Bearer $TOKEN"</span> \
+  -H <span class="c-str">"Accept: application/json"</span></pre>
+        <button class="copybtn">Copier</button>
+      </div>
+    </section>
+
+    <section class="section" id="rate-limits">
+      <h2>Rate limits</h2>
+      <p>Les limites dépendent de votre plan. Les headers <code>X-RateLimit-*</code> sont retournés sur chaque réponse.</p>
+      <table class="params">
+        <thead><tr><th>Plan</th><th>Req / min</th><th>Req / jour</th><th>Upload / jour</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Free</strong></td><td><span class="type">30</span></td><td><span class="type">1 000</span></td><td><span class="type">5 morceaux</span></td></tr>
+          <tr><td><strong>Pro</strong></td><td><span class="type">120</span></td><td><span class="type">20 000</span></td><td><span class="type">50 morceaux</span></td></tr>
+          <tr><td><strong>Unlimited</strong></td><td><span class="type">600</span></td><td><span class="type">—</span></td><td><span class="type">illimité</span></td></tr>
+        </tbody>
+      </table>
+      <p>Une erreur <code>429 Too Many Requests</code> est renvoyée si vous dépassez la limite. Respectez le header <code>Retry-After</code> (en secondes).</p>
+    </section>
+
+    <section class="section" id="tracks">
+      <h2>Tracks</h2>
+      <p>La ressource <code>Track</code> représente un morceau uploadé — avec ses métadonnées (titre, artiste, durée) et les résultats d'analyse (BPM, key, énergie, cue points).</p>
+
+      <h3 id="tracks-list">Lister ses tracks</h3>
+      <div class="endpoint">
+        <span class="method GET">GET</span>
+        <span class="path">/api/v1/tracks</span>
+      </div>
+      <table class="params">
+        <thead><tr><th>Paramètre</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>limit</code></td><td><span class="type">int</span></td><td>Max 500 résultats. Défaut 50.</td></tr>
+          <tr><td><code>offset</code></td><td><span class="type">int</span></td><td>Pagination. Défaut 0.</td></tr>
+          <tr><td><code>search</code></td><td><span class="type">string</span></td><td>Recherche full-text sur titre/artiste.</td></tr>
+          <tr><td><code>sort</code></td><td><span class="type">string</span></td><td><code>-created_at</code>, <code>bpm</code>, <code>title</code>…</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="tracks-upload">Uploader un morceau</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/upload</span>
+      </div>
+      <p>Multipart form-data avec le fichier dans le champ <code>file</code>. L'analyse démarre automatiquement en background. Utilisez <code>cue_mode</code> pour choisir : <code>auto</code>, <code>on_demand</code>, <code>pro</code>.</p>
+      <div class="codewrap">
+        <pre><span class="c-meth">curl</span> -X POST https://trackcue.app/api/v1/upload \
+  -H <span class="c-str">"Authorization: Bearer $TOKEN"</span> \
+  -F <span class="c-str">"file=@track.mp3"</span> \
+  -F <span class="c-str">"cue_mode=auto"</span></pre>
+        <button class="copybtn">Copier</button>
+      </div>
+
+      <h3 id="tracks-get">Récupérer un track</h3>
+      <div class="endpoint">
+        <span class="method GET">GET</span>
+        <span class="path">/api/v1/tracks/:id</span>
+      </div>
+
+      <h3 id="tracks-delete">Supprimer un track</h3>
+      <div class="endpoint">
+        <span class="method DELETE">DELETE</span>
+        <span class="path">/api/v1/tracks/:id</span>
+      </div>
+    </section>
+
+    <section class="section" id="analysis">
+      <h2>Analyse audio</h2>
+      <p>TrackCue calcule automatiquement : <strong>BPM</strong> (tempo), <strong>key</strong> (tonalité Camelot + musicale), <strong>énergie</strong> (0→1), <strong>cue points</strong> (intro / drop / outro), <strong>waveform</strong> (peaks) et <strong>stems</strong> (voix/drums/bass/autres).</p>
+
+      <h3 id="analysis-object">Objet Analysis</h3>
+      <div class="codewrap">
+        <pre>{
+  <span class="c-key">"track_id"</span>: <span class="c-str">"trk_abc123"</span>,
+  <span class="c-key">"bpm"</span>: 128.03,
+  <span class="c-key">"key"</span>: <span class="c-str">"8A"</span>,
+  <span class="c-key">"key_musical"</span>: <span class="c-str">"A minor"</span>,
+  <span class="c-key">"energy"</span>: 0.78,
+  <span class="c-key">"danceability"</span>: 0.84,
+  <span class="c-key">"duration_s"</span>: 242.5,
+  <span class="c-key">"cue_points"</span>: [
+    { <span class="c-key">"type"</span>: <span class="c-str">"intro"</span>,  <span class="c-key">"time_s"</span>: 0.0   },
+    { <span class="c-key">"type"</span>: <span class="c-str">"drop"</span>,   <span class="c-key">"time_s"</span>: 62.4  },
+    { <span class="c-key">"type"</span>: <span class="c-str">"outro"</span>,  <span class="c-key">"time_s"</span>: 210.1 }
+  ],
+  <span class="c-key">"stems_available"</span>: <span class="c-str">"true"</span>,
+  <span class="c-key">"status"</span>: <span class="c-str">"completed"</span>
+}</pre>
+        <button class="copybtn">Copier</button>
+      </div>
+
+      <h3 id="analysis-compare">Comparer deux tracks</h3>
+      <div class="endpoint">
+        <span class="method GET">GET</span>
+        <span class="path">/api/v1/tracks/compare?track_a=:id&amp;track_b=:id</span>
+      </div>
+      <p>Retourne un score de compatibilité harmonique et un delta BPM.</p>
+
+      <h3 id="analysis-recommendation">Recommandations</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/recommendation/similar/:track_id</span>
+      </div>
+    </section>
+
+    <section class="section" id="playlists">
+      <h2>Playlists &amp; Sets</h2>
+      <p>Organisez vos tracks en <strong>Playlists</strong> (listes libres) ou <strong>Sets</strong> (ordres optimisés pour un gig — BPM progressif, compatibilité harmonique).</p>
+
+      <h3 id="sets-list">Lister ses sets</h3>
+      <div class="endpoint">
+        <span class="method GET">GET</span>
+        <span class="path">/api/v1/sets</span>
+      </div>
+
+      <h3 id="sets-create">Créer un set</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/sets</span>
+      </div>
+      <div class="codewrap">
+        <pre>{
+  <span class="c-key">"name"</span>: <span class="c-str">"Festival Mix #3"</span>,
+  <span class="c-key">"track_ids"</span>: [<span class="c-str">"trk_1"</span>, <span class="c-str">"trk_2"</span>, <span class="c-str">"trk_3"</span>],
+  <span class="c-key">"target_bpm_start"</span>: 120,
+  <span class="c-key">"target_bpm_end"</span>: 135
+}</pre>
+        <button class="copybtn">Copier</button>
+      </div>
+
+      <h3 id="sets-optimize">Optimiser l'ordre d'un set</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/sets/:id/optimize</span>
+      </div>
+    </section>
+
+    <section class="section" id="export">
+      <h2>Export</h2>
+      <p>Exportez vos tracks et sets vers vos logiciels de DJ préférés — Rekordbox, Serato, Traktor, ou M3U/JSON générique.</p>
+
+      <h3 id="export-set">Exporter un set</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/sets/:id/export</span>
+      </div>
+      <table class="params">
+        <thead><tr><th>Paramètre</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>format</code></td><td><span class="type">string</span></td><td><code>rekordbox</code>, <code>serato</code>, <code>traktor</code>, <code>m3u</code>, <code>json</code></td></tr>
+          <tr><td><code>include_cues</code></td><td><span class="type">bool</span></td><td>Inclure les cue points. Défaut <code>true</code>.</td></tr>
+          <tr><td><code>include_bpm</code></td><td><span class="type">bool</span></td><td>Inclure le BPM calculé. Défaut <code>true</code>.</td></tr>
+        </tbody>
+      </table>
+      <p>Réponse : URL signée vers le fichier d'export (valide 1h).</p>
+    </section>
+
+    <section class="section" id="webhooks">
+      <h2>Webhooks</h2>
+      <p>Recevez des notifications HTTP en push quand un événement survient — utile pour attendre la fin d'une analyse longue sans polling.</p>
+
+      <h3 id="webhooks-events">Événements supportés</h3>
+      <ul>
+        <li><code>track.analysis.completed</code> — l'analyse d'un morceau est terminée</li>
+        <li><code>track.analysis.failed</code> — l'analyse a échoué</li>
+        <li><code>track.stems.ready</code> — les stems sont disponibles</li>
+        <li><code>set.exported</code> — un export est généré</li>
+      </ul>
+
+      <h3 id="webhooks-register">Enregistrer un webhook</h3>
+      <div class="endpoint">
+        <span class="method POST">POST</span>
+        <span class="path">/api/v1/webhooks</span>
+      </div>
+      <div class="codewrap">
+        <pre>{
+  <span class="c-key">"url"</span>: <span class="c-str">"https://mon-app.com/webhook/trackcue"</span>,
+  <span class="c-key">"events"</span>: [<span class="c-str">"track.analysis.completed"</span>],
+  <span class="c-key">"secret"</span>: <span class="c-str">"whsec_..."</span>
+}</pre>
+        <button class="copybtn">Copier</button>
+      </div>
+      <p>Chaque payload est signé avec le header <code>X-TrackCue-Signature: sha256=&lt;hmac&gt;</code> — vérifiez-le côté serveur pour garantir l'origine.</p>
+    </section>
+
+    <section class="section" id="sdks">
+      <h2>SDKs</h2>
+      <p>Des SDKs officiels sont en cours de développement :</p>
+      <ul>
+        <li><strong>Python</strong> — <code>pip install trackcue</code> (bientôt)</li>
+        <li><strong>Node.js</strong> — <code>npm install @trackcue/sdk</code> (bientôt)</li>
+        <li><strong>Go</strong> — <code>go get github.com/trackcue/go</code> (prévu)</li>
+      </ul>
+      <p>En attendant, tous les endpoints sont standard REST — n'importe quel client HTTP fait l'affaire.</p>
+      <div class="callout"><strong>Des questions ?</strong> Écrivez-nous à <a href="mailto:contact@trackcue.app">contact@trackcue.app</a> — on répond vite.</div>
+    </section>
+  </main>
+</div>
+
+<script src="/v4/shared.js?v=20260423c"></script>
+<script>
+(function(){
+  // Copy-to-clipboard
+  document.querySelectorAll('.copybtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var pre = btn.parentElement.querySelector('pre');
+      if (!pre) return;
+      var txt = pre.innerText;
+      var done = function(){
+        var orig = btn.textContent;
+        btn.textContent = 'Copié !';
+        btn.classList.add('ok');
+        setTimeout(function(){ btn.textContent = orig; btn.classList.remove('ok'); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(done).catch(function(){
+          // Fallback
+          var ta = document.createElement('textarea');
+          ta.value = txt;
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); done(); } catch(e){}
+          document.body.removeChild(ta);
+        });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); done(); } catch(e){}
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  // Sidebar active on scroll
+  var links = document.querySelectorAll('.sidebar a');
+  var sections = Array.prototype.map.call(links, function(a){
+    var id = a.getAttribute('href').slice(1);
+    return { link: a, el: document.getElementById(id) };
+  }).filter(function(s){ return s.el; });
+
+  function onScroll() {
+    var y = window.scrollY + 100;
+    var active = null;
+    sections.forEach(function(s){
+      if (s.el.offsetTop <= y) active = s;
+    });
+    links.forEach(function(l){ l.classList.remove('active'); });
+    if (active) active.link.classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+</body>
+</html>

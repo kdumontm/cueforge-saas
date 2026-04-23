@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Bienvenue — TrackCue</title>
+<link rel="stylesheet" href="/v4/shared.css?v=20260423c">
+<style>
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 500px at 50% -8%, rgba(255,46,107,.18), transparent 60%),
+      radial-gradient(700px 400px at 85% 110%, rgba(255,122,24,.14), transparent 60%),
+      var(--s-0);
+  }
+  .wrap {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 20px 60px;
+  }
+  .brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    text-decoration: none; margin-bottom: 28px;
+  }
+  .brand .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    box-shadow: 0 8px 24px rgba(255,46,107,.35);
+    display: grid; place-items: center;
+    color: #0a0508; font-weight: 800;
+    font-family: var(--font-display); font-size: 18px;
+  }
+  .brand .wordmark {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    color: var(--c-primary);
+    letter-spacing: -0.01em;
+  }
+  .progress-track {
+    width: 100%; max-width: 640px;
+    height: 4px;
+    background: var(--s-2);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--amber), var(--pink));
+    transition: width .35s cubic-bezier(.4,0,.2,1);
+    border-radius: inherit;
+  }
+  .step-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-tertiary);
+    margin-bottom: 8px;
+  }
+  .card {
+    width: 100%; max-width: 640px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 22px;
+    padding: 36px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .card h1 {
+    font-family: var(--font-display);
+    font-size: 28px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+    color: var(--c-primary);
+  }
+  .card .sub {
+    color: var(--c-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0 0 24px;
+  }
+  .choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .choice {
+    padding: 16px 18px;
+    background: var(--s-2);
+    border: 1.5px solid var(--b-default);
+    border-radius: 14px;
+    color: var(--c-primary);
+    font-size: 15px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: all .15s ease;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .choice:hover {
+    background: var(--s-3);
+    border-color: var(--b-strong);
+  }
+  .choice.active {
+    background: linear-gradient(180deg, rgba(255,122,24,.12), rgba(255,46,107,.12));
+    border-color: var(--amber);
+    color: var(--c-primary);
+    box-shadow: 0 0 0 3px rgba(255,122,24,.12);
+  }
+  .choice .dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--b-strong);
+    flex-shrink: 0;
+    display: grid; place-items: center;
+    transition: all .15s ease;
+  }
+  .choice.active .dot {
+    border-color: var(--amber);
+    background: var(--amber);
+  }
+  .choice.active .dot::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #0a0508;
+  }
+  .upload-drop {
+    border: 2px dashed var(--b-strong);
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    background: var(--s-2);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .upload-drop:hover {
+    border-color: var(--amber);
+    background: var(--s-3);
+  }
+  .upload-drop .icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255,122,24,.15), rgba(255,46,107,.15));
+    display: grid; place-items: center;
+    color: var(--amber);
+  }
+  .upload-drop .title {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--c-primary);
+    margin-bottom: 4px;
+  }
+  .upload-drop .hint {
+    font-size: 13px;
+    color: var(--c-tertiary);
+  }
+  .upload-formats {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--c-tertiary);
+    font-family: var(--font-mono);
+  }
+  .success-icon {
+    width: 80px; height: 80px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(74,222,128,.15), rgba(74,222,128,.05));
+    border: 2px solid rgba(74,222,128,.3);
+    display: grid; place-items: center;
+    color: #86efac;
+    font-size: 40px;
+  }
+  .summary {
+    background: var(--s-2);
+    border: 1px solid var(--b-default);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin: 20px 0;
+    text-align: left;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 14px;
+  }
+  .summary-row + .summary-row {
+    border-top: 1px solid var(--b-default);
+    margin-top: 6px;
+    padding-top: 12px;
+  }
+  .summary-row .key {
+    color: var(--c-tertiary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .summary-row .val {
+    color: var(--amber);
+    font-weight: 600;
+  }
+  .alert {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 13px; line-height: 1.4;
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.3);
+    color: #fca5a5;
+  }
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+    align-items: center;
+  }
+  .actions .btn-prev,
+  .actions .btn-skip {
+    background: transparent;
+    border: 1px solid var(--b-default);
+    color: var(--c-secondary);
+  }
+  .actions .btn-prev:hover,
+  .actions .btn-skip:hover {
+    background: var(--s-2);
+    color: var(--c-primary);
+  }
+  .actions .spacer { flex: 1; }
+  .btn-next {
+    min-width: 140px;
+    justify-content: center;
+  }
+  .spinner-inline {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-top-color: #0a0508;
+    border-radius: 50%;
+    animation: tc-spin 0.8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+  @media (max-width: 640px) {
+    .card { padding: 28px 20px; border-radius: 16px; }
+    .card h1 { font-size: 24px; }
+    .choice-grid { grid-template-columns: 1fr; }
+    .actions { flex-wrap: wrap; }
+    .actions .spacer { display: none; }
+    .btn-next { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="brand">
+    <span class="logo">T</span>
+    <span class="wordmark">TrackCue</span>
+  </a>
+
+  <div class="progress-track">
+    <div id="progress-fill" class="progress-fill" style="width:25%"></div>
+  </div>
+
+  <div class="card reveal">
+    <div class="step-meta">Étape <span id="step-num">1</span> / 4</div>
+
+    <!-- Step 1: DJ Style -->
+    <div id="step-style" class="step">
+      <h1>Bienvenue sur TrackCue !</h1>
+      <p class="sub">Quel est ton style DJ principal ? On adapte les reco et les analyses à ton terrain.</p>
+      <div class="choice-grid" id="style-grid"></div>
+    </div>
+
+    <!-- Step 2: DJ Software -->
+    <div id="step-software" class="step" style="display:none">
+      <h1>Ton logiciel DJ</h1>
+      <p class="sub">Lequel utilises-tu ? On calibre les exports (cues, hot-cues, BPM) au format de ton logiciel.</p>
+      <div class="choice-grid" id="software-grid"></div>
+    </div>
+
+    <!-- Step 3: Upload -->
+    <div id="step-upload" class="step" style="display:none">
+      <h1>Prêt à analyser ?</h1>
+      <p class="sub">Dépose un premier morceau pour voir TrackCue en action, ou passe cette étape et explore le dashboard.</p>
+      <label class="upload-drop" for="file-input">
+        <div class="icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="title">Glisse un fichier audio ici</div>
+        <div class="hint">ou clique pour parcourir</div>
+        <input id="file-input" type="file" accept=".mp3,.wav,.flac,.aiff,.ogg,.m4a" style="display:none">
+      </label>
+      <div class="upload-formats">MP3 · WAV · FLAC · AIFF · OGG · M4A</div>
+    </div>
+
+    <!-- Step 4: Complete -->
+    <div id="step-done" class="step" style="display:none; text-align:center">
+      <div class="success-icon">✓</div>
+      <h1 style="text-align:center">Tu es prêt !</h1>
+      <p class="sub" style="text-align:center">Ton profil est configuré. Place à l'analyse.</p>
+      <div class="summary">
+        <div class="summary-row">
+          <span class="key">Style DJ</span>
+          <span class="val" id="sum-style">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="key">Logiciel</span>
+          <span class="val" id="sum-soft">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="alert" class="alert" style="display:none" role="alert"></div>
+
+    <div class="actions">
+      <button type="button" id="btn-prev" class="btn btn-prev">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Précédent
+      </button>
+      <button type="button" id="btn-skip" class="btn btn-skip">Passer</button>
+      <div class="spacer"></div>
+      <button type="button" id="btn-next" class="btn btn-primary btn-next">
+        Suivant
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/v4/api.js?v=20260423c"></script>
+<script src="/v4/shared.js?v=20260423c"></script>
+<script>
+(function(){
+  // Require auth
+  if (!api.isAuthed()) { location.replace('/login?next=/onboarding'); return; }
+
+  var DJ_STYLES = [
+    { v:'Club',     icon:'🎧' },
+    { v:'Mariage',  icon:'💍' },
+    { v:'Radio',    icon:'📻' },
+    { v:'Festival', icon:'🎪' },
+    { v:'Autre',    icon:'🎚️' }
+  ];
+  var DJ_SOFTWARE = [
+    { v:'Rekordbox', icon:'🟥' },
+    { v:'Serato',    icon:'🟩' },
+    { v:'Traktor',   icon:'⬛' },
+    { v:'VirtualDJ', icon:'🟦' },
+    { v:'Autre',     icon:'🎛️' }
+  ];
+
+  var STEPS = ['style', 'software', 'upload', 'done'];
+  var state = { idx: 0, djStyle: '', djSoftware: '', file: null, loading: false };
+
+  var alertBox = document.getElementById('alert');
+  var btnPrev = document.getElementById('btn-prev');
+  var btnSkip = document.getElementById('btn-skip');
+  var btnNext = document.getElementById('btn-next');
+  var stepNum = document.getElementById('step-num');
+  var progress = document.getElementById('progress-fill');
+
+  function renderChoices(gridId, list, key){
+    var grid = document.getElementById(gridId);
+    grid.innerHTML = '';
+    list.forEach(function(item){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'choice' + (state[key] === item.v ? ' active' : '');
+      btn.innerHTML = '<span class="dot"></span><span>'+item.icon+' '+item.v+'</span>';
+      btn.addEventListener('click', function(){
+        state[key] = item.v;
+        clearError();
+        renderChoices(gridId, list, key);
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  function showError(msg){ alertBox.textContent = msg; alertBox.style.display = 'block'; }
+  function clearError(){ alertBox.style.display = 'none'; }
+
+  function showStep(){
+    STEPS.forEach(function(s, i){
+      var el = document.getElementById('step-' + s);
+      if (el) el.style.display = (i === state.idx) ? 'block' : 'none';
+    });
+    stepNum.textContent = state.idx + 1;
+    progress.style.width = Math.round(((state.idx + 1) / STEPS.length) * 100) + '%';
+    btnPrev.disabled = state.idx === 0;
+    btnPrev.style.visibility = state.idx === 0 ? 'hidden' : 'visible';
+    btnSkip.style.display = state.idx < STEPS.length - 1 ? '' : 'none';
+
+    if (state.idx === STEPS.length - 1){
+      btnNext.innerHTML = "C'est parti !<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg>";
+      document.getElementById('sum-style').textContent = state.djStyle || '—';
+      document.getElementById('sum-soft').textContent = state.djSoftware || '—';
+    } else {
+      btnNext.innerHTML = "Suivant<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg>";
+    }
+  }
+
+  function savePreferences(onDone){
+    state.loading = true;
+    btnNext.disabled = true;
+    btnSkip.disabled = true;
+    api.post('/profile/preferences', {
+      dj_style: state.djStyle || null,
+      dj_software: state.djSoftware || null,
+      onboarding_completed: true
+    })
+      .then(function(){ if (onDone) onDone(); else location.replace('/dashboard'); })
+      .catch(function(){
+        // Ne pas bloquer : on continue même si l'endpoint n'existe pas côté backend
+        if (onDone) onDone(); else location.replace('/dashboard');
+      })
+      .finally(function(){ state.loading = false; });
+  }
+
+  function uploadIfPresent(after){
+    if (!state.file) { after(); return; }
+    btnNext.disabled = true;
+    btnNext.innerHTML = '<span class="spinner-inline"></span>Upload…';
+    api.uploadTrack(state.file, null, { cue_mode: 'auto' })
+      .then(function(){ after(); })
+      .catch(function(err){
+        showError('Erreur upload: ' + (err.message || 'inconnu'));
+        btnNext.disabled = false;
+        btnNext.innerHTML = "Suivant";
+      });
+  }
+
+  btnNext.addEventListener('click', function(){
+    var step = STEPS[state.idx];
+    clearError();
+    if (step === 'style' && !state.djStyle) { showError('Choisis un style DJ'); return; }
+    if (step === 'software' && !state.djSoftware) { showError('Choisis un logiciel DJ'); return; }
+    if (step === 'upload') {
+      uploadIfPresent(function(){
+        state.idx = STEPS.length - 1;
+        showStep();
+      });
+      return;
+    }
+    if (step === 'done') {
+      savePreferences();
+      return;
+    }
+    state.idx = Math.min(state.idx + 1, STEPS.length - 1);
+    showStep();
+  });
+
+  btnPrev.addEventListener('click', function(){
+    if (state.idx > 0) { state.idx--; showStep(); clearError(); }
+  });
+
+  btnSkip.addEventListener('click', function(){
+    savePreferences();
+  });
+
+  document.getElementById('file-input').addEventListener('change', function(e){
+    state.file = e.target.files[0] || null;
+    if (state.file){
+      var drop = document.querySelector('.upload-drop');
+      drop.querySelector('.title').textContent = '✓ ' + state.file.name;
+      drop.querySelector('.hint').textContent = 'Cliquer pour changer';
+    }
+  });
+
+  renderChoices('style-grid', DJ_STYLES, 'djStyle');
+  renderChoices('software-grid', DJ_SOFTWARE, 'djSoftware');
+  showStep();
+})();
+</script>
+</body>
+</html>

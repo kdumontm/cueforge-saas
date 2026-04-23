@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Facturation — TrackCue</title>
+<link rel="stylesheet" href="/v4/shared.css?v=20260423c">
+<style>
+  body { background: var(--s-0); min-height: 100vh; }
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,5,8,.75);
+    backdrop-filter: saturate(140%) blur(10px);
+    -webkit-backdrop-filter: saturate(140%) blur(10px);
+    border-bottom: 1px solid var(--b-default);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .back-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    color: var(--c-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all .15s ease;
+  }
+  .back-btn:hover {
+    background: var(--s-2);
+    color: var(--c-primary);
+    border-color: var(--b-default);
+  }
+  .topbar h1 {
+    font-family: var(--font-display);
+    font-size: 20px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--c-primary);
+  }
+  .topbar .sub {
+    font-size: 13px;
+    color: var(--c-tertiary);
+    margin: 2px 0 0;
+  }
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .alert {
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    font-size: 14px; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 12px;
+    border: 1px solid;
+  }
+  .alert-success { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.3); color: #86efac; }
+  .alert-error   { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3);  color: #fca5a5; }
+  .alert-info    { background: rgba(96,165,250,.08); border-color: rgba(96,165,250,.3); color: #93c5fd; }
+  .alert svg { flex-shrink: 0; margin-top: 2px; }
+
+  /* Current plan card */
+  .current-card {
+    background: linear-gradient(180deg, var(--s-2), var(--s-1));
+    border: 1px solid var(--b-default);
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+  }
+  .current-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 20px; flex-wrap: wrap;
+  }
+  .current-head .label {
+    font-family: var(--font-mono);
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--c-tertiary);
+    margin-bottom: 6px;
+  }
+  .plan-row {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .plan-name {
+    font-family: var(--font-display);
+    font-size: 30px; font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--c-primary);
+  }
+  .status-pill {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+  .status-free  { background: var(--s-3); color: var(--c-secondary); border: 1px solid var(--b-default); }
+  .status-pro   { background: rgba(96,165,250,.12); color: #93c5fd; border: 1px solid rgba(96,165,250,.3); }
+  .status-unlim { background: rgba(217,70,239,.12); color: #e879f9; border: 1px solid rgba(217,70,239,.3); }
+
+  .renewal-info {
+    text-align: right;
+  }
+  .renewal-info .label { margin-bottom: 4px; }
+  .renewal-info .val {
+    font-size: 18px; font-weight: 600;
+    color: var(--c-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .usage-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .usage-cell {
+    background: var(--s-0);
+    border: 1px solid var(--b-default);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .usage-cell .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-tertiary);
+    margin-bottom: 8px;
+  }
+  .usage-cell .val {
+    font-size: 22px; font-weight: 700;
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    color: var(--c-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-cell .unit {
+    color: var(--c-tertiary);
+    font-size: 13px; font-weight: 400;
+    margin-left: 4px;
+  }
+  .usage-cell .bar {
+    margin-top: 10px;
+    height: 4px;
+    background: var(--s-2);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .usage-cell .bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, var(--amber), var(--pink));
+    transition: width .4s ease;
+  }
+  .usage-cell .bar.warn > div { background: #f59e0b; }
+  .usage-cell .bar.danger > div { background: #ef4444; }
+
+  .manage-btn {
+    margin-top: 20px;
+  }
+
+  /* Plans */
+  .plans-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 8px 0 22px;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .plans-head h2 {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .interval-toggle {
+    display: flex;
+    padding: 4px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 12px;
+    gap: 2px;
+  }
+  .interval-toggle button {
+    padding: 8px 18px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0;
+    font-size: 13px; font-weight: 500;
+    color: var(--c-secondary);
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: var(--font-body);
+  }
+  .interval-toggle button.active {
+    background: var(--s-3);
+    color: var(--c-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+  .interval-toggle .save-badge {
+    margin-left: 6px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(74,222,128,.15);
+    color: #86efac;
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  .plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .plan-card {
+    position: relative;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 20px;
+    padding: 28px 24px;
+    display: flex; flex-direction: column;
+    transition: all .2s ease;
+  }
+  .plan-card:hover { border-color: var(--b-strong); transform: translateY(-2px); }
+  .plan-card.active {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(255,122,24,.14);
+  }
+  .plan-card .current-badge {
+    position: absolute; top: 0; right: 24px;
+    transform: translateY(-50%);
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--amber), var(--pink));
+    color: #0a0508;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+  .plan-card h3 {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    color: var(--c-primary);
+  }
+  .price-block {
+    margin-bottom: 22px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--b-default);
+  }
+  .price-block .amount {
+    font-family: var(--font-display);
+    font-size: 42px; font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--c-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .price-block .per {
+    color: var(--c-tertiary);
+    font-size: 14px;
+    margin-left: 4px;
+  }
+  .price-block .yearly-note {
+    font-size: 12px;
+    color: var(--c-tertiary);
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+  .features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 22px;
+    flex: 1;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 14px; line-height: 1.4;
+    color: var(--c-secondary);
+  }
+  .features svg {
+    flex-shrink: 0;
+    color: #86efac;
+    margin-top: 2px;
+  }
+  .plan-cta {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .plan-cta:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  /* FAQ */
+  .faq-card {
+    margin-top: 40px;
+    background: var(--s-1);
+    border: 1px solid var(--b-default);
+    border-radius: 20px;
+    padding: 28px 32px;
+  }
+  .faq-card h3 {
+    font-family: var(--font-display);
+    font-size: 20px; font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+  }
+  .faq-card details {
+    border-bottom: 1px solid var(--b-default);
+    padding: 14px 0;
+  }
+  .faq-card details:last-child { border-bottom: 0; }
+  .faq-card summary {
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--c-primary);
+    list-style: none;
+  }
+  .faq-card summary::-webkit-details-marker { display: none; }
+  .faq-card summary:hover { color: var(--amber); }
+  .faq-card summary .chev {
+    transition: transform .2s ease;
+    color: var(--c-tertiary);
+  }
+  .faq-card details[open] summary .chev { transform: rotate(180deg); }
+  .faq-card details p {
+    margin: 12px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--c-secondary);
+  }
+
+  .loading-state {
+    min-height: 60vh;
+    display: grid; place-items: center;
+  }
+  .spinner-lg {
+    width: 28px; height: 28px;
+    border: 3px solid var(--b-default);
+    border-top-color: var(--amber);
+    border-radius: 50%;
+    animation: tc-spin .8s linear infinite;
+  }
+  @keyframes tc-spin { to { transform: rotate(360deg); } }
+  .spinner-inline {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: tc-spin .8s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  @media (max-width: 900px) {
+    .plans-grid { grid-template-columns: 1fr; }
+    .usage-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .current-card { padding: 22px 20px; }
+    .plan-card { padding: 22px 20px; }
+    .faq-card { padding: 22px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/dashboard" class="back-btn" aria-label="Retour au dashboard">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </a>
+    <div>
+      <h1>Facturation & Abonnement</h1>
+      <p class="sub">Gère ton plan et tes factures</p>
+    </div>
+  </div>
+</div>
+
+<div id="loading" class="loading-state"><div class="spinner-lg"></div></div>
+
+<main id="page" class="page" style="display:none">
+  <div id="alert" class="alert" style="display:none" role="alert"></div>
+
+  <!-- Current plan -->
+  <section id="current-section" class="current-card" style="display:none">
+    <div class="current-head">
+      <div>
+        <div class="label">Plan actuel</div>
+        <div class="plan-row">
+          <span class="plan-name" id="cur-name">—</span>
+          <span id="cur-status" class="status-pill status-free">Gratuit</span>
+        </div>
+      </div>
+      <div id="renewal-block" class="renewal-info" style="display:none">
+        <div class="label">Prochain renouvellement</div>
+        <div class="val" id="cur-renewal">—</div>
+      </div>
+    </div>
+
+    <div class="usage-grid" id="usage-grid"></div>
+
+    <button type="button" id="btn-manage" class="btn btn-ghost manage-btn" style="display:none">
+      Gérer mon abonnement
+    </button>
+  </section>
+
+  <!-- Plans -->
+  <section>
+    <div class="plans-head">
+      <h2>Plans disponibles</h2>
+      <div class="interval-toggle">
+        <button type="button" data-interval="monthly" class="active">Mensuel</button>
+        <button type="button" data-interval="yearly">Annuel<span class="save-badge">−20%</span></button>
+      </div>
+    </div>
+    <div id="plans-grid" class="plans-grid"></div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-card">
+    <h3>Questions fréquentes</h3>
+    <details>
+      <summary>
+        <span>Puis-je changer de plan à tout moment ?</span>
+        <span class="chev">▾</span>
+      </summary>
+      <p>Oui, tu peux passer à un plan supérieur ou inférieur à tout moment. Les changements prennent effet immédiatement, avec un prorata pour les upgrades en cours de cycle.</p>
+    </details>
+    <details>
+      <summary>
+        <span>Comment fonctionne l'annulation ?</span>
+        <span class="chev">▾</span>
+      </summary>
+      <p>Tu peux annuler ton abonnement à tout moment depuis le portail Stripe. Ton accès reste actif jusqu'à la fin de la période de facturation en cours, aucun remboursement au prorata.</p>
+    </details>
+    <details>
+      <summary>
+        <span>Quels moyens de paiement acceptez-vous ?</span>
+        <span class="chev">▾</span>
+      </summary>
+      <p>Toutes les cartes bancaires (Visa, Mastercard, Amex) via Stripe. Les paiements sont sécurisés et conformes PCI-DSS.</p>
+    </details>
+    <details>
+      <summary>
+        <span>Les données restent-elles à jour si je downgrade ?</span>
+        <span class="chev">▾</span>
+      </summary>
+      <p>Tes morceaux, cues et playlists ne sont jamais supprimés. Si ton nouveau plan a des limites plus basses, les nouveaux uploads seront bloqués tant que tu es au-dessus, mais rien n'est perdu.</p>
+    </details>
+  </section>
+</main>
+
+<script src="/v4/api.js?v=20260423c"></script>
+<script src="/v4/shared.js?v=20260423c"></script>
+<script>
+(function(){
+  if (!api.isAuthed()) { location.replace('/login?next=/billing'); return; }
+
+  var state = {
+    plans: [], current: null, usage: null,
+    interval: 'monthly',
+    subscribing: false, opening: false
+  };
+
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.from(document.querySelectorAll(s)); };
+
+  function showAlert(type, text){
+    var box = $('#alert');
+    box.className = 'alert alert-' + type;
+    box.innerHTML = (
+      type==='success' ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' :
+      type==='error'   ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' :
+                         '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+    ) + '<span></span>';
+    box.querySelector('span').textContent = text;
+    box.style.display = 'flex';
+    setTimeout(function(){ box.style.display = 'none'; }, 5500);
+  }
+
+  function checkQuery(){
+    var q = new URLSearchParams(location.search);
+    if (q.get('success') === 'true'){
+      showAlert('success', 'Abonnement activé avec succès !');
+      history.replaceState({}, '', '/billing');
+    } else if (q.get('canceled') === 'true'){
+      showAlert('info', 'Paiement annulé. Aucun changement sur ton plan.');
+      history.replaceState({}, '', '/billing');
+    }
+  }
+
+  function pct(used, total){
+    if (!total || total < 0) return 0;
+    if (total === 0) return 100;
+    return Math.min(100, Math.max(0, (used / total) * 100));
+  }
+  function barClass(p){ if (p >= 90) return 'danger'; if (p >= 75) return 'warn'; return ''; }
+
+  function renderCurrent(){
+    if (!state.current) return;
+    $('#current-section').style.display = 'block';
+    var p = state.current.plan || {};
+    $('#cur-name').textContent = p.name || 'Gratuit';
+    var st = $('#cur-status');
+    var statusTxt = state.current.subscription_status || 'Gratuit';
+    st.textContent = statusTxt;
+    st.className = 'status-pill ' + (
+      p.id === 'unlimited' ? 'status-unlim' :
+      p.id === 'pro'       ? 'status-pro'   :
+                             'status-free'
+    );
+
+    if (state.current.current_period_end){
+      $('#renewal-block').style.display = 'block';
+      try {
+        $('#cur-renewal').textContent = new Date(state.current.current_period_end).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+      } catch {}
+    }
+
+    if (state.current.subscription_status){
+      $('#btn-manage').style.display = 'inline-flex';
+    }
+
+    var u = state.usage || {};
+    var cells = [
+      { label: "Pistes aujourd'hui", val: u.tracks_today||0, total: u.tracks_limit||0, unit:'' },
+      { label: 'Points de cue',      val: u.cue_points_used||0, total: u.cue_points_limit||0, unit:'' },
+      { label: 'Stockage',           val: ((u.storage_used_mb||0)/1024).toFixed(1), total: u.storage_limit_gb||0, unit:'GB' },
+      { label: 'Membres',            val: u.members_count||0, total: u.members_limit||0, unit:'' }
+    ];
+    $('#usage-grid').innerHTML = cells.map(function(c){
+      var p = pct(parseFloat(c.val), parseFloat(c.total));
+      return ''
+        + '<div class="usage-cell">'
+        +   '<div class="label">'+c.label+'</div>'
+        +   '<div class="val">'+c.val+'<span class="unit">'+(c.unit?c.unit+' ':'')+'/ '+c.total+(c.unit||'')+'</span></div>'
+        +   '<div class="bar '+barClass(p)+'"><div style="width:'+p+'%"></div></div>'
+        + '</div>';
+    }).join('');
+  }
+
+  var FEATURE_LABELS = {
+    advanced_analytics: 'Analyses avancées',
+    priority_support:   'Support prioritaire',
+    api_access:         'Accès API',
+    stems_unlimited:    'Stems illimités',
+    mashup_studio:      'Mashup Studio Pro',
+    ai_suggestions:     'Suggestions IA'
+  };
+
+  function renderPlans(){
+    var grid = $('#plans-grid');
+    grid.innerHTML = '';
+    var activeId = state.current && state.current.plan ? state.current.plan.id : null;
+
+    state.plans.forEach(function(plan){
+      var price = state.interval === 'monthly' ? plan.price_monthly : plan.price_yearly;
+      var perMonth = state.interval === 'yearly' && price > 0 ? (price / 12).toFixed(2) : null;
+      var isActive = plan.id === activeId;
+
+      var features = [
+        (plan.max_tracks_per_day || 0) + ' pistes / jour',
+        (plan.max_cue_points || 0) + ' points de cue',
+        (plan.max_storage_gb || 0) + ' GB de stockage',
+        "Jusqu'à " + (plan.max_members || 1) + ' membre' + ((plan.max_members||1) > 1 ? 's' : '')
+      ];
+      if (plan.features) {
+        Object.keys(plan.features).forEach(function(k){
+          if (plan.features[k] && FEATURE_LABELS[k]) features.push(FEATURE_LABELS[k]);
+        });
+      }
+
+      var card = document.createElement('div');
+      card.className = 'plan-card' + (isActive ? ' active' : '');
+      card.innerHTML = ''
+        + (isActive ? '<span class="current-badge">Plan actuel</span>' : '')
+        + '<h3>'+ (plan.name||'—') +'</h3>'
+        + '<div class="price-block">'
+        +   '<span class="amount">'+ (price != null ? Number(price).toFixed(0) : '0') +'€</span>'
+        +   '<span class="per">'+ (state.interval==='monthly' ? '/mois' : '/an') +'</span>'
+        +   (perMonth ? '<div class="yearly-note">Soit '+perMonth+'€/mois facturé annuellement</div>' : '')
+        + '</div>'
+        + '<ul class="features">'
+        +   features.map(function(f){
+              return '<li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>'+f+'</span></li>';
+            }).join('')
+        + '</ul>'
+        + (isActive
+            ? '<button type="button" class="btn btn-ghost plan-cta" disabled>Ton plan actuel</button>'
+            : '<button type="button" class="btn btn-primary plan-cta" data-plan="'+plan.id+'">Passer à ce plan</button>'
+          );
+      grid.appendChild(card);
+    });
+
+    $$('.plan-cta[data-plan]').forEach(function(btn){
+      btn.addEventListener('click', function(){ subscribeTo(btn.dataset.plan, btn); });
+    });
+  }
+
+  function subscribeTo(planId, btn){
+    if (state.subscribing) return;
+    state.subscribing = true;
+    var origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-inline"></span>Redirection…';
+    btn.disabled = true;
+    api.post('/billing/subscribe', { plan_id: planId, interval: state.interval })
+      .then(function(res){
+        if (res && res.checkout_url) location.href = res.checkout_url;
+        else { showAlert('error', 'Réponse invalide du serveur'); btn.innerHTML = origHtml; btn.disabled = false; state.subscribing = false; }
+      })
+      .catch(function(err){
+        showAlert('error', 'Erreur création session: ' + (err.message || 'inconnu'));
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+        state.subscribing = false;
+      });
+  }
+
+  function openPortal(){
+    if (state.opening) return;
+    state.opening = true;
+    var btn = $('#btn-manage');
+    var orig = btn.textContent;
+    btn.innerHTML = '<span class="spinner-inline"></span>Ouverture…';
+    btn.disabled = true;
+    api.post('/billing/portal', {})
+      .then(function(res){
+        if (res && res.url) location.href = res.url;
+        else { showAlert('error', 'URL portail invalide'); btn.textContent = orig; btn.disabled = false; state.opening = false; }
+      })
+      .catch(function(err){
+        showAlert('error', "Erreur ouverture portail: " + (err.message || 'inconnu'));
+        btn.textContent = orig;
+        btn.disabled = false;
+        state.opening = false;
+      });
+  }
+
+  $$('.interval-toggle button').forEach(function(b){
+    b.addEventListener('click', function(){
+      state.interval = b.dataset.interval;
+      $$('.interval-toggle button').forEach(function(x){ x.classList.toggle('active', x.dataset.interval === state.interval); });
+      renderPlans();
+    });
+  });
+
+  $('#btn-manage').addEventListener('click', openPortal);
+
+  async function load(){
+    try {
+      var results = await Promise.allSettled([
+        api.get('/billing/plans'),
+        api.get('/billing/current'),
+        api.get('/billing/usage')
+      ]);
+      if (results[0].status === 'fulfilled') state.plans = Array.isArray(results[0].value) ? results[0].value : (results[0].value.plans || []);
+      if (results[1].status === 'fulfilled') state.current = results[1].value;
+      if (results[2].status === 'fulfilled') state.usage = results[2].value;
+
+      // Fallback si billing désactivé côté backend
+      if (!state.plans.length){
+        state.plans = [
+          { id:'free',      name:'Free',      price_monthly:0,     price_yearly:0,     max_tracks_per_day:5,   max_cue_points:32,  max_storage_gb:1,  max_members:1, features:{} },
+          { id:'pro',       name:'Pro',       price_monthly:9.99,  price_yearly:95.88, max_tracks_per_day:50,  max_cue_points:128, max_storage_gb:25, max_members:3, features:{ advanced_analytics:true, priority_support:true } },
+          { id:'unlimited', name:'Unlimited', price_monthly:19.99, price_yearly:191.88,max_tracks_per_day:500, max_cue_points:512, max_storage_gb:100,max_members:10,features:{ advanced_analytics:true, priority_support:true, api_access:true, stems_unlimited:true, mashup_studio:true } }
+        ];
+      }
+      if (!state.current){
+        state.current = { plan: { id:'free', name:'Gratuit' }, subscription_status: null, current_period_end: null };
+      }
+      renderCurrent();
+      renderPlans();
+      checkQuery();
+    } catch (err) {
+      showAlert('error', 'Erreur chargement: ' + (err.message || 'inconnu'));
+    } finally {
+      $('#loading').style.display = 'none';
+      $('#page').style.display = 'block';
+    }
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
