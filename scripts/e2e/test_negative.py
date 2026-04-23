@@ -19,23 +19,25 @@ def run(ctx: RunContext) -> TestReport:
     # ---------- Public (unauthenticated) endpoints ----------
     pub = Client(ctx.base_url)
 
+    # FastAPI's default HTTPBearer returns 403 when no token present
+    # (401 only when the token is invalid/expired). Accept both.
     def _no_auth_me():
         r = pub.get("/auth/me")
-        if r.status_code != 401:
-            raise AssertionError(f"no auth /me should 401, got {r.status_code}")
-    run_step(report, "/auth/me without token → 401", _no_auth_me)
+        if r.status_code not in (401, 403):
+            raise AssertionError(f"no auth /me should 401/403, got {r.status_code}")
+    run_step(report, "/auth/me without token → 401/403", _no_auth_me)
 
     def _no_auth_tracks():
         r = pub.get("/tracks")
-        if r.status_code != 401:
-            raise AssertionError(f"/tracks no auth → 401, got {r.status_code}")
-    run_step(report, "/tracks without token → 401", _no_auth_tracks)
+        if r.status_code not in (401, 403):
+            raise AssertionError(f"/tracks no auth → 401/403, got {r.status_code}")
+    run_step(report, "/tracks without token → 401/403", _no_auth_tracks)
 
     def _no_auth_upload():
         r = pub.post("/tracks/upload")
-        if r.status_code != 401:
-            raise AssertionError(f"upload no auth → 401, got {r.status_code}")
-    run_step(report, "/tracks/upload without token → 401", _no_auth_upload)
+        if r.status_code not in (401, 403):
+            raise AssertionError(f"upload no auth → 401/403, got {r.status_code}")
+    run_step(report, "/tracks/upload without token → 401/403", _no_auth_upload)
 
     # ---------- Bad login ----------
     def _bad_login_empty():

@@ -91,17 +91,18 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
         ]))
         story.append(track_table)
 
-        # Cue points
+        # Cue points — CuePoint uses position_ms (int ms) and cue_type (str)
         if track.cue_points:
             story.append(Spacer(1, 0.15 * inch))
             story.append(Paragraph("Cue Points", styles['Heading3']))
             cue_data = [['Position', 'Type', 'Nom']]
             for cp in track.cue_points:
-                pos_min = int(cp.position / 60)
-                pos_sec = int(cp.position % 60)
+                pos_sec_total = (cp.position_ms or 0) / 1000.0
+                pos_min = int(pos_sec_total / 60)
+                pos_sec = int(pos_sec_total % 60)
                 cue_data.append([
                     f"{pos_min}:{pos_sec:02d}",
-                    str(cp.type or 'Marker'),
+                    str(cp.cue_type or 'Marker'),
                     str(cp.name or ''),
                 ])
             cue_table = Table(cue_data, colWidths=[1 * inch, 1.5 * inch, 2.5 * inch])
@@ -160,9 +161,10 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
             pdf.cell(0, 5, "Cue Points:", ln=True)
             pdf.set_font("Helvetica", "", 8)
             for cp in track.cue_points:
-                pos_min = int(cp.position / 60)
-                pos_sec = int(cp.position % 60)
-                pdf.cell(0, 3, f"  {pos_min}:{pos_sec:02d} — {cp.type or 'Marker'} ({cp.name or ''})", ln=True)
+                pos_sec_total = (cp.position_ms or 0) / 1000.0
+                pos_min = int(pos_sec_total / 60)
+                pos_sec = int(pos_sec_total % 60)
+                pdf.cell(0, 3, f"  {pos_min}:{pos_sec:02d} — {cp.cue_type or 'Marker'} ({cp.name or ''})", ln=True)
 
         pdf.ln(8)
 
