@@ -131,76 +131,78 @@ def _purge_user_storage(user: User, db: Session) -> dict:
                 local_errors += 1
 
     # 3. Purge SQL brute des tables enfants pour éviter le cascade-emu ORM.
+    #
+    # IMPORTANT: Postgres aborte toute la transaction dès qu'une requête SQL
+    # échoue (ex: table manquante, colonne renommée…). Donc on WRAPPE CHAQUE
+    # DELETE dans un SAVEPOINT (`db.begin_nested()`) pour isoler les échecs
+    # table-par-table. Si un DELETE échoue on rollback juste son savepoint et
+    # on continue ; la tx principale reste saine.
     children_deleted = 0
     for tbl, col in _USER_CHILD_TABLES:
         if col is None:
-            # Table sans FK directe user_id (nettoyée par CASCADE SQL)
             continue
         try:
-            res = db.execute(
-                text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
-                {"uid": user.id},
-            )
-            children_deleted += (res.rowcount or 0)
+            with db.begin_nested():
+                res = db.execute(
+                    text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
+                    {"uid": user.id},
+                )
+                children_deleted += (res.rowcount or 0)
         except Exception as e:
-            # Table peut ne pas exister (ex: feature activée sur un env, pas un autre).
             logger.warning(
-                f"[admin.delete_user] purge {tbl}.{col} failed (table manquante ?): {e}"
+                f"[admin.delete_user] purge {tbl}.{col} skipped: {e}"
             )
 
-    # 4. Nullify les FK historiques/CMS qu'on veut conserver.
+    # 4. Nullify les FK historiques/CMS qu'on veut conserver (savepoint idem).
     for tbl, col in _USER_NULLIFY_TABLES:
         try:
-            db.execute(
-                text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid"),
-                {"uid": user.id},
-            )
+            with db.begin_nested():
+                db.execute(
+                    text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid"),
+                    {"uid": user.id},
+                )
         except Exception as e:
             logger.warning(
-                f"[admin.delete_user] nullify {tbl}.{col} failed (table manquante ?): {e}"
+                f"[admin.delete_user] nullify {tbl}.{col} skipped: {e}"
             )
 
-    # 5. Cas orgs : si le user est owner d'orgs, on transfère la propriété au
-    # 1er admin existant, sinon on détache (NULL). Les org_members et org_invites
-    # liés au user lui-même ont déjà été purgés via _USER_CHILD_TABLES.
+    # 5. Cas orgs : transfert au 1er admin existant, sinon delete.
     try:
-        # On NULL juste organizations.owner_id pour ce user — l'admin peut
-        # ensuite ré-assigner ou supprimer l'org manuellement.
-        # (owner_id est nullable=False au schéma ORM mais on force SQL brut.)
-        # Si la contrainte NOT NULL bloque, on supprime l'org purement et simplement.
-        res_transfer = db.execute(
-            text("""
-                UPDATE organizations
-                SET owner_id = (
-                    SELECT id FROM users
-                    WHERE is_admin = TRUE AND id != :uid
-                    ORDER BY id ASC
-                    LIMIT 1
-                )
-                WHERE owner_id = :uid
-            """),
-            {"uid": user.id},
-        )
-        # Fallback : si aucun autre admin n'existe, transfert impossible → on delete l'org.
-        if res_transfer.rowcount and res_transfer.rowcount > 0:
-            logger.info(f"[admin.delete_user] transfert de {res_transfer.rowcount} org(s) owner_id={user.id} → nouvel admin")
-    except Exception as e:
-        logger.warning(f"[admin.delete_user] transfert orgs échoué, fallback delete: {e}")
-        try:
-            db.execute(
-                text("DELETE FROM organizations WHERE owner_id = :uid"),
+        with db.begin_nested():
+            res_transfer = db.execute(
+                text("""
+                    UPDATE organizations
+                    SET owner_id = (
+                        SELECT id FROM users
+                        WHERE is_admin = TRUE AND id != :uid
+                        ORDER BY id ASC
+                        LIMIT 1
+                    )
+                    WHERE owner_id = :uid
+                """),
                 {"uid": user.id},
             )
+            if res_transfer.rowcount and res_transfer.rowcount > 0:
+                logger.info(f"[admin.delete_user] transfert {res_transfer.rowcount} org(s) owner_id={user.id}")
+    except Exception as e:
+        logger.warning(f"[admin.delete_user] transfert orgs échoué → fallback delete: {e}")
+        try:
+            with db.begin_nested():
+                db.execute(
+                    text("DELETE FROM organizations WHERE owner_id = :uid"),
+                    {"uid": user.id},
+                )
         except Exception as e2:
             logger.warning(f"[admin.delete_user] delete orgs fallback échoué: {e2}")
 
-    # Nettoyage org_members du user (table sans __tablename__ connu, fallback silencieux)
+    # org_members / org_invites par user (savepoint idem).
     for tbl, col in [("organization_members", "user_id"), ("org_invites", "invited_by")]:
         try:
-            db.execute(
-                text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
-                {"uid": user.id},
-            )
+            with db.begin_nested():
+                db.execute(
+                    text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
+                    {"uid": user.id},
+                )
         except Exception as e:
             logger.debug(f"[admin.delete_user] purge {tbl} skip: {e}")
 
