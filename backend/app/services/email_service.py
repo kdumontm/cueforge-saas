@@ -259,3 +259,27 @@ def send_upgrade_email(to_email: str, plan_name: str) -> None:
     </div>
     """
     _send_email(to_email, f"🚀 Bienvenue sur le plan {plan_name} !", html)
+
+
+# ─── Feedback reply (admin → user) ─────────────────────────────
+
+
+def send_feedback_reply_email(to_email: str, original_subject: str, original_message: str, admin_reply: str) -> None:
+    """Send admin's reply to a user's feedback."""
+    def _esc(s: str) -> str:
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    html = _wrap_template(f"""
+        <p>Merci pour ton feedback ! 🙏 Voici notre réponse :</p>
+        <div style="background:#f3f4f6;border-left:4px solid #2563eb;padding:14px 16px;border-radius:6px;margin:16px 0;color:#111;white-space:pre-wrap;line-height:1.5">
+            {_esc(admin_reply)}
+        </div>
+        <p style="color:#666;font-size:12px;margin-top:24px">
+            <strong>Ton message d'origine :</strong><br>
+            <em style="color:#888">{_esc(original_message)[:400]}</em>
+        </p>
+        <p style="color:#888;font-size:12px">
+            Si tu veux répondre, renvoie un nouveau feedback depuis l'app — ça nous aide à tout suivre au même endroit.
+        </p>
+    """)
+    subj = f"Re: {original_subject[:60]}" if original_subject else "Réponse à ton feedback — TrackCue"
+    _send_email(to_email, subj, html)

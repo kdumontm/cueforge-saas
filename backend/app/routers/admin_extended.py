@@ -235,8 +235,10 @@ def _serialize_user(user: User) -> dict:
 def _serialize_feedback(fb: Feedback, user_email: str = None) -> dict:
     """Serialize a Feedback to dict."""
     msg = fb.message or ""
-    # Derive subject from first line of message (max 80 chars)
-    subject = msg.split("\n")[0][:80] if msg else "(sans sujet)"
+    # Prefer stored subject, fall back to first line of message (max 80 chars)
+    stored_subject = getattr(fb, "subject", None)
+    subject = stored_subject or (msg.split("\n")[0][:80] if msg else "(sans sujet)")
+    responded_at = getattr(fb, "responded_at", None)
     return {
         "id": fb.id,
         "user_id": fb.user_id,
@@ -245,9 +247,11 @@ def _serialize_feedback(fb: Feedback, user_email: str = None) -> dict:
         "subject": subject,
         "message": msg,
         "rating": fb.rating,
+        "scope": getattr(fb, "scope", "user"),
         "created_at": fb.created_at.isoformat() if fb.created_at else None,
         "status": getattr(fb, "status", "new"),
         "admin_response": getattr(fb, "admin_response", None),
+        "responded_at": responded_at.isoformat() if responded_at else None,
     }
 
 
@@ -667,12 +671,18 @@ def list_feedbacks(
     type: Optional[str] = None,
     status: Optional[str] = None,
     user_id: Optional[int] = None,
+    scope: Optional[str] = None,  # "user", "admin", or None (= all)
     skip: int = 0,
     limit: int = 50,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """List feedback with filters: type, status, user_id."""
+    """
+    List feedback with filters.
+    scope="user" = public feedbacks from users
+    scope="admin" = admin-only notes (bugs to fix, TODOs…)
+    scope=None = all (default)
+    """
     query = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id)
 
     if type:
@@ -681,16 +691,22 @@ def list_feedbacks(
         query = query.filter(Feedback.user_id == user_id)
     if status:
         query = query.filter(Feedback.status == status)
+    if scope in ("user", "admin"):
+        query = query.filter(Feedback.scope == scope)
 
     total = query.count()
     rows = query.order_by(desc(Feedback.created_at)).offset(skip).limit(limit).all()
 
+    items = [
+        _serialize_feedback(fb, user.email if user else None)
+        for fb, user in rows
+    ]
+
+    # Expose both "feedbacks" (legacy) and "items" (standard shape) for FE compat.
     return {
         "total": total,
-        "feedbacks": [
-            _serialize_feedback(fb, user.email if user else None)
-            for fb, user in rows
-        ],
+        "feedbacks": items,
+        "items": items,
     }
 
 
@@ -766,6 +782,60 @@ def update_feedback(
     db.commit()
     db.refresh(fb)
     return _serialize_feedback(fb)
+
+
+@router.post("/feedbacks/{feedback_id}/reply")
+def reply_to_feedback(
+    feedback_id: int,
+    payload: dict,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Admin répond à un feedback utilisateur.
+    - Stocke `admin_response` + `responded_at` + passe status → "done".
+    - Envoie un email à l'utilisateur si on a son email (fire-and-forget, non bloquant).
+    - N'envoie JAMAIS d'email pour les notes admin (scope=admin).
+    """
+    reply_text = (payload or {}).get("reply") or (payload or {}).get("message") or ""
+    reply_text = reply_text.strip()
+    new_status = (payload or {}).get("status") or "done"
+    notify = bool((payload or {}).get("notify", True))
+
+    if not reply_text:
+        raise HTTPException(status_code=422, detail="La réponse est vide")
+
+    row = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id).filter(Feedback.id == feedback_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    fb, user = row
+
+    fb.admin_response = reply_text
+    fb.responded_at = datetime.utcnow()
+    fb.status = new_status
+
+    email_sent = False
+    if notify and getattr(fb, "scope", "user") == "user" and user and user.email:
+        try:
+            from app.services.email_service import send_feedback_reply_email
+            subj = getattr(fb, "subject", None) or (fb.message or "").split("\n")[0][:80]
+            send_feedback_reply_email(user.email, subj, fb.message or "", reply_text)
+            email_sent = True
+        except Exception as exc:
+            # L'envoi d'email ne doit JAMAIS bloquer la réponse admin
+            import logging
+            logging.getLogger(__name__).warning(
+                "[admin.reply_to_feedback] email skipped for fb #%s: %s",
+                feedback_id, exc,
+            )
+
+    db.commit()
+    db.refresh(fb)
+    return {
+        "message": "Réponse enregistrée",
+        "email_sent": email_sent,
+        "feedback": _serialize_feedback(fb, user.email if user else None),
+    }
 
 
 @router.delete("/feedbacks/{feedback_id}")
