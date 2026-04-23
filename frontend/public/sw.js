@@ -9,8 +9,8 @@
 //   Next.js pré-migration servie depuis le cache du SW alors que le serveur renvoie bien
 //   la version v4. Un bump de CACHE_NAME + le activate handler supprimant les anciens
 //   caches suffit à forcer l'invalidation au prochain pageview.
-const CACHE_NAME = 'trackcue-v5';
-const SWR_CACHE_NAME = 'trackcue-swr-v2';
+const CACHE_NAME = 'trackcue-v6';
+const SWR_CACHE_NAME = 'trackcue-swr-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
 ];
@@ -83,11 +83,16 @@ self.addEventListener('fetch', (event) => {
     }
 
     // Autres endpoints API: network-first, fallback cache
+    // BUG FIX 2026-04-23 : ne cacher QUE les 200 OK (pas 502/500/403/401)
+    // Sinon quand le backend retourne 502 pendant un rebuild Railway, le SW
+    // cache ce 502 et continue de le servir APRÈS que le backend est revenu.
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          }
           return res;
         })
         .catch(() =>
@@ -114,11 +119,14 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/icons/');
 
   if (!isStaticAsset) {
+    // BUG FIX 2026-04-23 : ne cacher QUE les 200 OK (pas d'erreurs)
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          }
           return res;
         })
         .catch(() => caches.match(event.request)),
