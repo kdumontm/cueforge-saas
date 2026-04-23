@@ -193,11 +193,12 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
             children_deleted += (res.rowcount or 0)
         except Exception as e:
             logger.warning(f"[admin.purge_users] purge {tbl}.{col} échoué : {e}")
-            # savepoint de secours pour ne pas casser la tx
-            db.rollback()
-            # reprendre une tx propre et continuer
-            with db.begin_nested():
-                pass
+            # Créer un savepoint nested pour continuer sans casser la transaction principale
+            try:
+                with db.begin_nested():
+                    pass
+            except Exception as nested_e:
+                logger.warning(f"[admin.purge_users] nested rollback échoué : {nested_e}")
 
     # 3. Nullify CMS
     for tbl, col in _USER_NULLIFY_TABLES:
