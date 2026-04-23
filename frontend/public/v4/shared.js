@@ -1,5 +1,18 @@
 /* TrackCue V4 — shared interactions */
 
+// -------- Layout editor loader (admin-only, toutes les pages) --------
+// Charge /v4/layout-editor.js en async pour permettre à Kevin de redimensionner /
+// cacher / réordonner les blocs de n'importe quelle page v4 (Ctrl+Shift+E ou ?edit=1).
+// Stockage 100% localStorage : seul son navigateur voit les overrides.
+(function loadLayoutEditor(){
+  try {
+    const s = document.createElement('script');
+    s.src = '/v4/layout-editor.js?v=20260423-v1';
+    s.async = true;
+    (document.head || document.documentElement).appendChild(s);
+  } catch(_){}
+})();
+
 // -------- Theme + accent boot (toutes les pages) --------
 // Lit trackcue_settings_v1 et applique data-theme + --amber AVANT tout render.
 // Sans ce boot, switcher de thème dans /settings ne se voyait jamais ailleurs.
