@@ -72,6 +72,8 @@ SUITES_ORDER = [
     ("account",     "scripts.e2e.test_account"),
     # P6 — flows bout-en-bout
     ("flows",       "scripts.e2e.test_flows"),
+    # UX — widget feedback
+    ("feedback-widget", "scripts.e2e.test_feedback_widget"),
     # Admin (core + extended)
     ("admin",           "scripts.e2e.test_admin"),
     ("admin_extended",  "scripts.e2e.test_admin_extended"),
