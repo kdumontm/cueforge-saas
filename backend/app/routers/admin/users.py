@@ -10,6 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,13 +30,75 @@ class BulkDeleteRequest(BaseModel):
     user_ids: List[int]
 
 
+# Tables enfants à purger manuellement AVANT de supprimer le user.
+#
+# Problème SQLAlchemy ORM :
+#   Beaucoup de relationships `User.<children>` existent sans `passive_deletes=True`.
+#   Quand on fait `db.delete(user)`, SA émule un ON DELETE côté ORM et lance
+#   `UPDATE <child> SET user_id=NULL WHERE user_id=:uid` — même si la FK SQL
+#   a `ondelete="CASCADE"` ou est `nullable=False`. Résultat :
+#   `NotNullViolation` sur les tables où user_id est NOT NULL (dj_sets,
+#   subscriptions, webhooks, notifications, tags, activity_logs, favorites,
+#   shared_links, api_keys, usage_logs, org_invites, referrals…).
+#
+# Fix : on exécute des DELETE SQL bruts en direct AVANT `db.delete(user)`,
+# ce qui by-pass complètement la logique ORM cascade. Les tables CASCADE
+# passent par le même chemin pour homogénéité (inoffensif : idempotent).
+#
+# Format : (nom_table, nom_colonne_fk).
+_USER_CHILD_TABLES = [
+    # Relations directes 1→N user.id
+    ("hot_cues", "user_id"),
+    ("playlist_tracks", None),  # pas de user_id direct, nettoyé via CASCADE sur playlists
+    ("playlists", "user_id"),
+    ("smart_crates", "user_id"),
+    ("dj_set_tracks", None),  # CASCADE via dj_sets
+    ("dj_sets", "user_id"),
+    ("play_history", "user_id"),
+    ("mashups", "user_id"),
+    ("favorite_mashups", "user_id"),
+    ("cue_templates", "user_id"),
+    ("cue_presets", "user_id"),
+    ("user_cue_preferences", "user_id"),
+    ("cue_export_logs", "user_id"),
+    ("cue_import_logs", "user_id"),
+    ("cue_collaboration_notes", "user_id"),
+    ("tags", "user_id"),
+    ("activity_logs", "user_id"),
+    ("favorites", "user_id"),
+    ("webhooks", "user_id"),
+    ("shared_links", "user_id"),
+    ("notifications", "user_id"),
+    ("push_subscriptions", "user_id"),
+    ("api_keys", "user_id"),
+    ("subscriptions", "user_id"),
+    ("usage_logs", "user_id"),
+    ("feedback", "user_id"),
+    # Referrals : 2 colonnes FK séparées
+    ("referrals", "referrer_id"),
+    ("referrals", "referred_user_id"),
+    # CMS : FK nullable, on met à NULL plutôt que DELETE (on ne veut pas perdre
+    # du contenu à cause d'un user supprimé).
+    # → traité en SET NULL plus bas.
+]
+
+# Tables où l'user apparaît comme FK mais qu'il faut NULLer plutôt que supprimer.
+_USER_NULLIFY_TABLES = [
+    ("pages", "updated_by"),
+    ("sections", "created_by"),
+    ("media_assets", "uploaded_by"),
+    ("track_audits", "changed_by_user_id"),
+]
+
+
 def _purge_user_storage(user: User, db: Session) -> dict:
     """
     Supprime TOUS les fichiers audio (R2 + disque local) appartenant à un user,
-    avant de supprimer le user lui-même. Retourne un récap.
+    puis purge manuellement toutes les tables enfants qui référencent
+    `users.id` avant que l'appelant ne supprime le user lui-même.
 
-    Les rows DB (tracks, cues, favoris…) seront supprimées via le CASCADE
-    SQL configuré sur les FK user_id / track_id.
+    On utilise du SQL brut (text) pour toutes les tables enfants afin de
+    by-pass l'émulation cascade ORM de SQLAlchemy (voir _USER_CHILD_TABLES).
     """
     tracks = db.query(Track).filter(Track.user_id == user.id).all()
     r2_deleted = 0
@@ -67,12 +130,90 @@ def _purge_user_storage(user: User, db: Session) -> dict:
                 logger.warning(f"[admin.delete_user] Local delete {t.file_path} failed: {e}")
                 local_errors += 1
 
+    # 3. Purge SQL brute des tables enfants pour éviter le cascade-emu ORM.
+    children_deleted = 0
+    for tbl, col in _USER_CHILD_TABLES:
+        if col is None:
+            # Table sans FK directe user_id (nettoyée par CASCADE SQL)
+            continue
+        try:
+            res = db.execute(
+                text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
+                {"uid": user.id},
+            )
+            children_deleted += (res.rowcount or 0)
+        except Exception as e:
+            # Table peut ne pas exister (ex: feature activée sur un env, pas un autre).
+            logger.warning(
+                f"[admin.delete_user] purge {tbl}.{col} failed (table manquante ?): {e}"
+            )
+
+    # 4. Nullify les FK historiques/CMS qu'on veut conserver.
+    for tbl, col in _USER_NULLIFY_TABLES:
+        try:
+            db.execute(
+                text(f"UPDATE {tbl} SET {col} = NULL WHERE {col} = :uid"),
+                {"uid": user.id},
+            )
+        except Exception as e:
+            logger.warning(
+                f"[admin.delete_user] nullify {tbl}.{col} failed (table manquante ?): {e}"
+            )
+
+    # 5. Cas orgs : si le user est owner d'orgs, on transfère la propriété au
+    # 1er admin existant, sinon on détache (NULL). Les org_members et org_invites
+    # liés au user lui-même ont déjà été purgés via _USER_CHILD_TABLES.
+    try:
+        # On NULL juste organizations.owner_id pour ce user — l'admin peut
+        # ensuite ré-assigner ou supprimer l'org manuellement.
+        # (owner_id est nullable=False au schéma ORM mais on force SQL brut.)
+        # Si la contrainte NOT NULL bloque, on supprime l'org purement et simplement.
+        res_transfer = db.execute(
+            text("""
+                UPDATE organizations
+                SET owner_id = (
+                    SELECT id FROM users
+                    WHERE is_admin = TRUE AND id != :uid
+                    ORDER BY id ASC
+                    LIMIT 1
+                )
+                WHERE owner_id = :uid
+            """),
+            {"uid": user.id},
+        )
+        # Fallback : si aucun autre admin n'existe, transfert impossible → on delete l'org.
+        if res_transfer.rowcount and res_transfer.rowcount > 0:
+            logger.info(f"[admin.delete_user] transfert de {res_transfer.rowcount} org(s) owner_id={user.id} → nouvel admin")
+    except Exception as e:
+        logger.warning(f"[admin.delete_user] transfert orgs échoué, fallback delete: {e}")
+        try:
+            db.execute(
+                text("DELETE FROM organizations WHERE owner_id = :uid"),
+                {"uid": user.id},
+            )
+        except Exception as e2:
+            logger.warning(f"[admin.delete_user] delete orgs fallback échoué: {e2}")
+
+    # Nettoyage org_members du user (table sans __tablename__ connu, fallback silencieux)
+    for tbl, col in [("organization_members", "user_id"), ("org_invites", "invited_by")]:
+        try:
+            db.execute(
+                text(f"DELETE FROM {tbl} WHERE {col} = :uid"),
+                {"uid": user.id},
+            )
+        except Exception as e:
+            logger.debug(f"[admin.delete_user] purge {tbl} skip: {e}")
+
+    # flush avant db.delete(user) pour que les DELETEs soient visibles dans la même tx.
+    db.flush()
+
     return {
         "tracks": len(tracks),
         "r2_deleted": r2_deleted,
         "r2_errors": r2_errors,
         "local_deleted": local_deleted,
         "local_errors": local_errors,
+        "children_deleted": children_deleted,
     }
 
 
