@@ -60,6 +60,7 @@ from app.models import cue_template  # noqa: F401 — registers CueTemplate with
 from app.models import blog_post  # noqa: F401 — registers BlogPost with Base
 from app.models import push_subscription  # noqa: F401 — registers PushSubscription with Base
 from app.models import favorite  # noqa: F401 — registers Favorite with Base
+from app.models import admin_preference  # noqa: F401 — registers AdminPreference with Base
 from app.models import tag  # noqa: F401 — registers Tag and TrackTag with Base
 from app.models import activity_log  # noqa: F401 — registers ActivityLog with Base
 from app.models import webhook_event  # noqa: F401 — registers WebhookEvent with Base

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, relationship
 
 from app.database import get_db, Base
 from app.middleware.admin import require_admin
+from app.models.admin_preference import AdminPreference
 
 
 # ============================================================================
@@ -161,20 +162,7 @@ class WebhookTestLog(Base):
     next_retry_at = Column(DateTime)
 
 
-class AdminPreference(Base):
-    """Préférences d'administration pour chaque admin."""
-    __tablename__ = "admin_preferences"
-
-    id = Column(Integer, primary_key=True)
-    admin_email = Column(String(255), nullable=False, unique=True)
-    language = Column(String(10), default="fr")  # fr, en
-    timezone = Column(String(50), default="UTC")
-    theme = Column(String(20), default="light")  # light, dark
-    notifications_enabled = Column(Boolean, default=True)
-    keyboard_shortcuts = Column(JSON, default={})
-    dashboard_layout = Column(JSON, default={})
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+# AdminPreference is now imported from app.models.admin_preference (see line 17)
 
 
 # ============================================================================
