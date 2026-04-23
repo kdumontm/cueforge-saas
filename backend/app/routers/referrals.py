@@ -182,8 +182,30 @@ async def invite_by_email(
             referred_email=body.email,
             status=ReferralStatus.pending,
         )
-        db.add(referral)
-        db.commit()
+        try:
+            db.add(referral)
+            db.commit()
+        except Exception as e:
+            # Si violation unique sur le code (e.g., ancien code créé par /my-code)
+            # ou une autre contrainte, on cherche une Referral existante avec ce code
+            # et on la réutilise
+            db.rollback()
+            try:
+                existing_with_code = db.query(Referral).filter(
+                    Referral.referrer_id == user.id,
+                    Referral.referral_code == code,
+                ).first()
+                if existing_with_code:
+                    # Mettre à jour le referred_email si c'était un placeholder vide
+                    if not existing_with_code.referred_email:
+                        existing_with_code.referred_email = body.email
+                        db.commit()
+                    referral = existing_with_code
+                else:
+                    # Aucune Referral trouvée, la violation vient d'ailleurs
+                    raise RuntimeError(f"Could not create or find referral: {e}")
+            except Exception as retry_err:
+                raise RuntimeError(f"Referral creation failed: {retry_err}")
 
     # Envoyer l'email (défensif : tolère les erreurs SMTP)
     referral_link = f"{FRONTEND_URL}/register?ref={code}"
