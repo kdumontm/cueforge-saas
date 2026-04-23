@@ -2,10 +2,11 @@
 Tags router — manage custom track tags.
 """
 
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from app.database import get_db
 from app.models.track import Track
@@ -32,9 +33,13 @@ class TagResponse(BaseModel):
     id: int
     name: str
     color: str
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("created_at")
+    def _ser_dt(self, v: datetime) -> str:
+        return v.isoformat() if v else ""
 
 
 class TrackTagResponse(BaseModel):
