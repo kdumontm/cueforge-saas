@@ -232,14 +232,21 @@ def _serialize_user(user: User) -> dict:
     }
 
 
-def _serialize_feedback(fb: Feedback, user_email: str = None) -> dict:
-    """Serialize a Feedback to dict."""
+def _serialize_feedback(fb: Feedback, user_email: str = None, include_screenshot: bool = False) -> dict:
+    """
+    Serialize a Feedback to dict.
+
+    `include_screenshot=False` (default): lists / patches / replies → we only expose
+    `has_screenshot` to keep the payload small (screenshots peuvent peser 500+ KB).
+    `include_screenshot=True`: detail endpoint → expose le data URL complet.
+    """
     msg = fb.message or ""
     # Prefer stored subject, fall back to first line of message (max 80 chars)
     stored_subject = getattr(fb, "subject", None)
     subject = stored_subject or (msg.split("\n")[0][:80] if msg else "(sans sujet)")
     responded_at = getattr(fb, "responded_at", None)
-    return {
+    raw_shot = getattr(fb, "screenshot", None)
+    out = {
         "id": fb.id,
         "user_id": fb.user_id,
         "user_email": user_email,
@@ -252,7 +259,12 @@ def _serialize_feedback(fb: Feedback, user_email: str = None) -> dict:
         "status": getattr(fb, "status", "new"),
         "admin_response": getattr(fb, "admin_response", None),
         "responded_at": responded_at.isoformat() if responded_at else None,
+        "has_screenshot": bool(raw_shot),
+        "page_url": getattr(fb, "page_url", None),
     }
+    if include_screenshot:
+        out["screenshot"] = raw_shot
+    return out
 
 
 def _serialize_activity_log(log: ActivityLog) -> dict:
@@ -748,12 +760,15 @@ def get_feedback(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Get feedback detail."""
+    """
+    Get feedback detail — inclut le screenshot complet (data URL).
+    Utilisé par la modale admin "Répondre au feedback".
+    """
     row = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id).filter(Feedback.id == feedback_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Feedback not found")
     fb, user = row
-    return _serialize_feedback(fb, user.email if user else None)
+    return _serialize_feedback(fb, user.email if user else None, include_screenshot=True)
 
 
 @router.patch("/feedbacks/{feedback_id}")
@@ -835,6 +850,73 @@ def reply_to_feedback(
         "message": "Réponse enregistrée",
         "email_sent": email_sent,
         "feedback": _serialize_feedback(fb, user.email if user else None),
+    }
+
+
+@router.post("/feedbacks/{feedback_id}/promote-to-admin")
+def promote_feedback_to_admin(
+    feedback_id: int,
+    payload: Optional[dict] = None,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Clone un feedback utilisateur dans la backlog admin (scope=admin).
+    - Garde l'original intact (le user gardera sa trace + réponse éventuelle).
+    - Crée une nouvelle ligne scope="admin" avec même subject/message/screenshot.
+    - Option `type_override` (bug/feature/todo/idea) — défaut = type d'origine.
+    - Option `mark_original_status` (ex: "in_progress") — si fourni, met à jour le
+      status de l'original pour signaler qu'il est pris en charge.
+    Usage : quand Kevin lit un feedback user et veut le traiter comme un bug à
+    corriger → 1 clic, il apparaît dans l'onglet "Notes admin".
+    """
+    payload = payload or {}
+    row = db.query(Feedback, User).outerjoin(User, Feedback.user_id == User.id).filter(Feedback.id == feedback_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    fb_src, user = row
+
+    if getattr(fb_src, "scope", "user") == "admin":
+        raise HTTPException(status_code=400, detail="Ce feedback est déjà une note admin")
+
+    type_override = (payload.get("type") or "").strip() or (fb_src.type or "bug")
+    subject_prefix = payload.get("subject_prefix") or "[user→admin]"
+    src_subj = getattr(fb_src, "subject", None) or (fb_src.message or "").split("\n")[0][:80]
+    new_subject = f"{subject_prefix} {src_subj}"[:255]
+
+    # Message enrichi: référence l'original
+    src_email = user.email if user else "anonyme"
+    body_header = (
+        f"Promu depuis feedback #{fb_src.id} ({src_email}, {fb_src.created_at.isoformat() if fb_src.created_at else '?'}).\n"
+        f"---\n"
+    )
+
+    promoted = Feedback(
+        user_id=admin.id,
+        type=type_override,
+        subject=new_subject,
+        message=body_header + (fb_src.message or ""),
+        rating=None,
+        scope="admin",
+        status="new",
+        screenshot=getattr(fb_src, "screenshot", None),
+        page_url=getattr(fb_src, "page_url", None),
+    )
+    db.add(promoted)
+
+    # Optionnel : marquer l'original comme "in_progress" pour qu'on voie qu'il est pris en charge
+    mark_status = payload.get("mark_original_status")
+    if mark_status in ("new", "read", "in_progress", "done", "rejected"):
+        fb_src.status = mark_status
+
+    db.commit()
+    db.refresh(promoted)
+    return {
+        "message": "Feedback promu en note admin",
+        "promoted_id": promoted.id,
+        "source_id": fb_src.id,
+        "source_status": fb_src.status,
+        "feedback": _serialize_feedback(promoted),
     }
 
 

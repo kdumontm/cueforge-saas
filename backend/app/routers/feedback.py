@@ -13,11 +13,28 @@ from app.middleware.admin import require_admin
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
+MAX_SCREENSHOT_LEN = 900_000  # ~700 KB base64 → safeguard DB row size
+
+
+def _clean_screenshot(raw: Optional[str]) -> Optional[str]:
+    """Strict guard: only accept data URLs (image/png|jpeg|webp) under size cap."""
+    if not raw:
+        return None
+    s = raw.strip()
+    if not s.startswith("data:image/"):
+        return None
+    if len(s) > MAX_SCREENSHOT_LEN:
+        return None
+    return s
+
+
 class FeedbackCreate(BaseModel):
     type: str  # bug, feature, other
     message: str
     subject: Optional[str] = None
     rating: Optional[str] = None
+    screenshot: Optional[str] = None  # data URL base64 (JPEG/PNG)
+    page_url: Optional[str] = None  # URL of the page where feedback was created
 
 
 class AdminNoteCreate(BaseModel):
@@ -25,6 +42,8 @@ class AdminNoteCreate(BaseModel):
     type: str = Field(default="bug")  # bug, feature, todo, idea
     subject: Optional[str] = None
     message: str
+    screenshot: Optional[str] = None
+    page_url: Optional[str] = None
 
 
 @router.post("")
@@ -57,6 +76,8 @@ async def create_feedback(
         message=data.message,
         rating=data.rating,
         scope="user",
+        screenshot=_clean_screenshot(data.screenshot),
+        page_url=(data.page_url or "")[:500] or None,
     )
     db.add(fb)
     db.commit()
@@ -86,6 +107,8 @@ async def create_admin_note(
         rating=None,
         scope="admin",
         status="new",
+        screenshot=_clean_screenshot(data.screenshot),
+        page_url=(data.page_url or "")[:500] or None,
     )
     db.add(fb)
     db.commit()

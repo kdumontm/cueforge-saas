@@ -6,7 +6,7 @@
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
 <link rel="preload" href="/v4/api.js?v=20260423f" as="script">
-<link rel="preload" href="/v4/shared.js?v=20260423-themes" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260423-feedback" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-themes">
 <style>
   body{background-image:var(--aurora-calm)}
@@ -689,14 +689,73 @@
       <div id="fb" class="card reveal" style="display:none">
         <div class="card-head">
           <div>
-            <div class="card-title">Feedback utilisateurs</div>
+            <div class="card-title">Feedback &amp; Notes admin</div>
             <div class="card-sub" id="fb-card-sub">Chargement…</div>
           </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button type="button" id="fb-tab-user" class="plan-pill" data-scope="user" style="cursor:pointer;border:none;padding:6px 14px">💬 Users <span id="fb-count-user" style="opacity:.7">—</span></button>
+            <button type="button" id="fb-tab-admin" class="plan-pill" data-scope="admin" style="cursor:pointer;border:none;padding:6px 14px;opacity:.5">🛠️ Notes admin <span id="fb-count-admin" style="opacity:.7">—</span></button>
+          </div>
         </div>
-        <table class="tbl">
-          <thead><tr><th>ID</th><th>User</th><th>Type</th><th>Message</th><th>Status</th><th>Reçu</th></tr></thead>
-          <tbody id="fb-body"><tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
+        <table class="tbl" id="fb-table">
+          <thead><tr><th>ID</th><th>User</th><th>Type</th><th>Sujet / Message</th><th>📸</th><th>Status</th><th>Reçu</th></tr></thead>
+          <tbody id="fb-body"><tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Chargement…</td></tr></tbody>
         </table>
+      </div>
+
+      <!-- MODALE répondre à un feedback / voir note admin -->
+      <div id="fb-modal" role="dialog" aria-modal="true" aria-hidden="true"
+           style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+                  align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto">
+        <div style="background:linear-gradient(180deg,#1b1825,#12111a);color:#fff;border:1px solid rgba(255,255,255,.1);
+                    border-radius:16px;width:min(760px,100%);padding:20px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+            <div>
+              <div style="font-size:15px;font-weight:700" id="fb-m-title">Feedback #—</div>
+              <div style="font-size:11.5px;color:#8a87a0" id="fb-m-meta">—</div>
+            </div>
+            <button type="button" id="fb-m-close" style="background:transparent;border:none;color:#8a87a0;cursor:pointer;font-size:22px;line-height:1">×</button>
+          </div>
+          <div id="fb-m-page" style="display:none;margin:8px 0 0 0;font-size:11px;color:#8a87a0"></div>
+          <div id="fb-m-body" style="margin:14px 0;padding:12px 14px;background:rgba(10,8,14,.5);border:1px solid rgba(255,255,255,.06);border-radius:10px;font-size:13px;white-space:pre-wrap;color:#e0dfea"></div>
+          <div id="fb-m-shot-wrap" style="display:none;margin:8px 0 12px 0">
+            <div style="font-size:10.5px;color:#8a87a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Screenshot de la page</div>
+            <img id="fb-m-shot" alt="screenshot" style="max-width:100%;max-height:340px;border-radius:10px;border:1px solid rgba(255,255,255,.08);cursor:zoom-in"/>
+          </div>
+          <div id="fb-m-already" style="display:none;margin:0 0 12px 0;padding:10px 12px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:10px;font-size:12px;color:#6ee7b7"></div>
+          <div id="fb-m-actions-user" style="display:none">
+            <div style="font-size:11px;color:#8a87a0;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Répondre au user</div>
+            <textarea id="fb-m-reply" rows="4" placeholder="Ta réponse (sera envoyée par email à l'user)…"
+              style="width:100%;background:rgba(10,8,14,.6);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#fff;padding:10px 12px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical;min-height:90px"></textarea>
+            <div style="display:flex;align-items:center;gap:10px;margin:10px 0 4px 0;flex-wrap:wrap">
+              <label style="font-size:11px;color:#9b98a6;display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="fb-m-notify" checked style="accent-color:#a855f7"/> Envoyer par email
+              </label>
+              <select id="fb-m-new-status" style="background:rgba(10,8,14,.6);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;padding:6px 10px;font-size:11.5px">
+                <option value="done">Status → done</option>
+                <option value="in_progress">Status → in_progress</option>
+                <option value="read">Status → read</option>
+                <option value="rejected">Status → rejected</option>
+              </select>
+              <div style="flex:1"></div>
+              <button type="button" id="fb-m-promote" class="plan-pill" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:8px 14px">🛠️ Transformer en note admin</button>
+              <button type="button" id="fb-m-send" class="plan-pill" style="cursor:pointer;border:none;background:linear-gradient(135deg,#8b5cf6,#a855f7);color:#fff;padding:8px 16px;font-weight:600">Envoyer</button>
+            </div>
+          </div>
+          <div id="fb-m-actions-admin" style="display:none">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <select id="fb-m-admin-status" style="background:rgba(10,8,14,.6);border:1px solid rgba(255,255,255,.1);color:#fff;border-radius:8px;padding:6px 10px;font-size:11.5px">
+                <option value="new">Status: new</option>
+                <option value="in_progress">Status: in_progress</option>
+                <option value="done">Status: done</option>
+                <option value="rejected">Status: rejected</option>
+              </select>
+              <button type="button" id="fb-m-admin-save" class="plan-pill" style="cursor:pointer;border:none;background:rgba(139,92,246,.18);color:#c9bff5;padding:8px 14px">Enregistrer le status</button>
+              <div style="flex:1"></div>
+              <button type="button" id="fb-m-admin-delete" class="plan-pill" style="cursor:pointer;border:none;background:rgba(239,68,68,.15);color:#fca5a5;padding:8px 14px">🗑️ Supprimer</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- CHANGELOG -->
@@ -716,7 +775,7 @@
 </main>
 
 <script src="/v4/api.js?v=20260423f"></script>
-<script src="/v4/shared.js?v=20260423-themes"></script>
+<script src="/v4/shared.js?v=20260423-feedback"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1664,31 +1723,224 @@
     }
   }
 
-  async function loadFeedback(){
+  let fbScope = 'user';  // user | admin — onglet courant
+  let fbCurrent = null;  // feedback actuellement ouvert dans la modale
+
+  function fbRenderRows(items){
+    const body = document.getElementById('fb-body');
+    if(!body) return;
+    if(items.length === 0){
+      body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun feedback</td></tr>`;
+      return;
+    }
+    body.innerHTML = items.map(f => {
+      const subject = f.subject || (f.message || '').split('\n')[0].slice(0, 80);
+      const shotBadge = f.has_screenshot ? '📸' : '';
+      const userLabel = f.user_email ? escapeHtml(f.user_email) : (f.user_id ? '#'+f.user_id : 'anon');
+      const statusClass = (f.status === 'new') ? 'trial' : (f.status === 'done' ? '' : 'grow');
+      return `
+        <tr class="fb-row" data-id="${f.id}" style="cursor:pointer">
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${f.id}</td>
+          <td style="font-size:11px;color:var(--c-secondary);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${userLabel}">${userLabel}</td>
+          <td><span class="plan-pill">${escapeHtml(f.type || '—')}</span></td>
+          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(f.message || '')}">${escapeHtml(subject || '—')}</td>
+          <td style="text-align:center">${shotBadge}</td>
+          <td><span class="plan-pill ${statusClass}">${escapeHtml(f.status || '—')}</span></td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(f.created_at)}</td>
+        </tr>
+      `;
+    }).join('');
+    // Bind row clicks
+    body.querySelectorAll('.fb-row').forEach(tr => {
+      tr.addEventListener('click', () => fbOpenModal(parseInt(tr.dataset.id, 10)));
+    });
+  }
+
+  async function loadFeedback(scope){
     const body = document.getElementById('fb-body');
     const sub = document.getElementById('fb-card-sub');
+    if(scope) fbScope = scope;
+    // UI tabs state
+    const tabUser = document.getElementById('fb-tab-user');
+    const tabAdmin = document.getElementById('fb-tab-admin');
+    if(tabUser && tabAdmin){
+      tabUser.style.opacity = fbScope === 'user' ? '1' : '.5';
+      tabAdmin.style.opacity = fbScope === 'admin' ? '1' : '.5';
+    }
     try {
-      const r = await api.get('/admin/feedbacks?limit=100');
+      const r = await api.get(`/admin/feedbacks?scope=${encodeURIComponent(fbScope)}&limit=100`);
       const items = r.feedbacks || r.items || [];
-      if(sub) sub.textContent = `${r.total ?? items.length} feedback(s)`;
-      if(body){
-        body.innerHTML = items.length === 0
-          ? `<tr><td colspan="6" style="text-align:center;color:var(--c-tertiary);padding:20px">Aucun feedback</td></tr>`
-          : items.map(f => `
-              <tr>
-                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">#${f.id}</td>
-                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${f.user_id ? '#'+f.user_id : 'anon'}</td>
-                <td>${escapeHtml(f.type || f.category || '—')}</td>
-                <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(f.message || '')}">${escapeHtml(f.message || '—')}</td>
-                <td><span class="plan-pill ${f.status === 'new' ? 'trial' : ''}">${escapeHtml(f.status || '—')}</span></td>
-                <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">${fmtSignup(f.created_at)}</td>
-              </tr>
-            `).join('');
-      }
+      if(sub) sub.textContent = `${r.total ?? items.length} ${fbScope === 'admin' ? 'note(s) admin' : 'feedback(s) user'}`;
+      fbRenderRows(items);
+      // Counts en parallèle (les deux scopes)
+      try {
+        const [ru, ra] = await Promise.all([
+          fbScope === 'user' ? Promise.resolve(r) : api.get('/admin/feedbacks?scope=user&limit=1'),
+          fbScope === 'admin' ? Promise.resolve(r) : api.get('/admin/feedbacks?scope=admin&limit=1'),
+        ]);
+        const cu = document.getElementById('fb-count-user');
+        const ca = document.getElementById('fb-count-admin');
+        if(cu) cu.textContent = ru.total ?? (ru.feedbacks || ru.items || []).length;
+        if(ca) ca.textContent = ra.total ?? (ra.feedbacks || ra.items || []).length;
+      } catch(_){}
     } catch(err){
-      if(body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
+      if(body) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--pink);padding:20px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
     }
   }
+
+  // ── Modale ───────────────────────────────────────────────
+  async function fbOpenModal(id){
+    const modal = document.getElementById('fb-modal');
+    if(!modal) return;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    // Reset UI
+    document.getElementById('fb-m-body').textContent = 'Chargement…';
+    document.getElementById('fb-m-shot-wrap').style.display = 'none';
+    document.getElementById('fb-m-page').style.display = 'none';
+    document.getElementById('fb-m-already').style.display = 'none';
+    document.getElementById('fb-m-actions-user').style.display = 'none';
+    document.getElementById('fb-m-actions-admin').style.display = 'none';
+    try {
+      const f = await api.get(`/admin/feedbacks/${id}`);
+      fbCurrent = f;
+      document.getElementById('fb-m-title').textContent = `#${f.id} · ${f.type || '—'} · ${f.subject || '(sans sujet)'}`;
+      const meta = [
+        f.user_email || (f.user_id ? '#'+f.user_id : 'anon'),
+        fmtSignup(f.created_at),
+        `status: ${f.status || '—'}`,
+        f.rating ? `rating: ${f.rating}` : null,
+      ].filter(Boolean).join(' · ');
+      document.getElementById('fb-m-meta').textContent = meta;
+      document.getElementById('fb-m-body').textContent = f.message || '';
+      if(f.page_url){
+        const pageEl = document.getElementById('fb-m-page');
+        pageEl.style.display = 'block';
+        pageEl.innerHTML = `🔗 Page : <code style="color:#c9bff5">${escapeHtml(f.page_url)}</code>`;
+      }
+      if(f.screenshot){
+        document.getElementById('fb-m-shot-wrap').style.display = 'block';
+        document.getElementById('fb-m-shot').src = f.screenshot;
+      }
+      if(f.admin_response){
+        const already = document.getElementById('fb-m-already');
+        already.style.display = 'block';
+        already.innerHTML = `<b>Déjà répondu</b> (${fmtSignup(f.responded_at)}) : ${escapeHtml(f.admin_response)}`;
+      }
+      // Show actions block based on scope
+      if((f.scope || 'user') === 'user'){
+        document.getElementById('fb-m-actions-user').style.display = 'block';
+        document.getElementById('fb-m-reply').value = '';
+      } else {
+        const actAdm = document.getElementById('fb-m-actions-admin');
+        actAdm.style.display = 'block';
+        const sel = document.getElementById('fb-m-admin-status');
+        sel.value = f.status || 'new';
+      }
+    } catch(err){
+      document.getElementById('fb-m-body').textContent = `Erreur: ${err.message}`;
+    }
+  }
+
+  function fbCloseModal(){
+    const modal = document.getElementById('fb-modal');
+    if(!modal) return;
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    fbCurrent = null;
+  }
+
+  function fbBindModalOnce(){
+    if(window.__fbBound) return;
+    window.__fbBound = true;
+    document.getElementById('fb-m-close')?.addEventListener('click', fbCloseModal);
+    document.getElementById('fb-modal')?.addEventListener('click', e => {
+      if(e.target.id === 'fb-modal') fbCloseModal();
+    });
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape'){
+        const m = document.getElementById('fb-modal');
+        if(m && m.style.display === 'flex') fbCloseModal();
+      }
+    });
+    // Zoom screenshot full-screen au clic
+    document.getElementById('fb-m-shot')?.addEventListener('click', e => {
+      const src = e.currentTarget.src;
+      if(!src) return;
+      const w = window.open('', '_blank');
+      if(w) w.document.write(`<title>Screenshot</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100vw;max-height:100vh"/></body>`);
+    });
+    // Tabs
+    document.getElementById('fb-tab-user')?.addEventListener('click', () => loadFeedback('user'));
+    document.getElementById('fb-tab-admin')?.addEventListener('click', () => loadFeedback('admin'));
+
+    // Envoyer la réponse user
+    document.getElementById('fb-m-send')?.addEventListener('click', async () => {
+      if(!fbCurrent) return;
+      const reply = document.getElementById('fb-m-reply').value.trim();
+      if(!reply){ toast('La réponse est vide', 'error'); return; }
+      const notify = document.getElementById('fb-m-notify').checked;
+      const status = document.getElementById('fb-m-new-status').value;
+      const btn = document.getElementById('fb-m-send');
+      btn.disabled = true; btn.textContent = 'Envoi…';
+      try {
+        const r = await api.post(`/admin/feedbacks/${fbCurrent.id}/reply`, { reply, notify, status });
+        toast(r.email_sent ? '✅ Réponse envoyée par email' : '✅ Réponse enregistrée (email non envoyé)', 'success');
+        fbCloseModal();
+        await loadFeedback();
+      } catch(err){
+        toast(`Erreur : ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Envoyer';
+      }
+    });
+
+    // Promote user feedback → admin note
+    document.getElementById('fb-m-promote')?.addEventListener('click', async () => {
+      if(!fbCurrent) return;
+      if(!confirm(`Cloner ce feedback #${fbCurrent.id} dans la backlog admin (Notes admin) ?`)) return;
+      const btn = document.getElementById('fb-m-promote');
+      btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = 'Clonage…';
+      try {
+        const r = await api.post(`/admin/feedbacks/${fbCurrent.id}/promote-to-admin`, {
+          type: fbCurrent.type || 'bug',
+          mark_original_status: 'in_progress',
+        });
+        toast(`✅ Note admin créée (#${r.promoted_id})`, 'success');
+        fbCloseModal();
+        await loadFeedback('admin');
+      } catch(err){
+        toast(`Erreur : ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = oldTxt;
+      }
+    });
+
+    // Admin status save
+    document.getElementById('fb-m-admin-save')?.addEventListener('click', async () => {
+      if(!fbCurrent) return;
+      const status = document.getElementById('fb-m-admin-status').value;
+      try {
+        await api.patch(`/admin/feedbacks/${fbCurrent.id}`, { status });
+        toast(`✅ Status → ${status}`, 'success');
+        fbCloseModal();
+        await loadFeedback();
+      } catch(err){ toast(`Erreur : ${err.message}`, 'error'); }
+    });
+
+    // Admin delete
+    document.getElementById('fb-m-admin-delete')?.addEventListener('click', async () => {
+      if(!fbCurrent) return;
+      if(!confirm(`Supprimer définitivement le feedback #${fbCurrent.id} ?`)) return;
+      try {
+        await api.del(`/admin/feedbacks/${fbCurrent.id}`);
+        toast('✅ Supprimé', 'success');
+        fbCloseModal();
+        await loadFeedback();
+      } catch(err){ toast(`Erreur : ${err.message}`, 'error'); }
+    });
+  }
+  fbBindModalOnce();
 
   async function loadChangelog(){
     const list = document.getElementById('cl-list');

@@ -398,6 +398,567 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
   }
 })();
 
+// -------- Feedback widget (bulle en bas-droite, toutes les pages v4) --------
+// - User loggé standard → envoie vers POST /feedback
+// - User admin → toggle "💬 Feedback" vs "🛠️ Note admin" (scope=admin)
+// - Anonyme → envoie vers POST /feedback sans token (backend autorise user_id=null)
+(function feedbackWidget(){
+  if(typeof window === 'undefined') return;
+  // Ne pas afficher sur les pages publiques de login / register / reset
+  const path = (location.pathname || '').toLowerCase();
+  const HIDE_ON = ['/login','/register','/reset-password','/verify-email','/v4/login.html','/v4/register.html'];
+  if(HIDE_ON.some(p => path === p || path.endsWith(p))) return;
+  if(document.getElementById('tc-fb-bubble')) return;
+
+  function mount(){
+    if(!document.body){
+      if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+      else setTimeout(mount, 30);
+      return;
+    }
+    if(document.getElementById('tc-fb-bubble')) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #tc-fb-bubble{position:fixed;right:18px;bottom:18px;z-index:999;width:44px;height:44px;border-radius:50%;
+        background:linear-gradient(135deg,#8b5cf6,#a855f7);border:none;cursor:pointer;color:#fff;
+        box-shadow:0 10px 30px rgba(139,92,246,.35);display:flex;align-items:center;justify-content:center;
+        transition:transform .18s ease, box-shadow .18s ease}
+      #tc-fb-bubble:hover{transform:scale(1.08);box-shadow:0 14px 36px rgba(139,92,246,.55)}
+      #tc-fb-bubble svg{width:20px;height:20px}
+      #tc-fb-panel{position:fixed;right:18px;bottom:72px;z-index:1000;width:min(340px,92vw);
+        background:linear-gradient(180deg,#1b1825,#12111a);color:#fff;border:1px solid rgba(255,255,255,.1);
+        border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;font-family:inherit;
+        display:none}
+      #tc-fb-panel.open{display:block;animation:tcfbin .2s ease}
+      @keyframes tcfbin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+      #tc-fb-panel .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06)}
+      #tc-fb-panel .hd b{font-size:13px;font-weight:600}
+      #tc-fb-panel .hd button.x{background:transparent;border:none;color:#8a8895;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;border-radius:6px}
+      #tc-fb-panel .hd button.x:hover{color:#fff;background:rgba(255,255,255,.06)}
+      #tc-fb-panel .tabs{display:flex;gap:6px;padding:10px 12px 4px 12px}
+      #tc-fb-panel .tabs button{flex:1;padding:7px 10px;font-size:11.5px;font-weight:600;border-radius:8px;
+        background:transparent;color:#9b98a6;border:1px solid rgba(255,255,255,.08);cursor:pointer;transition:all .15s}
+      #tc-fb-panel .tabs button.on{background:rgba(139,92,246,.18);color:#c9bff5;border-color:rgba(139,92,246,.45)}
+      #tc-fb-panel .body{padding:10px 14px 14px 14px}
+      #tc-fb-panel .types{display:flex;gap:6px;margin-bottom:8px}
+      #tc-fb-panel .types button{flex:1;padding:6px 8px;font-size:11px;border-radius:8px;
+        background:transparent;border:1px solid rgba(255,255,255,.1);color:#b8b5c3;cursor:pointer}
+      #tc-fb-panel .types button.on{background:rgba(139,92,246,.18);color:#c9bff5;border-color:rgba(139,92,246,.45)}
+      #tc-fb-panel input.subj,
+      #tc-fb-panel textarea.msg{width:100%;background:rgba(10,8,14,.6);border:1px solid rgba(255,255,255,.08);
+        border-radius:10px;color:#fff;font-family:inherit;font-size:12.5px;padding:8px 10px;outline:none;box-sizing:border-box}
+      #tc-fb-panel textarea.msg{resize:vertical;min-height:72px}
+      #tc-fb-panel input.subj:focus, #tc-fb-panel textarea.msg:focus{border-color:#a855f7}
+      #tc-fb-panel .field-label{font-size:10.5px;color:#7a7886;text-transform:uppercase;letter-spacing:.05em;margin:6px 0 4px 0}
+      #tc-fb-panel .rating{display:flex;align-items:center;gap:8px;font-size:11px;color:#7a7886;margin:10px 0}
+      #tc-fb-panel .rating button{background:transparent;border:1px solid rgba(255,255,255,.08);color:#9b98a6;
+        cursor:pointer;border-radius:7px;width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center}
+      #tc-fb-panel .rating button.on[data-r="up"]{background:rgba(16,185,129,.15);color:#6ee7b7;border-color:rgba(16,185,129,.35)}
+      #tc-fb-panel .rating button.on[data-r="down"]{background:rgba(239,68,68,.15);color:#fca5a5;border-color:rgba(239,68,68,.35)}
+      #tc-fb-panel .submit{width:100%;margin-top:6px;padding:9px;font-size:12.5px;font-weight:600;
+        background:linear-gradient(135deg,#8b5cf6,#a855f7);border:none;color:#fff;border-radius:10px;cursor:pointer}
+      #tc-fb-panel .submit:disabled{opacity:.4;cursor:not-allowed}
+      #tc-fb-panel .done{padding:22px 16px;text-align:center}
+      #tc-fb-panel .done .big{font-size:28px;margin-bottom:4px}
+      #tc-fb-panel .admin-hint{font-size:10.5px;color:#8a87a0;margin:4px 0 8px 0;font-style:italic}
+      #tc-fb-panel .shot{margin:8px 0 2px 0;display:flex;align-items:center;gap:8px;font-size:11px;color:#9b98a6}
+      #tc-fb-panel .shot input[type=checkbox]{accent-color:#a855f7;width:14px;height:14px;cursor:pointer}
+      #tc-fb-panel .shot .status{font-size:10.5px;color:#7a7886;margin-left:auto}
+      #tc-fb-panel .shot-preview{margin:6px 0 4px 0;border:1px solid rgba(255,255,255,.08);border-radius:8px;
+        overflow:hidden;max-height:110px;background:rgba(10,8,14,.5);display:none}
+      #tc-fb-panel .shot-preview img{width:100%;height:110px;object-fit:cover;object-position:top;display:block}
+      #tc-fb-panel .shot-preview.ready{display:block}
+      #tc-fb-panel .shot-crop-btn{background:transparent;border:1px solid rgba(255,255,255,.12);color:#b8b5c3;
+        cursor:pointer;border-radius:7px;padding:3px 8px;font-size:10.5px;font-family:inherit}
+      #tc-fb-panel .shot-crop-btn:hover{background:rgba(139,92,246,.18);border-color:rgba(139,92,246,.35);color:#c9bff5}
+      #tc-fb-panel .shot-crop-btn:disabled{opacity:.4;cursor:not-allowed}
+      /* Overlay crop plein écran */
+      #tc-fb-crop-overlay{position:fixed;inset:0;z-index:10000;cursor:crosshair;
+        background:rgba(0,0,0,.35);user-select:none;display:none}
+      #tc-fb-crop-overlay.on{display:block}
+      #tc-fb-crop-overlay .hint{position:fixed;top:16px;left:50%;transform:translateX(-50%);
+        background:rgba(18,17,26,.95);color:#fff;padding:10px 18px;border-radius:10px;font-size:12.5px;
+        font-family:inherit;border:1px solid rgba(139,92,246,.4);box-shadow:0 8px 30px rgba(0,0,0,.5)}
+      #tc-fb-crop-overlay .hint b{color:#c9bff5}
+      #tc-fb-crop-overlay .hint .esc{opacity:.7;font-size:11px;margin-left:8px}
+      #tc-fb-crop-rect{position:fixed;border:2px solid #a855f7;background:rgba(168,85,247,.12);
+        box-shadow:0 0 0 100000px rgba(0,0,0,.45);pointer-events:none;display:none}
+    `;
+    document.head.appendChild(style);
+
+    const btn = document.createElement('button');
+    btn.id = 'tc-fb-bubble';
+    btn.setAttribute('aria-label', "Envoyer un feedback");
+    btn.title = "Envoyer un feedback";
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    document.body.appendChild(btn);
+
+    const panel = document.createElement('div');
+    panel.id = 'tc-fb-panel';
+    panel.innerHTML = `
+      <div class="hd">
+        <b>💬 Ton avis <span style="font-size:10px;color:#7a7886;font-weight:400;margin-left:4px">⌘⇧F</span></b>
+        <button type="button" class="x" aria-label="Fermer">×</button>
+      </div>
+      <div class="tabs" id="tcfb-tabs" style="display:none">
+        <button type="button" data-scope="user" class="on">💬 Feedback</button>
+        <button type="button" data-scope="admin">🛠️ Note admin</button>
+      </div>
+      <div class="body">
+        <div id="tcfb-form">
+          <div class="admin-hint" id="tcfb-admin-hint" style="display:none">
+            Note interne — visible uniquement dans /admin#fb. Pas d'email envoyé.
+          </div>
+          <div class="types" id="tcfb-types">
+            <button type="button" data-t="bug">🐛 Bug</button>
+            <button type="button" data-t="feature" class="on">💡 Idée</button>
+            <button type="button" data-t="other">💬 Autre</button>
+          </div>
+          <div class="field-label" id="tcfb-subj-label" style="display:none">Sujet</div>
+          <input class="subj" id="tcfb-subj" type="text" placeholder="Ex: DELETE user échoue si fichier manquant" style="display:none" />
+          <div class="field-label">Message</div>
+          <textarea class="msg" id="tcfb-msg" placeholder="Décris ton idée, le bug ou ton retour…" rows="3"></textarea>
+          <div class="shot">
+            <input type="checkbox" id="tcfb-shot-chk" checked />
+            <label for="tcfb-shot-chk" style="cursor:pointer">📸 Joindre un screenshot</label>
+            <button type="button" id="tcfb-shot-crop" class="shot-crop-btn" title="Sélectionner une zone">✂️ Zone</button>
+            <span class="status" id="tcfb-shot-status"></span>
+          </div>
+          <div class="shot-preview" id="tcfb-shot-preview"><img id="tcfb-shot-img" alt="" /></div>
+          <div class="rating" id="tcfb-rating">
+            <span>Ton expérience :</span>
+            <button type="button" data-r="up" title="👍">👍</button>
+            <button type="button" data-r="down" title="👎">👎</button>
+          </div>
+          <button type="button" class="submit" id="tcfb-submit" disabled>Envoyer</button>
+        </div>
+        <div id="tcfb-done" class="done" style="display:none">
+          <div class="big">🎉</div>
+          <div style="font-size:13px;font-weight:600">Merci pour ton retour !</div>
+          <div style="font-size:11.5px;color:#8a87a0;margin-top:4px" id="tcfb-done-msg">On prend en compte chaque feedback.</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    // State
+    let scope = 'user';      // user | admin
+    let type = 'feature';    // bug | feature | other
+    let rating = null;       // up | down | null
+    let sending = false;
+    let isAdmin = false;
+    let capturedShot = null; // data URL (jpeg) du screenshot capturé au moment où on ouvre le panel
+    let shotCapturing = false;
+    let shotLibPromise = null;
+
+    const $ = s => panel.querySelector(s);
+    const msgEl = $('#tcfb-msg');
+    const subjEl = $('#tcfb-subj');
+    const subjLab = $('#tcfb-subj-label');
+    const submitBtn = $('#tcfb-submit');
+    const doneEl = $('#tcfb-done');
+    const formEl = $('#tcfb-form');
+    const tabsEl = $('#tcfb-tabs');
+    const adminHint = $('#tcfb-admin-hint');
+    const ratingEl = $('#tcfb-rating');
+    const shotChk = $('#tcfb-shot-chk');
+    const shotStatus = $('#tcfb-shot-status');
+    const shotPreview = $('#tcfb-shot-preview');
+    const shotImg = $('#tcfb-shot-img');
+
+    // Charge html2canvas à la demande (CDN), une seule fois.
+    function loadHtml2Canvas(){
+      if(window.html2canvas) return Promise.resolve(window.html2canvas);
+      if(shotLibPromise) return shotLibPromise;
+      shotLibPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.async = true;
+        s.onload = () => resolve(window.html2canvas);
+        s.onerror = () => reject(new Error('Impossible de charger html2canvas'));
+        document.head.appendChild(s);
+      });
+      return shotLibPromise;
+    }
+
+    // Capture l'écran AVANT d'ouvrir le panel (le bubble et le panel ne doivent
+    // PAS figurer dans le screenshot — l'admin veut voir la page que l'user regardait).
+    async function captureScreenshot(){
+      if(shotCapturing) return;
+      shotCapturing = true;
+      shotStatus.textContent = '⏳ Capture…';
+      try {
+        const h2c = await loadHtml2Canvas();
+        // On masque temporairement la bulle + le panel pour ne pas les capturer
+        btn.style.visibility = 'hidden';
+        panel.style.visibility = 'hidden';
+        const opts = {
+          backgroundColor: null,
+          scale: Math.min(1, (window.devicePixelRatio || 1) * 0.6),
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          // On ne capture que le viewport, pas toute la page (rapide + image plus petite)
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          x: window.scrollX,
+          y: window.scrollY,
+        };
+        const canvas = await h2c(document.body, opts);
+        btn.style.visibility = '';
+        panel.style.visibility = '';
+
+        // Rescale si trop grand (cap ~1280px de large) et encode en JPEG 0.72
+        const MAX_W = 1280;
+        let outCanvas = canvas;
+        if(canvas.width > MAX_W){
+          const ratio = MAX_W / canvas.width;
+          const c2 = document.createElement('canvas');
+          c2.width = MAX_W;
+          c2.height = Math.round(canvas.height * ratio);
+          const ctx = c2.getContext('2d');
+          ctx.drawImage(canvas, 0, 0, c2.width, c2.height);
+          outCanvas = c2;
+        }
+        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.72);
+        // Garde-fou taille (~700KB base64 max, sinon on drop)
+        if(dataUrl.length > 900_000){
+          capturedShot = null;
+          shotStatus.textContent = '⚠️ trop lourd';
+        } else {
+          capturedShot = dataUrl;
+          shotImg.src = dataUrl;
+          shotPreview.classList.add('ready');
+          shotStatus.textContent = `✓ ${Math.round(dataUrl.length/1024)} KB`;
+        }
+      } catch(err){
+        btn.style.visibility = '';
+        panel.style.visibility = '';
+        capturedShot = null;
+        shotStatus.textContent = '⚠️ échec capture';
+        console.warn('[feedback] screenshot failed', err);
+      } finally {
+        shotCapturing = false;
+      }
+    }
+
+    shotChk.addEventListener('change', () => {
+      if(!shotChk.checked){
+        capturedShot = null;
+        shotPreview.classList.remove('ready');
+        shotStatus.textContent = 'désactivé';
+      } else {
+        shotStatus.textContent = '';
+        if(!capturedShot) captureScreenshot();
+      }
+    });
+
+    // ── Mode "sélection de zone" ───────────────────────────
+    // 1. Fermer le panel, afficher overlay plein écran avec hint
+    // 2. User drag-select un rectangle
+    // 3. Capture html2canvas avec bounds ciblés (window coordinates)
+    // 4. Remplace capturedShot et montre preview
+    const cropBtn = $('#tcfb-shot-crop');
+    let cropping = false;
+    let cropState = null; // {startX, startY, rect}
+
+    function cropOverlayEl(){
+      let ov = document.getElementById('tc-fb-crop-overlay');
+      if(ov) return ov;
+      ov = document.createElement('div');
+      ov.id = 'tc-fb-crop-overlay';
+      ov.innerHTML = `
+        <div class="hint">✂️ <b>Dessine un rectangle</b> sur la zone à capturer <span class="esc">· Echap pour annuler</span></div>
+        <div id="tc-fb-crop-rect"></div>
+      `;
+      document.body.appendChild(ov);
+      return ov;
+    }
+
+    async function doCaptureRegion(x, y, w, h){
+      shotStatus.textContent = '⏳ Capture zone…';
+      try {
+        const h2c = await loadHtml2Canvas();
+        btn.style.visibility = 'hidden';
+        panel.style.visibility = 'hidden';
+        const canvas = await h2c(document.body, {
+          backgroundColor: null,
+          scale: Math.min(1, (window.devicePixelRatio || 1) * 0.75),
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+          x: window.scrollX + x,
+          y: window.scrollY + y,
+          width: w,
+          height: h,
+        });
+        btn.style.visibility = '';
+        panel.style.visibility = '';
+
+        const MAX_W = 1280;
+        let outCanvas = canvas;
+        if(canvas.width > MAX_W){
+          const ratio = MAX_W / canvas.width;
+          const c2 = document.createElement('canvas');
+          c2.width = MAX_W;
+          c2.height = Math.round(canvas.height * ratio);
+          c2.getContext('2d').drawImage(canvas, 0, 0, c2.width, c2.height);
+          outCanvas = c2;
+        }
+        const dataUrl = outCanvas.toDataURL('image/jpeg', 0.8);
+        if(dataUrl.length > 900_000){
+          capturedShot = null;
+          shotStatus.textContent = '⚠️ trop lourd';
+        } else {
+          capturedShot = dataUrl;
+          shotImg.src = dataUrl;
+          shotPreview.classList.add('ready');
+          shotChk.checked = true;
+          shotStatus.textContent = `✂️ ${Math.round(dataUrl.length/1024)} KB`;
+        }
+      } catch(err){
+        btn.style.visibility = '';
+        panel.style.visibility = '';
+        shotStatus.textContent = '⚠️ échec capture zone';
+        console.warn('[feedback] region capture failed', err);
+      }
+    }
+
+    function endCrop(){
+      cropping = false;
+      const ov = document.getElementById('tc-fb-crop-overlay');
+      if(ov) ov.classList.remove('on');
+      document.removeEventListener('mousedown', onCropDown, true);
+      document.removeEventListener('mousemove', onCropMove, true);
+      document.removeEventListener('mouseup', onCropUp, true);
+      document.removeEventListener('keydown', onCropKey, true);
+      panel.classList.add('open');
+    }
+
+    function onCropKey(e){
+      if(e.key === 'Escape'){ endCrop(); }
+    }
+
+    function onCropDown(e){
+      if(!cropping) return;
+      e.preventDefault(); e.stopPropagation();
+      cropState = { startX: e.clientX, startY: e.clientY, endX: e.clientX, endY: e.clientY, dragging: true };
+      const rect = document.getElementById('tc-fb-crop-rect');
+      if(rect){
+        rect.style.display = 'block';
+        rect.style.left = e.clientX + 'px';
+        rect.style.top = e.clientY + 'px';
+        rect.style.width = '0px';
+        rect.style.height = '0px';
+      }
+    }
+
+    function onCropMove(e){
+      if(!cropping || !cropState || !cropState.dragging) return;
+      e.preventDefault(); e.stopPropagation();
+      cropState.endX = e.clientX;
+      cropState.endY = e.clientY;
+      const rect = document.getElementById('tc-fb-crop-rect');
+      if(!rect) return;
+      const x = Math.min(cropState.startX, cropState.endX);
+      const y = Math.min(cropState.startY, cropState.endY);
+      const w = Math.abs(cropState.endX - cropState.startX);
+      const h = Math.abs(cropState.endY - cropState.startY);
+      rect.style.left = x + 'px';
+      rect.style.top = y + 'px';
+      rect.style.width = w + 'px';
+      rect.style.height = h + 'px';
+    }
+
+    async function onCropUp(e){
+      if(!cropping || !cropState) return;
+      e.preventDefault(); e.stopPropagation();
+      cropState.dragging = false;
+      const x = Math.min(cropState.startX, cropState.endX);
+      const y = Math.min(cropState.startY, cropState.endY);
+      const w = Math.abs(cropState.endX - cropState.startX);
+      const h = Math.abs(cropState.endY - cropState.startY);
+      endCrop();
+      // Trop petit → ignorer
+      if(w < 12 || h < 12){
+        shotStatus.textContent = 'zone trop petite';
+        return;
+      }
+      await doCaptureRegion(x, y, w, h);
+    }
+
+    cropBtn.addEventListener('click', () => {
+      if(cropping) return;
+      cropping = true;
+      cropState = null;
+      // Ferme le panel pour ne pas qu'il gêne la sélection
+      panel.classList.remove('open');
+      const ov = cropOverlayEl();
+      // Reset le rectangle
+      const rect = document.getElementById('tc-fb-crop-rect');
+      if(rect){ rect.style.display = 'none'; }
+      ov.classList.add('on');
+      document.addEventListener('mousedown', onCropDown, true);
+      document.addEventListener('mousemove', onCropMove, true);
+      document.addEventListener('mouseup', onCropUp, true);
+      document.addEventListener('keydown', onCropKey, true);
+    });
+
+    function updateSubmit(){
+      submitBtn.disabled = sending || !msgEl.value.trim();
+    }
+    msgEl.addEventListener('input', updateSubmit);
+
+    // Types selector
+    $('#tcfb-types').querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        type = b.dataset.t;
+        $('#tcfb-types').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+      });
+    });
+
+    // Rating selector
+    ratingEl.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        rating = (rating === b.dataset.r) ? null : b.dataset.r;
+        ratingEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', rating && x.dataset.r === rating));
+      });
+    });
+
+    // Tabs (scope)
+    tabsEl.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        scope = b.dataset.scope;
+        tabsEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        applyScope();
+      });
+    });
+
+    function applyScope(){
+      const isAdminNote = scope === 'admin';
+      adminHint.style.display = isAdminNote ? 'block' : 'none';
+      subjLab.style.display = isAdminNote ? 'block' : 'none';
+      subjEl.style.display = isAdminNote ? 'block' : 'none';
+      ratingEl.style.display = isAdminNote ? 'none' : 'flex';
+      // Les notes admin sont plutôt "bug" par défaut, les feedbacks user plutôt "feature"
+      const defaultType = isAdminNote ? 'bug' : 'feature';
+      type = defaultType;
+      $('#tcfb-types').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.t === defaultType));
+      msgEl.placeholder = isAdminNote
+        ? "Ex: Quand je supprime un track, l'UI redirige vers /upload…"
+        : "Décris ton idée, le bug ou ton retour…";
+    }
+
+    // Open/close
+    btn.addEventListener('click', async () => {
+      const isOpen = panel.classList.contains('open');
+      if(isOpen){ panel.classList.remove('open'); return; }
+
+      // Reset état du screenshot pour cette nouvelle session
+      capturedShot = null;
+      shotPreview.classList.remove('ready');
+      shotImg.src = '';
+
+      // Capture AVANT d'afficher le panel (hide bubble + capture + show panel)
+      if(shotChk.checked){
+        await captureScreenshot();
+      } else {
+        shotStatus.textContent = 'désactivé';
+      }
+
+      panel.classList.add('open');
+
+      // Lazy-detect admin status via api.me() (évite un appel si pas besoin)
+      if(!isAdmin && window.api && typeof api.me === 'function'){
+        api.me().then(me => {
+          if(me && me.is_admin){
+            isAdmin = true;
+            tabsEl.style.display = 'flex';
+          }
+        }).catch(() => {});
+      }
+      setTimeout(() => msgEl.focus(), 60);
+    });
+    $('button.x').addEventListener('click', () => panel.classList.remove('open'));
+
+    // Close on ESC
+    document.addEventListener('keydown', e => {
+      if(e.key === 'Escape' && panel.classList.contains('open')) panel.classList.remove('open');
+    });
+
+    // Raccourci clavier : Ctrl/Cmd + Shift + F → ouvrir le widget
+    // (ne déclenche PAS si on est en train de taper dans un input/textarea sauf cmd+shift+f qui override)
+    document.addEventListener('keydown', e => {
+      const isMac = /Mac/i.test(navigator.platform || navigator.userAgent);
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if(mod && e.shiftKey && (e.key === 'F' || e.key === 'f')){
+        e.preventDefault();
+        e.stopPropagation();
+        // Déclenche comme si on avait cliqué sur la bulle
+        btn.click();
+      }
+    }, true);
+
+    // Submit
+    submitBtn.addEventListener('click', async () => {
+      const message = msgEl.value.trim();
+      if(!message) return;
+      sending = true;
+      updateSubmit();
+      submitBtn.textContent = 'Envoi…';
+      const subject = subjEl.value.trim();
+      const page_url = (location.pathname + location.search).slice(0, 500);
+      const screenshot = (shotChk.checked && capturedShot) ? capturedShot : null;
+      try {
+        if(scope === 'admin'){
+          const body = { type, subject, message };
+          if(screenshot) body.screenshot = screenshot;
+          if(page_url) body.page_url = page_url;
+          await window.api.post('/feedback/admin-note', body);
+          $('#tcfb-done-msg').textContent = "Note enregistrée dans /admin#fb onglet Notes admin.";
+        } else {
+          const body = { type, message };
+          if(rating) body.rating = rating;
+          if(subject) body.subject = subject;
+          if(screenshot) body.screenshot = screenshot;
+          if(page_url) body.page_url = page_url;
+          await window.api.post('/feedback', body);
+          $('#tcfb-done-msg').textContent = "On prend en compte chaque feedback.";
+        }
+        formEl.style.display = 'none';
+        doneEl.style.display = 'block';
+        msgEl.value = '';
+        subjEl.value = '';
+        rating = null;
+        ratingEl.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        capturedShot = null;
+        shotPreview.classList.remove('ready');
+        shotImg.src = '';
+        setTimeout(() => {
+          formEl.style.display = '';
+          doneEl.style.display = 'none';
+          panel.classList.remove('open');
+        }, 2200);
+      } catch(err){
+        if(typeof toast === 'function') toast(`Envoi échoué : ${err.message || err}`, 'error');
+      } finally {
+        sending = false;
+        submitBtn.textContent = 'Envoyer';
+        updateSubmit();
+      }
+    });
+
+    applyScope();
+  }
+
+  mount();
+})();
+
 // -------- Build waveform --------
 window.buildWave = function(el, count, seed, opts={}){
   if(!el) return;

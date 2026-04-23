@@ -199,6 +199,16 @@ PENDING_MIGRATIONS = {
         # Display mode: "hidden" (disparaît) ou "locked" (grisé avec CTA upgrade)
         "display_mode": "VARCHAR(20) NOT NULL DEFAULT 'locked'",
     },
+    "feedback": {
+        # Scope + subject + admin reply (ajoutés depuis commit 3172fcd)
+        "subject": "VARCHAR(255)",
+        "scope": "VARCHAR(20) NOT NULL DEFAULT 'user'",
+        "responded_at": "TIMESTAMP",
+        # Screenshot de la page au moment de l'envoi (data URL base64)
+        "screenshot": "TEXT",
+        # URL de la page où le feedback a été créé
+        "page_url": "VARCHAR(500)",
+    },
 }
 
 

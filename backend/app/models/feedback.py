@@ -16,6 +16,10 @@ class Feedback(Base):
     scope = Column(String, default="user", nullable=False)
     admin_response = Column(Text, nullable=True)  # Admin's response to the feedback
     responded_at = Column(DateTime, nullable=True)  # When admin replied
+    # Optional page screenshot captured when the feedback was sent (data URL base64 JPEG)
+    screenshot = Column(Text, nullable=True)
+    # URL of the page where the feedback was submitted (for admin context)
+    page_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
