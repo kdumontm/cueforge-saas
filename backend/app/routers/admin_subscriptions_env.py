@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, relationship
 
 from app.database import get_db, Base
 from app.middleware.admin import require_admin
+from app.models.user import User
 
 
 # ============================================================================
@@ -1398,7 +1399,7 @@ async def get_webhook_events(
 @router.get("/preferences")
 async def get_admin_preferences(
     db: Session = Depends(get_db),
-    admin = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     """
     Récupère les préférences de l'administrateur actuel.
@@ -1446,7 +1447,7 @@ async def update_admin_preferences(
     theme: Optional[str] = Query(None),
     notifications_enabled: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
-    admin = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     """
     Met à jour les préférences de l'administrateur.
@@ -1495,7 +1496,7 @@ async def update_admin_preferences(
 @router.get("/preferences/shortcuts")
 async def get_keyboard_shortcuts(
     db: Session = Depends(get_db),
-    admin = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     """
     Récupère la configuration des raccourcis clavier.
@@ -1532,7 +1533,7 @@ async def get_keyboard_shortcuts(
 async def update_keyboard_shortcuts(
     body: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
-    admin = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     """
     Met à jour la configuration des raccourcis clavier (body: {shortcuts: {...}}).
