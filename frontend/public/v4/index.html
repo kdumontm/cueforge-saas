@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Overview</title>
+<!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
+<link rel="preload" href="/v4/api.js?v=20260422b" as="script">
+<link rel="preload" href="/v4/shared.js?v=20260422d" as="script">
 <link rel="stylesheet" href="/v4/shared.css?v=20260422e">
 <style>
   /* Page-specific — Overview */
@@ -291,7 +294,10 @@
         </div>
 
         <div id="recent-tracks">
-          <!-- tracks injected by JS -->
+          <!-- PERF #2.2: skeleton pré-rendu avant l'exec JS -->
+          <div class="tr-row" style="opacity:.35;padding:10px 0;border-bottom:1px solid var(--b-subtle);display:flex;gap:12px;align-items:center" aria-hidden="true"><div style="width:40px;height:40px;border-radius:8px;background:var(--s-3)"></div><div style="flex:1"><div style="background:var(--s-3);height:14px;border-radius:4px;width:55%"></div><div style="background:var(--s-3);height:10px;border-radius:4px;width:35%;margin-top:6px"></div></div><div style="background:var(--s-3);width:40px;height:10px;border-radius:4px"></div></div>
+          <div class="tr-row" style="opacity:.3;padding:10px 0;border-bottom:1px solid var(--b-subtle);display:flex;gap:12px;align-items:center" aria-hidden="true"><div style="width:40px;height:40px;border-radius:8px;background:var(--s-3)"></div><div style="flex:1"><div style="background:var(--s-3);height:14px;border-radius:4px;width:50%"></div><div style="background:var(--s-3);height:10px;border-radius:4px;width:40%;margin-top:6px"></div></div><div style="background:var(--s-3);width:40px;height:10px;border-radius:4px"></div></div>
+          <div class="tr-row" style="opacity:.25;padding:10px 0;display:flex;gap:12px;align-items:center" aria-hidden="true"><div style="width:40px;height:40px;border-radius:8px;background:var(--s-3)"></div><div style="flex:1"><div style="background:var(--s-3);height:14px;border-radius:4px;width:60%"></div><div style="background:var(--s-3);height:10px;border-radius:4px;width:30%;margin-top:6px"></div></div><div style="background:var(--s-3);width:40px;height:10px;border-radius:4px"></div></div>
         </div>
       </div>
 

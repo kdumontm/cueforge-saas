@@ -1,11 +1,9 @@
 """
 User statistics endpoints.
-Endpoints use in-memory cache with 2min TTL to avoid repeated DB queries.
+Endpoints use Redis cache (60s TTL) shared across workers, fallback memory sinon.
 """
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import time
-import threading
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,33 +14,23 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.track import Track, TrackAnalysis, TrackStatus
 from app.models.library import Playlist, DJSet
+from app.services.cache_service import cache_get, cache_set
 
 router = APIRouter()
 
-# In-memory cache for user stats (2min TTL)
-_user_stats_cache: Dict[str, Dict[str, Any]] = {}
-_cache_lock = threading.Lock()
-USER_STATS_CACHE_TTL_SEC = 120  # 2 minutes
+# PERF #1.4: Redis cache shared across workers (60s TTL).
+# Invalidation implicite: TTL 60s + invalidation active sur POST/PATCH/DELETE tracks.
+USER_STATS_CACHE_TTL_SEC = 60
 
 
 def _get_cached_user_stats(user_id: int, key: str) -> Optional[Dict[str, Any]]:
-    """Get value from cache if not expired."""
-    cache_key = f"user_{user_id}_{key}"
-    with _cache_lock:
-        if cache_key in _user_stats_cache:
-            data, timestamp = _user_stats_cache[cache_key]
-            if time.time() - timestamp < USER_STATS_CACHE_TTL_SEC:
-                return data
-            else:
-                del _user_stats_cache[cache_key]
-    return None
+    """Get value from Redis cache (falls back to in-memory)."""
+    return cache_get("user_stats", f"{user_id}:{key}")
 
 
 def _set_cached_user_stats(user_id: int, key: str, data: Dict[str, Any]) -> None:
-    """Store value in cache with current timestamp."""
-    cache_key = f"user_{user_id}_{key}"
-    with _cache_lock:
-        _user_stats_cache[cache_key] = (data, time.time())
+    """Store value in Redis cache."""
+    cache_set("user_stats", f"{user_id}:{key}", data, ttl=USER_STATS_CACHE_TTL_SEC)
 
 
 class ActivityDay(BaseModel):
@@ -146,11 +134,12 @@ def get_stats_overview(
         TrackAnalysis.bpm.isnot(None),
     ).first()
 
-    bpm_range = BPMRange(
-        min=round(bpm_stats.min_bpm, 1) if bpm_stats and bpm_stats.min_bpm else None,
-        max=round(bpm_stats.max_bpm, 1) if bpm_stats and bpm_stats.max_bpm else None,
-        avg=round(bpm_stats.avg_bpm, 1) if bpm_stats and bpm_stats.avg_bpm else None,
-    )
+    # dict pour sérialisation Redis simple (BPMRange reconstruit côté StatsOverview)
+    bpm_range = {
+        "min": round(bpm_stats.min_bpm, 1) if bpm_stats and bpm_stats.min_bpm else None,
+        "max": round(bpm_stats.max_bpm, 1) if bpm_stats and bpm_stats.max_bpm else None,
+        "avg": round(bpm_stats.avg_bpm, 1) if bpm_stats and bpm_stats.avg_bpm else None,
+    }
 
     # Key distribution (from TrackAnalysis joined to Track, top 5)
     key_distribution = []

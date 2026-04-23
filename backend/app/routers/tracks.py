@@ -233,6 +233,13 @@ async def upload_track(
         except Exception as e:
             logger.warning(f"[UPLOAD] Failed to enqueue analysis for track {track.id}: {e}")
 
+    # PERF #1.4: invalidation cache listing (upload → nouveau track visible)
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
+
     return TrackUploadResponse(
         id=track.id,
         status=track.status.value,
@@ -2222,6 +2229,20 @@ def list_tracks(
     # à 500 (assez pour un DJ sérieux, mais évite un DoS via limit=99999).
     limit = min(limit, 500)
 
+    # PERF #1.4: cache Redis 30s sur les listings (clef = user + params + version).
+    # Invalidation via bump_user_version sur POST/PATCH/DELETE tracks.
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(current_user.id)
+    cache_params = (
+        f"v{_uver}_p{page}_l{limit}_g{genre or ''}_a{artist or ''}"
+        f"_bm{bpm_min or ''}_bM{bpm_max or ''}_k{key or ''}_em{energy_min or ''}"
+        f"_eM{energy_max or ''}_r{rating_min or ''}_s{search or ''}_{sort_by}_{sort_dir}"
+    )
+    _cache_key = f"{current_user.id}:list:{cache_params}"
+    _cached = cache_get("tracks", _cache_key)
+    if _cached:
+        return TrackListResponse(**_cached)
+
     # ⚡ Build base query WITH filters but WITHOUT eager loading (for count)
     q = db.query(Track).filter(Track.user_id == current_user.id)
     q = _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max)
@@ -2282,12 +2303,18 @@ def list_tracks(
 
     # ⚡ Utilise TrackListItemResponse (sans waveform/spectral/beats/loop_markers)
     from app.schemas.track import TrackListItemResponse
-    return TrackListResponse(
+    response = TrackListResponse(
         tracks=[TrackListItemResponse.model_validate(t) for t in tracks],
         total=total,
         page=page,
         pages=(total + limit - 1) // limit,
     )
+    # PERF #1.4: cache 30s — invalidation active sur mutations
+    try:
+        cache_set("tracks", _cache_key, response.model_dump(mode='json'), ttl=30)
+    except Exception:
+        pass
+    return response
 
 
 # ── Routes spécifiques AVANT /{track_id} pour éviter interception du path param ───
@@ -2367,6 +2394,12 @@ def delete_track(
     _delete_track_dependencies(db, track_id)
     db.delete(track)
     safe_commit(db)
+    # PERF #1.4: invalidation cache listing
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return {"status": "deleted", "track_id": track_id}
 
 
@@ -2455,6 +2488,12 @@ def batch_delete_tracks(
     # Bulk delete des tracks
     db.query(Track).filter(Track.id.in_(deleted_ids)).delete(synchronize_session=False)
     safe_commit(db)
+    # PERF #1.4: invalidation cache listing
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
 
 
@@ -2506,6 +2545,12 @@ def update_track_metadata(
 
     safe_commit(db)
     db.refresh(track)
+    # PERF #1.4: invalidation cache listing
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return TrackResponse.model_validate(track)
 
 

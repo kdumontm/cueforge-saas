@@ -112,6 +112,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         path = request.url.path
+        # PERF #3.1: skip rate-limit sur les endpoints bruyants / non sensibles
+        # pour éviter un traversement inutile sur chaque /health ou asset.
+        if path in ("/api/v1/health", "/api/v1/ready", "/favicon.ico") or path.startswith(("/static/", "/v4/", "/_next/")):
+            return await call_next(request)
         client_ip = _get_client_ip(request)
 
         # Rate-limiter les GET sur endpoints sensibles (anti-énumération)

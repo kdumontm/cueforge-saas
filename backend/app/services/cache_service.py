@@ -298,3 +298,38 @@ def clear_analysis_progress(track_id: int) -> None:
         except Exception:
             pass
     _memory_cache.delete(key)
+
+
+# ── User-scoped versioning for listing cache (PERF #1.4) ─────────────────────
+# Usage: l'endpoint /tracks injecte get_user_version(user_id) dans sa clef de
+# cache. Un upload/patch/delete appelle bump_user_version(user_id) qui rend
+# invisibles toutes les entrées cachées précédentes (elles expirent via TTL).
+
+def get_user_version(user_id: int) -> int:
+    """Retourne la version courante du cache-key space pour cet user."""
+    key = _make_key("user_version", str(user_id))
+    r = _get_redis()
+    if r:
+        try:
+            v = r.get(key)
+            if v:
+                return int(v)
+        except Exception:
+            pass
+    v = _memory_cache.get(key)
+    return int(v) if v else 0
+
+
+def bump_user_version(user_id: int) -> None:
+    """Incrémente la version pour invalider les listings cachés de cet user."""
+    key = _make_key("user_version", str(user_id))
+    r = _get_redis()
+    if r:
+        try:
+            r.incr(key)
+            r.expire(key, 86400 * 30)  # TTL 30j pour ne pas garder indéfiniment
+            return
+        except Exception:
+            pass
+    current = _memory_cache.get(key) or 0
+    _memory_cache.set(key, int(current) + 1, ttl=86400 * 30)

@@ -328,6 +328,57 @@ function escapeHtml(s){
 // -------- Seeded random for deterministic waveforms --------
 window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floor(x)};
 
+// -------- PERF #2.4: Prefetch topnav links on hover --------
+// Quand l'utilisateur survole un lien du topnav > 60ms, on déclenche un fetch
+// de la page en arrière-plan. Le browser met en cache la réponse, le clic est
+// instantané. No-op si déjà visité récemment ou pas de connexion.
+(function initHoverPrefetch(){
+  if(!('IntersectionObserver' in window)) return;
+  const prefetched = new Set();
+  let hoverTimer = null;
+
+  function prefetchUrl(url){
+    if(prefetched.has(url)) return;
+    prefetched.add(url);
+    // Utilise <link rel="prefetch"> : léger, honoré par tous les browsers récents.
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = url;
+    link.as = 'document';
+    document.head.appendChild(link);
+  }
+
+  function setupHoverPrefetch(){
+    const links = document.querySelectorAll('.topnav-links a, .topnav-actions a');
+    links.forEach(a => {
+      const href = a.getAttribute('href') || '';
+      // Ne prefetcher que les URLs internes relatives ou même origine
+      if(!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+      if(href.startsWith('http://') || href.startsWith('https://')){
+        try {
+          const u = new URL(href);
+          if(u.origin !== location.origin) return;
+        } catch { return; }
+      }
+      a.addEventListener('mouseenter', () => {
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => prefetchUrl(href), 60);
+      });
+      a.addEventListener('mouseleave', () => {
+        clearTimeout(hoverTimer);
+      });
+      // Également sur touchstart pour mobile (anticipe le tap)
+      a.addEventListener('touchstart', () => prefetchUrl(href), { passive: true });
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', setupHoverPrefetch);
+  } else {
+    setupHoverPrefetch();
+  }
+})();
+
 // -------- Build waveform --------
 window.buildWave = function(el, count, seed, opts={}){
   if(!el) return;

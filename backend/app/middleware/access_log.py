@@ -1,5 +1,6 @@
 """
 Middleware de logging des requêtes HTTP avec timing.
+PERF #4.1: ajoute un header Server-Timing visible dans l'onglet Network de Chrome.
 """
 import time
 import logging
@@ -22,4 +23,10 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             response.status_code,
             duration_ms,
         )
+        # PERF #4.1: Server-Timing header — visible dans Chrome DevTools / Network.
+        # Format: "total;dur=123.4" — duration en millisecondes.
+        try:
+            response.headers["Server-Timing"] = f"total;dur={duration_ms}"
+        except Exception:
+            pass
         return response

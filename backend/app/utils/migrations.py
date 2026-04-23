@@ -291,6 +291,11 @@ def run_migrations(engine: Engine) -> None:
                 "CREATE INDEX IF NOT EXISTS ix_tracks_user_created  ON tracks (user_id, created_at)",
                 "CREATE INDEX IF NOT EXISTS ix_tracks_org_id        ON tracks (org_id)",
                 "CREATE INDEX IF NOT EXISTS ix_tracks_camelot       ON tracks (camelot_code)",
+                # PERF #3.3: index partiel sur les tracks complétés — accélère les
+                # filtres "library ready" qui représentent ~90 % des listings.
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_completed ON tracks (user_id, created_at) WHERE status = 'completed'",
+                # PERF: index pour le JOIN CuePoint → track quand on compte par track_id
+                "CREATE INDEX IF NOT EXISTS ix_cue_points_track      ON cue_points (track_id)",
                 # HotCues — lookup by track + user
                 "CREATE INDEX IF NOT EXISTS ix_hot_cues_track_user  ON hot_cues (track_id, user_id)",
                 # PlayHistory — time-range queries per user
