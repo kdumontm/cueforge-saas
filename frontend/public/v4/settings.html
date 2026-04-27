@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>(function(){var V="20260427-1330-1";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
+<script>(function(){var V="20260427-final-fix";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Settings</title>
@@ -406,7 +406,7 @@
             <div class="option-hint">Compacte = plus de contenu à l'écran · confortable = plus d'espace</div>
           </div>
           <div class="option-trail">
-            <div class="segment">
+            <div class="segment" data-density-ctrl>
               <button>Compacte</button>
               <button class="active">Normale</button>
               <button>Confortable</button>
@@ -1027,6 +1027,32 @@
       toast('Accent mis à jour ✓','success');
     });
   });
+
+  // Densité UI : applique data-density + persiste + applique CSS vars
+  const densityCtrl = document.querySelector('[data-density-ctrl]');
+  if(densityCtrl){
+    const savedDensity = loadSettings().density || 'Normale';
+    // Restore from localStorage
+    densityCtrl.querySelectorAll('button').forEach(btn=>{
+      btn.classList.toggle('active', btn.textContent.trim() === savedDensity);
+    });
+    // Apply on load
+    const densitySlug = savedDensity.toLowerCase().replace(/\s+/g,'');
+    document.documentElement.setAttribute('data-density', densitySlug);
+    // Handler pour chaque bouton
+    densityCtrl.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        densityCtrl.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.textContent.trim();
+        const slug = mode.toLowerCase().replace(/\s+/g,'');
+        document.documentElement.setAttribute('data-density', slug);
+        localStorage.setItem('density', mode);
+        saveSettings({density: mode});
+        toast(`Densité : ${mode} ✓`,'success');
+      });
+    });
+  }
 
   // Save button : persiste tout ET pousse les prefs backend
   document.querySelectorAll('.btn-primary').forEach(b=>{
