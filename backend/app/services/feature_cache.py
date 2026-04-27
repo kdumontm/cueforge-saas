@@ -296,3 +296,106 @@ def get_cache_stats() -> dict:
         'ttl_days': CACHE_TTL_DAYS,
         'path': str(CACHE_DIR),
     }
+
+
+# ============================================================================
+# PERF 2026-04-27: Redis layer for feature cache (survit aux redeploys)
+# ============================================================================
+
+import pickle
+import base64
+from typing import Optional as OptionalType
+
+def _redis_key(file_hash: str, feature_name: str) -> str:
+    """Generate Redis key for a feature."""
+    return f"feature:{file_hash}:{feature_name}"
+
+
+def save_feature_redis(file_path: str, feature_name: str, data: np.ndarray) -> bool:
+    """Save feature to Redis (in addition to disk)."""
+    try:
+        from app.services.cache_service import cache_set
+        
+        file_hash = _get_file_hash(file_path)
+        key = _redis_key(file_hash, feature_name)
+        
+        # Check size limit (10 MB)
+        array_bytes = data.nbytes
+        if array_bytes > 10 * 1024 * 1024:
+            logger.warning(f"Feature {feature_name} too large ({array_bytes/1024/1024:.1f}MB), skipping Redis")
+            return True  # Still return True, disk cache is OK
+        
+        # Pickle + base64 encode
+        pickled = pickle.dumps(data)
+        encoded = base64.b64encode(pickled).decode('utf-8')
+        
+        # Store in Redis with 7 day TTL
+        cache_set("feature", key, {"data": encoded}, ttl=86400*7)
+        logger.debug(f"Saved feature {feature_name} to Redis ({array_bytes/1024:.1f}KB)")
+        return True
+    except Exception as e:
+        logger.debug(f"Failed to save feature to Redis: {e}")
+        return True  # Don't fail, disk is OK
+
+
+def load_feature_redis(file_path: str, feature_name: str) -> OptionalType[np.ndarray]:
+    """Load feature from Redis, fallback to disk."""
+    try:
+        from app.services.cache_service import cache_get
+        
+        file_hash = _get_file_hash(file_path)
+        key = _redis_key(file_hash, feature_name)
+        
+        # Try Redis first
+        cached = cache_get("feature", key)
+        if cached and "data" in cached:
+            try:
+                pickled = base64.b64decode(cached["data"])
+                data = pickle.loads(pickled)
+                logger.debug(f"Loaded feature {feature_name} from Redis")
+                
+                # Rebuild disk cache for next time (fast I/O)
+                try:
+                    save_feature(file_path, feature_name, data)
+                except Exception:
+                    pass  # Ignore disk errors
+                
+                return data
+            except Exception as e:
+                logger.warning(f"Failed to deserialize Redis feature: {e}")
+    except Exception as e:
+        logger.debug(f"Redis feature lookup failed: {e}")
+    
+    return None
+
+
+# Patch the public functions to use Redis layer
+_original_save_feature = save_feature
+_original_load_feature = load_feature
+
+
+def save_feature_patched(file_path: str, feature_name: str, data: np.ndarray) -> bool:
+    """Save to disk AND Redis."""
+    result = _original_save_feature(file_path, feature_name, data)
+    save_feature_redis(file_path, feature_name, data)
+    return result
+
+
+def load_feature_patched(file_path: str, feature_name: str) -> OptionalType[np.ndarray]:
+    """Load from disk first (fast), then Redis, then None."""
+    # Try disk first (fastest)
+    result = _original_load_feature(file_path, feature_name)
+    if result is not None:
+        return result
+    
+    # Try Redis (rebuild disk if hit)
+    result = load_feature_redis(file_path, feature_name)
+    if result is not None:
+        return result
+    
+    return None
+
+
+# Replace the functions
+save_feature = save_feature_patched
+load_feature = load_feature_patched

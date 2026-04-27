@@ -3004,6 +3004,9 @@ def _detect_bpm_parallel(
     use_from_y = (y is not None and sr is not None and
                   _get_beat_this_audio_model() is not None)
 
+    # PERF 2026-04-27: Skip madmom by default (beat_this is faster + more accurate on CPU)
+    use_madmom = os.environ.get('CUEFORGE_BPM_USE_MADMOM', '0') == '1'
+
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = {}
@@ -3017,10 +3020,11 @@ def _detect_bpm_parallel(
             except Exception:
                 pass
 
-            try:
-                futures[executor.submit(_detect_bpm_madmom, file_path)] = 'madmom'
-            except Exception:
-                pass
+            if use_madmom:
+                try:
+                    futures[executor.submit(_detect_bpm_madmom, file_path)] = 'madmom'
+                except Exception:
+                    pass
 
             if not futures:
                 return None
@@ -5167,12 +5171,11 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
 
         # On charge au max 180s pour le calcul (suffisant pour BPM/key)
         analyze_duration = 180.0
-        y, sr = librosa.load(
+        y, sr = decode_audio_cached(
             file_path,
             sr=SR,
-            mono=True,
-            dtype=np.float32,
-            duration=analyze_duration,
+            max_duration=180.0,
+            trim_to_duration=180.0,
         )
         load_t = _time_instant.time() - t0
         _log(f"load {load_t:.2f}s (loaded {len(y)/sr:.1f}s @ {sr}Hz)")
@@ -5342,7 +5345,11 @@ def analyze_audio(
     completed_steps = checkpoint.get('_completed_steps', []) if checkpoint else []
     logger.info(f"[CACHE] Checkpoint status: {len(completed_steps)} completed steps")
 
-    y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION, mono=True)
+    y, sr_loaded = decode_audio_cached(
+        file_path,
+        sr=SR,
+        max_duration=MAX_DURATION,
+    )
 
     # ── Float32 conversion + silence trimming (Points 13-14, 100) ──
     y = y.astype(np.float32)
@@ -6397,7 +6404,11 @@ def compute_deep_only(
 
     # ── Reload audio (same params as analyze_audio) ──
     try:
-        y, sr_loaded = librosa.load(file_path, sr=SR, duration=MAX_DURATION, mono=True)
+        y, sr_loaded = decode_audio_cached(
+            file_path,
+            sr=SR,
+            max_duration=MAX_DURATION,
+        )
         y = y.astype(np.float32)
         non_silent = librosa.effects.split(y, top_db=50)
         if len(non_silent) > 0:

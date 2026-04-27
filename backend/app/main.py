@@ -670,6 +670,35 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Periodic storage cleanup init failed (non-blocking): {e}")
 
+    
+    # PERF 2026-04-27: Pre-warm audio models in background (eliminate cold start 5-8s)
+    def _prewarm_audio_models():
+        """Pre-load beat_this and htdemucs models without blocking startup."""
+        try:
+            from app.services.audio_analysis import _get_beat_this_model, _get_beat_this_audio_model
+            _get_beat_this_model()
+            _get_beat_this_audio_model()
+            logger.info("[STARTUP] beat_this models pre-warmed")
+        except Exception as e:
+            logger.warning(f"[STARTUP] beat_this prewarm failed: {e}")
+        
+        try:
+            from demucs.pretrained import get_model
+            get_model("htdemucs")
+            logger.info("[STARTUP] htdemucs pre-warmed")
+        except Exception as e:
+            logger.warning(f"[STARTUP] demucs prewarm failed: {e}")
+    
+    import threading
+    prewarm_thread = threading.Thread(
+        target=_prewarm_audio_models,
+        daemon=True,
+        name="prewarm_audio_models"
+    )
+    prewarm_thread.start()
+    app.state.prewarm_thread = prewarm_thread
+
+
     logger.info("✅ TrackCue backend démarré.")
     yield
 
