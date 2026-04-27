@@ -2358,6 +2358,16 @@ def _read_metadata_mutagen(file_path: str) -> Dict:
                         metadata['bpm_id3'] = int(audio.get('bpm', [0])[0])
                     except (ValueError, IndexError):
                         pass
+                # v3: Extract key hints (Beatport Camelot '8B', '1A', or note names 'Cmaj', 'Am')
+                for key_tag in ['initial_key', 'initialkey', 'key']:
+                    if key_tag in audio:
+                        try:
+                            key_hint = str(audio.get(key_tag, [None])[0]).strip()
+                            if key_hint:
+                                metadata['key_id3'] = key_hint
+                                break
+                        except (ValueError, IndexError, AttributeError):
+                            pass
         except Exception:
             pass
 
@@ -5164,6 +5174,26 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
 
     result: Dict = {"instant_mode": True}
 
+    # ── 0) Lecture des tags ID3 (BPM/key/genre des Beatport/Traktor) ─────────
+    # Gratuit, instantané. Fournit hints précis si présents.
+    _id3_meta = {}
+    _id3_bpm_hint = None
+    _id3_key_hint = None
+    try:
+        _id3_meta = _read_metadata_mutagen(file_path)
+        if _id3_meta:
+            if _id3_meta.get("bpm_id3"):
+                try:
+                    _id3_bpm_hint = float(_id3_meta["bpm_id3"])
+                    _log(f"id3 bpm_hint={_id3_bpm_hint}")
+                except Exception:
+                    pass
+            if _id3_meta.get("key_id3"):
+                _id3_key_hint = str(_id3_meta["key_id3"]).strip()
+                _log(f"id3 key_hint={_id3_key_hint}")
+    except Exception as e:
+        logger.debug(f"[INSTANT] id3 read failed: {e}")
+
     # ── 1) Load audio rapide (180s max suffit pour BPM/key stable) ───────────
     try:
         # Duration réelle du fichier (sans décoder tout)
@@ -5192,43 +5222,131 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
         logger.error(f"[INSTANT] load failed track={track_id}: {e}")
         return {"error": f"load failed: {e}", "instant_mode": True}
 
-    # ── 2) BPM rapide via librosa.beat.beat_track ────────────────────────────
+    # ── 2) BPM précis via beat_this (modèle deep learning pré-warmé) ──────────
+    # Si beat_this dispo : on récupère un BPM quasi-définitif dès l'INSTANT.
+    # Fallback librosa si beat_this échoue ou pas dispo.
     try:
         _t = _time_instant.time()
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
-        tempo, beat_frames = librosa.beat.beat_track(
-            onset_envelope=onset_env, sr=sr, hop_length=HOP_LENGTH, units="frames",
-        )
-        bpm_val = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
-        # Fold into DJ range (60-180)
-        if bpm_val < 60:
-            bpm_val *= 2
-        elif bpm_val > 180:
-            bpm_val /= 2
-        result["bpm"] = round(bpm_val, 1)
-        result["bpm_confidence"] = 0.7  # approx librosa — sera corrigé par madmom/beat_this en primary_complete
+        bt_model = _get_beat_this_audio_model()
+        bpm_val = None
+        beat_times = []
+        if bt_model is not None:
+            try:
+                # Audio2Beats accepte signal float32 + sr
+                beats_arr, downbeats_arr = bt_model(y, sr)
+                beat_times = [float(b) for b in beats_arr]
+                if len(beat_times) >= 4:
+                    ibis = np.diff(beat_times)
+                    # Filtre IBI outliers grossiers (3 sigma)
+                    med = float(np.median(ibis))
+                    mad = float(np.median(np.abs(ibis - med)) + 1e-9)
+                    ok_mask = np.abs(ibis - med) < 3.0 * mad
+                    if ok_mask.sum() >= 3:
+                        median_ibi = float(np.median(ibis[ok_mask]))
+                    else:
+                        median_ibi = med
+                    bpm_val = 60.0 / median_ibi if median_ibi > 0 else None
+                    # Confidence depuis la régularité des IBI
+                    ibi_var = float(np.std(ibis) / (np.mean(ibis) + 1e-9))
+                    bt_conf = float(max(0.0, min(1.0, 1.0 - ibi_var * 2.0)))
+                else:
+                    bt_conf = 0.0
+            except Exception as bt_err:
+                logger.debug(f"[INSTANT] beat_this inference failed: {bt_err}")
+                bpm_val = None
+                bt_conf = 0.0
+        else:
+            bt_conf = 0.0
 
-        # beat_positions en secondes (utile pour le player dès l'instant)
-        beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP_LENGTH)
-        result["beat_positions"] = [float(round(t, 3)) for t in beat_times[:512]]  # cap 512 (5-8min à 128 BPM)
-        _log(f"bpm {_time_instant.time()-_t:.2f}s → {result['bpm']}")
+        # Fallback librosa si beat_this fail
+        if bpm_val is None:
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
+            tempo, beat_frames = librosa.beat.beat_track(
+                onset_envelope=onset_env, sr=sr, hop_length=HOP_LENGTH, units="frames",
+            )
+            bpm_val = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
+            beat_times = list(librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP_LENGTH))
+            bt_conf = 0.6  # confidence librosa plus basse
+
+        # ── Fold BPM dans la plage DJ (60-180) ──
+        bpm_val = _fold_bpm_dj_range(bpm_val)
+
+        # ── Cross-validation avec ID3 hint si présent ──
+        # Si l'ID3 a un BPM proche (±3) ou un multiple/division (octave), on snap dessus
+        if _id3_bpm_hint and 60 <= _id3_bpm_hint <= 200:
+            for mult in (1.0, 0.5, 2.0):
+                candidate = _id3_bpm_hint * mult
+                if abs(bpm_val - candidate) < 3.0:
+                    bpm_val = _id3_bpm_hint  # priorité au tag
+                    bt_conf = max(bt_conf, 0.95)
+                    _log(f"id3 bpm_hint={_id3_bpm_hint} matché → snap")
+                    break
+
+        # ── Snap aux BPM DJ communs ──
+        try:
+            bpm_snapped = _snap_bpm_to_common_values(bpm_val)
+            if bpm_snapped != bpm_val:
+                _log(f"snap BPM {bpm_val:.2f} → {bpm_snapped}")
+                bpm_val = bpm_snapped
+        except Exception:
+            pass
+
+        result["bpm"] = round(bpm_val, 1)
+        result["bpm_confidence"] = round(bt_conf, 2)
+        result["beat_positions"] = [float(round(t, 3)) for t in beat_times[:512]]
+        _log(f"bpm {_time_instant.time()-_t:.2f}s → {result['bpm']} (conf={bt_conf:.2f})")
     except Exception as e:
         logger.warning(f"[INSTANT] bpm failed track={track_id}: {e}")
         result["bpm"] = None
         result["bpm_confidence"] = None
         result["beat_positions"] = []
 
-    # ── 3) Key via Krumhansl-Schmuckler simple ───────────────────────────────
+    # ── 3) Key précise via detect_key_hybrid (3-méthodes vote) ────────────────
+    # Plus précis que KS simple, surtout sur EDM. ~1-2s vs 0.5s — accepté pour l'INSTANT.
+    # Si ID3 fournit un key_hint valide, on l'utilise direct (gratuit + fiable Beatport).
     try:
         _t = _time_instant.time()
-        key, key_conf = detect_key_ks(y, sr)
-        result["key"] = key
-        result["key_confidence"] = key_conf
-        _log(f"key {_time_instant.time()-_t:.2f}s → {key} ({key_conf})")
+        if _id3_key_hint:
+            # Tags Beatport/Traktor : "Cmaj", "1A", "5B" — on tente utiliser direct
+            # Format simple "Cm" / "C" / "C#m" / Camelot "8B"
+            try:
+                # Normalize key hint: remove spaces, validate format
+                _normed = _id3_key_hint.upper()
+                # Simple validation: should contain at least a note or Camelot format
+                if _normed and (len(_normed) <= 5 or _normed[0].isdigit()):
+                    result["key"] = _normed
+                    result["key_confidence"] = 0.95
+                    _log(f"id3 key_hint={_id3_key_hint} utilisé → {_normed}")
+                else:
+                    raise ValueError("id3 key_hint invalid format")
+            except Exception:
+                # Fallback to hybrid if ID3 parsing fails
+                _id3_key_hint = None
+                kh = detect_key_hybrid(y, sr)
+                if isinstance(kh, dict):
+                    result["key"] = kh.get("key") or "C"
+                    result["key_confidence"] = float(kh.get("key_confidence", 0.7))
+                else:
+                    result["key"], result["key_confidence"] = kh
+                _log(f"key {_time_instant.time()-_t:.2f}s → {result['key']} ({result['key_confidence']:.2f})")
+        else:
+            kh = detect_key_hybrid(y, sr)
+            if isinstance(kh, dict):
+                result["key"] = kh.get("key") or "C"
+                result["key_confidence"] = float(kh.get("key_confidence", 0.7))
+            else:
+                result["key"], result["key_confidence"] = kh
+            _log(f"key {_time_instant.time()-_t:.2f}s → {result['key']} ({result['key_confidence']:.2f})")
     except Exception as e:
         logger.warning(f"[INSTANT] key failed track={track_id}: {e}")
-        result["key"] = None
-        result["key_confidence"] = None
+        # Fallback ultime KS simple
+        try:
+            k, kc = detect_key_ks(y, sr)
+            result["key"] = k
+            result["key_confidence"] = kc
+        except Exception:
+            result["key"] = None
+            result["key_confidence"] = None
 
     # ── 4) Energy RMS ────────────────────────────────────────────────────────
     try:
@@ -5303,6 +5421,10 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
     total_t = _time_instant.time() - t0
     _log(f"════ DONE in {total_t:.2f}s (bpm={result.get('bpm')}, key={result.get('key')}, energy={result.get('energy')})")
     result["_instant_elapsed_s"] = round(total_t, 2)
+
+    # ── ID3 genre hint pour fold BPM genre-aware en aval ──
+    if _id3_meta and _id3_meta.get("genre"):
+        result["id3_genre"] = str(_id3_meta["genre"]).strip()
     return result
 
 
