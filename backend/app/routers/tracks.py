@@ -42,8 +42,28 @@ def mark_track_as_failed(db: Session, track_id: int, error_message: str, job_typ
     Marque une track comme failed et crée automatiquement un feedback admin.
     job_type: 'analysis', 'stems', 'cues', etc.
     """
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
     try:
-        track = db.query(Track).filter(Track.id == track_id).first()
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
         if not track:
             logger.warning(f"Track #{track_id} not found for failure marking")
             return
@@ -68,6 +88,44 @@ def safe_commit(db: Session, context: str = ""):
         db.rollback()
         logger.error(f"DB commit failed{f' ({context})' if context else ''}: {e}")
         raise HTTPException(status_code=500, detail="Erreur base de données")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ÉTAPE 2 — Helpers pour robustesse du pipeline d'analyse
+# ─────────────────────────────────────────────────────────────────────────────
+import time as _time_retry
+import threading as _g_threading
+
+def _db_with_retry(operation, max_attempts: int = 3, initial_delay: float = 1.0):
+    """
+    Exécute une opération DB avec retry exponentiel (1s, 3s, 9s).
+    Utilisé dans _run_analysis pour résister aux hoquets temporaires PostgreSQL Railway.
+    
+    operation: callable() qui retourne le résultat (lambda recommandée)
+    """
+    from sqlalchemy.exc import OperationalError, DisconnectionError, InterfaceError
+    last_err = None
+    delay = initial_delay
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except (OperationalError, DisconnectionError, InterfaceError) as e:
+            last_err = e
+            if attempt < max_attempts:
+                logger.warning(f"[DB-RETRY] tentative {attempt}/{max_attempts} échouée ({type(e).__name__}), retry dans {delay:.1f}s")
+                _time_retry.sleep(delay)
+                delay *= 3  # backoff exponentiel
+            else:
+                logger.error(f"[DB-RETRY] échec définitif après {max_attempts} tentatives: {e}")
+        except Exception as e:
+            raise
+    if last_err:
+        raise last_err
+
+# Verrou anti-doublon par track_id
+_active_analyses_lock = _g_threading.Lock()
+_active_analyses = set()
+
 
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".aac", ".ogg", ".opus"}
 from app.config import get_settings as _get_settings
@@ -720,8 +778,28 @@ def _run_analysis(track_id: int):
 
     # ─ PHASE 1 : Fetch initial track state (session courte) ─
     db = SessionLocal()
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
     try:
-        track = db.query(Track).filter(Track.id == track_id).first()
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
         if not track:
             _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
             _release_quota(_quota_user_id)
@@ -729,7 +807,10 @@ def _run_analysis(track_id: int):
 
         file_path = track.file_path
         user_id = track.user_id
-        _quota_user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
+        _quota_user_id = user_id
+        
+        # Mettre à jour le logger avec user_id maintenant qu'on l'a
+        slog.user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
         _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
 
         # Reconstruct file_path from filename if missing
@@ -742,12 +823,63 @@ def _run_analysis(track_id: int):
                 _log(f"[ANALYSIS] Reconstructed file_path from filename: {file_path}")
 
         if not file_path or not os.path.exists(file_path):
-            _log(f"[ANALYSIS] File missing: {file_path} (exists={os.path.exists(file_path) if file_path else 'N/A'})")
-            mark_track_as_failed(db, track_id, "Audio file not found on disk", "analysis")
-            _release_quota(_quota_user_id)
-            return
+            _log(f"[ANALYSIS] File missing on disk: {file_path}")
+            
+            # ÉTAPE 2 (B) : tentative de récupération depuis R2
+            recovered = False
+            try:
+                from app.services import r2_service
+                if r2_service.enabled() and file_path:
+                    r2_key = r2_service.key_from_local_path(file_path)
+                    if r2_service.object_exists(r2_key):
+                        _log(f"[ANALYSIS] Récupération R2 du fichier {r2_key}...")
+                        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                        r2_service.download_file(r2_key, file_path)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            _log(f"[ANALYSIS] ✓ Fichier récupéré depuis R2 ({os.path.getsize(file_path)} bytes)")
+                            recovered = True
+                        else:
+                            _log(f"[ANALYSIS] R2 download produit fichier invalide")
+                    else:
+                        _log(f"[ANALYSIS] Fichier absent de R2 aussi (key={r2_key})")
+                else:
+                    _log(f"[ANALYSIS] R2 non configuré ou file_path vide, skip récupération")
+            except Exception as r2_err:
+                _log(f"[ANALYSIS] Récupération R2 échouée: {r2_err}")
+            
+            if not recovered:
+                mark_track_as_failed(db, track_id, "Fichier audio introuvable (disque + R2 absents)", "analysis")
+                _release_quota(_quota_user_id)
+                return
 
         _log(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
+
+        # ÉTAPE 2 (D) : skip si déjà analysé et inchangé
+        existing_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        if existing_analysis and track.status == TrackStatus.completed and track.file_md5:
+            current_md5 = None
+            try:
+                import hashlib
+                h = hashlib.md5()
+                with open(file_path, "rb") as f:
+                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                        h.update(chunk)
+                current_md5 = h.hexdigest()
+            except Exception as e:
+                logger.warning(f"[ANALYSIS] MD5 recompute failed: {e}")
+            
+            if current_md5 and current_md5 == track.file_md5:
+                _log(f"[ANALYSIS] ⚡ Track {track_id} déjà analysé + fichier inchangé (MD5={current_md5[:8]}…) → skip complet")
+                try:
+                    from app.services.cache_service import clear_analysis_progress
+                    clear_analysis_progress(track_id)
+                except Exception:
+                    pass
+                _release_quota(_quota_user_id)
+                return
+            elif current_md5:
+                _log(f"[ANALYSIS] Fichier modifié (MD5 {track.file_md5[:8]}… → {current_md5[:8]}…), réanalyse complète")
+                track.file_md5 = current_md5
 
         # Cleanup + set status — delete cue history first to avoid FK violation
         from app.models.track import CueHistory
@@ -770,6 +902,994 @@ def _run_analysis(track_id: int):
         track.status = TrackStatus.analyzing
         safe_commit(db)
         _log(f"[ANALYSIS] Phase 1 done — status set to analyzing")
+        
+        # ÉTAPE 2 (E) : fin de phase init
+        slog.phase_end("init", status="ok", file_size=os.path.getsize(file_path) if file_path and os.path.exists(file_path) else None)
+
+        # ─ PHASE 1.5 (piste 3) : fingerprint audio + lookup jumeau ─
+        # Calcule un SHA1 des 30 premières secondes décodées. Si un track
+        # jumeau existe chez le même user (status=completed + analysis), on
+        # clone les résultats au lieu de re-tourner 30-120s d'analyse.
+        _fp_skip_enabled = os.environ.get("FINGERPRINT_SKIP", "1") == "1"
+        _twin_found = False
+        if _fp_skip_enabled:
+            try:
+                fp = analysis_svc.compute_audio_fingerprint(file_path)
+                if fp:
+                    _log(f"[FP] Track {track_id} fingerprint={fp[:16]}…")
+                    track.audio_fingerprint = fp
+                    safe_commit(db)
+
+                    # Cherche un jumeau : même user, même fingerprint, status=completed, !self
+                    twin = (
+                        db.query(Track)
+                        .filter(
+                            Track.user_id == user_id,
+                            Track.audio_fingerprint == fp,
+                            Track.id != track.id,
+                            Track.status == TrackStatus.completed,
+                        )
+                        .first()
+                    )
+                    if twin:
+                        twin_analysis = db.query(TrackAnalysis).filter(
+                            TrackAnalysis.track_id == twin.id
+                        ).first()
+                        if twin_analysis:
+                            _log(f"[FP] ✓ Twin trouvé (track {twin.id}) — clone des résultats, skip analyse")
+                            _clone_analysis_from_twin(db, track, twin, twin_analysis)
+                            _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (fingerprint skip, twin={twin.id})")
+                            _twin_found = True
+            except Exception as fp_err:
+                logger.warning(f"[FP] Fingerprint lookup failed (non-fatal): {fp_err}")
+                db.rollback()
+                # Re-fetch track (rollback vient de l'invalider)
+                track = db.query(Track).filter(Track.id == track_id).first()
+
+        # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
+        # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
+        # Sinon : lance fpcalc + AcoustID en amont pour :
+        #   1. Enrichir les meta officiels (title/artist/album/genre/musicbrainz_id) dès l'upload
+        #   2. Chercher un twin CROSS-USER par musicbrainz_id (un autre user a déjà analysé ce track ?)
+        #      → si oui, clone l'analyse en quelques secondes au lieu de re-tourner le pipeline
+        #
+        # Best-effort : si AcoustID timeout ou échoue, on continue le pipeline normal.
+        # Désactivable via env var ACOUSTID_LOOKUP=0
+        _acoustid_lookup_enabled = os.environ.get("ACOUSTID_LOOKUP", "1") == "1"
+        if not _twin_found and _acoustid_lookup_enabled:
+            try:
+                from app.services.metadata_service import (
+                    fingerprint_file as _fp_chromaprint,
+                    lookup_acoustid as _lookup_acoustid,
+                    lookup_musicbrainz as _lookup_mb,
+                )
+                import time as _time_acoustid
+                _t_acoustid = _time_acoustid.time()
+
+                # Step A : fingerprint via fpcalc (subprocess, ~1-3s)
+                ac_fp, ac_duration = _fp_chromaprint(file_path)
+                if ac_fp and ac_duration:
+                    # Step B : lookup AcoustID (HTTP, ~1-2s, threshold 0.3)
+                    ac_result = _lookup_acoustid(ac_fp, ac_duration)
+                    if ac_result and ac_result.get("recording_id"):
+                        recording_id = ac_result["recording_id"]
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f}, recording_id={recording_id})")
+
+                        # Step C : enrichir Track avec les meta MB officiels
+                        # On REMPLIT seulement les champs vides (n'écrase pas les ID3 du user)
+                        if not track.musicbrainz_id:
+                            track.musicbrainz_id = recording_id
+                        if not track.title and ac_result.get("title"):
+                            track.title = ac_result["title"]
+                        if not track.artist and ac_result.get("artist"):
+                            track.artist = ac_result["artist"]
+
+                        # Step D : enrichir avec MB metadata (album, genre, year, label)
+                        try:
+                            mb = _lookup_mb(recording_id)
+                            if mb:
+                                if not track.album and mb.get("album"):
+                                    track.album = mb.get("album")
+                                if not track.genre and mb.get("genre"):
+                                    track.genre = mb.get("genre")
+                                if not track.year and mb.get("year"):
+                                    try:
+                                        track.year = int(str(mb.get("year"))[:4])
+                                    except Exception:
+                                        pass
+                                if hasattr(track, "label") and not track.label and mb.get("label"):
+                                    track.label = mb.get("label")
+                        except Exception as mb_err:
+                            logger.debug(f"[ACOUSTID] MB lookup failed (non-fatal): {mb_err}")
+
+                        safe_commit(db)
+                        _log(f"[ACOUSTID] meta enrichies en {_time_acoustid.time()-_t_acoustid:.1f}s")
+
+                        # Step E : chercher un twin CROSS-USER par musicbrainz_id
+                        # Un AUTRE user a peut-être déjà uploadé ce même morceau (re-encode différent
+                        # mais même musique → même AcoustID → même MB recording_id).
+                        # Si oui et qu'il a une analyse complète, on clone (gain massif).
+                        mb_twin = (
+                            db.query(Track)
+                            .filter(
+                                Track.musicbrainz_id == recording_id,
+                                Track.id != track.id,
+                                Track.status == TrackStatus.completed,
+                            )
+                            .first()
+                        )
+                        if mb_twin:
+                            mb_twin_analysis = db.query(TrackAnalysis).filter(
+                                TrackAnalysis.track_id == mb_twin.id
+                            ).first()
+                            if mb_twin_analysis:
+                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé (track {mb_twin.id}) — clone l'analyse, skip pipeline")
+                                _clone_analysis_from_twin(db, track, mb_twin, mb_twin_analysis)
+                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid skip, mb_twin={mb_twin.id})")
+                                _twin_found = True
+                    else:
+                        _log(f"[ACOUSTID] No confident match (fp len={len(ac_fp) if ac_fp else 0})")
+                else:
+                    _log(f"[ACOUSTID] fpcalc unavailable or file too short, skipping")
+            except Exception as ac_err:
+                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing pipeline): {ac_err}")
+
+        # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
+        # les stems. Les stems tournent toujours en background APRÈS que le
+        # track soit marqué completed, pour que la library affiche le son ASAP.
+        # use_stems=False ici — Demucs sera lancé dans _run_stems_background.
+        use_stems = False
+
+        # Lire le mode de génération des cues depuis le track (défaut: auto)
+        cue_gen_mode = getattr(track, 'cue_generation_mode', 'auto') or 'auto'
+        _log(f"[PIPELINE] track {track_id}: cue_generation_mode={cue_gen_mode}")
+
+        # Reset pipeline states au début de chaque analyse
+        # 2026-04-23 bis : primary_status ajouté (INSTANT fini = running,
+        # primary_complete fini = ready). cues_status en auto attend
+        # primary_complete pour avoir sections/drops disponibles.
+        track.primary_status = 'pending'
+        track.stems_status = 'pending'
+        track.stems_progress = 0
+        track.cues_status = 'pending' if cue_gen_mode != 'skipped' else 'skipped'
+    except Exception as e:
+        _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
+        try:
+            mark_track_as_failed(db, track_id, f"Phase 1 error: {e}", "primary")
+        except Exception:
+            pass
+        _release_quota(_quota_user_id)
+        return
+    except Exception as e:
+        logger.error(f"Error marking track {track_id} as failed: {e}")
+        db.rollback()
+
+
+def safe_commit(db: Session, context: str = ""):
+    """Commit avec rollback automatique en cas d'erreur."""
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"DB commit failed{f' ({context})' if context else ''}: {e}")
+        raise HTTPException(status_code=500, detail="Erreur base de données")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ÉTAPE 2 — Helpers pour robustesse du pipeline d'analyse
+# ─────────────────────────────────────────────────────────────────────────────
+import time as _time_retry
+import threading as _g_threading
+
+def _db_with_retry(operation, max_attempts: int = 3, initial_delay: float = 1.0):
+    """
+    Exécute une opération DB avec retry exponentiel (1s, 3s, 9s).
+    Utilisé dans _run_analysis pour résister aux hoquets temporaires PostgreSQL Railway.
+    
+    operation: callable() qui retourne le résultat (lambda recommandée)
+    """
+    from sqlalchemy.exc import OperationalError, DisconnectionError, InterfaceError
+    last_err = None
+    delay = initial_delay
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except (OperationalError, DisconnectionError, InterfaceError) as e:
+            last_err = e
+            if attempt < max_attempts:
+                logger.warning(f"[DB-RETRY] tentative {attempt}/{max_attempts} échouée ({type(e).__name__}), retry dans {delay:.1f}s")
+                _time_retry.sleep(delay)
+                delay *= 3  # backoff exponentiel
+            else:
+                logger.error(f"[DB-RETRY] échec définitif après {max_attempts} tentatives: {e}")
+        except Exception as e:
+            raise
+    if last_err:
+        raise last_err
+
+# Verrou anti-doublon par track_id
+_active_analyses_lock = _g_threading.Lock()
+_active_analyses = set()
+
+
+ALLOWED_EXTENSIONS = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".m4a", ".aac", ".ogg", ".opus"}
+from app.config import get_settings as _get_settings
+MAX_FILE_SIZE_MB = _get_settings().MAX_FILE_SIZE_MB
+
+MIME_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".aiff": "audio/aiff",
+    ".aif": "audio/aiff",
+    ".m4a": "audio/mp4",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/opus",
+    ".aac": "audio/aac",
+}
+
+
+# ── Upload ───────────────────────────────────────────────────────────────────
+
+@router.post("/upload", response_model=TrackUploadResponse)
+async def upload_track(
+    file: UploadFile = File(...),
+    cue_mode: str = Form("auto"),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # cue_mode validation — contrôle ce que le pipeline fait avec les cues
+    #   auto      → cues générés tout de suite après primary (sans stems)
+    #   on_demand → cues pas générés, user cliquera sur "Générer cue points"
+    #   pro       → cues attendent que les stems soient prêts (confidence ~0.9)
+    if cue_mode not in ("auto", "on_demand", "pro"):
+        cue_mode = "auto"
+    # ── Daily limit (free=5/day, pro=20/day, unlimited/app/admin=no limit) ──
+    from datetime import date, datetime as dt
+    FREE_DAILY_LIMIT = 5
+    PRO_DAILY_LIMIT = 20
+
+    plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
+    is_admin = getattr(current_user, 'is_admin', False)
+
+    # Determine if user has unlimited access
+    is_unlimited = is_admin or plan in ('app', 'unlimited')
+
+    if not is_unlimited:
+        daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
+        today = date.today()
+
+        # ── Comptage atomique via usage_logs (évite la race condition) ──────
+        from sqlalchemy import func
+        from app.models.organization import UsageLog
+        today_start = dt.combine(today, dt.min.time())
+        tracks_today = db.query(func.count(UsageLog.id)).filter(
+            UsageLog.user_id == current_user.id,
+            UsageLog.action == "upload",
+            UsageLog.created_at >= today_start,
+        ).scalar() or 0
+
+        if tracks_today >= daily_limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Limite atteinte : {daily_limit} morceaux/jour sur le plan {plan}."
+            )
+
+        # Enregistre l'usage (source de vérité unique)
+        db.add(UsageLog(user_id=current_user.id, action="upload"))
+        # Mise à jour legacy pour compatibilité (admin panel, export RGPD)
+        current_user.tracks_today = tracks_today + 1
+        current_user.last_track_date = dt.utcnow()
+        safe_commit(db)
+        tracks_today += 1  # valeur locale post-insert
+
+        # Notify user when approaching daily limit (80%+)
+        usage_pct = tracks_today / daily_limit
+        if usage_pct >= 0.8 and tracks_today < daily_limit:
+            try:
+                from app.services.email_service import _send_email, _wrap_template
+                html = _wrap_template(f"""
+                    <p>Hey {current_user.name},</p>
+                    <p>Tu as utilise <strong>{current_user.tracks_today}/{daily_limit}</strong>
+                    morceaux aujourd'hui sur ton plan <strong>{plan}</strong>.</p>
+                    <p>Passe au plan superieur pour analyser plus de tracks !</p>
+                """)
+                _send_email(current_user.email, "TrackCue - Limite d'usage bientot atteinte", html)
+            except Exception:
+                pass  # email is best-effort
+
+    # Validate extension
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"File type not supported: {ext}")
+
+    # OPT #2: Upload streaming au lieu de tout en RAM
+    # Stocke les chunks au fur et à mesure au lieu de charger le fichier entier en mémoire
+    filename = f"{uuid.uuid4()}{ext}"
+    temp_path = None
+    file_path = None
+    total_size = 0
+
+    try:
+        temp_path = f"/tmp/{filename}.tmp"
+
+        # Stream upload par chunks de 1 MB
+        async with aiofiles.open(temp_path, 'wb') as f:
+            while chunk := await file.read(1024 * 1024):  # 1 MB chunks
+                total_size += len(chunk)
+                if total_size > MAX_FILE_SIZE_MB * 1024 * 1024:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large ({total_size / (1024 * 1024):.1f} MB). Max {MAX_FILE_SIZE_MB} MB."
+                    )
+                await f.write(chunk)
+
+        # 🔴 FIX (faille 4) : Validation des magic bytes — vérifie le contenu réel du fichier
+        # Lire les premiers bytes pour vérifier le magic number
+        async with aiofiles.open(temp_path, 'rb') as f:
+            header = await f.read(512)
+
+        if not storage_svc.validate_audio_magic_bytes(header, ext):
+            raise HTTPException(
+                status_code=400,
+                detail="Le contenu du fichier ne correspond pas au format audio déclaré.",
+            )
+
+        # Move temp file to permanent storage
+        file_path = storage_svc.save_upload_from_path(temp_path, filename)
+
+        # ✅ FIX ATOMIQUE (Dev BB, 2026-04-24) :
+        # 1. Vérifier que le fichier local existe
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=500, detail="Erreur création fichier local — merci de réessayer")
+
+        # 2. AVANT de créer la row DB, uploader vers R2 si activé
+        r2_key_final = None
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                # Retry logic : 3 tentatives avec backoff exponential
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        logger.info(f"[UPLOAD] Attempting R2 upload (attempt {attempt + 1}/{max_retries}): {filename}")
+                        r2_service.upload_file(file_path, filename)
+
+                        # Verify R2 upload with HEAD
+                        if r2_service.object_exists(filename):
+                            r2_key_final = filename
+                            logger.info(f"[UPLOAD] R2 upload verified: {filename}")
+                            break
+                        else:
+                            logger.warning(f"[UPLOAD] R2 verification failed, retrying...")
+                    except Exception as e:
+                        logger.warning(f"[UPLOAD] R2 upload failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(2 ** attempt)  # backoff: 1s, 2s, 4s
+                        elif attempt == max_retries - 1:
+                            # Dernière tentative échouée
+                            logger.error(f"[UPLOAD] R2 upload failed after {max_retries} attempts for {filename}")
+                            raise HTTPException(
+                                status_code=500,
+                                detail="Impossible d'uploader le fichier — merci de réessayer"
+                            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"[UPLOAD] Unexpected error during R2 upload: {e}")
+            raise HTTPException(status_code=500, detail="Erreur serveur lors de l'upload")
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+
+    # 3. SEULEMENT SI R2 confirmé (ou si R2 non configuré et fallback local OK) :
+    # Créer la row DB avec r2_key set
+    try:
+        track = Track(
+            user_id=current_user.id,
+            filename=filename,
+            original_filename=sanitize_filename(file.filename or filename),
+            file_path=file_path if not r2_key_final else None,  # Vider file_path si R2 est la source de vérité
+            file_size=total_size,
+            status=TrackStatus.pending,
+            cue_generation_mode=cue_mode,
+            stems_status='pending',
+            stems_progress=0,
+            cues_status='pending',
+            r2_key=r2_key_final,  # TOUJOURS set si R2 activé
+        )
+        db.add(track)
+        safe_commit(db, "post-upload track creation")
+        db.refresh(track)
+        logger.info(f"[UPLOAD] Track {track.id} created with r2_key={r2_key_final}")
+    except Exception as e:
+        logger.error(f"[UPLOAD] DB creation failed after R2 upload confirmed: {e}")
+        # Compensating action : supprimer l'objet R2 qu'on vient d'uploader
+        if r2_key_final:
+            try:
+                from app.services import r2_service
+                r2_service.delete_object(r2_key_final)
+                logger.info(f"[UPLOAD] Deleted R2 object {r2_key_final} (compensating action)")
+            except Exception as cleanup_err:
+                logger.warning(f"[UPLOAD] Failed to clean up R2 object {r2_key_final}: {cleanup_err}")
+        raise HTTPException(status_code=500, detail="Erreur création base de données — fichier non assuré")
+
+
+    # 🎯 2026-04-21 QA : déclenche l'analyse auto en background après l'upload.
+    # Avant : le track restait "pending" ad vitam, Kevin devait cliquer "Analyser"
+    # manuellement — cassait tout le flow suggest-cues / Mix Studio / Compatible.
+    # Maintenant : l'utilisateur upload, l'analyse démarre immédiatement, l'UI peut
+    # poller /tracks/{id} pour suivre la progression.
+    #
+    # 🔴 FIX #39 (2026-04-23): Délai de 3s avant l'analyse pour éviter la race
+    # condition avec l'upload R2 en background. Si R2 upload est retardé, cela
+    # donne du temps pour que le fichier soit disponible avant l'analyse.
+    if background_tasks:
+        try:
+            def _delayed_analysis(tid: int):
+                import time
+                time.sleep(3)
+                _run_analysis(tid)
+            background_tasks.add_task(_delayed_analysis, track.id)
+            logger.info(f"[UPLOAD] Auto-trigger _run_analysis for track {track.id} (delayed 3s)")
+        except Exception as e:
+            logger.warning(f"[UPLOAD] Failed to enqueue analysis for track {track.id}: {e}")
+
+    # PERF #1.4: invalidation cache listing (upload → nouveau track visible)
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
+
+    return TrackUploadResponse(
+        id=track.id,
+        status=track.status.value,
+        filename=track.filename,
+        original_filename=track.original_filename,
+    )
+
+
+# ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
+
+# Lossless formats that should be transcoded for web playback
+LOSSLESS_EXTENSIONS = {".flac", ".wav", ".aiff", ".aif"}
+
+# Transcoding strategies — try in order until one works.
+# OGG/Vorbis is best for Web Audio API decoding in browsers.
+# AAC/M4A is EXCLUDED because Chrome's decodeAudioData() hangs on large M4A blobs.
+# MP3 is the universal fallback — every browser decodes it perfectly.
+# NOTE: each strategy's extra_args must include its own bitrate/quality flag.
+_TRANSCODE_STRATEGIES = [
+    # (codec, ext, mime_type, extra_args)
+    ("libvorbis", ".ogg", "audio/ogg", ["-q:a", "6"]),            # best Web Audio compat
+    ("libopus", ".ogg", "audio/ogg", ["-b:a", "128k"]),           # good alternative
+    ("libmp3lame", ".mp3", "audio/mpeg", ["-q:a", "2"]),          # universal fallback
+]
+
+
+def _get_cache_path(original_path: str, ext: str) -> str:
+    """Return the path where the cached transcoded file should be stored.
+    Extension must come LAST so ffmpeg can detect the output format.
+    e.g. /app/uploads/uuid.transcoded.m4a (not uuid.m4a.cache)
+    """
+    base, _ = os.path.splitext(original_path)
+    return base + ".transcoded" + ext
+
+
+def _transcode_audio(src_path: str):
+    """Transcode audio using the first working codec. Returns (cache_path, mime_type) or (None, '')."""
+    src_exists = os.path.exists(src_path)
+    src_size = os.path.getsize(src_path) if src_exists else 0
+    logger.info("Transcode requested: %s (exists=%s, size=%dKB)", src_path, src_exists, src_size // 1024)
+
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        logger.error("ffmpeg not found in PATH!")
+        return None, ""
+
+    for codec, ext, mime_type, extra_args in _TRANSCODE_STRATEGIES:
+        dst_path = _get_cache_path(src_path, ext)
+        # If a cached version already exists, use it
+        if os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+            logger.info("Transcode cache hit: %s (%dKB)", dst_path, os.path.getsize(dst_path) // 1024)
+            return dst_path, mime_type
+        try:
+            dst_dir = os.path.dirname(dst_path)
+            if not os.access(dst_dir, os.W_OK):
+                logger.warning("Directory not writable: %s", dst_dir)
+                continue
+
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", src_path,
+                "-vn",              # no video
+                "-acodec", codec,
+                *extra_args,        # bitrate/quality per strategy
+                "-ar", "44100",     # standard sample rate
+                "-ac", "2",         # stereo
+                dst_path,
+            ]
+            logger.info("Running ffmpeg: %s → %s (codec=%s)", os.path.basename(src_path), ext, codec)
+            result = subprocess.run(cmd, capture_output=True, timeout=300)
+            if result.returncode == 0 and os.path.exists(dst_path) and os.path.getsize(dst_path) > 0:
+                dst_size = os.path.getsize(dst_path)
+                logger.info("Transcoded OK with %s: %dKB → %dKB (%.0f%% reduction)",
+                            codec, src_size // 1024, dst_size // 1024,
+                            (1 - dst_size / max(src_size, 1)) * 100)
+                return dst_path, mime_type
+            else:
+                err_tail = result.stderr[-500:] if result.stderr else b""
+                logger.warning("Codec %s failed (rc=%d): %s", codec, result.returncode, err_tail)
+                Path(dst_path).unlink(missing_ok=True)
+        except subprocess.TimeoutExpired:
+            logger.warning("Codec %s timed out (300s)", codec)
+            Path(dst_path).unlink(missing_ok=True)
+        except Exception as e:
+            logger.error("Transcode error with %s: %s", codec, e)
+
+    logger.error("All transcode strategies failed for %s", src_path)
+    return None, ""
+
+
+@router.get("/{track_id}/audio")
+def stream_audio(
+    track_id: int,
+    request: Request,
+    token: Optional[str] = Query(None),
+    format: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Stream audio file with byte-range support.
+    Accepts auth via Authorization header OR ?token= query param.
+    ?format=ogg → transcode lossless files (FLAC/WAV/AIFF) to OGG for fast web playback.
+
+    NOTE: sync def (not async) so subprocess.run doesn't block the event loop.
+    FastAPI runs sync endpoints in a threadpool automatically.
+    """
+    from app.services.auth_service import decode_access_token
+    from jose import JWTError
+
+    # Resolve token from query param OR Authorization header
+    raw_token = token
+    if not raw_token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            raw_token = auth_header[7:]
+
+    user = None
+    is_service_call = False
+    if raw_token:
+        # Service token pour Modal GPU (accès interne sans user)
+        _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
+        if _modal_token and raw_token == _modal_token:
+            is_service_call = True
+        else:
+            try:
+                payload = decode_access_token(raw_token)
+                if payload:
+                    user_id = payload.get("sub")
+                    if user_id:
+                        user = db.query(User).filter(User.id == int(user_id)).first()
+            except (JWTError, Exception):
+                pass
+
+    if not user and not is_service_call:
+        raise HTTPException(status_code=403, detail="Invalid or missing token")
+
+    if is_service_call:
+        track = db.query(Track).filter(Track.id == track_id).first()
+    else:
+        track = db.query(Track).filter(
+            Track.id == track_id,
+            Track.user_id == user.id,
+        ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # 🔴 FIX (faille 5) : Validation path traversal — le chemin doit rester dans UPLOAD_DIR
+    safe = storage_svc.safe_path(track.file_path) if track.file_path else None
+
+    # ── R2 fallback (cache local ephémère) ──────────────────────────────────
+    # Post-migration R2 (2026-04-21) : les fichiers existants sont sur R2 mais
+    # plus sur le disque Railway. Stratégie : si r2_key set et fichier local
+    # absent, télécharger de R2 vers UPLOAD_DIR (cache local ephémère) puis
+    # servir via FileResponse normal. Évite les problèmes CORS d'un redirect
+    # cross-origin vers R2 (pas de config CORS sur le bucket) et réutilise
+    # la logique Range existante. Le cache est local au container → repeuplé
+    # après chaque redémarrage, mais les re-downloads sont rares (listen session).
+    if (not safe or not os.path.exists(safe)) and getattr(track, "r2_key", None):
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                # Cible : UPLOAD_DIR/<r2_key> (basename UUID.ext)
+                upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+                os.makedirs(upload_dir, exist_ok=True)
+                cache_path = os.path.join(upload_dir, track.r2_key)
+                if not os.path.exists(cache_path):
+                    logger.info("Audio cache miss track=%d, downloading from R2 key=%s", track_id, track.r2_key)
+                    r2_service.download_file(track.r2_key, cache_path)
+                # Refresh safe path post-cache
+                safe = storage_svc.safe_path(cache_path)
+        except Exception as e:
+            logger.error("R2 cache download failed for track %d: %s", track_id, e)
+            # Fall through to 404 below
+
+    if not safe or not os.path.exists(safe):
+        raise HTTPException(status_code=404, detail="Audio file not found on disk")
+
+    ext = os.path.splitext(safe)[1].lower()
+    serve_path = safe  # default: serve the original file
+
+    # ── Transcoding for lossless formats (FLAC/WAV/AIFF → AAC/OGG) ──
+    # Reduces download from ~50-100 MB to ~5-10 MB for web playback
+    logger.info("Audio request: track=%d, format=%s, ext=%s", track_id, format, ext)
+    if format == "ogg" and ext in LOSSLESS_EXTENSIONS:
+        logger.info("Transcoding lossless → compressed for track %d (%s)", track_id, ext)
+        transcode_path, transcode_mime = _transcode_audio(safe)
+        if transcode_path:
+            serve_path = transcode_path
+            content_type = transcode_mime
+            file_size = os.path.getsize(serve_path)
+        else:
+            logger.warning(f"All transcodes failed for track {track_id}, serving original {ext}")
+            content_type = MIME_TYPES.get(ext, "application/octet-stream")
+            file_size = os.path.getsize(safe)
+    else:
+        content_type = MIME_TYPES.get(ext, "application/octet-stream")
+        file_size = os.path.getsize(safe)
+
+    # Range support pour Chrome <audio> / seek / progressive loading.
+    # Stratégie : parser Range à la main et renvoyer uniquement le chunk demandé
+    # (NE PAS renvoyer tout le fichier avec status 206 quand bytes=0- est demandé,
+    # car Chrome media pipeline se bloque parfois à attendre TCP FIN sur long stream).
+    range_header = request.headers.get("Range")
+    if range_header:
+        try:
+            range_val = range_header.strip().lower().replace("bytes=", "")
+            start_str, end_str = range_val.split("-", 1)
+            start = int(start_str) if start_str else 0
+            # Si bytes=0- (Chrome probe), on limite le chunk initial à 1 MB max pour
+            # permettre au media pipeline de recevoir rapidement les premiers bytes.
+            if not end_str:
+                end = min(start + (1024 * 1024) - 1, file_size - 1)
+            else:
+                end = min(int(end_str), file_size - 1)
+            if start > end or start >= file_size:
+                raise ValueError("invalid range")
+            chunk_size = end - start + 1
+
+            def iter_chunk(path: str, s: int, length: int):
+                with open(path, "rb") as f:
+                    f.seek(s)
+                    remaining = length
+                    while remaining > 0:
+                        data = f.read(min(65536, remaining))
+                        if not data:
+                            break
+                        remaining -= len(data)
+                        yield data
+
+            return StreamingResponse(
+                iter_chunk(serve_path, start, chunk_size),
+                status_code=206,
+                media_type=content_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Content-Length": str(chunk_size),
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "public, max-age=3600",
+                },
+            )
+        except Exception as e:
+            logger.warning("Range parse failed for track %d: %s — serving full file", track_id, e)
+            # Fall through to full file response
+
+    # Requête complète : FileResponse (Starlette gère automatiquement les headers ETag/Last-Modified)
+    return FileResponse(
+        path=serve_path,
+        media_type=content_type,
+        filename=getattr(track, "original_filename", None),
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
+
+
+# ── Analyze ──────────────────────────────────────────────────────────────────
+
+# Colonnes de TrackAnalysis à cloner quand on détecte un jumeau via fingerprint.
+# Exclut id, track_id, analyzed_at (nouvelles valeurs pour la ligne clonée).
+_TWIN_ANALYSIS_FIELDS = [
+    "bpm", "bpm_confidence", "key", "energy", "duration_ms",
+    "drop_positions", "phrase_positions", "beat_positions", "section_labels",
+    "waveform_peaks", "waveform_url", "spectral_energy",
+    "beatgrid", "downbeat_ms", "time_signature",
+    "key_confidence", "loudness_db", "loudness_lufs", "loudness_range_lu",
+    "replay_gain_db", "bpm_map", "bpm_stable", "key_secondary",
+    "vocal_percentage", "mood", "danceability",
+    "stereo_width", "mono_compatibility", "stereo_balance", "stereo_width_label",
+    "spectral_centroid_mean", "brightness_label", "bpm_advanced",
+    "has_clipping", "clipping_ratio", "has_dc_offset", "dc_offset_mean",
+    "true_peak_db", "true_peak_value",
+    "structural_summary",
+    "encoding_quality", "estimated_bitrate_kbps", "is_upscaled",
+    "spectral_rolloff_hz", "spectral_contrast_mean",
+    "audio_quality_score", "audio_quality_grade", "audio_quality_breakdown",
+    "accent_points",
+    "rhythm_summary", "spectral_summary", "dj_mix_recommendations",
+    "quality_extended",
+    "sub_bass_quality", "sub_bass_clarity",
+    "loudness_war_detected", "loudness_war_severity", "compression_score",
+    "groove_swing", "syncopation_index", "rhythmic_complexity",
+    "offbeat_energy_ratio", "beat_strength_mean",
+    "harmonic_summary", "vocal_analysis", "production_analysis",
+    "mixing_compatibility",
+    "section_deep_analysis", "loudness_deep_analysis", "key_deep_analysis",
+]
+
+
+def _clone_analysis_from_twin(
+    db: Session,
+    track: Track,
+    twin: Track,
+    twin_analysis: TrackAnalysis,
+):
+    """
+    Piste 3 speedup — clone les résultats d'analyse d'un track jumeau
+    (même fingerprint audio) au lieu de re-tourner le pipeline complet.
+
+    Clone :
+    - TrackAnalysis (tous les champs techniques)
+    - CuePoint (positions, types, couleurs…)
+    - LoopMarker (boucles auto-détectées)
+
+    Ne clone PAS :
+    - Les métadonnées musicales (title/artist/album) car elles viennent
+      du fichier uploadé (ID3 tags) et peuvent différer entre jumeaux
+    - Le genre auto : on le recopie via track.genre uniquement si vide
+
+    Met aussi status=completed + crée une notification.
+    """
+    from app.models.track import LoopMarker
+
+    # Clone TrackAnalysis
+    new_analysis = TrackAnalysis(track_id=track.id)
+    for field in _TWIN_ANALYSIS_FIELDS:
+        try:
+            setattr(new_analysis, field, getattr(twin_analysis, field, None))
+        except Exception:
+            pass
+    db.add(new_analysis)
+    db.flush()
+
+    # Clone cue points
+    twin_cues = db.query(CuePoint).filter(CuePoint.track_id == twin.id).all()
+    for tc in twin_cues:
+        cue = CuePoint(
+            track_id=track.id,
+            position_ms=tc.position_ms,
+            end_position_ms=tc.end_position_ms,
+            cue_type=tc.cue_type,
+            name=tc.name,
+            color=tc.color,
+            number=tc.number,
+            confidence=tc.confidence,
+        )
+        db.add(cue)
+
+    # Clone loop markers
+    twin_loops = db.query(LoopMarker).filter(LoopMarker.track_id == twin.id).all()
+    for tl in twin_loops:
+        loop = LoopMarker(
+            track_id=track.id,
+            start_ms=tl.start_ms,
+            end_ms=tl.end_ms,
+            name=tl.name,
+            color=tl.color,
+            number=tl.number,
+            length_beats=tl.length_beats,
+            auto_generated=tl.auto_generated,
+        )
+        db.add(loop)
+
+    # Hériter du genre si pas déjà défini sur le nouveau track
+    if twin.genre and not track.genre:
+        track.genre = twin.genre
+
+    # Marquer complété
+    track.status = TrackStatus.completed
+    safe_commit(db)
+
+    # Notification
+    try:
+        notif = Notification(
+            user_id=track.user_id,
+            type="analysis_complete",
+            title="Analyse terminée",
+            message=f"L'analyse de « {track.title or track.original_filename} » est terminée.",
+            link=f"/dashboard?track={track.id}",
+        )
+        db.add(notif)
+        safe_commit(db)
+    except Exception as e:
+        logger.warning(f"[FP-CLONE] Notification failed: {e}")
+
+    logger.info(
+        f"[FP-CLONE] Cloned analysis from twin {twin.id} → track {track.id} "
+        f"({len(twin_cues)} cues, {len(twin_loops)} loops)"
+    )
+
+
+def _run_analysis(track_id: int):
+    """Background task: run audio analysis + metadata lookup.
+
+    OPT #1: TRANSACTIONS COURTES
+    - Fetch user pref + file path (session courte)
+    - Fermer session avant analyse (30-120s sans DB ouverte)
+    - Rouvrir session UNIQUEMENT pour commit final (quelques ms)
+    """
+    import traceback as _tb
+    import sys as _sys
+    from app.database import SessionLocal
+
+    def _log(msg):
+        """Force-flush log to ensure it appears in Railway logs."""
+        logger.info(msg)
+        print(msg, flush=True, file=_sys.stderr)
+
+    _log(f"[ANALYSIS] ════ START track {track_id} ════")
+
+    # ── Helper: décrémenter le quota concurrent ──
+    def _release_quota(uid):
+        if uid is None:
+            return
+        try:
+            from app.services.quota_service import get_quota_service
+            qs = get_quota_service()
+            qs.record_analysis_complete(uid)
+            _log(f"[ANALYSIS] Quota concurrent decremented for user {uid}")
+        except Exception as qe:
+            logger.warning(f"[ANALYSIS] Failed to decrement quota: {qe}")
+
+    _quota_user_id = None  # sera set quand on connaît le user_id
+
+    # ─ PHASE 1 : Fetch initial track state (session courte) ─
+    db = SessionLocal()
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
+    try:
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
+        if not track:
+            _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
+            _release_quota(_quota_user_id)
+            return
+
+        file_path = track.file_path
+        user_id = track.user_id
+        _quota_user_id = user_id
+        
+        # Mettre à jour le logger avec user_id maintenant qu'on l'a
+        slog.user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
+        _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
+
+        # Reconstruct file_path from filename if missing
+        if not file_path and track.filename:
+            from app.services.storage import UPLOAD_DIR
+            reconstructed = os.path.join(UPLOAD_DIR, track.filename)
+            if os.path.exists(reconstructed):
+                file_path = reconstructed
+                track.file_path = file_path
+                _log(f"[ANALYSIS] Reconstructed file_path from filename: {file_path}")
+
+        if not file_path or not os.path.exists(file_path):
+            _log(f"[ANALYSIS] File missing on disk: {file_path}")
+            
+            # ÉTAPE 2 (B) : tentative de récupération depuis R2
+            recovered = False
+            try:
+                from app.services import r2_service
+                if r2_service.enabled() and file_path:
+                    r2_key = r2_service.key_from_local_path(file_path)
+                    if r2_service.object_exists(r2_key):
+                        _log(f"[ANALYSIS] Récupération R2 du fichier {r2_key}...")
+                        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                        r2_service.download_file(r2_key, file_path)
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
+                            _log(f"[ANALYSIS] ✓ Fichier récupéré depuis R2 ({os.path.getsize(file_path)} bytes)")
+                            recovered = True
+                        else:
+                            _log(f"[ANALYSIS] R2 download produit fichier invalide")
+                    else:
+                        _log(f"[ANALYSIS] Fichier absent de R2 aussi (key={r2_key})")
+                else:
+                    _log(f"[ANALYSIS] R2 non configuré ou file_path vide, skip récupération")
+            except Exception as r2_err:
+                _log(f"[ANALYSIS] Récupération R2 échouée: {r2_err}")
+            
+            if not recovered:
+                mark_track_as_failed(db, track_id, "Fichier audio introuvable (disque + R2 absents)", "analysis")
+                _release_quota(_quota_user_id)
+                return
+
+        _log(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
+
+        # ÉTAPE 2 (D) : skip si déjà analysé et inchangé
+        existing_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        if existing_analysis and track.status == TrackStatus.completed and track.file_md5:
+            current_md5 = None
+            try:
+                import hashlib
+                h = hashlib.md5()
+                with open(file_path, "rb") as f:
+                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                        h.update(chunk)
+                current_md5 = h.hexdigest()
+            except Exception as e:
+                logger.warning(f"[ANALYSIS] MD5 recompute failed: {e}")
+            
+            if current_md5 and current_md5 == track.file_md5:
+                _log(f"[ANALYSIS] ⚡ Track {track_id} déjà analysé + fichier inchangé (MD5={current_md5[:8]}…) → skip complet")
+                try:
+                    from app.services.cache_service import clear_analysis_progress
+                    clear_analysis_progress(track_id)
+                except Exception:
+                    pass
+                _release_quota(_quota_user_id)
+                return
+            elif current_md5:
+                _log(f"[ANALYSIS] Fichier modifié (MD5 {track.file_md5[:8]}… → {current_md5[:8]}…), réanalyse complète")
+                track.file_md5 = current_md5
+
+        # Cleanup + set status — delete cue history first to avoid FK violation
+        from app.models.track import CueHistory
+        try:
+            existing_cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
+            if existing_cues:
+                cue_ids = [c.id for c in existing_cues]
+                db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session='fetch')
+                db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
+                _log(f"[ANALYSIS] Cleaned {len(cue_ids)} old cue points + history")
+        except Exception as e:
+            logger.warning(f"[ANALYSIS] Cue cleanup error (non-fatal): {e}")
+            db.rollback()
+
+        old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
+        if old_analysis:
+            db.delete(old_analysis)
+            _log(f"[ANALYSIS] Deleted old analysis")
+
+        track.status = TrackStatus.analyzing
+        safe_commit(db)
+        _log(f"[ANALYSIS] Phase 1 done — status set to analyzing")
+        
+        # ÉTAPE 2 (E) : fin de phase init
+        slog.phase_end("init", status="ok", file_size=os.path.getsize(file_path) if file_path and os.path.exists(file_path) else None)
 
         # ─ PHASE 1.5 (piste 3) : fingerprint audio + lookup jumeau ─
         # Calcule un SHA1 des 30 premières secondes décodées. Si un track
@@ -926,6 +2046,8 @@ def _run_analysis(track_id: int):
         _release_quota(_quota_user_id)
         return
     finally:
+        with _active_analyses_lock:
+            _active_analyses.discard(track_id)
         db.close()
 
     # Si un jumeau a été trouvé (piste 3), on skip tout le pipeline d'analyse.
@@ -973,8 +2095,28 @@ def _run_analysis(track_id: int):
     # profiter des sections/drops.
     _log(f"[ANALYSIS] Phase 3 — committing INSTANT results for track {track_id}...")
     db = SessionLocal()
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
     try:
-        track = db.query(Track).filter(Track.id == track_id).first()
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
         if not track:
             _log(f"[ANALYSIS] Phase 3: track {track_id} disappeared from DB!")
             return
@@ -1176,8 +2318,28 @@ def _run_primary_complete_background(
 
     # ─ Merge dans TrackAnalysis existant ─
     db = SessionLocal()
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
     try:
-        track = db.query(Track).filter(Track.id == track_id).first()
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
         analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
         if not track or not analysis:
             _log(f"[PRIMARY-COMPLETE] track/analysis missing for track {track_id}")
@@ -1555,8 +2717,28 @@ def _run_cues_generation(track_id: int, use_stems_data: bool = False, replace_ex
     logger.info(f"[CUES] ── START track {track_id} (use_stems={use_stems_data}, replace={replace_existing}) ──")
 
     db = SessionLocal()
+    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
+    with _active_analyses_lock:
+        if track_id in _active_analyses:
+            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
+            _release_quota(_quota_user_id)
+            return
+        _active_analyses.add(track_id)
+    
     try:
-        track = db.query(Track).filter(Track.id == track_id).first()
+        # ÉTAPE 2 (E) : Logger structuré
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
+        
+        # ÉTAPE 2 (A) : Retry DB intelligent
+        db = _db_with_retry(lambda: SessionLocal())
+        
+        # ÉTAPE 2 (A): Fetch avec retry
+        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
+        
+        # Maintenant qu'on a le track
+        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
+        slog.phase_start("init")
         if not track:
             logger.warning(f"[CUES] track {track_id} introuvable")
             return
