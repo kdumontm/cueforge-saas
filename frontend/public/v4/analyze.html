@@ -37,6 +37,8 @@
   .rail-tabs button.active{color:var(--c-primary);border-color:var(--amber)}
   .rail-list{flex:1;overflow-y:auto;margin:0 -6px;padding:0 6px;display:flex;flex-direction:column;gap:4px}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .reveal{animation:fadeIn .3s ease-out forwards}
   .rail-item{
     display:grid;grid-template-columns:32px 1fr 28px;gap:10px;align-items:center;
     padding:8px;border-radius:8px;cursor:pointer;
@@ -56,8 +58,8 @@
 
   /* Track hero (compact) */
   .thero{
-    display:grid;grid-template-columns:72px 1fr auto;gap:14px;align-items:center;
-    padding:12px 14px;border-radius:14px;
+    display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;
+    padding:10px 12px;border-radius:12px;
     background:linear-gradient(180deg,var(--s-2) 0%,var(--s-1) 100%);
     border:1px solid var(--b-default);
     box-shadow:var(--e-2);
@@ -69,7 +71,7 @@
     pointer-events:none;
   }
   .thero-cover{
-    width:72px;height:72px;border-radius:10px;
+    width:56px;height:56px;border-radius:8px;
     background:
       radial-gradient(at 30% 30%, rgba(255,255,255,.15), transparent 40%),
       linear-gradient(135deg,var(--pink) 0%,var(--amber) 60%,var(--violet) 100%);
@@ -85,7 +87,7 @@
   .thero-main{display:flex;flex-direction:column;gap:6px;min-width:0;position:relative;z-index:1}
   .thero-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--c-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .thero-eyebrow .sep{margin:0 6px;color:var(--c-quaternary)}
-  .thero-title{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em;line-height:1.1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thero-title{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-0.01em;line-height:1.1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .thero-title .editorial{color:var(--c-secondary);font-weight:400;font-size:16px;margin-left:6px}
   .thero-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
   .stat-chip{
@@ -392,11 +394,13 @@
   .cue-item:hover{background:var(--s-2)}
   .cue-item.selected{background:var(--s-2);border-left-color:currentColor}
   .cue-item .tip{
-    width:22px;height:22px;border-radius:5px;
+    width:24px;height:24px;border-radius:6px;
     background:currentColor;color:#050406;
-    font-family:var(--font-mono);font-size:10px;font-weight:600;
+    font-family:var(--font-mono);font-size:11px;font-weight:700;
     display:inline-flex;align-items:center;justify-content:center;
-    box-shadow:0 1px 4px rgba(0,0,0,.2);
+    box-shadow:0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.2);
+    border:1px solid rgba(0,0,0,.15);
+    flex-shrink:0;
   }
   .cue-item .info{min-width:0}
   .cue-item .info .nm{font-family:var(--font-display);font-size:12.5px;font-weight:500;color:var(--c-primary)}
@@ -511,8 +515,8 @@
     </div>
     <div class="segment" id="mode-segment">
       <!-- 🔴 2026-04-22 : retiré "Mix" — déjà une page dédiée /mix-studio (cf. Kevin) -->
-      <button class="active" data-mode="analyze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze<span class="kbd">1</span></button>
-      <button data-mode="compare"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare<span class="kbd">2</span></button>
+      <button class="active" data-mode="analyze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h3l3-9 4 18 3-9h5"/></svg> Analyze</button>
+      <button data-mode="compare"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> Compare</button>
     </div>
   </div>
 
