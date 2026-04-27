@@ -205,37 +205,55 @@ async def upload_track(
         r2_key_final = None
         try:
             from app.services import r2_service
+
+            # 🔴 DIAGNOSTIC LOGS (Dev HH, 2026-04-27)
+            logger.info(f"[UPLOAD-DIAG] Starting upload for {filename}")
+            logger.info(f"[UPLOAD-DIAG] r2_service module: {r2_service}")
+            logger.info(f"[UPLOAD-DIAG] r2_service.enabled() value: {r2_service.enabled()}")
+
+            # Vérifier la config R2
+            cfg = r2_service._cfg()
+            logger.info(f"[UPLOAD-DIAG] R2 config: account_id={bool(cfg['account_id'])}, access_key={bool(cfg['access_key'])}, secret_key={bool(cfg['secret_key'])}, bucket={cfg['bucket']}")
+
             if r2_service.enabled():
+                logger.info(f"[UPLOAD-DIAG] R2 is ENABLED, proceeding with upload")
                 # Retry logic : 3 tentatives avec backoff exponential
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
-                        logger.info(f"[UPLOAD] Attempting R2 upload (attempt {attempt + 1}/{max_retries}): {filename}")
+                        logger.info(f"[UPLOAD-DIAG] Attempting R2 upload (attempt {attempt + 1}/{max_retries}): {filename}")
                         r2_service.upload_file(file_path, filename)
+                        logger.info(f"[UPLOAD-DIAG] R2 upload_file() completed without exception")
 
                         # Verify R2 upload with HEAD
-                        if r2_service.object_exists(filename):
+                        exists = r2_service.object_exists(filename)
+                        logger.info(f"[UPLOAD-DIAG] R2 object_exists() returned: {exists}")
+                        if exists:
                             r2_key_final = filename
-                            logger.info(f"[UPLOAD] R2 upload verified: {filename}")
+                            logger.info(f"[UPLOAD-DIAG] ✅ R2 upload verified and r2_key_final set to: {r2_key_final}")
                             break
                         else:
-                            logger.warning(f"[UPLOAD] R2 verification failed, retrying...")
+                            logger.warning(f"[UPLOAD-DIAG] R2 verification failed (object_exists returned False), retrying...")
                     except Exception as e:
-                        logger.warning(f"[UPLOAD] R2 upload failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        logger.warning(f"[UPLOAD-DIAG] R2 upload failed (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}")
                         if attempt < max_retries - 1:
                             import time
                             time.sleep(2 ** attempt)  # backoff: 1s, 2s, 4s
                         elif attempt == max_retries - 1:
                             # Dernière tentative échouée
-                            logger.error(f"[UPLOAD] R2 upload failed after {max_retries} attempts for {filename}")
+                            logger.error(f"[UPLOAD-DIAG] R2 upload failed after {max_retries} attempts for {filename}")
                             raise HTTPException(
                                 status_code=500,
                                 detail="Impossible d'uploader le fichier — merci de réessayer"
                             )
+            else:
+                logger.info(f"[UPLOAD-DIAG] R2 is NOT ENABLED (enabled() returned False), skipping R2 upload")
+
         except HTTPException:
+            logger.info(f"[UPLOAD-DIAG] HTTPException raised, re-raising")
             raise
         except Exception as e:
-            logger.error(f"[UPLOAD] Unexpected error during R2 upload: {e}")
+            logger.error(f"[UPLOAD-DIAG] Unexpected error during R2 upload: {type(e).__name__}: {e}")
             raise HTTPException(status_code=500, detail="Erreur serveur lors de l'upload")
     finally:
         if temp_path and os.path.exists(temp_path):
