@@ -671,9 +671,12 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Periodic storage cleanup init failed (non-blocking): {e}")
 
     
-    # PERF 2026-04-27: Pre-warm audio models in background (eliminate cold start 5-8s)
+    # PERF 2026-04-27: Pre-warm beat_this only (Demucs trop lourd en RAM Railway, lazy-load)
+    # HOTFIX 2026-04-27: pre-warm Demucs au boot causait OOM Railway (htdemucs ~1.5GB).
+    # Demucs reste lazy-load à la 1ère analyse stems. beat_this (~80MB) OK.
+    # Réactivable via env var CUEFORGE_PREWARM_DEMUCS=1 si RAM dispo (>2GB).
     def _prewarm_audio_models():
-        """Pre-load beat_this and htdemucs models without blocking startup."""
+        """Pre-load beat_this only at startup. Demucs lazy-load to avoid OOM."""
         try:
             from app.services.audio_analysis import _get_beat_this_model, _get_beat_this_audio_model
             _get_beat_this_model()
@@ -681,14 +684,17 @@ async def lifespan(app: FastAPI):
             logger.info("[STARTUP] beat_this models pre-warmed")
         except Exception as e:
             logger.warning(f"[STARTUP] beat_this prewarm failed: {e}")
-        
-        try:
-            from demucs.pretrained import get_model
-            get_model("htdemucs")
-            logger.info("[STARTUP] htdemucs pre-warmed")
-        except Exception as e:
-            logger.warning(f"[STARTUP] demucs prewarm failed: {e}")
-    
+
+        if os.environ.get("CUEFORGE_PREWARM_DEMUCS") == "1":
+            try:
+                from demucs.pretrained import get_model
+                get_model("htdemucs")
+                logger.info("[STARTUP] htdemucs pre-warmed")
+            except Exception as e:
+                logger.warning(f"[STARTUP] demucs prewarm failed: {e}")
+        else:
+            logger.info("[STARTUP] htdemucs prewarm skipped (set CUEFORGE_PREWARM_DEMUCS=1 pour activer)")
+
     import threading
     prewarm_thread = threading.Thread(
         target=_prewarm_audio_models,
