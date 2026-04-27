@@ -875,6 +875,86 @@ async def r2_status(_: None = Depends(_require_key)):
         return {"error": "r2_status failed", "detail": str(e), "traceback": traceback.format_exc()}
 
 
+@router.get("/diagnostics/r2-config")
+async def r2_config_check(_: None = Depends(_require_key)):
+    """
+    Diagnostic détaillé de la configuration R2.
+
+    Vérifie la présence de chaque env var R2 (sans en révéler la valeur),
+    teste l'initialisation du client boto3, et tente un HEAD bucket.
+
+    Retourne :
+    - r2_enabled: bool, basé sur la présence des 4 env vars requises
+    - env_vars: dict {var_name: {present: bool, length: int or null}}
+    - boto3_init: {success: bool, error: str or null}
+    - head_bucket_test: {success: bool, endpoint: str, bucket: str, error: str or null}
+    """
+    import traceback
+    try:
+        from app.services import r2_service
+
+        # 1. Vérifier les env vars sans révéler les valeurs
+        env_vars_config = {
+            "R2_ACCOUNT_ID": {"present": bool(os.getenv("R2_ACCOUNT_ID")), "length": len(os.getenv("R2_ACCOUNT_ID", "")) if os.getenv("R2_ACCOUNT_ID") else None},
+            "R2_ACCESS_KEY_ID": {"present": bool(os.getenv("R2_ACCESS_KEY_ID")), "length": len(os.getenv("R2_ACCESS_KEY_ID", "")) if os.getenv("R2_ACCESS_KEY_ID") else None},
+            "R2_SECRET_ACCESS_KEY": {"present": bool(os.getenv("R2_SECRET_ACCESS_KEY")), "length": len(os.getenv("R2_SECRET_ACCESS_KEY", "")) if os.getenv("R2_SECRET_ACCESS_KEY") else None},
+            "R2_BUCKET": {"present": bool(os.getenv("R2_BUCKET")), "value": os.getenv("R2_BUCKET") if os.getenv("R2_BUCKET") else None},  # bucket name is not sensitive
+        }
+
+        # 2. État du service : r2_service.enabled()
+        r2_enabled = r2_service.enabled()
+
+        # 3. Tenter d'initialiser le client boto3
+        boto3_init = {"success": False, "error": None}
+        try:
+            if r2_enabled:
+                client = r2_service._client()
+                boto3_init["success"] = True
+            else:
+                boto3_init["success"] = False
+                boto3_init["error"] = "R2 disabled: missing required env vars"
+        except Exception as e:
+            boto3_init["success"] = False
+            boto3_init["error"] = str(e)
+
+        # 4. Tenter HEAD bucket pour valider la connexion
+        head_bucket_test = {"success": False, "endpoint": None, "bucket": None, "error": None}
+        try:
+            if r2_enabled:
+                info = r2_service.healthcheck()
+                if info.get("ok"):
+                    head_bucket_test["success"] = True
+                    head_bucket_test["endpoint"] = info.get("endpoint")
+                    head_bucket_test["bucket"] = info.get("bucket")
+                else:
+                    head_bucket_test["success"] = False
+                    head_bucket_test["endpoint"] = info.get("endpoint")
+                    head_bucket_test["bucket"] = info.get("bucket")
+                    head_bucket_test["error"] = info.get("error", "Unknown error")
+            else:
+                head_bucket_test["error"] = "R2 disabled"
+        except Exception as e:
+            head_bucket_test["error"] = str(e)
+
+        return {
+            "r2_enabled": r2_enabled,
+            "env_vars": env_vars_config,
+            "boto3_init": boto3_init,
+            "head_bucket_test": head_bucket_test,
+            "summary": {
+                "all_env_vars_present": all(v["present"] for v in env_vars_config.values()),
+                "client_ready": boto3_init["success"],
+                "bucket_accessible": head_bucket_test["success"],
+            }
+        }
+    except Exception as e:
+        return {
+            "error": "r2_config_check failed",
+            "detail": str(e),
+            "traceback": traceback.format_exc(),
+        }
+
+
 @router.post("/diagnostics/r2-migrate")
 async def r2_migrate(
     dry_run: bool = True,
