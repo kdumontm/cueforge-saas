@@ -1,5 +1,37 @@
 /* TrackCue V4 — shared interactions */
 
+// -------- Auto-update Service Worker (force reload quand nouvelle version dispo) --------
+// 🔴 2026-04-27 — Kevin se plaignait de ne pas voir les modifs après deploy parce que
+// le browser ne checke la nouvelle version du SW que toutes les 24h par défaut.
+// Solution :
+//   1. Au load : force le SW à check si une nouvelle version est dispo
+//   2. Poll toutes les 60s pendant la session
+//   3. Quand le nouveau SW prend le contrôle (controllerchange) → reload auto la page
+// Combiné avec sw.js qui fait skipWaiting() + clients.claim() → modifs visibles
+// immédiatement après chaque deploy, sans hard reload manuel.
+(function autoUpdateSW(){
+  if (!('serviceWorker' in navigator)) return;
+  let _refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if (_refreshing) return;
+    _refreshing = true;
+    window.location.reload();
+  });
+  function checkUpdate(){
+    navigator.serviceWorker.getRegistration()
+      .then(function(reg){ if (reg) reg.update(); })
+      .catch(function(){});
+  }
+  // Au load (avec delay pour pas bloquer le rendu initial)
+  setTimeout(checkUpdate, 1000);
+  // Polling pendant la session : check toutes les 60s
+  setInterval(checkUpdate, 60 * 1000);
+  // Aussi : check quand l'onglet redevient visible (focus)
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') checkUpdate();
+  });
+})();
+
 // -------- Layout editor loader (admin-only, toutes les pages) --------
 // Charge /v4/layout-editor.js en async pour permettre à Kevin de redimensionner /
 // cacher / réordonner les blocs de n'importe quelle page v4 (Ctrl+Shift+E ou ?edit=1).
