@@ -504,3 +504,403 @@
     );
   }
 })();
+
+/* ============================================================
+   BATCH 2 — 8 features premium runtime (2026-04-27)
+   A: Cmd+K palette · B: Spotlight · C: Scroll-hero ·
+   D: Theme wipe · E: Skeleton morph · F: Confetti BPM ·
+   G: Number scrub · H: Achievement toasts
+   ============================================================ */
+(function(){
+  'use strict';
+  if(window.__cfBatch2Loaded) return;
+  window.__cfBatch2Loaded = true;
+
+  var prefersReduced = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse = window.matchMedia &&
+    window.matchMedia('(pointer: coarse)').matches;
+
+  var CF = window.cfTransitions = window.cfTransitions || {};
+
+  /* ============================================================
+     A. Cmd+K Command Palette
+     ============================================================ */
+  var PAL_PAGES = [
+    { ttl:'Library',     ctx:'Toutes tes tracks',    href:'/v4/library.html',     icon:'🎵', kbd:'G L' },
+    { ttl:'Analyze',     ctx:'Détail track + cues',   href:'/v4/analyze.html',     icon:'🎧', kbd:'G A' },
+    { ttl:'Set Builder', ctx:'Construire un set',     href:'/v4/set-builder.html', icon:'💿', kbd:'G S' },
+    { ttl:'Mix Studio',  ctx:'Mashup MIK-style',      href:'/v4/mix-studio.html',  icon:'🎚️', kbd:'G M' },
+    { ttl:'Stats',       ctx:'Tes statistiques',      href:'/v4/stats.html',       icon:'📊', kbd:'G T' },
+    { ttl:'Settings',    ctx:'Préférences + thème',   href:'/v4/settings.html',    icon:'⚙️', kbd:'G P' },
+    { ttl:'Upload',      ctx:'Drop un fichier',       href:'/v4/upload.html',      icon:'⬆️', kbd:'⌘ U' },
+    { ttl:'Pricing',     ctx:'Plans & abonnement',    href:'/v4/pricing.html',     icon:'💎' },
+    { ttl:'Admin',       ctx:'Console admin',          href:'/v4/admin.html',       icon:'🛡️' },
+    { ttl:'Billing',     ctx:'Facturation',           href:'/v4/billing.html',     icon:'💳' },
+    { ttl:'Onboarding',  ctx:'Guide démarrage',       href:'/v4/onboarding.html',  icon:'🚀' }
+  ];
+  var PAL_ACTIONS = [
+    { ttl:'Switch theme',     ctx:'Dark / Light',     run:function(e){ CF.themeWipe(e); }, icon:'🌗', kbd:'⌘⇧T' },
+    { ttl:'Lancer une analyse', ctx:'Upload + analyse', href:'/v4/upload.html',  icon:'⚡' },
+    { ttl:'Achievement test',   ctx:'Demo toast',       run:function(){ CF.achievement('🎵','Test achievement','Cmd+K marche'); }, icon:'⭐' }
+  ];
+
+  var paletteEl = null, paletteInput = null, paletteList = null;
+  var palItems = [], palActive = 0;
+
+  function buildPalette(){
+    if(paletteEl) return;
+    paletteEl = document.createElement('div');
+    paletteEl.className = 'cf-palette-overlay';
+    paletteEl.innerHTML =
+      '<div class="cf-palette" onclick="event.stopPropagation()">' +
+        '<input class="cf-palette-input" placeholder="Cherche une page, une action…">' +
+        '<div class="cf-palette-list"></div>' +
+      '</div>';
+    document.body.appendChild(paletteEl);
+    paletteInput = paletteEl.querySelector('.cf-palette-input');
+    paletteList  = paletteEl.querySelector('.cf-palette-list');
+    paletteEl.addEventListener('click', function(e){ if(e.target===paletteEl) closePalette(); });
+    paletteInput.addEventListener('input', function(){ renderPalette(paletteInput.value); });
+  }
+
+  function renderPalette(q){
+    q = (q||'').toLowerCase().trim();
+    paletteList.innerHTML = '';
+    palItems = []; palActive = 0;
+
+    function section(name, list, icon){
+      var matches = list.filter(function(i){
+        return !q || i.ttl.toLowerCase().indexOf(q)>=0 || (i.ctx||'').toLowerCase().indexOf(q)>=0;
+      });
+      if(!matches.length) return;
+      var h = document.createElement('div'); h.className='cf-palette-section'; h.textContent=name;
+      paletteList.appendChild(h);
+      matches.forEach(function(i){
+        var el = document.createElement('div'); el.className='cf-palette-item';
+        el.innerHTML =
+          '<div class="ico">'+(i.icon||icon)+'</div>' +
+          '<div><div class="ttl"></div><div class="ctx"></div></div>' +
+          (i.kbd ? '<span class="kbd">'+i.kbd+'</span>' : '');
+        el.querySelector('.ttl').textContent = i.ttl;
+        el.querySelector('.ctx').textContent = i.ctx || '';
+        el.addEventListener('click', function(e){
+          if(i.run){ i.run(e); closePalette(); }
+          else if(i.href){ closePalette(); location.href = i.href; }
+        });
+        paletteList.appendChild(el);
+        palItems.push(el);
+      });
+    }
+    section('Pages',   PAL_PAGES,   '📄');
+    section('Actions', PAL_ACTIONS, '⚡');
+
+    if(!palItems.length){
+      paletteList.innerHTML = '<div style="padding:32px;text-align:center;color:var(--c-tertiary);font-size:13px">Aucun résultat pour "'+q+'"</div>';
+    } else {
+      palItems[0].classList.add('active');
+    }
+  }
+
+  function openPalette(){
+    buildPalette();
+    paletteEl.classList.add('open');
+    paletteInput.value=''; paletteInput.focus();
+    renderPalette('');
+  }
+  function closePalette(){
+    if(paletteEl) paletteEl.classList.remove('open');
+  }
+
+  document.addEventListener('keydown', function(e){
+    var key = (e.key||'').toLowerCase();
+    if((e.metaKey||e.ctrlKey) && key==='k'){
+      e.preventDefault();
+      paletteEl && paletteEl.classList.contains('open') ? closePalette() : openPalette();
+      return;
+    }
+    if(!paletteEl || !paletteEl.classList.contains('open')) return;
+    if(e.key==='Escape'){ closePalette(); return; }
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      e.preventDefault();
+      if(!palItems.length) return;
+      palItems[palActive] && palItems[palActive].classList.remove('active');
+      palActive = (palActive + (e.key==='ArrowDown'?1:-1) + palItems.length) % palItems.length;
+      palItems[palActive].classList.add('active');
+      palItems[palActive].scrollIntoView({block:'nearest'});
+      return;
+    }
+    if(e.key==='Enter' && palItems[palActive]){ palItems[palActive].click(); }
+  });
+
+  CF.openPalette = openPalette;
+  CF.closePalette = closePalette;
+  CF.addPaletteItem = function(item, section){
+    var bucket = section==='actions' ? PAL_ACTIONS : PAL_PAGES;
+    bucket.push(item);
+  };
+
+  /* ============================================================
+     B. Cursor spotlight
+     ============================================================ */
+  function bindSpot(host){
+    if(host.__cfSpot) return; host.__cfSpot = true;
+    host.classList.add('cf-spot-host');
+    host.addEventListener('mousemove', function(e){
+      var r = host.getBoundingClientRect();
+      host.style.setProperty('--cf-mx', (e.clientX - r.left) + 'px');
+      host.style.setProperty('--cf-my', (e.clientY - r.top) + 'px');
+      host.classList.add('cf-spot-active');
+    });
+    host.addEventListener('mouseleave', function(){
+      host.classList.remove('cf-spot-active');
+    });
+  }
+  function initSpot(){
+    if(prefersReduced || coarse) return;
+    document.querySelectorAll('.hero, [data-cf-spot]').forEach(bindSpot);
+  }
+
+  /* ============================================================
+     C. Scroll-driven hero (subtle)
+     ============================================================ */
+  function initScrollHero(){
+    if(prefersReduced) return;
+    var hero = document.querySelector('.hero');
+    if(!hero) return;
+    var h1 = hero.querySelector('h1');
+    var blobs = hero.querySelectorAll('.hero-blob, [data-cf-blob]');
+    if(!h1 && !blobs.length) return;
+    function onScroll(){
+      var r = hero.getBoundingClientRect();
+      // progress 0 (top of viewport) → 1 (bottom of hero leaves view)
+      var p = Math.max(0, Math.min(1, -r.top / Math.max(1, r.height)));
+      if(h1){
+        h1.style.transform = 'translateY(' + (p * -22) + 'px) scale(' + (1 - p*.04) + ')';
+        h1.style.opacity = String(1 - p*.5);
+      }
+      blobs.forEach(function(b, i){
+        var dir = i%2 ? -1 : 1;
+        b.style.transform = 'translate(' + (p*40*dir) + 'px,' + (p*-30) + 'px)';
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive:true });
+    onScroll();
+  }
+
+  /* ============================================================
+     D. Theme switch radial wipe
+     ============================================================ */
+  CF.themeWipe = function(eventOrXY, toTheme){
+    if(prefersReduced){
+      // Just toggle without animation
+      var cur = document.documentElement.dataset.theme;
+      document.documentElement.dataset.theme = toTheme || (cur==='light' ? '' : 'light');
+      return;
+    }
+    var x, y;
+    if(eventOrXY && eventOrXY.clientX != null){
+      x = eventOrXY.clientX; y = eventOrXY.clientY;
+    } else if(eventOrXY && eventOrXY.x != null){
+      x = eventOrXY.x; y = eventOrXY.y;
+    } else {
+      x = window.innerWidth/2; y = 50;
+    }
+    var overlay = document.createElement('div');
+    overlay.className = 'cf-wipe-overlay';
+    overlay.style.setProperty('--cf-wx', (x/window.innerWidth*100) + '%');
+    overlay.style.setProperty('--cf-wy', (y/window.innerHeight*100) + '%');
+    document.body.appendChild(overlay);
+    setTimeout(function(){
+      var cur = document.documentElement.dataset.theme;
+      document.documentElement.dataset.theme = toTheme || (cur==='light' ? '' : 'light');
+      try{ localStorage.setItem('cf_theme', document.documentElement.dataset.theme || 'dark'); }catch(e){}
+    }, 320);
+    setTimeout(function(){ overlay.remove(); }, 880);
+  };
+  // Auto-hook : intercept clicks on theme toggle buttons (any element with [data-theme-toggle])
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-theme-toggle], [data-cf-theme]');
+    if(!t) return;
+    e.preventDefault();
+    e.stopPropagation();
+    CF.themeWipe(e);
+  }, true);
+
+  /* ============================================================
+     E. Skeleton → content morph
+     ============================================================ */
+  CF.morphSkeleton = function(el, content){
+    if(!el) return;
+    if(prefersReduced){
+      if(typeof content === 'string') el.innerHTML = content;
+      else if(content instanceof Node){ el.innerHTML=''; el.appendChild(content); }
+      return;
+    }
+    el.classList.add('cf-morph-out');
+    setTimeout(function(){
+      el.classList.remove('cf-morph-out');
+      if(typeof content === 'string'){ el.innerHTML = content; }
+      else if(content instanceof Node){ el.innerHTML=''; el.appendChild(content); }
+      el.classList.add('cf-morph-in');
+      setTimeout(function(){ el.classList.remove('cf-morph-in'); }, 700);
+    }, 600);
+  };
+
+  /* ============================================================
+     F. Confetti BPM-synced
+     ============================================================ */
+  var CONF_COLORS = ['#ff7a18','#ff2e6b','#8b5cf6','#5ee0ff','#f4f1ec'];
+  CF.confetti = function(opts){
+    if(prefersReduced) return;
+    opts = opts || {};
+    var bpm = opts.bpm || 128;
+    var beats = opts.beats || 6;
+    var origin = opts.origin || null; // {x,y} ou null = centre haut
+    var scoped = opts.host || null;   // élément où injecter (sinon body)
+    var beatMs = 60000 / bpm;
+
+    var canvas = document.createElement('div');
+    canvas.className = 'cf-confetti-canvas' + (scoped ? ' scoped' : '');
+    if(scoped){
+      if(getComputedStyle(scoped).position === 'static') scoped.style.position = 'relative';
+      scoped.appendChild(canvas);
+    } else {
+      document.body.appendChild(canvas);
+    }
+    var rect = (scoped || document.body).getBoundingClientRect();
+    var cx = origin ? origin.x : rect.width/2;
+    var cy = origin ? origin.y : rect.height * 0.4;
+
+    var beat = 0;
+    function pop(){
+      if(beat++ >= beats){
+        setTimeout(function(){ canvas.remove(); }, 2400);
+        return;
+      }
+      var n = 14 + (beat===1 ? 6 : 0); // premier beat plus dense
+      for(var i=0;i<n;i++){
+        var p = document.createElement('div');
+        p.className = 'cf-confetti-piece';
+        p.style.left = (cx + (Math.random()-.5)*40) + 'px';
+        p.style.top  = cy + 'px';
+        p.style.background = CONF_COLORS[Math.floor(Math.random()*CONF_COLORS.length)];
+        p.style.setProperty('--cf-tx', ((Math.random()-.5)*420) + 'px');
+        p.style.setProperty('--cf-ty', (Math.random()*200 + 120) + 'px');
+        p.style.setProperty('--cf-tr', (Math.random()*720 - 360) + 'deg');
+        p.style.setProperty('--cf-dur', (1800 + Math.random()*900) + 'ms');
+        canvas.appendChild(p);
+        (function(node){ setTimeout(function(){ node.remove(); }, 2700); })(p);
+      }
+      setTimeout(pop, beatMs);
+    }
+    pop();
+  };
+
+  /* ============================================================
+     G. Number scrub on [data-cf-scrub] inputs
+     ============================================================ */
+  function bindScrub(el){
+    if(el.__cfScrub) return; el.__cfScrub = true;
+    el.classList.add('cf-scrub');
+    var min = parseFloat(el.dataset.cfMin || el.min || '0');
+    var max = parseFloat(el.dataset.cfMax || el.max || '999');
+    var step = parseFloat(el.dataset.cfStep || el.step || '1');
+    var decimals = parseInt(el.dataset.cfDecimals || ((step+'').split('.')[1]||'').length || '0', 10);
+    var dragging=false, startY=0, startVal=0;
+
+    el.addEventListener('pointerdown', function(e){
+      if(e.button !== 0) return;
+      dragging=true; startY=e.clientY;
+      startVal = parseFloat(el.value || el.textContent || '0') || 0;
+      el.classList.add('cf-scrubbing');
+      el.setPointerCapture && el.setPointerCapture(e.pointerId);
+      document.body.style.cursor='ns-resize';
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove', function(e){
+      if(!dragging) return;
+      var dy = startY - e.clientY;
+      var mult = e.shiftKey ? 5 : (e.altKey ? .25 : 1);
+      var v = startVal + (dy/4) * step * mult;
+      v = Math.max(min, Math.min(max, v));
+      v = Math.round(v/step) * step;
+      var formatted = v.toFixed(decimals);
+      if('value' in el) el.value = formatted;
+      else el.textContent = formatted;
+      el.dispatchEvent(new Event('input',{bubbles:true}));
+      el.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    function stop(){
+      dragging=false;
+      el.classList.remove('cf-scrubbing');
+      document.body.style.cursor='';
+    }
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointercancel', stop);
+  }
+  function initScrub(){
+    if(prefersReduced || coarse) return;
+    document.querySelectorAll('[data-cf-scrub]').forEach(bindScrub);
+  }
+  CF.scrub = bindScrub;
+
+  /* ============================================================
+     H. Achievement toasts
+     ============================================================ */
+  function ensureAchFeed(){
+    var feed = document.querySelector('.cf-ach-feed');
+    if(feed) return feed;
+    feed = document.createElement('div');
+    feed.className = 'cf-ach-feed';
+    document.body.appendChild(feed);
+    return feed;
+  }
+  CF.achievement = function(icon, title, ctx, opts){
+    opts = opts || {};
+    var feed = ensureAchFeed();
+    var t = document.createElement('div');
+    t.className = 'cf-ach';
+    t.innerHTML =
+      '<div class="badge"></div>' +
+      '<div><div class="ttl"></div><div class="ctx"></div></div>';
+    t.querySelector('.badge').textContent = icon || '⭐';
+    t.querySelector('.ttl').textContent = title || 'Achievement';
+    t.querySelector('.ctx').textContent = ctx || '';
+    feed.appendChild(t);
+
+    // Cap to 4 visible
+    while(feed.children.length > 4){
+      var old = feed.firstElementChild;
+      old.classList.add('leaving');
+      setTimeout(function(n){ return function(){ n.remove(); }; }(old), 300);
+    }
+    var dur = opts.duration || 5000;
+    setTimeout(function(){
+      if(t.parentNode){ t.classList.add('leaving'); setTimeout(function(){ t.remove(); }, 300); }
+    }, dur);
+    return t;
+  };
+
+  /* ============================================================
+     INIT
+     ============================================================ */
+  function initBatch2(){
+    initSpot();
+    initScrollHero();
+    initScrub();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initBatch2);
+  } else {
+    initBatch2();
+  }
+  // Re-scan on mutations (new spotlight hosts / scrub inputs injected later)
+  if('MutationObserver' in window){
+    var t;
+    new MutationObserver(function(){
+      clearTimeout(t);
+      t = setTimeout(function(){ initSpot(); initScrub(); }, 200);
+    }).observe(document.body || document.documentElement, { childList:true, subtree:true });
+  }
+})();
