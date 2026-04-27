@@ -1259,8 +1259,12 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
 
         # OPT #7: Cache-Control headers selon le type de requête
         if request.method in ("GET", "HEAD"):
+            # 🔴 2026-04-27 : HTML pages JAMAIS cachées browser-side. Sinon Kevin voit
+            # plus les modifs après deploy. Les assets versionnés (?v=) sont OK pour cache long.
+            if path.endswith(".html") or path == "/" or path.startswith("/v4/") and not any(path.endswith(ext) for ext in (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".otf", ".json")):
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             # Endpoints user-scoped mutables : pas de cache navigateur
-            if any(path.startswith(p) for p in self.NO_CACHE_PREFIXES):
+            elif any(path.startswith(p) for p in self.NO_CACHE_PREFIXES):
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             elif "/api/v1/tracks" in path or "/api/v1/cues" in path:
                 response.headers["Cache-Control"] = "private, max-age=60"
