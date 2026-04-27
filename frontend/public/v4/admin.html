@@ -6,9 +6,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Admin</title>
 <!-- PERF #2.1: preload critical JS en parallèle avec CSS -->
-<link rel="preload" href="/v4/api.js?v=20260427-fixbulkdel" as="script">
+<link rel="preload" href="/v4/api.js?v=20260427-onglets-clear" as="script">
 <link rel="preload" href="/v4/shared.js?v=20260427-autoupdate" as="script">
-<link rel="stylesheet" href="/v4/shared.css?v=20260427-fixbulkdel">
+<link rel="stylesheet" href="/v4/shared.css?v=20260427-onglets-clear">
 <style>
   body{background-image:var(--aurora-calm)}
 
@@ -762,9 +762,9 @@
             <div class="card-title">Feedback &amp; Notes admin</div>
             <div class="card-sub" id="fb-card-sub">Chargement…</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button type="button" id="fb-tab-user" class="plan-pill" data-scope="user" style="cursor:pointer;border:none;padding:6px 14px">💬 Users <span id="fb-count-user" style="opacity:.7">—</span></button>
-            <button type="button" id="fb-tab-admin" class="plan-pill" data-scope="admin" style="cursor:pointer;border:none;padding:6px 14px;opacity:.5">🛠️ Notes admin <span id="fb-count-admin" style="opacity:.7">—</span></button>
+          <div role="tablist" style="display:flex;gap:0;align-items:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:3px">
+            <button type="button" id="fb-tab-user" data-scope="user" role="tab" aria-selected="true" style="cursor:pointer;border:none;padding:8px 16px;border-radius:8px;background:var(--amber,#FF7A18);color:#000;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap">💬 Feedback users <span id="fb-count-user" style="opacity:.85;background:rgba(0,0,0,.18);padding:1px 7px;border-radius:10px;font-size:11px">—</span></button>
+            <button type="button" id="fb-tab-admin" data-scope="admin" role="tab" aria-selected="false" style="cursor:pointer;border:none;padding:8px 16px;border-radius:8px;background:transparent;color:var(--c-secondary,#aaa);font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap">🛠️ Notes admin <span id="fb-count-admin" style="opacity:.85;background:rgba(255,255,255,.08);padding:1px 7px;border-radius:10px;font-size:11px">—</span></button>
           </div>
         </div>
         <div class="tb-filters">
@@ -909,7 +909,7 @@
 
 </main>
 
-<script src="/v4/api.js?v=20260427-fixbulkdel"></script>
+<script src="/v4/api.js?v=20260427-onglets-clear"></script>
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
@@ -2042,8 +2042,19 @@
     const tabUser = document.getElementById('fb-tab-user');
     const tabAdmin = document.getElementById('fb-tab-admin');
     if(tabUser && tabAdmin){
-      tabUser.style.opacity = fbScope === 'user' ? '1' : '.5';
-      tabAdmin.style.opacity = fbScope === 'admin' ? '1' : '.5';
+      // Active tab = pill orange, inactif = transparent
+      const activeStyle = (el) => {
+        el.style.background = 'var(--amber, #FF7A18)';
+        el.style.color = '#000';
+        el.setAttribute('aria-selected', 'true');
+      };
+      const inactiveStyle = (el) => {
+        el.style.background = 'transparent';
+        el.style.color = 'var(--c-secondary, #aaa)';
+        el.setAttribute('aria-selected', 'false');
+      };
+      if (fbScope === 'user') { activeStyle(tabUser); inactiveStyle(tabAdmin); }
+      else { activeStyle(tabAdmin); inactiveStyle(tabUser); }
     }
     try {
       const r = await api.get(`/admin/feedbacks?scope=${encodeURIComponent(fbScope)}&limit=100`);
