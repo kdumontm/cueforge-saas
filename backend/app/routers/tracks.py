@@ -787,19 +787,12 @@ def _run_analysis(track_id: int):
         _active_analyses.add(track_id)
     
     try:
-        # ÉTAPE 2 (E) : Logger structuré
-        from app.services.structured_log import AnalysisLogger
-        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
-        
         # ÉTAPE 2 (A) : Retry DB intelligent
         db = _db_with_retry(lambda: SessionLocal())
         
         # ÉTAPE 2 (A): Fetch avec retry
         track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
         
-        # Maintenant qu'on a le track
-        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
-        slog.phase_start("init")
         if not track:
             _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
             _release_quota(_quota_user_id)
@@ -809,8 +802,11 @@ def _run_analysis(track_id: int):
         user_id = track.user_id
         _quota_user_id = user_id
         
-        # Mettre à jour le logger avec user_id maintenant qu'on l'a
-        slog.user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
+        # ÉTAPE 2 (E) : Logger structuré (maintenant qu'on a track + user_id)
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1
+        slog = AnalysisLogger(track_id=track_id, user_id=user_id, attempt=analysis_attempts)
+        slog.phase_start("init")  # pour record_analysis_complete dans finally (même type que current_user.id)
         _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
 
         # Reconstruct file_path from filename if missing
@@ -1772,19 +1768,12 @@ def _run_analysis(track_id: int):
         _active_analyses.add(track_id)
     
     try:
-        # ÉTAPE 2 (E) : Logger structuré
-        from app.services.structured_log import AnalysisLogger
-        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1 if 'track' in locals() else 1
-        
         # ÉTAPE 2 (A) : Retry DB intelligent
         db = _db_with_retry(lambda: SessionLocal())
         
         # ÉTAPE 2 (A): Fetch avec retry
         track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
         
-        # Maintenant qu'on a le track
-        slog = AnalysisLogger(track_id=track_id, user_id=None, attempt=analysis_attempts)
-        slog.phase_start("init")
         if not track:
             _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
             _release_quota(_quota_user_id)
@@ -1794,8 +1783,11 @@ def _run_analysis(track_id: int):
         user_id = track.user_id
         _quota_user_id = user_id
         
-        # Mettre à jour le logger avec user_id maintenant qu'on l'a
-        slog.user_id = user_id  # pour record_analysis_complete dans finally (même type que current_user.id)
+        # ÉTAPE 2 (E) : Logger structuré (maintenant qu'on a track + user_id)
+        from app.services.structured_log import AnalysisLogger
+        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1
+        slog = AnalysisLogger(track_id=track_id, user_id=user_id, attempt=analysis_attempts)
+        slog.phase_start("init")  # pour record_analysis_complete dans finally (même type que current_user.id)
         _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
 
         # Reconstruct file_path from filename if missing
