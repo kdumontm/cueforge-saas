@@ -1489,7 +1489,43 @@ def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
         _update(100, 'ready')
         logger.info(f"[STEMS] ════ COMPLETE track {track_id} ════")
 
-        # 4) Si mode pro : chaîner vers _run_cues_with_stems pour re-générer
+        # ─ Vague 5 : Vocal-aware cue 1 (premier vocal détecté) ─
+        try:
+            if os.environ.get("CUEFORGE_VOCAL_CUE", "1") == "1":
+                from app.services.stems_service import stems_dir_for_track
+                from app.services.cue_ai import find_first_vocal_ms
+                vocals_path = os.path.join(stems_dir_for_track(track_id), "vocals.mp3")
+                first_vocal_ms = find_first_vocal_ms(vocals_path)
+                if first_vocal_ms and first_vocal_ms > 1000:  # ignore les premiers 1s (artefacts)
+                    db = SessionLocal()
+                    try:
+                        # Insère un cue Hot 1 "Intro Vocal" si pas déjà présent
+                        existing_v = (
+                            db.query(CuePoint)
+                            .filter(CuePoint.track_id == track_id, CuePoint.cue_type == "intro")
+                            .first()
+                        )
+                        if not existing_v:
+                            new_cue = CuePoint(
+                                track_id=track_id,
+                                position_ms=first_vocal_ms,
+                                cue_type="intro",
+                                name="Intro Vocal",
+                                color="green",
+                                number=1,
+                                confidence=0.85,
+                            )
+                            db.add(new_cue)
+                            db.commit()
+                            logger.info(f"[STEMS][vocal-cue] cue intro 'Intro Vocal' placé à {first_vocal_ms}ms (track {track_id})")
+                        else:
+                            logger.debug(f"[STEMS][vocal-cue] cue intro déjà présent — skip")
+                    finally:
+                        db.close()
+        except Exception as ve:
+            logger.warning(f"[STEMS][vocal-cue] échec (non-fatal): {ve}")
+
+                # 4) Si mode pro : chaîner vers _run_cues_with_stems pour re-générer
         #    les cues avec les stems (meilleure confidence).
         if chain_cues:
             logger.info(f"[PIPELINE] mode=pro → génération cues avec stems pour track {track_id}")
@@ -1556,6 +1592,32 @@ def _run_cues_generation(track_id: int, use_stems_data: bool = False, replace_ex
         has_stems = any(k.startswith('stem_') or k in ('drum_enter_ms', 'vocal_sections') for k in analysis_data if analysis_data.get(k) is not None)
 
         cue_points_data, cue_stats = cue_svc.generate_cue_points_v2(analysis_data)
+        # ─ Vague 5 : Snap les cues sur les downbeats les plus proches ─
+        # Améliore le mix DJ : un cue placé sur le 3e beat d'une mesure paraît "off",
+        # alors que sur le downbeat (1er beat) il s'aligne avec le kick → mix propre.
+        try:
+            if os.environ.get("CUEFORGE_DOWNBEAT_SNAP", "1") == "1":
+                from app.services.audio_analysis import detect_downbeats_madmom
+                downbeats_ms = detect_downbeats_madmom(track.file_path)
+                if downbeats_ms and len(downbeats_ms) > 4:
+                    logger.info(f"[CUES][downbeat-snap] {len(downbeats_ms)} downbeats détectés")
+                    snapped = 0
+                    for cp in cue_points_data:
+                        pos = cp.get("position_ms")
+                        if pos is None:
+                            continue
+                        # Trouve le downbeat le plus proche dans une fenêtre ±1 beat (~500ms à 120 BPM)
+                        window_ms = 500
+                        closest = min(downbeats_ms, key=lambda d: abs(d - pos))
+                        if abs(closest - pos) <= window_ms:
+                            cp["position_ms"] = int(closest)
+                            snapped += 1
+                    logger.info(f"[CUES][downbeat-snap] {snapped}/{len(cue_points_data)} cues snappés")
+                else:
+                    logger.debug(f"[CUES][downbeat-snap] pas assez de downbeats (skip snap)")
+        except Exception as e:
+            logger.warning(f"[CUES][downbeat-snap] échec (non-fatal): {e}")
+
         logger.info(f"[CUES] {cue_stats.total_cues} cues en {cue_stats.generation_time_ms:.0f}ms (stems_data={has_stems})")
 
         for cp in cue_points_data:

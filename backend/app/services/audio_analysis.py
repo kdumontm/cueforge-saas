@@ -244,6 +244,32 @@ ANALYSIS_STEPS = {
 _energy_contrast_cache = {}
 
 
+
+def detect_downbeats_madmom(file_path: str, beats_per_bar: int = 4) -> Optional[List[int]]:
+    """
+    Détecte les downbeats (1er beat de chaque mesure) via madmom RNNDownBeatProcessor.
+    Retourne une liste de positions en ms, ou None si madmom indispo / échec.
+
+    Vague 5 : utilisé pour snap les cue points sur les downbeats (mix plus propre).
+    """
+    try:
+        from madmom.features.downbeats import RNNDownBeatProcessor, DBNDownBeatTrackingProcessor
+        rnn = RNNDownBeatProcessor()
+        dbn = DBNDownBeatTrackingProcessor(beats_per_bar=[beats_per_bar], fps=100)
+        activations = rnn(file_path)
+        beats_with_pos = dbn(activations)  # array [(time_s, beat_pos), ...] où beat_pos=1 = downbeat
+        downbeats_s = [t for (t, pos) in beats_with_pos if int(pos) == 1]
+        downbeats_ms = [int(round(t * 1000)) for t in downbeats_s]
+        logger.info(f"[DOWNBEAT-MADMOM] {len(downbeats_ms)} downbeats détectés (beats_per_bar={beats_per_bar})")
+        return downbeats_ms if downbeats_ms else None
+    except ImportError:
+        logger.debug("[DOWNBEAT-MADMOM] madmom indisponible — skip")
+        return None
+    except Exception as e:
+        logger.warning(f"[DOWNBEAT-MADMOM] échec: {e}")
+        return None
+
+
 def _cache_energy_contrast(cache_key: str, energy_contrast: np.ndarray) -> None:
     """
     Optimization #33: Cache energy_contrast calculations to avoid recomputation.
@@ -1118,6 +1144,34 @@ def detect_key_hybrid(y: np.ndarray, sr: int,
         # Confidence: margin between #1 and #2
         margin = primary_score - secondary_score
         confidence = min(1.0, max(0.1, margin / 0.3))
+
+        # ── Vague 5 : 4ème vote Essentia EDMA (algo Mixed In Key open-source) ────
+        # Best-effort : skip silencieux si Essentia pas installé (build Railway prudent).
+        # EDMA = Edmund's Modified Algorithm, optimisé pour l'EDM, ~+15-20% précision.
+        edma_key_str = None
+        edma_strength = 0.0
+        try:
+            if os.environ.get("CUEFORGE_ESSENTIA_KEY", "1") == "1":
+                import essentia.standard as es  # type: ignore
+                # Essentia attend du float32 mono, retourne (key, scale, strength)
+                key_extractor = es.KeyExtractor(profileType='edma')
+                edma_key, edma_scale, edma_strength_raw = key_extractor(y.astype(np.float32))
+                if edma_key and edma_scale:
+                    edma_key_str = str(edma_key).strip()
+                    edma_strength = float(edma_strength_raw)
+                    logger.info(f"[KEY] Essentia EDMA: {edma_key_str} (strength={edma_strength:.2f})")
+        except ImportError:
+            logger.debug("[KEY] Essentia non installé — skip vote EDMA")
+        except Exception as e:
+            logger.debug(f"[KEY] Essentia EDMA failed: {e}")
+
+        # Override préférentiel si Essentia EDMA confiant
+        if edma_key_str and edma_strength > 0.7:
+            old_primary = primary_key
+            primary_key = edma_key_str
+            secondary_key = old_primary
+            confidence = max(confidence, edma_strength)
+            logger.info(f"[KEY] Override primary: {old_primary} → {primary_key} (essentia_edma)")
 
         del chroma, chroma_cqt, chroma_stft, chroma_weighted
 

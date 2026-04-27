@@ -58,3 +58,7 @@ boto3>=1.34.0
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+
+# Vague 5 : Essentia pour key detection EDMA (Mixed In Key open-source)
+# Best-effort : si l'install échoue sur Railway, le code skip silencieusement
+essentia==2.1b6.dev1110

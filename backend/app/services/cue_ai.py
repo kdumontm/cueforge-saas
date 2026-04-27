@@ -9,6 +9,7 @@ References:
 - Ellis (2009) Beat Synchronous Features and Metrics
 - Turnbull et al. (2009) The Good Song is Not Always Clear to Hear
 """
+import os
 from typing import Dict, List, Tuple, Optional, Any
 import logging
 import numpy as np
@@ -9295,3 +9296,44 @@ def continuous_learning_pipeline_v2(new_data: List[Dict[str, Any]], model_state:
     except Exception as e:
         logger.error(f"Error in continuous_learning_pipeline_v2: {e}")
         return model_state
+
+
+
+def find_first_vocal_ms(vocals_path: str, threshold_db: float = -40.0, min_consecutive_ms: int = 500) -> Optional[int]:
+    """
+    Détecte le premier moment où un vocal apparaît dans le stem vocals.mp3.
+    Retourne la position en ms du premier instant où le RMS dépasse le seuil
+    pendant au moins min_consecutive_ms consécutives.
+    
+    Vague 5 : utilisé pour placer le hot cue 1 ("intro vocal") avec précision.
+    """
+    try:
+        if not os.path.exists(vocals_path):
+            return None
+        import librosa
+        y, sr = librosa.load(vocals_path, sr=22050, mono=True)
+        # RMS sur fenêtres de 50ms
+        hop = int(0.05 * sr)
+        frame_length = int(0.1 * sr)
+        rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop)[0]
+        # Convertit en dB (référence 1.0)
+        rms_db = 20 * np.log10(rms + 1e-9)
+        # Cherche la première séquence de min_consecutive_ms (=10 frames de 50ms) où dB > threshold
+        min_consecutive_frames = max(1, int(min_consecutive_ms / 50))
+        consecutive = 0
+        for i, db in enumerate(rms_db):
+            if db > threshold_db:
+                consecutive += 1
+                if consecutive >= min_consecutive_frames:
+                    # Premier moment confiant
+                    first_frame = i - min_consecutive_frames + 1
+                    first_ms = int(first_frame * 50)
+                    return max(0, first_ms)
+            else:
+                consecutive = 0
+        return None
+    except ImportError:
+        return None
+    except Exception as e:
+        logger.warning(f"[VOCAL-CUE] échec: {e}")
+        return None
