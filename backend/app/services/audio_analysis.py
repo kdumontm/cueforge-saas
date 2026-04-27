@@ -44,6 +44,9 @@ from app.services.feature_cache import (
     load_analysis_checkpoint,
     clear_checkpoint,
 )
+
+# PERF 2026-04-27: shared audio decoder cache (mmap)
+from app.services.audio_loader import decode_audio_cached
 from app.services.dsp_optimized import compute_grid_error_jit
 
 # Progress streaming helper (Étape 5 speedup) — publie les partiels Redis
