@@ -615,6 +615,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Analytics service init failed (non-blocking): {e}")
 
+
+    # 15.5. F : Watchdog — surveille les tracks bloqués en pending/analyzing
+    try:
+        from app.services.analysis_watchdog import watchdog_loop
+        import threading
+        watchdog_thread = threading.Thread(target=watchdog_loop, daemon=True, name="analysis_watchdog")
+        watchdog_thread.start()
+        logger.info("✅ Analysis watchdog started (daemon thread)")
+    except Exception as e:
+        logger.warning(f"Watchdog initialization failed (non-blocking): {e}")
+
+    
+    # 15.5. F : Watchdog — surveille les tracks bloqués
+    try:
+        from app.services.analysis_watchdog import watchdog_loop
+        import threading
+        watchdog_thread = threading.Thread(target=watchdog_loop, daemon=True, name="analysis_watchdog")
+        watchdog_thread.start()
+        logger.info("[STARTUP] Analysis watchdog started")
+    except Exception as e:
+        logger.warning(f"[STARTUP] Watchdog failed (non-blocking): {e}")
+
     # 16. Initialize distributed analyzer (task DAG, worker affinity)
     try:
         from app.services.distributed_analysis import DistributedAnalyzer

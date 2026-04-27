@@ -104,7 +104,12 @@ PENDING_MIGRATIONS = {
         # 2026-04-23 bis — phase INSTANT + PRIMARY_COMPLETE background
         # primary_status : pending → running (INSTANT fait, primary complète en bg)
         #                  → ready (tous champs avancés remplis) | failed
-        "primary_status": "VARCHAR(20) DEFAULT 'pending'",
+                "primary_status": "VARCHAR(20) DEFAULT 'pending'",
+        # Étape 1 upload robustness (A→G)
+        "file_md5": "VARCHAR(32)",
+        "r2_synced": "BOOLEAN DEFAULT FALSE",
+        "analysis_attempts": "INTEGER DEFAULT 0",
+
     },
     "track_analyses": {
         # Waveform and spectral data columns
