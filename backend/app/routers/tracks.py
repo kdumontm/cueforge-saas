@@ -1341,6 +1341,100 @@ def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
 
     _update(5, 'processing')
 
+    # ─ Vague 4 : Dédup R2 cross-user via musicbrainz_id ─
+    # Si un autre track a déjà des stems READY pour le même musicbrainz recording,
+    # on copie les 4 fichiers R2 au lieu de re-faire Demucs (gain : 60-180s).
+    _dedup_used = False
+    try:
+        from app.services import r2_service
+        db = SessionLocal()
+        try:
+            cur_track = db.query(Track).filter(Track.id == track_id).first()
+            mb_id = cur_track.musicbrainz_id if cur_track else None
+            if mb_id and r2_service.enabled():
+                twin = (
+                    db.query(Track)
+                    .filter(
+                        Track.musicbrainz_id == mb_id,
+                        Track.id != track_id,
+                        Track.stems_status == 'ready',
+                    )
+                    .first()
+                )
+                if twin:
+                    logger.info(f"[STEMS-DEDUP] Twin trouvé via musicbrainz_id={mb_id} : track {twin.id} → on copie ses stems R2")
+                    from app.services.stems_service import stems_dir_for_track, STEM_NAMES
+                    src_dir = stems_dir_for_track(twin.id)
+                    dst_dir = stems_dir_for_track(track_id)
+                    os.makedirs(dst_dir, exist_ok=True)
+                    copied = 0
+                    for stem_name in STEM_NAMES:
+                        fname = f"{stem_name}.mp3"
+                        src_local = os.path.join(src_dir, fname)
+                        dst_local = os.path.join(dst_dir, fname)
+                        # Source priority : R2 si configuré, sinon fichier local
+                        src_r2_key = r2_service.key_from_local_path(src_local)
+                        dst_r2_key = r2_service.key_from_local_path(dst_local)
+                        try:
+                            if r2_service.object_exists(src_r2_key):
+                                # 1) Télécharge depuis R2 vers local cible
+                                r2_service.download_file(src_r2_key, dst_local)
+                                # 2) Re-upload sous la nouvelle clé R2 (ownership track cible)
+                                r2_service.upload_file(dst_local, dst_r2_key, content_type="audio/mpeg")
+                                copied += 1
+                                logger.info(f"[STEMS-DEDUP] Copié {fname} via R2 ({src_r2_key} → {dst_r2_key})")
+                            elif os.path.exists(src_local):
+                                import shutil as _sh
+                                _sh.copy2(src_local, dst_local)
+                                try:
+                                    r2_service.upload_file(dst_local, dst_r2_key, content_type="audio/mpeg")
+                                except Exception as ue:
+                                    logger.warning(f"[STEMS-DEDUP] Re-upload R2 {fname} échoué (non-fatal): {ue}")
+                                copied += 1
+                                logger.info(f"[STEMS-DEDUP] Copié {fname} depuis local ({src_local})")
+                            else:
+                                logger.warning(f"[STEMS-DEDUP] Source {fname} introuvable (ni R2 ni local) — abort dédup")
+                                copied = 0
+                                break
+                        except Exception as ce:
+                            logger.warning(f"[STEMS-DEDUP] Copy {fname} échoué: {ce}")
+                            copied = 0
+                            break
+                    if copied == len(STEM_NAMES):
+                        # 4 stems copiés OK → on saute Demucs entièrement
+                        _dedup_used = True
+                        logger.info(f"[STEMS-DEDUP] ✓ 4 stems copiés depuis twin {twin.id} — skip Demucs")
+                        # Récupère stem_data du twin pour l'analyse
+                        twin_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == twin.id).first()
+                        if twin_analysis:
+                            cur_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+                            if cur_analysis:
+                                # Copie les champs stem_* depuis le twin
+                                for field in ['drum_enter', 'drum_exit', 'vocal_sections',
+                                              'instrumental_sections', 'bass_density',
+                                              'vocal_presence', 'has_vocals']:
+                                    if hasattr(twin_analysis, field) and hasattr(cur_analysis, field):
+                                        val = getattr(twin_analysis, field, None)
+                                        if val is not None:
+                                            setattr(cur_analysis, field, val)
+                                db.commit()
+                                logger.info(f"[STEMS-DEDUP] Champs stem_* copiés depuis twin analysis")
+        finally:
+            db.close()
+    except Exception as dedup_err:
+        logger.warning(f"[STEMS-DEDUP] Échec (non-fatal, fallback sur Demucs): {dedup_err}")
+        _dedup_used = False
+
+    # Si dédup OK → on skippe directement Demucs et on marque ready
+    if _dedup_used:
+        _update(100, 'ready')
+        logger.info(f"[STEMS] ════ DEDUP COMPLETE track {track_id} ════ (zéro Demucs)")
+        if chain_cues:
+            logger.info(f"[PIPELINE] mode=pro → génération cues (stems via dédup) pour track {track_id}")
+            _run_cues_generation(track_id, use_stems_data=True, replace_existing=True)
+        return
+
+
     try:
         # 1) Séparation Demucs (Modal GPU si dispo, sinon CPU local)
         from app.services.modal_stems import separate_stems_with_fallback, is_modal_available

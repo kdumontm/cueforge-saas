@@ -114,7 +114,9 @@ def separate_stems(track_id: int, file_path: str) -> dict:
         # --jobs 1 : 1 seul thread interne Demucs (réduit la RAM de ~40%).
         # Avec le lock externe sérialisant les Demucs, pas besoin de
         # parallélisme interne qui double la RAM.
-        demucs_model = os.environ.get("DEMUCS_MODEL", "htdemucs")
+        # Vague 4 : htdemucs_ft = htdemucs fine-tuned (~+1dB SDR vocals, même temps CPU).
+        # Drop-in remplaçant. Pas de migration nécessaire.
+        demucs_model = os.environ.get("DEMUCS_MODEL", "htdemucs_ft")
         demucs_segment = os.environ.get("DEMUCS_SEGMENT", "15")
         demucs_overlap = os.environ.get("DEMUCS_OVERLAP", "0.1")
         demucs_jobs = os.environ.get("DEMUCS_JOBS", "1")
