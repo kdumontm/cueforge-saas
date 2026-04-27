@@ -530,7 +530,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
         <b>💬 Ton avis <span style="font-size:10px;color:#7a7886;font-weight:400;margin-left:4px">⌘&lt;</span></b>
         <button type="button" class="x" aria-label="Fermer">×</button>
       </div>
-      <div class="tabs" id="tcfb-tabs" style="display:none">
+      <div class="tabs" id="tcfb-tabs">
         <button type="button" data-scope="user" class="on">💬 Feedback</button>
         <button type="button" data-scope="admin">🛠️ Note admin</button>
       </div>
@@ -922,8 +922,18 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
           if(me && me.is_admin){
             isAdmin = true;
             tabsEl.style.display = 'flex';
+            // Si admin, initier le widget en mode admin directement
+            scope = 'admin';
+            tabsEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.scope === 'admin'));
+            applyScope();
           }
         }).catch(() => {});
+      } else if(isAdmin){
+        // Si déjà détecté comme admin, afficher les onglets et mettre en mode admin
+        tabsEl.style.display = 'flex';
+        scope = 'admin';
+        tabsEl.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.scope === 'admin'));
+        applyScope();
       }
       setTimeout(() => msgEl.focus(), 60);
     });
