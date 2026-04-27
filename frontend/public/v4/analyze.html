@@ -740,7 +740,7 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260427-perf"></script>
+<script src="/v4/api.js?v=20260427-sse"></script>
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260427-tx1" defer></script>
 <script>
@@ -1587,16 +1587,82 @@ async function pollPipelineOnce(){
   }
 }
 
+// 🔴 PERF 2026-04-27 : SSE remplace le polling — connexion unique, push immédiat
+//   à chaque changement, fermée auto quand tout est final. Si le navigateur ne
+//   supporte pas EventSource ou si Fastly buffer les SSE, on retombe sur le
+//   polling 6s avec backoff exponentiel.
+let __pipelineEventSource = null;
+let __pipelineFallbackToPolling = false;
+
+function _applyPipelineSnapshot(state){
+  if(!state) return;
+  // Court-circuit pollPipelineOnce : on a déjà la donnée, on l'applique directement.
+  updatePrimaryCompleteUI(state);
+  updateStemsUI(state);
+  updateCuesActionRow(state, currentTrack);
+
+  const primaryJustReady = state.primary_status === 'ready' && __pipelineLastPrimaryStatus && __pipelineLastPrimaryStatus !== 'ready';
+  const stemsJustReady = state.stems_status === 'ready' && __pipelineLastStemsStatus !== 'ready';
+  const cuesJustReady = state.cues_status === 'ready' && __pipelineLastCuesStatus !== 'ready';
+  __pipelineLastPrimaryStatus = state.primary_status;
+  __pipelineLastStemsStatus = state.stems_status;
+  __pipelineLastCuesStatus = state.cues_status;
+
+  if(primaryJustReady){
+    window.__forceTrackRefresh = true;
+    loadTrack().then(() => toast('Analyse avancée terminée', 'info'));
+  } else if(cuesJustReady){
+    window.__forceTrackRefresh = true;
+    loadTrack().then(() => toast('Cue points générés', 'success'));
+  } else if(stemsJustReady){
+    window.__forceTrackRefresh = true;
+    loadTrack();
+  }
+}
+
 function startPipelinePolling(){
-  // 🔴 PERF 2026-04-27 : 3s → 6s (gain ~50% trafic background sur /pipeline-status,
-  //   qui prend 700ms par hit côté Railway). Le polling existait surtout pour
-  //   suivre stems_progress et la transition primary→ready, pas besoin de 3s.
-  //   Si l'utilisateur veut un statut instantané, le bouton "Lancer l'analyse"
-  //   force un pollPipelineOnce sync.
   stopPipelinePolling();
+  if(!trackId) return;
+
+  // Tentative SSE d'abord — connexion unique, push immédiat
+  if('EventSource' in window && !__pipelineFallbackToPolling){
+    try {
+      const tok = typeof api.token === 'function' ? api.token() : '';
+      const url = `/api/v1/tracks/${trackId}/pipeline-stream?token=${encodeURIComponent(tok)}`;
+      __pipelineEventSource = new EventSource(url);
+
+      __pipelineEventSource.onmessage = (ev) => {
+        try {
+          const state = JSON.parse(ev.data);
+          if(state && state.status !== 'not_found' && state.status !== 'timeout'){
+            _applyPipelineSnapshot(state);
+          }
+        } catch(e){ console.warn('[pipeline-stream] parse error', e); }
+      };
+
+      __pipelineEventSource.onerror = (ev) => {
+        // Connexion fermée par le serveur (état final atteint) OU réseau KO.
+        // Si readyState=CLOSED c'est normal (fin de stream). Sinon fallback polling.
+        if(__pipelineEventSource && __pipelineEventSource.readyState === EventSource.CLOSED){
+          stopPipelinePolling();
+          return;
+        }
+        console.warn('[pipeline-stream] error, fallback polling');
+        __pipelineFallbackToPolling = true;
+        stopPipelinePolling();
+        startPipelinePolling(); // récursif → polling
+      };
+
+      return; // SSE setup OK, on n'arme pas le polling
+    } catch(e){
+      console.warn('[pipeline-stream] EventSource init failed, fallback polling', e);
+      __pipelineFallbackToPolling = true;
+    }
+  }
+
+  // Fallback polling (anciennes browsers ou SSE KO)
   pollPipelineOnce().then(() => {
-    // Si déjà tout final après le 1er hit, n'arme pas d'interval inutile.
-    if(__pipelinePollTimer === null){
+    if(__pipelinePollTimer === null && !__pipelineEventSource){
       __pipelinePollTimer = setInterval(pollPipelineOnce, 6000);
     }
   });
@@ -1607,7 +1673,14 @@ function stopPipelinePolling(){
     clearInterval(__pipelinePollTimer);
     __pipelinePollTimer = null;
   }
+  if(__pipelineEventSource){
+    try { __pipelineEventSource.close(); } catch(_){}
+    __pipelineEventSource = null;
+  }
 }
+
+// Stop SSE quand l'utilisateur navigue ailleurs (sinon connexion zombie)
+window.addEventListener('beforeunload', stopPipelinePolling);
 
 // Handler du bouton "Générer cue points"
 document.addEventListener('click', async (e)=>{

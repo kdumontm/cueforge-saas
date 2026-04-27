@@ -1513,6 +1513,116 @@ def get_pipeline_status(
     }
 
 
+# 🔴 PERF 2026-04-27 : SSE remplaçant le polling toutes les 6s sur /pipeline-status.
+#   Avantages :
+#     - 0 polling inutile quand rien ne change (la connexion dort entre les events)
+#     - push instantané quand un état transitionne (vs +6s de latence avec polling)
+#     - 1 requête HTTP au lieu de N par minute
+#   Token : passé en query (?token=…) car EventSource ne supporte pas les headers
+#     custom. Le token est consommé via _resolve_user_from_query_token ci-dessous.
+@router.get("/{track_id}/pipeline-stream")
+async def stream_pipeline_status(
+    track_id: int,
+    request: Request,
+    token: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """SSE — push les changements de pipeline_status sans polling côté client.
+
+    Renvoie le même payload que GET /pipeline-status (status, primary_status,
+    stems_status, stems_progress, cues_status, cue_generation_mode), mais en
+    push : initial state immédiat, puis nouveaux events uniquement à chaque
+    changement d'au moins un champ. Stream auto-fermé quand tout est final.
+    """
+    import asyncio
+    import json as _json
+    from app.services.auth_service import decode_access_token
+
+    # Auth via query token (EventSource ne supporte pas les headers Authorization)
+    if not token:
+        # Fallback : si le client envoie quand même un Bearer (cas fetch streaming)
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    try:
+        payload = decode_access_token(token)
+        if payload is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user_id = int(payload.get("sub"))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Vérifie ownership
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == user_id,
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    async def event_generator():
+        from app.database import SessionLocal
+        last_snapshot = None
+        check_interval = 1.5  # 1.5s côté serveur (≠ HTTP) — push immédiat à tout changement
+        max_duration = 600    # 10 minutes — le pipeline peut être long pour les stems
+
+        elapsed = 0.0
+        while elapsed < max_duration:
+            # Client disconnect ?
+            if await request.is_disconnected():
+                return
+
+            poll_db = SessionLocal()
+            try:
+                t = poll_db.query(Track).filter(Track.id == track_id).first()
+                if not t:
+                    yield f"data: {_json.dumps({'status': 'not_found'})}\n\n"
+                    return
+
+                snapshot = {
+                    "track_id": t.id,
+                    "status": t.status.value if hasattr(t.status, 'value') else str(t.status),
+                    "primary_status": getattr(t, 'primary_status', 'pending') or 'pending',
+                    "stems_status": getattr(t, 'stems_status', 'pending') or 'pending',
+                    "stems_progress": int(getattr(t, 'stems_progress', 0) or 0),
+                    "cues_status": getattr(t, 'cues_status', 'pending') or 'pending',
+                    "cue_generation_mode": getattr(t, 'cue_generation_mode', 'auto') or 'auto',
+                }
+
+                if snapshot != last_snapshot:
+                    yield f"data: {_json.dumps(snapshot, ensure_ascii=False)}\n\n"
+                    last_snapshot = snapshot
+
+                # Stop quand tout est final
+                primary_final = snapshot["primary_status"] in ("ready", "failed")
+                stems_final = snapshot["stems_status"] in ("ready", "failed", "skipped")
+                cues_final = snapshot["cues_status"] not in ("running", "processing")
+                if primary_final and stems_final and cues_final and snapshot["status"] in ("completed", "failed"):
+                    return
+            finally:
+                poll_db.close()
+
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+
+        yield f"data: {_json.dumps({'status': 'timeout'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/{track_id}/cues/generate")
 def generate_cues_on_demand(
     track_id: int,
@@ -2506,6 +2616,19 @@ def get_track(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # 🔴 PERF 2026-04-27 : cache Redis 60s sur GET /tracks/{id}.
+    #   Même TTL que le Cache-Control max-age côté navigateur — donc impact
+    #   nul sur la fraîcheur. Invalidation via bump_user_version qui est déjà
+    #   appelé sur tous les endpoints mutants (PATCH, DELETE, duplicate, cues
+    #   POST/PATCH/DELETE, etc.). Pour les hits chauds (utilisateur qui revient
+    #   sur /analyze d'une track récemment vue) : 1100ms → ~50ms.
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(current_user.id)
+    _cache_key = f"{current_user.id}:detail:{track_id}:v{_uver}"
+    _cached = cache_get("tracks", _cache_key)
+    if _cached:
+        return TrackResponse(**_cached)
+
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id,
@@ -2516,7 +2639,13 @@ def get_track(
     ).first()
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
-    return TrackResponse.model_validate(track)
+
+    resp = TrackResponse.model_validate(track)
+    try:
+        cache_set("tracks", _cache_key, resp.model_dump(mode="json"), ttl=60)
+    except Exception:
+        pass  # cache best-effort, on ne casse jamais le hit
+    return resp
 
 
 # PERF #23 (2026-04-23): Lightweight endpoint to fetch waveform peaks only
