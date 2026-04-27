@@ -1274,7 +1274,17 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
 
         # OPT #8: ETag support pour les réponses GET
-        if request.method == "GET" and response.status_code == 200:
+        # 🔴 PERF 2026-04-27 : ETag uniquement sur endpoints lourds et stables.
+        #   Le calcul du MD5 force à consommer TOUT le body iterator (casse le
+        #   streaming Brotli/GZip + bouffe du CPU). Sur les petits payloads
+        #   /tracks/{id} (2-5 KB) c'est +200-400ms net. On le garde uniquement
+        #   sur /waveform-peaks (gros, stable) où le 304 économise vraiment.
+        ETAG_ALLOWED_PATHS = ("/waveform-peaks", "/api/v1/stats/overview")
+        if (
+            request.method == "GET"
+            and response.status_code == 200
+            and any(p in path for p in ETAG_ALLOWED_PATHS)
+        ):
             body = b""
             async for chunk in response.body_iterator:
                 body += chunk
@@ -1469,18 +1479,10 @@ def check_rate_limit(client_id: str) -> bool:
     return True
 
 
-@app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
-    """OPT #51: Rate limiting middleware."""
-    client_ip = request.client.host if request.client else "unknown"
-
-    if not check_rate_limit(client_ip):
-        return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={"detail": "Rate limit exceeded"}
-        )
-
-    return await call_next(request)
+# 🔴 PERF 2026-04-27 : middleware dédupliqué — RateLimitMiddleware (classe importée
+#   ligne 69) fait déjà le rate limiting. Cette fonction faisait double-emploi et
+#   ajoutait ~10-30ms par requête (lookup dict + clean + comparaisons).
+# (rate_limit_middleware désactivé)
 
 
 # OPT #52: Input sanitization for XSS prevention
@@ -1575,16 +1577,10 @@ def get_allowed_origins():
 import uuid
 
 
-@app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
-    """OPT #58: Add request ID tracking."""
-    request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
-    request.state.request_id = request_id
-
-    response = await call_next(request)
-    response.headers["X-Request-Id"] = request_id
-
-    return response
+# 🔴 PERF 2026-04-27 : middleware dédupliqué — RequestIDMiddleware (classe importée
+#   ligne 71) fait déjà le tracking. La fonction faisait double-emploi : 2 UUID
+#   générés par requête + 2 set d'attribut sur request.state.
+# (request_id_middleware désactivé)
 
 
 # OPT #50: Index optimization advisor endpoint

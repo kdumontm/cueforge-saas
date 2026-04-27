@@ -740,7 +740,7 @@
   </div>
 </main>
 
-<script src="/v4/api.js?v=20260423-dev-uv"></script>
+<script src="/v4/api.js?v=20260427-perf"></script>
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260427-tx1" defer></script>
 <script>
@@ -1588,9 +1588,18 @@ async function pollPipelineOnce(){
 }
 
 function startPipelinePolling(){
+  // 🔴 PERF 2026-04-27 : 3s → 6s (gain ~50% trafic background sur /pipeline-status,
+  //   qui prend 700ms par hit côté Railway). Le polling existait surtout pour
+  //   suivre stems_progress et la transition primary→ready, pas besoin de 3s.
+  //   Si l'utilisateur veut un statut instantané, le bouton "Lancer l'analyse"
+  //   force un pollPipelineOnce sync.
   stopPipelinePolling();
-  pollPipelineOnce();
-  __pipelinePollTimer = setInterval(pollPipelineOnce, 3000);
+  pollPipelineOnce().then(() => {
+    // Si déjà tout final après le 1er hit, n'arme pas d'interval inutile.
+    if(__pipelinePollTimer === null){
+      __pipelinePollTimer = setInterval(pollPipelineOnce, 6000);
+    }
+  });
 }
 
 function stopPipelinePolling(){
@@ -1625,8 +1634,25 @@ document.addEventListener('click', async (e)=>{
 });
 
 // Kick off
-loadRail();
-loadTrack().then(()=> startPipelinePolling());
+// 🔴 PERF 2026-04-27 : on parallélise /tracks/{id} + /pipeline-status (avant
+//   c'était séquentiel, +700ms perçus au boot). Et on pousse loadRail() au
+//   prochain "idle" pour ne pas concurrencer les 2 requêtes critiques sur le
+//   worker FastAPI (1 worker en prod). La rail n'est pas critique au-dessus
+//   du fold initial.
+Promise.all([
+  loadTrack(),
+  // pollPipelineOnce est idempotent : pas de souci si la track n'est pas encore résolue
+  trackId ? pollPipelineOnce() : Promise.resolve(),
+]).then(() => {
+  startPipelinePolling();
+});
+
+// Le rail latéral attend que le viewport soit "calme"
+if('requestIdleCallback' in window){
+  requestIdleCallback(() => loadRail(), { timeout: 1500 });
+} else {
+  setTimeout(loadRail, 250);
+}
 
 // Tool buttons toggle
 // 🔴 Fix 2026-04-23 (E2E report B7) : les boutons Zoom in/out sont dans .zoom
