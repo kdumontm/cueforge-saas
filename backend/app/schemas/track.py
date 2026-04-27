@@ -160,7 +160,7 @@ class TrackAnalysisResponse(BaseModel):
     duration_ms: Optional[int] = None
     drop_positions: Optional[List[int]] = None
     phrase_positions: Optional[List[int]] = None
-    beat_positions: Optional[List[int]] = None
+    beat_positions: Optional[List[float]] = None
     section_labels: Optional[List[Dict[str, int | str | float]]] = None
     # v3 fields
     loudness_lufs: Optional[float] = None
@@ -243,7 +243,7 @@ class TrackAnalysisResponseLite(BaseModel):
     duration_ms: Optional[int] = None
     drop_positions: Optional[List[int]] = None
     phrase_positions: Optional[List[int]] = None
-    beat_positions: Optional[List[int]] = None
+    beat_positions: Optional[List[float]] = None
     section_labels: Optional[List[Dict[str, int | str | float]]] = None
     # v3 fields
     loudness_lufs: Optional[float] = None
@@ -341,7 +341,7 @@ class TrackAnalysisResponseLite(BaseModel):
     duration_ms: Optional[int] = None
     drop_positions: Optional[List[int]] = None
     phrase_positions: Optional[List[int]] = None
-    beat_positions: Optional[List[int]] = None
+    beat_positions: Optional[List[float]] = None
     section_labels: Optional[List[Dict[str, int | str | float]]] = None
     # v3 fields
     loudness_lufs: Optional[float] = None
