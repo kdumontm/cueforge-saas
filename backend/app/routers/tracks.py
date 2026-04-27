@@ -811,6 +811,94 @@ def _run_analysis(track_id: int):
                 # Re-fetch track (rollback vient de l'invalider)
                 track = db.query(Track).filter(Track.id == track_id).first()
 
+        # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
+        # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
+        # Sinon : lance fpcalc + AcoustID en amont pour :
+        #   1. Enrichir les meta officiels (title/artist/album/genre/musicbrainz_id) dès l'upload
+        #   2. Chercher un twin CROSS-USER par musicbrainz_id (un autre user a déjà analysé ce track ?)
+        #      → si oui, clone l'analyse en quelques secondes au lieu de re-tourner le pipeline
+        #
+        # Best-effort : si AcoustID timeout ou échoue, on continue le pipeline normal.
+        # Désactivable via env var ACOUSTID_LOOKUP=0
+        _acoustid_lookup_enabled = os.environ.get("ACOUSTID_LOOKUP", "1") == "1"
+        if not _twin_found and _acoustid_lookup_enabled:
+            try:
+                from app.services.metadata_service import (
+                    fingerprint_file as _fp_chromaprint,
+                    lookup_acoustid as _lookup_acoustid,
+                    lookup_musicbrainz as _lookup_mb,
+                )
+                import time as _time_acoustid
+                _t_acoustid = _time_acoustid.time()
+
+                # Step A : fingerprint via fpcalc (subprocess, ~1-3s)
+                ac_fp, ac_duration = _fp_chromaprint(file_path)
+                if ac_fp and ac_duration:
+                    # Step B : lookup AcoustID (HTTP, ~1-2s, threshold 0.3)
+                    ac_result = _lookup_acoustid(ac_fp, ac_duration)
+                    if ac_result and ac_result.get("recording_id"):
+                        recording_id = ac_result["recording_id"]
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f}, recording_id={recording_id})")
+
+                        # Step C : enrichir Track avec les meta MB officiels
+                        # On REMPLIT seulement les champs vides (n'écrase pas les ID3 du user)
+                        if not track.musicbrainz_id:
+                            track.musicbrainz_id = recording_id
+                        if not track.title and ac_result.get("title"):
+                            track.title = ac_result["title"]
+                        if not track.artist and ac_result.get("artist"):
+                            track.artist = ac_result["artist"]
+
+                        # Step D : enrichir avec MB metadata (album, genre, year, label)
+                        try:
+                            mb = _lookup_mb(recording_id)
+                            if mb:
+                                if not track.album and mb.get("album"):
+                                    track.album = mb.get("album")
+                                if not track.genre and mb.get("genre"):
+                                    track.genre = mb.get("genre")
+                                if not track.year and mb.get("year"):
+                                    try:
+                                        track.year = int(str(mb.get("year"))[:4])
+                                    except Exception:
+                                        pass
+                                if hasattr(track, "label") and not track.label and mb.get("label"):
+                                    track.label = mb.get("label")
+                        except Exception as mb_err:
+                            logger.debug(f"[ACOUSTID] MB lookup failed (non-fatal): {mb_err}")
+
+                        safe_commit(db)
+                        _log(f"[ACOUSTID] meta enrichies en {_time_acoustid.time()-_t_acoustid:.1f}s")
+
+                        # Step E : chercher un twin CROSS-USER par musicbrainz_id
+                        # Un AUTRE user a peut-être déjà uploadé ce même morceau (re-encode différent
+                        # mais même musique → même AcoustID → même MB recording_id).
+                        # Si oui et qu'il a une analyse complète, on clone (gain massif).
+                        mb_twin = (
+                            db.query(Track)
+                            .filter(
+                                Track.musicbrainz_id == recording_id,
+                                Track.id != track.id,
+                                Track.status == TrackStatus.completed,
+                            )
+                            .first()
+                        )
+                        if mb_twin:
+                            mb_twin_analysis = db.query(TrackAnalysis).filter(
+                                TrackAnalysis.track_id == mb_twin.id
+                            ).first()
+                            if mb_twin_analysis:
+                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé (track {mb_twin.id}) — clone l'analyse, skip pipeline")
+                                _clone_analysis_from_twin(db, track, mb_twin, mb_twin_analysis)
+                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid skip, mb_twin={mb_twin.id})")
+                                _twin_found = True
+                    else:
+                        _log(f"[ACOUSTID] No confident match (fp len={len(ac_fp) if ac_fp else 0})")
+                else:
+                    _log(f"[ACOUSTID] fpcalc unavailable or file too short, skipping")
+            except Exception as ac_err:
+                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing pipeline): {ac_err}")
+
         # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
         # les stems. Les stems tournent toujours en background APRÈS que le
         # track soit marqué completed, pour que la library affiche le son ASAP.

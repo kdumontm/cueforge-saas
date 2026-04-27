@@ -73,17 +73,36 @@ _acoustid_cache = {}
 _ACOUSTID_CACHE_TTL = 604800  # 7 days
 
 def _acoustid_cache_get(fingerprint_hash: str) -> Optional[Dict[str, Any]]:
-    """Get cached AcoustID result if still valid."""
+    """Get cached AcoustID result from Redis or local cache."""
+    # Try Redis first
+    try:
+        from app.services.cache_service import cache_get
+        cached = cache_get("acoustid", f"acoustid:{fingerprint_hash}")
+        if cached and cached.get("data"):
+            logger.debug(f"AcoustID cache HIT (Redis) for fingerprint '{fingerprint_hash}'")
+            return cached.get("data")
+    except Exception as e:
+        logger.debug(f"AcoustID Redis lookup failed (non-fatal): {e}")
+    
+    # Fallback to local cache
     entry = _acoustid_cache.get(fingerprint_hash)
     if entry and time.time() - entry[1] < _ACOUSTID_CACHE_TTL:
-        logger.debug(f"AcoustID cache HIT for fingerprint '{fingerprint_hash}'")
+        logger.debug(f"AcoustID cache HIT (local) for fingerprint '{fingerprint_hash}'")
         return entry[0]
     return None
 
 def _acoustid_cache_set(fingerprint_hash: str, value: Dict[str, Any]) -> None:
-    """Cache AcoustID result with timestamp."""
+    """Cache AcoustID result in Redis and local cache."""
+    # Save to local cache
     _acoustid_cache[fingerprint_hash] = (value, time.time())
-    logger.debug(f"AcoustID cache SET for fingerprint '{fingerprint_hash}'")
+    
+    # Save to Redis (best-effort)
+    try:
+        from app.services.cache_service import cache_set
+        cache_set("acoustid", f"acoustid:{fingerprint_hash}", {"data": value}, ttl=_ACOUSTID_CACHE_TTL)
+        logger.debug(f"AcoustID cache SET for fingerprint '{fingerprint_hash}' (Redis + local)")
+    except Exception as e:
+        logger.debug(f"AcoustID Redis cache failed (non-fatal, local only): {e}")
 
 
 # ── Circuit Breaker ────────────────────────────────────────────────────────────
