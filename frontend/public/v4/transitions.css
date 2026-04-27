@@ -331,3 +331,170 @@ html.cf-page-leave .cf-route-overlay{ opacity:1; }
   from{background-position:0 0}
   to  {background-position:200% 0}
 }
+
+/* ============================================================
+   Pack 1-6 — UX premium additions (2026-04-27)
+   ============================================================ */
+
+/* ---------- PACK 1 : Track morph (library → analyze) ---------- */
+::view-transition-old(cf-track-cover),
+::view-transition-new(cf-track-cover),
+::view-transition-old(cf-track-title),
+::view-transition-new(cf-track-title),
+::view-transition-old(cf-track-bpm),
+::view-transition-new(cf-track-bpm){
+  animation-duration:560ms;
+  animation-timing-function:var(--ease-out-expo);
+  mix-blend-mode:normal;
+}
+::view-transition-group(cf-track-cover),
+::view-transition-group(cf-track-title),
+::view-transition-group(cf-track-bpm){
+  animation-duration:600ms;
+  animation-timing-function:var(--ease-out-expo);
+}
+
+/* ---------- PACK 2 : Waveform reveal sweep ---------- */
+.cf-wave-reveal{
+  position:relative;
+  -webkit-mask-image:linear-gradient(90deg, #000 0%, #000 0%, transparent 0%);
+          mask-image:linear-gradient(90deg, #000 0%, #000 0%, transparent 0%);
+  -webkit-mask-size:100% 100%;
+          mask-size:100% 100%;
+  animation:cf-wave-sweep 1100ms var(--ease-out-expo) both;
+}
+@keyframes cf-wave-sweep{
+  0%{
+    -webkit-mask-image:linear-gradient(90deg, #000 -10%, transparent 0%);
+            mask-image:linear-gradient(90deg, #000 -10%, transparent 0%);
+  }
+  100%{
+    -webkit-mask-image:linear-gradient(90deg, #000 100%, transparent 110%);
+            mask-image:linear-gradient(90deg, #000 100%, transparent 110%);
+  }
+}
+.cf-wave-reveal::after{
+  content:"";
+  position:absolute;
+  top:0; bottom:0;
+  width:64px;
+  pointer-events:none;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,122,24,.18) 30%,
+    rgba(255,46,107,.42) 50%,
+    rgba(139,92,246,.18) 70%,
+    transparent 100%);
+  filter:blur(8px);
+  mix-blend-mode:screen;
+  animation:cf-wave-flare 1100ms var(--ease-out-expo) both;
+  z-index:5;
+}
+@keyframes cf-wave-flare{
+  from{left:-80px;  opacity:0}
+  20% {opacity:1}
+  80% {opacity:1}
+  to  {left:calc(100% + 8px); opacity:0}
+}
+
+/* ---------- PACK 3 : Magnetic CTAs + hero parallax ---------- */
+.cf-magnetic{
+  transition:transform 420ms var(--ease-spring), box-shadow var(--t-base) var(--ease-out-quart);
+  will-change:transform;
+}
+/* Hero parallax — on définit des vars qu'on bind via JS */
+.hero,
+.hero-grid{
+  --cf-px:0;
+  --cf-py:0;
+}
+.hero::before{
+  transition:transform 600ms var(--ease-out-quart);
+  transform:translate3d(calc(var(--cf-px)*1px), calc(var(--cf-py)*1px), 0);
+}
+
+/* ---------- PACK 4 : Sliding tab indicator (FLIP) ---------- */
+.cf-tabs-track{
+  position:absolute;
+  bottom:0;
+  height:2px;
+  border-radius:2px;
+  background:linear-gradient(90deg, var(--amber,#ff7a18), var(--pink,#ff2e6b), var(--violet,#8b5cf6));
+  background-size:200% 100%;
+  animation:cf-progress-bg 2.4s linear infinite;
+  pointer-events:none;
+  transform-origin:left;
+  transition:transform 360ms var(--ease-out-expo), width 360ms var(--ease-out-expo), opacity 200ms;
+  box-shadow:0 0 12px var(--amber-glow, rgba(255,122,24,.4));
+  z-index:1;
+}
+/* Quand le slider est actif on cache l'underline ::after par tab */
+.cf-tabs-host .nav-item::after,
+.cf-tabs-host [class*="tab"]::after,
+.cf-tabs-host .view-chip::after{ display:none !important; }
+
+/* ---------- PACK 5 : Play button → EQ bars morph ---------- */
+.cf-eq{
+  display:inline-flex;
+  align-items:flex-end;
+  gap:2px;
+  width:14px;
+  height:14px;
+}
+.cf-eq span{
+  display:block;
+  width:3px;
+  background:currentColor;
+  border-radius:1px;
+  transform-origin:bottom;
+  animation:cf-eq-bar 880ms var(--ease-in-out-quart) infinite;
+}
+.cf-eq span:nth-child(1){ height:60%; animation-delay:-.2s }
+.cf-eq span:nth-child(2){ height:100%; animation-delay:-.55s }
+.cf-eq span:nth-child(3){ height:80%;  animation-delay:-.85s }
+@keyframes cf-eq-bar{
+  0%,100%{ transform:scaleY(.35) }
+  50%    { transform:scaleY(1) }
+}
+/* Quand un bouton .play porte .cf-playing on cache le svg et on injecte les bars (JS) */
+.play.cf-playing svg{ display:none }
+.play.cf-playing{
+  background:linear-gradient(135deg, var(--amber,#ff7a18), var(--pink,#ff2e6b)) !important;
+  color:#0b0a0f !important;
+  box-shadow:0 0 18px var(--amber-glow, rgba(255,122,24,.5));
+}
+
+/* ---------- PACK 6 : Hot cue ripple + glow pulse ---------- */
+.cf-cue-pulse{
+  animation:cf-cue-pulse 720ms var(--ease-out-expo) both;
+}
+@keyframes cf-cue-pulse{
+  0%   { transform:translateX(-50%) scale(.4); filter:brightness(2) drop-shadow(0 0 10px currentColor); }
+  60%  { transform:translateX(-50%) scale(1.18); filter:brightness(1.4) drop-shadow(0 0 14px currentColor); }
+  100% { transform:translateX(-50%) scale(1);    filter:brightness(1)   drop-shadow(0 0 0 currentColor); }
+}
+.cue-marker.cf-cue-pulse .cue-tip{
+  animation:cf-cue-tip-glow 720ms var(--ease-out-expo) both;
+}
+@keyframes cf-cue-tip-glow{
+  0%  { box-shadow:0 0 0 0 currentColor }
+  60% { box-shadow:0 0 0 8px transparent }
+  100%{ box-shadow:0 0 0 0 transparent }
+}
+
+/* Ripple radial spawné par JS au point de pose du cue */
+.cf-cue-ripple{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+  width:8px; height:8px;
+  margin-left:-4px; margin-top:-4px;
+  animation:cf-cue-ripple-out 700ms var(--ease-out-expo) forwards;
+  z-index:30;
+  mix-blend-mode:screen;
+}
+@keyframes cf-cue-ripple-out{
+  0%   { transform:scale(0);  opacity:.95; box-shadow:0 0 0 0 currentColor }
+  60%  { opacity:.6;          box-shadow:0 0 0 24px transparent }
+  100% { transform:scale(12); opacity:0;   box-shadow:0 0 0 32px transparent }
+}
