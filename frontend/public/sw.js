@@ -9,8 +9,11 @@
 //   Next.js pré-migration servie depuis le cache du SW alors que le serveur renvoie bien
 //   la version v4. Un bump de CACHE_NAME + le activate handler supprimant les anciens
 //   caches suffit à forcer l'invalidation au prochain pageview.
-const CACHE_NAME = 'trackcue-v6';
-const SWR_CACHE_NAME = 'trackcue-swr-v3';
+// 🔴 2026-04-27 : bump v6 → v7 pour purger l'ancienne version de admin.html, analyze.html,
+//   shared.js et shared.css après la grosse session de fixes (Dev FF/GG/HH + manager).
+//   Kevin disait "je vois pas les modifs" → SW servait encore les versions du 23/04.
+const CACHE_NAME = 'trackcue-v7';
+const SWR_CACHE_NAME = 'trackcue-swr-v4';
 const STATIC_ASSETS = [
   '/manifest.json',
 ];
