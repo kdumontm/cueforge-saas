@@ -2629,11 +2629,36 @@ def get_track(
     if _cached:
         return TrackResponse(**_cached)
 
+    # 🔴 PERF 2026-04-27 : defer() sur les blobs JSON lourds qui ne sont PAS
+    #   sérialisés par TrackAnalysisResponseMinimal. Postgres ne les charge ni
+    #   ne les transfère sur le wire — gros gain I/O sur les tracks bien
+    #   analysées (où ces blobs peuvent peser 50-300 KB chacun).
+    #   Disponibles via les endpoints dédiés (/harmonic-summary, /vocal-analysis,
+    #   /production-analysis, /mixing-compatibility, /spectral-summary, etc.).
+    from sqlalchemy.orm import defer
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id,
     ).options(
-        selectinload(Track.analysis),
+        selectinload(Track.analysis).options(
+            defer(TrackAnalysis.waveform_peaks),
+            defer(TrackAnalysis.beatgrid),
+            defer(TrackAnalysis.beat_positions),
+            defer(TrackAnalysis.bpm_map),
+            defer(TrackAnalysis.bpm_advanced),
+            defer(TrackAnalysis.audio_quality_breakdown),
+            defer(TrackAnalysis.rhythm_summary),
+            defer(TrackAnalysis.spectral_summary),
+            defer(TrackAnalysis.dj_mix_recommendations),
+            defer(TrackAnalysis.quality_extended),
+            defer(TrackAnalysis.harmonic_summary),
+            defer(TrackAnalysis.vocal_analysis),
+            defer(TrackAnalysis.production_analysis),
+            defer(TrackAnalysis.mixing_compatibility),
+            defer(TrackAnalysis.section_deep_analysis),
+            defer(TrackAnalysis.loudness_deep_analysis),
+            defer(TrackAnalysis.key_deep_analysis),
+        ),
         selectinload(Track.cue_points),
         selectinload(Track.loop_markers),
     ).first()

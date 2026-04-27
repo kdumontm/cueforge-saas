@@ -14,13 +14,17 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.track import Track, TrackAnalysis, TrackStatus
 from app.models.library import Playlist, DJSet
-from app.services.cache_service import cache_get, cache_set
+from app.services.cache_service import cache_get, cache_set, get_user_version
 
 router = APIRouter()
 
-# PERF #1.4: Redis cache shared across workers (60s TTL).
-# Invalidation implicite: TTL 60s + invalidation active sur POST/PATCH/DELETE tracks.
-USER_STATS_CACHE_TTL_SEC = 60
+# 🔴 PERF 2026-04-27 : TTL bumped 60s → 300s + injection de user_version dans
+#   la cache key. L'invalidation devient gratuite via bump_user_version qui est
+#   déjà appelé sur tous les endpoints qui mutent les tracks (upload, PATCH,
+#   DELETE, duplicate, analyze, etc.). Donc plus de TTL "filet de sécurité"
+#   nécessaire — on étend le cache pour absorber les hits chauds (page d'accueil
+#   du dashboard) qui faisaient subir 2.3s par hit.
+USER_STATS_CACHE_TTL_SEC = 300
 
 
 def _get_cached_user_stats(user_id: int, key: str) -> Optional[Dict[str, Any]]:
@@ -93,8 +97,11 @@ def get_stats_overview(
     Args:
         period: Filter by period ('7d', '30d', '90d', '1y', 'all'). Default: 'all'.
     """
-    # Check cache first (include period in cache key)
-    cache_key = f"overview:{period or 'all'}"
+    # Check cache first (include period + user_version in cache key)
+    # 🔴 PERF 2026-04-27 : user_version invalide automatiquement le cache à
+    #   chaque mutation tracks (bump_user_version est appelé partout).
+    _uver = get_user_version(current_user.id)
+    cache_key = f"overview:{period or 'all'}:v{_uver}"
     cached = _get_cached_user_stats(current_user.id, cache_key)
     if cached:
         return StatsOverview(**cached)

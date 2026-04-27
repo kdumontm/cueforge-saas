@@ -1295,6 +1295,10 @@ class CacheAndETagMiddleware(BaseHTTPMiddleware):
             # Endpoints user-scoped mutables : pas de cache navigateur
             elif any(path.startswith(p) for p in self.NO_CACHE_PREFIXES):
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            elif "-stream" in path or "/stream-all" in path or "/status-stream" in path:
+                # SSE : pas de cache HTTP (les events sont push, le navigateur
+                # ne doit pas cacher la réponse stream).
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             elif "/api/v1/tracks" in path or "/api/v1/cues" in path:
                 response.headers["Cache-Control"] = "private, max-age=60"
             else:
