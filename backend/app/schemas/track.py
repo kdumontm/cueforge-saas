@@ -449,6 +449,10 @@ class TrackResponse(BaseModel):
     status: str
     file_size: Optional[int] = None
 
+    # Storage — local file path ou Cloudflare R2 key
+    file_path: Optional[str] = None
+    r2_key: Optional[str] = None
+
     # Music metadata
     artist: Optional[str] = None
     title: Optional[str] = None
@@ -524,6 +528,10 @@ class TrackListItemResponse(BaseModel):
     original_filename: str
     status: str
     file_size: Optional[int] = None
+
+    # Storage — local file path ou Cloudflare R2 key
+    file_path: Optional[str] = None
+    r2_key: Optional[str] = None
 
     # Music metadata
     artist: Optional[str] = None
