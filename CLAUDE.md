@@ -23,6 +23,23 @@ git config --global user.email "kenin.dumont@gmail.com"
 ```
 Exécuter ces commandes via Bash **automatiquement** au début de chaque session, sans demander confirmation.
 
+> **🔐 Tokens privés (GitHub, Railway, Cloudflare, Diagnostics, R2)** : voir le memory **`reference_cueforge_tokens.md`** dans `~/mnt/.auto-memory/`. Les tokens en clair NE DOIVENT PAS être committés ici (repo public sur GitHub → scan auto + révocation immédiate). Le memory est local privé, persistant entre sessions.
+
+## Cache Cloudflare (purge auto après chaque deploy frontend)
+trackcue.com passe par Cloudflare → cache CDN agressif → Kevin voyait pas les modifs.
+Solution : purger Cloudflare via API après CHAQUE push qui modifie `frontend/public/**`.
+
+```bash
+# Token Cloudflare dans memory reference_cueforge_tokens.md
+CFTOKEN=<récupérer depuis auto-memory>
+ZONE_TRACKCUE="20dbaa384ae51212f75593b3e1fafe13"  # trackcue.com
+curl -s -X POST -H "Authorization: Bearer $CFTOKEN" -H "Content-Type: application/json" \
+  -d '{"purge_everything":true}' \
+  "https://api.cloudflare.com/client/v4/zones/$ZONE_TRACKCUE/purge_cache"
+```
+
+**Règle** : si tu push une modif qui touche `frontend/public/**`, après le push, **purge Cloudflare**. Sinon Kevin voit pas les modifs sur trackcue.com (Cloudflare cache + browser cache combinés).
+
 ## Clone rapide
 ```bash
 cd /sessions/*/cueforge* 2>/dev/null || git clone https://github.com/kdumontm/cueforge-saas /tmp/cueforge && cd /tmp/cueforge
