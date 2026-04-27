@@ -453,6 +453,14 @@ class TrackResponse(BaseModel):
     file_path: Optional[str] = None
     r2_key: Optional[str] = None
 
+    # Pydantic 2 strict — coerce float→int pour les rows legacy
+    @field_validator('file_size', 'year', 'rating', 'energy_level', 'played_count', mode='before')
+    @classmethod
+    def _coerce_int(cls, v):
+        if v is None: return None
+        if isinstance(v, float): return int(v)
+        return v
+
     # Music metadata
     artist: Optional[str] = None
     title: Optional[str] = None
