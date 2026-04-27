@@ -767,6 +767,35 @@ except ImportError:
 # OPT #6: GZipMiddleware avec compresslevel=6 et minimum_size optimisé
 app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
+
+# 🔴 PERF 2026-04-27 : SSE-safe middleware — exécuté APRÈS Brotli/GZip dans la
+#   chaîne (donc dépile AVANT eux côté request). On dégage Accept-Encoding pour
+#   les paths SSE pour que Brotli/GZip pass-through et ne bufferisent pas le
+#   stream. Sinon le frontend voit "rien" jusqu'à ce que le buffer atteigne
+#   minimum_size=500 — mortel pour EventSource.
+SSE_PATH_MARKERS = ("-stream", "/stream-all", "/status-stream")
+
+class _SseNoCompressMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            path = scope.get("path", "")
+            if any(m in path for m in SSE_PATH_MARKERS):
+                # Strip Accept-Encoding pour que Brotli/GZip passent through
+                new_headers = [
+                    (k, v) for (k, v) in scope.get("headers", [])
+                    if k.lower() != b"accept-encoding"
+                ]
+                # Force identity pour être explicite
+                new_headers.append((b"accept-encoding", b"identity"))
+                scope = dict(scope)
+                scope["headers"] = new_headers
+        await self.app(scope, receive, send)
+
+app.add_middleware(_SseNoCompressMiddleware)
+
 # OPT #34: CORS configuration for production domains
 app.add_middleware(
     CORSMiddleware,
