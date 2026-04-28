@@ -961,15 +961,34 @@ def _run_analysis(track_id: int):
                     ac_result = _lookup_acoustid(ac_fp, ac_duration)
                     if ac_result and ac_result.get("recording_id"):
                         recording_id = ac_result["recording_id"]
-                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f})")
+                        score = float(ac_result.get("score", 0))
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={score:.2f})")
 
-                        # Enrichir Track avec AcoustID meta
-                        if not track.musicbrainz_id:
-                            track.musicbrainz_id = recording_id
-                        if not track.title and ac_result.get("title"):
-                            track.title = ac_result["title"]
-                        if not track.artist and ac_result.get("artist"):
-                            track.artist = ac_result["artist"]
+                        # ─ Extension E.2 : Si remix détecté dans le titre, sois prudent avec AcoustID ─
+                        is_remix_in_title = False
+                        try:
+                            from app.services.remix_detection import detect_remix_info
+                            title_for_check = track.title or track.original_filename or ""
+                            remix_check = detect_remix_info(title_for_check)
+                            is_remix_in_title = remix_check.get("is_remix", False)
+                        except Exception:
+                            pass
+                        
+                        if is_remix_in_title and score < 0.8:
+                            # AcoustID a probablement matché l'original, pas le remix
+                            # On garde le recording_id pour info mais on N'ÉCRASE PAS title/artist
+                            _log(f"[ACOUSTID-REMIX] Remix détecté dans titre + score AcoustID {score:.2f} < 0.8 → on garde le titre user")
+                            if not track.musicbrainz_id:
+                                track.musicbrainz_id = recording_id
+                            # Skip l'enrichissement title/artist — l'utilisateur a probablement le bon titre
+                        else:
+                            # Score AcoustID haut ou pas de remix : enrichissement normal
+                            if not track.musicbrainz_id:
+                                track.musicbrainz_id = recording_id
+                            if not track.title and ac_result.get("title"):
+                                track.title = ac_result["title"]
+                            if not track.artist and ac_result.get("artist"):
+                                track.artist = ac_result["artist"]
 
                         # ─ Changement C : Skip MB si AcoustID complet ─
                         skip_mb = track.title and track.artist
@@ -1999,15 +2018,34 @@ def _run_analysis(track_id: int):
                     ac_result = _lookup_acoustid(ac_fp, ac_duration)
                     if ac_result and ac_result.get("recording_id"):
                         recording_id = ac_result["recording_id"]
-                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f})")
+                        score = float(ac_result.get("score", 0))
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={score:.2f})")
 
-                        # Enrichir Track avec AcoustID meta
-                        if not track.musicbrainz_id:
-                            track.musicbrainz_id = recording_id
-                        if not track.title and ac_result.get("title"):
-                            track.title = ac_result["title"]
-                        if not track.artist and ac_result.get("artist"):
-                            track.artist = ac_result["artist"]
+                        # ─ Extension E.2 : Si remix détecté dans le titre, sois prudent avec AcoustID ─
+                        is_remix_in_title = False
+                        try:
+                            from app.services.remix_detection import detect_remix_info
+                            title_for_check = track.title or track.original_filename or ""
+                            remix_check = detect_remix_info(title_for_check)
+                            is_remix_in_title = remix_check.get("is_remix", False)
+                        except Exception:
+                            pass
+                        
+                        if is_remix_in_title and score < 0.8:
+                            # AcoustID a probablement matché l'original, pas le remix
+                            # On garde le recording_id pour info mais on N'ÉCRASE PAS title/artist
+                            _log(f"[ACOUSTID-REMIX] Remix détecté dans titre + score AcoustID {score:.2f} < 0.8 → on garde le titre user")
+                            if not track.musicbrainz_id:
+                                track.musicbrainz_id = recording_id
+                            # Skip l'enrichissement title/artist — l'utilisateur a probablement le bon titre
+                        else:
+                            # Score AcoustID haut ou pas de remix : enrichissement normal
+                            if not track.musicbrainz_id:
+                                track.musicbrainz_id = recording_id
+                            if not track.title and ac_result.get("title"):
+                                track.title = ac_result["title"]
+                            if not track.artist and ac_result.get("artist"):
+                                track.artist = ac_result["artist"]
 
                         # ─ Changement C : Skip MB si AcoustID complet ─
                         skip_mb = track.title and track.artist
@@ -2248,34 +2286,114 @@ def _run_analysis(track_id: int):
         db.add(analysis)
         db.flush()
 
-        # ── Auto genre detection (champs dispo : bpm, energy, key, spectral) ──
+        # ── D : Hiérarchie genre — du plus fiable au moins fiable ──
+        # user perso > community > MusicBrainz > ID3 > heuristic
+        id3_genre = None
+        mb_genre = None
+        heuristic_result = None
+        cm = None
+        
+        # Récupère metadata ID3 si présentes
         try:
-            genre_result = detect_genre_from_analysis(
+            from app.services.audio_analysis import _read_metadata_mutagen
+            id3_meta = _read_metadata_mutagen(file_path)
+            if id3_meta and id3_meta.get("genre"):
+                id3_genre = id3_meta["genre"]
+        except Exception:
+            pass
+        
+        # Récupère metadata communautaire
+        try:
+            from app.models.community_metadata import CommunityMetadata
+            if track.chromaprint_hash:
+                cm = db.query(CommunityMetadata).filter(
+                    CommunityMetadata.chromaprint_hash == track.chromaprint_hash
+                ).first()
+        except Exception:
+            pass
+        
+        # Détection heuristique (BPM + energy + key + spectral)
+        try:
+            heuristic_result = detect_genre_from_analysis(
                 bpm=instant_data.get("bpm"),
                 energy=instant_data.get("energy"),
                 key=instant_data.get("key"),
                 spectral_data=instant_data.get("spectral_energy"),
             )
-            if genre_result.get("best_guess") and genre_result["best_guess"] != "Unknown":
-                if not track.genre:
-                    track.genre = genre_result["best_guess"]
-                    _log(f"[ANALYSIS] Auto-detected genre: {track.genre}")
         except Exception as e:
             logger.warning(f"Genre detection failed for track {track_id}: {e}")
+        
+        # Application hiérarchie genre
+        if not track.genre:  # 1. user perso (déjà rempli avant cette analyse) → skip
+            if cm and cm.genre and (cm.genre_correction_count or 0) >= 2:  # 2. community validé
+                track.genre = cm.genre
+                track.genre_source = "community"
+                _log(f"[GENRE-COMMUNITY] {cm.genre} appliqué (validé par {cm.genre_correction_count} users)")
+            elif mb_genre:  # 3. MusicBrainz officiel
+                track.genre = mb_genre
+                track.genre_source = "musicbrainz"
+            elif id3_genre:  # 4. tags ID3 du fichier
+                track.genre = id3_genre
+                track.genre_source = "id3"
+            elif heuristic_result and heuristic_result.get("best_guess") and heuristic_result["best_guess"] != "Unknown":  # 5. notre détection
+                track.genre = heuristic_result["best_guess"]
+                track.genre_source = "heuristic"
+        
+        # Multi-genre top 3 + scores
+        if heuristic_result:
+            if not track.genre_secondary and heuristic_result.get("secondary"):
+                track.genre_secondary = heuristic_result["secondary"]
+            if not track.genre_tertiary and heuristic_result.get("tertiary"):
+                track.genre_tertiary = heuristic_result["tertiary"]
+            if not track.genre_scores and heuristic_result.get("scores"):
+                track.genre_scores = _j.dumps(heuristic_result["scores"])
 
-        # ── Remix/version detection (depuis le titre) ──
+        # ── E.1 : Remix detection enrichi + tags ID3 ──
+        is_remix_detected = False
         try:
             from app.services.remix_detection import detect_remix_info
+            from app.services.audio_analysis import _read_metadata_mutagen
+            
             title_to_parse = track.title or track.original_filename or ""
-            remix_info = detect_remix_info(title_to_parse)
+            
+            # Essaye ID3 tags en priorité (subtitle = "John Doe Remix" ou "Extended Mix")
+            id3_meta = _read_metadata_mutagen(file_path)
+            remix_info = detect_remix_info(title_to_parse, id3_meta=id3_meta if id3_meta else None)
+            
             if remix_info.get("remix_artist") and not track.remix_artist:
                 track.remix_artist = remix_info["remix_artist"]
             if remix_info.get("remix_type") and not track.remix_type:
                 track.remix_type = remix_info["remix_type"]
             if remix_info.get("feat_artist") and not track.feat_artist:
                 track.feat_artist = remix_info["feat_artist"]
+            
+            is_remix_detected = remix_info.get("is_remix", False)
+            track.is_remix_detected = is_remix_detected
         except Exception as e:
             logger.warning(f"Remix detection failed for track {track_id}: {e}")
+        
+        # ── C : Apprentissage corrections users (community) ──
+        # Quand l'user modifie le genre, enregistre dans CommunityMetadata
+        # pour que les futurs uploads du même morceau en bénéficient
+        if track.chromaprint_hash:
+            try:
+                from app.models.community_metadata import CommunityMetadata
+                cm_existing = db.query(CommunityMetadata).filter(
+                    CommunityMetadata.chromaprint_hash == track.chromaprint_hash
+                ).first()
+                if cm_existing:
+                    # On met juste le flag à jour : genre_correction_count sera incrémenté lors de la modif PATCH
+                    pass
+                else:
+                    # Crée une entrée CommunityMetadata si elle n'existe pas
+                    cm_new = CommunityMetadata(
+                        chromaprint_hash=track.chromaprint_hash,
+                        genre=track.genre,
+                        genre_correction_count=0,  # Non validé par d'autres users
+                    )
+                    db.add(cm_new)
+            except Exception as e:
+                logger.warning(f"Community metadata update failed for track {track_id}: {e}")
 
         # ── Mark complete + primary_status=running (complète tourne en bg) ──
         track.status = TrackStatus.completed
@@ -4558,6 +4676,15 @@ def update_track_metadata(
                 CommunityMetadata.chromaprint_hash == track.chromaprint_hash
             ).first()
             
+            # Détecte si le genre a été modifié
+            original_genre = None
+            try:
+                original_track = db.query(Track).filter(Track.id == track_id).first()
+                if original_track:
+                    original_genre = original_track.genre
+            except:
+                pass
+            
             fields_to_share = {
                 'title': track.title,
                 'artist': track.artist,
@@ -4575,10 +4702,21 @@ def update_track_metadata(
                     if v and hasattr(cm, k):
                         setattr(cm, k, v)
                 cm.contributors_count = (cm.contributors_count or 0) + 1
+                
+                # ─ Extension C : Incrémenter genre_correction_count si genre a changé ─
+                if track.genre and original_genre != track.genre:
+                    if hasattr(cm, 'genre_correction_count'):
+                        cm.genre_correction_count = (cm.genre_correction_count or 0) + 1
+                        logger.info(f"[GENRE-LEARN] correction user pour chromaprint={track.chromaprint_hash[:8]}…: {track.genre} (count={cm.genre_correction_count})")
+                
                 cm.last_updated = datetime.utcnow()
             else:
                 # Crée
-                cm = CommunityMetadata(chromaprint_hash=track.chromaprint_hash, **fields_to_share)
+                cm = CommunityMetadata(
+                    chromaprint_hash=track.chromaprint_hash,
+                    **fields_to_share,
+                    genre_correction_count=1 if track.genre else 0,
+                )
                 db.add(cm)
             try:
                 db.commit()

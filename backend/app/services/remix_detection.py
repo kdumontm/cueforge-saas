@@ -66,9 +66,16 @@ FEAT_PATTERNS = [
 ]
 
 
-def detect_remix_info(title: str) -> Dict:
+def detect_remix_info(title: str, id3_meta: Optional[Dict] = None) -> Dict:
     """
     Parse a track title and extract remix/version/featuring info.
+    
+    Optionally uses ID3 tags (subtitle/TIT3) for remix detection with higher priority.
+    Beatport/Traktor mettent souvent le type de mix dans le subtitle: "Original Mix", "Extended Mix", "John Doe Remix"
+
+    Args:
+        title: Track title to parse
+        id3_meta: Optional dict with ID3 tags {'subtitle': '...', 'genre': '...', etc.}
 
     Returns:
         {
@@ -100,6 +107,32 @@ def detect_remix_info(title: str) -> Dict:
     }
 
     working_title = title.strip()
+    
+    # 0. Check ID3 tags first (subtitle/TIT3 field)
+    if id3_meta:
+        subtitle = id3_meta.get("subtitle") or id3_meta.get("TIT3")
+        if subtitle:
+            sub_lower = subtitle.lower()
+            if "remix" in sub_lower:
+                # Extract remixer name: "John Doe Remix" → "John Doe"
+                m = re.match(r'^(.+?)\s+remix\s*$', subtitle, flags=re.I)
+                if m:
+                    result["remix_artist"] = m.group(1).strip()
+                    result["remix_type"] = "Remix"
+                    result["is_remix"] = True
+                    result["is_original"] = False
+                    return result  # ID3 tags sont prioritaires
+            elif "extended" in sub_lower:
+                result["version_type"] = "Extended Mix"
+                result["is_original"] = False
+                return result
+            elif "radio" in sub_lower or "edit" in sub_lower:
+                result["version_type"] = "Radio Edit" if "radio" in sub_lower else "Edit"
+                result["is_original"] = False
+                return result
+            elif "original" in sub_lower:
+                result["version_type"] = "Original Mix"
+                return result
 
     # 1. Extract featured artists first
     for pattern in FEAT_PATTERNS:

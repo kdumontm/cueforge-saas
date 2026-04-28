@@ -509,13 +509,21 @@ def detect_genre_from_analysis(
         (best_score - 0.5) * 0.5    # Absolute score contribution
     ))
 
-    # Top 5 candidates
+    # Top 5 candidates + top 3 for multi-genre
     candidates = [(name, round(score, 3)) for name, score in ranked[:5]]
+    secondary_genre = ranked[1][0] if len(ranked) > 1 else None
+    tertiary_genre = ranked[2][0] if len(ranked) > 2 else None
+    
+    # Scores JSON pour les top 5
+    scores_dict = {name: round(score, 3) for name, score in ranked[:5]}
 
     return {
         "best_guess": best_genre,
+        "secondary": secondary_genre,
+        "tertiary": tertiary_genre,
         "confidence": round(max(0.0, min(1.0, confidence)), 2),
         "candidates": candidates,
+        "scores": scores_dict,  # Top 5 scores pour stockage dans genre_scores
         "debug_info": {
             "bpm": bpm,
             "energy": energy,
@@ -578,3 +586,58 @@ def detect_genre_with_metadata(audio_features: Dict, spotify_genre: Optional[str
         **audio_features,
         'source': 'audio_analysis_only',
     }
+
+
+# ── A : Essentia ML Genre Detection (placeholder) ────────────────────────────
+def detect_genre_essentia(file_path: str) -> Optional[Dict[str, float]]:
+    """
+    Détection genre via modèle Essentia (TensorFlow ou heuristique).
+    Retourne {genre: probability, ...} top 5 ou None si Essentia indispo.
+    
+    Étape 6 : alternative ML au detect_genre_from_analysis heuristique.
+    
+    Note: Essentia n'a pas de TFLite genre classifier garanti dans la version pip.
+    On garde cette fonction comme placeholder pour éviter les erreurs d'import,
+    mais elle retourne None (silencieusement) puisque les modèles MTG-Jamendo
+    sont trop lourds (~100MB) pour Railway.
+    """
+    if os.environ.get("CUEFORGE_ESSENTIA_GENRE", "1") != "1":
+        return None
+    
+    try:
+        import essentia.standard as es
+        import numpy as np
+        
+        # Tentative TensorflowPredictMusiCNN si dispo (gros modèles ~100MB)
+        try:
+            from essentia.standard import TensorflowPredictMusiCNN
+            # Modèles MTG-Jamendo : trop gros pour Railway, skip
+            return None
+        except ImportError:
+            pass
+        
+        # Fallback : MusicExtractor (haute qualité features) + classifier interne basique
+        loader = es.MonoLoader(filename=file_path, sampleRate=22050)
+        audio = loader()
+        if len(audio) < 22050 * 5:  # < 5s
+            logger.debug("[GENRE-ML] Audio trop court pour Essentia")
+            return None
+        
+        # Compute key/bpm/danceability via Essentia (plus précis que librosa)
+        try:
+            rhythm_extractor = es.RhythmExtractor2013(method="multifeature")
+            bpm, beats, beats_confidence, _, beats_intervals = rhythm_extractor(audio)
+            danceability = es.Danceability()(audio)[0]  # 0-1
+            logger.debug(f"[GENRE-ML] Essentia features: bpm={bpm:.1f}, danceability={danceability:.2f}")
+            # Pour l'instant, on retourne None : pas de classifier genre entraîné localement
+            return None
+        except Exception as e:
+            logger.debug(f"[GENRE-ML] Essentia feature extraction failed: {e}")
+            return None
+    
+    except ImportError:
+        logger.debug("[GENRE-ML] Essentia indispo")
+        return None
+    except Exception as e:
+        logger.debug(f"[GENRE-ML] Essentia genre detection failed: {e}")
+        return None
