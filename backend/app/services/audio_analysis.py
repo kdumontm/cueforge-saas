@@ -984,44 +984,6 @@ KEY_NAMES_MINOR = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am
 #   Piste 3 speedup — Audio fingerprint (SHA1 du signal décodé)
 # ══════════════════════════════════════════════════════════════════════════
 
-def compute_audio_fingerprint(
-    file_path: str,
-    seconds: int = 30,
-    sr: int = 11025,
-) -> Optional[str]:
-    """
-    SHA1 des 30 premières secondes du signal audio décodé.
-
-    Le décodage passe par librosa → même hash pour un même contenu audio
-    quelle que soit l'enveloppe fichier (mp3 320 / flac / wav du même master
-    → même fingerprint). Permet de détecter les doublons en DB et skipper
-    l'analyse complète.
-
-    On utilise SR=11025 (pas 22050) pour garder le calcul rapide (~200ms),
-    et on quantise sur int16 pour éviter les micro-différences de décodage
-    entre versions de librosa/numpy.
-
-    Returns:
-        Hash SHA1 hex (40 chars), ou None si échec.
-    """
-    try:
-        import hashlib
-        # Charger les N premières secondes en mono à un SR volontairement bas
-        y, _ = librosa.load(file_path, sr=sr, duration=seconds, mono=True)
-        if len(y) == 0:
-            return None
-
-        # Quantiser sur int16 pour stabilité cross-platform
-        y_q = np.clip(y * 32767.0, -32768, 32767).astype(np.int16)
-
-        # SHA1 sur les bytes quantisés
-        h = hashlib.sha1(y_q.tobytes()).hexdigest()
-        return h
-    except Exception as e:
-        logger.warning(f"[FP] Fingerprint failed for {file_path}: {e}")
-        return None
-
-
 # ══════════════════════════════════════════════════════════════════════════
 #   KEY DETECTION
 # ══════════════════════════════════════════════════════════════════════════
