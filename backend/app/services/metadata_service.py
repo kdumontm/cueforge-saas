@@ -195,7 +195,9 @@ def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any
                     "artist": artist or "",
                     "score": best_score,
                 }
-        if best and best_score >= 0.3:   # seuil abaissé de 0.4 → 0.3
+        # Change B : Seuil configurable (défaut 0.5, plus prudent que 0.3)
+        ACOUSTID_THRESHOLD = float(os.environ.get("ACOUSTID_THRESHOLD", "0.5"))
+        if best and best_score >= ACOUSTID_THRESHOLD:
             logger.info(f"AcoustID match: {best['artist']} — {best['title']} (score={best_score:.2f})")
             _acoustid_cache_set(fp_hash, best)
             _record_success("acoustid")

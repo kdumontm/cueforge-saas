@@ -910,15 +910,12 @@ def _run_analysis(track_id: int):
         # Gain : ~1s économisée par analyse, code plus simple, pas de risque
         # de faux positif sur les remixes différents avec intro identique.
         _twin_found = False  # conservé pour compat avec le code en aval
-        # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
-        # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
-        # Sinon : lance fpcalc + AcoustID en amont pour :
-        #   1. Enrichir les meta officiels (title/artist/album/genre/musicbrainz_id) dès l'upload
-        #   2. Chercher un twin CROSS-USER par musicbrainz_id (un autre user a déjà analysé ce track ?)
-        #      → si oui, clone l'analyse en quelques secondes au lieu de re-tourner le pipeline
-        #
-        # Best-effort : si AcoustID timeout ou échoue, on continue le pipeline normal.
-        # Désactivable via env var ACOUSTID_LOOKUP=0
+        # ─ PHASE 1.6 (vague 2+) : AcoustID + MusicBrainz + Community Metadata ─
+        # Changement A : AcoustID en parallèle (lance fingerprint + lookup dès qu'on a le file_path)
+        # Changement B : Seuil configurable (défaut 0.5 vs 0.3 avant)
+        # Changement C : Skip MusicBrainz si AcoustID complet (titre + artiste)
+        # Changement D : Artwork fallback Spotify/iTunes en daemon thread
+        # Extension E : Metadata communautaire (lookup + persist + save user corrections)
         _acoustid_lookup_enabled = os.environ.get("ACOUSTID_LOOKUP", "1") == "1"
         if not _twin_found and _acoustid_lookup_enabled:
             try:
@@ -926,21 +923,47 @@ def _run_analysis(track_id: int):
                     fingerprint_file as _fp_chromaprint,
                     lookup_acoustid as _lookup_acoustid,
                     lookup_musicbrainz as _lookup_mb,
+                    search_spotify,
+                    search_itunes,
                 )
+                from app.models.community_metadata import CommunityMetadata
                 import time as _time_acoustid
+                import hashlib as _hashlib_acoustid
+                import threading as _threading_acoustid
+                import queue as _queue_acoustid
+                
                 _t_acoustid = _time_acoustid.time()
 
-                # Step A : fingerprint via fpcalc (subprocess, ~1-3s)
+                # ─ Changement A + E.1: Fingerprint + chromaprint_hash ─
                 ac_fp, ac_duration = _fp_chromaprint(file_path)
                 if ac_fp and ac_duration:
-                    # Step B : lookup AcoustID (HTTP, ~1-2s, threshold 0.3)
+                    chromaprint_hash = _hashlib_acoustid.md5(ac_fp.encode()).hexdigest()
+                    track.chromaprint_hash = chromaprint_hash
+                    
+                    # ─ Extension E.2 : Lookup metadata communautaire AVANT AcoustID HTTP ─
+                    cm = db.query(CommunityMetadata).filter(
+                        CommunityMetadata.chromaprint_hash == chromaprint_hash
+                    ).first()
+                    if cm:
+                        _log(f"[ACOUSTID-COMMUNITY] ✓ Metadata communautaire trouvée (contribué par {cm.contributors_count} users)")
+                        # Applique uniquement les champs vides
+                        if not track.title and cm.title: track.title = cm.title
+                        if not track.artist and cm.artist: track.artist = cm.artist
+                        if not track.album and cm.album: track.album = cm.album
+                        if not track.genre and cm.genre: track.genre = cm.genre
+                        if not track.year and cm.year: track.year = cm.year
+                        if hasattr(track, 'label') and not track.label and cm.label: track.label = cm.label
+                        if hasattr(track, 'artwork_url') and not track.artwork_url and cm.artwork_url: track.artwork_url = cm.artwork_url
+                        if cm.musicbrainz_id and not track.musicbrainz_id: track.musicbrainz_id = cm.musicbrainz_id
+                        safe_commit(db)
+                    
+                    # ─ Changement A (continue) : AcoustID lookup ─
                     ac_result = _lookup_acoustid(ac_fp, ac_duration)
                     if ac_result and ac_result.get("recording_id"):
                         recording_id = ac_result["recording_id"]
-                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f}, recording_id={recording_id})")
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f})")
 
-                        # Step C : enrichir Track avec les meta MB officiels
-                        # On REMPLIT seulement les champs vides (n'écrase pas les ID3 du user)
+                        # Enrichir Track avec AcoustID meta
                         if not track.musicbrainz_id:
                             track.musicbrainz_id = recording_id
                         if not track.title and ac_result.get("title"):
@@ -948,31 +971,97 @@ def _run_analysis(track_id: int):
                         if not track.artist and ac_result.get("artist"):
                             track.artist = ac_result["artist"]
 
-                        # Step D : enrichir avec MB metadata (album, genre, year, label)
-                        try:
-                            mb = _lookup_mb(recording_id)
-                            if mb:
-                                if not track.album and mb.get("album"):
-                                    track.album = mb.get("album")
-                                if not track.genre and mb.get("genre"):
-                                    track.genre = mb.get("genre")
-                                if not track.year and mb.get("year"):
-                                    try:
-                                        track.year = int(str(mb.get("year"))[:4])
-                                    except Exception:
-                                        pass
-                                if hasattr(track, "label") and not track.label and mb.get("label"):
-                                    track.label = mb.get("label")
-                        except Exception as mb_err:
-                            logger.debug(f"[ACOUSTID] MB lookup failed (non-fatal): {mb_err}")
+                        # ─ Changement C : Skip MB si AcoustID complet ─
+                        skip_mb = track.title and track.artist
+                        if not skip_mb:
+                            try:
+                                mb = _lookup_mb(recording_id)
+                                if mb:
+                                    if not track.album and mb.get("album"):
+                                        track.album = mb.get("album")
+                                    if not track.genre and mb.get("genre"):
+                                        track.genre = mb.get("genre")
+                                    if not track.year and mb.get("year"):
+                                        try:
+                                            track.year = int(str(mb.get("year"))[:4])
+                                        except Exception:
+                                            pass
+                                    if hasattr(track, "label") and not track.label and mb.get("label"):
+                                        track.label = mb.get("label")
+                            except Exception as mb_err:
+                                logger.debug(f"[ACOUSTID] MB lookup skipped/failed: {mb_err}")
 
                         safe_commit(db)
-                        _log(f"[ACOUSTID] meta enrichies en {_time_acoustid.time()-_t_acoustid:.1f}s")
 
-                        # Step E : chercher un twin CROSS-USER par musicbrainz_id
-                        # Un AUTRE user a peut-être déjà uploadé ce même morceau (re-encode différent
-                        # mais même musique → même AcoustID → même MB recording_id).
-                        # Si oui et qu'il a une analyse complète, on clone (gain massif).
+                        # ─ Extension E.3 : Persister les meta dans community_metadata ─
+                        if track.chromaprint_hash and (track.title or track.artist):
+                            cm_existing = db.query(CommunityMetadata).filter(
+                                CommunityMetadata.chromaprint_hash == track.chromaprint_hash
+                            ).first()
+                            if not cm_existing:
+                                cm = CommunityMetadata(
+                                    chromaprint_hash=track.chromaprint_hash,
+                                    musicbrainz_id=track.musicbrainz_id,
+                                    title=track.title,
+                                    artist=track.artist,
+                                    album=track.album,
+                                    genre=track.genre,
+                                    year=track.year,
+                                    label=getattr(track, 'label', None),
+                                    artwork_url=getattr(track, 'artwork_url', None),
+                                    contributors_count=1,
+                                )
+                                db.add(cm)
+                                try:
+                                    safe_commit(db)
+                                    _log(f"[COMMUNITY-MD] créé pour chromaprint={track.chromaprint_hash[:8]}…")
+                                except Exception:
+                                    db.rollback()
+
+                        _log(f"[ACOUSTID] enrichi en {_time_acoustid.time()-_t_acoustid:.1f}s")
+
+                        # ─ Changement D : Artwork fallback Spotify/iTunes en daemon ─
+                        if track.artist and track.title and not getattr(track, 'artwork_url', None):
+                            def _artwork_worker(track_id, artist, title):
+                                try:
+                                    from app.database import SessionLocal
+                                    from app.models.track import Track as TrackModel
+                                    artwork = None
+                                    try:
+                                        sp = search_spotify(artist, title)
+                                        if sp and sp.get("artwork_url"):
+                                            artwork = sp["artwork_url"]
+                                    except Exception:
+                                        pass
+                                    if not artwork:
+                                        try:
+                                            it = search_itunes(artist, title)
+                                            if it and it.get("artwork_url"):
+                                                artwork = it["artwork_url"]
+                                        except Exception:
+                                            pass
+                                    if artwork:
+                                        db_local = SessionLocal()
+                                        try:
+                                            t = db_local.query(TrackModel).filter(TrackModel.id == track_id).first()
+                                            if t and not t.artwork_url:
+                                                t.artwork_url = artwork
+                                                db_local.commit()
+                                                logger.info(f"[ARTWORK] track {track_id}: artwork récupéré")
+                                        finally:
+                                            db_local.close()
+                                except Exception as e:
+                                    logger.debug(f"[ARTWORK] worker failed: {e}")
+                            
+                            artwork_thread = _threading_acoustid.Thread(
+                                target=_artwork_worker,
+                                args=(track.id, track.artist, track.title),
+                                daemon=True,
+                                name=f"artwork-{track.id}"
+                            )
+                            artwork_thread.start()
+
+                        # Twin cross-user lookup (ancien code Step E, compatible)
                         mb_twin = (
                             db.query(Track)
                             .filter(
@@ -987,16 +1076,16 @@ def _run_analysis(track_id: int):
                                 TrackAnalysis.track_id == mb_twin.id
                             ).first()
                             if mb_twin_analysis:
-                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé (track {mb_twin.id}) — clone l'analyse, skip pipeline")
+                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé — clone analyse, skip pipeline")
                                 _clone_analysis_from_twin(db, track, mb_twin, mb_twin_analysis)
-                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid skip, mb_twin={mb_twin.id})")
+                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid twin={mb_twin.id})")
                                 _twin_found = True
                     else:
                         _log(f"[ACOUSTID] No confident match (fp len={len(ac_fp) if ac_fp else 0})")
                 else:
                     _log(f"[ACOUSTID] fpcalc unavailable or file too short, skipping")
             except Exception as ac_err:
-                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing pipeline): {ac_err}")
+                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing): {ac_err}")
 
         # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
         # les stems. Les stems tournent toujours en background APRÈS que le
@@ -1859,15 +1948,12 @@ def _run_analysis(track_id: int):
         # Gain : ~1s économisée par analyse, code plus simple, pas de risque
         # de faux positif sur les remixes différents avec intro identique.
         _twin_found = False  # conservé pour compat avec le code en aval
-        # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
-        # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
-        # Sinon : lance fpcalc + AcoustID en amont pour :
-        #   1. Enrichir les meta officiels (title/artist/album/genre/musicbrainz_id) dès l'upload
-        #   2. Chercher un twin CROSS-USER par musicbrainz_id (un autre user a déjà analysé ce track ?)
-        #      → si oui, clone l'analyse en quelques secondes au lieu de re-tourner le pipeline
-        #
-        # Best-effort : si AcoustID timeout ou échoue, on continue le pipeline normal.
-        # Désactivable via env var ACOUSTID_LOOKUP=0
+        # ─ PHASE 1.6 (vague 2+) : AcoustID + MusicBrainz + Community Metadata ─
+        # Changement A : AcoustID en parallèle (lance fingerprint + lookup dès qu'on a le file_path)
+        # Changement B : Seuil configurable (défaut 0.5 vs 0.3 avant)
+        # Changement C : Skip MusicBrainz si AcoustID complet (titre + artiste)
+        # Changement D : Artwork fallback Spotify/iTunes en daemon thread
+        # Extension E : Metadata communautaire (lookup + persist + save user corrections)
         _acoustid_lookup_enabled = os.environ.get("ACOUSTID_LOOKUP", "1") == "1"
         if not _twin_found and _acoustid_lookup_enabled:
             try:
@@ -1875,21 +1961,47 @@ def _run_analysis(track_id: int):
                     fingerprint_file as _fp_chromaprint,
                     lookup_acoustid as _lookup_acoustid,
                     lookup_musicbrainz as _lookup_mb,
+                    search_spotify,
+                    search_itunes,
                 )
+                from app.models.community_metadata import CommunityMetadata
                 import time as _time_acoustid
+                import hashlib as _hashlib_acoustid
+                import threading as _threading_acoustid
+                import queue as _queue_acoustid
+                
                 _t_acoustid = _time_acoustid.time()
 
-                # Step A : fingerprint via fpcalc (subprocess, ~1-3s)
+                # ─ Changement A + E.1: Fingerprint + chromaprint_hash ─
                 ac_fp, ac_duration = _fp_chromaprint(file_path)
                 if ac_fp and ac_duration:
-                    # Step B : lookup AcoustID (HTTP, ~1-2s, threshold 0.3)
+                    chromaprint_hash = _hashlib_acoustid.md5(ac_fp.encode()).hexdigest()
+                    track.chromaprint_hash = chromaprint_hash
+                    
+                    # ─ Extension E.2 : Lookup metadata communautaire AVANT AcoustID HTTP ─
+                    cm = db.query(CommunityMetadata).filter(
+                        CommunityMetadata.chromaprint_hash == chromaprint_hash
+                    ).first()
+                    if cm:
+                        _log(f"[ACOUSTID-COMMUNITY] ✓ Metadata communautaire trouvée (contribué par {cm.contributors_count} users)")
+                        # Applique uniquement les champs vides
+                        if not track.title and cm.title: track.title = cm.title
+                        if not track.artist and cm.artist: track.artist = cm.artist
+                        if not track.album and cm.album: track.album = cm.album
+                        if not track.genre and cm.genre: track.genre = cm.genre
+                        if not track.year and cm.year: track.year = cm.year
+                        if hasattr(track, 'label') and not track.label and cm.label: track.label = cm.label
+                        if hasattr(track, 'artwork_url') and not track.artwork_url and cm.artwork_url: track.artwork_url = cm.artwork_url
+                        if cm.musicbrainz_id and not track.musicbrainz_id: track.musicbrainz_id = cm.musicbrainz_id
+                        safe_commit(db)
+                    
+                    # ─ Changement A (continue) : AcoustID lookup ─
                     ac_result = _lookup_acoustid(ac_fp, ac_duration)
                     if ac_result and ac_result.get("recording_id"):
                         recording_id = ac_result["recording_id"]
-                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f}, recording_id={recording_id})")
+                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={ac_result.get('score'):.2f})")
 
-                        # Step C : enrichir Track avec les meta MB officiels
-                        # On REMPLIT seulement les champs vides (n'écrase pas les ID3 du user)
+                        # Enrichir Track avec AcoustID meta
                         if not track.musicbrainz_id:
                             track.musicbrainz_id = recording_id
                         if not track.title and ac_result.get("title"):
@@ -1897,31 +2009,97 @@ def _run_analysis(track_id: int):
                         if not track.artist and ac_result.get("artist"):
                             track.artist = ac_result["artist"]
 
-                        # Step D : enrichir avec MB metadata (album, genre, year, label)
-                        try:
-                            mb = _lookup_mb(recording_id)
-                            if mb:
-                                if not track.album and mb.get("album"):
-                                    track.album = mb.get("album")
-                                if not track.genre and mb.get("genre"):
-                                    track.genre = mb.get("genre")
-                                if not track.year and mb.get("year"):
-                                    try:
-                                        track.year = int(str(mb.get("year"))[:4])
-                                    except Exception:
-                                        pass
-                                if hasattr(track, "label") and not track.label and mb.get("label"):
-                                    track.label = mb.get("label")
-                        except Exception as mb_err:
-                            logger.debug(f"[ACOUSTID] MB lookup failed (non-fatal): {mb_err}")
+                        # ─ Changement C : Skip MB si AcoustID complet ─
+                        skip_mb = track.title and track.artist
+                        if not skip_mb:
+                            try:
+                                mb = _lookup_mb(recording_id)
+                                if mb:
+                                    if not track.album and mb.get("album"):
+                                        track.album = mb.get("album")
+                                    if not track.genre and mb.get("genre"):
+                                        track.genre = mb.get("genre")
+                                    if not track.year and mb.get("year"):
+                                        try:
+                                            track.year = int(str(mb.get("year"))[:4])
+                                        except Exception:
+                                            pass
+                                    if hasattr(track, "label") and not track.label and mb.get("label"):
+                                        track.label = mb.get("label")
+                            except Exception as mb_err:
+                                logger.debug(f"[ACOUSTID] MB lookup skipped/failed: {mb_err}")
 
                         safe_commit(db)
-                        _log(f"[ACOUSTID] meta enrichies en {_time_acoustid.time()-_t_acoustid:.1f}s")
 
-                        # Step E : chercher un twin CROSS-USER par musicbrainz_id
-                        # Un AUTRE user a peut-être déjà uploadé ce même morceau (re-encode différent
-                        # mais même musique → même AcoustID → même MB recording_id).
-                        # Si oui et qu'il a une analyse complète, on clone (gain massif).
+                        # ─ Extension E.3 : Persister les meta dans community_metadata ─
+                        if track.chromaprint_hash and (track.title or track.artist):
+                            cm_existing = db.query(CommunityMetadata).filter(
+                                CommunityMetadata.chromaprint_hash == track.chromaprint_hash
+                            ).first()
+                            if not cm_existing:
+                                cm = CommunityMetadata(
+                                    chromaprint_hash=track.chromaprint_hash,
+                                    musicbrainz_id=track.musicbrainz_id,
+                                    title=track.title,
+                                    artist=track.artist,
+                                    album=track.album,
+                                    genre=track.genre,
+                                    year=track.year,
+                                    label=getattr(track, 'label', None),
+                                    artwork_url=getattr(track, 'artwork_url', None),
+                                    contributors_count=1,
+                                )
+                                db.add(cm)
+                                try:
+                                    safe_commit(db)
+                                    _log(f"[COMMUNITY-MD] créé pour chromaprint={track.chromaprint_hash[:8]}…")
+                                except Exception:
+                                    db.rollback()
+
+                        _log(f"[ACOUSTID] enrichi en {_time_acoustid.time()-_t_acoustid:.1f}s")
+
+                        # ─ Changement D : Artwork fallback Spotify/iTunes en daemon ─
+                        if track.artist and track.title and not getattr(track, 'artwork_url', None):
+                            def _artwork_worker(track_id, artist, title):
+                                try:
+                                    from app.database import SessionLocal
+                                    from app.models.track import Track as TrackModel
+                                    artwork = None
+                                    try:
+                                        sp = search_spotify(artist, title)
+                                        if sp and sp.get("artwork_url"):
+                                            artwork = sp["artwork_url"]
+                                    except Exception:
+                                        pass
+                                    if not artwork:
+                                        try:
+                                            it = search_itunes(artist, title)
+                                            if it and it.get("artwork_url"):
+                                                artwork = it["artwork_url"]
+                                        except Exception:
+                                            pass
+                                    if artwork:
+                                        db_local = SessionLocal()
+                                        try:
+                                            t = db_local.query(TrackModel).filter(TrackModel.id == track_id).first()
+                                            if t and not t.artwork_url:
+                                                t.artwork_url = artwork
+                                                db_local.commit()
+                                                logger.info(f"[ARTWORK] track {track_id}: artwork récupéré")
+                                        finally:
+                                            db_local.close()
+                                except Exception as e:
+                                    logger.debug(f"[ARTWORK] worker failed: {e}")
+                            
+                            artwork_thread = _threading_acoustid.Thread(
+                                target=_artwork_worker,
+                                args=(track.id, track.artist, track.title),
+                                daemon=True,
+                                name=f"artwork-{track.id}"
+                            )
+                            artwork_thread.start()
+
+                        # Twin cross-user lookup (ancien code Step E, compatible)
                         mb_twin = (
                             db.query(Track)
                             .filter(
@@ -1936,16 +2114,16 @@ def _run_analysis(track_id: int):
                                 TrackAnalysis.track_id == mb_twin.id
                             ).first()
                             if mb_twin_analysis:
-                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé (track {mb_twin.id}) — clone l'analyse, skip pipeline")
+                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé — clone analyse, skip pipeline")
                                 _clone_analysis_from_twin(db, track, mb_twin, mb_twin_analysis)
-                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid skip, mb_twin={mb_twin.id})")
+                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid twin={mb_twin.id})")
                                 _twin_found = True
                     else:
                         _log(f"[ACOUSTID] No confident match (fp len={len(ac_fp) if ac_fp else 0})")
                 else:
                     _log(f"[ACOUSTID] fpcalc unavailable or file too short, skipping")
             except Exception as ac_err:
-                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing pipeline): {ac_err}")
+                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing): {ac_err}")
 
         # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
         # les stems. Les stems tournent toujours en background APRÈS que le
@@ -4367,6 +4545,46 @@ def update_track_metadata(
         setattr(track, field, value)
 
     safe_commit(db)
+    
+    # ─ Extension E.4 : Enregistrer les corrections user dans community_metadata ─
+    if track.chromaprint_hash and (track.title or track.artist):
+        try:
+            from app.models.community_metadata import CommunityMetadata
+            from datetime import datetime
+            cm = db.query(CommunityMetadata).filter(
+                CommunityMetadata.chromaprint_hash == track.chromaprint_hash
+            ).first()
+            
+            fields_to_share = {
+                'title': track.title,
+                'artist': track.artist,
+                'album': track.album,
+                'genre': track.genre,
+                'year': track.year,
+                'artwork_url': getattr(track, 'artwork_url', None),
+            }
+            if hasattr(track, 'label'):
+                fields_to_share['label'] = track.label
+            
+            if cm:
+                # Update les champs (l'user qui modifie est probablement plus juste)
+                for k, v in fields_to_share.items():
+                    if v and hasattr(cm, k):
+                        setattr(cm, k, v)
+                cm.contributors_count = (cm.contributors_count or 0) + 1
+                cm.last_updated = datetime.utcnow()
+            else:
+                # Crée
+                cm = CommunityMetadata(chromaprint_hash=track.chromaprint_hash, **fields_to_share)
+                db.add(cm)
+            try:
+                db.commit()
+                logger.info(f"[COMMUNITY-MD] meta partagées par user {current_user.id} pour chromaprint={track.chromaprint_hash[:8]}…")
+            except Exception:
+                db.rollback()
+        except Exception as e:
+            logger.debug(f"[COMMUNITY-MD] update failed (non-fatal): {e}")
+    
     db.refresh(track)
     # PERF #1.4: invalidation cache listing
     try:

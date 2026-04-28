@@ -64,6 +64,7 @@ from app.models import tag  # noqa: F401 — registers Tag and TrackTag with Bas
 from app.models import activity_log  # noqa: F401 — registers ActivityLog with Base
 from app.models import webhook_event  # noqa: F401 — registers WebhookEvent with Base
 from app.models import referral  # noqa: F401 — registers Referral with Base
+from app.models import community_metadata  # noqa: F401 — registers CommunityMetadata with Base
 from app.database import Base
 from app.config import get_settings
 from app.middleware.rate_limit import RateLimitMiddleware
