@@ -5160,7 +5160,77 @@ def _run_parallel_analysis(shared_features: SharedFeatures, y: np.ndarray, sr: i
     return results
 
 
-def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dict:
+
+
+def _compute_waveform_peaks_multi_res(y, sr):
+    """
+    Étape 5 (B) — Calcule waveform en 3 résolutions pour zoom adaptatif :
+    - low : 500 points (overview library)
+    - med : 5000 points (zoom moyen analyze)
+    - high : 50000 points (zoom max 4K)
+    Retourne dict {low: [...], med: [...], high: [...]}
+    """
+    import numpy as np
+    out = {}
+    for name, n_points in [("low", 500), ("med", 5000), ("high", 50000)]:
+        if n_points >= len(y):
+            n_points = max(1, len(y) // 10)
+        window = max(1, len(y) // n_points)
+        peaks = []
+        for i in range(n_points):
+            start = i * window
+            end = min(start + window, len(y))
+            if end > start:
+                peaks.append(float(np.sqrt(np.mean(y[start:end] ** 2))))
+            else:
+                peaks.append(0.0)
+        max_peak = max(peaks) if peaks else 1.0
+        if max_peak > 0:
+            peaks = [round(p / max_peak, 4) for p in peaks]
+        out[name] = peaks
+    return out
+
+
+def _compute_spectral_8bands(y, sr, S=None):
+    """
+    Étape 5 (D) — Profil spectral en 8 bandes pro pour analyse subtile :
+    - sub_bass: 0-60 Hz
+    - bass: 60-250 Hz
+    - low_mid: 250-500 Hz
+    - mid: 500-2000 Hz
+    - high_mid: 2000-4000 Hz
+    - presence: 4000-6000 Hz
+    - brilliance: 6000-12000 Hz
+    - air: 12000+ Hz
+    Retourne dict normalisé à somme=1.0
+    """
+    import numpy as np
+    import librosa
+    if S is None:
+        S = np.abs(librosa.stft(y, n_fft=2048, hop_length=512))
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
+    bands = [
+        ("sub_bass", 0, 60),
+        ("bass", 60, 250),
+        ("low_mid", 250, 500),
+        ("mid", 500, 2000),
+        ("high_mid", 2000, 4000),
+        ("presence", 4000, 6000),
+        ("brilliance", 6000, 12000),
+        ("air", 12000, 24000),
+    ]
+    out = {}
+    for name, lo, hi in bands:
+        mask = (freqs >= lo) & (freqs < hi)
+        if mask.any():
+            out[name] = float(np.mean(S[mask]))
+        else:
+            out[name] = 0.0
+    total = sum(out.values()) or 1.0
+    return {k: round(v / total, 4) for k, v in out.items()}
+
+
+def analyze_audio_instant(file_path: str, track_id: Optional[int] = None, skip_bpm_key_with: Optional[Dict] = None) -> Dict:
     """
     2026-04-23 — Phase INSTANT (~3-5s).
 
@@ -5228,6 +5298,12 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
         )
         load_t = _time_instant.time() - t0
         _log(f"load {load_t:.2f}s (loaded {len(y)/sr:.1f}s @ {sr}Hz)")
+        # ─ Étape 5 (A): Affichage SSE — décodage terminé ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "decode",
+            "label": "Décodage terminé",
+        }, percent=10)
+
 
         # duration_ms : priorité à la durée totale du fichier (pas juste ce qu'on a chargé)
         if full_duration:
@@ -5238,22 +5314,53 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
         logger.error(f"[INSTANT] load failed track={track_id}: {e}")
         return {"error": f"load failed: {e}", "instant_mode": True}
 
-    # ── 2) BPM précis via beat_this (modèle deep learning pré-warmé) ──────────
-    # Si beat_this dispo : on récupère un BPM quasi-définitif dès l'INSTANT.
-    # Fallback librosa si beat_this échoue ou pas dispo.
+    # ── 2) BPM avec timeout beat_this + fallback (Étape 5 E) ───────────────────
+    # Étape 5 (E): Si beat_this prend >5s, bascule librosa
     try:
         _t = _time_instant.time()
-        bt_model = _get_beat_this_audio_model()
+        import threading
+        import queue
+        
+        bt_timeout_sec = float(os.environ.get("CUEFORGE_BEAT_THIS_TIMEOUT", "5.0"))
+        result_queue = queue.Queue()
+        bpm_method = "unknown"
+        
+        def _bt_worker():
+            try:
+                bt_model = _get_beat_this_audio_model()
+                if bt_model is None:
+                    result_queue.put(("error", "beat_this not loaded"))
+                    return
+                beats_arr, downbeats_arr = bt_model(y, sr)
+                result_queue.put(("ok", (beats_arr, downbeats_arr)))
+            except Exception as e:
+                result_queue.put(("error", str(e)))
+        
+        bt_thread = threading.Thread(target=_bt_worker, daemon=True)
+        bt_thread.start()
+        
+        beats_arr = None
+        downbeats_arr = None
+        bt_conf = 0.0
         bpm_val = None
         beat_times = []
-        if bt_model is not None:
+        
+        try:
+            status, payload = result_queue.get(timeout=bt_timeout_sec)
+            if status == "ok":
+                beats_arr, downbeats_arr = payload
+                bpm_method = "beat_this"
+            else:
+                raise RuntimeError(f"beat_this failed: {payload}")
+        except queue.Empty:
+            _log(f"[INSTANT] beat_this timeout > {bt_timeout_sec}s → fallback librosa")
+            bpm_method = "librosa_fallback"
+        
+        if bpm_method == "beat_this" and beats_arr is not None:
             try:
-                # Audio2Beats accepte signal float32 + sr
-                beats_arr, downbeats_arr = bt_model(y, sr)
                 beat_times = [float(b) for b in beats_arr]
                 if len(beat_times) >= 4:
                     ibis = np.diff(beat_times)
-                    # Filtre IBI outliers grossiers (3 sigma)
                     med = float(np.median(ibis))
                     mad = float(np.median(np.abs(ibis - med)) + 1e-9)
                     ok_mask = np.abs(ibis - med) < 3.0 * mad
@@ -5262,19 +5369,16 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
                     else:
                         median_ibi = med
                     bpm_val = 60.0 / median_ibi if median_ibi > 0 else None
-                    # Confidence depuis la régularité des IBI
                     ibi_var = float(np.std(ibis) / (np.mean(ibis) + 1e-9))
                     bt_conf = float(max(0.0, min(1.0, 1.0 - ibi_var * 2.0)))
                 else:
                     bt_conf = 0.0
             except Exception as bt_err:
-                logger.debug(f"[INSTANT] beat_this inference failed: {bt_err}")
+                logger.debug(f"[INSTANT] beat_this calc failed: {bt_err}")
                 bpm_val = None
                 bt_conf = 0.0
-        else:
-            bt_conf = 0.0
-
-        # Fallback librosa si beat_this fail
+        
+        # Fallback librosa
         if bpm_val is None:
             onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP_LENGTH)
             tempo, beat_frames = librosa.beat.beat_track(
@@ -5282,23 +5386,23 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
             )
             bpm_val = float(tempo[0]) if hasattr(tempo, "__len__") else float(tempo)
             beat_times = list(librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP_LENGTH))
-            bt_conf = 0.6  # confidence librosa plus basse
-
-        # ── Fold BPM dans la plage DJ (60-180) ──
+            bt_conf = 0.6
+            bpm_method = "librosa"
+        
+        # Fold BPM dans la plage DJ
         bpm_val = _fold_bpm_dj_range(bpm_val)
-
-        # ── Cross-validation avec ID3 hint si présent ──
-        # Si l'ID3 a un BPM proche (±3) ou un multiple/division (octave), on snap dessus
+        
+        # Cross-validation avec ID3
         if _id3_bpm_hint and 60 <= _id3_bpm_hint <= 200:
             for mult in (1.0, 0.5, 2.0):
                 candidate = _id3_bpm_hint * mult
                 if abs(bpm_val - candidate) < 3.0:
-                    bpm_val = _id3_bpm_hint  # priorité au tag
+                    bpm_val = _id3_bpm_hint
                     bt_conf = max(bt_conf, 0.95)
                     _log(f"id3 bpm_hint={_id3_bpm_hint} matché → snap")
                     break
-
-        # ── Snap aux BPM DJ communs ──
+        
+        # Snap aux BPM communs
         try:
             bpm_snapped = _snap_bpm_to_common_values(bpm_val)
             if bpm_snapped != bpm_val:
@@ -5306,37 +5410,52 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
                 bpm_val = bpm_snapped
         except Exception:
             pass
-
+        
         result["bpm"] = round(bpm_val, 1)
         result["bpm_confidence"] = round(bt_conf, 2)
+        result["bpm_method"] = bpm_method
         result["beat_positions"] = [float(round(t, 3)) for t in beat_times[:512]]
-        _log(f"bpm {_time_instant.time()-_t:.2f}s → {result['bpm']} (conf={bt_conf:.2f})")
+        _log(f"bpm {_time_instant.time()-_t:.2f}s → {result['bpm']} (conf={bt_conf:.2f}, method={bpm_method})")
+        
+        # ─ Étape 5 (A): SSE granulaire BPM ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "bpm",
+            "value": result["bpm"],
+            "label": f"BPM trouvé: {result['bpm']}",
+            "method": bpm_method,
+        }, percent=30)
+        
     except Exception as e:
         logger.warning(f"[INSTANT] bpm failed track={track_id}: {e}")
         result["bpm"] = None
         result["bpm_confidence"] = None
+        result["bpm_method"] = "error"
         result["beat_positions"] = []
 
-    # ── 3) Key précise via detect_key_hybrid (3-méthodes vote) ────────────────
-    # Plus précis que KS simple, surtout sur EDM. ~1-2s vs 0.5s — accepté pour l'INSTANT.
-    # Si ID3 fournit un key_hint valide, on l'utilise direct (gratuit + fiable Beatport).
+    # ── 3) Key avec gestion skip (Étape 5 C) ──────────────────────────────────
     try:
         _t = _time_instant.time()
-        if _id3_key_hint:
-            # Tags Beatport/Traktor : "Cmaj", "1A", "5B" — on tente utiliser direct
-            # Format simple "Cm" / "C" / "C#m" / Camelot "8B"
+        
+        # Étape 5 (C): Si skip_bpm_key_with fourni (community_metadata valide),
+        # on utilise les valeurs fournies au lieu de calculer
+        if skip_bpm_key_with and skip_bpm_key_with.get("key"):
+            result["key"] = skip_bpm_key_with["key"]
+            result["key_confidence"] = skip_bpm_key_with.get("key_confidence", 0.9)
+            result["key_source"] = "community"
+            _log(f"[INSTANT-SKIP] key depuis community_metadata → {result['key']}")
+        elif _id3_key_hint:
+            # Sinon, ID3 en priorité
             try:
-                # Normalize key hint: remove spaces, validate format
                 _normed = _id3_key_hint.upper()
-                # Simple validation: should contain at least a note or Camelot format
                 if _normed and (len(_normed) <= 5 or _normed[0].isdigit()):
                     result["key"] = _normed
                     result["key_confidence"] = 0.95
+                    result["key_source"] = "id3"
                     _log(f"id3 key_hint={_id3_key_hint} utilisé → {_normed}")
                 else:
                     raise ValueError("id3 key_hint invalid format")
             except Exception:
-                # Fallback to hybrid if ID3 parsing fails
+                # Fallback hybrid si ID3 parse fail
                 _id3_key_hint = None
                 kh = detect_key_hybrid(y, sr)
                 if isinstance(kh, dict):
@@ -5344,68 +5463,96 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
                     result["key_confidence"] = float(kh.get("key_confidence", 0.7))
                 else:
                     result["key"], result["key_confidence"] = kh
+                result["key_source"] = "hybrid"
                 _log(f"key {_time_instant.time()-_t:.2f}s → {result['key']} ({result['key_confidence']:.2f})")
         else:
+            # Calcul normal hybrid
             kh = detect_key_hybrid(y, sr)
             if isinstance(kh, dict):
                 result["key"] = kh.get("key") or "C"
                 result["key_confidence"] = float(kh.get("key_confidence", 0.7))
             else:
                 result["key"], result["key_confidence"] = kh
+            result["key_source"] = "hybrid"
             _log(f"key {_time_instant.time()-_t:.2f}s → {result['key']} ({result['key_confidence']:.2f})")
+        
+        # ─ Étape 5 (A): SSE granulaire KEY ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "key",
+            "value": result.get("key"),
+            "label": f"Tonalité: {result.get('key')}",
+            "source": result.get("key_source"),
+        }, percent=50)
+        
     except Exception as e:
         logger.warning(f"[INSTANT] key failed track={track_id}: {e}")
-        # Fallback ultime KS simple
         try:
             k, kc = detect_key_ks(y, sr)
             result["key"] = k
             result["key_confidence"] = kc
+            result["key_source"] = "ks_fallback"
         except Exception:
             result["key"] = None
             result["key_confidence"] = None
+            result["key_source"] = "error"
 
-    # ── 4) Energy RMS ────────────────────────────────────────────────────────
+    # ── 4) Energy RMS + SSE ──────────────────────────────────────────────────────
     try:
         _t = _time_instant.time()
         rms = librosa.feature.rms(y=y, hop_length=HOP_LENGTH)[0]
         rms_mean = float(np.mean(rms))
-        # Normalise à 0-100 (0.3 RMS = ~100% en musique électronique loudness-war)
         energy_pct = min(100.0, max(0.0, (rms_mean / 0.3) * 100))
         result["energy"] = round(energy_pct, 1)
         _log(f"energy {_time_instant.time()-_t:.2f}s → {result['energy']}")
+        
+        # ─ Étape 5 (A): SSE granulaire ENERGY ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "energy",
+            "value": result["energy"],
+            "label": f"Énergie: {result['energy']}",
+        }, percent=70)
+        
     except Exception as e:
         logger.warning(f"[INSTANT] energy failed track={track_id}: {e}")
         result["energy"] = None
 
-    # ── 5) Waveform peaks (500 peaks, à partir du y déjà chargé) ─────────────
-    # Pas besoin de re-lire le fichier — on calcule 500 RMS windows sur y
+    # ── 5) Waveform multi-résolution (Étape 5 B) + SSE ─────────────────────────
     try:
         _t = _time_instant.time()
-        n_peaks = 500
-        window = max(1, len(y) // n_peaks)
-        peaks = []
-        for i in range(n_peaks):
-            start = i * window
-            end = min(start + window, len(y))
-            if end > start:
-                peaks.append(float(np.sqrt(np.mean(y[start:end] ** 2))))
-            else:
-                peaks.append(0.0)
-        # Normalise 0-1
-        max_peak = max(peaks) if peaks else 1.0
-        if max_peak > 0:
-            peaks = [round(p / max_peak, 4) for p in peaks]
-        result["waveform_peaks"] = peaks
-        _log(f"waveform {_time_instant.time()-_t:.2f}s ({len(peaks)} peaks)")
+        
+        # Étape 5 (B): Calcul 3 résolutions (low 500, med 5000, high 50000)
+        waveform_dict = _compute_waveform_peaks_multi_res(y, sr)
+        
+        # Backward-compat: waveform_peaks reste la résolution basse (500)
+        result["waveform_peaks"] = waveform_dict["low"]
+        # Nouvelles colonnes pour zoom adaptatif
+        result["waveform_peaks_med"] = waveform_dict["med"]
+        result["waveform_peaks_high"] = waveform_dict["high"]
+        
+        _log(f"waveform {_time_instant.time()-_t:.2f}s (low=500, med=5k, high=50k)")
+        
+        # ─ Étape 5 (A): SSE granulaire WAVEFORM ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "waveform",
+            "resolutions": {"low": len(result["waveform_peaks"]), 
+                          "med": len(result["waveform_peaks_med"]),
+                          "high": len(result["waveform_peaks_high"])},
+            "label": "Forme d'onde calculée",
+        }, percent=85)
+        
     except Exception as e:
         logger.warning(f"[INSTANT] waveform failed track={track_id}: {e}")
         result["waveform_peaks"] = None
+        result["waveform_peaks_med"] = None
+        result["waveform_peaks_high"] = None
 
-    # ── 6) Spectral energy simple (bass/mid/high) ────────────────────────────
+    # ── 6) Spectral (3 bandes legacy + 8 bandes pro Étape 5 D) ──────────────────
     try:
         _t = _time_instant.time()
         S = np.abs(librosa.stft(y, n_fft=N_FFT, hop_length=HOP_LENGTH))
         freqs = librosa.fft_frequencies(sr=sr, n_fft=N_FFT)
+        
+        # Legacy 3 bandes (backward-compat)
         bass_mask = freqs < 250
         mid_mask = (freqs >= 250) & (freqs < 4000)
         high_mask = freqs >= 4000
@@ -5414,16 +5561,30 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
             "mid": float(np.mean(S[mid_mask])) if mid_mask.any() else 0.0,
             "high": float(np.mean(S[high_mask])) if high_mask.any() else 0.0,
         }
-        # Normalise
         total = sum(spec_energy.values()) or 1.0
         spec_energy = {k: round(v / total, 3) for k, v in spec_energy.items()}
         result["spectral_energy"] = spec_energy
-        _log(f"spectral {_time_instant.time()-_t:.2f}s")
+        
+        # Étape 5 (D): Spectral 8 bandes
+        spec_energy_8 = _compute_spectral_8bands(y, sr, S)
+        result["spectral_energy_8"] = spec_energy_8
+        
+        _log(f"spectral {_time_instant.time()-_t:.2f}s (3+8 bandes)")
+        
+        # ─ Étape 5 (A): SSE granulaire SPECTRAL ─
+        _publish_progress(track_id, "instant_step", {
+            "step": "spectral",
+            "bands_3": result["spectral_energy"],
+            "bands_8": result["spectral_energy_8"],
+            "label": "Profil spectral analysé",
+        }, percent=90)
+        
     except Exception as e:
         logger.warning(f"[INSTANT] spectral failed track={track_id}: {e}")
         result["spectral_energy"] = None
+        result["spectral_energy_8"] = None
 
-    # ── 7) Loudness approximation (peak-based, pas de LUFS précis) ──────────
+        # ── 7) Loudness approximation (peak-based, pas de LUFS précis) ──────────
     # La vraie LUFS (pyloudnorm, -14 EBU R128) sera calculée en primary_complete
     try:
         peak = float(np.max(np.abs(y)))
@@ -5436,6 +5597,17 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None) -> Dic
 
     total_t = _time_instant.time() - t0
     _log(f"════ DONE in {total_t:.2f}s (bpm={result.get('bpm')}, key={result.get('key')}, energy={result.get('energy')})")
+    
+    # ─ Étape 5 (A): SSE granulaire TERMINÉ ─
+    _publish_progress(track_id, "instant_step", {
+        "step": "complete",
+        "label": "Analyse INSTANT terminée",
+        "summary": {
+            "bpm": result.get("bpm"),
+            "key": result.get("key"),
+            "energy": result.get("energy"),
+        },
+    }, percent=100)
     result["_instant_elapsed_s"] = round(total_t, 2)
 
     # ── ID3 genre hint pour fold BPM genre-aware en aval ──

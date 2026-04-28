@@ -196,8 +196,11 @@ class TrackAnalysis(Base):
     beat_positions = Column(JSON, default=list)
     section_labels = Column(JSON, default=list)
     waveform_peaks = Column(JSON, nullable=True)   # Deprecated: use waveform_url
+    waveform_peaks_med = Column(JSON, nullable=True)  # 5000 points (étape 5 multi-rés)
+    waveform_peaks_high = Column(JSON, nullable=True)  # 50000 points (étape 5 multi-rés)
     waveform_url = Column(String(512), nullable=True)  # URL vers fichier JSON (S3/local)
     spectral_energy = Column(JSON, nullable=True)
+    spectral_energy_8 = Column(JSON, nullable=True)  # 8 bandes (étape 5)
     # v2: Beatgrid & advanced analysis
     beatgrid = Column(JSON, nullable=True)              # [{position_ms, beat_number}]
     downbeat_ms = Column(Integer, nullable=True)        # First downbeat position

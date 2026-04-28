@@ -2239,7 +2239,10 @@ def _run_analysis(track_id: int):
             duration_ms=instant_data.get("duration_ms"),
             beat_positions=instant_data.get("beat_positions", []),
             waveform_peaks=instant_data.get("waveform_peaks"),
+            waveform_peaks_med=instant_data.get("waveform_peaks_med"),
+            waveform_peaks_high=instant_data.get("waveform_peaks_high"),
             spectral_energy=instant_data.get("spectral_energy"),
+            spectral_energy_8=instant_data.get("spectral_energy_8"),
             bpm_stable=True,  # pas de bpm_map à ce stade
         )
         db.add(analysis)
