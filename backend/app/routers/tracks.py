@@ -902,46 +902,14 @@ def _run_analysis(track_id: int):
         # ÉTAPE 2 (E) : fin de phase init
         slog.phase_end("init", status="ok", file_size=os.path.getsize(file_path) if file_path and os.path.exists(file_path) else None)
 
-        # ─ PHASE 1.5 (piste 3) : fingerprint audio + lookup jumeau ─
-        # Calcule un SHA1 des 30 premières secondes décodées. Si un track
-        # jumeau existe chez le même user (status=completed + analysis), on
-        # clone les résultats au lieu de re-tourner 30-120s d'analyse.
-        _fp_skip_enabled = os.environ.get("FINGERPRINT_SKIP", "1") == "1"
-        _twin_found = False
-        if _fp_skip_enabled:
-            try:
-                fp = analysis_svc.compute_audio_fingerprint(file_path)
-                if fp:
-                    _log(f"[FP] Track {track_id} fingerprint={fp[:16]}…")
-                    track.audio_fingerprint = fp
-                    safe_commit(db)
-
-                    # Cherche un jumeau : même user, même fingerprint, status=completed, !self
-                    twin = (
-                        db.query(Track)
-                        .filter(
-                            Track.user_id == user_id,
-                            Track.audio_fingerprint == fp,
-                            Track.id != track.id,
-                            Track.status == TrackStatus.completed,
-                        )
-                        .first()
-                    )
-                    if twin:
-                        twin_analysis = db.query(TrackAnalysis).filter(
-                            TrackAnalysis.track_id == twin.id
-                        ).first()
-                        if twin_analysis:
-                            _log(f"[FP] ✓ Twin trouvé (track {twin.id}) — clone des résultats, skip analyse")
-                            _clone_analysis_from_twin(db, track, twin, twin_analysis)
-                            _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (fingerprint skip, twin={twin.id})")
-                            _twin_found = True
-            except Exception as fp_err:
-                logger.warning(f"[FP] Fingerprint lookup failed (non-fatal): {fp_err}")
-                db.rollback()
-                # Re-fetch track (rollback vient de l'invalider)
-                track = db.query(Track).filter(Track.id == track_id).first()
-
+        # ─ PHASE 1.5 SUPPRIMÉE (2026-04-28) ─
+        # L'ancien twin fingerprint maison (SHA1 sur 30s décodées, intra-user)
+        # a été retiré car redondant avec :
+        #   - l'étape 1 (dédup MD5 byte-pour-byte au moment de l'upload)
+        #   - l'étape 1.6 (AcoustID + MusicBrainz cross-user via musicbrainz_id)
+        # Gain : ~1s économisée par analyse, code plus simple, pas de risque
+        # de faux positif sur les remixes différents avec intro identique.
+        _twin_found = False  # conservé pour compat avec le code en aval
         # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
         # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
         # Sinon : lance fpcalc + AcoustID en amont pour :
@@ -1883,46 +1851,14 @@ def _run_analysis(track_id: int):
         # ÉTAPE 2 (E) : fin de phase init
         slog.phase_end("init", status="ok", file_size=os.path.getsize(file_path) if file_path and os.path.exists(file_path) else None)
 
-        # ─ PHASE 1.5 (piste 3) : fingerprint audio + lookup jumeau ─
-        # Calcule un SHA1 des 30 premières secondes décodées. Si un track
-        # jumeau existe chez le même user (status=completed + analysis), on
-        # clone les résultats au lieu de re-tourner 30-120s d'analyse.
-        _fp_skip_enabled = os.environ.get("FINGERPRINT_SKIP", "1") == "1"
-        _twin_found = False
-        if _fp_skip_enabled:
-            try:
-                fp = analysis_svc.compute_audio_fingerprint(file_path)
-                if fp:
-                    _log(f"[FP] Track {track_id} fingerprint={fp[:16]}…")
-                    track.audio_fingerprint = fp
-                    safe_commit(db)
-
-                    # Cherche un jumeau : même user, même fingerprint, status=completed, !self
-                    twin = (
-                        db.query(Track)
-                        .filter(
-                            Track.user_id == user_id,
-                            Track.audio_fingerprint == fp,
-                            Track.id != track.id,
-                            Track.status == TrackStatus.completed,
-                        )
-                        .first()
-                    )
-                    if twin:
-                        twin_analysis = db.query(TrackAnalysis).filter(
-                            TrackAnalysis.track_id == twin.id
-                        ).first()
-                        if twin_analysis:
-                            _log(f"[FP] ✓ Twin trouvé (track {twin.id}) — clone des résultats, skip analyse")
-                            _clone_analysis_from_twin(db, track, twin, twin_analysis)
-                            _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (fingerprint skip, twin={twin.id})")
-                            _twin_found = True
-            except Exception as fp_err:
-                logger.warning(f"[FP] Fingerprint lookup failed (non-fatal): {fp_err}")
-                db.rollback()
-                # Re-fetch track (rollback vient de l'invalider)
-                track = db.query(Track).filter(Track.id == track_id).first()
-
+        # ─ PHASE 1.5 SUPPRIMÉE (2026-04-28) ─
+        # L'ancien twin fingerprint maison (SHA1 sur 30s décodées, intra-user)
+        # a été retiré car redondant avec :
+        #   - l'étape 1 (dédup MD5 byte-pour-byte au moment de l'upload)
+        #   - l'étape 1.6 (AcoustID + MusicBrainz cross-user via musicbrainz_id)
+        # Gain : ~1s économisée par analyse, code plus simple, pas de risque
+        # de faux positif sur les remixes différents avec intro identique.
+        _twin_found = False  # conservé pour compat avec le code en aval
         # ─ PHASE 1.6 (vague 2) : AcoustID + MusicBrainz lookup ─
         # Si on a déjà cloné depuis un twin maison (même user re-upload), skip ce bloc.
         # Sinon : lance fpcalc + AcoustID en amont pour :
