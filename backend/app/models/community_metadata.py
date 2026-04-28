@@ -45,6 +45,7 @@ class CommunityMetadata(Base):
 
     # Incitement : combien de users ont contribué à cet enrichissement
     contributors_count = Column(Integer, default=1, nullable=False)
+    genre_correction_count = Column(Integer, default=0, nullable=False)  # Nombre de corrections genre validées
 
     # Timestamps
     last_updated = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -122,15 +122,12 @@ class Track(Base):
     # Étape 4 — AcoustID + metadata communautaire
     chromaprint_hash = Column(String(64), nullable=True, index=True)  # MD5 de l'empreinte chromaprint
 
-
-
-    # Upload robustness — Étape 1 improvements (A→G)
-    file_md5 = Column(String(32), nullable=True, index=True)  # MD5 hash du fichier pour dédup
-    r2_synced = Column(Boolean, nullable=True, default=False)  # True si R2 upload confirmé
-    analysis_attempts = Column(Integer, nullable=True, default=0)  # Compteur tentatives analyse
-
-    # Étape 4 — AcoustID + metadata communautaire
-    chromaprint_hash = Column(String(64), nullable=True, index=True)  # MD5 de l'empreinte chromaprint
+    # Étape 6 — Genre multi + source + remix flag
+    genre_secondary = Column(String(100), nullable=True)
+    genre_tertiary = Column(String(100), nullable=True)
+    genre_scores = Column(Text, nullable=True)  # JSON {genre: score, ...} top 5
+    genre_source = Column(String(40), nullable=True)  # "user" | "community" | "id3" | "musicbrainz" | "essentia_ml" | "heuristic"
+    is_remix_detected = Column(Boolean, nullable=True, default=False)
 
     # Relationships
     user = relationship("User", back_populates="tracks")
