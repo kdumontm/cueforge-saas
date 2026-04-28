@@ -119,12 +119,18 @@ class Track(Base):
     r2_synced = Column(Boolean, nullable=True, default=False)  # True si R2 upload confirmé
     analysis_attempts = Column(Integer, nullable=True, default=0)  # Compteur tentatives analyse
 
+    # Étape 4 — AcoustID + metadata communautaire
+    chromaprint_hash = Column(String(64), nullable=True, index=True)  # MD5 de l'empreinte chromaprint
+
 
 
     # Upload robustness — Étape 1 improvements (A→G)
     file_md5 = Column(String(32), nullable=True, index=True)  # MD5 hash du fichier pour dédup
     r2_synced = Column(Boolean, nullable=True, default=False)  # True si R2 upload confirmé
     analysis_attempts = Column(Integer, nullable=True, default=0)  # Compteur tentatives analyse
+
+    # Étape 4 — AcoustID + metadata communautaire
+    chromaprint_hash = Column(String(64), nullable=True, index=True)  # MD5 de l'empreinte chromaprint
 
     # Relationships
     user = relationship("User", back_populates="tracks")

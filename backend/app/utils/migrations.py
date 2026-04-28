@@ -109,7 +109,26 @@ PENDING_MIGRATIONS = {
         "file_md5": "VARCHAR(32)",
         "r2_synced": "BOOLEAN DEFAULT FALSE",
         "analysis_attempts": "INTEGER DEFAULT 0",
+        # Étape 4 — AcoustID + metadata communautaire
+        "chromaprint_hash": "VARCHAR(64)",
 
+    },
+    # Étape 4 — metadata communautaire (sharing enrichissements entre users)
+    "community_metadata": {
+        "chromaprint_hash": "VARCHAR(64) NOT NULL UNIQUE",
+        "musicbrainz_id": "VARCHAR(255)",
+        "title": "VARCHAR(500)",
+        "artist": "VARCHAR(500)",
+        "album": "VARCHAR(500)",
+        "genre": "VARCHAR(100)",
+        "year": "INTEGER",
+        "label": "VARCHAR(255)",
+        "bpm_hint": "REAL",
+        "key_hint": "VARCHAR(20)",
+        "artwork_url": "TEXT",
+        "contributors_count": "INTEGER DEFAULT 1",
+        "last_updated": "TIMESTAMP DEFAULT NOW()",
+        "created_at": "TIMESTAMP DEFAULT NOW()",
     },
     "track_analyses": {
         # Waveform and spectral data columns
