@@ -306,21 +306,38 @@ async def create_cue_point(
     _log_cue_history(db, cue.id, "created", None, cue)
 
     # ─── ÉTAPE 9-D: Enregistrement cue communautaire ───────────────
-    # Si le track a un chromaprint_hash, lenregistrement pour apprentissage community
+    # Si le track a un chromaprint_hash, on enregistre pour apprentissage community.
+    # Hotfix : nom du paramètre corrigé (cue_position_ms vs position_ms) +
+    # rollback DB en cas d'échec pour ne pas corrompre la transaction principale.
     if hasattr(track, "chromaprint_hash") and track.chromaprint_hash:
         try:
             record_community_cue(
                 db,
                 track,
-                position_ms=position_ms,
+                cue_position_ms=position_ms,
                 cue_type=cue.cue_type,
                 color=cue.color,
                 name=cue.name,
             )
         except Exception as e:
             logger.warning(f"Failed to record community cue: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
-    return CuePointResponse.model_validate(cue)
+    try:
+        return CuePointResponse.model_validate(cue)
+    except Exception as ser_err:
+        logger.warning(f"Cue serialization failed, returning minimal: {ser_err}")
+        return {
+            "id": cue.id,
+            "track_id": cue.track_id,
+            "position_ms": cue.position_ms,
+            "name": cue.name,
+            "color": cue.color,
+            "cue_type": cue.cue_type,
+        }
 
 
 @router.post("/{track_id}/points/batch", response_model=List[CuePointResponse], status_code=201)
