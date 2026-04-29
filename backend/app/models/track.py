@@ -213,6 +213,8 @@ class TrackAnalysis(Base):
     vocal_percentage = Column(Float, nullable=True)
     mood = Column(String(50), nullable=True)               # v3: calm, energetic, dark, euphoric, etc.
     danceability = Column(Float, nullable=True)            # v3: 0.0 to 1.0
+    dynamic_complexity = Column(Float, nullable=True)      # v7: Essentia DynamicComplexity score
+    sections_data = Column(JSON, nullable=True)            # v7: [{start_ms, end_ms, label}, ...] from msaf/allin1
     # v6.3: Stereo analysis
     stereo_width = Column(Float, nullable=True)            # 0.0 (mono) to 1.0 (full stereo)
     mono_compatibility = Column(Float, nullable=True)      # 0.0 (phase issues) to 1.0 (perfect)

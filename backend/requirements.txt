@@ -62,3 +62,11 @@ pytest-asyncio>=0.23.0
 # Vague 5 : Essentia pour key detection EDMA (Mixed In Key open-source)
 # Best-effort : si l'install échoue sur Railway, le code skip silencieusement
 essentia==2.1b6.dev1110
+
+# Vague étape 7 : msaf pour détection structure musicale (alternative légère à allin1)
+# Best-effort : skip silencieux si install échoue sur Railway
+msaf==0.1.80
+
+# Vague étape 7 : msaf pour détection structure musicale (alternative légère à allin1)
+# Best-effort : skip silencieux si install échoue sur Railway
+msaf==0.1.80

@@ -2520,6 +2520,23 @@ def _run_primary_complete_background(
     t0 = _time.time()
     _log(f"[PRIMARY-COMPLETE] ── START track {track_id} (cue_mode={cue_gen_mode}) ──")
 
+    # D (étape 7) : skip total si l'analyse a été clonée depuis un AcoustID twin
+    try:
+        track_twin_check = db.query(Track).filter(Track.id == track_id).first()
+        analysis_twin_check = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        if (track_twin_check and analysis_twin_check and 
+            track_twin_check.musicbrainz_id and 
+            analysis_twin_check.bpm and 
+            analysis_twin_check.sections_data):
+            _log(f"[PRIMARY-SKIP] track {track_id} déjà analysé via twin (mb_id={track_twin_check.musicbrainz_id[:12]}…) → skip")
+            track_twin_check.primary_status = 'ready'
+            db.commit()
+            _release_quota()
+            db.close()
+            return
+    except Exception as e:
+        logger.debug(f"[PRIMARY-SKIP] twin check failed: {e}")
+
     analysis_data = None
     try:
         # analyze_audio full avec defer_deep=True (deep phase ensuite en bg)
@@ -2580,7 +2597,8 @@ def _run_primary_complete_background(
             "energy", "duration_ms", "drop_positions", "phrase_positions",
             "beat_positions", "section_labels", "loudness_lufs",
             "loudness_range_lu", "replay_gain_db", "bpm_map", "bpm_stable",
-            "mood", "danceability", "stereo_width", "mono_compatibility",
+            "mood", "danceability", "dynamic_complexity", "sections_data",
+            "stereo_width", "mono_compatibility",
             "stereo_balance", "stereo_width_label", "spectral_centroid_mean",
             "brightness_label", "bpm_advanced", "has_clipping", "clipping_ratio",
             "has_dc_offset", "dc_offset_mean", "true_peak_db", "true_peak_value",

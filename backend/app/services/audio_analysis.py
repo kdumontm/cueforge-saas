@@ -967,6 +967,43 @@ def _detect_structure_allin1(file_path: str) -> Optional[List[Dict]]:
         return None
 
 
+
+def _detect_sections_msaf(file_path: str, beat_times: Optional[List[float]] = None) -> Optional[List[Dict]]:
+    """
+    Détection des sections musicales via msaf (Music Structure Analysis Framework).
+    Plus léger et plus fiable qu'allin1 sur Railway.
+    Retourne une liste de sections : [{start_ms, end_ms, label}, ...]
+    
+    Vague étape 7 : alternative légère à allin1.
+    """
+    try:
+        import msaf  # type: ignore
+        # msaf renvoie (boundaries_seconds, labels)
+        boundaries, labels = msaf.process(
+            file_path,
+            boundaries_id="sf",       # Structural Features (rapide, sans réseau)
+            labels_id="fmc2d",        # 2D-Fourier Magnitude Coefficients
+            framesync=False,
+        )
+        if boundaries is None or len(boundaries) < 2:
+            return None
+        sections = []
+        for i in range(len(boundaries) - 1):
+            sections.append({
+                "start_ms": int(boundaries[i] * 1000),
+                "end_ms": int(boundaries[i + 1] * 1000),
+                "label": str(labels[i]) if labels is not None and i < len(labels) else "section",
+            })
+        logger.info(f"[SECTIONS-MSAF] {len(sections)} sections détectées")
+        return sections
+    except ImportError:
+        logger.debug("[SECTIONS-MSAF] msaf indispo, fallback")
+        return None
+    except Exception as e:
+        logger.warning(f"[SECTIONS-MSAF] échec: {e}")
+        return None
+
+
 # ── Constants ──────────────────────────────────────────────────────────────
 SR = 22050
 HOP_LENGTH = 512
@@ -5936,6 +5973,37 @@ def analyze_audio(
     )
     _perf.mark("energy")
 
+    # C (étape 7) : danceability + mood via Essentia
+    try:
+        if os.environ.get("CUEFORGE_ESSENTIA_MOOD", "1") == "1":
+            import essentia.standard as es
+            try:
+                danc_score, _ = es.Danceability()(y.astype(np.float32))
+                danceability_pct = min(100.0, max(0.0, float(danc_score) * 33.0))
+                analysis_data["danceability"] = round(danceability_pct, 1)
+                logger.info(f"[ESSENTIA-DANCE] {danceability_pct:.1f}/100")
+            except Exception as e:
+                logger.debug(f"[ESSENTIA-DANCE] failed: {e}")
+            try:
+                dc_value, _ = es.DynamicComplexity()(y.astype(np.float32))
+                if bpm > 130 and energy > 70:
+                    mood = "energetic"
+                elif bpm < 100 and energy < 40 and dc_value < 5:
+                    mood = "calm"
+                elif bpm > 120 and dc_value > 8:
+                    mood = "intense"
+                elif energy < 50 and dc_value > 6:
+                    mood = "moody"
+                else:
+                    mood = "balanced"
+                analysis_data["mood"] = mood
+                analysis_data["dynamic_complexity"] = round(dc_value, 2)
+                logger.info(f"[ESSENTIA-MOOD] mood={mood} (DC={dc_value:.2f})")
+            except Exception as e:
+                logger.debug(f"[ESSENTIA-MOOD] failed: {e}")
+    except ImportError:
+        pass
+
     # Drops (6-factor detection with downbeat snapping) — v6.1: reuse shared STFT/RMS (Point 56)
     try:
         t0_drops = time.perf_counter()
@@ -5971,19 +6039,22 @@ def analyze_audio(
     # Sections (SSM novelty-based segmentation) (Point 56)
     sections = []  # Initialize before try so it's always defined
 
-    # v5.4: Try allin1 deep learning structure detection first
+    # B (étape 7) : sections fallback : allin1 > msaf > SSM
     t0_sections = time.perf_counter()
+    sections = None
     allin1_sections = _detect_structure_allin1(file_path)
     if allin1_sections:
         sections = allin1_sections
         logger.info(f"[ALLIN1] Structure detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
-    else:
-        # Fallback to existing librosa-based detection
+    if not sections:
+        msaf_sections = _detect_sections_msaf(file_path, beat_times=beat_positions)
+        if msaf_sections:
+            sections = msaf_sections
+            logger.info(f"[SECTIONS-MSAF] Detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
+    if not sections:
         try:
-            sections = detect_sections_ssm(
-                y, sr_loaded, beats, beat_frames, drops, rms_sync
-            )
-            logger.info(f"[SECTIONS] SSM detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
+            sections = detect_sections_ssm(y, sr_loaded, beats, beat_frames, drops, rms_sync)
+            logger.info(f"[SECTIONS-SSM] Detection took {(time.perf_counter()-t0_sections)*1000:.0f}ms")
         except Exception:
             sections = []
 
@@ -6008,6 +6079,8 @@ def analyze_audio(
         percent=75,
     )
     _perf.mark("sections")
+    # E (étape 7) : SSE progress - sections
+    _publish_progress(track_id, "primary_step", {"step": "sections", "count": len(section_labels)}, percent=70)
 
     # Phrases (8-bar grid)
     try:
