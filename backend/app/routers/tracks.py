@@ -2846,16 +2846,31 @@ def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
         # 1) Séparation Demucs (Modal GPU si dispo, sinon CPU local)
         from app.services.modal_stems import separate_stems_with_fallback, is_modal_available
         from app.services.stem_analysis import analyze_stems_from_arrays
+        from app.database import SessionLocal
+        from app.models import User
+
+        # Récupère le plan et la préférence n_stems du user
+        db = SessionLocal()
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            user = db.query(User).filter(User.id == track.user_id).first() if track else None
+            user_plan = (user.subscription_plan if user else "free") or "free"
+            user_n_stems = (
+                getattr(user, "stems_n_preference", None) or
+                int(os.environ.get("CUEFORGE_DEFAULT_N_STEMS", "4"))
+            )
+        finally:
+            db.close()
 
         _api_url = os.environ.get("API_PUBLIC_URL", "")
         _modal_token = os.environ.get("MODAL_AUTH_TOKEN", "")
         _audio_url = f"{_api_url}/api/v1/tracks/{track_id}/audio?token={_modal_token}" if (_api_url and _modal_token) else ""
 
         mode = "Modal GPU" if is_modal_available() else "CPU local"
-        logger.info(f"[STEMS] Séparation via {mode} pour track {track_id}...")
+        logger.info(f"[STEMS] Séparation via {mode} pour track {track_id} (plan={user_plan}, n_stems={user_n_stems})...")
         _update(20)
 
-        stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url)
+        stem_arrays = separate_stems_with_fallback(track_id, file_path, _audio_url, user_plan, user_n_stems)
         _update(75)
 
         # 2) Analyse des stems (drum_enter, vocal_sections, drop refinement…)

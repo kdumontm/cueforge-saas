@@ -77,6 +77,8 @@ class User(Base):
 
     # ── Complimentary / Gifted subscriptions (excluded from revenue estimation) ──
     is_comp = Column(Boolean, default=False, nullable=False)
+    # ── Étape 8: Préférence stems (4 ou 6 tiges) ──
+    stems_n_preference = Column(Integer, nullable=True, default=None)  # None=défaut (4), 4 ou 6
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

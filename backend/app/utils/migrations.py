@@ -41,6 +41,8 @@ PENDING_MIGRATIONS = {
         "onboarding_completed": "BOOLEAN NOT NULL DEFAULT FALSE",
         # Complimentary / Gifted subscriptions (excluded from revenue estimation)
         "is_comp": "BOOLEAN NOT NULL DEFAULT FALSE",
+        # Étape 8: Préférence stems (4 ou 6 tiges)
+        "stems_n_preference": "INTEGER",  # None=défaut (4), 4 ou 6
     },
     "cue_points": {
         # Cue customization columns

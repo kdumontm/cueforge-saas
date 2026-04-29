@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir "demucs>=4.0.0" \
     || echo "WARNING: Demucs install failed — stem separation disabled"
 
 # Pré-télécharger le modèle Demucs htdemucs (~80MB) — cache dans l'image
-RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs_ft'); get_model('htdemucs'); print('htdemucs_ft + htdemucs models cached')" \
+RUN python -c "from demucs.pretrained import get_model; get_model('htdemucs_ft'); get_model('mdx_extra_q'); print('models cached: htdemucs_ft + mdx_extra_q')" \
     || echo "WARNING: htdemucs model download skipped"
 
 
