@@ -249,7 +249,7 @@ async def list_cue_points(
     return [CuePointResponse.model_validate(p) for p in points]
 
 
-@router.post("/{track_id}/points", response_model=CuePointResponse, status_code=201)
+@router.post("/{track_id}/points", status_code=201)
 async def create_cue_point(
     track_id: int,
     cue_data: CuePointCreate,
@@ -302,42 +302,56 @@ async def create_cue_point(
     db.commit()
     db.refresh(cue)
 
-    # Log to history
-    _log_cue_history(db, cue.id, "created", None, cue)
+    # ─── Snapshot scalar values BEFORE any side-effect (immutables, jamais invalidés) ─
+    cue_id = cue.id
+    cue_track_id = cue.track_id
+    cue_position_ms_val = cue.position_ms
+    cue_name_val = cue.name
+    cue_color_val = cue.color
+    cue_type_val = cue.cue_type
+    cue_number_val = cue.number
 
-    # ─── ÉTAPE 9-D: Enregistrement cue communautaire ───────────────
-    # Si le track a un chromaprint_hash, on enregistre pour apprentissage community.
-    # Hotfix : nom du paramètre corrigé (cue_position_ms vs position_ms) +
-    # rollback DB en cas d'échec pour ne pas corrompre la transaction principale.
+    # ─── Side-effects (history + community) — CHAQUE bloc isolé, JAMAIS de rollback ─
+    # Si l'un des deux plante, on continue sans toucher à la session DB principale.
+    # Le cue est déjà commité, le user reçoit 201 quoi qu'il arrive.
+
+    # Log history (déjà défensif via savepoint dans _log_cue_history)
+    try:
+        _log_cue_history(db, cue_id, "created", None, {
+            "position_ms": cue_position_ms_val,
+            "name": cue_name_val,
+            "color": cue_color_val,
+            "cue_type": cue_type_val,
+        })
+    except Exception as he:
+        logger.warning(f"[CUE] history log failed (non-fatal): {he}")
+
+    # Community cue (étape 9-D) — best-effort, JAMAIS bloquant
+    # Si la table community_cues n'existe pas en DB ou autre erreur → skip silencieux
     if hasattr(track, "chromaprint_hash") and track.chromaprint_hash:
         try:
             record_community_cue(
                 db,
                 track,
-                cue_position_ms=position_ms,
-                cue_type=cue.cue_type,
-                color=cue.color,
-                name=cue.name,
+                cue_position_ms=cue_position_ms_val,
+                cue_type=cue_type_val,
+                color=cue_color_val,
+                name=cue_name_val,
             )
         except Exception as e:
-            logger.warning(f"Failed to record community cue: {e}")
-            try:
-                db.rollback()
-            except Exception:
-                pass
+            logger.warning(f"[CUE] community_cue failed (non-fatal): {e}")
 
-    try:
-        return CuePointResponse.model_validate(cue)
-    except Exception as ser_err:
-        logger.warning(f"Cue serialization failed, returning minimal: {ser_err}")
-        return {
-            "id": cue.id,
-            "track_id": cue.track_id,
-            "position_ms": cue.position_ms,
-            "name": cue.name,
-            "color": cue.color,
-            "cue_type": cue.cue_type,
-        }
+    # Réponse minimale construite depuis les snapshots scalaires (zéro accès SQLAlchemy)
+    # → garantit 201 même si la session est devenue détachée par un side-effect
+    return {
+        "id": cue_id,
+        "track_id": cue_track_id,
+        "position_ms": cue_position_ms_val,
+        "name": cue_name_val,
+        "color": cue_color_val,
+        "cue_type": cue_type_val,
+        "number": cue_number_val,
+    }
 
 
 @router.post("/{track_id}/points/batch", response_model=List[CuePointResponse], status_code=201)
