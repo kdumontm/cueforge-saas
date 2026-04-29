@@ -2403,16 +2403,39 @@ def _run_analysis(track_id: int):
         safe_commit(db)
         _log(f"[ANALYSIS] ════ INSTANT COMMIT track {track_id} ════ (status=completed, primary_status=running)")
 
-        # Notification immédiate — le user voit que son track est prêt
-        notif = Notification(
-            user_id=track.user_id,
-            type="analysis_complete",
-            title="Track prêt",
-            message=f"« {track.title or track.original_filename} » est dispo dans ta library. Analyse avancée en cours…",
-            link=f"/dashboard?track={track.id}",
-        )
-        db.add(notif)
-        safe_commit(db)
+        # Étape 11 — Notification multi-canal (in-app + push + email opt-in + webhook)
+        # Respecte les préférences user. Fallback sur ancien Notification si service crash.
+        try:
+            from app.services.notification_service import notify_analysis_complete
+            from app.models.user import User
+            from app.models.track import CuePoint
+            _user_obj = db.query(User).filter(User.id == track.user_id).first()
+            if _user_obj:
+                _n_cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).count()
+                _track_stats = {
+                    "bpm": instant_data.get("bpm") if isinstance(instant_data, dict) else None,
+                    "key": instant_data.get("key") if isinstance(instant_data, dict) else None,
+                    "duration_ms": instant_data.get("duration_ms") if isinstance(instant_data, dict) else None,
+                    "n_cues": _n_cues,
+                }
+                notify_analysis_complete(db, _user_obj, track, _track_stats)
+                safe_commit(db)
+            else:
+                raise RuntimeError("user introuvable")
+        except Exception as _ne:
+            logger.warning(f"[NOTIF-NEW] fallback notification simple: {_ne}")
+            try:
+                notif = Notification(
+                    user_id=track.user_id,
+                    type="analysis_complete",
+                    title="Track prêt",
+                    message=f"« {track.title or track.original_filename} » est dispo dans ta library. Analyse avancée en cours…",
+                    link=f"/dashboard?track={track.id}",
+                )
+                db.add(notif)
+                safe_commit(db)
+            except Exception as _ne2:
+                logger.warning(f"[NOTIF-FALLBACK] échec final: {_ne2}")
 
     except Exception as e:
         logger.error(f"Unexpected error INSTANT commit track {track_id}: {e}\n{_tb.format_exc()}")
