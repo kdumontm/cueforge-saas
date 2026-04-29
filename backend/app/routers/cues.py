@@ -302,41 +302,72 @@ async def create_cue_point(
     db.commit()
     db.refresh(cue)
 
-    # Log to history
-    _log_cue_history(db, cue.id, "created", None, cue)
+    # Capture les valeurs scalaires AVANT de lancer les side-effects en background
+    # (évite tout risque que la session/objet soit invalidé)
+    cue_id = cue.id
+    cue_track_id = cue.track_id
+    cue_position_ms = cue.position_ms
+    cue_name = cue.name
+    cue_color = cue.color
+    cue_type_val = cue.cue_type
+    chromaprint_hash = getattr(track, "chromaprint_hash", None)
 
-    # ─── ÉTAPE 9-D: Enregistrement cue communautaire ───────────────
-    # Si le track a un chromaprint_hash, on enregistre pour apprentissage community.
-    # Hotfix : nom du paramètre corrigé (cue_position_ms vs position_ms) +
-    # rollback DB en cas d'échec pour ne pas corrompre la transaction principale.
-    if hasattr(track, "chromaprint_hash") and track.chromaprint_hash:
+    # Hotfix 2026-04 : tous les side-effects post-creation (history audit + community cue)
+    # tournent en background daemon avec leur propre session DB. Comme ça la route POST
+    # /cues/{id}/points retourne TOUJOURS 201 même si log/community plantent.
+    def _post_create_side_effects():
         try:
-            record_community_cue(
-                db,
-                track,
-                cue_position_ms=position_ms,
-                cue_type=cue.cue_type,
-                color=cue.color,
-                name=cue.name,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to record community cue: {e}")
+            from app.database import SessionLocal
+            bg_db = SessionLocal()
             try:
-                db.rollback()
-            except Exception:
-                pass
+                # 1) Log cue history (best-effort, table peut ne pas exister)
+                try:
+                    _log_cue_history(bg_db, cue_id, "created", None, {
+                        "position_ms": cue_position_ms,
+                        "name": cue_name,
+                        "color": cue_color,
+                        "cue_type": cue_type_val,
+                    })
+                except Exception as he:
+                    logger.warning(f"[CUE-BG] history log failed: {he}")
+                # 2) Community cue (best-effort, table community_cues peut ne pas exister)
+                if chromaprint_hash:
+                    try:
+                        from app.models.track import Track
+                        bg_track = bg_db.query(Track).filter(Track.id == cue_track_id).first()
+                        if bg_track:
+                            record_community_cue(
+                                bg_db,
+                                bg_track,
+                                cue_position_ms=cue_position_ms,
+                                cue_type=cue_type_val,
+                                color=cue_color,
+                                name=cue_name,
+                            )
+                    except Exception as ce:
+                        logger.warning(f"[CUE-BG] community cue failed: {ce}")
+            finally:
+                bg_db.close()
+        except Exception as bg_err:
+            logger.warning(f"[CUE-BG] background side-effects crashed: {bg_err}")
+
+    try:
+        import threading
+        threading.Thread(target=_post_create_side_effects, daemon=True, name=f"cue-postcreate-{cue_id}").start()
+    except Exception as te:
+        logger.warning(f"[CUE-BG] thread launch failed: {te}")
 
     try:
         return CuePointResponse.model_validate(cue)
     except Exception as ser_err:
         logger.warning(f"Cue serialization failed, returning minimal: {ser_err}")
         return {
-            "id": cue.id,
-            "track_id": cue.track_id,
-            "position_ms": cue.position_ms,
-            "name": cue.name,
-            "color": cue.color,
-            "cue_type": cue.cue_type,
+            "id": cue_id,
+            "track_id": cue_track_id,
+            "position_ms": cue_position_ms,
+            "name": cue_name,
+            "color": cue_color,
+            "cue_type": cue_type_val,
         }
 
 
