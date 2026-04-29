@@ -50,6 +50,11 @@ from app.services.camelot import key_to_camelot as camelot_key_to_camelot, get_c
 # ══════════════════════════════════════════════════════════════════════════
 #   IMPROVEMENTS #29: TYPED DATACLASSES
 # ══════════════════════════════════════════════════════════════════════════
+from app.services.cue_step9_improvements import (
+    get_genre_strategy, smart_name_for_cue, color_for_name,
+    get_community_cues_for_track, record_community_cue, snap_to_nearest_beat
+)
+from app.services.cue_step9_improvements import apply_step9_improvements
 
 @dataclass
 class CuePointResult:
@@ -2260,6 +2265,18 @@ def generate_cue_points(analysis_data: Dict) -> List[Dict]:
 
     # ── IMPROVEMENT #28: Validate all final cue positions ──
     cue_points = _validate_final_cue_positions(cue_points, duration_ms)
+
+    # ─── ÉTAPE 9 : POST-TRAITEMENT INTELLIGENT ───────────────────────
+    # Amélioration A+B+C+E : adaptations genre, nommage intelligent, couleurs, auto-snap beat
+    cue_points = apply_step9_improvements(
+        cue_points,
+        analysis_data=analysis_data,
+        sections=sections,
+        drops=drops,
+        beats=beats,
+        duration_ms=duration_ms,
+        genre=genre,
+    )
 
     # ── Sort chronologically and reassign slot numbers ───────────────
     cue_points.sort(key=lambda c: c["position_ms"])

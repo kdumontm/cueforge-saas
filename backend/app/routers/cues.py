@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Query, Response
@@ -9,8 +10,10 @@ from app.database import get_db
 from app.models import User, Track, CuePoint, TrackAnalysis, CueRule, LoopMarker, CueTemplate, CueHistory
 from app.middleware.auth import get_current_user
 from app.services.cue_generator import apply_rules_to_track, generate_cue_points, generate_cue_points_v2
+from app.services.cue_step9_improvements import record_community_cue
 
 router = APIRouter(tags=["cues"])
+logger = logging.getLogger(__name__)
 
 
 # ─── Helper Functions ───────────────────────────────────────────────────────
@@ -301,6 +304,21 @@ async def create_cue_point(
 
     # Log to history
     _log_cue_history(db, cue.id, "created", None, cue)
+
+    # ─── ÉTAPE 9-D: Enregistrement cue communautaire ───────────────
+    # Si le track a un chromaprint_hash, lenregistrement pour apprentissage community
+    if hasattr(track, "chromaprint_hash") and track.chromaprint_hash:
+        try:
+            record_community_cue(
+                db,
+                track,
+                position_ms=position_ms,
+                cue_type=cue.cue_type,
+                color=cue.color,
+                name=cue.name,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to record community cue: {e}")
 
     return CuePointResponse.model_validate(cue)
 
