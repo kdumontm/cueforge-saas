@@ -256,27 +256,11 @@ async def create_cue_point(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Crée un cue point sur un track."""
-    import traceback as _tb_dbg
-    try:
-        return await _create_cue_point_impl(track_id, cue_data, user, db)
-    except HTTPException:
-        raise
-    except Exception as _exc_dbg:
-        _stack = _tb_dbg.format_exc()
-        logger.error(f"[CUE-DEBUG] crash POST cue track={track_id}: {type(_exc_dbg).__name__}: {_exc_dbg}\n{_stack}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Debug {type(_exc_dbg).__name__}: {str(_exc_dbg)[:200]}",
-        )
+    """Crée un cue point sur un track.
 
-
-async def _create_cue_point_impl(
-    track_id,
-    cue_data,
-    user,
-    db,
-):
+    OPT #22: Validate cue position doesn't exceed track duration
+    OPT #23: Return 409 if cue at same position already exists
+    """
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == user.id,
