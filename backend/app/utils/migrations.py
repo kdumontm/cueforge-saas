@@ -43,6 +43,10 @@ PENDING_MIGRATIONS = {
         "is_comp": "BOOLEAN NOT NULL DEFAULT FALSE",
         # Étape 8: Préférence stems (4 ou 6 tiges)
         "stems_n_preference": "INTEGER",  # None=défaut (4), 4 ou 6
+        # Étape 11: Préférences notifications
+        "notification_email_enabled": "BOOLEAN DEFAULT FALSE",
+        "notification_push_enabled": "BOOLEAN DEFAULT TRUE",
+        "notification_webhook_url": "VARCHAR(500)",
     },
     "cue_points": {
         # Cue customization columns

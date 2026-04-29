@@ -28,6 +28,10 @@ class User(Base):
 
     # Subscription (user-level, falls back to org plan)
     subscription_plan = Column(String, default="free", nullable=False)  # free / pro / enterprise / unlimited
+    # Étape 11 — Préférences notifications (push prioritaire, email opt-in, webhook pro)
+    notification_email_enabled = Column(Boolean, nullable=True, default=False)
+    notification_push_enabled = Column(Boolean, nullable=True, default=True)
+    notification_webhook_url = Column(String(500), nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
 
     # Stripe
