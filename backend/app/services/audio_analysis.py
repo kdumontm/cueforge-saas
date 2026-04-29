@@ -6566,6 +6566,16 @@ def analyze_audio(
         if hpss:
             result["harmonic_ratio"] = hpss.get("harmonic_ratio")
             result["percussive_ratio"] = hpss.get("percussive_ratio")
+            # C (étape 10) : cache HPSS pour réutilisation en DEEP lazy
+            try:
+                save_feature(file_path, 'hpss_result', {
+                    'harmonic_ratio': hpss.get('harmonic_ratio'),
+                    'percussive_ratio': hpss.get('percussive_ratio'),
+                    'harmonic_energy': hpss.get('harmonic_energy'),
+                    'percussive_energy': hpss.get('percussive_energy'),
+                })
+            except Exception:
+                pass
 
         # v6.5: Subband energy
         subband = _run_deep("subband", lambda: compute_subband_energy_ratios(y, sr_loaded), default={})
@@ -6758,6 +6768,57 @@ def analyze_audio(
 #   et status=completed. Les champs deep remplissent progressivement la DB.
 # ══════════════════════════════════════════════════════════════════════════
 
+def analyze_vocals_isolated(vocals_path: str) -> Optional[Dict]:
+    """
+    Analyse approfondie d'un stem vocals isolé (post-Demucs).
+    Retourne : {pitch_mean_hz, pitch_range_hz, voice_type, has_vibrato, presence_pct, mean_dB}
+    """
+    try:
+        import librosa
+        y, sr = librosa.load(vocals_path, sr=22050, mono=True)
+        if len(y) < sr * 5:
+            return None
+        # Vibrato : variance pitch sur petites fenêtres
+        try:
+            f0, voiced_flag, _ = librosa.pyin(y, fmin=80, fmax=800, sr=sr, frame_length=2048)
+            f0_clean = f0[~np.isnan(f0)]
+            if len(f0_clean) == 0:
+                return {"presence_pct": 0.0, "voice_type": "instrumental"}
+            pitch_mean = float(np.mean(f0_clean))
+            pitch_range = float(np.max(f0_clean) - np.min(f0_clean))
+            # Type voix selon pitch moyen
+            if pitch_mean < 165:
+                voice_type = "male"
+            elif pitch_mean < 250:
+                voice_type = "neutral"
+            else:
+                voice_type = "female"
+            # Vibrato : ondulation fréquente du pitch
+            if len(f0_clean) > 50:
+                pitch_diffs = np.abs(np.diff(f0_clean))
+                has_vibrato = float(np.mean(pitch_diffs)) > 5.0
+            else:
+                has_vibrato = False
+            # Présence (% du temps où il y a vraiment de la voix)
+            rms = librosa.feature.rms(y=y)[0]
+            rms_db = 20 * np.log10(rms + 1e-9)
+            presence_pct = float(np.mean(rms_db > -40)) * 100.0
+            mean_db = float(np.mean(rms_db))
+            return {
+                "pitch_mean_hz": round(pitch_mean, 1),
+                "pitch_range_hz": round(pitch_range, 1),
+                "voice_type": voice_type,
+                "has_vibrato": has_vibrato,
+                "presence_pct": round(presence_pct, 1),
+                "mean_dB": round(mean_db, 1),
+            }
+        except Exception:
+            return None
+    except Exception as e:
+        logger.warning(f"[VOCAL-ISOLATED] échec: {e}")
+        return None
+
+
 def compute_deep_only(
     file_path: str,
     main_result: Dict,
@@ -6854,8 +6915,17 @@ def compute_deep_only(
         default={"available": False},
     )
 
-    # HPSS
-    hpss = _run_deep("hpss", lambda: compute_hpss_metrics(y, sr_loaded), default={})
+    # C (étape 10) : tente de récupérer HPSS depuis le cache PRIMARY
+    hpss = None
+    try:
+        cached_hpss = load_feature(file_path, 'hpss_result')
+        if cached_hpss:
+            hpss = cached_hpss
+            logger.info(f"[DEEP-CACHE] HPSS récupéré depuis cache PRIMARY (économise ~10s)")
+    except Exception:
+        pass
+    if not hpss:
+        hpss = _run_deep("hpss", lambda: compute_hpss_metrics(y, sr_loaded), default={})
     if hpss:
         deep["harmonic_ratio"] = hpss.get("harmonic_ratio")
         deep["percussive_ratio"] = hpss.get("percussive_ratio")
@@ -7002,6 +7072,91 @@ def compute_deep_only(
         lambda: compute_key_deep_analysis(y, sr_loaded, section_labels),
         default={"available": False},
     )
+
+    # E (étape 10) : compatibilité de mixage cross-tracks
+    try:
+        from app.database import SessionLocal
+        from app.models.track import Track, TrackStatus
+        from app.models.track_analysis import TrackAnalysis
+        from sqlalchemy.orm import joinedload
+        db = SessionLocal()
+        try:
+            track = db.query(Track).filter(Track.id == track_id).first()
+            if track and bpm and key:
+                cur_bpm = float(bpm)
+                cur_key = key
+                cur_energy = float(energy or 50)
+                
+                # 50 derniers morceaux du même user
+                candidates = (
+                    db.query(Track)
+                    .options(joinedload(Track.analysis))
+                    .filter(
+                        Track.user_id == track.user_id,
+                        Track.id != track_id,
+                        Track.status == TrackStatus.completed,
+                    )
+                    .order_by(Track.created_at.desc())
+                    .limit(50)
+                    .all()
+                )
+                
+                # Camelot wheel pour clé harmonique
+                CAMELOT = {
+                    "C": 8, "Db": 3, "D": 10, "Eb": 5, "E": 12, "F": 7,
+                    "Gb": 2, "G": 9, "Ab": 4, "A": 11, "Bb": 6, "B": 1,
+                    "Cm": 5, "Dbm": 12, "Dm": 7, "Ebm": 2, "Em": 9, "Fm": 4,
+                    "Gbm": 11, "Gm": 6, "Abm": 1, "Am": 8, "Bbm": 3, "Bm": 10,
+                }
+                cur_camelot = CAMELOT.get(cur_key)
+                
+                compat_scores = []
+                for cand in candidates:
+                    if not cand.analysis or not cand.analysis.bpm or not cand.analysis.key:
+                        continue
+                    score = 0
+                    # BPM : ±5% = 40 pts
+                    bpm_diff_pct = abs(cand.analysis.bpm - cur_bpm) / max(cur_bpm, 1)
+                    if bpm_diff_pct < 0.02:
+                        score += 40
+                    elif bpm_diff_pct < 0.05:
+                        score += 30
+                    elif bpm_diff_pct < 0.10:
+                        score += 15
+                    # Clé : Camelot adjacent ou identique = 40 pts
+                    if cur_camelot:
+                        cand_camelot = CAMELOT.get(cand.analysis.key)
+                        if cand_camelot:
+                            cam_diff = min(abs(cur_camelot - cand_camelot), 12 - abs(cur_camelot - cand_camelot))
+                            if cam_diff == 0: score += 40
+                            elif cam_diff == 1: score += 30
+                            elif cam_diff == 7: score += 25  # relative major/minor
+                            elif cam_diff == 2: score += 15
+                    # Énergie : ±15 = 20 pts
+                    cand_energy = float(cand.analysis.energy or 50)
+                    energy_diff = abs(cand_energy - cur_energy)
+                    if energy_diff < 10:
+                        score += 20
+                    elif energy_diff < 20:
+                        score += 10
+                    
+                    if score >= 60:  # seuil minimum compatible
+                        compat_scores.append({
+                            "track_id": cand.id,
+                            "title": cand.title or cand.original_filename,
+                            "score": score,
+                            "bpm_diff_pct": round(bpm_diff_pct * 100, 1),
+                            "key": cand.analysis.key,
+                        })
+                
+                # Top 10 plus compatibles
+                compat_scores.sort(key=lambda x: -x["score"])
+                deep["compatible_tracks"] = compat_scores[:10]
+                logger.info(f"[COMPAT-CROSS] track {track_id} : {len(compat_scores)} morceaux compatibles trouvés")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"[COMPAT-CROSS] échec: {e}")
 
     # Free audio signal
     try:

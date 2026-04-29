@@ -270,6 +270,10 @@ class TrackAnalysis(Base):
     section_deep_analysis = Column(JSON, nullable=True)
     loudness_deep_analysis = Column(JSON, nullable=True)
     key_deep_analysis = Column(JSON, nullable=True)
+    # v7.0: Post-stems vocal analysis isolée + compatibilité cross-tracks
+    vocal_analysis_isolated = Column(JSON, nullable=True)  # {pitch_mean_hz, voice_type, has_vibrato, presence_pct, mean_dB}
+    compatible_tracks = Column(JSON, nullable=True)  # [{track_id, title, score, bpm_diff_pct, key}, ...]
+    
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     track = relationship("Track", back_populates="analysis")
 

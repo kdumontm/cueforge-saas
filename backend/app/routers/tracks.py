@@ -2707,11 +2707,16 @@ def _run_primary_complete_background(
         db.close()
 
     # ─ PHASE DEEP en différé (~120s) ─
-    try:
-        if analysis_data:
-            _run_deep_analysis_deferred(track_id, file_path, analysis_data)
-    except Exception as e:
-        logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
+    # B (étape 10) : DEEP désormais lazy, lancé à la demande via POST /deep-analysis
+    # Skip ici si CUEFORGE_DEEP_AUTO=0 (défaut)
+    if os.environ.get("CUEFORGE_DEEP_AUTO", "0") == "1":
+        try:
+            if analysis_data:
+                _run_deep_analysis_deferred(track_id, file_path, analysis_data)
+        except Exception as e:
+            logger.warning(f"[DEEP-LAZY] Deferred deep analysis failed for track {track_id}: {e}")
+    else:
+        logger.info(f"[DEEP-LAZY] track {track_id} : DEEP non-auto, sera lancé à l'ouverture du Mix Studio")
 
     # Release quota seulement à la fin du primary_complete (stems continue)
     _release_quota()
@@ -2947,6 +2952,27 @@ def _run_stems_background(track_id: int, file_path: str, chain_cues: bool):
         except Exception as ve:
             logger.warning(f"[STEMS][vocal-cue] échec (non-fatal): {ve}")
 
+        # D (étape 10) : analyse vocale ISOLÉE (post-stems, beaucoup plus précise)
+        try:
+            from app.services.stems_service import stems_dir_for_track
+            from app.services.audio_analysis import analyze_vocals_isolated
+            vocals_path = os.path.join(stems_dir_for_track(track_id), "vocals.mp3")
+            if os.path.exists(vocals_path):
+                vocal_data = analyze_vocals_isolated(vocals_path)
+                if vocal_data:
+                    db = SessionLocal()
+                    try:
+                        analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+                        if analysis and hasattr(analysis, 'vocal_analysis_isolated'):
+                            import json
+                            analysis.vocal_analysis_isolated = json.dumps(vocal_data)
+                            db.commit()
+                            logger.info(f"[VOCAL-POST-STEMS] track {track_id} : analyse vocale isolée sauvegardée")
+                    finally:
+                        db.close()
+        except Exception as e:
+            logger.warning(f"[VOCAL-POST-STEMS] échec track {track_id}: {e}")
+
                 # 4) Si mode pro : chaîner vers _run_cues_with_stems pour re-générer
         #    les cues avec les stems (meilleure confidence).
         if chain_cues:
@@ -3103,6 +3129,20 @@ def _run_deep_analysis_deferred(track_id: int, file_path: str, main_result: Dict
     from app.database import SessionLocal
     import traceback as _tb
 
+    # A (étape 10) : skip total si AcoustID twin a déjà rempli les données deep
+    db_check = SessionLocal()
+    try:
+        track = db_check.query(Track).filter(Track.id == track_id).first()
+        analysis = db_check.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+        # Si AcoustID twin a déjà cloné l'analyse complète, les champs deep sont remplis
+        if (track and analysis and track.musicbrainz_id and 
+            getattr(analysis, 'structural_summary', None) and
+            getattr(analysis, 'sub_bass_quality', None) is not None):
+            logger.info(f"[DEEP-SKIP] track {track_id} a déjà analyse deep via AcoustID twin → skip")
+            return
+    finally:
+        db_check.close()
+
     logger.info(f"[DEEP-LAZY] ── Starting deferred deep phase for track {track_id} ──")
     db = SessionLocal()
     try:
@@ -3164,6 +3204,67 @@ def _run_deep_analysis_deferred(track_id: int, file_path: str, main_result: Dict
             pass
     finally:
         db.close()
+
+
+@router.post("/{track_id}/deep-analysis")
+async def trigger_deep_analysis(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Déclenche DEEP analyse pour ce track (lazy, à la demande quand user ouvre Mix Studio).
+    Si DEEP déjà fait : retourne 200 OK direct. Sinon lance en background et retourne 202.
+    """
+    import os
+    import threading
+    validate_track_id(track_id)
+    track = db.query(Track).filter(
+        Track.id == track_id,
+        Track.user_id == current_user.id,
+    ).first()
+    if not track:
+        raise HTTPException(404, "Track not found")
+    analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
+    if not analysis:
+        raise HTTPException(400, "Track not yet analyzed (PRIMARY missing)")
+    
+    # Déjà fait ?
+    if getattr(analysis, 'structural_summary', None) and getattr(analysis, 'sub_bass_quality', None) is not None:
+        return {"status": "already_done"}
+    
+    # Lance en background
+    file_path = track.file_path
+    if not file_path or not os.path.exists(file_path):
+        # Tente récupération R2
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                r2_key = r2_service.key_from_local_path(file_path)
+                if r2_service.object_exists(r2_key):
+                    r2_service.download_file(r2_key, file_path)
+        except Exception:
+            pass
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(400, "Audio file not available")
+    
+    main_result = {
+        "section_labels": analysis.section_labels or [],
+        "beat_positions": analysis.beat_positions or [],
+        "bpm": analysis.bpm,
+        "key": analysis.key,
+        "energy": analysis.energy,
+    }
+    
+    def run_deep_bg():
+        _run_deep_analysis_deferred(track_id, file_path, main_result)
+    
+    threading.Thread(
+        target=run_deep_bg,
+        daemon=True,
+        name=f"deep-{track_id}",
+    ).start()
+    return {"status": "started"}
 
 
 @router.get("/{track_id}/pipeline-status")

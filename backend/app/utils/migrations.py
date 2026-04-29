@@ -207,6 +207,9 @@ PENDING_MIGRATIONS = {
         "section_deep_analysis": "JSON",
         "loudness_deep_analysis": "JSON",
         "key_deep_analysis": "JSON",
+        # v7.0: Post-stems vocal analysis isolée + compatibilité cross-tracks
+        "vocal_analysis_isolated": "JSON",
+        "compatible_tracks": "JSON",
     },
     "subscriptions": {
         # Stripe price ID
