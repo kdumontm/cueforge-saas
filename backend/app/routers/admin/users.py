@@ -84,6 +84,7 @@ class BulkDeleteRequest(BaseModel):
 # Format : (nom_table, nom_colonne_fk).
 _USER_CHILD_TABLES = [
     # Relations directes 1→N user.id
+    ("tracks", "user_id"),  # CRITICAL: FK may not have ON DELETE CASCADE in older migrations
     ("hot_cues", "user_id"),
     ("playlist_tracks", None),  # pas de user_id direct, nettoyé via CASCADE sur playlists
     ("playlists", "user_id"),
