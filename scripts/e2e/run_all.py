@@ -70,6 +70,14 @@ SUITES_ORDER = [
     ("recommendation", "scripts.e2e.test_recommendation"),
     # P4 — account
     ("account",     "scripts.e2e.test_account"),
+    # P5 — business
+    ("billing",        "scripts.e2e.test_billing"),
+    ("organization",   "scripts.e2e.test_organization"),
+    ("cue_ai",         "scripts.e2e.test_cue_ai"),
+    ("cue_templates",  "scripts.e2e.test_cue_templates"),
+    ("blog",           "scripts.e2e.test_blog"),
+    ("user_stats",     "scripts.e2e.test_user_stats"),
+    ("activity",       "scripts.e2e.test_activity"),
     # P6 — flows bout-en-bout
     ("flows",       "scripts.e2e.test_flows"),
     # UX — widget feedback
