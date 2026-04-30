@@ -1168,7 +1168,18 @@ function openContextMenu(x, y, t){
     { divider: true },
     { label: 'Supprimer', danger: true, fn: async () => {
         if(!confirm(`Supprimer "${t.title || 'ce track'}" ?`)) return;
-        try { await api.del(`/tracks/${t.id}`); toast('Supprimé','info'); load(); loadCounts(); }
+        try {
+          await api.del(`/tracks/${t.id}`);
+          toast('Supprimé','info');
+          // Bug #142: retire immédiatement la row du DOM pour UX rapide
+          const row = document.querySelector(`.lib-row[data-id="${t.id}"]`);
+          if(row) row.remove();
+          loadCounts();
+          state.total--;
+          const totalEl = document.getElementById('count-results');
+          if(totalEl) totalEl.textContent = `${fmt.num(state.total)} résultat${state.total>1?'s':''}`;
+          renderPagination();
+        }
         catch(err){ toast('Erreur : '+err.message,'warn'); }
       }},
   ];
