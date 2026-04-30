@@ -187,14 +187,36 @@ async def generate_waveform(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    if not track.file_path or not os.path.exists(track.file_path):
+    # Déterminer le fichier à analyser : local ou R2
+    file_path = track.file_path
+    if (not file_path or not os.path.exists(file_path)) and getattr(track, "r2_key", None):
+        # Le fichier est sur R2 : télécharger en cache local
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+                os.makedirs(upload_dir, exist_ok=True)
+                cache_path = os.path.join(upload_dir, track.r2_key)
+                if not os.path.exists(cache_path):
+                    logger.info("R2 cache miss track=%d, downloading from R2 key=%s", track_id, track.r2_key)
+                    r2_service.download_file(track.r2_key, cache_path)
+                file_path = cache_path
+            else:
+                raise HTTPException(status_code=503, detail="R2 storage not configured")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("R2 cache download failed for track %d: %s", track_id, e)
+            raise HTTPException(status_code=503, detail="Failed to retrieve audio file from storage")
+
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=400, detail="Audio file not accessible")
 
     # Queue background task
     background_tasks.add_task(
         _generate_waveform_background,
         track_id=track_id,
-        file_path=track.file_path,
+        file_path=file_path,
     )
 
     return {
@@ -270,7 +292,29 @@ async def regenerate_waveform(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    if not track.file_path or not os.path.exists(track.file_path):
+    # Déterminer le fichier à analyser : local ou R2
+    file_path = track.file_path
+    if (not file_path or not os.path.exists(file_path)) and getattr(track, "r2_key", None):
+        # Le fichier est sur R2 : télécharger en cache local
+        try:
+            from app.services import r2_service
+            if r2_service.enabled():
+                upload_dir = os.getenv("UPLOAD_DIR", "/app/uploads")
+                os.makedirs(upload_dir, exist_ok=True)
+                cache_path = os.path.join(upload_dir, track.r2_key)
+                if not os.path.exists(cache_path):
+                    logger.info("R2 cache miss track=%d, downloading from R2 key=%s", track_id, track.r2_key)
+                    r2_service.download_file(track.r2_key, cache_path)
+                file_path = cache_path
+            else:
+                raise HTTPException(status_code=503, detail="R2 storage not configured")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("R2 cache download failed for track %d: %s", track_id, e)
+            raise HTTPException(status_code=503, detail="Failed to retrieve audio file from storage")
+
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=400, detail="Audio file not accessible")
 
     # Clear old waveform
@@ -287,7 +331,7 @@ async def regenerate_waveform(
     background_tasks.add_task(
         _generate_waveform_background,
         track_id=track_id,
-        file_path=track.file_path,
+        file_path=file_path,
     )
 
     return {
