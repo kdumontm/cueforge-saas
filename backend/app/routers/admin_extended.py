@@ -437,16 +437,17 @@ def list_users_advanced(
     # Paginate
     items = query.offset(filters.skip).limit(filters.limit).all()
 
-    # Load tracks_count for each user via LEFT JOIN (optimized)
+    # Load tracks_count for each user via aggregate query
     # Fetch all track counts in one query to avoid N+1
     tracks_count_map = {}
     if items:
         user_ids = [u.id for u in items]
         track_counts = db.query(
             Track.user_id,
-            func.count(Track.id).label("count")
+            func.count(Track.id)
         ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        tracks_count_map = {uid: cnt for uid, cnt in track_counts}
+        for uid, cnt in track_counts:
+            tracks_count_map[uid] = cnt or 0
 
     return {
         "total": total,

@@ -5327,7 +5327,13 @@ def analyze_audio_instant(file_path: str, track_id: Optional[int] = None, skip_b
 
         # On charge au max 180s pour le calcul (suffisant pour BPM/key)
         analyze_duration = 180.0
-        y, sr = decode_audio_cached(
+        # Failsafe: import decode_audio_cached locally if not available globally
+        try:
+            _decode_func = decode_audio_cached
+        except NameError:
+            from app.services.audio_loader import decode_audio_cached as _decode_func
+
+        y, sr = _decode_func(
             file_path,
             sr=SR,
             max_duration=180.0,
@@ -5695,7 +5701,13 @@ def analyze_audio(
     completed_steps = checkpoint.get('_completed_steps', []) if checkpoint else []
     logger.info(f"[CACHE] Checkpoint status: {len(completed_steps)} completed steps")
 
-    y, sr_loaded = decode_audio_cached(
+    # Failsafe: import decode_audio_cached locally if not available globally
+    try:
+        _decode_func = decode_audio_cached
+    except NameError:
+        from app.services.audio_loader import decode_audio_cached as _decode_func
+
+    y, sr_loaded = _decode_func(
         file_path,
         sr=SR,
         max_duration=MAX_DURATION,
@@ -6851,7 +6863,13 @@ def compute_deep_only(
 
     # ── Reload audio (same params as analyze_audio) ──
     try:
-        y, sr_loaded = decode_audio_cached(
+        # Failsafe: import decode_audio_cached locally if not available globally
+        try:
+            _decode_func = decode_audio_cached
+        except NameError:
+            from app.services.audio_loader import decode_audio_cached as _decode_func
+
+        y, sr_loaded = _decode_func(
             file_path,
             sr=SR,
             max_duration=MAX_DURATION,
