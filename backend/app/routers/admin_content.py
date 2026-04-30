@@ -1129,7 +1129,7 @@ async def list_favorites(
         "total": total,
         "skip": skip,
         "limit": limit,
-        "items": [_serialize_favorite(fav, include_track=True) for fav in items],
+        "items": [_serialize_favorite(fav, include_track=False) for fav in items],
     }
 
 
