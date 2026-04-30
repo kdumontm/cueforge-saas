@@ -179,10 +179,50 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
                 logger.warning(f"[admin.purge_users] Local delete {t.file_path} failed: {e}")
                 local_errors += 1
 
-    # 2. CRITICAL: Purge tracks EN PRIORITÉ avec exception directe (pas de savepoint)
-    #    La FK users.id ← tracks.user_id DOIT être nettoyée AVANT delete users.
+    # 2. CRITICAL: Purge hiérarchie tracks → enfants de tracks → tracks
+    #    Hiérarchie: users.id ← tracks.user_id ← {track_analyses, cue_points,
+    #    loop_markers, cue_rules, hot_cues, favorites, playlist_tracks,
+    #    dj_set_tracks, play_history, track_tags, cue_conflicts, cue_analytics,
+    #    etc.}.track_id
+    #
+    #    On doit purger les enfants de tracks AVANT de purger les tracks.
     #    Aucun savepoint ici — si ça échoue, c'est un vrai problème à signaler.
     children_deleted = 0
+
+    # Liste des tables enfants de tracks (ordonnée par dépendance)
+    # Chaque tuple = (table_name, column_name_fk_vers_tracks)
+    track_child_tables = [
+        ("track_analyses", "track_id"),
+        ("cue_points", "track_id"),
+        ("loop_markers", "track_id"),
+        ("cue_rules", "track_id"),
+        ("cue_conflicts", "track_id"),
+        ("cue_analytics", "track_id"),
+        ("hot_cues", "track_id"),  # Peut aussi avoir user_id, mais on l'efface ici via track_id
+        ("favorites", "track_id"),
+        ("playlist_tracks", "track_id"),
+        ("dj_set_tracks", "track_id"),
+        ("play_history", "track_id"),
+        ("track_tags", "track_id"),  # TrackTag table
+    ]
+
+    # D'abord : supprimer tous les enfants de tracks
+    for tbl, col in track_child_tables:
+        if not _table_has_column(db, tbl, col):
+            continue
+        try:
+            res = db.execute(
+                text(f"DELETE FROM {tbl} WHERE {col} IN (SELECT id FROM tracks WHERE user_id = ANY(:ids))"),
+                {"ids": user_ids},
+            )
+            rowcount = res.rowcount or 0
+            if rowcount > 0:
+                logger.info(f"[admin.purge_users] supprimé {rowcount} rows de {tbl}")
+        except Exception as e:
+            logger.error(f"[admin.purge_users] CRITICAL: {tbl}.{col} DELETE échoué : {e}")
+            raise
+
+    # Ensuite : supprimer les tracks eux-mêmes
     try:
         res = db.execute(
             text("DELETE FROM tracks WHERE user_id = ANY(:ids)"),
