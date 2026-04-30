@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.models.track import Track
 from app.models.feedback import Feedback
 from app.models.activity_log import ActivityLog
 from app.models.notification import Notification
@@ -372,10 +373,8 @@ def list_users_advanced(
     Supports: search, plan, is_admin, email_verified, date ranges,
     last_login ranges, organization_id, oauth_provider, dj_style,
     dj_software, onboarding_completed, totp_enabled, sorting.
-    Includes tracks_count (total all-time) via LEFT JOIN + GROUP BY.
+    Includes tracks_count (total all-time) via GROUP BY count.
     """
-    from app.models.track import Track
-
     query = db.query(User)
 
     # Search (name or email)
