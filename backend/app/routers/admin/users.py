@@ -138,9 +138,9 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
     - Maintenant : ~35 DELETEs × 1 (= IN :ids) + skip tables absentes via cache
       = ~10-15 round-trips TOTAL quelque soit N.
 
-    Savepoint par table : chaque DELETE s'exécute DANS un savepoint isolé.
-    En cas de contrainte FK ou autre erreur, on rollback juste ce savepoint,
-    pas la transaction entière. Cela permet aux DELETE suivantes de continuer.
+    IMPORTANT FIX: Tracks DOIT être supprimée AVANT users (FK violation sinon).
+    Contrairement aux savepoint qui cachent les erreurs FK, on purge les tracks
+    en priorité HORS DE LA BOUCLE avec exception directe si ça échoue.
     """
     logger.info(f"[admin.purge_users] démarrage purge en masse pour {len(user_ids)} users")
 
@@ -179,7 +179,23 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
                 logger.warning(f"[admin.purge_users] Local delete {t.file_path} failed: {e}")
                 local_errors += 1
 
-    # 2. Purge SQL des tables enfants avec filtrage schéma-aware
+    # 2. CRITICAL: Purge tracks EN PRIORITÉ avec exception directe (pas de savepoint)
+    #    La FK users.id ← tracks.user_id DOIT être nettoyée AVANT delete users.
+    #    Aucun savepoint ici — si ça échoue, c'est un vrai problème à signaler.
+    children_deleted = 0
+    try:
+        res = db.execute(
+            text("DELETE FROM tracks WHERE user_id = ANY(:ids)"),
+            {"ids": user_ids},
+        )
+        children_deleted += (res.rowcount or 0)
+        logger.info(f"[admin.purge_users] supprimé {res.rowcount} tracks pour uids={user_ids}")
+    except Exception as e:
+        logger.error(f"[admin.purge_users] CRITICAL: tracks DELETE échoué (FK ou autre) : {e}")
+        # Re-raise pour que l'appelant sache que ça a échoué
+        raise
+
+    # 3. Purge SQL des tables enfants avec filtrage schéma-aware
     #    ANY(:ids) fonctionne pour Postgres avec un List[int] direct.
     #
     #    IMPORTANT: Postgres signale une erreur de contrainte FK (ex: violation
@@ -190,9 +206,11 @@ def _purge_users_bulk(user_ids: List[int], db: Session) -> dict:
     #    Solution: utiliser db.begin_nested() pour créer un savepoint local.
     #    Chaque DELETE est exécuté DANS ce savepoint : en cas d'erreur,
     #    on reste dans la transaction principale (qui elle n'est pas cassée).
-    children_deleted = 0
     for tbl, col in _USER_CHILD_TABLES:
         if col is None:
+            continue
+        # Skip tracks — déjà purgé en priorité au-dessus
+        if tbl == "tracks":
             continue
         if not _table_has_column(db, tbl, col):
             continue
