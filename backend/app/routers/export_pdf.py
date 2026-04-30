@@ -65,7 +65,15 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
     # Tracks
     for track in tracks:
         a = getattr(track, "analysis", None)  # TrackAnalysis or None
-        story.append(Paragraph(f"{track.title} — {track.artist}", heading_style))
+
+        # Safe defaults — title/artist are nullable, reportlab Paragraph
+        # crashes on None (cannot escape None into XML).
+        title = str(track.title or "Untitled")
+        artist = str(track.artist or "Unknown")
+        # Escape HTML entities for reportlab Paragraph
+        title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        artist = artist.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        story.append(Paragraph(f"{title} — {artist}", heading_style))
 
         # Track info table
         duration_sec = (track.duration_ms or 0) / 1000
@@ -77,7 +85,7 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
             ['Durée', f"{int(duration_sec / 60)}:{int(duration_sec % 60):02d}"],
         ]
         if track.album:
-            track_data.insert(0, ['Album', track.album])
+            track_data.insert(0, ['Album', str(track.album)])
 
         track_table = Table(track_data, colWidths=[1.5 * inch, 3.5 * inch])
         track_table.setStyle(TableStyle([
@@ -185,6 +193,9 @@ async def export_track_pdf(
     Export a single track analysis as PDF.
     GET /api/v1/export/pdf/{track_id}
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     track = db.query(Track).filter(
         Track.id == track_id,
         Track.user_id == current_user.id
@@ -193,13 +204,19 @@ async def export_track_pdf(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
-    # Generate PDF
-    if HAS_REPORTLAB:
-        pdf_buffer = create_pdf_reportlab([track])
-    elif HAS_FPDF:
-        pdf_buffer = create_pdf_fpdf([track])
-    else:
-        raise HTTPException(status_code=500, detail="PDF libraries not available")
+    # Generate PDF — wrap in try/except so partial data doesn't 500 silently
+    try:
+        if HAS_REPORTLAB:
+            pdf_buffer = create_pdf_reportlab([track])
+        elif HAS_FPDF:
+            pdf_buffer = create_pdf_fpdf([track])
+        else:
+            raise HTTPException(status_code=503, detail="PDF library not available on this server")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"PDF generation failed for track {track_id}")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {type(e).__name__}: {str(e)[:200]}")
 
     return StreamingResponse(
         pdf_buffer,
