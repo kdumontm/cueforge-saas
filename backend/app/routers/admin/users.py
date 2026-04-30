@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.models.track import Track
 from app.middleware.admin import require_admin
 from app.routers.admin.schemas import UserUpdate
 from app.services import r2_service
