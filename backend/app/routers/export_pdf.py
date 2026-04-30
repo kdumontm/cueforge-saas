@@ -75,8 +75,10 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
         artist = artist.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         story.append(Paragraph(f"{title} — {artist}", heading_style))
 
-        # Track info table
-        duration_sec = (track.duration_ms or 0) / 1000
+        # Track info table — use getattr defensively in case migration is partial
+        duration_ms = getattr(track, 'duration_ms', None) or getattr(track, 'duration', None) or 0
+        # Heuristic: if value > 10000 it's probably ms, else seconds
+        duration_sec = duration_ms / 1000 if duration_ms > 10000 else duration_ms
         track_data = [
             ['BPM', str(getattr(a, 'bpm', 'N/A') if a else 'N/A')],
             ['Tonalité', str(getattr(a, 'key', 'N/A') if a else 'N/A')],
@@ -162,7 +164,8 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
         pdf.cell(0, 4, f"Tonalité: {getattr(a, 'key', 'N/A') if a else 'N/A'}", ln=True)
         pdf.cell(0, 4, f"Énergie: {getattr(a, 'energy', 0) if a else 0}%", ln=True)
         pdf.cell(0, 4, f"Genre: {track.genre or 'N/A'}", ln=True)
-        duration_sec = (track.duration_ms or 0) / 1000
+        duration_ms = getattr(track, 'duration_ms', None) or getattr(track, 'duration', None) or 0
+        duration_sec = duration_ms / 1000 if duration_ms > 10000 else duration_ms
         pdf.cell(0, 4, f"Durée: {int(duration_sec / 60)}:{int(duration_sec % 60):02d}", ln=True)
 
         if track.cue_points:
