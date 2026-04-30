@@ -481,7 +481,7 @@ window.seededRand = function(seed){let x=Math.sin(seed)*10000;return x-Math.floo
 
     const style = document.createElement('style');
     style.textContent = `
-      #tc-fb-bubble{position:fixed;right:18px;bottom:18px;z-index:999;width:44px;height:44px;border-radius:50%;
+      #tc-fb-bubble{position:fixed !important;right:18px !important;bottom:18px !important;z-index:999;width:44px;height:44px;border-radius:50%;
         background:linear-gradient(135deg,#8b5cf6,#a855f7);border:none;cursor:pointer;color:#fff;
         box-shadow:0 10px 30px rgba(139,92,246,.35);display:flex;align-items:center;justify-content:center;
         transition:transform .18s ease, box-shadow .18s ease}
