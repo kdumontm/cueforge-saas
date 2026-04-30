@@ -49,6 +49,21 @@ def _ensure_user(ctx: RunContext, client: Client) -> dict:
 
 
 def run(ctx: RunContext) -> TestReport:
+    """Run both baseline and extended tests, combined in one report."""
+    report = TestReport(suite="tracks")
+
+    # Run baseline tests
+    baseline = _run_baseline(ctx)
+    report.results.extend(baseline.results)
+
+    # Run extended tests
+    extended = run_extended(ctx)
+    report.results.extend(extended.results)
+
+    return report
+
+
+def _run_baseline(ctx: RunContext) -> TestReport:
     report = TestReport(suite="tracks")
     client = Client(ctx.base_url)
     _ensure_user(ctx, client)
@@ -86,7 +101,7 @@ def run(ctx: RunContext) -> TestReport:
     run_step(report, "upload tiny WAV → track created", _upload)
 
     if not upload_id:
-        return report
+        return report  # End of baseline if no upload
 
     tid = upload_id[0]
 
@@ -188,5 +203,223 @@ def run(ctx: RunContext) -> TestReport:
             if r.status_code not in (404, 410):
                 raise AssertionError(f"track {i} should be gone, got {r.status_code}")
     run_step(report, "deleted tracks return 404", _gone)
+
+    return report  # End of baseline
+
+
+def run_extended(ctx: RunContext) -> TestReport:
+    """Extended tests for pagination, search, filters, sorting, and advanced features."""
+    report = TestReport(suite="tracks_extended")
+    client = Client(ctx.base_url)
+    _ensure_user(ctx, client)
+
+    created_ids: list[int] = []
+
+    # Upload 5 tracks with varying metadata for filtering tests
+    def _upload_batch():
+        for i in range(5):
+            wav = _tiny_wav(0.3)
+            files = {"file": (f"e2e_batch_{i}.wav", wav, "audio/wav")}
+            data = {
+                "title": f"Test Track {i}",
+                "artist": f"Artist {'A' if i % 2 == 0 else 'B'}",
+                "bpm": 120 + (i * 5),
+                "key": ["5A", "3B", "1C", "6D", "2E"][i % 5],
+            }
+            r = client.post("/tracks/upload", files=files, data=data)
+            if r.status_code not in (200, 201):
+                return
+            body = r.json()
+            track = body.get("track") if "track" in body else body
+            if track and track.get("id"):
+                created_ids.append(track["id"])
+    run_step(report, "upload 5 tracks for filtering", _upload_batch)
+
+    # PAGINATION EDGE CASES
+    def _paginate_page_0():
+        """page=0 should fail with 422"""
+        r = client.get("/tracks", params={"page": 0, "limit": 10})
+        if r.status_code == 422:
+            return  # expected
+        raise AssertionError(f"page=0 expected 422, got {r.status_code}")
+    run_step(report, "pagination page=0 → 422", _paginate_page_0)
+
+    def _paginate_limit_0():
+        """limit=0 should fail"""
+        r = client.get("/tracks", params={"page": 1, "limit": 0})
+        if r.status_code == 422:
+            return
+        raise AssertionError(f"limit=0 expected 422, got {r.status_code}")
+    run_step(report, "pagination limit=0 → 422", _paginate_limit_0)
+
+    def _paginate_limit_over_500():
+        """limit>500 should be capped to 500"""
+        r = client.get("/tracks", params={"page": 1, "limit": 1000})
+        if r.status_code != 200:
+            raise AssertionError(f"limit=1000 got {r.status_code}")
+        data = r.json()
+        if len(data["tracks"]) > 500:
+            raise AssertionError(f"tracks capped > 500: {len(data['tracks'])}")
+    run_step(report, "pagination limit=1000 capped", _paginate_limit_over_500)
+
+    def _paginate_far_page():
+        """page=99999 should return empty"""
+        r = client.get("/tracks", params={"page": 99999, "limit": 10})
+        if r.status_code != 200:
+            raise AssertionError(f"page=99999 got {r.status_code}")
+        data = r.json()
+        if len(data["tracks"]) > 0:
+            raise AssertionError(f"page=99999 should be empty, got {len(data['tracks'])}")
+    run_step(report, "pagination page=99999 → empty", _paginate_far_page)
+
+    # SEARCH EDGE CASES
+    def _search_empty_q():
+        """q="" should work (match all or specific behavior)"""
+        r = client.get("/tracks", params={"search": "", "page": 1, "limit": 10})
+        if r.status_code != 200:
+            raise AssertionError(f"search='' got {r.status_code}")
+    run_step(report, "search q='' empty", _search_empty_q)
+
+    def _search_special_chars():
+        """q with special chars should work or 422 gracefully"""
+        r = client.get("/tracks", params={"search": "café", "page": 1, "limit": 10})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"search with accents got {r.status_code}")
+    run_step(report, "search q=café (accents)", _search_special_chars)
+
+    def _search_very_long():
+        """q with >1000 chars should be rejected or truncated"""
+        long_q = "x" * 1500
+        r = client.get("/tracks", params={"search": long_q, "page": 1, "limit": 10})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"long search got {r.status_code}")
+    run_step(report, "search q very long (1500 chars)", _search_very_long)
+
+    def _search_quotes():
+        """q with quotes"""
+        r = client.get("/tracks", params={"search": '"exact phrase"', "page": 1, "limit": 10})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"search with quotes got {r.status_code}")
+    run_step(report, "search q with quotes", _search_quotes)
+
+    # BPM RANGE FILTER
+    def _filter_bpm_range():
+        """bpm_min/bpm_max"""
+        r = client.get("/tracks", params={"bpm_min": 120, "bpm_max": 130, "page": 1, "limit": 100})
+        if r.status_code != 200:
+            raise AssertionError(f"bpm range filter got {r.status_code}")
+        data = r.json()
+        # Verify at least some tracks are in range if we have any
+        for track in data.get("tracks", []):
+            analysis = track.get("analysis") or {}
+            bpm = analysis.get("bpm")
+            if bpm and (bpm < 120 or bpm > 130):
+                raise AssertionError(f"track {track['id']} BPM {bpm} outside filter range")
+    run_step(report, "filter bpm_min=120&bpm_max=130", _filter_bpm_range)
+
+    # KEY FILTER
+    def _filter_by_key():
+        """key filter"""
+        r = client.get("/tracks", params={"key": "5A", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"key filter got {r.status_code}")
+    run_step(report, "filter key=5A", _filter_by_key)
+
+    # GENRE FILTER
+    def _filter_by_genre():
+        """genre filter"""
+        r = client.get("/tracks", params={"genre": "House", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"genre filter got {r.status_code}")
+    run_step(report, "filter genre=House", _filter_by_genre)
+
+    # ARTIST FILTER
+    def _filter_by_artist():
+        """artist filter"""
+        r = client.get("/tracks", params={"artist": "Artist A", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"artist filter got {r.status_code}")
+    run_step(report, "filter artist=Artist A", _filter_by_artist)
+
+    # SORTING
+    def _sort_by_title():
+        """sort_by=title"""
+        r = client.get("/tracks", params={"sort_by": "title", "sort_dir": "asc", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"sort_by title got {r.status_code}")
+    run_step(report, "sort_by=title&sort_dir=asc", _sort_by_title)
+
+    def _sort_by_artist():
+        """sort_by=artist"""
+        r = client.get("/tracks", params={"sort_by": "artist", "sort_dir": "desc", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"sort_by artist got {r.status_code}")
+    run_step(report, "sort_by=artist&sort_dir=desc", _sort_by_artist)
+
+    def _sort_by_created():
+        """sort_by=created_at"""
+        r = client.get("/tracks", params={"sort_by": "created_at", "sort_dir": "asc", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"sort_by created_at got {r.status_code}")
+    run_step(report, "sort_by=created_at&sort_dir=asc", _sort_by_created)
+
+    def _sort_by_bpm():
+        """sort_by=bpm"""
+        r = client.get("/tracks", params={"sort_by": "bpm", "sort_dir": "desc", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"sort_by bpm got {r.status_code}")
+    run_step(report, "sort_by=bpm&sort_dir=desc", _sort_by_bpm)
+
+    def _sort_by_key():
+        """sort_by=key"""
+        r = client.get("/tracks", params={"sort_by": "key", "sort_dir": "asc", "page": 1, "limit": 100})
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"sort_by key got {r.status_code}")
+    run_step(report, "sort_by=key&sort_dir=asc", _sort_by_key)
+
+    # COMBINED FILTERS
+    def _filter_combined():
+        """bpm + key + search"""
+        r = client.get("/tracks", params={
+            "search": "Test",
+            "bpm_min": 110,
+            "bpm_max": 150,
+            "key": "5A",
+            "page": 1,
+            "limit": 100
+        })
+        if r.status_code not in (200, 422):
+            raise AssertionError(f"combined filter got {r.status_code}")
+    run_step(report, "combined filters: search+bpm+key", _filter_combined)
+
+    # TRACK HISTORY
+    def _get_track_history():
+        """GET /tracks/{id}/history if available"""
+        if created_ids:
+            r = client.get(f"/tracks/{created_ids[0]}/history")
+            if r.status_code in (404, 405):
+                return  # endpoint may not exist
+            if r.status_code == 200:
+                data = r.json()
+                assert isinstance(data, list) or isinstance(data, dict)
+    run_step(report, "GET /tracks/{id}/history", _get_track_history)
+
+    # BEATGRID
+    def _get_beatgrid():
+        """GET /tracks/{id}/beatgrid if available"""
+        if created_ids:
+            r = client.get(f"/tracks/{created_ids[0]}/beatgrid")
+            if r.status_code in (404, 405):
+                return
+            if r.status_code == 200:
+                data = r.json()
+                assert isinstance(data, dict)
+    run_step(report, "GET /tracks/{id}/beatgrid", _get_beatgrid)
+
+    # CLEANUP
+    def _cleanup():
+        for tid in created_ids:
+            client.delete(f"/tracks/{tid}")
+    run_step(report, "cleanup extended batch", _cleanup)
 
     return report
