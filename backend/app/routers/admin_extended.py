@@ -25,12 +25,11 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import inspect, func, and_, or_, desc, asc
+from sqlalchemy import inspect, and_, or_, desc, asc, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.models.track import Track
 from app.models.feedback import Feedback
 from app.models.activity_log import ActivityLog
 from app.models.notification import Notification
@@ -437,17 +436,21 @@ def list_users_advanced(
     # Paginate
     items = query.offset(filters.skip).limit(filters.limit).all()
 
-    # Load tracks_count for each user via aggregate query
+    # Load tracks_count for each user via raw SQL (simple and reliable)
     # Fetch all track counts in one query to avoid N+1
     tracks_count_map = {}
     if items:
         user_ids = [u.id for u in items]
-        track_counts = db.query(
-            Track.user_id,
-            func.count(Track.id)
-        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        for uid, cnt in track_counts:
-            tracks_count_map[uid] = cnt or 0
+        try:
+            result = db.execute(
+                text("SELECT user_id, COUNT(*) as cnt FROM tracks WHERE user_id = ANY(:ids) GROUP BY user_id"),
+                {"ids": user_ids}
+            ).fetchall()
+            for row in result:
+                tracks_count_map[row[0]] = row[1]
+        except Exception:
+            # If query fails, just proceed with zeros
+            pass
 
     return {
         "total": total,

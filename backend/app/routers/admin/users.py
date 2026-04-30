@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import text, func
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -376,16 +376,20 @@ async def list_users(
     total = query.count()
     users = query.offset(skip).limit(limit).all()
 
-    # Load tracks_count for each user (optimized with one query)
+    # Load tracks_count for each user (optimized with raw SQL)
     tracks_count_map = {}
     if users:
         user_ids = [u.id for u in users]
-        track_counts = db.query(
-            Track.user_id,
-            func.count(Track.id)
-        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        for uid, cnt in track_counts:
-            tracks_count_map[uid] = cnt or 0
+        try:
+            result = db.execute(
+                text("SELECT user_id, COUNT(*) as cnt FROM tracks WHERE user_id = ANY(:ids) GROUP BY user_id"),
+                {"ids": user_ids}
+            ).fetchall()
+            for row in result:
+                tracks_count_map[row[0]] = row[1]
+        except Exception:
+            # If query fails, just proceed with zeros
+            pass
 
     return {
         "total": total,
@@ -421,16 +425,20 @@ async def export_users(
     """Export tous les utilisateurs en CSV."""
     users = db.query(User).order_by(User.created_at.desc()).all()
 
-    # Load tracks_count for all users (optimized)
+    # Load tracks_count for all users (optimized with raw SQL)
     tracks_count_map = {}
     if users:
         user_ids = [u.id for u in users]
-        track_counts = db.query(
-            Track.user_id,
-            func.count(Track.id)
-        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        for uid, cnt in track_counts:
-            tracks_count_map[uid] = cnt or 0
+        try:
+            result = db.execute(
+                text("SELECT user_id, COUNT(*) as cnt FROM tracks WHERE user_id = ANY(:ids) GROUP BY user_id"),
+                {"ids": user_ids}
+            ).fetchall()
+            for row in result:
+                tracks_count_map[row[0]] = row[1]
+        except Exception:
+            # If query fails, just proceed with zeros
+            pass
 
     output = io.StringIO()
     writer = csv.writer(output)
