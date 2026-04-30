@@ -82,6 +82,16 @@ SUITES_ORDER = [
     ("flows",       "scripts.e2e.test_flows"),
     # UX — widget feedback
     ("feedback-widget", "scripts.e2e.test_feedback_widget"),
+    # P7 — infra / audio avancé
+    ("audio_quality",     "scripts.e2e.test_audio_quality"),
+    ("bpm_key_advanced",  "scripts.e2e.test_bpm_key_advanced"),
+    ("mix_analyzer",      "scripts.e2e.test_mix_analyzer"),
+    ("dj_import",         "scripts.e2e.test_dj_import"),
+    ("jobs",              "scripts.e2e.test_jobs"),
+    ("monitoring",        "scripts.e2e.test_monitoring"),
+    ("advanced",          "scripts.e2e.test_advanced"),
+    ("analytics",         "scripts.e2e.test_analytics"),
+    ("devops",            "scripts.e2e.test_devops"),
     # Admin (core + extended)
     ("admin",           "scripts.e2e.test_admin"),
     ("admin_extended",  "scripts.e2e.test_admin_extended"),
