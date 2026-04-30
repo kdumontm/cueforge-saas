@@ -2346,7 +2346,8 @@ def _run_analysis(track_id: int):
             if not track.genre_tertiary and heuristic_result.get("tertiary"):
                 track.genre_tertiary = heuristic_result["tertiary"]
             if not track.genre_scores and heuristic_result.get("scores"):
-                track.genre_scores = _j.dumps(heuristic_result["scores"])
+                import json as _genre_json
+                track.genre_scores = _genre_json.dumps(heuristic_result["scores"])
 
         # ── E.1 : Remix detection enrichi + tags ID3 ──
         is_remix_detected = False
