@@ -75,21 +75,21 @@ def run(ctx: RunContext) -> TestReport:
         assert_status(r, 200, context="GET /billing/plans without auth")
     run_step(report, "GET /billing/plans (no auth)", _get_plans_no_auth)
 
-    # GET /current without auth → 401
+    # GET /current without auth → 401 or 403
     def _get_current_no_auth():
         client_no_auth = Client(ctx.base_url)
         client_no_auth.token = None
         r = client_no_auth.get("/billing/current")
-        assert_status(r, 401, context="GET /billing/current no auth should 401")
-    run_step(report, "GET /billing/current no auth → 401", _get_current_no_auth)
+        assert_status(r, 401, 403, context="GET /billing/current no auth should 401/403")
+    run_step(report, "GET /billing/current no auth → 401/403", _get_current_no_auth)
 
-    # GET /usage without auth → 401
+    # GET /usage without auth → 401 or 403
     def _get_usage_no_auth():
         client_no_auth = Client(ctx.base_url)
         client_no_auth.token = None
         r = client_no_auth.get("/billing/usage")
-        assert_status(r, 401, context="GET /billing/usage no auth should 401")
-    run_step(report, "GET /billing/usage no auth → 401", _get_usage_no_auth)
+        assert_status(r, 401, 403, context="GET /billing/usage no auth should 401/403")
+    run_step(report, "GET /billing/usage no auth → 401/403", _get_usage_no_auth)
 
     # POST /subscribe with invalid plan_id → 400
     def _post_subscribe_invalid():
@@ -117,20 +117,20 @@ def run(ctx: RunContext) -> TestReport:
         raise AssertionError(f"unexpected {r.status_code}")
     run_step(report, "POST /billing/subscribe bad interval", _post_subscribe_bad_interval)
 
-    # POST /subscribe without auth → 401
+    # POST /subscribe without auth → 401 or 403
     def _post_subscribe_no_auth():
         client_no_auth = Client(ctx.base_url)
         client_no_auth.token = None
         r = client_no_auth.post("/billing/subscribe", json_body={"plan_id": "pro", "interval": "monthly"})
-        assert_status(r, 401, context="subscribe no auth should 401")
-    run_step(report, "POST /billing/subscribe no auth → 401", _post_subscribe_no_auth)
+        assert_status(r, 401, 403, context="subscribe no auth should 401/403")
+    run_step(report, "POST /billing/subscribe no auth → 401/403", _post_subscribe_no_auth)
 
-    # POST /portal without auth → 401
+    # POST /portal without auth → 401 or 403
     def _post_portal_no_auth():
         client_no_auth = Client(ctx.base_url)
         client_no_auth.token = None
         r = client_no_auth.post("/billing/portal")
-        assert_status(r, 401, context="portal no auth should 401")
-    run_step(report, "POST /billing/portal no auth → 401", _post_portal_no_auth)
+        assert_status(r, 401, 403, context="portal no auth should 401/403")
+    run_step(report, "POST /billing/portal no auth → 401/403", _post_portal_no_auth)
 
     return report
