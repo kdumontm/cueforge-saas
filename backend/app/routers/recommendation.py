@@ -219,7 +219,7 @@ async def build_set(
                 artist=opening.artist or "Artist",
                 position=0,
                 energy_level=0.5,
-                bpm=opening.bpm or 120.0
+                bpm=opening.analysis.bpm if opening.analysis and opening.analysis.bpm else 120.0
             )
         ]
 
@@ -311,7 +311,7 @@ async def build_crate(
                 "id": t.id,
                 "title": t.title or "Unknown",
                 "artist": t.artist or "Unknown",
-                "bpm": t.bpm or 120.0
+                "bpm": t.analysis.bpm if t.analysis and t.analysis.bpm else 120.0
             }
             for t in tracks
         ]
