@@ -162,4 +162,97 @@ def run(ctx: RunContext) -> TestReport:
         assert_status(r, 200, context="admin health")
     run_step(report, "admin health", _admin_health)
 
+    # 10. GET /admin/users with filters: role=admin
+    def _users_filter_admin():
+        r = client.get("/admin/users", params={"role": "admin"})
+        if r.status_code == 404:
+            return  # filters not implemented
+        assert_status(r, 200, context="users filter by role")
+    run_step(report, "GET /admin/users?role=admin", _users_filter_admin)
+
+    # 11. GET /admin/users with filters: role=user
+    def _users_filter_user():
+        r = client.get("/admin/users", params={"role": "user"})
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="users filter by role=user")
+    run_step(report, "GET /admin/users?role=user", _users_filter_user)
+
+    # 12. GET /admin/users with suspended=true filter
+    def _users_filter_suspended():
+        r = client.get("/admin/users", params={"suspended": "true"})
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="users filter by suspended")
+    run_step(report, "GET /admin/users?suspended=true", _users_filter_suspended)
+
+    # 13. GET /admin/users with search by email
+    def _users_search_email():
+        r = client.get("/admin/users", params={"search": "admin"})
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="users search by email")
+    run_step(report, "GET /admin/users with email search", _users_search_email)
+
+    # 14. PATCH /admin/users/{id} to suspend (if throwaway user exists)
+    def _suspend_user():
+        if not tmp_user.get("user_id"):
+            return
+        # Re-create a throwaway user for suspend test
+        tc = Client(ctx.base_url)
+        u = register_test_user(tc, email_prefix="admin-suspend")
+        if u.get("user_id"):
+            r = client.patch(f"/admin/users/{u['user_id']}", json_body={"suspended": True})
+            if r.status_code == 404:
+                return  # PATCH not implemented
+            if r.status_code not in (200, 204):
+                raise AssertionError(f"suspend user unexpected {r.status_code}")
+    run_step(report, "PATCH /admin/users/{id} suspend", _suspend_user)
+
+    # 15. GET /admin/users/{id}/sessions (list active sessions)
+    def _user_sessions():
+        if not tmp_user.get("user_id"):
+            return
+        r = client.get(f"/admin/users/{tmp_user['user_id']}/sessions")
+        if r.status_code == 404:
+            return  # endpoint not implemented
+        assert_status(r, 200, context="user sessions")
+    run_step(report, "GET /admin/users/{id}/sessions", _user_sessions)
+
+    # 16. GET /admin/users/{id}/audit-log
+    def _user_audit_log():
+        if not tmp_user.get("user_id"):
+            return
+        r = client.get(f"/admin/users/{tmp_user['user_id']}/audit-log")
+        if r.status_code == 404:
+            return  # endpoint not implemented
+        assert_status(r, 200, context="user audit log")
+    run_step(report, "GET /admin/users/{id}/audit-log", _user_audit_log)
+
+    # 17. GET /admin/users/export with role filter
+    def _export_filter_role():
+        r = client.get("/admin/users/export", params={"role": "admin"})
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="users export with role filter")
+    run_step(report, "GET /admin/users/export?role=admin", _export_filter_role)
+
+    # 18. GET /admin/webhooks (if webhook management exposed)
+    def _webhooks_list():
+        r = client.get("/admin/webhooks")
+        if r.status_code == 404:
+            return  # not exposed
+        assert_status(r, 200, context="admin webhooks")
+    run_step(report, "GET /admin/webhooks (tolerant)", _webhooks_list)
+
+    # 19. GET /admin/jobs or /admin/background-jobs (job queue monitoring)
+    def _jobs_list():
+        r = client.get("/admin/jobs")
+        if r.status_code == 404:
+            r = client.get("/admin/background-jobs")
+        if r.status_code == 404:
+            return  # not exposed
+        assert_status(r, 200, context="admin jobs")
+    run_step(report, "GET /admin/jobs (tolerant)", _jobs_list)
+
     return report

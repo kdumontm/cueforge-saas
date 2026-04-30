@@ -68,8 +68,10 @@ SUITES_ORDER = [
     ("audio_advanced", "scripts.e2e.test_audio_advanced"),
     ("fingerprint",    "scripts.e2e.test_fingerprint"),
     ("recommendation", "scripts.e2e.test_recommendation"),
-    # P4 — account
+    # P4 — account + API keys + notifications
     ("account",     "scripts.e2e.test_account"),
+    ("api_keys_advanced",       "scripts.e2e.test_api_keys_advanced"),
+    ("notifications_advanced",  "scripts.e2e.test_notifications_advanced"),
     # P5 — business
     ("billing",        "scripts.e2e.test_billing"),
     ("organization",   "scripts.e2e.test_organization"),

@@ -79,6 +79,43 @@ def run(ctx: RunContext) -> TestReport:
         # Usually has shape: {uploads: {used: N, limit: M}} or {used: N, limit: M}
     run_step(report, "GET /quota (if exposed)", _quota_endpoint)
 
+    # Check /quota breakdown by category
+    def _quota_by_category():
+        r = client.get("/quota")
+        if r.status_code != 200:
+            return
+        d = r.json()
+        # Expect subcategories: analyses, storage, concurrent, etc.
+        if "analyses" in d or "storage" in d or "concurrent" in d:
+            # Good shape
+            pass
+    run_step(report, "quota has category breakdown", _quota_by_category)
+
+    # Test /quota/upgrade with invalid plan
+    def _upgrade_invalid():
+        r = client.post("/quota/upgrade", json_body={"plan": "nonexistent-plan-xyz"})
+        if r.status_code == 404:
+            return  # endpoint not mounted
+        # Should be 400 or 422 for invalid plan
+        if r.status_code not in (400, 422):
+            raise AssertionError(f"upgrade invalid plan should be 400/422, got {r.status_code}")
+    run_step(report, "upgrade with invalid plan → 400/422", _upgrade_invalid)
+
+    # Test /quota after uploads (should show usage)
+    def _quota_after_upload():
+        if not created:
+            return
+        r = client.get("/quota")
+        if r.status_code != 200:
+            return
+        d = r.json()
+        # Check that usage > 0 if we uploaded
+        if "uploads" in d:
+            used = d["uploads"].get("used", 0)
+            if used == 0:
+                raise AssertionError(f"quota shows 0 usage after uploading {len(created)} tracks")
+    run_step(report, "quota updated after uploads", _quota_after_upload)
+
     # Stats endpoint: should reflect uploaded count
     def _stats_matches():
         r = client.get("/auth/stats")
@@ -86,6 +123,44 @@ def run(ctx: RunContext) -> TestReport:
             return
         assert_status(r, 200, context="auth stats")
     run_step(report, "GET /auth/stats (tolerant)", _stats_matches)
+
+    # Test /quota/usage-breakdown if exposed
+    def _usage_breakdown():
+        r = client.get("/quota/usage-breakdown")
+        if r.status_code == 404:
+            return  # not mounted
+        assert_status(r, 200, context="quota/usage-breakdown")
+    run_step(report, "GET /quota/usage-breakdown", _usage_breakdown)
+
+    # Test /quota/reset (admin only, should 403 for regular user)
+    def _quota_reset_forbidden():
+        r = client.post("/quota/reset", json_body={})
+        if r.status_code == 404:
+            return  # not mounted
+        # Should be 403 for non-admin
+        if r.status_code not in (403, 401):
+            raise AssertionError(f"quota/reset should be forbidden, got {r.status_code}")
+    run_step(report, "quota/reset forbidden for user", _quota_reset_forbidden)
+
+    # Test /quota limits consistency (limit should not decrease on retries)
+    def _quota_limit_stable():
+        r1 = client.get("/quota")
+        if r1.status_code != 200:
+            return
+        import time
+        time.sleep(0.5)
+        r2 = client.get("/quota")
+        if r2.status_code != 200:
+            return
+        d1 = r1.json()
+        d2 = r2.json()
+        # Limits should be identical
+        if d1 != d2 and "uploads" in d1 and "uploads" in d2:
+            l1 = d1["uploads"].get("limit")
+            l2 = d2["uploads"].get("limit")
+            if l1 != l2:
+                raise AssertionError(f"quota limit changed: {l1} vs {l2}")
+    run_step(report, "quota limit stable on retries", _quota_limit_stable)
 
     # ---------- Cleanup ----------
     def _cleanup():

@@ -124,4 +124,96 @@ def run(ctx: RunContext) -> TestReport:
         raise AssertionError(f"non-admin should not POST, got {r.status_code}")
     run_step(report, "POST /blog/posts non-admin → 403", _post_no_admin)
 
+    # Search posts by title
+    def _search_posts():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get("/blog/posts", params={"search": "e2e", "q": "e2e"})
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="search posts")
+    run_step(report, "GET /blog/posts with search query", _search_posts)
+
+    # Filter by category
+    def _filter_category():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get("/blog/posts", params={"category": "news"})
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="filter by category")
+    run_step(report, "GET /blog/posts with category filter", _filter_category)
+
+    # Get featured/top posts
+    def _featured_posts():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get("/blog/posts/featured")
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="featured posts")
+    run_step(report, "GET /blog/posts/featured", _featured_posts)
+
+    # Get recent posts
+    def _recent_posts():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get("/blog/recent")
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="recent posts")
+    run_step(report, "GET /blog/recent (recent posts)", _recent_posts)
+
+    # Post comments (if supported)
+    def _post_comment():
+        r = client.post(f"/blog/posts/{post_slug}/comments", json_body={
+            "text": "Great article!"
+        })
+        if r.status_code in (404, 405, 422):
+            return
+        # 200, 201, or 403 if comments disabled
+        if r.status_code not in (200, 201, 403):
+            raise AssertionError(f"post comment unexpected {r.status_code}")
+    run_step(report, "POST /blog/posts/{slug}/comments", _post_comment)
+
+    # List comments
+    def _list_comments():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get(f"/blog/posts/{post_slug}/comments")
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="list comments")
+    run_step(report, "GET /blog/posts/{slug}/comments", _list_comments)
+
+    # Get tags/topics
+    def _list_tags():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get("/blog/tags")
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="list tags")
+    run_step(report, "GET /blog/tags", _list_tags)
+
+    # Like post (if supported)
+    def _like_post():
+        r = client.post(f"/blog/posts/{post_slug}/like")
+        if r.status_code in (404, 405, 422):
+            return
+        # 200 or 201 for like, 400 if already liked
+        if r.status_code not in (200, 201, 400):
+            raise AssertionError(f"like post unexpected {r.status_code}")
+    run_step(report, "POST /blog/posts/{slug}/like", _like_post)
+
+    # Get likes count
+    def _likes_count():
+        client_no_auth = Client(ctx.base_url)
+        client_no_auth.token = None
+        r = client_no_auth.get(f"/blog/posts/{post_slug}/likes")
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, context="get likes count")
+    run_step(report, "GET /blog/posts/{slug}/likes (likes count)", _likes_count)
+
     return report

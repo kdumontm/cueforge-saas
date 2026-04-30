@@ -197,4 +197,87 @@ def run(ctx: RunContext) -> TestReport:
             raise AssertionError(f"feedback submit unexpected {r.status_code}")
     run_step(report, "POST /feedback (submit)", _submit_feedback)
 
+    # ---------- Account info & settings ----------
+    def _get_account_info():
+        r = client.get("/auth/me")
+        assert_status(r, 200, context="get account info")
+        d = r.json()
+        if "email" not in d and "id" not in d:
+            raise AssertionError(f"me endpoint missing critical fields: {d.keys()}")
+    run_step(report, "GET /auth/me (full account info)", _get_account_info)
+
+    def _update_profile():
+        r = client.patch("/profile", json_body={
+            "name": "E2E Updated Name",
+            "bio": "Updated bio",
+        })
+        if r.status_code in (404, 422):
+            return
+        assert_status(r, 200, 204, context="update profile")
+    run_step(report, "PATCH /profile (update name/bio)", _update_profile)
+
+    def _change_email_request():
+        r = client.post("/auth/change-email-request", json_body={
+            "new_email": f"newemail-{int(time.time())}@cueforge-e2e.io"
+        })
+        if r.status_code in (404, 405):
+            return
+        # Usually 200 with confirmation needed, or 400 if email taken
+        if r.status_code not in (200, 201, 400):
+            raise AssertionError(f"change email request unexpected {r.status_code}")
+    run_step(report, "POST /auth/change-email-request", _change_email_request)
+
+    def _change_password():
+        r = client.post("/auth/change-password", json_body={
+            "current_password": "test",  # likely wrong, but we test the endpoint
+            "new_password": "NewPass123!",
+        })
+        if r.status_code == 404:
+            return
+        # 400/401 for wrong current password is OK
+        if r.status_code not in (200, 400, 401):
+            raise AssertionError(f"change password unexpected {r.status_code}")
+    run_step(report, "POST /auth/change-password (tolerant)", _change_password)
+
+    def _delete_account_info():
+        r = client.get("/auth/delete-account-info")
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="delete account info")
+    run_step(report, "GET /auth/delete-account-info (info)", _delete_account_info)
+
+    def _export_data():
+        r = client.post("/auth/export-data")
+        if r.status_code == 404:
+            return
+        # Usually 200 with { download_link } or 202 async
+        if r.status_code not in (200, 201, 202):
+            raise AssertionError(f"export data unexpected {r.status_code}")
+    run_step(report, "POST /auth/export-data (GDPR)", _export_data)
+
+    def _download_library():
+        r = client.get("/auth/download-library")
+        if r.status_code == 404:
+            return
+        # 200 for direct download, 202 for async job
+        if r.status_code not in (200, 202):
+            raise AssertionError(f"download library unexpected {r.status_code}")
+    run_step(report, "GET /auth/download-library (GDPR)", _download_library)
+
+    def _sessions_list():
+        r = client.get("/auth/sessions")
+        if r.status_code == 404:
+            return
+        assert_status(r, 200, context="sessions list")
+    run_step(report, "GET /auth/sessions (active sessions)", _sessions_list)
+
+    def _logout_all_sessions():
+        r = client.post("/auth/logout-all")
+        if r.status_code in (404, 405):
+            return
+        # 200 or 204
+        if r.status_code not in (200, 204):
+            raise AssertionError(f"logout all unexpected {r.status_code}")
+    run_step(report, "POST /auth/logout-all (all sessions)", _logout_all_sessions)
+
     return report
