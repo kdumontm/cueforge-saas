@@ -208,7 +208,7 @@ class ReferralFilterRequest(BaseModel):
 # Helpers
 # ═══════════════════════════════════════════════
 
-def _serialize_user(user: User) -> dict:
+def _serialize_user(user: User, tracks_count: int = None) -> dict:
     """Serialize a User to dict."""
     return {
         "id": user.id,
@@ -229,6 +229,7 @@ def _serialize_user(user: User) -> dict:
         "dj_software": user.dj_software,
         "onboarding_completed": user.onboarding_completed,
         "created_at": user.created_at.isoformat() if user.created_at else None,
+        "tracks_count": tracks_count if tracks_count is not None else 0,
     }
 
 
@@ -371,7 +372,10 @@ def list_users_advanced(
     Supports: search, plan, is_admin, email_verified, date ranges,
     last_login ranges, organization_id, oauth_provider, dj_style,
     dj_software, onboarding_completed, totp_enabled, sorting.
+    Includes tracks_count (total all-time) via LEFT JOIN + GROUP BY.
     """
+    from app.models.track import Track
+
     query = db.query(User)
 
     # Search (name or email)
@@ -434,9 +438,20 @@ def list_users_advanced(
     # Paginate
     items = query.offset(filters.skip).limit(filters.limit).all()
 
+    # Load tracks_count for each user via LEFT JOIN (optimized)
+    # Fetch all track counts in one query to avoid N+1
+    tracks_count_map = {}
+    if items:
+        user_ids = [u.id for u in items]
+        track_counts = db.query(
+            Track.user_id,
+            func.count(Track.id).label("count")
+        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
+        tracks_count_map = {uid: count for uid, count in track_counts}
+
     return {
         "total": total,
-        "items": [_serialize_user(u) for u in items],
+        "items": [_serialize_user(u, tracks_count_map.get(u.id, 0)) for u in items],
     }
 
 

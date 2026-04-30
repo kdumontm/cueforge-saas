@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -363,7 +363,7 @@ async def list_users(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Liste les utilisateurs avec filtres et pagination."""
+    """Liste les utilisateurs avec filtres et pagination. Inclut tracks_count (total all-time)."""
     query = db.query(User).order_by(User.created_at.desc())
 
     if search:
@@ -375,6 +375,16 @@ async def list_users(
 
     total = query.count()
     users = query.offset(skip).limit(limit).all()
+
+    # Load tracks_count for each user (optimized with one query)
+    tracks_count_map = {}
+    if users:
+        user_ids = [u.id for u in users]
+        track_counts = db.query(
+            Track.user_id,
+            func.count(Track.id).label("count")
+        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
+        tracks_count_map = {uid: count for uid, count in track_counts}
 
     return {
         "total": total,
@@ -390,6 +400,7 @@ async def list_users(
                 "organization_id": u.organization_id,
                 "org_role": u.org_role,
                 "tracks_today": u.tracks_today,
+                "tracks_count": tracks_count_map.get(u.id, 0),
                 "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
             }
@@ -408,12 +419,23 @@ async def export_users(
 ):
     """Export tous les utilisateurs en CSV."""
     users = db.query(User).order_by(User.created_at.desc()).all()
+
+    # Load tracks_count for all users (optimized)
+    tracks_count_map = {}
+    if users:
+        user_ids = [u.id for u in users]
+        track_counts = db.query(
+            Track.user_id,
+            func.count(Track.id).label("count")
+        ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
+        tracks_count_map = {uid: count for uid, count in track_counts}
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
         "id", "email", "name", "subscription_plan", "is_admin",
         "email_verified", "oauth_provider", "organization_id", "org_role",
-        "tracks_today", "last_login_at", "created_at",
+        "tracks_today", "tracks_count", "last_login_at", "created_at",
     ])
     for u in users:
         writer.writerow([
@@ -427,6 +449,7 @@ async def export_users(
             u.organization_id or "",
             u.org_role or "",
             u.tracks_today or 0,
+            tracks_count_map.get(u.id, 0),
             u.last_login_at.isoformat() if u.last_login_at else "",
             u.created_at.isoformat() if u.created_at else "",
         ])

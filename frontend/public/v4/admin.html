@@ -495,6 +495,7 @@
               <th>Plan</th>
               <th>Status</th>
               <th>OAuth</th>
+              <th>Tracks</th>
               <th>Dernier login</th>
               <th>Inscrit</th>
               <th title="Offert">🎁</th>
@@ -1248,7 +1249,7 @@
   async function loadUsers(){
     const body = document.getElementById('users-body');
     if(!body) return;
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:24px">Chargement…</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--c-tertiary);padding:24px">Chargement…</td></tr>`;
     try {
       const payload = { skip: 0, limit: 50, sort_by: 'created_at', sort_dir: 'desc' };
       if(currentSearch) payload.search = currentSearch;
@@ -1261,7 +1262,7 @@
       usersCache = {};
       items.forEach(u => { usersCache[u.id] = u; });
       if(items.length === 0){
-        body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun utilisateur</td></tr>`;
+        body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--c-tertiary);padding:24px">Aucun utilisateur</td></tr>`;
         updateBulkBar();
         return;
       }
@@ -1287,6 +1288,7 @@
               </div>
             </td>
             <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary)">${u.oauth_provider || '—'}</td>
+            <td style="font-family:var(--font-mono);font-size:12px;color:var(--c-primary);font-weight:500">${u.tracks_count || 0}</td>
             <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
             <td style="font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)"></td>
             <td>
@@ -1314,11 +1316,11 @@
         const em = row.querySelector('.usr-em');
         if(em) em.textContent = u.email || '';
         const tds = row.querySelectorAll('td');
-        if(tds[4]) tds[4].textContent = relTime(u.last_login_at);
-        if(tds[5]) tds[5].textContent = fmtSignup(u.created_at);
+        if(tds[6]) tds[6].textContent = relTime(u.last_login_at);
+        if(tds[7]) tds[7].textContent = fmtSignup(u.created_at);
       });
     } catch(err){
-      body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
     }
     updateBulkBar();
   }
