@@ -94,9 +94,11 @@ SUITES_ORDER = [
     ("advanced",          "scripts.e2e.test_advanced"),
     ("analytics",         "scripts.e2e.test_analytics"),
     ("devops",            "scripts.e2e.test_devops"),
-    # Admin (core + extended)
+    # Admin (core + extended + advanced + ml + downloads)
     ("admin",           "scripts.e2e.test_admin"),
     ("admin_extended",  "scripts.e2e.test_admin_extended"),
+    ("admin_advanced",  "scripts.e2e.test_admin_advanced"),
+    ("ml_downloads",    "scripts.e2e.test_ml_downloads"),
 ]
 
 
