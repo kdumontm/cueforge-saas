@@ -68,12 +68,13 @@ def create_pdf_reportlab(tracks: list[Track]) -> io.BytesIO:
         story.append(Paragraph(f"{track.title} — {track.artist}", heading_style))
 
         # Track info table
+        duration_sec = (track.duration_ms or 0) / 1000
         track_data = [
             ['BPM', str(getattr(a, 'bpm', 'N/A') if a else 'N/A')],
             ['Tonalité', str(getattr(a, 'key', 'N/A') if a else 'N/A')],
             ['Énergie', f"{getattr(a, 'energy', 0) if a else 0}%"],
             ['Genre', str(track.genre or 'N/A')],
-            ['Durée', f"{int((track.duration or 0) / 60)}:{int((track.duration or 0) % 60):02d}"],
+            ['Durée', f"{int(duration_sec / 60)}:{int(duration_sec % 60):02d}"],
         ]
         if track.album:
             track_data.insert(0, ['Album', track.album])
@@ -153,7 +154,8 @@ def create_pdf_fpdf(tracks: list[Track]) -> io.BytesIO:
         pdf.cell(0, 4, f"Tonalité: {getattr(a, 'key', 'N/A') if a else 'N/A'}", ln=True)
         pdf.cell(0, 4, f"Énergie: {getattr(a, 'energy', 0) if a else 0}%", ln=True)
         pdf.cell(0, 4, f"Genre: {track.genre or 'N/A'}", ln=True)
-        pdf.cell(0, 4, f"Durée: {int((track.duration or 0) / 60)}:{int((track.duration or 0) % 60):02d}", ln=True)
+        duration_sec = (track.duration_ms or 0) / 1000
+        pdf.cell(0, 4, f"Durée: {int(duration_sec / 60)}:{int(duration_sec % 60):02d}", ln=True)
 
         if track.cue_points:
             pdf.ln(3)
