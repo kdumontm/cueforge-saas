@@ -1,21 +1,43 @@
 /* ============================================================
-   mobile.css — Responsive overrides v4
+   mobile.css v2 — Responsive overrides v4 (refonte ciblée)
    Chargé APRÈS les <style> inline pour gagner sur la spécificité.
-   Couvre : home (index/landing), library, analyze, settings, admin,
-   stats, upload, mix-studio, set-builder, pricing, login, billing,
-   blog, docs, changelog, onboarding, page-builder.
+
+   v2 ajoute des overrides pour les sélecteurs spécifiques aux
+   pages publiques (landing, pricing, auth-*) qui n'étaient pas
+   capturés par v1 :
+     - .hero-title, .pricing-title, .reassure-title, .auth-title,
+       .feature-title, .workflow-title, .plans-grid, .plan-*,
+       .auth-card, .oauth-grid, .reassure-* etc.
+     - Forced word-break/overflow-wrap sur tous les titres
+     - Réduction agressive des paddings hero (56px → 18px)
+     - clamp() override pour empêcher les fonts énormes en mobile
+
    Breakpoints :
-     - 1024px : tablette landscape (cleanup grid 4→3)
+     - 1024px : tablette landscape
      - 768px  : tablette portrait / mobile large
      - 520px  : mobile standard
-     - 380px  : mobile compact (iPhone SE / petits Android)
+     - 380px  : iPhone SE / petits Android
    ============================================================ */
 
 /* ============================================================
-   Globals — éviter overflow horizontal partout
+   Globals — éviter overflow horizontal partout + word break
    ============================================================ */
 html, body { max-width: 100vw; overflow-x: hidden; }
 * { -webkit-tap-highlight-color: rgba(255,122,24,0.15); }
+
+/* Tous les titres : empêcher le débordement horizontal sur mobile */
+@media (max-width: 768px) {
+  h1, h2, h3, h4,
+  [class*="-title"],
+  [class*="-headline"],
+  .h-1, .h-2, .h-3,
+  .editorial {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    max-width: 100% !important;
+  }
+}
 
 /* Touch targets minimum 44x44 (Apple HIG / WCAG 2.5.5) */
 @media (hover:none) and (pointer:coarse) {
@@ -33,28 +55,172 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .kpis { grid-template-columns: repeat(2, 1fr) !important; }
   .main-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
   .quick-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .plans-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; }
 }
 
 /* ============================================================
-   768px — mobile large / tablette portrait
+   768px — mobile large / tablette portrait — LE GROS DU TRAVAIL
    ============================================================ */
 @media (max-width: 768px) {
-  /* Page padding */
+  /* Page padding global */
   .page { padding: 16px 12px 64px !important; }
 
-  /* Hero — single col, smaller fonts */
+  /* ----------------------------------------------------------
+     HERO (toutes pages : home, landing, analyze, etc.)
+     ---------------------------------------------------------- */
   .hero {
-    padding: 26px 20px !important;
+    padding: 24px 18px !important;
     border-radius: 18px !important;
     margin-bottom: 18px !important;
   }
-  .hero h1 { font-size: 30px !important; line-height: 1.05 !important; }
-  .hero h1 .editorial { font-size: 24px !important; }
-  .hero p { font-size: 14px !important; margin-bottom: 18px !important; }
-  .hero-actions { flex-wrap: wrap; gap: 8px !important; }
-  .hero-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 22px !important;
+  }
+  .hero-copy { width: 100% !important; }
+  .hero h1,
+  .hero-title,
+  .hero h1 .editorial {
+    font-size: clamp(22px, 7vw, 30px) !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 12px !important;
+  }
+  .hero h1 .editorial,
+  .hero-title .editorial {
+    font-size: clamp(18px, 5.5vw, 24px) !important;
+    display: block !important;
+  }
+  .hero p,
+  .hero-lead {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 16px !important;
+    max-width: 100% !important;
+  }
+  .hero-actions { flex-wrap: wrap !important; gap: 8px !important; width: 100%; }
+  .hero-actions .btn { flex: 1 1 100% !important; justify-content: center !important; }
+  .hero-meta { flex-wrap: wrap !important; gap: 10px !important; font-size: 12px !important; }
 
-  /* KPI cards — 2 cols */
+  /* ----------------------------------------------------------
+     PRICING (page /pricing)
+     ---------------------------------------------------------- */
+  .pricing-hero { padding: 12px 0 24px !important; }
+  .pricing-title {
+    font-size: clamp(22px, 7vw, 30px) !important;
+    line-height: 1.1 !important;
+    margin: 12px 0 14px !important;
+    letter-spacing: -0.02em !important;
+  }
+  .pricing-title .editorial {
+    font-size: clamp(18px, 5.5vw, 24px) !important;
+    display: block !important;
+  }
+  .pricing-lead {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    padding: 0 4px !important;
+  }
+  .plans-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .plan {
+    padding: 18px 16px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+  }
+  .plan-price-val {
+    font-size: 32px !important;
+  }
+  .plan-features li {
+    font-size: 13px !important;
+    padding: 6px 0 !important;
+  }
+  /* Reassure section (sous les plans) */
+  .reassure-title {
+    font-size: 22px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 8px !important;
+  }
+  .reassure-body { font-size: 13.5px !important; }
+  .reassure-item { padding: 14px !important; }
+
+  /* Trial banner */
+  .trial-banner {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    flex-wrap: wrap;
+  }
+
+  /* ----------------------------------------------------------
+     LANDING — sections
+     ---------------------------------------------------------- */
+  .feature-title,
+  .workflow-title,
+  .section-title {
+    font-size: clamp(20px, 6vw, 26px) !important;
+    line-height: 1.15 !important;
+  }
+  .features-grid,
+  .workflow-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .feature, .workflow-step {
+    padding: 18px !important;
+  }
+
+  /* ----------------------------------------------------------
+     AUTH (login, register, forgot, reset)
+     ---------------------------------------------------------- */
+  .auth-wrap {
+    padding: 16px 12px !important;
+    min-height: auto !important;
+  }
+  .auth-card {
+    padding: 22px 18px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+  }
+  .auth-brand {
+    margin-bottom: 16px !important;
+    gap: 8px !important;
+  }
+  .auth-brand img, .auth-brand svg {
+    width: 32px !important; height: 32px !important;
+  }
+  .auth-title {
+    font-size: 22px !important;
+    margin-bottom: 4px !important;
+  }
+  .auth-sub {
+    font-size: 13.5px !important;
+    margin-bottom: 14px !important;
+  }
+  .oauth-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .oauth-btn {
+    padding: 11px 14px !important;
+    font-size: 13.5px !important;
+  }
+  .auth-footer {
+    font-size: 13px !important;
+    margin-top: 14px !important;
+  }
+  .trust-row {
+    gap: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 11.5px !important;
+  }
+  .trust-row > * { flex: 1 1 auto; }
+
+  /* ----------------------------------------------------------
+     KPI cards (overview, stats, admin)
+     ---------------------------------------------------------- */
   .kpis {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
@@ -65,7 +231,9 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .kpi-value { font-size: 22px !important; }
   .kpi-spark { width: 48px !important; height: 24px !important; right: 10px !important; top: 10px !important; }
 
-  /* Track rows — hide BPM/key columns, simplify */
+  /* ----------------------------------------------------------
+     Track rows (library, home recently analyzed)
+     ---------------------------------------------------------- */
   .track-row {
     grid-template-columns: 36px 1fr 60px !important;
     gap: 10px !important;
@@ -79,11 +247,12 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .track-cover { width: 36px !important; height: 36px !important; }
   .track-bpm { font-size: 11px !important; }
 
-  /* Activity feed compacte */
+  /* ----------------------------------------------------------
+     Activity feed, quick actions, main grid
+     ---------------------------------------------------------- */
+  .main-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
   .activity { padding: 14px !important; }
   .act-title { font-size: 12.5px !important; }
-
-  /* Quick actions — 1 col */
   .quick-grid {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
@@ -91,28 +260,32 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   }
   .quick { padding: 12px !important; }
 
-  /* Topnav compact */
+  /* ----------------------------------------------------------
+     TOPNAV — compact mobile
+     ---------------------------------------------------------- */
   .topnav {
     padding: 0 12px !important;
     gap: 8px !important;
     height: 52px !important;
   }
   .topnav-brand .chip { display: none !important; }
-  .topnav-actions .btn-sm:not(.btn-primary) span:not(.sr-only),
-  .topnav-actions .btn-sm:not(.btn-primary) {
-    /* hide secondary buttons text but keep primary */
-  }
   .topnav-actions .btn:not(.btn-primary) { padding: 6px 8px !important; }
   .topnav-sep { display: none !important; }
 
-  /* Page header */
-  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  /* Page header générique */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
   .page-title { font-size: 24px !important; }
   .page-title .editorial { font-size: 20px !important; }
-  .page-actions { flex-wrap: wrap; gap: 8px; width: 100%; }
+  .page-actions { flex-wrap: wrap !important; gap: 8px !important; width: 100%; }
   .page-actions .btn { flex: 1 1 auto; justify-content: center; }
 
-  /* Side nav (settings, admin) — devient horizontal scroll */
+  /* ----------------------------------------------------------
+     Side nav (settings, admin) → horizontal scroll
+     ---------------------------------------------------------- */
   .layout-with-side {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
@@ -123,7 +296,6 @@ html, body { max-width: 100vw; overflow-x: hidden; }
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
-    -ms-overflow-style: none;
     padding: 8px !important;
     gap: 4px !important;
     border-radius: 12px !important;
@@ -136,99 +308,105 @@ html, body { max-width: 100vw; overflow-x: hidden; }
     font-size: 12px !important;
   }
 
-  /* Sections compactes */
+  /* ----------------------------------------------------------
+     Sections, tables, library, mix-studio
+     ---------------------------------------------------------- */
   .sec { padding: 16px !important; border-radius: 14px !important; }
   .sec-head h3, .sec-head h2 { font-size: 15px !important; }
-
-  /* Tables — scroll horizontal au lieu d'overflow */
   table { display: block; overflow-x: auto; max-width: 100%; }
-  table thead, table tbody, table tr { display: table; width: 100%; table-layout: fixed; }
-
-  /* Library / analyze : grids et waveforms */
   .lib-controls, .lib-toolbar { flex-wrap: wrap !important; gap: 8px !important; }
   .lib-search { flex: 1 1 100% !important; min-width: 0 !important; }
-  .waveform-container, .wave-canvas, canvas.waveform { max-width: 100% !important; height: auto !important; }
-
-  /* Mix studio / set-builder : panels stack */
-  .studio-grid, .builder-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
-
-  /* Pricing cards stack */
-  .pricing-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
-  .price-card { max-width: 100% !important; }
-
-  /* Auth pages */
-  .auth-card { padding: 24px 20px !important; border-radius: 14px !important; max-width: 100% !important; }
-  .auth-card h1 { font-size: 22px !important; }
+  .waveform-container, .wave-canvas, canvas.waveform {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  .studio-grid, .builder-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
 
   /* Modals */
-  .modal, .modal-content { max-width: calc(100vw - 24px) !important; max-height: calc(100vh - 80px) !important; }
+  .modal, .modal-content {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 80px) !important;
+  }
+  .cf-palette {
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 80px) !important;
+  }
 
-  /* Cmd+K palette */
-  .cf-palette { max-width: calc(100vw - 24px) !important; max-height: calc(100vh - 80px) !important; }
-
-  /* Hide non-essential decoration */
+  /* Live now widget */
   .live-now { padding: 14px !important; }
   .live-cover { width: 44px !important; height: 44px !important; }
 
-  /* Forms inputs full width */
+  /* Forms inputs */
   .field, .form-row { width: 100% !important; }
-  .input, select, textarea { font-size: 16px !important; /* prevent iOS zoom */ }
+  .input, select, textarea, input[type] {
+    font-size: 16px !important; /* prevent iOS zoom */
+  }
 
   /* Section headings & spacing */
-  h1 { font-size: 26px !important; }
-  h2 { font-size: 20px !important; }
+  h1 { font-size: 24px !important; }
+  h2 { font-size: 19px !important; }
   h3 { font-size: 16px !important; }
   .h-2 { font-size: 22px !important; }
   .h-3 { font-size: 17px !important; }
 
   /* Grids génériques */
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; gap: 12px !important; }
-  .row, .row-between { flex-wrap: wrap; }
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .row, .row-between { flex-wrap: wrap !important; }
 
-  /* Stats / charts / graphs container */
+  /* Stats / charts */
   .chart-container, .recharts-wrapper { max-width: 100% !important; }
 }
 
 /* ============================================================
-   520px — mobile standard
+   520px — mobile standard (iPhone 14, Pixel 7)
    ============================================================ */
 @media (max-width: 520px) {
   .page { padding: 12px 10px 56px !important; }
 
-  /* Hero ultra-compact */
-  .hero { padding: 22px 16px !important; }
-  .hero h1 { font-size: 26px !important; }
-  .hero h1 .editorial { font-size: 20px !important; }
-  .hero p { font-size: 13.5px !important; }
-
-  /* KPIs single col */
-  .kpis {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 8px !important;
+  /* Hero */
+  .hero { padding: 20px 14px !important; }
+  .hero h1, .hero-title { font-size: clamp(20px, 7vw, 26px) !important; }
+  .hero h1 .editorial, .hero-title .editorial {
+    font-size: clamp(16px, 5.5vw, 22px) !important;
   }
+  .hero p, .hero-lead { font-size: 13.5px !important; }
+
+  /* Pricing */
+  .pricing-title { font-size: clamp(20px, 7vw, 26px) !important; }
+  .pricing-title .editorial { font-size: clamp(16px, 5.5vw, 22px) !important; }
+
+  /* Auth */
+  .auth-card { padding: 20px 14px !important; }
+  .auth-title { font-size: 20px !important; }
+
+  /* KPIs */
+  .kpis { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   .kpi { padding: 12px !important; }
   .kpi-value { font-size: 19px !important; }
 
-  /* Topnav — cacher le texte du brand secondaire */
+  /* Topnav */
   .topnav-brand span:last-child { display: none !important; }
-  .topnav-actions .btn-sm svg + * { display: none; } /* hide button text, keep icon */
+  .topnav-actions .btn:not(.btn-primary) span { display: none; }
   .topnav-actions .btn-primary { padding: 8px 10px !important; }
 
   /* Page title */
-  .page-title { font-size: 21px !important; }
-  .page-title .editorial { font-size: 17px !important; }
+  .page-title { font-size: 20px !important; }
+  .page-title .editorial { font-size: 16px !important; }
 
-  /* Track row encore plus compact */
+  /* Track row */
   .track-row { grid-template-columns: 32px 1fr 50px !important; }
   .track-cover { width: 32px !important; height: 32px !important; }
 
   /* Sections */
   .sec { padding: 14px !important; }
 
-  /* Modals */
-  .modal { padding: 16px !important; }
-
-  /* Buttons full width sur actions principales */
+  /* Buttons full width */
   .auth-card .btn-primary { width: 100% !important; }
 }
 
@@ -237,9 +415,14 @@ html, body { max-width: 100vw; overflow-x: hidden; }
    ============================================================ */
 @media (max-width: 380px) {
   .page { padding: 10px 8px 56px !important; }
-  .hero { padding: 18px 14px !important; }
-  .hero h1 { font-size: 23px !important; }
-  .hero h1 .editorial { font-size: 18px !important; }
+  .hero { padding: 16px 12px !important; }
+  .hero h1, .hero-title { font-size: clamp(18px, 7vw, 23px) !important; }
+  .hero h1 .editorial, .hero-title .editorial {
+    font-size: clamp(14px, 5.5vw, 18px) !important;
+  }
+  .pricing-title { font-size: clamp(18px, 7vw, 23px) !important; }
+  .auth-card { padding: 16px 12px !important; }
+  .auth-title { font-size: 18px !important; }
   .kpis { grid-template-columns: 1fr !important; }
   .kpi { padding: 12px !important; }
   .topnav { padding: 0 8px !important; gap: 6px !important; }
@@ -248,14 +431,18 @@ html, body { max-width: 100vw; overflow-x: hidden; }
 }
 
 /* ============================================================
-   Landscape mobile (utile pour analyze / mix-studio)
+   Landscape mobile
    ============================================================ */
 @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
   .topnav { height: 44px !important; }
   .page { padding: 12px 16px 40px !important; }
-  .hero { padding: 16px 20px !important; margin-bottom: 12px !important; }
-  .hero h1 { font-size: 22px !important; margin-bottom: 8px !important; }
-  .kpis { grid-template-columns: repeat(4, 1fr) !important; gap: 8px !important; margin-bottom: 14px !important; }
+  .hero { padding: 14px 18px !important; margin-bottom: 12px !important; }
+  .hero h1, .hero-title { font-size: 22px !important; margin-bottom: 8px !important; }
+  .kpis {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
 }
 
 /* ============================================================
@@ -276,10 +463,11 @@ html, body { max-width: 100vw; overflow-x: hidden; }
 }
 
 /* ============================================================
-   Cmd+K palette / spotlight — désactiver effets coûteux mobile
+   Performance — désactiver effets coûteux mobile
    ============================================================ */
 @media (max-width: 768px) {
   .cf-spot, [data-cf-spot] { background-image: none !important; }
-  /* keep transitions but reduce stagger delays */
   .cf-stagger > * { animation-delay: 0s !important; }
+  /* Réduire les radial-gradient lourds dans les hero */
+  .hero::before { opacity: 0.3 !important; }
 }
