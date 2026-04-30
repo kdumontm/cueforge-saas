@@ -384,7 +384,7 @@ async def list_users(
             Track.user_id,
             func.count(Track.id).label("count")
         ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        tracks_count_map = {uid: count for uid, count in track_counts}
+        tracks_count_map = {uid: cnt for uid, cnt in track_counts}
 
     return {
         "total": total,
@@ -428,7 +428,7 @@ async def export_users(
             Track.user_id,
             func.count(Track.id).label("count")
         ).filter(Track.user_id.in_(user_ids)).group_by(Track.user_id).all()
-        tracks_count_map = {uid: count for uid, count in track_counts}
+        tracks_count_map = {uid: cnt for uid, cnt in track_counts}
 
     output = io.StringIO()
     writer = csv.writer(output)
