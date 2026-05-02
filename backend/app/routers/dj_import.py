@@ -161,7 +161,14 @@ async def import_rekordbox(
             "skipped": skipped_count,
             "status": "success"
         }
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError) as e:
+        # Parsing/format errors → 400
+        logger.error(f"Rekordbox import parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Rekordbox file format: {str(e)}")
     except Exception as e:
+        # Internal server errors → 500
         logger.error(f"Rekordbox import failed: {e}")
         raise HTTPException(status_code=500, detail="Import failed")
 
@@ -187,7 +194,7 @@ async def import_serato(
 
         try:
             data = json.loads(content)
-        except:
+        except json.JSONDecodeError:
             # Try as binary Serato format
             return {
                 "format": "serato_markers",
@@ -200,6 +207,11 @@ async def import_serato(
             "imported": 0,
             "status": "success"
         }
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError) as e:
+        logger.error(f"Serato import parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Serato file format: {str(e)}")
     except Exception as e:
         logger.error(f"Serato import failed: {e}")
         raise HTTPException(status_code=500, detail="Import failed")
@@ -220,6 +232,8 @@ async def import_traktor(
     try:
         # Save uploaded file temporarily
         import tempfile
+        import xml.etree.ElementTree as ET
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".nml") as tmp:
             content = await file.read()
             tmp.write(content)
@@ -231,7 +245,6 @@ async def import_traktor(
             raise HTTPException(status_code=400, detail=f"Invalid Traktor NML: {message}")
 
         # Parse NML and extract tracks
-        import xml.etree.ElementTree as ET
         tree = ET.parse(tmp_path)
         root = tree.getroot()
 
@@ -265,6 +278,11 @@ async def import_traktor(
             "imported": imported_count,
             "status": "success"
         }
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError, ET.ParseError) as e:
+        logger.error(f"Traktor import parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Traktor file format: {str(e)}")
     except Exception as e:
         logger.error(f"Traktor import failed: {e}")
         raise HTTPException(status_code=500, detail="Import failed")
@@ -283,6 +301,8 @@ async def import_virtualdj(
     Extracts tracks, cues, and metadata.
     """
     try:
+        import json
+
         content = await file.read()
 
         # Validate JSON format
@@ -290,7 +310,6 @@ async def import_virtualdj(
         if not is_valid:
             raise HTTPException(status_code=400, detail=f"Invalid JSON: {message}")
 
-        import json
         data = json.loads(content)
 
         imported_count = 0
@@ -312,6 +331,11 @@ async def import_virtualdj(
             "imported": imported_count,
             "status": "success"
         }
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError, UnicodeDecodeError) as e:
+        logger.error(f"VirtualDJ import parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid VirtualDJ file format: {str(e)}")
     except Exception as e:
         logger.error(f"VirtualDJ import failed: {e}")
         raise HTTPException(status_code=500, detail="Import failed")
@@ -330,6 +354,10 @@ async def import_engine_dj(
     Requires SQLite database file from Engine DJ.
     """
     try:
+        import tempfile
+        import sqlite3
+        import re as _re
+
         content = await file.read()
 
         # Verify SQLite format
@@ -337,9 +365,6 @@ async def import_engine_dj(
             raise HTTPException(status_code=400, detail="Invalid Engine DJ database format")
 
         # Save temporary SQLite file
-        import tempfile
-        import sqlite3
-
         with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
             tmp.write(content)
             tmp_path = tmp.name
@@ -363,7 +388,6 @@ async def import_engine_dj(
 
             if track_table:
                 # Sanitize: only allow alphanumeric + underscore table names
-                import re as _re
                 if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', track_table):
                     raise HTTPException(status_code=400, detail="Invalid table name in Engine DJ database")
                 cursor.execute(f"SELECT * FROM \"{track_table}\" LIMIT 100")
@@ -384,6 +408,11 @@ async def import_engine_dj(
             "imported": imported_count,
             "status": "success"
         }
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError, sqlite3.DatabaseError) as e:
+        logger.error(f"Engine DJ import parsing error: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Engine DJ database format: {str(e)}")
     except Exception as e:
         logger.error(f"Engine DJ import failed: {e}")
         raise HTTPException(status_code=500, detail="Import failed")

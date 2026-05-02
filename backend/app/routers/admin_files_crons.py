@@ -434,6 +434,51 @@ def queue_stats(db: Session = Depends(get_db), _=Depends(require_admin)):
 # ═══════════════════════════════════════════════════════
 # DASHBOARD WIDGETS (drag & drop)
 # ═══════════════════════════════════════════════════════
+# IMPORTANT: Routes fixes DOIVENT être déclarées AVANT les routes variable {widget_id}
+# sinon FastAPI matcher "layout", "reset", "types" contre {widget_id} et renvoie 422.
+
+@router.get("/admin/dashboard-widgets/types")
+def widget_types(_=Depends(require_admin)):
+    return [
+        {"id": "stats_card", "label": "Carte statistique", "description": "Métrique unique avec tendance"},
+        {"id": "chart", "label": "Graphique", "description": "Line, bar, area, pie chart"},
+        {"id": "table", "label": "Tableau", "description": "Tableau de données dynamique"},
+        {"id": "activity_feed", "label": "Flux d'activité", "description": "Dernières actions"},
+        {"id": "map", "label": "Carte géographique", "description": "Distribution géographique"},
+        {"id": "funnel", "label": "Entonnoir", "description": "Conversion par étapes"},
+        {"id": "heatmap", "label": "Heatmap", "description": "Activité par heure/jour"},
+        {"id": "progress", "label": "Jauge de progression", "description": "Objectifs et KPIs"},
+        {"id": "text", "label": "Texte / Notes", "description": "Widget texte libre"},
+    ]
+
+@router.put("/admin/dashboard-widgets/layout")
+def update_layout(data: dict, db: Session = Depends(get_db), _=Depends(require_admin)):
+    """data = {widgets: [{id, position: {x, y, w, h}}]}"""
+    for item in data.get("widgets", []):
+        w = db.query(DashboardWidget).filter(DashboardWidget.id == item.get("id")).first()
+        if w:
+            w.position = item.get("position", w.position)
+    db.commit()
+    return {"ok": True}
+
+@router.post("/admin/dashboard-widgets/reset")
+def reset_layout(db: Session = Depends(get_db), _=Depends(require_admin)):
+    db.query(DashboardWidget).filter(DashboardWidget.user_id == 0).delete()
+    defaults = [
+        {"widget_type": "stats_card", "title": "Utilisateurs actifs", "config": {"metric": "active_users"}, "position": {"x": 0, "y": 0, "w": 3, "h": 2}},
+        {"widget_type": "stats_card", "title": "MRR", "config": {"metric": "mrr"}, "position": {"x": 3, "y": 0, "w": 3, "h": 2}},
+        {"widget_type": "stats_card", "title": "Pistes analysées", "config": {"metric": "tracks_analyzed"}, "position": {"x": 6, "y": 0, "w": 3, "h": 2}},
+        {"widget_type": "stats_card", "title": "Taux de churn", "config": {"metric": "churn_rate"}, "position": {"x": 9, "y": 0, "w": 3, "h": 2}},
+        {"widget_type": "chart", "title": "Inscriptions (30j)", "config": {"type": "line", "metric": "signups_30d"}, "position": {"x": 0, "y": 2, "w": 6, "h": 4}},
+        {"widget_type": "chart", "title": "Revenue (30j)", "config": {"type": "bar", "metric": "revenue_30d"}, "position": {"x": 6, "y": 2, "w": 6, "h": 4}},
+        {"widget_type": "activity_feed", "title": "Activité récente", "config": {"limit": 10}, "position": {"x": 0, "y": 6, "w": 6, "h": 4}},
+        {"widget_type": "table", "title": "Top utilisateurs", "config": {"metric": "top_users"}, "position": {"x": 6, "y": 6, "w": 6, "h": 4}},
+    ]
+    for d in defaults:
+        db.add(DashboardWidget(**d))
+    db.commit()
+    return {"ok": True, "message": "Layout réinitialisé"}
+
 @router.get("/admin/dashboard-widgets")
 def list_widgets(user_id: int = 0, db: Session = Depends(get_db), _=Depends(require_admin)):
     items = db.query(DashboardWidget).filter(DashboardWidget.user_id == user_id).order_by(DashboardWidget.id).all()
@@ -471,45 +516,3 @@ def delete_widget(widget_id: int, db: Session = Depends(get_db), _=Depends(requi
     db.delete(w)
     db.commit()
     return {"ok": True}
-
-@router.put("/admin/dashboard-widgets/layout")
-def update_layout(data: dict, db: Session = Depends(get_db), _=Depends(require_admin)):
-    """data = {widgets: [{id, position: {x, y, w, h}}]}"""
-    for item in data.get("widgets", []):
-        w = db.query(DashboardWidget).filter(DashboardWidget.id == item.get("id")).first()
-        if w:
-            w.position = item.get("position", w.position)
-    db.commit()
-    return {"ok": True}
-
-@router.post("/admin/dashboard-widgets/reset")
-def reset_layout(db: Session = Depends(get_db), _=Depends(require_admin)):
-    db.query(DashboardWidget).filter(DashboardWidget.user_id == 0).delete()
-    defaults = [
-        {"widget_type": "stats_card", "title": "Utilisateurs actifs", "config": {"metric": "active_users"}, "position": {"x": 0, "y": 0, "w": 3, "h": 2}},
-        {"widget_type": "stats_card", "title": "MRR", "config": {"metric": "mrr"}, "position": {"x": 3, "y": 0, "w": 3, "h": 2}},
-        {"widget_type": "stats_card", "title": "Pistes analysées", "config": {"metric": "tracks_analyzed"}, "position": {"x": 6, "y": 0, "w": 3, "h": 2}},
-        {"widget_type": "stats_card", "title": "Taux de churn", "config": {"metric": "churn_rate"}, "position": {"x": 9, "y": 0, "w": 3, "h": 2}},
-        {"widget_type": "chart", "title": "Inscriptions (30j)", "config": {"type": "line", "metric": "signups_30d"}, "position": {"x": 0, "y": 2, "w": 6, "h": 4}},
-        {"widget_type": "chart", "title": "Revenue (30j)", "config": {"type": "bar", "metric": "revenue_30d"}, "position": {"x": 6, "y": 2, "w": 6, "h": 4}},
-        {"widget_type": "activity_feed", "title": "Activité récente", "config": {"limit": 10}, "position": {"x": 0, "y": 6, "w": 6, "h": 4}},
-        {"widget_type": "table", "title": "Top utilisateurs", "config": {"metric": "top_users"}, "position": {"x": 6, "y": 6, "w": 6, "h": 4}},
-    ]
-    for d in defaults:
-        db.add(DashboardWidget(**d))
-    db.commit()
-    return {"ok": True, "message": "Layout réinitialisé"}
-
-@router.get("/admin/dashboard-widgets/types")
-def widget_types(_=Depends(require_admin)):
-    return [
-        {"id": "stats_card", "label": "Carte statistique", "description": "Métrique unique avec tendance"},
-        {"id": "chart", "label": "Graphique", "description": "Line, bar, area, pie chart"},
-        {"id": "table", "label": "Tableau", "description": "Tableau de données dynamique"},
-        {"id": "activity_feed", "label": "Flux d'activité", "description": "Dernières actions"},
-        {"id": "map", "label": "Carte géographique", "description": "Distribution géographique"},
-        {"id": "funnel", "label": "Entonnoir", "description": "Conversion par étapes"},
-        {"id": "heatmap", "label": "Heatmap", "description": "Activité par heure/jour"},
-        {"id": "progress", "label": "Jauge de progression", "description": "Objectifs et KPIs"},
-        {"id": "text", "label": "Texte / Notes", "description": "Widget texte libre"},
-    ]
