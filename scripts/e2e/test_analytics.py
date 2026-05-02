@@ -2,6 +2,7 @@
 P7 — Analytics suite (15 tests).
 Covers: GET /analytics/me, /analytics/me/uploads, /analytics/v2/* endpoints
 """
+import time
 from scripts.e2e.lib import (
     Client, RunContext, TestReport, register_test_user, run_step, assert_status, assert_keys, assert_list
 )
@@ -134,6 +135,8 @@ def run(ctx: RunContext) -> TestReport:
 
     # Test 14: Cross-user analytics isolation
     def test_analytics_cross_user():
+        # Space out registrations to avoid rate limit (free tier 5/day)
+        time.sleep(1.5)
         other = run_step(report, "_other_user", lambda: register_test_user(client, "e2e_other"))
         if not other:
             raise AssertionError("Could not register other user")

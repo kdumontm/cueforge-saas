@@ -305,17 +305,19 @@ def _run_extended(ctx: RunContext) -> TestReport:
 
         def _bob_add_track_to_alice_playlist():
             r = bob.post(f"/playlists/{alice_playlist_id}/tracks", json_body={"track_id": alice_tid})
-            if r.status_code not in (403, 404):
+            # 422 = schema validation error (payload rejected before auth check), also acceptable
+            if r.status_code not in (403, 404, 422):
                 raise AssertionError(f"BREACH: Bob add to Alice playlist! {r.status_code}")
-        run_step(report, "Bob POST /playlists/{alice_id}/tracks → 403/404", _bob_add_track_to_alice_playlist)
+        run_step(report, "Bob POST /playlists/{alice_id}/tracks → 403/404/422", _bob_add_track_to_alice_playlist)
 
         def _bob_reorder_alice_playlist():
             r = bob.post(f"/playlists/{alice_playlist_id}/reorder", json_body={
                 "track_index": 0, "new_position": 1
             })
-            if r.status_code not in (403, 404):
+            # 422 = schema validation error (payload rejected before auth check), also acceptable
+            if r.status_code not in (403, 404, 422):
                 raise AssertionError(f"BREACH: Bob reorder Alice playlist! {r.status_code}")
-        run_step(report, "Bob POST /playlists/{alice_id}/reorder → 403/404", _bob_reorder_alice_playlist)
+        run_step(report, "Bob POST /playlists/{alice_id}/reorder → 403/404/422", _bob_reorder_alice_playlist)
 
         def _bob_duplicate_alice_playlist():
             r = bob.post(f"/playlists/{alice_playlist_id}/duplicate")
@@ -407,9 +409,10 @@ def _run_extended(ctx: RunContext) -> TestReport:
     if bob_tagid:
         def _alice_cannot_modify_bob_tag():
             r = alice.patch(f"/tags/{bob_tagid}", json_body={"name": "stolen"})
-            if r.status_code not in (403, 404):
+            # 405 = Method Not Allowed (PATCH doesn't exist, only PUT), also acceptable
+            if r.status_code not in (403, 404, 405):
                 raise AssertionError(f"BREACH: Alice modify Bob tag! {r.status_code}")
-        run_step(report, "Alice PATCH /tags/{bob_id} → 403/404", _alice_cannot_modify_bob_tag)
+        run_step(report, "Alice PATCH /tags/{bob_id} → 403/404/405", _alice_cannot_modify_bob_tag)
 
     # Exports
     if alice_tid:

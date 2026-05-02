@@ -225,7 +225,8 @@ def run_extended(ctx: RunContext) -> TestReport:
     # Snap-to-beat (if available)
     def _snap_to_beat():
         if cue_ids:
-            r = client.post(f"/cues/{tid}/points/snap", json_body={"cue_id": cue_ids[0]})
+            # Endpoint uses query params: POST /cues/{track_id}/points/snap?cue_id=...&snap_to=beat
+            r = client.post(f"/cues/{tid}/points/snap", params={"cue_id": cue_ids[0]})
             if r.status_code in (404, 405):
                 return
             if r.status_code not in (200, 201):

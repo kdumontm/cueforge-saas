@@ -194,7 +194,7 @@ def run(ctx: RunContext) -> TestReport:
         assert_status(r, 200, context="users search by email")
     run_step(report, "GET /admin/users with email search", _users_search_email)
 
-    # 14. PATCH /admin/users/{id} to suspend (if throwaway user exists)
+    # 14. PUT /admin/users/{id} to suspend (if throwaway user exists)
     def _suspend_user():
         if not tmp_user.get("user_id"):
             return
@@ -202,9 +202,13 @@ def run(ctx: RunContext) -> TestReport:
         tc = Client(ctx.base_url)
         u = register_test_user(tc, email_prefix="admin-suspend")
         if u.get("user_id"):
+            # Try both PATCH and PUT methods (backend may implement either)
             r = client.patch(f"/admin/users/{u['user_id']}", json_body={"suspended": True})
+            if r.status_code == 405:
+                # PATCH not allowed, try PUT
+                r = client.put(f"/admin/users/{u['user_id']}", json_body={"suspended": True})
             if r.status_code == 404:
-                return  # PATCH not implemented
+                return  # endpoint not implemented
             if r.status_code not in (200, 204):
                 raise AssertionError(f"suspend user unexpected {r.status_code}")
     run_step(report, "PATCH /admin/users/{id} suspend", _suspend_user)

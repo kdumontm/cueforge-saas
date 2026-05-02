@@ -20,6 +20,8 @@ def run(ctx: RunContext) -> TestReport:
     report = TestReport(suite="feedback-widget")
 
     client = Client(ctx.base_url)
+    # Register a user to provide authentication
+    register_test_user(client, email_prefix="e2e-feedback")
 
     # ============================================================
     # TEST 1 — POST /feedback avec body valide → 200

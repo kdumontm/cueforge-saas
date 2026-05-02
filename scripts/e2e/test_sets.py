@@ -219,9 +219,12 @@ def run_extended(ctx: RunContext) -> TestReport:
     # 3. REORDER tracks in set (if endpoint exists)
     def _reorder_tracks():
         # Try to reorder: move first track to last
-        r = client.post(f"/sets/{sid}/reorder", json_body={
-            "track_order": [track_ids[1], track_ids[2], track_ids[0]]
-        })
+        # Endpoint expects list of {track_id: int, position: int}
+        r = client.post(f"/sets/{sid}/reorder", json_body=[
+            {"track_id": track_ids[1], "position": 0},
+            {"track_id": track_ids[2], "position": 1},
+            {"track_id": track_ids[0], "position": 2},
+        ])
         if r.status_code in (404, 405):
             return  # endpoint may not exist
         if r.status_code not in (200, 204):

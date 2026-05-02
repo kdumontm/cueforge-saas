@@ -29,7 +29,8 @@ def run(ctx: RunContext) -> TestReport:
 
     # 1. Create API key with read scope
     def _create_api_key_read():
-        r = client.post("/api-keys", json_body={"scopes": ["read"]})
+        # Schema expects: name (required), permissions (optional list), expires_in_days (optional int)
+        r = client.post("/api-keys", json_body={"name": "e2e-key-read", "permissions": ["read"]})
         if r.status_code == 404:
             report.add("create api-key endpoint exists", "skip", 0, "endpoint not found")
             return
@@ -39,7 +40,7 @@ def run(ctx: RunContext) -> TestReport:
         if "key" not in d and "token" not in d:
             raise AssertionError(f"response missing key/token: {d.keys()}")
         api_key.update(d)
-        api_key["scopes"] = ["read"]
+        api_key["permissions"] = ["read"]
     run_step(report, "create api-key with read scope", _create_api_key_read)
 
     if not api_key:
@@ -61,14 +62,14 @@ def run(ctx: RunContext) -> TestReport:
 
     # 2. Create API key with write scope
     def _create_api_key_write():
-        r = client.post("/api-keys", json_body={"scopes": ["write"]})
+        r = client.post("/api-keys", json_body={"name": "e2e-key-write", "permissions": ["write"]})
         if r.status_code not in (200, 201):
             raise AssertionError(f"create write-scope key failed: {r.status_code}")
     run_step(report, "create api-key with write scope", _create_api_key_write)
 
     # 3. Create API key with invalid scope → should reject
     def _create_api_key_invalid():
-        r = client.post("/api-keys", json_body={"scopes": ["invalid-scope-xyz"]})
+        r = client.post("/api-keys", json_body={"name": "e2e-key-invalid", "permissions": ["invalid-scope-xyz"]})
         # Should be 400 or 422
         if r.status_code not in (400, 422):
             raise AssertionError(f"invalid scope should reject, got {r.status_code}")
