@@ -18,7 +18,7 @@ from app.schemas.blog_post import (
     BlogPostDetailResponse,
 )
 
-router = APIRouter(prefix="/blog", tags=["blog"])
+router = APIRouter(prefix="/api/v1/blog", tags=["blog"])
 
 # In-memory cache for blog posts (10 min TTL)
 _blog_cache: dict = {"posts": None, "timestamp": None, "ttl_seconds": 600}
