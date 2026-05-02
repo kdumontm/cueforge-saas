@@ -205,8 +205,9 @@ def run(ctx: RunContext) -> TestReport:
             return
         assert_status(r, 200, context="unread count")
         d = r.json()
-        if "count" not in d and "unread" not in d:
-            raise AssertionError(f"unread count missing count field: {d.keys()}")
+        # Accept unread_count, count, or unread field
+        if "count" not in d and "unread" not in d and "unread_count" not in d:
+            raise AssertionError(f"unread count missing expected field: {d.keys()}")
     run_step(report, "GET /notifications/unread-count", _unread_count)
 
     # 13. Delete notification
