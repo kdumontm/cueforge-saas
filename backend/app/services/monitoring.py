@@ -317,6 +317,10 @@ class PrometheusMetrics:
                 "slow_endpoints": list(self.slow_endpoints_log),
             }
 
+    def export_metrics(self) -> Dict:
+        """Export metrics for API endpoint."""
+        return self.get_metrics_summary()
+
     def get_prometheus_format(self) -> str:
         """Generate Prometheus-compatible metrics."""
         summary = self.get_metrics_summary()
