@@ -13,7 +13,7 @@ from app.services.circuit_breaker import get_all_breakers
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/monitoring", tags=["monitoring"])
+router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
 
 @router.get("/metrics", response_model=Dict[str, Any])
