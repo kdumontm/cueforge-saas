@@ -401,3 +401,8 @@ async def get_health_check_detailed(db: Session) -> Dict:
         "cache": cache_health,
         "resources": metrics.resources[-1].__dict__ if metrics.resources else None,
     }
+
+
+def get_metrics() -> PrometheusMetrics:
+    """Return the global metrics instance."""
+    return metrics

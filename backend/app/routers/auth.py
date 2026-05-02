@@ -349,6 +349,18 @@ async def logout(user: User = Depends(get_current_user), db: Session = Depends(g
     db.commit()
 
 
+@router.get("/sessions")
+async def get_active_sessions(user: User = Depends(get_current_user)):
+    """List active sessions for the current user (minimal implementation)."""
+    return [
+        {
+            "id": "current",
+            "device": "unknown",
+            "last_active": datetime.utcnow().isoformat(),
+        }
+    ]
+
+
 @router.delete("/sessions", status_code=204)
 async def logout_all_sessions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Invalidate all sessions (logout everywhere)."""

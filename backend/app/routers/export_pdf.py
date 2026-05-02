@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import io
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -251,17 +254,35 @@ async def export_playlist_pdf(
         Track.playlists.any(Playlist.id == playlist_id)
     ).all()
 
-    # Enforce 200-track limit for export
-    if len(tracks) > 200:
-        raise HTTPException(status_code=400, detail="Playlist exceeds 200-track export limit")
-
-    # Generate PDF
-    if HAS_REPORTLAB:
-        pdf_buffer = create_pdf_reportlab(tracks)
-    elif HAS_FPDF:
-        pdf_buffer = create_pdf_fpdf(tracks)
+    # Handle empty playlist
+    if len(tracks) == 0:
+        # Generate empty PDF with just playlist name
+        try:
+            if HAS_REPORTLAB:
+                pdf_buffer = create_pdf_reportlab([])
+            elif HAS_FPDF:
+                pdf_buffer = create_pdf_fpdf([])
+            else:
+                raise HTTPException(status_code=500, detail="PDF libraries not available")
+        except Exception as e:
+            logger.error(f"Error creating empty playlist PDF: {e}")
+            raise HTTPException(status_code=500, detail="Error generating empty playlist PDF")
     else:
-        raise HTTPException(status_code=500, detail="PDF libraries not available")
+        # Enforce 200-track limit for export
+        if len(tracks) > 200:
+            raise HTTPException(status_code=400, detail="Playlist exceeds 200-track export limit")
+
+        # Generate PDF with error handling
+        try:
+            if HAS_REPORTLAB:
+                pdf_buffer = create_pdf_reportlab(tracks)
+            elif HAS_FPDF:
+                pdf_buffer = create_pdf_fpdf(tracks)
+            else:
+                raise HTTPException(status_code=500, detail="PDF libraries not available")
+        except Exception as e:
+            logger.error(f"Error creating playlist PDF: {e}")
+            raise HTTPException(status_code=500, detail="Error generating playlist PDF")
 
     return StreamingResponse(
         pdf_buffer,

@@ -18,7 +18,7 @@ from app.schemas.blog_post import (
     BlogPostDetailResponse,
 )
 
-router = APIRouter(prefix="/api/v1/blog", tags=["blog"])
+router = APIRouter(prefix="/blog", tags=["blog"])
 
 # In-memory cache for blog posts (10 min TTL)
 _blog_cache: dict = {"posts": None, "timestamp": None, "ttl_seconds": 600}
@@ -179,7 +179,7 @@ def ensure_default_articles(db: Session):
     db.commit()
 
 
-@router.get("", response_model=List[BlogPostResponse])
+@router.get("/posts", response_model=List[BlogPostResponse])
 async def list_blog_posts(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -222,7 +222,7 @@ async def list_blog_posts(
     return [BlogPostResponse.from_orm(p) for p in paginated]
 
 
-@router.get("/{slug}", response_model=BlogPostDetailResponse)
+@router.get("/posts/{slug}", response_model=BlogPostDetailResponse)
 async def get_blog_post(
     slug: str,
     db: Session = Depends(get_db),
@@ -239,7 +239,7 @@ async def get_blog_post(
     return BlogPostDetailResponse.from_orm(post)
 
 
-@router.post("", response_model=BlogPostResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/posts", response_model=BlogPostResponse, status_code=status.HTTP_201_CREATED)
 async def create_blog_post(
     post_data: BlogPostCreate,
     db: Session = Depends(get_db),
@@ -276,7 +276,7 @@ async def create_blog_post(
     return BlogPostResponse.from_orm(new_post)
 
 
-@router.put("/{slug}", response_model=BlogPostResponse)
+@router.put("/posts/{slug}", response_model=BlogPostResponse)
 async def update_blog_post(
     slug: str,
     post_data: BlogPostUpdate,
@@ -325,7 +325,7 @@ async def update_blog_post(
     return BlogPostResponse.from_orm(post)
 
 
-@router.delete("/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/posts/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_blog_post(
     slug: str,
     db: Session = Depends(get_db),
