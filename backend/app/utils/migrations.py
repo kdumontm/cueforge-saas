@@ -44,7 +44,7 @@ PENDING_MIGRATIONS = {
         # Étape 8: Préférence stems (4 ou 6 tiges)
         "stems_n_preference": "INTEGER",  # None=défaut (4), 4 ou 6
         # Wave 3 (2026-05-03) : préférences user JSON pour saved-views, layouts custom, etc.
-        "preferences": "JSON"
+        "preferences": "JSONB",
         # Étape 11: Préférences notifications
         "notification_email_enabled": "BOOLEAN DEFAULT FALSE",
         "notification_push_enabled": "BOOLEAN DEFAULT TRUE",
