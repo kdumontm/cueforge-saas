@@ -731,6 +731,7 @@ function renderTimelineChips(){
 
 function renderTrackList(){
   const listEl = document.getElementById('set-list');
+  listEl.setAttribute('data-cf-set','1');
   listEl.innerHTML = '';
   const tracks = currentSet.tracks;
   if(!tracks.length){
@@ -740,6 +741,10 @@ function renderTrackList(){
   tracks.forEach((t,i) => {
     const row = document.createElement('div');
     row.className = 'tt-row pressable';
+    row.setAttribute('data-cf-track-row','1');
+    row.dataset.bpm = getBpm(t) || '';
+    row.dataset.key = getCam(t) || '';
+    row.dataset.duration = (t.duration_seconds || t.duration || 0);
     const bpm = getBpm(t), cam = getCam(t), e = getE(t);
     let transText = '—', transColor = 'var(--c-tertiary)';
     if(i > 0){
@@ -975,5 +980,42 @@ document.getElementById('btn-copy-usb').addEventListener('click', () => {
 
 boot();
 </script>
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // Recalcul header (durée totale, BPM moy, gaps) après chaque renderTrackList
+  var origRender = window.renderTrackList;
+  // renderTrackList est défini à l'intérieur d'un script donc pas globale forcément
+  // → on observe le DOM via MutationObserver, fait dans improvements.js auto-init.
+
+  // Bind export PDF
+  var btn = document.getElementById('cf-export-pdf');
+  if(btn){
+    btn.addEventListener('click', function(){
+      try{
+        var s = window.currentSet || {tracks:[]};
+        var tracks = (s.tracks||[]).map(function(t){
+          return {
+            artist: t.artist||'', title: t.title||t.original_filename||'',
+            bpm: (t.analysis_bpm||t.bpm||''), key: (t.analysis_camelot||t.camelot||''),
+            duration: (t.duration_seconds||t.duration||0)
+          };
+        });
+        var totalDur = tracks.reduce(function(a,t){return a+(t.duration||0)},0);
+        var bpms = tracks.map(function(t){return parseFloat(t.bpm)||0}).filter(Boolean);
+        var avg = bpms.length ? Math.round(bpms.reduce(function(a,b){return a+b},0)/bpms.length) : 0;
+        window.cfImprovements.exportSetPDF({
+          name: s.name || 'Setlist',
+          tracks: tracks,
+          duration: totalDur,
+          avgBpm: avg
+        });
+      }catch(e){ console.error(e); }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>

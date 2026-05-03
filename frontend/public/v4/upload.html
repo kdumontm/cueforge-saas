@@ -960,5 +960,28 @@
     }
   })();
 </script>
+<!-- CueForge improvements upload hook -->
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // #26 ETA upload : track la durée moyenne des derniers uploads
+  var samples = [];
+  var origUploadTrack = window.api && window.api.uploadTrack;
+  if(origUploadTrack && !origUploadTrack._cfWrapped){
+    var wrapped = function(file, onProgress, opts){
+      var start = performance.now();
+      return origUploadTrack(file, function(p){
+        var elapsed = (performance.now() - start) / 1000;
+        var eta = p > 0 ? (elapsed / p) - elapsed : 0;
+        var etaStr = eta > 1 ? '· ~'+Math.round(eta)+'s restant' : '';
+        try{ onProgress(p, etaStr); }catch(e){ try{ onProgress(p); }catch(e){} }
+      }, opts);
+    };
+    wrapped._cfWrapped = true;
+    window.api.uploadTrack = wrapped;
+  }
+})();
+</script>
+
 </body>
 </html>

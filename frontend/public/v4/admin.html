@@ -2167,7 +2167,8 @@
       const src = e.currentTarget.src;
       if(!src) return;
       const w = window.open('', '_blank');
-      if(w) w.document.write(`<title>Screenshot</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100vw;max-height:100vh"/></body>`);
+      if(w) w.document.write(`<title>Screenshot</title><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100vw;max-height:100vh"/>
+</body>`);
     });
     // Tabs
     document.getElementById('fb-tab-user')?.addEventListener('click', () => {
@@ -2698,5 +2699,43 @@
     if(row){ toast(`Profil user #${row.dataset.id} — en construction`, 'info'); }
   });
 </script>
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+
+  // #75 Recherche globale admin Cmd+Shift+K
+  document.addEventListener('keydown', function(e){
+    if((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase()==='k'){
+      e.preventDefault();
+      var q = prompt('Recherche admin globale (users, tracks, sets, feedbacks):');
+      if(!q) return;
+      try{
+        var inputs = document.querySelectorAll('input[type="search"], input[placeholder*="hercher" i], input[placeholder*="search" i]');
+        var first = Array.prototype.find.call(inputs, function(i){return i.offsetParent !== null});
+        if(first){ first.value = q; first.dispatchEvent(new Event('input',{bubbles:true})); first.focus(); }
+      }catch(err){}
+    }
+  });
+
+  // #80 Alertes seuils : badge rouge si stockage > 90% ou erreurs > 5%
+  function checkThresholds(){
+    document.querySelectorAll('[data-storage-pct], [data-errors-pct]').forEach(function(el){
+      var pct = parseFloat(el.dataset.storagePct || el.dataset.errorsPct);
+      if(isFinite(pct) && pct > 90){
+        if(!el.querySelector('.cf-alert-dot')){
+          var dot = document.createElement('span');
+          dot.className = 'cf-alert-dot';
+          dot.style.cssText='display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-left:6px;animation:cfNewPulse 1.6s infinite';
+          el.appendChild(dot);
+        }
+      }
+    });
+  }
+  setTimeout(checkThresholds, 2000);
+  setInterval(checkThresholds, 30000);
+})();
+</script>
+
 </body>
 </html>

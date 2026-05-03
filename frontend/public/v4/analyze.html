@@ -676,6 +676,10 @@
           <button class="tr-btn play" data-tt="Play (Space)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4v16l14-8z"/></svg></button>
           <button class="tr-btn" data-tt="Next cue (→)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l10-7zM17 5h2v14h-2z"/></svg></button>
           <button class="tr-btn" data-tt="Record (R)"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="7"/></svg></button>
+          <div class="cf-rate-wrap" style="display:flex;align-items:center;gap:6px;margin-left:8px;font-family:var(--font-mono);font-size:11px;color:var(--c-tertiary)">
+            <input type="range" id="cf-rate" min="50" max="200" step="1" value="100" style="width:80px" data-cf-scrub-log title="Vitesse de lecture (50-200%)">
+            <span data-cf-rate-label>100%</span>
+          </div>
         </div>
         <div class="time-disp">
           <div>
@@ -2664,5 +2668,31 @@ window.addEventListener('beforeunload', () => {
   if(audioBlobUrl){ URL.revokeObjectURL(audioBlobUrl); }
 });
 </script>
+
+<script>
+// CueForge improvements hooks pour /analyze
+(function(){
+  if(!window.cfImprovements) return;
+  // #20 Raccourcis JKL/arrows + #22 vitesse variable, attach quand audioEl est dispo
+  function tryBindAudio(){
+    if(window.audioEl && audioEl.play){
+      try{ window.cfImprovements.bindAudioShortcuts(audioEl); }catch(e){}
+      try{ window.cfImprovements.bindPlaybackRate(audioEl, document.getElementById('cf-rate')); }catch(e){}
+      return true;
+    }
+    return false;
+  }
+  // Tente régulièrement, audio est lazy-load au 1er play
+  var iv = setInterval(function(){ if(tryBindAudio()) clearInterval(iv); }, 500);
+  setTimeout(function(){ clearInterval(iv); }, 30000);
+
+  // #16 BPM tap : si input editable BPM existe, attacher
+  var bpmInput = document.querySelector('input[data-cf-bpm-tap], #bpm-edit, [data-bpm-edit]');
+  if(bpmInput) try{ window.cfImprovements.bpmTap(bpmInput); }catch(e){}
+
+  // Expose audioEl globalement pour bind (déclaré let dans le scope module)
+})();
+</script>
+
 </body>
 </html>

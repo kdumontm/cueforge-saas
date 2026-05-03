@@ -214,12 +214,12 @@
       <p class="page-sub reveal reveal-2">Ce que vos mix révèlent sur votre style. Les chiffres racontent — vous décidez.</p>
     </div>
     <div class="range-seg reveal reveal-2">
-      <div class="segment">
-        <button>7j</button>
-        <button class="active">30j</button>
-        <button>90j</button>
-        <button>Année</button>
-        <button>All time</button>
+      <div class="segment" id="cf-period-seg">
+        <button data-period="7d">7j</button>
+        <button class="active" data-period="30d">30j</button>
+        <button data-period="90d">90j</button>
+        <button data-period="365d">Année</button>
+        <button data-period="all">All time</button>
       </div>
       <button class="btn btn-ghost btn-sm" style="margin-left:8px" id="stats-export-csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
     </div>
@@ -1073,5 +1073,50 @@
     });
   }
 </script>
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+
+  // #68 Période persistante avec toggle visuel
+  var seg = document.getElementById('cf-period-seg');
+  if(seg){
+    var saved = window.cfImprovements.statsPeriod.get();
+    Array.prototype.slice.call(seg.querySelectorAll('button')).forEach(function(b){
+      if(b.dataset.period === saved){
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('active')});
+        b.classList.add('active');
+      }
+      b.addEventListener('click', function(){
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('active')});
+        b.classList.add('active');
+        window.cfImprovements.statsPeriod.set(b.dataset.period);
+      });
+    });
+  }
+
+  // #69 Export CSV depuis les KPIs visibles
+  var btn = document.getElementById('stats-export-csv');
+  if(btn){
+    btn.addEventListener('click', function(e){
+      // Si shared.js a déjà un handler, ne pas dupliquer
+      if(btn.dataset.cfBound) return;
+      btn.dataset.cfBound = '1';
+      try{
+        var rows = [];
+        document.querySelectorAll('.kpi').forEach(function(kpi){
+          var label = (kpi.querySelector('.kpi-label')||{}).textContent || '';
+          var val = (kpi.querySelector('.kpi-val, .kpi-value, .num')||{}).textContent || '';
+          if(label) rows.push({label: label.trim(), value: val.trim()});
+        });
+        if(!rows.length) return;
+        var period = window.cfImprovements.statsPeriod.get();
+        window.cfImprovements.exportCSV('cueforge-stats-'+period, rows);
+      }catch(err){ console.error(err); }
+    });
+  }
+})();
+</script>
+
 </body>
 </html>
