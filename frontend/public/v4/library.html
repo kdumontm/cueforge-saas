@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>(function(){var V="20260429-mobile2";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
+<script>(function(){var V="20260503-imp1";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Library</title>
@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp1">
 <style>
   .filter-bar{
     display:flex;gap:10px;align-items:center;flex-wrap:wrap;
@@ -257,6 +258,7 @@
 
   <!-- Saved views -->
   <div class="views" id="views">
+      <button class="view-chip" data-cf-density title="Densité">▦ Compact</button>
     <button class="view-chip active" data-view="all">Tous<span class="bd" id="c-all">—</span></button>
     <button class="view-chip" data-view="ready">Ready to play<span class="bd" id="c-ready">—</span></button>
     <button class="view-chip" data-view="analyzing">Analyse en cours<span class="bd" id="c-analyzing">—</span></button>
@@ -270,7 +272,7 @@
   <div class="filter-bar">
     <div class="search" style="flex:1">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input class="input" id="search-input" placeholder="Rechercher un titre, artiste, label, genre…">
+      <input class="input" id="search-input" placeholder="Rechercher un titre, artiste, label, genre…" data-cf-persist="lib_search_input">
       <span class="kbd">/</span>
     </div>
 
@@ -279,8 +281,8 @@
       <div class="drop-menu">
         <label>BPM min → max</label>
         <div class="row-in">
-          <input type="number" id="f-bpm-min" placeholder="min" min="0" max="250">
-          <input type="number" id="f-bpm-max" placeholder="max" min="0" max="250">
+          <input type="number" id="f-bpm-min" placeholder="min" min="0" max="250" data-cf-persist="lib_f_bpm_min">
+          <input type="number" id="f-bpm-max" placeholder="max" min="0" max="250" data-cf-persist="lib_f_bpm_max">
         </div>
         <div class="acts">
           <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
@@ -305,7 +307,7 @@
       <div class="drop-menu">
         <label>Genre (recherche partielle)</label>
         <div class="row-in">
-          <input type="text" id="f-genre" placeholder="house, techno…">
+          <input type="text" id="f-genre" placeholder="house, techno…" data-cf-persist="lib_f_genre">
         </div>
         <div class="acts">
           <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
@@ -319,8 +321,8 @@
       <div class="drop-menu">
         <label>Énergie min → max (0-10)</label>
         <div class="row-in">
-          <input type="number" id="f-energy-min" placeholder="min" min="0" max="10" step="0.1">
-          <input type="number" id="f-energy-max" placeholder="max" min="0" max="10" step="0.1">
+          <input type="number" id="f-energy-min" placeholder="min" min="0" max="10" step="0.1" data-cf-persist="lib_f_energy_min">
+          <input type="number" id="f-energy-max" placeholder="max" min="0" max="10" step="0.1" data-cf-persist="lib_f_energy_max">
         </div>
         <div class="acts">
           <button class="btn btn-ghost btn-sm" data-drop-clear>Effacer</button>
@@ -398,6 +400,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp1" defer></script>
 <script>
 // ---- Auth guard ----
 if(!api.requireAuth()) { /* redirected */ }
@@ -493,6 +496,16 @@ function renderTrack(t, i){
   row.className = 'lib-row pressable';
   row.tabIndex = 0;
   row.dataset.id = t.id;
+  if(t.created_at) row.dataset.createdAt = t.created_at;
+  if(t.preview_url || t.audio_url){
+    row.dataset.cfPreview = t.preview_url || (t.audio_url ? t.audio_url + '#t=30,40' : '');
+  }
+  // #6  compteur plays côté client
+  try{
+    const k = 'cf_plays_' + t.id;
+    const n = parseInt(localStorage.getItem(k)||'0',10);
+    if(n>0) row.setAttribute('data-plays', n);
+  }catch(e){}
   const cuesBar = Array.from({length:8},(_,ci)=>{
     return ci < cueCount
       ? `<span style="background:${CUE_COLORS[ci]}"></span>`
