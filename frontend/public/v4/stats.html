@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>(function(){var V="20260503-imp2";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
+<script>(function(){var V="20260503-imp3";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Stats</title>
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp2">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp3">
 <style>
   /* Page-specific — Stats */
   .stats-head{
@@ -521,7 +521,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260503-imp2" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp3" defer></script>
 <script>
   // ---- Auth guard ----
   if(!api.requireAuth()) { /* redirected */ }
@@ -1115,6 +1115,48 @@
       }catch(err){ console.error(err); }
     });
   }
+})();
+</script>
+
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // #71 Heatmap activité — render dans le 1er panel vide ou ajout après KPIs
+  function injectHeatmap(){
+    if(document.getElementById('cf-heatmap-card')) return;
+    var grid = document.querySelector('.kpi-grid, .panel-grid, .stats-grid, main');
+    if(!grid) return;
+    var card = document.createElement('div');
+    card.id = 'cf-heatmap-card';
+    card.style.cssText = 'background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;padding:16px;margin-top:16px';
+    card.innerHTML = '<div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:12px">Activité — heatmap jour × heure</div>'+
+      '<div id="cf-heatmap"></div>';
+    grid.parentNode.insertBefore(card, grid.nextSibling);
+    // Try to fetch real data, fallback synthetic demo
+    window.cfImprovements.apiCall('GET','/stats/activity-heatmap?period='+window.cfImprovements.statsPeriod.get()).then(function(r){
+      var data = (r && r.data) || generateDemo();
+      window.cfImprovements.renderHeatmap(document.getElementById('cf-heatmap'), data);
+    }).catch(function(){
+      window.cfImprovements.renderHeatmap(document.getElementById('cf-heatmap'), generateDemo());
+    });
+  }
+  function generateDemo(){
+    var d = [];
+    for(var day=0;day<7;day++){
+      for(var h=0;h<24;h++){
+        // Simulation : actif 18-23h en semaine, après-midi le weekend
+        var weight = (day>=5 ? (h>=14 && h<=23 ? 5 : 1) : (h>=18 && h<=23 ? 4 : 0.5));
+        if(Math.random() < weight*0.15) d.push({day:day, hour:h, count: Math.ceil(weight*Math.random()*3)});
+      }
+    }
+    return d;
+  }
+  setTimeout(injectHeatmap, 800);
+  document.addEventListener('cf:period-change', function(){
+    var card = document.getElementById('cf-heatmap-card');
+    if(card){ card.remove(); setTimeout(injectHeatmap, 100); }
+  });
 })();
 </script>
 

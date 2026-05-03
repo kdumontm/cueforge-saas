@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>(function(){var V="20260503-imp2";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
+<script>(function(){var V="20260503-imp3";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Set Builder</title>
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp2">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp3">
 <style>
   /* Set meta */
   .set-meta{
@@ -391,7 +391,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260503-imp2" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp3" defer></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1014,6 +1014,51 @@ boot();
       }catch(e){ console.error(e); }
     });
   }
+})();
+</script>
+
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // #43 Arc énergie cumulée
+  function injectEnergyArc(){
+    var listEl = document.getElementById('set-list');
+    if(!listEl) return false;
+    var arcEl = document.getElementById('cf-energy-arc');
+    if(!arcEl){
+      arcEl = document.createElement('div');
+      arcEl.id = 'cf-energy-arc';
+      arcEl.style.cssText = 'margin:8px 0 14px;padding:8px 12px;background:var(--s-1);border:1px solid var(--b-default);border-radius:10px';
+      arcEl.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:4px">Energy arc</div><div id="cf-arc-svg"></div>';
+      listEl.parentNode.insertBefore(arcEl, listEl);
+    }
+    var rows = listEl.querySelectorAll('[data-cf-track-row]');
+    var energies = [];
+    rows.forEach(function(r){
+      var e = parseFloat(r.getAttribute('data-energy')) || 0;
+      // Si data-energy pas set, fallback BPM normalisé
+      if(!e){
+        var bpm = parseFloat(r.dataset.bpm)||0;
+        e = bpm ? Math.min(10, Math.max(1, (bpm-60)/14)) : 5;
+      }
+      energies.push(e);
+    });
+    if(energies.length >= 2){
+      window.cfImprovements.renderEnergyArc(document.getElementById('cf-arc-svg'), energies);
+      arcEl.style.display = '';
+    } else {
+      arcEl.style.display = 'none';
+    }
+    return true;
+  }
+  // Hook après chaque MutationObserver sur set list
+  var listEl = document.getElementById('set-list');
+  if(listEl){
+    var mo = new MutationObserver(function(){ injectEnergyArc(); });
+    mo.observe(listEl, {childList:true, subtree:true});
+  }
+  setTimeout(injectEnergyArc, 1200);
 })();
 </script>
 

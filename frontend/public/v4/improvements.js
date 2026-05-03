@@ -899,3 +899,201 @@
     });
   };
 })();
+
+/* ============================================================
+   Wave 3 — Mix studio + heatmap + saved views UI
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #50  Crossfade auto-tuned selon energy delta --- */
+  CF.suggestCrossfadeBars = function(energyA, energyB){
+    if(energyA == null || energyB == null) return 16;
+    var delta = Math.abs(energyA - energyB);
+    // delta 0-1 → 32 bars (long, doux), 5+ → 4 bars (rapide, percutant)
+    if(delta < 1) return 32;
+    if(delta < 2) return 24;
+    if(delta < 3) return 16;
+    if(delta < 4) return 8;
+    return 4;
+  };
+
+  /* --- #55  Score breakdown transition (Key, BPM, Energy, Phrase) --- */
+  CF.transitionScore = function(a, b){
+    a = a || {}; b = b || {};
+    var factors = {
+      key: keyScore(a.camelot, b.camelot),
+      bpm: bpmScore(a.bpm, b.bpm),
+      energy: energyScore(a.energy, b.energy),
+      phrase: 100  // assumed phrase-aligned (cue-snapped)
+    };
+    var weights = {key:0.35, bpm:0.30, energy:0.20, phrase:0.15};
+    var overall = Object.keys(weights).reduce(function(s,k){
+      return s + (factors[k]||0) * weights[k];
+    }, 0);
+    return {overall: Math.round(overall), factors: factors};
+  };
+  function keyScore(a, b){
+    if(!a || !b) return 50;
+    if(a === b) return 100;
+    if(!CF.keyCompatible(a,b)) return 30;
+    return 80;
+  }
+  function bpmScore(a, b){
+    if(!a || !b) return 50;
+    var d = Math.abs(a-b);
+    if(d < 0.5) return 100;
+    if(d < 2) return 90;
+    if(d < 4) return 75;
+    if(d < 6) return 55;
+    if(d < 10) return 30;
+    return 10;
+  }
+  function energyScore(a, b){
+    if(a == null || b == null) return 60;
+    var d = Math.abs(a-b);
+    if(d < 0.5) return 95;
+    if(d < 1) return 85;
+    if(d < 2) return 70;
+    if(d < 3) return 55;
+    return 35;
+  }
+
+  /* --- #53  Markers transition pré-calculés (out A / in B) --- */
+  CF.suggestTransitionMarkers = function(trackA, trackB){
+    // Heuristique : out à 75% de la durée de A, in au début du drop de B (ou 12%)
+    var aDur = (trackA && trackA.duration) || 0;
+    var bDur = (trackB && trackB.duration) || 0;
+    return {
+      out_a: aDur ? aDur * 0.75 : null,
+      in_b:  bDur ? bDur * 0.12 : null,
+      bars: CF.suggestCrossfadeBars(trackA && trackA.energy, trackB && trackB.energy)
+    };
+  };
+
+  /* --- #43  Énergie cumulée graph (SVG path simple) --- */
+  CF.renderEnergyArc = function(targetEl, energies, opts){
+    if(!targetEl || !energies || !energies.length) return;
+    opts = opts || {};
+    var W = opts.width || targetEl.clientWidth || 600;
+    var H = opts.height || 80;
+    var pad = 4;
+    var n = energies.length;
+    var maxE = Math.max.apply(null, energies.map(function(e){return e||0})) || 10;
+    var pts = energies.map(function(e, i){
+      var x = pad + (i/Math.max(1,n-1)) * (W - 2*pad);
+      var y = pad + (1 - (e||0)/maxE) * (H - 2*pad);
+      return [x, y];
+    });
+    // Smooth path (cardinal)
+    var d = 'M '+pts[0][0]+' '+pts[0][1];
+    for(var i=1;i<pts.length;i++){
+      var p0 = pts[Math.max(0,i-1)], p1 = pts[i], p2 = pts[Math.min(pts.length-1,i+1)];
+      var c1x = p0[0] + (p1[0]-p0[0])*0.5, c1y = p0[1] + (p1[1]-p0[1])*0.5;
+      var c2x = p1[0] - (p2[0]-p0[0])*0.1, c2y = p1[1] - (p2[1]-p0[1])*0.1;
+      d += ' C '+c1x+','+c1y+' '+c2x+','+c2y+' '+p1[0]+','+p1[1];
+    }
+    var area = d + ' L '+pts[pts.length-1][0]+','+(H-pad)+' L '+pts[0][0]+','+(H-pad)+' Z';
+    targetEl.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:'+H+'px;display:block">'+
+      '<defs><linearGradient id="cf-arc-grad" x1="0" y1="0" x2="0" y2="1">'+
+        '<stop offset="0%" stop-color="var(--amber,#ff7a18)" stop-opacity="0.5"/>'+
+        '<stop offset="100%" stop-color="var(--amber,#ff7a18)" stop-opacity="0.05"/>'+
+      '</linearGradient></defs>'+
+      '<path d="'+area+'" fill="url(#cf-arc-grad)"/>'+
+      '<path d="'+d+'" fill="none" stroke="var(--amber,#ff7a18)" stroke-width="1.5"/>'+
+    '</svg>';
+  };
+
+  /* --- #71  Heatmap activité (jours × heures) --- */
+  CF.renderHeatmap = function(targetEl, data, opts){
+    // data : array de {day:0-6, hour:0-23, count:N}
+    if(!targetEl) return;
+    opts = opts || {};
+    var days = ['L','M','M','J','V','S','D'];
+    var maxC = 1;
+    var grid = {};
+    (data||[]).forEach(function(d){
+      var k = d.day+':'+d.hour;
+      grid[k] = (grid[k]||0) + (d.count||1);
+      if(grid[k] > maxC) maxC = grid[k];
+    });
+    var html = '<div style="display:grid;grid-template-columns:24px repeat(24, 1fr);gap:2px;font-family:var(--font-mono);font-size:9px;color:var(--c-tertiary)">';
+    html += '<div></div>';
+    for(var h=0;h<24;h++) html += '<div style="text-align:center">'+(h%4===0?h:'')+'</div>';
+    for(var d=0;d<7;d++){
+      html += '<div style="text-align:right;line-height:14px;padding-right:4px">'+days[d]+'</div>';
+      for(var h=0;h<24;h++){
+        var c = grid[d+':'+h]||0;
+        var alpha = c ? 0.15 + (c/maxC)*0.85 : 0;
+        var bg = c ? 'rgba(255,122,24,'+alpha.toFixed(2)+')' : 'var(--s-2)';
+        html += '<div title="'+days[d]+' '+h+'h · '+c+'" style="height:14px;background:'+bg+';border-radius:2px"></div>';
+      }
+    }
+    html += '</div>';
+    targetEl.innerHTML = html;
+  };
+
+  /* --- #11  Saved views UI (chips dans library) --- */
+  CF.injectSavedViewsUI = function(targetSel){
+    var bar = document.querySelector(targetSel || '.views');
+    if(!bar || document.getElementById('cf-saved-views')) return;
+    var box = document.createElement('div');
+    box.id = 'cf-saved-views';
+    box.style.cssText = 'display:flex;gap:6px;align-items:center;margin-left:8px;flex-wrap:wrap';
+    bar.appendChild(box);
+
+    function render(){
+      CF.savedViews.list().then(function(views){
+        box.innerHTML = '<button class="view-chip" id="cf-save-view" style="border-style:dashed">+ Save view</button>';
+        views.forEach(function(v){
+          var chip = document.createElement('button');
+          chip.className = 'view-chip cf-saved-chip';
+          chip.title = JSON.stringify(v.filters);
+          chip.innerHTML = '<span>'+(v.icon||'⭐')+' '+(v.name||'View')+'</span>'+
+            '<span class="cf-del" style="margin-left:6px;color:var(--c-tertiary);cursor:pointer">×</span>';
+          chip.addEventListener('click', function(e){
+            if(e.target.classList.contains('cf-del')){
+              e.stopPropagation();
+              CF.savedViews.remove(v.id).then(render);
+              return;
+            }
+            // Apply filters
+            Object.keys(v.filters||{}).forEach(function(k){
+              var el = document.querySelector('[data-cf-persist="lib_'+k+'"], #'+k);
+              if(el){ el.value = v.filters[k]; el.dispatchEvent(new Event('change',{bubbles:true})); }
+            });
+          });
+          box.appendChild(chip);
+        });
+        document.getElementById('cf-save-view').addEventListener('click', function(){
+          var name = prompt('Nom de la vue :');
+          if(!name) return;
+          var filters = {};
+          document.querySelectorAll('[data-cf-persist^="lib_"]').forEach(function(el){
+            var k = el.getAttribute('data-cf-persist').replace(/^lib_/,'');
+            if(el.value) filters[k] = el.value;
+          });
+          CF.savedViews.save({
+            id: 'v_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+            name: name,
+            icon: '⭐',
+            filters: filters,
+            created_at: new Date().toISOString()
+          }).then(render);
+        });
+      });
+    }
+    render();
+  };
+
+  // Auto-inject saved views sur library
+  if(/library/.test(location.pathname)){
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(function(){ try{ CF.injectSavedViewsUI(); }catch(e){} }, 600);
+    });
+    if(document.readyState !== 'loading'){
+      setTimeout(function(){ try{ CF.injectSavedViewsUI(); }catch(e){} }, 600);
+    }
+  }
+})();

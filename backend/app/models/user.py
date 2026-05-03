@@ -10,7 +10,7 @@ New fields added for SaaS:
 """
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -83,6 +83,9 @@ class User(Base):
     is_comp = Column(Boolean, default=False, nullable=False)
     # ── Étape 8: Préférence stems (4 ou 6 tiges) ──
     stems_n_preference = Column(Integer, nullable=True, default=None)  # None=défaut (4), 4 ou 6
+
+    # ── Wave 3 (2026-05-03) : préférences user JSON (saved-views, layouts, …) ──
+    preferences = Column(JSON, nullable=True, default=dict)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
