@@ -12,7 +12,7 @@
 // 🔴 2026-04-27 : bump v6 → v7 pour purger l'ancienne version de admin.html, analyze.html,
 //   shared.js et shared.css après la grosse session de fixes (Dev FF/GG/HH + manager).
 //   Kevin disait "je vois pas les modifs" → SW servait encore les versions du 23/04.
-const CACHE_NAME = 'trackcue-v16';
+const CACHE_NAME = 'trackcue-v17';
 const SWR_CACHE_NAME = 'trackcue-swr-v4';
 const STATIC_ASSETS = [
   '/manifest.json',

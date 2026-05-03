@@ -1415,6 +1415,7 @@ _safe_mount("app.routers.compare", "/api/v1", ["compare"])
 # doit passer avant tracks sinon /{track_id} capture "categories"/"tags" → 422
 _safe_mount("app.routers.organization")
 _safe_mount("app.routers.tracks", "/api/v1/tracks", ["tracks"])
+_safe_mount("app.routers.improvements", "/api/v1", ["improvements"])
 _safe_mount("app.routers.cues", "/api/v1/cues", ["cues"])
 _safe_mount("app.routers.export", "/api/v1/export", ["export"])
 _safe_mount("app.routers.billing", "/api/v1/billing", ["billing"])

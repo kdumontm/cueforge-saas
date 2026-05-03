@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260424-dev-w-6bugs">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp1">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp2">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -752,7 +752,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260503-imp1" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp2" defer></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -2691,6 +2691,107 @@ window.addEventListener('beforeunload', () => {
   if(bpmInput) try{ window.cfImprovements.bpmTap(bpmInput); }catch(e){}
 
   // Expose audioEl globalement pour bind (déclaré let dans le scope module)
+  // #13 Waveform zoom horizontal (Ctrl/Cmd+wheel pour zoom, double-click reset, drag pour pan)
+  var waveEl = document.getElementById('wave');
+  if(waveEl && window.cfImprovements.bindWaveZoom){
+    try{ window.cfImprovements.bindWaveZoom(waveEl); }catch(e){}
+    // Hint visuel
+    if(!waveEl.querySelector('.cf-zoom-hint')){
+      var hint = document.createElement('div');
+      hint.className = 'cf-zoom-hint';
+      hint.style.cssText = 'position:absolute;top:8px;right:8px;font-family:var(--font-mono);font-size:9px;color:var(--c-tertiary);opacity:.6;pointer-events:none;letter-spacing:.05em';
+      hint.textContent = 'CTRL+WHEEL ZOOM · DBL-CLICK RESET';
+      waveEl.style.position = waveEl.style.position || 'relative';
+      waveEl.appendChild(hint);
+    }
+  }
+
+  // #6 Compteur plays serveur : appelé au 1er play
+  var playBtn = document.querySelector('.tr-btn.play');
+  if(playBtn && !playBtn.dataset.cfPlayHook){
+    playBtn.dataset.cfPlayHook = '1';
+    playBtn.addEventListener('click', function(){
+      var id = (new URLSearchParams(location.search)).get('id');
+      if(id) window.cfImprovements.recordPlay(id);
+    }, {once:true});
+  }
+
+})();
+</script>
+
+
+<style>
+.cf-notes-box{margin:12px 0;padding:12px;border-radius:10px;background:var(--s-2);border:1px solid var(--b-default)}
+.cf-notes-box .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:6px}
+.cf-notes-box textarea{width:100%;min-height:80px;background:var(--s-1);border:1px solid var(--b-default);border-radius:8px;padding:8px 10px;color:var(--c-primary);font-family:inherit;font-size:13px;resize:vertical}
+.cf-notes-box .save-status{font-size:10px;color:var(--c-tertiary);margin-top:4px;font-family:var(--font-mono)}
+.cf-zoom-hint{transition:opacity 0.3s}
+[data-cf-zoom]:not([data-cf-zoom="1.00"]) .cf-zoom-hint{opacity:0.2}
+</style>
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+
+  // #23 Notes texte : ajouter une box dans l inspector
+  function injectNotesBox(){
+    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    if(!insp || document.getElementById('cf-notes-box')) return false;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return false;
+    var box = document.createElement('div');
+    box.id = 'cf-notes-box';
+    box.className = 'cf-notes-box';
+    box.innerHTML = '<div class="lbl">Mes notes</div>'+
+      '<textarea placeholder="Quand utiliser ce track, contextes, gigs ou ca a marche..."></textarea>'+
+      '<div class="save-status">—</div>';
+    insp.appendChild(box);
+    var ta = box.querySelector('textarea');
+    var status = box.querySelector('.save-status');
+    // Charger notes existantes
+    window.cfImprovements.notes.get(trackId).then(function(r){
+      if(r && r.notes) ta.value = r.notes;
+      status.textContent = '';
+    }).catch(function(){ status.textContent = 'lecture impossible'; });
+    // Save debounced 1s
+    var saveTimer = null;
+    ta.addEventListener('input', function(){
+      if(saveTimer) clearTimeout(saveTimer);
+      status.textContent = '...ecrit';
+      saveTimer = setTimeout(function(){
+        window.cfImprovements.notes.save(trackId, ta.value).then(function(){
+          status.textContent = 'Sauvegarde '+new Date().toLocaleTimeString().slice(0,5);
+        }).catch(function(){ status.textContent = 'echec sauvegarde'; });
+      }, 1000);
+    });
+    return true;
+  }
+  // Tente plusieurs fois (l inspector peut être lazy-render)
+  var tries = 0;
+  var iv = setInterval(function(){
+    if(injectNotesBox() || ++tries > 20) clearInterval(iv);
+  }, 500);
+
+  // #15 Bouton Compare 2 tracks
+  function injectCompareBtn(){
+    if(document.getElementById('cf-compare-btn')) return false;
+    var topnav = document.querySelector('.topnav-actions, .header-actions, .actions');
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!topnav || !trackId) return false;
+    var btn = document.createElement('button');
+    btn.id = 'cf-compare-btn';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.style.cssText = 'margin-left:6px;padding:6px 10px;font-size:12px';
+    btn.innerHTML = '⚖ Compare';
+    btn.title = 'Comparer avec une autre track';
+    btn.addEventListener('click', function(){
+      var other = prompt('ID de la track a comparer :');
+      if(!other) return;
+      window.open('/analyze?id='+encodeURIComponent(other)+'&compare='+encodeURIComponent(trackId), '_blank');
+    });
+    topnav.appendChild(btn);
+    return true;
+  }
+  setTimeout(injectCompareBtn, 800);
 })();
 </script>
 

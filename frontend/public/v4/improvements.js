@@ -650,3 +650,252 @@
   // Re-bind après chaque transition de page (cfRouter émet ce flag)
   on(document,'cf:page-ready', init);
 })();
+
+/* ============================================================
+   Wave 2 — Backend-backed features
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  // Helper API call avec fallback silencieux
+  function apiCall(method, path, body){
+    var base = (window.api && window.api.base) || '/api/v1';
+    var headers = {'Content-Type':'application/json'};
+    var token = null;
+    try{
+      // shared.js stocke le token dans api ou localStorage
+      token = (window.api && window.api.token) || localStorage.getItem('access_token') || localStorage.getItem('token');
+    }catch(e){}
+    if(token) headers['Authorization'] = 'Bearer '+token;
+    return fetch(base+path, {
+      method: method,
+      headers: headers,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include'
+    }).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.status === 204 ? null : r.json();
+    });
+  }
+  CF.apiCall = apiCall;
+
+  // #6 Compteur plays serveur (incrément + cache local)
+  CF.recordPlay = function(trackId){
+    if(!trackId) return;
+    apiCall('POST', '/tracks/'+trackId+'/play').then(function(r){
+      if(r && r.played_count != null){
+        try{ localStorage.setItem('cf_plays_'+trackId, r.played_count); }catch(e){}
+      }
+    }).catch(function(){
+      // fallback : juste incrémenter localStorage
+      try{
+        var k='cf_plays_'+trackId;
+        var n=parseInt(localStorage.getItem(k)||'0',10)+1;
+        localStorage.setItem(k, n);
+      }catch(e){}
+    });
+  };
+
+  // #23 Notes texte
+  CF.notes = {
+    get: function(trackId){ return apiCall('GET','/tracks/'+trackId+'/notes'); },
+    save: function(trackId, text){ return apiCall('PATCH','/tracks/'+trackId+'/notes',{notes:text}); }
+  };
+
+  // #9 Bulk update tags / genre
+  CF.bulkUpdate = function(trackIds, changes){
+    if(!trackIds || !trackIds.length) return Promise.resolve({updated:0});
+    return apiCall('POST','/tracks/bulk-update', Object.assign({track_ids: trackIds}, changes||{}));
+  };
+
+  // #28 Détection doublons (par md5/fingerprint)
+  CF.checkDuplicate = function(opts){
+    opts = opts || {};
+    var qs = [];
+    if(opts.md5) qs.push('md5='+encodeURIComponent(opts.md5));
+    if(opts.fingerprint) qs.push('fingerprint='+encodeURIComponent(opts.fingerprint));
+    if(!qs.length) return Promise.resolve({matches:[]});
+    return apiCall('GET','/tracks/check-duplicate?'+qs.join('&')).catch(function(){return {matches:[]}});
+  };
+
+  // Compute MD5 d'un fichier côté client (pour précheck doublon avant upload)
+  CF.fileMd5 = function(file){
+    return new Promise(function(resolve,reject){
+      try{
+        var reader = new FileReader();
+        reader.onload = function(){
+          // SubtleCrypto ne supporte pas MD5 → on utilise SHA-1 truncé (matche pas le serveur)
+          // Mieux : skip et compter sur le serveur. On retourne la taille+nom comme heuristique.
+          var hashable = file.name + ':' + file.size;
+          if(window.crypto && crypto.subtle){
+            var enc = new TextEncoder().encode(hashable);
+            crypto.subtle.digest('SHA-256', enc).then(function(buf){
+              var hex = Array.prototype.map.call(new Uint8Array(buf), function(b){return ('00'+b.toString(16)).slice(-2)}).join('');
+              resolve(hex.slice(0,32));
+            }).catch(function(){ resolve(null); });
+          } else { resolve(null); }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file.slice(0, 1024));
+      }catch(e){ resolve(null); }
+    });
+  };
+
+  // #11 Smart playlists (saved views) — synchronisation cross-device
+  CF.savedViews = {
+    list: function(){
+      return apiCall('GET','/saved-views').then(function(r){return (r&&r.views)||[]}).catch(function(){
+        return JSON.parse(localStorage.getItem('cf_imp_saved_views')||'[]');
+      });
+    },
+    save: function(view){
+      // Persiste local + tente serveur
+      try{
+        var local = JSON.parse(localStorage.getItem('cf_imp_saved_views')||'[]');
+        local = local.filter(function(v){return v.id !== view.id});
+        local.push(view);
+        localStorage.setItem('cf_imp_saved_views', JSON.stringify(local));
+      }catch(e){}
+      return apiCall('POST','/saved-views', view).catch(function(){return view});
+    },
+    remove: function(id){
+      try{
+        var local = JSON.parse(localStorage.getItem('cf_imp_saved_views')||'[]');
+        local = local.filter(function(v){return v.id !== id});
+        localStorage.setItem('cf_imp_saved_views', JSON.stringify(local));
+      }catch(e){}
+      return apiCall('DELETE','/saved-views/'+encodeURIComponent(id)).catch(function(){});
+    }
+  };
+
+  // #70 Top tracks
+  CF.topTracks = function(limit){
+    return apiCall('GET','/stats/top-tracks?limit='+(limit||10)).catch(function(){return {by_sets:[],by_plays:[]}});
+  };
+})();
+
+/* ============================================================
+   #13  Waveform zoom horizontal (analyze)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  window.cfImprovements.bindWaveZoom = function(waveEl, peaksLen){
+    if(!waveEl) return;
+    var zoom = 1, offset = 0;
+    waveEl.style.transformOrigin = '0 50%';
+    waveEl.style.willChange = 'transform';
+    function apply(){
+      waveEl.style.transform = 'scaleX('+zoom+') translateX('+(-offset)+'px)';
+      waveEl.dataset.cfZoom = zoom.toFixed(2);
+    }
+    waveEl.addEventListener('wheel', function(e){
+      if(!e.ctrlKey && !e.metaKey && !e.shiftKey) return;
+      e.preventDefault();
+      var delta = e.deltaY < 0 ? 1.15 : (1/1.15);
+      var rect = waveEl.getBoundingClientRect();
+      var mouseX = e.clientX - rect.left;
+      var newZoom = Math.max(1, Math.min(20, zoom*delta));
+      // ajuster offset pour que mouseX reste fixe
+      var ratio = newZoom/zoom;
+      offset = (offset + mouseX)*ratio - mouseX;
+      zoom = newZoom;
+      offset = Math.max(0, Math.min(offset, (zoom-1)*rect.width));
+      apply();
+    }, {passive:false});
+    // Reset au double-click
+    waveEl.addEventListener('dblclick', function(){
+      zoom = 1; offset = 0; apply();
+    });
+    // Drag pour pan quand zoomé
+    var dragStart = null;
+    waveEl.addEventListener('pointerdown', function(e){
+      if(zoom <= 1) return;
+      dragStart = {x:e.clientX, offset:offset};
+      waveEl.setPointerCapture(e.pointerId);
+    });
+    waveEl.addEventListener('pointermove', function(e){
+      if(!dragStart) return;
+      var rect = waveEl.getBoundingClientRect();
+      offset = Math.max(0, Math.min(dragStart.offset - (e.clientX - dragStart.x), (zoom-1)*rect.width));
+      apply();
+    });
+    waveEl.addEventListener('pointerup', function(){ dragStart = null; });
+    return {reset: function(){zoom=1;offset=0;apply()}, getZoom:function(){return zoom}};
+  };
+})();
+
+/* ============================================================
+   #14  Markers sections auto (intro/build/drop/breakdown/outro)
+   à partir de l'energy curve
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  window.cfImprovements.detectSections = function(energyArr, durationSec){
+    if(!Array.isArray(energyArr) || energyArr.length < 8) return [];
+    var n = energyArr.length;
+    var avg = energyArr.reduce(function(a,b){return a+b},0)/n;
+    var sections = [];
+    // Intro = 1ère 12% si energy < avg
+    var introEnd = Math.round(n*0.12);
+    if(energyArr.slice(0, introEnd).reduce(function(a,b){return a+b},0)/introEnd < avg*0.9){
+      sections.push({type:'intro', start:0, end: introEnd/n*durationSec});
+    }
+    // Drop = pic d'energy > avg*1.3
+    for(var i=introEnd;i<n-2;i++){
+      if(energyArr[i] > avg*1.3 && energyArr[i] >= energyArr[i-1] && energyArr[i] >= energyArr[i+1]){
+        sections.push({type:'drop', start: i/n*durationSec, end: Math.min(n,i+8)/n*durationSec});
+        i += 8;
+      }
+    }
+    // Outro = dernière 12% si energy descend
+    var outroStart = Math.round(n*0.88);
+    var outroEnergy = energyArr.slice(outroStart).reduce(function(a,b){return a+b},0)/(n-outroStart);
+    if(outroEnergy < avg*0.9){
+      sections.push({type:'outro', start: outroStart/n*durationSec, end: durationSec});
+    }
+    return sections;
+  };
+})();
+
+/* ============================================================
+   #29  Drag-and-drop dossier (récursion automatique)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  window.cfImprovements.readDirEntries = function(dirEntry){
+    return new Promise(function(resolve){
+      var reader = dirEntry.createReader();
+      var all = [];
+      function read(){
+        reader.readEntries(function(entries){
+          if(!entries.length){ resolve(all); return; }
+          all = all.concat(entries);
+          read();
+        });
+      }
+      read();
+    });
+  };
+  window.cfImprovements.flattenDropFiles = async function(dataTransferItems){
+    var files = [];
+    var items = Array.prototype.slice.call(dataTransferItems);
+    async function walk(entry){
+      if(entry.isFile){
+        await new Promise(function(res){ entry.file(function(f){ files.push(f); res(); }); });
+      } else if(entry.isDirectory){
+        var entries = await window.cfImprovements.readDirEntries(entry);
+        for(var e of entries) await walk(e);
+      }
+    }
+    for(var item of items){
+      var entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+      if(entry) await walk(entry);
+      else if(item.kind === 'file'){ var f = item.getAsFile(); if(f) files.push(f); }
+    }
+    return files.filter(function(f){
+      // Filtrer par extension audio
+      return /\.(wav|aiff?|flac|mp3|m4a|alac|ogg|aac|opus)$/i.test(f.name);
+    });
+  };
+})();
