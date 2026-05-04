@@ -170,3 +170,30 @@ html[data-reduce-motion="1"] *::after{
   background:var(--amber,#ff7a18);color:#000;
   border:none;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;
 }
+
+/* --- #21 Loop pending --- */
+.cf-loop-pending{
+  animation:cfLoopPulse 0.8s ease-in-out infinite;
+  outline:2px solid var(--amber,#ff7a18);
+  outline-offset:2px;
+}
+@keyframes cfLoopPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,122,24,.5)}
+  50%{box-shadow:0 0 0 8px rgba(255,122,24,0)}
+}
+
+/* --- #15 Compare mode --- */
+#cf-compare-bar{animation:cfToastIn 0.3s var(--ease-spring,cubic-bezier(.5,1.5,.5,1))}
+
+/* --- #45 Set templates picker --- */
+.cf-templates-picker{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.cf-template-card{
+  padding:10px 14px;border-radius:10px;cursor:pointer;
+  background:var(--s-2);border:1px solid var(--b-default);
+  font-family:var(--font-display);font-size:13px;
+  transition:all var(--t-fast,.15s);
+}
+.cf-template-card:hover{border-color:var(--amber);transform:translateY(-1px)}
+.cf-template-card .ic{font-size:18px;margin-right:4px}
+.cf-template-card .nm{font-weight:600}
+.cf-template-card .ds{font-size:10px;color:var(--c-tertiary);margin-top:2px;font-family:var(--font-mono);letter-spacing:.05em}

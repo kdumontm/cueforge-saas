@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260424-dev-w-6bugs">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp3">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp4">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -752,7 +752,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260503-imp3" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp4" defer></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -2792,6 +2792,37 @@ window.addEventListener('beforeunload', () => {
     return true;
   }
   setTimeout(injectCompareBtn, 800);
+})();
+</script>
+
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // #21 Loop entre 2 cues : Shift+click sur 2 pads
+  function tryBind(){
+    if(window.audioEl && window.audioEl.play){
+      try{ window.cfImprovements.cueLoop.bind(window.audioEl); }catch(e){}
+      return true;
+    }
+    return false;
+  }
+  var iv = setInterval(function(){ if(tryBind()) clearInterval(iv); }, 500);
+  setTimeout(function(){ clearInterval(iv); }, 30000);
+
+  // Tagger les pads avec data-cue-time depuis la liste de cues du DOM
+  function tagPads(){
+    var pads = document.querySelectorAll('.pad[data-idx]');
+    var cuesData = window.currentCues || window.cues || [];
+    pads.forEach(function(pad){
+      var idx = parseInt(pad.dataset.idx,10);
+      if(cuesData[idx] && (cuesData[idx].time || cuesData[idx].time_seconds)){
+        pad.setAttribute('data-cue-time', cuesData[idx].time || cuesData[idx].time_seconds);
+      }
+    });
+  }
+  setTimeout(tagPads, 2000);
+  setInterval(tagPads, 5000);
 })();
 </script>
 

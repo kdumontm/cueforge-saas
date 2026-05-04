@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script>(function(){var V="20260503-imp3";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
+<script>(function(){var V="20260503-imp4";try{if(localStorage.getItem("cf_pv")===V)return;localStorage.setItem("cf_pv",V);if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}).then(function(){return window.caches?caches.keys().then(function(ns){return Promise.all(ns.map(function(n){return caches.delete(n)}))}):null}).then(function(){window.location.reload(true)})}else{window.location.reload(true)}}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TrackCue — Set Builder</title>
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260423-density-modes">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp3">
+<link rel="stylesheet" href="/v4/improvements.css?v=20260503-imp4">
 <style>
   /* Set meta */
   .set-meta{
@@ -391,7 +391,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260503-imp3" defer></script>
+<script src="/v4/improvements.js?v=20260503-imp4" defer></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -1059,6 +1059,57 @@ boot();
     mo.observe(listEl, {childList:true, subtree:true});
   }
   setTimeout(injectEnergyArc, 1200);
+})();
+</script>
+
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+  // #45 Templates de sets : bouton Templates dans le header
+  function injectTemplatesPicker(){
+    if(document.getElementById('cf-tpl-btn')) return;
+    var header = document.querySelector('.set-actions, .set-header, .topnav-actions, header');
+    if(!header) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-tpl-btn';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-left:6px;padding:6px 12px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer';
+    btn.innerHTML = '📋 Templates';
+    btn.addEventListener('click', function(){
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.addEventListener('click', function(e){if(e.target===modal) modal.remove()});
+      var card = document.createElement('div');
+      card.style.cssText = 'background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;padding:20px;max-width:640px;width:100%';
+      card.innerHTML = '<h3 style="margin:0 0 12px;font-family:var(--font-display);font-size:16px">Choisis un template</h3><div class="cf-templates-picker"></div>';
+      modal.appendChild(card);
+      var picker = card.querySelector('.cf-templates-picker');
+      window.cfImprovements.setTemplates.forEach(function(t){
+        var el = document.createElement('div');
+        el.className = 'cf-template-card';
+        el.innerHTML = '<span class="ic">'+t.icon+'</span><span class="nm">'+t.name+'</span><div class="ds">'+t.bpm_min+'-'+t.bpm_max+' BPM · Energy '+t.energy_min+'-'+t.energy_max+' · '+Math.round(t.target_duration/60)+'min</div><div style="font-size:11px;color:var(--c-tertiary);margin-top:4px">'+t.description+'</div>';
+        el.addEventListener('click', function(){
+          // Apply BPM/Energy targets to suggestion filters
+          if(window.currentSet){
+            window.currentSet.target_bpm_min = t.bpm_min;
+            window.currentSet.target_bpm_max = t.bpm_max;
+            window.currentSet.target_energy_min = t.energy_min;
+            window.currentSet.target_energy_max = t.energy_max;
+            window.currentSet.target_duration = t.target_duration;
+            if(window.cfImprovements.toastGroup) window.cfImprovements.toastGroup.push('Template "'+t.name+'" appliqué','success');
+            // Try to refresh suggestions
+            if(typeof window.loadSuggestions === 'function') window.loadSuggestions();
+          }
+          modal.remove();
+        });
+        picker.appendChild(el);
+      });
+      document.body.appendChild(modal);
+    });
+    header.appendChild(btn);
+  }
+  setTimeout(injectTemplatesPicker, 1000);
 })();
 </script>
 

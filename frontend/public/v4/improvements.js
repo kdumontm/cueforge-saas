@@ -1097,3 +1097,301 @@
     }
   }
 })();
+
+/* ============================================================
+   Wave 4 — Tangibles restantes
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #84 Raccourcis clavier configurables --- */
+  CF.shortcuts = (function(){
+    var KEY = 'shortcuts_v1';
+    var DEFAULTS = {
+      'play_pause': 'Space',
+      'next_cue': 'ArrowRight',
+      'prev_cue': 'ArrowLeft',
+      'add_cue': 'KeyC',
+      'delete_track': 'KeyD',
+      'open_palette': 'cmd+k',
+      'admin_search': 'cmd+shift+k',
+      'theme_toggle': 'cmd+shift+t',
+      'feedback': 'cmd+,'
+    };
+    function get(){
+      try{ return Object.assign({}, DEFAULTS, CF.ls.get(KEY,{})); }catch(e){ return DEFAULTS; }
+    }
+    function set(map){ CF.ls.set(KEY, map||{}); }
+    function reset(){ CF.ls.del(KEY); }
+    function match(action, e){
+      var binding = get()[action];
+      if(!binding) return false;
+      var parts = binding.toLowerCase().split('+');
+      var key = parts[parts.length-1];
+      var keyMatch = (e.code && e.code.toLowerCase() === key) || (e.key && e.key.toLowerCase() === key);
+      var needCmd = parts.indexOf('cmd') > -1;
+      var needShift = parts.indexOf('shift') > -1;
+      var needAlt = parts.indexOf('alt') > -1;
+      return keyMatch
+        && (needCmd === !!(e.metaKey || e.ctrlKey))
+        && (needShift === !!e.shiftKey)
+        && (needAlt === !!e.altKey);
+    }
+    return { get:get, set:set, reset:reset, match:match, defaults: DEFAULTS };
+  })();
+
+  /* --- #21 Loop entre 2 cues (Shift+click sur cue puis sur 2e cue) --- */
+  CF.cueLoop = (function(){
+    var first = null, audio = null, loopStart = 0, loopEnd = 0, looping = false;
+    function tick(){
+      if(!looping || !audio) return;
+      if(audio.currentTime >= loopEnd){
+        try{ audio.currentTime = loopStart; }catch(e){}
+      }
+      requestAnimationFrame(tick);
+    }
+    return {
+      bind: function(audioRef){
+        audio = audioRef;
+        document.addEventListener('click', function(e){
+          var pad = e.target.closest('[data-cue-time]');
+          if(!pad || !e.shiftKey) return;
+          e.preventDefault();
+          var time = parseFloat(pad.getAttribute('data-cue-time'));
+          if(!isFinite(time)) return;
+          if(first == null){
+            first = time;
+            pad.classList.add('cf-loop-pending');
+            if(CF.toastGroup) CF.toastGroup.push('Loop A → cliquer un 2e cue avec Shift', 'info');
+          } else {
+            loopStart = Math.min(first, time);
+            loopEnd = Math.max(first, time);
+            looping = true;
+            document.querySelectorAll('.cf-loop-pending').forEach(function(el){el.classList.remove('cf-loop-pending')});
+            if(audio){
+              try{ audio.currentTime = loopStart; if(audio.paused) audio.play(); }catch(e){}
+              tick();
+            }
+            if(CF.toastGroup) CF.toastGroup.push('Loop activé · ' + (loopEnd-loopStart).toFixed(1)+'s · clic ailleurs pour quitter','success');
+            first = null;
+          }
+        }, true);
+        document.addEventListener('keydown', function(e){
+          if(e.key === 'Escape' && looping){
+            looping = false;
+            if(CF.toastGroup) CF.toastGroup.push('Loop désactivé', 'info');
+          }
+        });
+      },
+      stop: function(){ looping = false; first = null; }
+    };
+  })();
+
+  /* --- #27 Annuler upload en cours (AbortController par fichier) --- */
+  CF.uploadCancellation = {
+    controllers: new Map(),
+    register: function(fileName, ctrl){ this.controllers.set(fileName, ctrl); },
+    cancel: function(fileName){
+      var c = this.controllers.get(fileName);
+      if(c){ try{ c.abort(); }catch(e){} this.controllers.delete(fileName); return true; }
+      return false;
+    },
+    cancelAll: function(){
+      var n = this.controllers.size;
+      this.controllers.forEach(function(c){try{c.abort()}catch(e){}});
+      this.controllers.clear();
+      return n;
+    }
+  };
+
+  /* --- #45 Templates de sets (warm-up / peak time / closing) --- */
+  CF.setTemplates = [
+    {
+      id: 'warmup',
+      name: 'Warm-up (60min)',
+      icon: '🌅',
+      bpm_min: 100, bpm_max: 118,
+      energy_min: 2, energy_max: 5,
+      target_duration: 3600,
+      description: 'Démarrage doux, énergie progressive 2→5'
+    },
+    {
+      id: 'peak',
+      name: 'Peak time (90min)',
+      icon: '🔥',
+      bpm_min: 124, bpm_max: 132,
+      energy_min: 7, energy_max: 10,
+      target_duration: 5400,
+      description: 'Plateau haute énergie 7→10, BPM stable'
+    },
+    {
+      id: 'closing',
+      name: 'Closing (45min)',
+      icon: '🌙',
+      bpm_min: 95, bpm_max: 122,
+      energy_min: 3, energy_max: 8,
+      target_duration: 2700,
+      description: 'Descente progressive, deep / down-tempo finale'
+    },
+    {
+      id: 'wedding',
+      name: 'Mariage soirée (4h)',
+      icon: '💍',
+      bpm_min: 90, bpm_max: 130,
+      energy_min: 4, energy_max: 9,
+      target_duration: 14400,
+      description: 'Mix éclectique tous styles, montée lente'
+    },
+    {
+      id: 'radio',
+      name: 'Radio show (60min)',
+      icon: '📻',
+      bpm_min: 110, bpm_max: 128,
+      energy_min: 5, energy_max: 9,
+      target_duration: 3600,
+      description: 'Sélection cohérente, intro+outro propres'
+    }
+  ];
+
+  /* --- #97 Actions étendues palette Cmd+K (intégration avec cfTransitions.PAL_ACTIONS) --- */
+  CF.extraPaletteActions = [
+    { ttl:'Save current view',   ctx:'Sauve filtres library', icon:'⭐',
+      run: function(){
+        var name = prompt('Nom de la vue :');
+        if(!name) return;
+        var filters = {};
+        document.querySelectorAll('[data-cf-persist^="lib_"]').forEach(function(el){
+          var k = el.getAttribute('data-cf-persist').replace(/^lib_/,'');
+          if(el.value) filters[k] = el.value;
+        });
+        CF.savedViews.save({
+          id: 'v_'+Date.now(), name: name, icon: '⭐', filters: filters,
+          created_at: new Date().toISOString()
+        }).then(function(){
+          if(CF.toastGroup) CF.toastGroup.push('Vue sauvée : '+name, 'success');
+        });
+      }
+    },
+    { ttl:'Toggle reduce-motion', ctx:'Animations on/off', icon:'🐌',
+      run: function(){
+        var cur = CF.ls.get('reduce_motion', false);
+        CF.ls.set('reduce_motion', !cur);
+        document.documentElement.setAttribute('data-reduce-motion', !cur ? '1' : '0');
+        if(CF.toastGroup) CF.toastGroup.push('Animations '+(cur?'on':'off'), 'info');
+      }
+    },
+    { ttl:'Export current page CSV', ctx:'Tracks/stats visibles', icon:'📊',
+      run: function(){
+        var rows = [];
+        document.querySelectorAll('tr,[role=row]').forEach(function(r){
+          var cells = Array.prototype.slice.call(r.querySelectorAll('td,[role=cell]')).map(function(c){return c.textContent.trim()});
+          if(cells.length) rows.push({col0:cells[0]||'',col1:cells[1]||'',col2:cells[2]||'',col3:cells[3]||''});
+        });
+        if(rows.length) CF.exportCSV('cueforge-page-'+location.pathname.replace(/[^a-z]/gi,'_'), rows);
+      }
+    },
+    { ttl:'Reset filters', ctx:'Vide tous les filtres library', icon:'🔄',
+      run: function(){
+        document.querySelectorAll('[data-cf-persist]').forEach(function(el){
+          el.value = ''; el.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        if(CF.toastGroup) CF.toastGroup.push('Filtres réinitialisés', 'info');
+      }
+    },
+    { ttl:'Clear search history', ctx:'Vide historique Cmd+K', icon:'🧹',
+      run: function(){ CF.searchHistory.clear(); if(CF.toastGroup) CF.toastGroup.push('Historique vidé','info'); }
+    }
+  ];
+
+  // Hook palette (s'exécute après transitions.js qui définit PAL_ACTIONS)
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      try{
+        if(window.cfTransitions){
+          // cfTransitions n'expose pas PAL_ACTIONS publiquement, on hook via document event
+          window.cfPaletteExtra = CF.extraPaletteActions;
+        }
+      }catch(e){}
+    }, 1000);
+  });
+
+  /* --- #15  Split-view analyze (?compare=ID) --- */
+  CF.bindCompareView = function(){
+    var qs = new URLSearchParams(location.search);
+    var compareId = qs.get('compare');
+    if(!compareId || !/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-compare-bar')) return;
+
+    var bar = document.createElement('div');
+    bar.id = 'cf-compare-bar';
+    bar.style.cssText = 'position:fixed;bottom:14px;left:14px;right:14px;background:var(--s-2);border:1px solid var(--amber);border-radius:12px;padding:10px 14px;z-index:9000;display:flex;justify-content:space-between;align-items:center;gap:12px;font-family:var(--font-display);font-size:13px;box-shadow:0 8px 28px rgba(0,0,0,0.4)';
+    bar.innerHTML = '<span>⚖ <strong>Compare mode</strong> · <span id="cf-cmp-status">Chargement track #'+compareId+'…</span></span>'+
+      '<span><button id="cf-cmp-swap" style="margin-right:8px;padding:5px 10px;border-radius:6px;background:var(--s-3);border:1px solid var(--b-default);color:var(--c-secondary);cursor:pointer;font-size:12px">⇄ Swap</button>'+
+      '<button id="cf-cmp-close" style="padding:5px 10px;border-radius:6px;background:var(--amber);color:#000;border:none;cursor:pointer;font-size:12px;font-weight:600">Fermer</button></span>';
+    document.body.appendChild(bar);
+
+    document.getElementById('cf-cmp-close').addEventListener('click', function(){
+      var u = new URL(location.href);
+      u.searchParams.delete('compare');
+      location.href = u.toString();
+    });
+    document.getElementById('cf-cmp-swap').addEventListener('click', function(){
+      var currentId = qs.get('id');
+      location.href = '/analyze?id='+encodeURIComponent(compareId)+'&compare='+encodeURIComponent(currentId);
+    });
+
+    // Fetch les 2 tracks et afficher score breakdown
+    Promise.all([
+      CF.apiCall('GET', '/tracks/'+qs.get('id')).catch(function(){return null}),
+      CF.apiCall('GET', '/tracks/'+compareId).catch(function(){return null})
+    ]).then(function(res){
+      var a = res[0], b = res[1];
+      if(!a || !b){ document.getElementById('cf-cmp-status').textContent = 'Erreur fetch'; return; }
+      var scoreA = {bpm: a.analysis_bpm||a.bpm, camelot: a.analysis_camelot||a.camelot_code, energy: a.analysis_energy||a.energy_level};
+      var scoreB = {bpm: b.analysis_bpm||b.bpm, camelot: b.analysis_camelot||b.camelot_code, energy: b.analysis_energy||b.energy_level};
+      var s = CF.transitionScore(scoreA, scoreB);
+      var color = s.overall>=75 ? '#22c55e' : (s.overall>=55 ? '#f59e0b' : '#ef4444');
+      document.getElementById('cf-cmp-status').innerHTML =
+        '<strong style="color:'+color+'">'+s.overall+'/100</strong> compat ' +
+        '· Key '+s.factors.key+' · BPM '+s.factors.bpm+' · Energy '+s.factors.energy+
+        ' · vs <em>'+(b.title||'#'+compareId)+'</em>';
+    });
+  };
+
+  /* --- #74  Bulk actions impersonation logs (admin) --- */
+  CF.bulkImpersonationActions = function(){
+    if(!/admin/.test(location.pathname)) return;
+    var table = document.querySelector('#impersonation-logs, [data-impersonation-table]');
+    if(!table || document.getElementById('cf-imp-bulk')) return;
+    var bar = document.createElement('div');
+    bar.id = 'cf-imp-bulk';
+    bar.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+    bar.innerHTML = '<button class="btn-sm" id="cf-imp-export" style="padding:6px 12px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📥 Export CSV</button>'+
+      '<span style="font-size:11px;color:var(--c-tertiary)" id="cf-imp-count"></span>';
+    table.parentNode.insertBefore(bar, table);
+    document.getElementById('cf-imp-export').addEventListener('click', function(){
+      var rows = [];
+      table.querySelectorAll('tr').forEach(function(r,i){
+        if(i===0) return;
+        var cells = Array.prototype.slice.call(r.querySelectorAll('td')).map(function(c){return c.textContent.trim()});
+        if(cells.length) rows.push({timestamp:cells[0]||'',admin:cells[1]||'',target:cells[2]||'',action:cells[3]||''});
+      });
+      if(rows.length) CF.exportCSV('cueforge-impersonation-logs', rows);
+    });
+  };
+
+  // Auto-init wave 4
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      try{ CF.bindCompareView(); }catch(e){}
+      try{ CF.bulkImpersonationActions(); }catch(e){}
+    }, 800);
+  });
+  if(document.readyState !== 'loading'){
+    setTimeout(function(){
+      try{ CF.bindCompareView(); }catch(e){}
+      try{ CF.bulkImpersonationActions(); }catch(e){}
+    }, 800);
+  }
+})();
