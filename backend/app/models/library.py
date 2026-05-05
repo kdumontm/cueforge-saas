@@ -137,6 +137,11 @@ class DJSet(Base):
     genre_tags = Column(JSON, default=list)
     status = Column(String(20), default="draft")  # draft | ready | played
 
+    # Wave 5 (2026-05-04) : public sharing + versioning
+    public_token = Column(String(64), nullable=True, index=True)  # uuid pour /public/sets/{token}
+    is_public = Column(Boolean, default=False, nullable=False)
+    snapshots = Column(JSON, nullable=True)  # liste {created_at, name, tracks:[{...}]}
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

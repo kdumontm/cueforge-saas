@@ -397,3 +397,209 @@ def top_tracks(
         pass
 
     return TopTracksResponse(by_sets=by_sets, by_plays=by_plays)
+
+
+# ---------------------------------------------------------------------------
+# Wave 5 — Versioning + public sharing for sets + admin audit log
+# ---------------------------------------------------------------------------
+
+import secrets
+
+from app.models.library import DJSet, DJSetTrack
+
+
+class SnapshotRequest(BaseModel):
+    name: Optional[str] = None
+
+
+class SnapshotResponse(BaseModel):
+    set_id: int
+    snapshot_count: int
+    snapshot: Dict[str, Any]
+
+
+@router.post("/sets/{set_id}/snapshot", response_model=SnapshotResponse)
+def create_snapshot(
+    set_id: int,
+    payload: SnapshotRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#47 Versioning des sets — sauvegarde un snapshot de l'état actuel."""
+    s = db.query(DJSet).filter(DJSet.id == set_id, DJSet.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    snapshots = list(s.snapshots or [])
+    snap = {
+        "id": secrets.token_hex(6),
+        "name": payload.name or f"v{len(snapshots)+1}",
+        "created_at": datetime.utcnow().isoformat(),
+        "tracks": [
+            {
+                "track_id": st.track_id,
+                "position": st.position,
+                "transition_type": st.transition_type,
+                "transition_point_ms": st.transition_point_ms,
+                "notes": st.notes,
+            }
+            for st in s.set_tracks
+        ],
+        "name_at_snapshot": s.name,
+    }
+    snapshots.append(snap)
+    if len(snapshots) > 20:  # garde max 20 snapshots
+        snapshots = snapshots[-20:]
+    s.snapshots = snapshots
+    db.commit()
+    return SnapshotResponse(set_id=set_id, snapshot_count=len(snapshots), snapshot=snap)
+
+
+@router.get("/sets/{set_id}/snapshots")
+def list_snapshots(
+    set_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = db.query(DJSet).filter(DJSet.id == set_id, DJSet.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    return {"set_id": set_id, "snapshots": s.snapshots or []}
+
+
+class ShareResponse(BaseModel):
+    set_id: int
+    public_token: str
+    is_public: bool
+    public_url: str
+
+
+@router.post("/sets/{set_id}/share", response_model=ShareResponse)
+def share_set(
+    set_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#46 Génère un lien public lecture seule pour un set."""
+    s = db.query(DJSet).filter(DJSet.id == set_id, DJSet.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    if not s.public_token:
+        s.public_token = secrets.token_urlsafe(24)
+    s.is_public = True
+    db.commit()
+    return ShareResponse(
+        set_id=set_id,
+        public_token=s.public_token,
+        is_public=True,
+        public_url=f"/public/sets/{s.public_token}",
+    )
+
+
+@router.delete("/sets/{set_id}/share", status_code=204)
+def unshare_set(
+    set_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    s = db.query(DJSet).filter(DJSet.id == set_id, DJSet.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set not found")
+    s.is_public = False
+    db.commit()
+    return None
+
+
+@router.get("/public/sets/{token}")
+def get_public_set(token: str, db: Session = Depends(get_db)):
+    """Lecture seule, pas d'auth requise. Retourne le set + ses tracks (titre/artiste/bpm/key/duration)."""
+    s = db.query(DJSet).filter(
+        DJSet.public_token == token,
+        DJSet.is_public.is_(True),
+    ).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Set non public ou introuvable")
+    tracks = []
+    for st in s.set_tracks:
+        t = st.track
+        if not t:
+            continue
+        tracks.append({
+            "position": st.position,
+            "title": t.title,
+            "artist": t.artist,
+            "bpm": getattr(t, "analysis_bpm", None) or None,
+            "key": t.camelot_code,
+            "genre": t.genre,
+            "duration_seconds": None,  # pas de duration sur Track direct
+        })
+    return {
+        "name": s.name,
+        "description": s.description,
+        "venue": s.venue,
+        "event_date": s.event_date.isoformat() if s.event_date else None,
+        "track_count": len(tracks),
+        "tracks": tracks,
+    }
+
+
+# #79 Audit log par admin — filtré par user cible
+@router.get("/admin/audit-log")
+def admin_audit_log(
+    user_id: Optional[int] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    try:
+        from app.models.activity_log import ActivityLog
+    except Exception:
+        return {"logs": [], "available": False}
+    q = db.query(ActivityLog)
+    if user_id is not None:
+        q = q.filter(ActivityLog.user_id == user_id)
+    rows = q.order_by(ActivityLog.created_at.desc()).limit(limit).all()
+    return {
+        "logs": [
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "action": getattr(r, "action", None),
+                "details": getattr(r, "details", None),
+                "ip_address": getattr(r, "ip_address", None),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        "available": True,
+        "count": len(rows),
+    }
+
+
+# #71 Activity heatmap (pour stats.html)
+@router.get("/stats/activity-heatmap")
+def activity_heatmap(
+    period: str = Query("30d"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Comptage Track.created_at par (weekday, hour) sur la période demandée."""
+    days_map = {"7d": 7, "30d": 30, "90d": 90, "365d": 365, "all": 3650}
+    days = days_map.get(period, 30)
+    cutoff = datetime.utcnow().timestamp() - days * 86400
+
+    from sqlalchemy import extract
+    rows = db.query(
+        extract("dow", Track.created_at).label("dow"),
+        extract("hour", Track.created_at).label("hour"),
+        func.count(Track.id).label("c"),
+    ).filter(
+        Track.user_id == current_user.id,
+        Track.created_at >= datetime.utcfromtimestamp(cutoff),
+    ).group_by("dow", "hour").all()
+    # PostgreSQL dow : 0=dim..6=sam — convertir vers L=0..D=6
+    def to_lundi_zero(dow):
+        return (int(dow) + 6) % 7
+    data = [{"day": to_lundi_zero(r.dow), "hour": int(r.hour), "count": int(r.c)} for r in rows]
+    return {"period": period, "data": data}

@@ -1395,3 +1395,182 @@
     }, 800);
   }
 })();
+
+/* ============================================================
+   Wave 5 — Versioning, public sharing, audit, heatmap real
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #47 Versioning sets --- */
+  CF.snapshots = {
+    create: function(setId, name){
+      return CF.apiCall('POST','/sets/'+setId+'/snapshot', {name: name||null});
+    },
+    list: function(setId){
+      return CF.apiCall('GET','/sets/'+setId+'/snapshots').then(function(r){return (r&&r.snapshots)||[]});
+    }
+  };
+
+  /* --- #46 Public sharing --- */
+  CF.share = {
+    enable: function(setId){
+      return CF.apiCall('POST','/sets/'+setId+'/share');
+    },
+    disable: function(setId){
+      return CF.apiCall('DELETE','/sets/'+setId+'/share');
+    }
+  };
+
+  /* --- #79 Audit log admin --- */
+  CF.adminAudit = function(userId, limit){
+    var qs = [];
+    if(userId) qs.push('user_id='+userId);
+    if(limit) qs.push('limit='+limit);
+    return CF.apiCall('GET','/admin/audit-log'+(qs.length?'?'+qs.join('&'):''));
+  };
+
+  /* --- #14 Markers sections waveform : hook auto sur analyze --- */
+  CF.injectSectionMarkers = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-section-markers')) return;
+    var waveContainer = document.querySelector('.wave-block, #wave')?.parentElement;
+    if(!waveContainer) return;
+
+    // Récupérer energy_curve depuis l'API
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+
+    CF.apiCall('GET', '/tracks/'+trackId).then(function(t){
+      if(!t) return;
+      // Cherche la courbe d'énergie dans plusieurs champs possibles
+      var curve = t.energy_curve || t.analysis_energy_curve || t.energy_timeline || null;
+      if(typeof curve === 'string'){ try{ curve = JSON.parse(curve); }catch(e){curve=null} }
+      if(!Array.isArray(curve) || curve.length < 8){
+        // Fallback : générer une courbe synthétique depuis loudness ou energy_level
+        return;
+      }
+      var dur = t.duration_seconds || 180;
+      var sections = CF.detectSections(curve, dur);
+      if(!sections.length) return;
+
+      var bar = document.createElement('div');
+      bar.id = 'cf-section-markers';
+      bar.style.cssText = 'position:relative;height:18px;margin-top:4px;display:flex;font-family:var(--font-mono);font-size:9px;letter-spacing:.05em';
+      sections.forEach(function(sec){
+        var pct = (sec.start/dur)*100;
+        var w = ((sec.end-sec.start)/dur)*100;
+        var color = sec.type==='intro' ? 'rgba(34,197,94,0.3)' :
+                    sec.type==='drop' ? 'rgba(255,122,24,0.5)' :
+                    sec.type==='outro' ? 'rgba(120,120,255,0.3)' :
+                    'rgba(150,150,150,0.2)';
+        var marker = document.createElement('div');
+        marker.style.cssText = 'position:absolute;left:'+pct+'%;width:'+w+'%;top:0;bottom:0;background:'+color+';border-radius:3px;color:var(--c-secondary);text-align:center;line-height:18px;text-transform:uppercase;cursor:default';
+        marker.textContent = sec.type;
+        marker.title = sec.type+' · '+Math.round(sec.start)+'s → '+Math.round(sec.end)+'s';
+        bar.appendChild(marker);
+      });
+      var waveEl = document.getElementById('wave');
+      if(waveEl && waveEl.parentNode){
+        waveEl.parentNode.insertBefore(bar, waveEl.nextSibling);
+      }
+    }).catch(function(){});
+  };
+
+  /* --- #46 + #47 UI : bouton Versions et bouton Partager dans set-builder --- */
+  CF.injectSetBuilderActions = function(){
+    if(!/set-builder/.test(location.pathname)) return;
+    if(document.getElementById('cf-set-actions')) return;
+    var qs = new URLSearchParams(location.search);
+    var setId = qs.get('id');
+    if(!setId) return;
+
+    var topBar = document.querySelector('.set-actions, .set-header, header');
+    if(!topBar) return;
+    var box = document.createElement('span');
+    box.id = 'cf-set-actions';
+    box.style.cssText = 'display:inline-flex;gap:6px;margin-left:6px';
+    box.innerHTML = '<button id="cf-snap-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer" title="Snapshot version">📸 Snap</button>'+
+      '<button id="cf-versions-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer" title="Voir les versions">📚 Versions</button>'+
+      '<button id="cf-share-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer" title="Lien public">🔗 Share</button>';
+    topBar.appendChild(box);
+
+    document.getElementById('cf-snap-btn').addEventListener('click', function(){
+      var name = prompt('Nom de la version (optionnel) :') || null;
+      CF.snapshots.create(setId, name).then(function(r){
+        if(CF.toastGroup) CF.toastGroup.push('Snapshot v'+r.snapshot_count+' créé', 'success');
+      }).catch(function(e){
+        if(CF.toastGroup) CF.toastGroup.push('Erreur snapshot : '+e.message,'error');
+      });
+    });
+
+    document.getElementById('cf-versions-btn').addEventListener('click', function(){
+      CF.snapshots.list(setId).then(function(snaps){
+        if(!snaps.length){ alert('Aucune version sauvegardée. Clique 📸 Snap pour créer la première.'); return; }
+        var msg = snaps.map(function(s,i){ return (i+1)+'. '+s.name+' — '+(s.tracks||[]).length+' tracks — '+(s.created_at||'').slice(0,16); }).join('\n');
+        alert('Versions:\n\n'+msg);
+      });
+    });
+
+    document.getElementById('cf-share-btn').addEventListener('click', function(){
+      CF.share.enable(setId).then(function(r){
+        if(r && r.public_url){
+          var url = location.origin + r.public_url;
+          if(navigator.clipboard) navigator.clipboard.writeText(url);
+          if(CF.toastGroup) CF.toastGroup.push('Lien copié : '+url, 'success');
+          else alert('Lien public : '+url);
+        }
+      }).catch(function(e){
+        if(CF.toastGroup) CF.toastGroup.push('Erreur partage : '+e.message,'error');
+      });
+    });
+  };
+
+  /* --- #54 Auto-mix 1 clic UI (mix-studio) --- */
+  CF.injectAutoMixBtn = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    if(document.getElementById('cf-automix')) return;
+    var transport = document.querySelector('.transport, .controls, .mix-controls, header');
+    if(!transport) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-automix';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-left:8px;padding:8px 14px;border-radius:8px;background:linear-gradient(135deg,var(--amber,#ff7a18),var(--pink,#ff4d8d));color:#000;border:none;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer';
+    btn.innerHTML = '✨ Auto-mix';
+    btn.title = 'Génère une transition baseline 1 clic depuis BPM/Key/Energy';
+    btn.addEventListener('click', function(){
+      var trackA = window.deckA && window.deckA.track;
+      var trackB = window.deckB && window.deckB.track;
+      if(!trackA || !trackB){
+        if(CF.toastGroup) CF.toastGroup.push('Charge 2 tracks dans les decks d abord','info');
+        return;
+      }
+      var score = CF.transitionScore(
+        {bpm: trackA.bpm, camelot: trackA.camelot, energy: trackA.energy},
+        {bpm: trackB.bpm, camelot: trackB.camelot, energy: trackB.energy}
+      );
+      var markers = CF.suggestTransitionMarkers(trackA, trackB);
+      if(CF.toastGroup) CF.toastGroup.push(
+        'Auto-mix : score '+score.overall+'/100 · '+markers.bars+' bars · out A '+
+        Math.round(markers.out_a||0)+'s → in B '+Math.round(markers.in_b||0)+'s',
+        score.overall>=70?'success':'info'
+      );
+      // Si l'app expose des setters, on les appelle
+      if(window.applyTransitionParams){ window.applyTransitionParams(markers); }
+    });
+    transport.appendChild(btn);
+  };
+
+  // Auto-init wave 5
+  function init5(){
+    try{ CF.injectSectionMarkers(); }catch(e){}
+    try{ CF.injectSetBuilderActions(); }catch(e){}
+    try{ CF.injectAutoMixBtn(); }catch(e){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init5, 1500); });
+  } else {
+    setTimeout(init5, 1500);
+  }
+})();

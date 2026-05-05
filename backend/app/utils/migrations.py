@@ -67,6 +67,11 @@ PENDING_MIGRATIONS = {
         "energy_at_cue": "FLOAT",
         "bar_number": "INTEGER",
     },
+    "dj_sets": {
+        "public_token": "VARCHAR(64)",
+        "is_public": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "snapshots": "JSONB",
+    },
     "loop_markers": {
         # OPT #7-9: Additional loop marker fields
         "color_rgb": "VARCHAR(30)",
