@@ -197,3 +197,29 @@ html[data-reduce-motion="1"] *::after{
 .cf-template-card .ic{font-size:18px;margin-right:4px}
 .cf-template-card .nm{font-weight:600}
 .cf-template-card .ds{font-size:10px;color:var(--c-tertiary);margin-top:2px;font-family:var(--font-mono);letter-spacing:.05em}
+
+/* --- #7 Drag reorder --- */
+[data-cf-reorderable]{cursor:grab;transition:opacity var(--t-fast,.15s)}
+[data-cf-reorderable]:active{cursor:grabbing}
+.cf-dragging{opacity:.4;cursor:grabbing}
+
+/* --- #91 Anim play/pause précise --- */
+.tr-btn.play[data-playing="1"] svg{animation:cfPlayPulse 1.5s ease-in-out infinite}
+@keyframes cfPlayPulse{
+  0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,122,24,0))}
+  50%{transform:scale(1.06);filter:drop-shadow(0 0 6px rgba(255,122,24,.6))}
+}
+
+/* --- #24 Bouton tracks similaires --- */
+#cf-similar-btn:hover{background:var(--s-3,#1f1f1f);border-color:var(--amber,#ff7a18)}
+
+/* --- #73 Drill-down KPI --- */
+.kpi[data-cf-drill-auto="1"]:hover{transform:translateY(-2px);transition:transform .2s ease;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+
+/* --- Cue note input inline --- */
+.cf-cue-note{
+  width:100%;margin-top:4px;padding:4px 6px;
+  background:var(--s-1,#0a0a0a);border:1px solid var(--b-default,#2a2a2a);
+  border-radius:4px;color:var(--c-primary,#fff);
+  font-family:var(--font-mono,monospace);font-size:10px;
+}

@@ -1574,3 +1574,283 @@
     setTimeout(init5, 1500);
   }
 })();
+
+/* ============================================================
+   Wave 6 — Reorder, similar, ID3, copy-cues, undo, drill-down
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #7 Drag-to-reorder library (HTML5 drag) --- */
+  CF.bindDragReorder = function(rootSel, opts){
+    opts = opts || {};
+    var root = typeof rootSel==='string' ? document.querySelector(rootSel) : rootSel;
+    if(!root) return;
+    var dragged = null;
+    function onDragStart(e){
+      dragged = e.target.closest('[data-cf-reorderable]');
+      if(!dragged){ e.preventDefault(); return; }
+      dragged.classList.add('cf-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setData('text/plain', dragged.dataset.id || ''); }catch(_){}
+    }
+    function onDragOver(e){
+      e.preventDefault();
+      var target = e.target.closest('[data-cf-reorderable]');
+      if(!target || target === dragged) return;
+      var rect = target.getBoundingClientRect();
+      var after = (e.clientY - rect.top) > rect.height/2;
+      target.parentNode.insertBefore(dragged, after ? target.nextSibling : target);
+    }
+    function onDragEnd(){
+      if(dragged) dragged.classList.remove('cf-dragging');
+      dragged = null;
+      if(opts.onReorder){
+        var order = Array.prototype.slice.call(root.querySelectorAll('[data-cf-reorderable]')).map(function(el){return el.dataset.id});
+        opts.onReorder(order);
+      }
+    }
+    root.addEventListener('dragstart', onDragStart);
+    root.addEventListener('dragover', onDragOver);
+    root.addEventListener('dragend', onDragEnd);
+    // Setup draggable attribute
+    root.querySelectorAll('[data-cf-reorderable]').forEach(function(el){ el.draggable = true; });
+    // MutationObserver pour les nouvelles rows
+    var mo = new MutationObserver(function(){
+      root.querySelectorAll('[data-cf-reorderable]:not([draggable])').forEach(function(el){ el.draggable = true; });
+    });
+    mo.observe(root, {childList:true, subtree:true});
+  };
+
+  /* --- #17 Re-analyse partielle --- */
+  CF.reanalyzePartial = function(trackId, fields){
+    return CF.apiCall('POST','/tracks/'+trackId+'/reanalyze-partial', {fields: fields||['bpm']});
+  };
+
+  /* --- #24 Tracks similaires --- */
+  CF.findSimilar = function(trackId, limit){
+    return CF.apiCall('GET','/tracks/'+trackId+'/similar?limit='+(limit||10));
+  };
+
+  /* --- #36 Copier cues entre 2 tracks --- */
+  CF.copyCues = function(srcId, dstId, overwrite){
+    return CF.apiCall('POST','/tracks/'+srcId+'/copy-cues/'+dstId, {overwrite: !!overwrite});
+  };
+
+  /* --- #39 Memo texte par cue --- */
+  CF.updateCueNote = function(cueId, note){
+    return CF.apiCall('PATCH','/cues/'+cueId+'/note', {note: note});
+  };
+
+  /* --- #40 Undo/redo cues stack --- */
+  CF.cueUndo = (function(){
+    var stack = [], pointer = -1, max = 50;
+    return {
+      push: function(state){
+        // state = snapshot des cues à l'instant T
+        stack = stack.slice(0, pointer+1);
+        stack.push(JSON.parse(JSON.stringify(state)));
+        if(stack.length > max) stack.shift();
+        pointer = stack.length - 1;
+      },
+      undo: function(){
+        if(pointer <= 0) return null;
+        pointer--;
+        return stack[pointer];
+      },
+      redo: function(){
+        if(pointer >= stack.length-1) return null;
+        pointer++;
+        return stack[pointer];
+      },
+      canUndo: function(){return pointer > 0},
+      canRedo: function(){return pointer < stack.length-1},
+      reset: function(){ stack=[]; pointer=-1; }
+    };
+  })();
+
+  /* --- #30 Lecture ID3 client (audio File → tags simples) --- */
+  CF.readID3 = function(file){
+    // Implémentation minimaliste : parse les 128 derniers bytes pour ID3v1
+    return new Promise(function(resolve){
+      var fr = new FileReader();
+      fr.onload = function(e){
+        try{
+          var buf = e.target.result;
+          var view = new DataView(buf);
+          // Check 'TAG' marker
+          var marker = String.fromCharCode(view.getUint8(0))+String.fromCharCode(view.getUint8(1))+String.fromCharCode(view.getUint8(2));
+          if(marker !== 'TAG'){ resolve(null); return; }
+          function readStr(start, len){
+            var s = '';
+            for(var i=0;i<len;i++){
+              var c = view.getUint8(start+i);
+              if(c === 0) break;
+              s += String.fromCharCode(c);
+            }
+            return s.trim();
+          }
+          resolve({
+            title: readStr(3, 30),
+            artist: readStr(33, 30),
+            album: readStr(63, 30),
+            year: readStr(93, 4),
+            comment: readStr(97, 30)
+          });
+        }catch(err){ resolve(null); }
+      };
+      fr.onerror = function(){ resolve(null); };
+      fr.readAsArrayBuffer(file.slice(file.size - 128));
+    });
+  };
+
+  /* --- #78 Admin quick actions --- */
+  CF.adminQuickAction = function(userId, action){
+    return CF.apiCall('POST','/admin/users/'+userId+'/quick-action', {action: action});
+  };
+
+  /* --- Hook spécifiques pages --- */
+
+  // #19 Retour library avec filtre actif (sauvegardé en sessionStorage avant de quitter)
+  function saveLibFilters(){
+    if(!/library/.test(location.pathname)) return;
+    var snap = {};
+    document.querySelectorAll('[data-cf-persist^="lib_"]').forEach(function(el){
+      var k = el.getAttribute('data-cf-persist');
+      if(el.value) snap[k] = el.value;
+    });
+    if(Object.keys(snap).length){
+      try{ sessionStorage.setItem('cf_lib_filters_back', JSON.stringify(snap)); }catch(e){}
+    }
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest('a[href*="/analyze"]');
+    if(a && /library/.test(location.pathname)) saveLibFilters();
+  }, true);
+
+  // Restore au retour si referrer = analyze
+  if(/library/.test(location.pathname) && document.referrer.indexOf('/analyze') > -1){
+    setTimeout(function(){
+      try{
+        var snap = JSON.parse(sessionStorage.getItem('cf_lib_filters_back') || '{}');
+        Object.keys(snap).forEach(function(k){
+          var el = document.querySelector('[data-cf-persist="'+k+'"]');
+          if(el && !el.value){ el.value = snap[k]; el.dispatchEvent(new Event('change',{bubbles:true})); }
+        });
+      }catch(e){}
+    }, 500);
+  }
+
+  // #24 Bouton "Tracks similaires" dans analyze
+  function injectSimilarBtn(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-similar-btn')) return;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    if(!insp) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-similar-btn';
+    btn.style.cssText = 'width:100%;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-family:inherit;font-size:13px;cursor:pointer;text-align:left';
+    btn.innerHTML = '🎯 Tracks similaires (BPM ±4 + Key compatible)';
+    btn.addEventListener('click', function(){
+      btn.disabled = true; btn.textContent = 'Recherche…';
+      CF.findSimilar(trackId, 10).then(function(list){
+        btn.disabled = false; btn.textContent = '🎯 Tracks similaires';
+        if(!list || !list.length){ alert('Aucune track similaire trouvée'); return; }
+        var url = '/library?bpm_min='+(list[0].bpm-3)+'&bpm_max='+(list[0].bpm+3);
+        var msg = list.slice(0,8).map(function(s){return '• '+(s.artist||'?')+' — '+(s.title||'?')+' ('+(s.bpm||'-')+' BPM, '+(s.key||'-')+', '+s.score+'%)'}).join('\n');
+        if(confirm('Tracks similaires:\n\n'+msg+'\n\nFiltrer la library ?')){
+          location.href = url;
+        }
+      }).catch(function(){
+        btn.disabled = false; btn.textContent = '🎯 Tracks similaires';
+        if(CF.toastGroup) CF.toastGroup.push('Erreur recherche similaires','error');
+      });
+    });
+    insp.appendChild(btn);
+  }
+  setTimeout(injectSimilarBtn, 1500);
+
+  // #36 Bouton "Copier les cues vers..." dans analyze
+  function injectCopyCuesBtn(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-copy-cues-btn')) return;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+    var transport = document.querySelector('.transport, .tr-btns')?.parentElement;
+    if(!transport) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-copy-cues-btn';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-top:8px;padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:11px;cursor:pointer';
+    btn.innerHTML = '📋 Copier cues vers…';
+    btn.addEventListener('click', function(){
+      var dst = prompt('ID de la track destinataire :');
+      if(!dst) return;
+      var ow = confirm('Écraser les cues existantes dans la track destinataire ?');
+      CF.copyCues(trackId, dst, ow).then(function(r){
+        if(CF.toastGroup) CF.toastGroup.push(r.copied+' cues copiées vers track #'+dst, 'success');
+      }).catch(function(e){
+        if(CF.toastGroup) CF.toastGroup.push('Erreur copie : '+e.message,'error');
+      });
+    });
+    transport.appendChild(btn);
+  }
+  setTimeout(injectCopyCuesBtn, 1500);
+
+  // #73 Drill-down stat : clic sur KPI → library filtré
+  function bindDrillDown(){
+    if(!/stats/.test(location.pathname)) return;
+    document.querySelectorAll('.kpi[data-drill], .kpi[data-filter]').forEach(function(kpi){
+      if(kpi.dataset.cfDrill) return;
+      kpi.dataset.cfDrill = '1';
+      kpi.style.cursor = 'pointer';
+      kpi.addEventListener('click', function(){
+        var f = kpi.dataset.drill || kpi.dataset.filter;
+        location.href = '/library?'+f;
+      });
+    });
+    // Auto-tag les KPIs basé sur leur label
+    document.querySelectorAll('.kpi').forEach(function(kpi){
+      if(kpi.dataset.cfDrillAuto) return;
+      kpi.dataset.cfDrillAuto = '1';
+      var label = (kpi.querySelector('.kpi-label, .lbl')||{}).textContent || '';
+      label = label.toLowerCase();
+      if(label.indexOf('track') > -1){
+        kpi.style.cursor = 'pointer';
+        kpi.title = 'Voir toutes les tracks';
+        kpi.addEventListener('click', function(){ location.href = '/library'; });
+      } else if(label.indexOf('set') > -1){
+        kpi.style.cursor = 'pointer';
+        kpi.title = 'Voir les sets';
+        kpi.addEventListener('click', function(){ location.href = '/sets'; });
+      }
+    });
+  }
+  setTimeout(bindDrillDown, 1500);
+
+  // Tag library rows pour drag reorder + bind
+  if(/library/.test(location.pathname)){
+    setTimeout(function(){
+      // Tag rows existantes
+      document.querySelectorAll('.lib-row[data-id]').forEach(function(row){
+        if(!row.hasAttribute('data-cf-reorderable')){
+          row.setAttribute('data-cf-reorderable','1');
+        }
+      });
+      // Bind global au container
+      var lib = document.querySelector('.lib');
+      if(lib){
+        try{ CF.bindDragReorder(lib, {
+          onReorder: function(order){
+            // Persiste l'ordre custom dans localStorage
+            try{ localStorage.setItem('cf_lib_order', JSON.stringify(order)); }catch(e){}
+            if(CF.toastGroup) CF.toastGroup.push('Ordre sauvegardé localement','info');
+          }
+        }); }catch(e){}
+      }
+    }, 1500);
+  }
+})();

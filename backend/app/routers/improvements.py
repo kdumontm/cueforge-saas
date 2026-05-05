@@ -603,3 +603,240 @@ def activity_heatmap(
         return (int(dow) + 6) % 7
     data = [{"day": to_lundi_zero(r.dow), "hour": int(r.hour), "count": int(r.c)} for r in rows]
     return {"period": period, "data": data}
+
+
+# ---------------------------------------------------------------------------
+# Wave 6 — Re-analyze partiel, similar tracks, copy cues, admin quick actions
+# ---------------------------------------------------------------------------
+
+from app.models.track import CuePoint
+
+
+class ReanalyzePartialRequest(BaseModel):
+    fields: List[str] = Field(..., description="bpm | key | energy | sections")
+
+
+@router.post("/tracks/{track_id}/reanalyze-partial")
+def reanalyze_partial(
+    track_id: int,
+    payload: ReanalyzePartialRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#17 Re-analyse uniquement certains champs (BPM, Key, Energy) sans relancer
+    le pipeline complet. Pour l'instant marque les champs à recalculer pour le worker.
+    """
+    track = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    valid = {"bpm", "key", "energy", "sections"}
+    fields = [f for f in payload.fields if f in valid]
+    if not fields:
+        raise HTTPException(status_code=400, detail="No valid fields")
+    # Marque les champs à recalculer dans tags JSON sous une clé spéciale
+    tags = list(track.tags or [])
+    marker = "_reanalyze:" + ",".join(sorted(fields))
+    tags = [t for t in tags if not (isinstance(t, str) and t.startswith("_reanalyze:"))]
+    tags.append(marker)
+    track.tags = tags
+    track.updated_at = datetime.utcnow()
+    db.commit()
+    return {"track_id": track_id, "queued_fields": fields, "status": "queued"}
+
+
+class SimilarTrack(BaseModel):
+    track_id: int
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    bpm: Optional[float] = None
+    key: Optional[str] = None
+    score: float
+
+
+@router.get("/tracks/{track_id}/similar", response_model=List[SimilarTrack])
+def similar_tracks(
+    track_id: int,
+    limit: int = Query(10, ge=1, le=30),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#24 Tracks similaires : BPM ±4 + Key compatible (camelot) du user."""
+    src = db.query(Track).filter(
+        Track.id == track_id, Track.user_id == current_user.id
+    ).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Track not found")
+    # Récupération approximative du bpm/key
+    src_bpm = None
+    for fname in ("analysis_bpm", "bpm"):
+        if hasattr(src, fname):
+            v = getattr(src, fname)
+            if v:
+                src_bpm = float(v)
+                break
+    src_key = src.camelot_code or None
+
+    q = db.query(Track).filter(
+        Track.user_id == current_user.id,
+        Track.id != track_id,
+    )
+    if src_bpm:
+        # BPM ±4 — tolérance basique
+        q = q.filter(
+            getattr(Track, "analysis_bpm", Track.id) != None  # noqa: E711
+        )
+    candidates = q.limit(200).all()
+
+    def parse_camelot(k):
+        if not k:
+            return None
+        m = (k or "").strip()
+        if len(m) < 2:
+            return None
+        try:
+            return int(m[:-1]), m[-1].upper()
+        except Exception:
+            return None
+
+    src_cam = parse_camelot(src_key)
+    results = []
+    for t in candidates:
+        bpm = None
+        for fname in ("analysis_bpm", "bpm"):
+            v = getattr(t, fname, None)
+            if v:
+                bpm = float(v)
+                break
+        key = t.camelot_code
+        score = 0.0
+        if src_bpm and bpm:
+            d = abs(src_bpm - bpm)
+            if d > 4:
+                continue
+            score += max(0, 50 - d * 10)
+        if src_cam and parse_camelot(key):
+            tn, tl = parse_camelot(key)
+            sn, sl = src_cam
+            if (tn, tl) == (sn, sl):
+                score += 50
+            elif tl == sl and (abs(tn - sn) == 1 or abs(tn - sn) == 11):
+                score += 35
+            elif tn == sn:
+                score += 25
+        if score < 20:
+            continue
+        results.append(SimilarTrack(
+            track_id=t.id, title=t.title, artist=t.artist,
+            bpm=bpm, key=key, score=round(score, 1),
+        ))
+    results.sort(key=lambda x: -x.score)
+    return results[:limit]
+
+
+class CopyCuesRequest(BaseModel):
+    overwrite: bool = False
+
+
+@router.post("/tracks/{src_id}/copy-cues/{dst_id}")
+def copy_cues(
+    src_id: int,
+    dst_id: int,
+    payload: CopyCuesRequest = CopyCuesRequest(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#36 Copie les cues de src_id vers dst_id (ownership user only)."""
+    src = db.query(Track).filter(Track.id == src_id, Track.user_id == current_user.id).first()
+    dst = db.query(Track).filter(Track.id == dst_id, Track.user_id == current_user.id).first()
+    if not src or not dst:
+        raise HTTPException(status_code=404, detail="Track(s) not found")
+    src_cues = db.query(CuePoint).filter(CuePoint.track_id == src_id).all()
+    if not src_cues:
+        return {"copied": 0, "skipped_existing": 0}
+    if payload.overwrite:
+        db.query(CuePoint).filter(CuePoint.track_id == dst_id).delete()
+    copied = 0
+    for c in src_cues:
+        new = CuePoint(
+            track_id=dst_id,
+            position_ms=c.position_ms,
+            end_position_ms=c.end_position_ms,
+            cue_type=c.cue_type,
+            name=c.name,
+            color=c.color,
+            number=c.number,
+            cue_mode=c.cue_mode,
+            confidence=c.confidence,
+            color_rgb=c.color_rgb,
+            source="copied",
+            is_manual=False,
+        )
+        db.add(new)
+        copied += 1
+    db.commit()
+    return {"copied": copied, "src_id": src_id, "dst_id": dst_id}
+
+
+class CueNoteUpdate(BaseModel):
+    note: str = Field(..., max_length=500)
+
+
+@router.patch("/cues/{cue_id}/note")
+def update_cue_note(
+    cue_id: int,
+    payload: CueNoteUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#39 Memo texte court par cue (utilise name field, max 255)."""
+    cue = db.query(CuePoint).join(Track, CuePoint.track_id == Track.id).filter(
+        CuePoint.id == cue_id, Track.user_id == current_user.id
+    ).first()
+    if not cue:
+        raise HTTPException(status_code=404, detail="Cue not found")
+    cue.name = payload.note[:255]
+    cue.updated_at = datetime.utcnow()
+    db.commit()
+    return {"cue_id": cue_id, "note": cue.name}
+
+
+class QuickActionRequest(BaseModel):
+    action: str  # reset_password | force_logout | downgrade_plan | toggle_admin
+
+
+@router.post("/admin/users/{user_id}/quick-action")
+def admin_quick_action(
+    user_id: int,
+    payload: QuickActionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#78 Quick actions sur user (reset password, force logout, downgrade)."""
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    action = payload.action
+    if action == "reset_password":
+        # Génère un token de reset (l'admin envoie le lien manuellement à l'user)
+        target.reset_token = secrets.token_urlsafe(32)
+        target.reset_token_expires = datetime.utcnow().replace(microsecond=0)
+        db.commit()
+        return {"status": "reset_token_set", "token": target.reset_token}
+    elif action == "force_logout":
+        # Invalide les refresh tokens
+        target.refresh_token = None
+        db.commit()
+        return {"status": "logged_out"}
+    elif action == "downgrade_plan":
+        target.subscription_plan = "free"
+        db.commit()
+        return {"status": "downgraded", "plan": "free"}
+    elif action == "toggle_admin":
+        target.is_admin = not bool(target.is_admin)
+        db.commit()
+        return {"status": "admin_toggled", "is_admin": target.is_admin}
+    raise HTTPException(status_code=400, detail="Unknown action")
