@@ -2702,3 +2702,93 @@
     }, 1800);
   }
 })();
+
+
+/* ============================================================
+   Wave 11e — Upload api wrap + mix-studio mix-center selector
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  // Upload : wrap api.uploadTrack (defer-safe re-injection)
+  if(/upload/.test(location.pathname)){
+    function tryWrap(){
+      if(window.api && window.api.uploadTrack && !window.api.uploadTrack._cfDup){
+        var orig = window.api.uploadTrack;
+        var wrap = async function(file, onProgress, opts){
+          try{
+            var md5 = await CF.fileMd5(file);
+            if(md5){
+              var dup = await CF.checkDuplicate({md5: md5});
+              if(dup && dup.matches && dup.matches.length){
+                var m = dup.matches[0];
+                var go = confirm('Doublon detecte : "'+(m.title||'sans titre')+'" par '+(m.artist||'?')+' existe deja. Uploader quand meme ?');
+                if(!go) throw new Error('Doublon ignore');
+              }
+            }
+          }catch(e){ if(e && e.message && e.message.indexOf('Doublon')===0) throw e; }
+          var start = performance.now();
+          return orig(file, function(p){
+            var elapsed = (performance.now() - start) / 1000;
+            var eta = p > 0 ? (elapsed / p) - elapsed : 0;
+            var etaStr = eta > 1 ? '· ~'+Math.round(eta)+'s restant' : '';
+            try{ onProgress(p, etaStr); }catch(e){ try{ onProgress(p); }catch(e){} }
+          }, opts);
+        };
+        wrap._cfDup = true;
+        wrap._cfWrapped = true;
+        window.api.uploadTrack = wrap;
+        return true;
+      }
+      return false;
+    }
+    var iv = setInterval(function(){ if(tryWrap()) clearInterval(iv); }, 500);
+    setTimeout(function(){ clearInterval(iv); }, 30000);
+  }
+
+  // Mix-studio adaptation : utiliser .mix-center comme cible si pas de transport classique
+  if(/mix-studio/.test(location.pathname)){
+    function injectIntoMixCenter(){
+      var target = document.querySelector('.mix-center, .mix-root, .mix-page') || document.querySelector('main');
+      if(!target) return;
+      // Déjà-injectés ?
+      if(document.getElementById('cf-mix-toolbar')) return;
+      var bar = document.createElement('div');
+      bar.id = 'cf-mix-toolbar';
+      bar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:12px;padding:10px;background:var(--s-2);border:1px solid var(--b-default);border-radius:10px';
+      bar.innerHTML =
+        '<button id="cf-lock-tempo" style="padding:6px 10px;border-radius:6px;background:var(--s-3);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">🔓 Lock A→B</button>'+
+        '<button id="cf-export-stems" style="padding:6px 10px;border-radius:6px;background:var(--s-3);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">🎚 Export stems WAV</button>'+
+        '<button id="cf-preview-30s" style="padding:6px 10px;border-radius:6px;background:var(--s-3);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">⏯ Preview 30s</button>';
+      target.insertBefore(bar, target.firstChild);
+
+      // Lock tempo
+      var locked = CF.ls.get('lock_tempo', false);
+      var lockBtn = document.getElementById('cf-lock-tempo');
+      function refreshLock(){
+        lockBtn.innerHTML = locked ? '🔒 Lock A→B' : '🔓 Lock A→B';
+        lockBtn.style.borderColor = locked ? 'var(--amber)' : 'var(--b-default)';
+        lockBtn.style.color = locked ? 'var(--amber)' : 'var(--c-secondary)';
+      }
+      refreshLock();
+      lockBtn.addEventListener('click', function(){
+        locked = !locked; CF.ls.set('lock_tempo', locked); refreshLock();
+        if(CF.toastGroup) CF.toastGroup.push('Lock tempo '+(locked?'ON · B suit A':'OFF'),'info');
+      });
+
+      document.getElementById('cf-export-stems').addEventListener('click', function(){
+        if(CF.toastGroup) CF.toastGroup.push('Export stem-aware en queue (rendu serveur)','info');
+        CF.apiCall('POST','/mix/export-stems',{}).catch(function(){});
+      });
+      document.getElementById('cf-preview-30s').addEventListener('click', function(){
+        var audio = (window.deckA && window.deckA.audio) || window.audioEl;
+        if(!audio){ if(CF.toastGroup) CF.toastGroup.push('Aucun audio charge','info'); return; }
+        var startSec = (window.deckA && window.deckA.outPoint) ? Math.max(0, window.deckA.outPoint - 4) : 0;
+        CF.preview30s(audio, startSec);
+        if(CF.toastGroup) CF.toastGroup.push('Preview 30s lancee','info');
+      });
+    }
+    setTimeout(injectIntoMixCenter, 2000);
+  }
+})();
