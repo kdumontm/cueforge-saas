@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260427-onglets-clear">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.css?v=20260505-imp8">
+<link rel="stylesheet" href="/v4/improvements.min.css?v=20260506-min1">
 <style>
   body{background-image:var(--aurora-calm)}
 
@@ -919,7 +919,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.js?v=20260505-imp8" defer></script>
+<script src="/v4/improvements.min.js?v=20260506-min1" defer></script>
 <script>
   if(!api.requireAuth()) throw new Error('redirect');
 
@@ -2734,6 +2734,74 @@
   }
   setTimeout(checkThresholds, 2000);
   setInterval(checkThresholds, 30000);
+})();
+</script>
+
+
+<script>
+(function(){
+  if(!window.cfImprovements) return;
+
+  // #81 Panel Recent actions par user (admin)
+  function injectRecentActions(){
+    if(document.getElementById('cf-recent-actions')) return;
+    var main = document.querySelector('main, .admin-main, #admin-content, body > div');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-recent-actions';
+    sec.style.cssText = 'margin:24px 16px;padding:16px;border-radius:12px;background:var(--s-1);border:1px solid var(--b-default)';
+    sec.innerHTML = '<h3 style="font-family:var(--font-display);font-size:14px;margin:0 0 8px">Recent actions par user (replay session)</h3>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">'+
+        '<input id="cf-recent-uid" type="number" placeholder="User ID" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);width:120px">'+
+        '<button id="cf-recent-go" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--amber);color:#000;border:none;font-weight:600;cursor:pointer">Charger</button>'+
+      '</div>'+
+      '<div id="cf-recent-list" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);max-height:300px;overflow:auto;background:var(--s-2);padding:10px;border-radius:6px">Entre un user ID puis clique Charger.</div>';
+    main.appendChild(sec);
+    document.getElementById('cf-recent-go').addEventListener('click', function(){
+      var uid = document.getElementById('cf-recent-uid').value;
+      if(!uid) return;
+      var list = document.getElementById('cf-recent-list');
+      list.textContent = 'Chargement…';
+      window.cfImprovements.apiCall('GET','/admin/users/'+uid+'/recent-actions?limit=30').then(function(r){
+        if(!r || !r.actions || !r.actions.length){ list.textContent = 'Aucune action récente trouvée.'; return; }
+        list.innerHTML = r.actions.map(function(a){
+          return '<div style="padding:4px 0;border-bottom:1px solid var(--b-subtle)"><span style="color:var(--c-tertiary)">'+(a.created_at||'').slice(11,19)+'</span> · <strong>'+(a.action||'?')+'</strong>'+(a.details?' · '+JSON.stringify(a.details).slice(0,80):'')+'</div>';
+        }).join('');
+      }).catch(function(e){ list.textContent = 'Erreur: '+e.message; });
+    });
+  }
+
+  // #77 Panel Health diff (snapshot + diff)
+  function injectHealthDiff(){
+    if(document.getElementById('cf-health-diff')) return;
+    var main = document.querySelector('main, .admin-main, #admin-content, body > div');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-health-diff';
+    sec.style.cssText = 'margin:0 16px 24px;padding:16px;border-radius:12px;background:var(--s-1);border:1px solid var(--b-default)';
+    sec.innerHTML = '<h3 style="font-family:var(--font-display);font-size:14px;margin:0 0 8px">Health diff (delta entre snapshots)</h3>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+        '<button id="cf-snap-now" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);cursor:pointer;font-size:12px">📸 Snapshot maintenant</button>'+
+        '<button id="cf-diff-show" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--amber);color:#000;border:none;font-weight:600;cursor:pointer;font-size:12px">📊 Voir diff</button>'+
+      '</div>'+
+      '<pre id="cf-diff-out" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);background:var(--s-2);padding:10px;border-radius:6px;max-height:300px;overflow:auto;margin:0">—</pre>';
+    main.appendChild(sec);
+    document.getElementById('cf-snap-now').addEventListener('click', function(){
+      window.cfImprovements.apiCall('POST','/admin/health-snapshot').then(function(r){
+        if(window.cfImprovements.toastGroup) window.cfImprovements.toastGroup.push('Snapshot créé : '+r.filename,'success');
+      });
+    });
+    document.getElementById('cf-diff-show').addEventListener('click', function(){
+      window.cfImprovements.apiCall('GET','/admin/health-diff').then(function(r){
+        document.getElementById('cf-diff-out').textContent = JSON.stringify(r, null, 2);
+      });
+    });
+  }
+
+  setTimeout(function(){
+    try{ injectRecentActions(); }catch(e){}
+    try{ injectHealthDiff(); }catch(e){}
+  }, 1500);
 })();
 </script>
 

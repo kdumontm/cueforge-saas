@@ -958,18 +958,116 @@ def stem_quality(
 
 
 # #77 — Diff prod-health entre 2 snapshots (placeholder simple)
+import os, json as _json
+
+HEALTH_SNAPSHOTS_DIR = os.environ.get("HEALTH_SNAPSHOTS_DIR", "/app/uploads/_health")
+
+
+def _ensure_health_dir():
+    try:
+        os.makedirs(HEALTH_SNAPSHOTS_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+
+@router.post("/admin/health-snapshot")
+def admin_health_snapshot(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """#77 Persiste un snapshot de l'état actuel (counts user/track/set, etc.) sur disk."""
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _ensure_health_dir()
+    user_count = db.query(User).count()
+    track_count = db.query(Track).count()
+    try:
+        from app.models.library import DJSet
+        set_count = db.query(DJSet).count()
+    except Exception:
+        set_count = None
+    snap = {
+        "ts": datetime.utcnow().isoformat(),
+        "users_total": user_count,
+        "tracks_total": track_count,
+        "sets_total": set_count,
+    }
+    fname = "snap_" + datetime.utcnow().strftime("%Y%m%d_%H%M%S") + ".json"
+    path = os.path.join(HEALTH_SNAPSHOTS_DIR, fname)
+    try:
+        with open(path, "w") as f:
+            _json.dump(snap, f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cannot persist: {e}")
+    return {"snapshot": snap, "filename": fname}
+
+
 @router.get("/admin/health-diff")
 def admin_health_diff(
     current_user: User = Depends(get_current_user),
 ):
+    """#77 Diff entre les 2 derniers snapshots persistés."""
     if not getattr(current_user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Admin only")
-    # Sans table dédiée pour l'instant, on retourne un compare instantané vs valeurs en mémoire
+    _ensure_health_dir()
+    try:
+        files = sorted(os.listdir(HEALTH_SNAPSHOTS_DIR))
+    except Exception:
+        files = []
+    snaps = [f for f in files if f.startswith("snap_") and f.endswith(".json")]
+    if len(snaps) < 2:
+        return {
+            "available": False,
+            "snapshot_count": len(snaps),
+            "message": f"Besoin de 2 snapshots minimum. Actuellement: {len(snaps)}. POST /admin/health-snapshot pour creer.",
+        }
+    try:
+        with open(os.path.join(HEALTH_SNAPSHOTS_DIR, snaps[-2])) as f:
+            prev = _json.load(f)
+        with open(os.path.join(HEALTH_SNAPSHOTS_DIR, snaps[-1])) as f:
+            curr = _json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cannot read snapshots: {e}")
+
+    def diff_n(k):
+        a, b = prev.get(k), curr.get(k)
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return {"prev": a, "curr": b, "delta": b - a, "delta_pct": round((b - a) / a * 100, 1) if a else None}
+        return {"prev": a, "curr": b}
+
     return {
-        "available": False,
-        "message": "Health diff demande une persistence des snapshots — utiliser /diagnostics/* pour comparer manuellement.",
-        "endpoints": ["/api/v1/diagnostics", "/api/v1/diagnostics/perf/recent", "/api/v1/diagnostics/db-pool"],
+        "available": True,
+        "from": prev.get("ts"),
+        "to": curr.get("ts"),
+        "users_total": diff_n("users_total"),
+        "tracks_total": diff_n("tracks_total"),
+        "sets_total": diff_n("sets_total"),
+        "snapshot_count": len(snaps),
     }
+
+
+@router.get("/admin/health-snapshots")
+def admin_health_snapshots_list(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+):
+    """Liste des snapshots persistés."""
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _ensure_health_dir()
+    try:
+        files = sorted(os.listdir(HEALTH_SNAPSHOTS_DIR))
+    except Exception:
+        files = []
+    snaps = [f for f in files if f.startswith("snap_") and f.endswith(".json")][-limit:]
+    out = []
+    for f in snaps:
+        try:
+            with open(os.path.join(HEALTH_SNAPSHOTS_DIR, f)) as fh:
+                out.append({"filename": f, **_json.load(fh)})
+        except Exception:
+            pass
+    return {"snapshots": out, "count": len(out)}
 
 
 # #81 — Replay session (stub admin)
