@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/v4/shared.css?v=20260424-dev-w-6bugs">
 <link rel="stylesheet" href="/v4/transitions.css?v=20260430-tc1">
 <link rel="stylesheet" href="/v4/transitions-pack3.css?v=20260430-tc1">
-<link rel="stylesheet" href="/v4/improvements.min.css?v=20260506-w10">
+<link rel="stylesheet" href="/v4/improvements.min.css?v=20260506-w10b">
 <style>
   body{background-image:var(--aurora-calm)}
   .workspace{
@@ -752,7 +752,7 @@
 <script src="/v4/shared.js?v=20260427-autoupdate"></script>
 <script src="/v4/transitions.js?v=20260430-tc1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260430-tc1" defer></script>
-<script src="/v4/improvements.min.js?v=20260506-w10" defer></script>
+<script src="/v4/improvements.min.js?v=20260506-w10b" defer></script>
 <script>
 if(!api.requireAuth()) throw new Error('redirect');
 
@@ -2734,7 +2734,7 @@ window.addEventListener('beforeunload', () => {
 
   // #23 Notes texte : ajouter une box dans l inspector
   function injectNotesBox(){
-    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    var insp = document.querySelector('aside.inspector, .inspector, [data-inspector]');
     if(!insp || document.getElementById('cf-notes-box')) return false;
     var trackId = (new URLSearchParams(location.search)).get('id');
     if(!trackId) return false;
