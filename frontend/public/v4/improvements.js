@@ -2512,3 +2512,191 @@
     try{ injectSettingsIO(); }catch(e){}
   }, 2000);
 })();
+
+/* ============================================================
+   Wave 11 — Re-injection admin (defer fix + selecteurs)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+  if(!/admin/.test(location.pathname)) return;
+
+  function injectRecentActions(){
+    if(document.getElementById('cf-recent-actions')) return;
+    var main = document.querySelector('main, .admin-main, .container, #content');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-recent-actions';
+    sec.style.cssText = 'margin:24px 16px;padding:16px;border-radius:12px;background:var(--s-1);border:1px solid var(--b-default)';
+    sec.innerHTML = '<h3 style="font-family:var(--font-display);font-size:14px;margin:0 0 8px">Recent actions par user (replay session #81)</h3>'+
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">'+
+        '<input id="cf-recent-uid" type="number" placeholder="User ID" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);width:120px">'+
+        '<button id="cf-recent-go" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--amber);color:#000;border:none;font-weight:600;cursor:pointer">Charger</button>'+
+      '</div>'+
+      '<div id="cf-recent-list" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);max-height:300px;overflow:auto;background:var(--s-2);padding:10px;border-radius:6px">Entre un user ID puis clique Charger.</div>';
+    main.appendChild(sec);
+    document.getElementById('cf-recent-go').addEventListener('click', function(){
+      var uid = document.getElementById('cf-recent-uid').value;
+      if(!uid) return;
+      var list = document.getElementById('cf-recent-list');
+      list.textContent = 'Chargement...';
+      CF.apiCall('GET','/admin/users/'+uid+'/recent-actions?limit=30').then(function(r){
+        if(!r || !r.actions || !r.actions.length){ list.textContent = 'Aucune action recente trouvee.'; return; }
+        list.innerHTML = r.actions.map(function(a){
+          return '<div style="padding:4px 0;border-bottom:1px solid var(--b-subtle)"><span style="color:var(--c-tertiary)">'+(a.created_at||'').slice(11,19)+'</span> · <strong>'+(a.action||'?')+'</strong>'+(a.details?' · '+JSON.stringify(a.details).slice(0,80):'')+'</div>';
+        }).join('');
+      }).catch(function(e){ list.textContent = 'Erreur: '+e.message; });
+    });
+  }
+
+  function injectHealthDiff(){
+    if(document.getElementById('cf-health-diff')) return;
+    var main = document.querySelector('main, .admin-main, .container, #content');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-health-diff';
+    sec.style.cssText = 'margin:0 16px 24px;padding:16px;border-radius:12px;background:var(--s-1);border:1px solid var(--b-default)';
+    sec.innerHTML = '<h3 style="font-family:var(--font-display);font-size:14px;margin:0 0 8px">Health diff (delta entre snapshots #77)</h3>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px">'+
+        '<button id="cf-snap-now" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);cursor:pointer;font-size:12px">📸 Snapshot maintenant</button>'+
+        '<button id="cf-diff-show" class="btn-sm" style="padding:6px 12px;border-radius:6px;background:var(--amber);color:#000;border:none;font-weight:600;cursor:pointer;font-size:12px">📊 Voir diff</button>'+
+      '</div>'+
+      '<pre id="cf-diff-out" style="font-family:var(--font-mono);font-size:11px;color:var(--c-secondary);background:var(--s-2);padding:10px;border-radius:6px;max-height:300px;overflow:auto;margin:0">—</pre>';
+    main.appendChild(sec);
+    document.getElementById('cf-snap-now').addEventListener('click', function(){
+      CF.apiCall('POST','/admin/health-snapshot').then(function(r){
+        if(CF.toastGroup) CF.toastGroup.push('Snapshot cree : '+r.filename,'success');
+      });
+    });
+    document.getElementById('cf-diff-show').addEventListener('click', function(){
+      CF.apiCall('GET','/admin/health-diff').then(function(r){
+        document.getElementById('cf-diff-out').textContent = JSON.stringify(r, null, 2);
+      });
+    });
+  }
+
+  setTimeout(function(){
+    try{ injectRecentActions(); }catch(e){}
+    try{ injectHealthDiff(); }catch(e){}
+  }, 2000);
+})();
+
+/* ============================================================
+   Wave 11b — Re-injection set-builder (defer fix)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+  if(!/set-builder/.test(location.pathname)) return;
+
+  function injectSetBuilderActions(){
+    if(document.getElementById('cf-set-actions')) return;
+    var qs = new URLSearchParams(location.search);
+    var setId = qs.get('id');
+    var topBar = document.querySelector('.topnav-actions, .set-actions, .set-header, header');
+    if(!topBar) return;
+    var box = document.createElement('span');
+    box.id = 'cf-set-actions';
+    box.style.cssText = 'display:inline-flex;gap:6px;margin-left:6px';
+    var btnsHtml = '';
+    if(setId){
+      btnsHtml += '<button id="cf-snap-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📸 Snap</button>';
+      btnsHtml += '<button id="cf-versions-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📚 Versions</button>';
+      btnsHtml += '<button id="cf-share-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">🔗 Share</button>';
+    }
+    btnsHtml += '<button id="cf-tpl-btn" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📋 Templates</button>';
+    btnsHtml += '<button id="cf-export-pdf" class="btn-sm" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📄 PDF</button>';
+    box.innerHTML = btnsHtml;
+    topBar.appendChild(box);
+
+    if(setId){
+      document.getElementById('cf-snap-btn').addEventListener('click', function(){
+        var name = prompt('Nom de la version (optionnel) :') || null;
+        CF.snapshots.create(setId, name).then(function(r){
+          if(CF.toastGroup) CF.toastGroup.push('Snapshot v'+r.snapshot_count+' cree','success');
+        }).catch(function(e){
+          if(CF.toastGroup) CF.toastGroup.push('Erreur snapshot : '+e.message,'error');
+        });
+      });
+      document.getElementById('cf-versions-btn').addEventListener('click', function(){
+        CF.snapshots.list(setId).then(function(snaps){
+          if(!snaps.length){ alert('Aucune version sauvegardee. Clique 📸 Snap.'); return; }
+          var msg = snaps.map(function(s,i){ return (i+1)+'. '+s.name+' — '+(s.tracks||[]).length+' tracks — '+(s.created_at||'').slice(0,16); }).join('\n');
+          alert('Versions:\n\n'+msg);
+        });
+      });
+      document.getElementById('cf-share-btn').addEventListener('click', function(){
+        CF.share.enable(setId).then(function(r){
+          if(r && r.public_url){
+            var url = location.origin + r.public_url;
+            if(navigator.clipboard) navigator.clipboard.writeText(url);
+            if(CF.toastGroup) CF.toastGroup.push('Lien copie : '+url, 'success');
+            else alert('Lien public : '+url);
+          }
+        }).catch(function(e){
+          if(CF.toastGroup) CF.toastGroup.push('Erreur partage : '+e.message,'error');
+        });
+      });
+    }
+
+    // Templates
+    document.getElementById('cf-tpl-btn').addEventListener('click', function(){
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.addEventListener('click', function(e){if(e.target===modal) modal.remove()});
+      var card = document.createElement('div');
+      card.style.cssText = 'background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;padding:20px;max-width:640px;width:100%';
+      card.innerHTML = '<h3 style="margin:0 0 12px;font-family:var(--font-display);font-size:16px">Choisis un template</h3><div class="cf-templates-picker"></div>';
+      modal.appendChild(card);
+      var picker = card.querySelector('.cf-templates-picker');
+      CF.setTemplates.forEach(function(t){
+        var el = document.createElement('div');
+        el.className = 'cf-template-card';
+        el.innerHTML = '<span class="ic">'+t.icon+'</span><span class="nm">'+t.name+'</span><div class="ds">'+t.bpm_min+'-'+t.bpm_max+' BPM · Energy '+t.energy_min+'-'+t.energy_max+' · '+Math.round(t.target_duration/60)+'min</div><div style="font-size:11px;color:var(--c-tertiary);margin-top:4px">'+t.description+'</div>';
+        el.addEventListener('click', function(){
+          if(window.currentSet){
+            window.currentSet.target_bpm_min = t.bpm_min;
+            window.currentSet.target_bpm_max = t.bpm_max;
+            window.currentSet.target_energy_min = t.energy_min;
+            window.currentSet.target_energy_max = t.energy_max;
+            window.currentSet.target_duration = t.target_duration;
+            if(CF.toastGroup) CF.toastGroup.push('Template "'+t.name+'" applique','success');
+            if(typeof window.loadSuggestions === 'function') window.loadSuggestions();
+          } else {
+            if(CF.toastGroup) CF.toastGroup.push('Template selectionne (pas de set actif a parametrer)','info');
+          }
+          modal.remove();
+        });
+        picker.appendChild(el);
+      });
+      document.body.appendChild(modal);
+    });
+
+    // Export PDF
+    document.getElementById('cf-export-pdf').addEventListener('click', function(){
+      try{
+        var s = window.currentSet || {tracks:[]};
+        var tracks = (s.tracks||[]).map(function(t){
+          return {
+            artist: t.artist||'', title: t.title||t.original_filename||'',
+            bpm: (t.analysis_bpm||t.bpm||''), key: (t.analysis_camelot||t.camelot||''),
+            duration: (t.duration_seconds||t.duration||0)
+          };
+        });
+        var totalDur = tracks.reduce(function(a,t){return a+(t.duration||0)},0);
+        var bpms = tracks.map(function(t){return parseFloat(t.bpm)||0}).filter(Boolean);
+        var avg = bpms.length ? Math.round(bpms.reduce(function(a,b){return a+b},0)/bpms.length) : 0;
+        CF.exportSetPDF({
+          name: s.name || 'Setlist',
+          tracks: tracks,
+          duration: totalDur,
+          avgBpm: avg
+        });
+      }catch(e){ console.error(e); }
+    });
+  }
+
+  setTimeout(function(){
+    try{ injectSetBuilderActions(); }catch(e){ console.error(e); }
+  }, 1500);
+})();
