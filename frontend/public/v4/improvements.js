@@ -2656,3 +2656,49 @@
   }, 2000);
 })();
 
+
+/* ============================================================
+   Wave 11d — Re-injection stats heatmap + mix-studio (defer-safe)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  if(/stats/.test(location.pathname)){
+    function injectHeatmap(){
+      if(document.getElementById('cf-heatmap-card')) return;
+      var grid = document.querySelector('.kpi-grid, .panel-grid, .stats-grid, main');
+      if(!grid) return;
+      var card = document.createElement('div');
+      card.id = 'cf-heatmap-card';
+      card.style.cssText = 'background:var(--s-1);border:1px solid var(--b-default);border-radius:14px;padding:16px;margin:16px';
+      card.innerHTML = '<div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:12px">Activité — heatmap jour × heure (#71)</div><div id="cf-heatmap"></div>';
+      grid.parentNode.insertBefore(card, grid.nextSibling);
+      CF.apiCall('GET','/stats/activity-heatmap?period='+CF.statsPeriod.get()).then(function(r){
+        if(r && r.data && r.data.length){
+          CF.renderHeatmap(document.getElementById('cf-heatmap'), r.data);
+        } else {
+          document.getElementById('cf-heatmap').innerHTML = '<div style="color:var(--c-tertiary);font-size:12px">Pas encore d\'activité sur cette période.</div>';
+        }
+      }).catch(function(){
+        document.getElementById('cf-heatmap').innerHTML = '<div style="color:var(--c-tertiary);font-size:12px">Endpoint non disponible.</div>';
+      });
+    }
+    setTimeout(injectHeatmap, 1800);
+    document.addEventListener('cf:period-change', function(){
+      var card = document.getElementById('cf-heatmap-card');
+      if(card){ card.remove(); setTimeout(injectHeatmap, 100); }
+    });
+  }
+
+  // Mix studio re-inject
+  if(/mix-studio/.test(location.pathname)){
+    setTimeout(function(){
+      try{ CF.injectAutoMixBtn(); }catch(e){}
+      try{ CF.injectStemEQ && CF.injectStemEQ(); }catch(e){}
+      try{ CF.injectLockTempo && CF.injectLockTempo(); }catch(e){}
+      try{ CF.injectExportStemMix && CF.injectExportStemMix(); }catch(e){}
+      try{ CF.injectPreview30Btn && CF.injectPreview30Btn(); }catch(e){}
+    }, 1800);
+  }
+})();
