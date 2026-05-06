@@ -223,3 +223,19 @@ html[data-reduce-motion="1"] *::after{
   border-radius:4px;color:var(--c-primary,#fff);
   font-family:var(--font-mono,monospace);font-size:10px;
 }
+
+/* --- #82 Theme preview hover --- */
+.theme-card.cf-theme-previewing{
+  outline:2px solid var(--amber,#ff7a18);
+  outline-offset:3px;
+  transform:scale(1.02);
+  transition:all 0.2s ease;
+}
+.theme-card.cf-theme-previewing::before{
+  content:"PREVIEW";
+  position:absolute;top:-10px;right:-10px;
+  background:var(--amber,#ff7a18);color:#000;
+  font-family:var(--font-mono,monospace);font-size:9px;
+  padding:2px 6px;border-radius:4px;
+  letter-spacing:.1em;font-weight:700;
+}

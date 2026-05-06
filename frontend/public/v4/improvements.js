@@ -2057,3 +2057,209 @@
     setTimeout(init7, 1800);
   }
 })();
+
+/* ============================================================
+   Wave 8 — Atteindre 100 (énergie viz, mashup compat, theme preview, profil audio)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #18 Énergie chiffrée + courbe combinée (analyze) --- */
+  CF.injectEnergyDisplay = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-energy-display')) return;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+
+    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    if(!insp) return;
+    var box = document.createElement('div');
+    box.id = 'cf-energy-display';
+    box.style.cssText = 'margin-top:10px;padding:12px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default)';
+    box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary)">Energy</span><span id="cf-energy-num" style="font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--amber)">—</span></div><div id="cf-energy-curve" style="height:32px"></div>';
+    insp.appendChild(box);
+
+    CF.apiCall('GET','/tracks/'+trackId+'/energy-curve').then(function(r){
+      if(!r) return;
+      var energies = r.energy || [];
+      if(energies.length){
+        var avg = energies.reduce(function(a,b){return a+(b||0)},0)/energies.length;
+        var maxE = Math.max.apply(null, energies);
+        var normalized = maxE > 0 ? (avg / maxE * 10) : 0;
+        document.getElementById('cf-energy-num').textContent = normalized.toFixed(1) + ' / 10';
+        // Courbe SVG
+        CF.renderEnergyArc(document.getElementById('cf-energy-curve'), energies, {height: 32});
+      } else {
+        document.getElementById('cf-energy-num').textContent = '—';
+      }
+    }).catch(function(){});
+  };
+
+  /* --- #59 Compatibility matrix mashup (calcul client-side) --- */
+  CF.computeCompatMatrix = function(tracks){
+    var matrix = [];
+    for(var i=0;i<tracks.length;i++){
+      var row = [];
+      for(var j=0;j<tracks.length;j++){
+        if(i === j){ row.push({score: 100, factors: null}); continue; }
+        var s = CF.transitionScore(tracks[i], tracks[j]);
+        row.push(s);
+      }
+      matrix.push(row);
+    }
+    return matrix;
+  };
+
+  CF.renderCompatMatrix = function(targetEl, tracks){
+    if(!targetEl || !tracks || tracks.length < 2) return;
+    var m = CF.computeCompatMatrix(tracks);
+    var cellSize = 38;
+    var labels = tracks.map(function(t,i){ return (t.title||t.label||('#'+(i+1))).slice(0,12); });
+    var html = '<div style="overflow:auto"><table style="border-collapse:collapse;font-family:var(--font-mono);font-size:10px;color:var(--c-secondary)">';
+    html += '<tr><td></td>' + labels.map(function(l){return '<th style="padding:4px 8px;font-weight:500;color:var(--c-tertiary)">'+l+'</th>'}).join('') + '</tr>';
+    for(var i=0;i<m.length;i++){
+      html += '<tr><th style="padding:4px 8px;text-align:right;font-weight:500;color:var(--c-tertiary)">'+labels[i]+'</th>';
+      for(var j=0;j<m[i].length;j++){
+        var s = m[i][j];
+        var pct = s.score;
+        var hue = pct > 70 ? 130 : (pct > 50 ? 40 : 0); // green / amber / red
+        html += '<td style="width:'+cellSize+'px;height:'+cellSize+'px;background:hsl('+hue+',60%,30%);text-align:center;border:1px solid var(--b-default);color:#fff;font-weight:600" title="'+labels[i]+' → '+labels[j]+' : '+pct+'/100">'+pct+'</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</table></div>';
+    targetEl.innerHTML = html;
+  };
+
+  /* --- #60 Preview 30s rendu (raccourci côté client : fade in/out audio) --- */
+  CF.preview30s = function(audioEl, startSec){
+    if(!audioEl) return;
+    startSec = startSec || 0;
+    audioEl.currentTime = startSec;
+    audioEl.volume = 0;
+    audioEl.play().catch(function(){});
+    var step = 0.05;
+    var fadeIn = setInterval(function(){
+      audioEl.volume = Math.min(1, audioEl.volume + step);
+      if(audioEl.volume >= 1) clearInterval(fadeIn);
+    }, 50);
+    setTimeout(function(){
+      var fadeOut = setInterval(function(){
+        audioEl.volume = Math.max(0, audioEl.volume - step);
+        if(audioEl.volume <= 0){
+          clearInterval(fadeOut);
+          audioEl.pause();
+        }
+      }, 50);
+    }, 28000);
+  };
+
+  /* --- #82 Preview thèmes au hover (settings) --- */
+  CF.bindThemePreviewHover = function(){
+    if(!/settings/.test(location.pathname)) return;
+    var cards = document.querySelectorAll('.theme-card');
+    if(!cards.length) return;
+    var savedTheme = document.documentElement.getAttribute('data-theme') || '';
+    cards.forEach(function(card){
+      if(card.dataset.cfHover) return;
+      card.dataset.cfHover = '1';
+      var theme = card.getAttribute('data-theme') || card.querySelector('[data-theme]')?.getAttribute('data-theme') || '';
+      if(!theme) return;
+      var hoverTimer = null;
+      card.addEventListener('mouseenter', function(){
+        hoverTimer = setTimeout(function(){
+          // Preview : applique le thème
+          document.documentElement.setAttribute('data-theme', theme);
+          card.classList.add('cf-theme-previewing');
+        }, 400);
+      });
+      card.addEventListener('mouseleave', function(){
+        if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer = null; }
+        // Restore le thème actif si pas cliqué
+        if(!card.classList.contains('active')){
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          card.classList.remove('cf-theme-previewing');
+        }
+      });
+      card.addEventListener('click', function(){
+        savedTheme = theme;
+      });
+    });
+  };
+
+  /* --- #83 Profil audio préféré (settings) --- */
+  CF.injectAudioProfile = function(){
+    if(!/settings/.test(location.pathname)) return;
+    if(document.getElementById('cf-audio-profile')) return;
+    var main = document.querySelector('main, .settings-main, .content');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-audio-profile';
+    sec.className = 'sec';
+    sec.style.cssText = 'margin-top:24px';
+    var profile = CF.ls.get('audio_profile', {
+      stems_quality: 'standard',
+      export_format: 'wav',
+      target_bpm_min: 110,
+      target_bpm_max: 130,
+      preferred_genres: 'house,techno'
+    });
+    sec.innerHTML = '<h2 class="sec-title">Profil audio</h2>'+
+      '<p class="sec-sub" style="font-size:12px;color:var(--c-tertiary);margin-bottom:12px">Tes défauts pour les stems, exports et BPM cibles dans le set builder.</p>'+
+      '<div class="option-row"><div class="option-info"><div class="option-label">Qualité stems</div></div>'+
+        '<select id="cf-ap-quality" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-family:inherit">'+
+          '<option value="fast">Rapide (44.1kHz, ~30s)</option>'+
+          '<option value="standard" selected>Standard (44.1kHz, ~90s)</option>'+
+          '<option value="hifi">Hi-Fi (48kHz, ~3min)</option>'+
+        '</select></div>'+
+      '<div class="option-row"><div class="option-info"><div class="option-label">Format export</div></div>'+
+        '<select id="cf-ap-format" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-family:inherit">'+
+          '<option value="wav">WAV 16-bit</option>'+
+          '<option value="wav24">WAV 24-bit</option>'+
+          '<option value="flac">FLAC lossless</option>'+
+          '<option value="mp3320">MP3 320 kbps</option>'+
+        '</select></div>'+
+      '<div class="option-row"><div class="option-info"><div class="option-label">BPM cible (set builder)</div></div>'+
+        '<div style="display:flex;gap:6px;align-items:center"><input type="number" id="cf-ap-bpm-min" min="60" max="200" placeholder="min" style="width:60px;padding:6px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary)">'+
+        '<span style="color:var(--c-tertiary)">→</span>'+
+        '<input type="number" id="cf-ap-bpm-max" min="60" max="200" placeholder="max" style="width:60px;padding:6px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary)"></div></div>'+
+      '<div class="option-row"><div class="option-info"><div class="option-label">Genres préférés (CSV)</div></div>'+
+        '<input type="text" id="cf-ap-genres" placeholder="house,techno,minimal" style="padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-family:inherit;min-width:200px"></div>';
+    main.appendChild(sec);
+
+    // Restore values
+    document.getElementById('cf-ap-quality').value = profile.stems_quality;
+    document.getElementById('cf-ap-format').value = profile.export_format;
+    document.getElementById('cf-ap-bpm-min').value = profile.target_bpm_min;
+    document.getElementById('cf-ap-bpm-max').value = profile.target_bpm_max;
+    document.getElementById('cf-ap-genres').value = profile.preferred_genres;
+
+    function save(){
+      var p = {
+        stems_quality: document.getElementById('cf-ap-quality').value,
+        export_format: document.getElementById('cf-ap-format').value,
+        target_bpm_min: parseInt(document.getElementById('cf-ap-bpm-min').value)||110,
+        target_bpm_max: parseInt(document.getElementById('cf-ap-bpm-max').value)||130,
+        preferred_genres: document.getElementById('cf-ap-genres').value
+      };
+      CF.ls.set('audio_profile', p);
+      if(CF.toastGroup) CF.toastGroup.push('Profil audio sauvegardé','success');
+    }
+    sec.querySelectorAll('select, input').forEach(function(el){
+      el.addEventListener('change', save);
+    });
+  };
+
+  /* --- Auto-init wave 8 --- */
+  function init8(){
+    try{ CF.injectEnergyDisplay(); }catch(e){}
+    try{ CF.bindThemePreviewHover(); }catch(e){}
+    try{ CF.injectAudioProfile(); }catch(e){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init8, 2000); });
+  } else {
+    setTimeout(init8, 2000);
+  }
+})();
