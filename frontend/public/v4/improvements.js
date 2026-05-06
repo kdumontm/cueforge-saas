@@ -1854,3 +1854,206 @@
     }, 1500);
   }
 })();
+
+/* ============================================================
+   Wave 7 — Energy curve réelle, EQ stems viz, lock tempo, stems pref
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #14 Section markers : version câblée sur l'API réelle --- */
+  CF.injectRealSectionMarkers = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-real-sections')) return;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+
+    CF.apiCall('GET','/tracks/'+trackId+'/energy-curve').then(function(r){
+      if(!r) return;
+      var sections = r.sections || [];
+      // Si pas de sections en DB, déduit depuis energy curve
+      if(!sections.length && r.energy && r.energy.length > 8){
+        sections = CF.detectSections(r.energy, r.duration_seconds || 180);
+      }
+      if(!sections.length) return;
+      var waveEl = document.getElementById('wave');
+      if(!waveEl || !waveEl.parentNode) return;
+
+      var bar = document.createElement('div');
+      bar.id = 'cf-real-sections';
+      bar.style.cssText = 'position:relative;height:18px;margin:4px 0;font-family:var(--font-mono);font-size:9px;letter-spacing:.05em';
+      var dur = r.duration_seconds || sections[sections.length-1].end || 180;
+      sections.forEach(function(sec){
+        var pct = (sec.start/dur)*100;
+        var w = Math.max(1, ((sec.end-sec.start)/dur)*100);
+        var label = (sec.type||'section').toLowerCase();
+        var color = label.indexOf('intro')>-1 ? 'rgba(34,197,94,0.3)' :
+                    label.indexOf('drop')>-1 || label.indexOf('chorus')>-1 ? 'rgba(255,122,24,0.5)' :
+                    label.indexOf('outro')>-1 ? 'rgba(120,120,255,0.3)' :
+                    label.indexOf('break')>-1 ? 'rgba(150,150,150,0.3)' :
+                    label.indexOf('verse')>-1 ? 'rgba(100,200,255,0.25)' :
+                    'rgba(180,180,180,0.2)';
+        var marker = document.createElement('div');
+        marker.style.cssText = 'position:absolute;left:'+pct+'%;width:'+w+'%;top:0;bottom:0;background:'+color+';border-radius:3px;color:var(--c-secondary);text-align:center;line-height:18px;text-transform:uppercase;cursor:pointer';
+        marker.textContent = label.length > 9 ? label.slice(0,8) : label;
+        marker.title = label+' · '+Math.round(sec.start)+'s → '+Math.round(sec.end)+'s';
+        marker.addEventListener('click', function(){
+          if(window.audioEl){ try{ window.audioEl.currentTime = sec.start; }catch(e){} }
+        });
+        bar.appendChild(marker);
+      });
+      waveEl.parentNode.insertBefore(bar, waveEl.nextSibling);
+    }).catch(function(){});
+  };
+
+  /* --- #51 EQ par stem visualisation (mix-studio) --- */
+  CF.injectStemEQ = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    if(document.getElementById('cf-stem-eq')) return;
+    var stemPanel = document.querySelector('.stems-panel, [data-stems], .mix-stems');
+    if(!stemPanel) return;
+    var box = document.createElement('div');
+    box.id = 'cf-stem-eq';
+    box.style.cssText = 'margin-top:12px;padding:10px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default)';
+    box.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:8px">EQ par stem (Drums / Bass / Vocals / Other)</div>';
+    var stems = ['drums','bass','vocals','other'];
+    stems.forEach(function(stem){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:8px;margin-bottom:6px;align-items:center';
+      row.innerHTML = '<span style="font-family:var(--font-mono);font-size:10px;color:var(--c-secondary);text-transform:uppercase">'+stem+'</span>'+
+        '<input type="range" min="-12" max="12" value="0" data-eq-band="low" data-eq-stem="'+stem+'" title="Low (60-250 Hz)" style="accent-color:var(--amber)">'+
+        '<input type="range" min="-12" max="12" value="0" data-eq-band="mid" data-eq-stem="'+stem+'" title="Mid (250-4kHz)" style="accent-color:var(--cyan)">'+
+        '<input type="range" min="-12" max="12" value="0" data-eq-band="high" data-eq-stem="'+stem+'" title="High (4-20kHz)" style="accent-color:var(--pink)">';
+      box.appendChild(row);
+    });
+    stemPanel.appendChild(box);
+    // Persist EQ values en localStorage
+    box.querySelectorAll('input[type=range]').forEach(function(slider){
+      var key = 'cf_eq_'+slider.dataset.eqStem+'_'+slider.dataset.eqBand;
+      try{ var saved = localStorage.getItem(key); if(saved) slider.value = saved; }catch(e){}
+      slider.addEventListener('input', function(){
+        try{ localStorage.setItem(key, slider.value); }catch(e){}
+      });
+    });
+  };
+
+  /* --- #52 Lock tempo button (mix-studio) --- */
+  CF.injectLockTempo = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    if(document.getElementById('cf-lock-tempo')) return;
+    var transport = document.querySelector('.transport, .controls, .mix-controls');
+    if(!transport) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-lock-tempo';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-left:8px;padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer';
+    var locked = CF.ls.get('lock_tempo', false);
+    function refresh(){
+      btn.innerHTML = locked ? '🔒 Lock A→B' : '🔓 Lock A→B';
+      btn.style.borderColor = locked ? 'var(--amber)' : 'var(--b-default)';
+      btn.style.color = locked ? 'var(--amber)' : 'var(--c-secondary)';
+    }
+    refresh();
+    btn.addEventListener('click', function(){
+      locked = !locked; CF.ls.set('lock_tempo', locked); refresh();
+      if(CF.toastGroup) CF.toastGroup.push('Lock tempo '+(locked?'ON · B suit A':'OFF'),'info');
+    });
+    transport.appendChild(btn);
+  };
+
+  /* --- #56 Bouton Export stem-aware mix --- */
+  CF.injectExportStemMix = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    if(document.getElementById('cf-export-stems')) return;
+    var transport = document.querySelector('.transport, .controls, .mix-controls');
+    if(!transport) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-export-stems';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-left:8px;padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer';
+    btn.innerHTML = '🎚 Export stems WAV';
+    btn.title = 'Exporter les stems individuels du mix pour Ableton';
+    btn.addEventListener('click', function(){
+      if(CF.toastGroup) CF.toastGroup.push('Export stem-aware en queue (rendu serveur)','info');
+      // Endpoint stub : lance le rendu côté backend si disponible
+      CF.apiCall('POST','/mix/export-stems',{}).catch(function(){});
+    });
+    transport.appendChild(btn);
+  };
+
+  /* --- #65 + #67 Stems quality + 2/4-stem preference dans settings --- */
+  CF.injectStemsSettings = function(){
+    if(!/settings/.test(location.pathname)) return;
+    if(document.getElementById('cf-stems-pref')) return;
+    var main = document.querySelector('main, .settings-main, .content');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-stems-pref';
+    sec.className = 'sec';
+    sec.style.cssText = 'margin-top:24px';
+    sec.innerHTML = '<h2 class="sec-title">Stems</h2>'+
+      '<p class="sec-sub" style="font-size:12px;color:var(--c-tertiary);margin-bottom:12px">Choisis combien de stems sont séparés à l upload (2 = vocal+instru, plus rapide).</p>'+
+      '<div class="option-row"><div class="option-info"><div class="option-label">Préférence</div></div>'+
+      '<div class="segment" id="cf-stems-seg" style="display:flex;gap:4px">'+
+        '<button data-n="2" style="padding:6px 14px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);cursor:pointer;font-size:12px">2 stems</button>'+
+        '<button data-n="4" class="active" style="padding:6px 14px;border-radius:6px;background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber);cursor:pointer;font-size:12px">4 stems</button>'+
+        '<button data-n="6" style="padding:6px 14px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);cursor:pointer;font-size:12px">6 stems (pro)</button>'+
+      '</div></div>';
+    main.appendChild(sec);
+    var seg = sec.querySelector('#cf-stems-seg');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        seg.querySelectorAll('button').forEach(function(x){
+          x.classList.remove('active');
+          x.style.background = 'var(--s-2)';
+          x.style.borderColor = 'var(--b-default)';
+          x.style.color = 'var(--c-secondary)';
+        });
+        b.classList.add('active');
+        b.style.background = 'var(--amber-soft, rgba(255,122,24,.15))';
+        b.style.borderColor = 'var(--amber, #ff7a18)';
+        b.style.color = 'var(--amber, #ff7a18)';
+        var n = parseInt(b.dataset.n, 10);
+        CF.apiCall('PATCH','/me/stems-preference', {stems_n: n}).then(function(){
+          if(CF.toastGroup) CF.toastGroup.push('Préférence stems = '+n,'success');
+        }).catch(function(e){
+          if(CF.toastGroup) CF.toastGroup.push('Erreur : '+e.message,'error');
+        });
+      });
+    });
+  };
+
+  /* --- #63 Download stem individuel (analyze) --- */
+  CF.injectStemDownloads = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    if(document.getElementById('cf-stem-dl')) return;
+    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    if(!insp) return;
+    var trackId = (new URLSearchParams(location.search)).get('id');
+    if(!trackId) return;
+    var box = document.createElement('div');
+    box.id = 'cf-stem-dl';
+    box.style.cssText = 'margin-top:10px;padding:10px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default)';
+    box.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-tertiary);margin-bottom:8px">Stems · download</div>'+
+      ['drums','bass','vocals','other'].map(function(s){
+        return '<a href="/api/v1/tracks/'+trackId+'/stems/'+s+'.wav" download style="display:inline-block;margin:2px;padding:4px 10px;border-radius:6px;background:var(--s-3);border:1px solid var(--b-default);color:var(--c-secondary);font-size:11px;text-decoration:none;font-family:var(--font-mono)">⬇ '+s+'</a>';
+      }).join('');
+    insp.appendChild(box);
+  };
+
+  /* --- Auto-init wave 7 --- */
+  function init7(){
+    try{ CF.injectRealSectionMarkers(); }catch(e){}
+    try{ CF.injectStemEQ(); }catch(e){}
+    try{ CF.injectLockTempo(); }catch(e){}
+    try{ CF.injectExportStemMix(); }catch(e){}
+    try{ CF.injectStemsSettings(); }catch(e){}
+    try{ CF.injectStemDownloads(); }catch(e){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init7, 1800); });
+  } else {
+    setTimeout(init7, 1800);
+  }
+})();

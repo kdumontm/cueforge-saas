@@ -840,3 +840,166 @@ def admin_quick_action(
         db.commit()
         return {"status": "admin_toggled", "is_admin": target.is_admin}
     raise HTTPException(status_code=400, detail="Unknown action")
+
+
+# ---------------------------------------------------------------------------
+# Wave 7 — Energy curve, sections, stems options, replay/diff
+# ---------------------------------------------------------------------------
+
+class EnergyCurveResponse(BaseModel):
+    track_id: int
+    duration_seconds: Optional[float] = None
+    energy: List[float]
+    sections: List[Dict[str, Any]]
+    source: str  # "spectral_energy" | "sections_data" | "synthetic"
+
+
+@router.get("/tracks/{track_id}/energy-curve", response_model=EnergyCurveResponse)
+def energy_curve(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#14 Retourne la courbe d'énergie + sections détectées (msaf/allin1) pour overlay analyze."""
+    t = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    energy: List[float] = []
+    source = "synthetic"
+    se = getattr(t, "spectral_energy", None)
+    if isinstance(se, list) and len(se) > 4:
+        energy = [float(x) if isinstance(x, (int, float)) else 0.0 for x in se[:512]]
+        source = "spectral_energy"
+    elif getattr(t, "energy_level", None):
+        # fallback : courbe synthétique plate
+        e = float(t.energy_level)
+        energy = [e * (0.6 + 0.4 * (i / 50)) for i in range(50)]
+        source = "synthetic"
+
+    sections_raw = getattr(t, "sections_data", None) or []
+    sections: List[Dict[str, Any]] = []
+    if isinstance(sections_raw, list):
+        for s in sections_raw[:32]:
+            if not isinstance(s, dict):
+                continue
+            start = (s.get("start_ms") or 0) / 1000
+            end = (s.get("end_ms") or 0) / 1000
+            sections.append({
+                "type": str(s.get("label") or s.get("type") or "section").lower(),
+                "start": start,
+                "end": end,
+            })
+
+    return EnergyCurveResponse(
+        track_id=track_id,
+        duration_seconds=getattr(t, "duration_seconds", None),
+        energy=energy,
+        sections=sections,
+        source=source,
+    )
+
+
+# #67 — Toggle 2-stem vs 4-stem preference (utilise User.stems_n_preference existant)
+class StemsPreferenceRequest(BaseModel):
+    stems_n: int = Field(..., description="2 ou 4 (ou 6 si dispo)")
+
+
+@router.patch("/me/stems-preference")
+def update_stems_preference(
+    payload: StemsPreferenceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.stems_n not in (2, 4, 6):
+        raise HTTPException(status_code=400, detail="stems_n must be 2, 4 or 6")
+    current_user.stems_n_preference = payload.stems_n
+    db.commit()
+    return {"stems_n": payload.stems_n}
+
+
+# #65 — Score qualité stem (heuristique simple)
+class StemQualityResponse(BaseModel):
+    track_id: int
+    available: bool
+    overall_score: int  # 0-100
+    notes: List[str]
+
+
+@router.get("/tracks/{track_id}/stem-quality", response_model=StemQualityResponse)
+def stem_quality(
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#65 Score basique qualité de séparation : utilise le statut + des heuristiques disponibles."""
+    t = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if getattr(t, "stems_status", None) != "ready":
+        return StemQualityResponse(
+            track_id=track_id, available=False, overall_score=0,
+            notes=["Stems pas prêtes (status: " + str(getattr(t, "stems_status", "n/a")) + ")"]
+        )
+    # Heuristique : si loudness_lufs est dans la plage standard (-14 à -8) et clipping pas détecté
+    score = 75
+    notes = []
+    if getattr(t, "loudness_war_detected", False):
+        score -= 15
+        notes.append("Loudness war détectée — séparation peut être bruyante")
+    if getattr(t, "loudness_lufs", None) and t.loudness_lufs > -6:
+        score -= 10
+        notes.append("Master très chaud (LUFS > -6) → bleed possible entre stems")
+    if not notes:
+        notes.append("Profil audio sain — séparation devrait être propre")
+    return StemQualityResponse(
+        track_id=track_id, available=True, overall_score=max(0, min(100, score)), notes=notes
+    )
+
+
+# #77 — Diff prod-health entre 2 snapshots (placeholder simple)
+@router.get("/admin/health-diff")
+def admin_health_diff(
+    current_user: User = Depends(get_current_user),
+):
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    # Sans table dédiée pour l'instant, on retourne un compare instantané vs valeurs en mémoire
+    return {
+        "available": False,
+        "message": "Health diff demande une persistence des snapshots — utiliser /diagnostics/* pour comparer manuellement.",
+        "endpoints": ["/api/v1/diagnostics", "/api/v1/diagnostics/perf/recent", "/api/v1/diagnostics/db-pool"],
+    }
+
+
+# #81 — Replay session (stub admin)
+@router.get("/admin/users/{user_id}/recent-actions")
+def admin_recent_actions(
+    user_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#81 Lit les ActivityLog récents pour reconstituer le contexte d'une session user."""
+    if not getattr(current_user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    try:
+        from app.models.activity_log import ActivityLog
+    except Exception:
+        return {"available": False, "actions": []}
+    rows = (
+        db.query(ActivityLog)
+        .filter(ActivityLog.user_id == user_id)
+        .order_by(ActivityLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    actions = [
+        {
+            "action": getattr(r, "action", None),
+            "details": getattr(r, "details", None),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+    return {"available": True, "actions": actions, "count": len(actions)}
