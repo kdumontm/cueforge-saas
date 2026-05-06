@@ -2428,3 +2428,87 @@
     setTimeout(initWave10, 2200);
   }
 })();
+
+/* ============================================================
+   Wave 10c — Re-injection settings (defer fix : les hooks inline
+   s'exécutent AVANT improvements.js defer, donc window.cfImprovements
+   est undefined. On re-charge depuis ici.)
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+  if(!/settings/.test(location.pathname)) return;
+
+  // #84 Section Raccourcis clavier (re-inject)
+  function injectShortcuts(){
+    if(document.getElementById('cf-shortcuts-sec')) return;
+    var main = document.querySelector('main.page, .settings-main, main');
+    if(!main) return;
+    var sec = document.createElement('section');
+    sec.id = 'cf-shortcuts-sec';
+    sec.className = 'sec';
+    sec.style.cssText = 'margin-top:24px';
+    var sc = CF.shortcuts.get();
+    var rows = Object.keys(sc).map(function(k){
+      var label = k.replace(/_/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase()});
+      return '<div class="option-row"><div class="option-info"><div class="option-label">'+label+'</div></div><kbd style="padding:3px 8px;border-radius:5px;background:var(--s-3);border:1px solid var(--b-default);font-family:var(--font-mono);font-size:11px;color:var(--amber)">'+sc[k]+'</kbd></div>';
+    }).join('');
+    sec.innerHTML = '<h2 class="sec-title">Raccourcis clavier</h2>'+
+      '<p class="sec-sub" style="font-size:12px;color:var(--c-tertiary);margin-bottom:12px">Personnalisable bientôt — pour l instant les défauts s appliquent partout.</p>'+
+      rows +
+      '<button id="cf-sc-reset" class="btn-sm" style="margin-top:12px;padding:6px 12px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">↺ Réinitialiser aux défauts</button>';
+    main.appendChild(sec);
+    document.getElementById('cf-sc-reset').addEventListener('click', function(){
+      CF.shortcuts.reset();
+      if(CF.toastGroup) CF.toastGroup.push('Raccourcis réinitialisés','info');
+      sec.remove();
+      injectShortcuts();
+    });
+  }
+
+  // #86 Import/Export settings JSON (re-inject)
+  function injectSettingsIO(){
+    var sec = document.querySelector('.sec');
+    if(!sec || document.getElementById('cf-settings-io')) return;
+    var io = document.createElement('div');
+    io.id = 'cf-settings-io';
+    io.style.cssText = 'margin-top:14px;display:flex;gap:8px';
+    io.innerHTML = '<button id="cf-set-export" class="btn-sm" style="padding:6px 12px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📥 Export settings</button>'+
+      '<button id="cf-set-import" class="btn-sm" style="padding:6px 12px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📤 Import settings</button>'+
+      '<input type="file" id="cf-set-file" accept="application/json" style="display:none">';
+    sec.appendChild(io);
+    document.getElementById('cf-set-export').addEventListener('click', function(){
+      var data = {};
+      try{
+        for(var i=0;i<localStorage.length;i++){
+          var k = localStorage.key(i);
+          if(k && (k.startsWith('cf_imp_')||k.startsWith('cf_pv')||k==='theme'||k==='density')) data[k] = localStorage.getItem(k);
+        }
+      }catch(e){}
+      var blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href=url; a.download='cueforge-settings.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url)},100);
+    });
+    document.getElementById('cf-set-import').addEventListener('click', function(){ document.getElementById('cf-set-file').click(); });
+    document.getElementById('cf-set-file').addEventListener('change', function(e){
+      var f = e.target.files[0]; if(!f) return;
+      var r = new FileReader();
+      r.onload = function(){
+        try{
+          var data = JSON.parse(r.result);
+          Object.keys(data).forEach(function(k){ localStorage.setItem(k, data[k]); });
+          alert('Settings importés. La page va recharger.');
+          location.reload();
+        }catch(err){ alert('Fichier invalide: '+err.message); }
+      };
+      r.readAsText(f);
+    });
+  }
+
+  setTimeout(function(){
+    try{ injectShortcuts(); }catch(e){}
+    try{ injectSettingsIO(); }catch(e){}
+  }, 2000);
+})();
